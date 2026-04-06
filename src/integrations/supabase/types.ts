@@ -14,16 +14,287 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      archetype_answers: {
+        Row: {
+          created_at: string
+          id: string
+          question_id: string
+          score: number
+          updated_at: string
+          user_id: string
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          question_id: string
+          score: number
+          updated_at?: string
+          user_id: string
+          version?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          question_id?: string
+          score?: number
+          updated_at?: string
+          user_id?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "archetype_answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "archetype_questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      archetype_questions: {
+        Row: {
+          archetype_name: string
+          id: string
+          question_number: number
+          statement: string
+        }
+        Insert: {
+          archetype_name: string
+          id?: string
+          question_number: number
+          statement: string
+        }
+        Update: {
+          archetype_name?: string
+          id?: string
+          question_number?: number
+          statement?: string
+        }
+        Relationships: []
+      }
+      archetype_scores: {
+        Row: {
+          archetype_name: string
+          created_at: string
+          id: string
+          total_score: number
+          user_id: string
+          version: number
+        }
+        Insert: {
+          archetype_name: string
+          created_at?: string
+          id?: string
+          total_score?: number
+          user_id: string
+          version?: number
+        }
+        Update: {
+          archetype_name?: string
+          created_at?: string
+          id?: string
+          total_score?: number
+          user_id?: string
+          version?: number
+        }
+        Relationships: []
+      }
+      business_questionnaires: {
+        Row: {
+          authority_proofs: string | null
+          client_fears: string | null
+          company_name: string | null
+          created_at: string
+          empathic_statements: string | null
+          external_problems: string | null
+          hiring_steps: string | null
+          id: string
+          internal_problems: string | null
+          is_complete: boolean
+          main_cta: string | null
+          negative_consequences: string | null
+          promised_transformations: string | null
+          services: string | null
+          target_audience: string | null
+          updated_at: string
+          user_id: string
+          version: number
+        }
+        Insert: {
+          authority_proofs?: string | null
+          client_fears?: string | null
+          company_name?: string | null
+          created_at?: string
+          empathic_statements?: string | null
+          external_problems?: string | null
+          hiring_steps?: string | null
+          id?: string
+          internal_problems?: string | null
+          is_complete?: boolean
+          main_cta?: string | null
+          negative_consequences?: string | null
+          promised_transformations?: string | null
+          services?: string | null
+          target_audience?: string | null
+          updated_at?: string
+          user_id: string
+          version?: number
+        }
+        Update: {
+          authority_proofs?: string | null
+          client_fears?: string | null
+          company_name?: string | null
+          created_at?: string
+          empathic_statements?: string | null
+          external_problems?: string | null
+          hiring_steps?: string | null
+          id?: string
+          internal_problems?: string | null
+          is_complete?: boolean
+          main_cta?: string | null
+          negative_consequences?: string | null
+          promised_transformations?: string | null
+          services?: string | null
+          target_audience?: string | null
+          updated_at?: string
+          user_id?: string
+          version?: number
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          full_name: string
+          id: string
+          is_blocked: boolean
+          niche: string | null
+          phone: string | null
+          profession: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          full_name?: string
+          id?: string
+          is_blocked?: boolean
+          niche?: string | null
+          phone?: string | null
+          profession?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          full_name?: string
+          id?: string
+          is_blocked?: boolean
+          niche?: string | null
+          phone?: string | null
+          profession?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      reports: {
+        Row: {
+          content: Json | null
+          created_at: string
+          error_message: string | null
+          id: string
+          status: string
+          updated_at: string
+          user_id: string
+          version: number
+        }
+        Insert: {
+          content?: Json | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          status?: string
+          updated_at?: string
+          user_id: string
+          version?: number
+        }
+        Update: {
+          content?: Json | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+          version?: number
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_top_archetypes: {
+        Row: {
+          archetype_name: string
+          created_at: string
+          id: string
+          rank: number
+          score: number
+          user_id: string
+          version: number
+        }
+        Insert: {
+          archetype_name: string
+          created_at?: string
+          id?: string
+          rank: number
+          score: number
+          user_id: string
+          version?: number
+        }
+        Update: {
+          archetype_name?: string
+          created_at?: string
+          id?: string
+          rank?: number
+          score?: number
+          user_id?: string
+          version?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +421,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "user"],
+    },
   },
 } as const
