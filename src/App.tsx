@@ -17,6 +17,7 @@ import EditorialPage from "./pages/EditorialPage";
 import Report from "./pages/Report";
 import HistoryPage from "./pages/HistoryPage";
 import PostEditorPage from "./pages/PostEditorPage";
+import InstagramAnalysis from "./pages/InstagramAnalysis";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminUsers from "./pages/admin/AdminUsers";
 import NotFound from "./pages/NotFound";
@@ -43,6 +44,7 @@ const App = () => (
             <Route path="/post-editor" element={<ProtectedRoute><PostEditorPage /></ProtectedRoute>} />
             <Route path="/storybrand" element={<ProtectedRoute><StoryBrand /></ProtectedRoute>} />
             <Route path="/editorial" element={<ProtectedRoute><EditorialPage /></ProtectedRoute>} />
+            <Route path="/instagram-analysis" element={<ProtectedRoute><InstagramAnalysis /></ProtectedRoute>} />
             <Route path="/admin" element={<ProtectedRoute requireAdmin><AdminDashboard /></ProtectedRoute>} />
             <Route path="/admin/users" element={<ProtectedRoute requireAdmin><AdminUsers /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
