@@ -44,6 +44,7 @@ function getContrastColor(hex: string): string {
 }
 
 const Report = () => {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [report, setReport] = useState<any>(null);
   const [loading, setLoading] = useState(true);
