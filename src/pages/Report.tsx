@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,7 +12,7 @@ import { toast } from "@/hooks/use-toast";
 import {
   Loader2, Download, FileText, Sparkles, ChevronDown, Palette, Type, MessageSquare,
   Target, Calendar, Video, Image, Smartphone, ImageIcon, Crown, Shield, Heart,
-  Users, Zap, BookOpen, Eye, Compass, Star, Megaphone
+  Users, Zap, BookOpen, Eye, Compass, Star, Megaphone, PenTool
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
