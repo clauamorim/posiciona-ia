@@ -1,48 +1,95 @@
 
-Objetivo: corrigir os 3 sintomas do mesmo fluxo quebrado: contagem errada (49/72), botão “Calcular resultados” desabilitado e erro ao gerar relatório com IA.
 
-Diagnóstico confirmado:
-1. O questionário de arquétipos mostra o slider em “3 / Neutro” mesmo quando a resposta não existe no estado nem no banco. Ou seja: visualmente parece respondido, mas tecnicamente não está salvo.
-2. O botão “Calcular resultados” depende de `answeredCount < 72`, e essa contagem hoje usa apenas as chaves realmente presentes em `answers`, por isso fica menor que 72.
-3. O dashboard repete o mesmo problema porque conta linhas salvas em `archetype_answers`, então exibe 49/72 se várias perguntas ficaram no valor visual padrão sem persistência.
-4. O erro da IA está separado do problema acima: a edge function usa a URL errada do gateway (`ai-gateway...`), enquanto o endpoint correto é `ai.gateway...`, o que bate exatamente com o erro de DNS dos prints/logs.
+# Melhorias no Relatório + Preparação para Créditos e Funcionalidades Futuras
 
-Plano de implementação:
-1. Corrigir o estado inicial do questionário de arquétipos
-- Ao carregar as 72 perguntas, montar `answers` com todas elas.
-- Para perguntas já respondidas, manter o valor salvo.
-- Para perguntas sem resposta, preencher com valor padrão `3`, já que a UI já exibe “Neutro” por padrão.
-- Assim, o que aparece na tela passa a bater com o que o sistema considera respondido.
+## Resumo
 
-2. Corrigir a lógica de contagem e habilitação
-- Recalcular `answeredCount` com base na lista real de perguntas carregadas, não só em `Object.keys(answers)`.
-- Manter o botão “Calcular resultados” habilitado quando existir uma resposta efetiva para as 72 perguntas.
-- Garantir que a navegação entre páginas espere o salvamento antes de avançar/voltar/finalizar, evitando inconsistência por corrida assíncrona.
+Implementar 5 frentes: (1) prompt da IA com 7 dias completos + copy + roteiros de Reels, (2) visual do relatório estilo slides/Canva, (3) paleta de cores visual com swatches, (4) geração de semanas adicionais, (5) tabela de créditos preparada para o futuro.
 
-3. Corrigir o dashboard e a leitura dos resultados
-- Ajustar o dashboard para contar cobertura real das 72 perguntas, em vez de confiar apenas no total bruto de linhas.
-- Restringir leituras ao conjunto/versionamento correto para evitar mistura de dados e já deixar a base mais segura para histórico futuro.
-- Fazer a página de resultados usar a mesma referência consistente de respostas.
+---
 
-4. Corrigir a geração do relatório com IA
-- Trocar a URL da edge function para `https://ai.gateway.lovable.dev/v1/chat/completions`.
-- Melhorar o tratamento de erro para retornar mensagens mais claras em casos de falha do gateway, limite ou crédito.
-- Manter a chamada da IA no backend, como já está estruturado.
+## 1. Banco de dados — preparar para créditos e semanas extras
 
-Arquivos a ajustar:
-- `src/pages/ArchetypeQuestionnaire.tsx`
-- `src/pages/Dashboard.tsx`
-- `src/pages/Results.tsx`
-- `supabase/functions/generate-report/index.ts`
+**Migração SQL:**
+- Adicionar coluna `editorial_weeks jsonb default '[]'` na tabela `reports` para armazenar semanas adicionais
+- Criar tabela `user_credits` com: `user_id`, `balance` (integer, default 1 — o relatório inicial é gratuito), `created_at`, `updated_at`
+- RLS: usuário lê/atualiza próprios créditos; admin lê/atualiza todos
+- Cada geração de +7 dias consome 1 crédito; a primeira semana (do relatório) é incluída sem custo
 
-Detalhes técnicos:
-- O problema principal não parece ser do banco, e sim um desalinhamento entre valor visual padrão do slider e estado persistido.
-- Não vejo necessidade de migração de banco para essa correção.
-- Usuários que ficaram com respostas “faltando” devem se recuperar automaticamente quando o questionário recarregar e salvar os itens ausentes com valor 3.
+Essa tabela ficará pronta para quando o sistema de pagamento for implementado. Por agora, todo usuário começa com 1 crédito gratuito para testar a geração extra.
 
-Validação após implementação:
-1. Abrir um usuário afetado e confirmar que o questionário sobe para 72/72.
-2. Verificar que o botão “Calcular resultados” fica habilitado na última página.
-3. Confirmar que o dashboard mostra 72/72 após salvar.
-4. Gerar relatório e validar que o erro 500 de DNS desapareceu.
-5. Testar o fluxo completo: negócio → arquétipos → resultados → gerar relatório → visualizar relatório.
+## 2. Prompt da IA — relatório completo com JSON estruturado
+
+**Arquivo:** `supabase/functions/generate-report/index.ts`
+
+- Aumentar `max_tokens` para 8000
+- Reescrever o `systemPrompt` para pedir resposta em **JSON estruturado** com seções:
+  - `archetypes` — descrição dos 3 arquétipos aplicados ao negócio
+  - `visual_identity` — paleta de 5 cores (hex + nome + uso), tipografia, estilo/figurino
+  - `tone_of_voice` — diretrizes de comunicação
+  - `storybrand` — herói, guia, problema (externo/interno/filosófico), plano, CTA, sucesso, fracasso
+  - `editorial` — array de 7 objetos, cada um com: dia, tema, formato, legenda/copy completa, CTA, e roteiro completo para Reels
+- Parse JSON no edge function antes de retornar; fallback para texto se falhar
+
+## 3. Nova edge function — gerar semanas adicionais
+
+**Arquivo:** `supabase/functions/generate-content-week/index.ts`
+
+- Recebe: dados do negócio, arquétipos, e conteúdos anteriores (para não repetir)
+- Verifica créditos do usuário antes de gerar (consulta `user_credits`)
+- Debita 1 crédito após geração bem-sucedida
+- Retorna 7 novos dias no mesmo formato JSON
+- O frontend salva no campo `editorial_weeks` da tabela `reports`
+
+## 4. Visual do relatório estilo Canva/slides
+
+**Arquivo:** `src/pages/Report.tsx` (reescrita completa)
+
+Seções visuais com fundo alternado, simulando slides:
+
+- **Arquétipos**: 3 cards com gradiente da cor do arquétipo, badge de classificação, descrição
+- **Paleta de Cores**: 5 blocos coloridos estilo Coolors — retângulo com a cor de fundo, hex e nome sobrepostos, uso recomendado abaixo
+- **Tipografia e Estilo**: card com sugestões visuais
+- **Tom de Voz**: card formatado com ícone
+- **StoryBrand**: 7 cards individuais (Herói, Guia, Problema, Plano, CTA, Sucesso, Fracasso)
+- **Linha Editorial**: grid de 7 cards por semana, cada um com:
+  - Badge do formato (Reels, Carrossel, Stories, Post)
+  - Tema em destaque
+  - Copy/legenda completa
+  - CTA
+  - Seção expansível com roteiro do Reel (quando aplicável)
+- **Abas "Semana 1", "Semana 2"...** para semanas adicionais
+- **Botão "Gerar +7 dias"** — verifica créditos, mostra saldo, gera ou avisa que precisa comprar
+
+## 5. Atualizar Results.tsx
+
+- Parsear a resposta JSON da IA e salvar como objeto (não string) no campo `content`
+- Tratar erro de parse com fallback
+
+## 6. PDF atualizado
+
+- Headers coloridos por seção
+- Swatches de cor representados como blocos
+- Editorial em formato de tabela organizada
+
+---
+
+## Arquivos a criar/editar
+
+| Arquivo | Ação |
+|---------|------|
+| Migração SQL | `editorial_weeks` em reports + tabela `user_credits` |
+| `supabase/functions/generate-report/index.ts` | Reescrever prompt, pedir JSON, 8000 tokens |
+| `supabase/functions/generate-content-week/index.ts` | Nova função para semanas extras com verificação de créditos |
+| `src/pages/Report.tsx` | Reescrita completa — visual slides/Canva |
+| `src/pages/Results.tsx` | Parse JSON da resposta da IA |
+
+---
+
+## Detalhes técnicos
+
+- A tabela `user_credits` é criada agora mas só será alimentada por pagamento em versão futura. Por enquanto, o trigger `handle_new_user` será atualizado para inserir 1 crédito inicial.
+- A coluna `content` (jsonb) já suporta objetos; o novo formato será o JSON estruturado descrito acima.
+- O campo `editorial_weeks` será um array JSON de arrays de 7 dias.
+- O botão "Gerar +7 dias" mostrará o saldo de créditos e desabilitará se saldo = 0, com mensagem "Adquira mais créditos" (link futuro para landing page).
+
