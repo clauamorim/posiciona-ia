@@ -1,4 +1,4 @@
-import React, { useRef } from "react";
+import React, { useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, ArrowRight, Download, Package } from "lucide-react";
 import PostCanvas from "./PostCanvas";
