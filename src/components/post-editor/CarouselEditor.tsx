@@ -59,7 +59,7 @@ const CarouselEditor: React.FC<CarouselEditorProps> = ({
         bodyFont={bodyFont}
         layout={layout}
         onTextChange={(t) => onSlideTextChange(currentSlide, t)}
-        canvasRef={(el: HTMLDivElement | null) => { if (slideRefs.current) slideRefs.current[currentSlide] = el; } as any}
+        canvasRef={{ current: null } as any}
       />
 
       {/* Navigation */}
