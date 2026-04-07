@@ -1,78 +1,74 @@
 
 
-# Editor Visual de Posts para Instagram
+# Reestruturação da Navegação + Correção dos Cards de Carrossel
 
-## O que será construído
+## Resumo
 
-Um editor visual integrado ao relatório onde o usuário pode ver previews dos posts (únicos e carrosséis) já estilizados com as cores, fontes e tom de voz da marca, editar os textos diretamente, e baixar as imagens prontas para postar no Instagram.
+Reorganizar menu e páginas (Arquétipos, StoryBrand, Análises, Linha Editorial) + corrigir dimensões do canvas do editor visual que não renderiza corretamente o formato 1080x1080.
 
 ---
 
-## Arquitetura
+## 1. Menu lateral (`DashboardLayout.tsx`)
+
+| Item | Rota | Ícone |
+|------|------|-------|
+| Dashboard | `/dashboard` | LayoutDashboard |
+| Questionário do Negócio | `/business-questionnaire` | Building2 |
+| Questionário de Arquétipos | `/archetype-questionnaire` | Brain |
+| **Arquétipos** | `/results` | BarChart3 |
+| **StoryBrand** | `/storybrand` | Target |
+| **Análises** | `/report` | FileText |
+| **Linha Editorial** | `/editorial` | Calendar |
+| Histórico | `/history` | History |
+
+## 2. Página Arquétipos (`Results.tsx`)
+- Título → "Seus Arquétipos"
+- Remover botão "Gerar Relatório com IA" e lógica `handleGenerateReport`
+
+## 3. Questionário de Arquétipos (`ArchetypeQuestionnaire.tsx`)
+- Botão final → "Calcular Arquétipos ✓"
+
+## 4. Questionário do Negócio (`BusinessQuestionnaire.tsx`)
+- Após finalizar, mostrar botão "Gerar StoryBrand" → chama edge function → navega para `/storybrand`
+
+## 5. Nova página StoryBrand (`StoryBrand.tsx`)
+- Diagrama SVG no estilo do print: círculos escuros com ícones brancos conectados por linhas em zigzag
+- Fluxo: Personagem → Problema → Guia → Plano → Convida a Agir → bifurca em Sucesso / Fracasso
+- Sem marca StoryBrand — apenas o diagrama do framework
+- Abaixo, cards com conteúdo detalhado de cada elemento
+
+## 6. Página Análises (`Report.tsx`)
+- Título → "Suas Análises"
+- Remover seção editorial inteira (linhas ~400-501): tabs de semanas, cards, botão gerar semana
+- Manter: Arquétipos, Paleta, Tipografia, Tom de Voz, StoryBrand resumido, PDF
+
+## 7. Nova página Linha Editorial (`EditorialPage.tsx`)
+- Extrair seção editorial completa do Report.tsx
+- Tabs de semanas, cards de dias, botão "Criar Post Visual"
+- Botão "Gerar +7 dias" com lógica de créditos movida para cá
+
+## 8. Rotas (`App.tsx`)
+- `/storybrand` e `/editorial` como rotas protegidas
+
+## 9. Correção do Canvas do Editor Visual (`PostCanvas.tsx`)
+
+**Problema:** O container externo não tem dimensões fixas, então o `parentElement.clientHeight` retorna valores incorretos. O div de 1080x1080 escalado não reserva espaço correto no layout, causando overflow ou colapso.
+
+**Correção:**
+- Dar ao container externo uma dimensão fixa proporcional: `width` e `height` calculados como `1080 * scale`
+- Usar `overflow: hidden` no container para evitar que o elemento de 1080px vaze
+- Definir um tamanho mínimo razoável para o container (ex: `min-h-[500px]`)
+- Usar `margin: auto` para centralizar o canvas escalado dentro do container com dimensões fixas
 
 ```text
-Report.tsx
-  └─ Botão "Ver Posts Visuais" em cada card editorial
-       └─ /post-editor/:reportId/:weekIndex/:dayIndex
-            ├─ PostEditorPage.tsx (página principal)
-            ├─ PostCanvas.tsx (componente de renderização 1080x1080)
-            ├─ CarouselEditor.tsx (navegação entre slides)
-            └─ PostToolbar.tsx (controles de edição)
+Antes:
+  <div class="flex items-center justify-center w-full">  ← sem altura definida
+    <div style="width:1080; height:1080; scale(0.4)">    ← ocupa 1080px no layout
+
+Depois:
+  <div style="width: 1080*scale; height: 1080*scale">    ← reserva espaço correto
+    <div style="width:1080; height:1080; scale(X); origin: top left">
 ```
-
----
-
-## Funcionalidades
-
-1. **Preview visual em tamanho Instagram** — Posts renderizados em 1080×1080px (escalados para caber na tela), usando as cores da paleta do relatório como fundo, destaques e texto
-2. **Texto editável** — O usuário clica no texto do post/slide e edita diretamente (contentEditable)
-3. **Navegação de slides** — Para carrosséis, setas para navegar entre slides com indicador de posição
-4. **Templates automáticos** — Layouts pré-definidos aplicados com base no formato (post único, slide de abertura, slide de conteúdo, slide de CTA)
-5. **Download individual** — Baixar cada slide/post como imagem PNG via html2canvas
-6. **Download do carrossel completo** — Baixar todos os slides de uma vez como ZIP
-
----
-
-## Implementação técnica
-
-### 1. Instalar dependências
-- `html2canvas` — para converter o HTML/CSS do post em imagem PNG
-- `jszip` — para empacotar múltiplos slides em um ZIP
-
-### 2. Nova página `PostEditorPage.tsx`
-- Rota: `/post-editor` com parâmetros via query string (reportId, week, day)
-- Carrega o relatório do banco, extrai o dia selecionado e a paleta de cores
-- Renderiza o canvas do post com os dados da `card_copy` e `caption`
-- Estado local para textos editados (não salva no banco por enquanto)
-
-### 3. Componente `PostCanvas.tsx`
-- Container de 1080×1080px escalado via `transform: scale()` para caber no viewport
-- Fundo usando a cor primária da paleta do relatório
-- Texto renderizado com as fontes sugeridas (Google Fonts via link dinâmico)
-- Layouts por tipo:
-  - **Post único**: título centralizado + copy do card + CTA na parte inferior
-  - **Carrossel - Slide 1 (capa)**: título grande + tema do dia
-  - **Carrossel - Slides intermediários**: numeração + texto do slide
-  - **Carrossel - Último slide**: CTA com destaque visual
-- Textos com `contentEditable` para edição direta no canvas
-
-### 4. Componente `CarouselEditor.tsx`
-- Navegação entre slides com setas e indicador (1/5, 2/5...)
-- Cada slide renderizado pelo PostCanvas com dados diferentes
-- Botão "Baixar este slide" e "Baixar todos"
-
-### 5. Componente `PostToolbar.tsx`
-- Trocar cor de fundo entre as 5 cores da paleta
-- Alternar layout (centralizado, topo, dividido)
-- Botão de download PNG
-- Botão de reset (voltar ao texto original da IA)
-
-### 6. Integração com Report.tsx
-- Adicionar botão "Criar Post Visual" em cada card editorial (para posts e carrosséis)
-- O botão navega para `/post-editor?week=0&day=0`
-
-### 7. Rota no App.tsx
-- Adicionar rota protegida `/post-editor`
 
 ---
 
@@ -80,22 +76,13 @@ Report.tsx
 
 | Arquivo | Ação |
 |---------|------|
-| `src/pages/PostEditorPage.tsx` | Nova página — editor visual |
-| `src/components/post-editor/PostCanvas.tsx` | Componente de renderização do post |
-| `src/components/post-editor/CarouselEditor.tsx` | Navegação de slides do carrossel |
-| `src/components/post-editor/PostToolbar.tsx` | Barra de ferramentas |
-| `src/pages/Report.tsx` | Adicionar botão "Criar Post Visual" nos cards |
-| `src/App.tsx` | Adicionar rota `/post-editor` |
-| `package.json` | Adicionar html2canvas e jszip |
-
----
-
-## Detalhes técnicos
-
-- O canvas usa HTML/CSS puro (não Canvas API) para facilitar edição e estilização com Tailwind
-- A escala é calculada como `Math.min(containerWidth / 1080, containerHeight / 1080)`
-- O html2canvas captura o elemento DOM na resolução original (1080×1080) para export de alta qualidade
-- Google Fonts são carregadas dinamicamente via `<link>` no head baseado na tipografia do relatório
-- O estado editado fica local (useState) — versão futura pode salvar no banco
-- Para carrosséis, cada slide é um PostCanvas independente com dados diferentes do array `card_copy`
+| `src/components/DashboardLayout.tsx` | Atualizar menu |
+| `src/pages/Results.tsx` | Renomear, remover geração |
+| `src/pages/ArchetypeQuestionnaire.tsx` | Texto do botão |
+| `src/pages/BusinessQuestionnaire.tsx` | Botão "Gerar StoryBrand" |
+| `src/pages/StoryBrand.tsx` | Criar — diagrama SVG + cards |
+| `src/pages/Report.tsx` | Renomear "Análises", remover editorial |
+| `src/pages/EditorialPage.tsx` | Criar — editorial extraído |
+| `src/components/post-editor/PostCanvas.tsx` | Corrigir dimensões do canvas |
+| `src/App.tsx` | 2 novas rotas |
 
