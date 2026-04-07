@@ -467,6 +467,16 @@ const Report = () => {
                                 </CollapsibleContent>
                               </Collapsible>
                             )}
+                            {(day.format?.toLowerCase() === "carrossel" || day.format?.toLowerCase() === "post") && day.card_copy?.length > 0 && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="w-full gap-2 mt-2"
+                                onClick={() => navigate(`/post-editor?week=${wi}&day=${di}`)}
+                              >
+                                <PenTool className="h-3 w-3" /> Criar Post Visual
+                              </Button>
+                            )}
                           </CardContent>
                         </Card>
                       );
