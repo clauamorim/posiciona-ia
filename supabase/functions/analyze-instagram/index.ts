@@ -27,9 +27,9 @@ Deno.serve(async (req) => {
     }
     const userId = user.id;
 
-    const { username } = await req.json();
-    if (!username) {
-      return new Response(JSON.stringify({ error: "username is required" }), {
+    const { username, screenshot } = await req.json();
+    if (!screenshot) {
+      return new Response(JSON.stringify({ error: "screenshot is required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -44,42 +44,12 @@ Deno.serve(async (req) => {
     const visualIdentity = (reportRes.data?.content as any)?.visual_identity || null;
     const archetypes = archRes.data || [];
 
-    // Firecrawl scrape
-    const firecrawlKey = Deno.env.get("FIRECRAWL_API_KEY");
-    if (!firecrawlKey) {
-      return new Response(JSON.stringify({ error: "Firecrawl não configurado" }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const scrapeRes = await fetch("https://api.firecrawl.dev/v1/scrape", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${firecrawlKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        url: `https://www.instagram.com/${username}/`,
-        formats: ["screenshot", "markdown"],
-        waitFor: 3000,
-      }),
-    });
-
-    const scrapeData = await scrapeRes.json();
-    if (!scrapeRes.ok || !scrapeData.success) {
-      console.error("Firecrawl error:", scrapeData);
-      return new Response(JSON.stringify({ error: "Não foi possível acessar o perfil do Instagram. Verifique o @ e tente novamente." }), {
-        status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const d = scrapeData.data || scrapeData;
-    const profileData = d.markdown || "Conteúdo não disponível";
-    const screenshotBase64 = d.screenshot || null;
-
     // Build AI prompt
-    const systemPrompt = `Você é um especialista em branding e marketing digital. Analise o perfil do Instagram com base nos dados do StoryBrand e arquétipos do usuário. Retorne análise prática e acionável.`;
+    const systemPrompt = `Você é um especialista em branding e marketing digital. Analise o perfil do Instagram com base na screenshot fornecida e nos dados do StoryBrand e arquétipos do usuário. Retorne análise prática e acionável.`;
 
     const userPrompt = `
-## Dados do Perfil do Instagram (@${username})
-${profileData}
+## Screenshot do Perfil do Instagram${username ? ` (@${username})` : ""}
+A imagem anexada é um print do perfil do Instagram do usuário.
 
 ## StoryBrand do Usuário
 ${storyBrand ? JSON.stringify(storyBrand, null, 2) : "Não disponível"}
@@ -107,19 +77,16 @@ Analise os seguintes aspectos e forneça sugestões baseadas no StoryBrand e arq
       });
     }
 
-    const messages: any[] = [{ role: "system", content: systemPrompt }];
-
-    if (screenshotBase64) {
-      messages.push({
+    const messages: any[] = [
+      { role: "system", content: systemPrompt },
+      {
         role: "user",
         content: [
-          { type: "image_url", image_url: { url: `data:image/png;base64,${screenshotBase64}` } },
+          { type: "image_url", image_url: { url: screenshot.startsWith("data:") ? screenshot : `data:image/png;base64,${screenshot}` } },
           { type: "text", text: userPrompt },
         ],
-      });
-    } else {
-      messages.push({ role: "user", content: userPrompt });
-    }
+      },
+    ];
 
     const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -182,7 +149,7 @@ Analise os seguintes aspectos e forneça sugestões baseadas no StoryBrand e arq
     }
 
     const parsed = JSON.parse(toolCall.function.arguments);
-    return new Response(JSON.stringify({ analysis: parsed.analysis, screenshot: screenshotBase64 }), {
+    return new Response(JSON.stringify({ analysis: parsed.analysis }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {

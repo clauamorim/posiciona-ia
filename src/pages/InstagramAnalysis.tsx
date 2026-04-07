@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,17 +7,21 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
-import { Instagram, Loader2, AlertTriangle, CheckCircle2, ArrowRight } from "lucide-react";
+import { Instagram, Loader2, AlertTriangle, CheckCircle2, ArrowRight, Upload, X, Image } from "lucide-react";
 
 type AnalysisItem = { aspect: string; current: string; suggestion: string };
+
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
 const InstagramAnalysis = () => {
   const { user } = useAuth();
   const [username, setUsername] = useState("");
   const [loading, setLoading] = useState(false);
   const [analysis, setAnalysis] = useState<AnalysisItem[] | null>(null);
-  const [screenshot, setScreenshot] = useState<string | null>(null);
   const [hasPrereqs, setHasPrereqs] = useState<boolean | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageBase64, setImageBase64] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -31,22 +35,44 @@ const InstagramAnalysis = () => {
     check();
   }, [user]);
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > MAX_FILE_SIZE) {
+      toast({ title: "Arquivo muito grande", description: "O tamanho máximo é 5MB.", variant: "destructive" });
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      setImagePreview(result);
+      setImageBase64(result);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const clearImage = () => {
+    setImagePreview(null);
+    setImageBase64(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
   const handleAnalyze = async () => {
-    if (!username.trim()) return;
+    if (!imageBase64) return;
     setLoading(true);
     setAnalysis(null);
-    setScreenshot(null);
 
     try {
       const { data, error } = await supabase.functions.invoke("analyze-instagram", {
-        body: { username: username.replace("@", "").trim() },
+        body: { username: username.replace("@", "").trim() || undefined, screenshot: imageBase64 },
       });
 
       if (error) throw error;
       if (data.error) throw new Error(data.error);
 
       setAnalysis(data.analysis);
-      if (data.screenshot) setScreenshot(data.screenshot);
     } catch (e: any) {
       console.error(e);
       toast({ title: "Erro na análise", description: e.message || "Tente novamente.", variant: "destructive" });
@@ -84,27 +110,50 @@ const InstagramAnalysis = () => {
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold font-display">Análise do Instagram</h1>
-          <p className="text-muted-foreground">Analise seu perfil com base no seu StoryBrand e arquétipos.</p>
+          <p className="text-muted-foreground">Faça upload de um print do seu perfil para análise com base no seu StoryBrand e arquétipos.</p>
         </div>
 
         <Card>
-          <CardContent className="pt-6">
-            <div className="flex gap-3 items-end">
-              <div className="flex-1">
-                <Label htmlFor="username">@ do Instagram</Label>
-                <Input
-                  id="username"
-                  placeholder="seuperfil"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  disabled={loading}
-                />
-              </div>
-              <Button onClick={handleAnalyze} disabled={loading || !username.trim()}>
-                {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Instagram className="h-4 w-4 mr-2" />}
-                Analisar Perfil
-              </Button>
+          <CardContent className="pt-6 space-y-4">
+            {/* Image upload */}
+            <div>
+              <Label>Screenshot do perfil *</Label>
+              <p className="text-xs text-muted-foreground mb-2">Tire um print da página principal do seu perfil no Instagram e faça o upload aqui (máx. 5MB).</p>
+              {imagePreview ? (
+                <div className="relative inline-block">
+                  <img src={imagePreview} alt="Preview" className="rounded-lg border max-h-64 object-contain" />
+                  <Button variant="destructive" size="icon" className="absolute top-2 right-2 h-7 w-7" onClick={clearImage}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : (
+                <div
+                  className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center cursor-pointer hover:border-primary/50 transition-colors"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Image className="h-10 w-10 text-muted-foreground/50 mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">Clique para selecionar uma imagem</p>
+                </div>
+              )}
+              <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
             </div>
+
+            {/* Optional username */}
+            <div>
+              <Label htmlFor="username">@ do Instagram (opcional)</Label>
+              <Input
+                id="username"
+                placeholder="seuperfil"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                disabled={loading}
+              />
+            </div>
+
+            <Button onClick={handleAnalyze} disabled={loading || !imageBase64} className="w-full">
+              {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Upload className="h-4 w-4 mr-2" />}
+              Analisar Perfil
+            </Button>
           </CardContent>
         </Card>
 
@@ -113,15 +162,6 @@ const InstagramAnalysis = () => {
             <Loader2 className="h-10 w-10 animate-spin text-primary mx-auto mb-4" />
             <p className="text-muted-foreground">Analisando perfil... Isso pode levar até 30 segundos.</p>
           </div>
-        )}
-
-        {screenshot && (
-          <Card>
-            <CardHeader><CardTitle className="text-lg">Screenshot do Perfil</CardTitle></CardHeader>
-            <CardContent>
-              <img src={`data:image/png;base64,${screenshot}`} alt="Screenshot do perfil" className="rounded-lg max-w-full mx-auto border" />
-            </CardContent>
-          </Card>
         )}
 
         {analysis && (
