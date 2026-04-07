@@ -1,88 +1,89 @@
 
 
-# Reestruturação da Navegação + Correção dos Cards de Carrossel
+# Plano Completo: Branding, Admin e Análise de Instagram
 
-## Resumo
+## 1. Remover branding Lovable
 
-Reorganizar menu e páginas (Arquétipos, StoryBrand, Análises, Linha Editorial) + corrigir dimensões do canvas do editor visual que não renderiza corretamente o formato 1080x1080.
+- **`index.html`**: Trocar todas as referências "Lovable App" por "ArcheBrand" e "Lovable Generated Project" por "Plataforma de posicionamento de marca". Remover `meta author` Lovable e `twitter:site @Lovable`.
+- **Badge**: Usar ferramenta `set_badge_visibility` para esconder o badge "Edit with Lovable".
 
----
+## 2. Criar usuário admin
 
-## 1. Menu lateral (`DashboardLayout.tsx`)
+- Criar conta `admin@admin.com` / `Jp040299#` via signup no app.
+- Inserir role admin via SQL: `INSERT INTO user_roles (user_id, role) VALUES ('<id>', 'admin')`.
+- **Nota de segurança**: Recomenda-se trocar a senha após o primeiro acesso.
 
-| Item | Rota | Ícone |
-|------|------|-------|
-| Dashboard | `/dashboard` | LayoutDashboard |
-| Questionário do Negócio | `/business-questionnaire` | Building2 |
-| Questionário de Arquétipos | `/archetype-questionnaire` | Brain |
-| **Arquétipos** | `/results` | BarChart3 |
-| **StoryBrand** | `/storybrand` | Target |
-| **Análises** | `/report` | FileText |
-| **Linha Editorial** | `/editorial` | Calendar |
-| Histórico | `/history` | History |
+## 3. Painel Admin aprimorado
 
-## 2. Página Arquétipos (`Results.tsx`)
-- Título → "Seus Arquétipos"
-- Remover botão "Gerar Relatório com IA" e lógica `handleGenerateReport`
+### `AdminDashboard.tsx`
+Adicionar métricas extras aos cards existentes:
+- **Total de Créditos** (soma de `user_credits.balance`)
+- **Semanas Editoriais** (contagem de relatórios com `editorial_weeks` não vazio)
 
-## 3. Questionário de Arquétipos (`ArchetypeQuestionnaire.tsx`)
-- Botão final → "Calcular Arquétipos ✓"
+Adicionar seção de **últimos relatórios gerados**: tabela com nome do usuário, data, status (últimos 10).
 
-## 4. Questionário do Negócio (`BusinessQuestionnaire.tsx`)
-- Após finalizar, mostrar botão "Gerar StoryBrand" → chama edge function → navega para `/storybrand`
+### `AdminUsers.tsx`
+Adicionar colunas à tabela de usuários:
+- **Créditos**: join com `user_credits` para mostrar saldo
+- **Relatórios**: contagem de relatórios do usuário
+- **Questionário**: badge indicando se `business_questionnaires.is_complete = true`
 
-## 5. Nova página StoryBrand (`StoryBrand.tsx`)
-- Diagrama SVG no estilo do print: círculos escuros com ícones brancos conectados por linhas em zigzag
-- Fluxo: Personagem → Problema → Guia → Plano → Convida a Agir → bifurca em Sucesso / Fracasso
-- Sem marca StoryBrand — apenas o diagrama do framework
-- Abaixo, cards com conteúdo detalhado de cada elemento
+Adicionar ação de **editar créditos** (botão que abre dialog para alterar saldo).
 
-## 6. Página Análises (`Report.tsx`)
-- Título → "Suas Análises"
-- Remover seção editorial inteira (linhas ~400-501): tabs de semanas, cards, botão gerar semana
-- Manter: Arquétipos, Paleta, Tipografia, Tom de Voz, StoryBrand resumido, PDF
+## 4. Análise de Instagram via Firecrawl
 
-## 7. Nova página Linha Editorial (`EditorialPage.tsx`)
-- Extrair seção editorial completa do Report.tsx
-- Tabs de semanas, cards de dias, botão "Criar Post Visual"
-- Botão "Gerar +7 dias" com lógica de créditos movida para cá
+### Pré-requisito: Conectar Firecrawl
+Usar `standard_connectors--connect` com `connector_id: firecrawl` para injetar `FIRECRAWL_API_KEY` nas edge functions.
 
-## 8. Rotas (`App.tsx`)
-- `/storybrand` e `/editorial` como rotas protegidas
+### Nova edge function `supabase/functions/analyze-instagram/index.ts`
+1. Recebe `{ username }` e o `authorization` header para identificar o usuário
+2. Chama Firecrawl API para scrape de `https://www.instagram.com/{username}/` com `formats: ['screenshot', 'markdown']`
+3. Busca do banco: StoryBrand (`reports.content.storybrand`), top 3 arquétipos (`user_top_archetypes`), identidade visual (`reports.content.visual_identity`)
+4. Envia tudo para Gemini 2.5 Pro via Lovable AI Gateway (modelo multimodal que aceita imagem)
+5. Usa tool calling para retornar JSON estruturado com análise de: nome, bio, CTA, destaques, pins, aparência do feed, foto de perfil
+6. Cada item tem campos: `current` (situação atual detectada) e `suggestion` (sugestão baseada em StoryBrand/arquétipos)
 
-## 9. Correção do Canvas do Editor Visual (`PostCanvas.tsx`)
+### Nova edge function `supabase/functions/firecrawl-scrape/index.ts`
+Proxy simples para a API do Firecrawl, seguindo o padrão documentado.
 
-**Problema:** O container externo não tem dimensões fixas, então o `parentElement.clientHeight` retorna valores incorretos. O div de 1080x1080 escalado não reserva espaço correto no layout, causando overflow ou colapso.
+### Novo helper `src/lib/api/firecrawl.ts`
+Função `scrape()` que chama a edge function via `supabase.functions.invoke`.
 
-**Correção:**
-- Dar ao container externo uma dimensão fixa proporcional: `width` e `height` calculados como `1080 * scale`
-- Usar `overflow: hidden` no container para evitar que o elemento de 1080px vaze
-- Definir um tamanho mínimo razoável para o container (ex: `min-h-[500px]`)
-- Usar `margin: auto` para centralizar o canvas escalado dentro do container com dimensões fixas
+### Nova página `src/pages/InstagramAnalysis.tsx`
+- Campo de input para o @ do Instagram
+- Botão "Analisar Perfil"
+- Verificação de pré-requisito: usuário deve ter relatório com StoryBrand e arquétipos calculados. Se não tiver, mostra mensagem orientando a completar os questionários.
+- Loading state durante a análise (~15-30s)
+- Exibe o screenshot capturado do perfil
+- Cards de resultado: Nome, Bio, CTA, Destaques, Pins, Feed, Foto de Perfil
+- Cada card com layout "Situação Atual" vs "Sugestão"
+- Fallback: se o Firecrawl falhar (Instagram bloqueou), mostra formulário manual para o usuário informar os dados
 
-```text
-Antes:
-  <div class="flex items-center justify-center w-full">  ← sem altura definida
-    <div style="width:1080; height:1080; scale(0.4)">    ← ocupa 1080px no layout
-
-Depois:
-  <div style="width: 1080*scale; height: 1080*scale">    ← reserva espaço correto
-    <div style="width:1080; height:1080; scale(X); origin: top left">
-```
-
----
+### Menu e Rotas
+- **`DashboardLayout.tsx`**: Adicionar "Análise do Instagram" com ícone `Instagram` (lucide) entre "Linha Editorial" e "Histórico"
+- **`App.tsx`**: Adicionar rota protegida `/instagram-analysis`
 
 ## Arquivos a criar/editar
 
 | Arquivo | Ação |
 |---------|------|
-| `src/components/DashboardLayout.tsx` | Atualizar menu |
-| `src/pages/Results.tsx` | Renomear, remover geração |
-| `src/pages/ArchetypeQuestionnaire.tsx` | Texto do botão |
-| `src/pages/BusinessQuestionnaire.tsx` | Botão "Gerar StoryBrand" |
-| `src/pages/StoryBrand.tsx` | Criar — diagrama SVG + cards |
-| `src/pages/Report.tsx` | Renomear "Análises", remover editorial |
-| `src/pages/EditorialPage.tsx` | Criar — editorial extraído |
-| `src/components/post-editor/PostCanvas.tsx` | Corrigir dimensões do canvas |
-| `src/App.tsx` | 2 novas rotas |
+| `index.html` | Trocar branding para ArcheBrand |
+| `src/pages/admin/AdminDashboard.tsx` | Adicionar métricas de créditos e últimos relatórios |
+| `src/pages/admin/AdminUsers.tsx` | Adicionar colunas de créditos, relatórios, edição de créditos |
+| `supabase/functions/firecrawl-scrape/index.ts` | Criar — proxy Firecrawl |
+| `supabase/functions/analyze-instagram/index.ts` | Criar — análise com IA multimodal |
+| `src/lib/api/firecrawl.ts` | Criar — helper API |
+| `src/pages/InstagramAnalysis.tsx` | Criar — página de análise com fallback manual |
+| `src/components/DashboardLayout.tsx` | Adicionar menu item Instagram |
+| `src/App.tsx` | Adicionar rota `/instagram-analysis` |
+
+## Ordem de execução
+
+1. Conectar Firecrawl (conector)
+2. Remover branding Lovable (index.html + badge)
+3. Criar usuário admin (signup + SQL)
+4. Aprimorar painel admin (Dashboard + Users)
+5. Criar edge functions (firecrawl-scrape + analyze-instagram)
+6. Criar helper e página de análise do Instagram
+7. Atualizar menu e rotas
 
