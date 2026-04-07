@@ -17,6 +17,7 @@ import EditorialPage from "./pages/EditorialPage";
 import Report from "./pages/Report";
 import HistoryPage from "./pages/HistoryPage";
 import PostEditorPage from "./pages/PostEditorPage";
+import InstagramAnalysis from "./pages/InstagramAnalysis";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminUsers from "./pages/admin/AdminUsers";
 import NotFound from "./pages/NotFound";
