@@ -24,14 +24,18 @@ const ArchetypeQuestionnaire = () => {
   useEffect(() => {
     const load = async () => {
       const { data: qs } = await supabase.from("archetype_questions").select("*").order("question_number");
-      if (qs) setQuestions(qs);
-      if (user) {
-        const { data: ans } = await supabase.from("archetype_answers").select("question_id, score").eq("user_id", user.id).order("created_at", { ascending: false });
-        if (ans) {
-          const map: Record<string, number> = {};
-          ans.forEach(a => { map[a.question_id] = a.score; });
-          setAnswers(map);
+      if (qs) {
+        setQuestions(qs);
+        // Initialize all questions with default score 3
+        const defaults: Record<string, number> = {};
+        qs.forEach(q => { defaults[q.id] = 3; });
+        if (user) {
+          const { data: ans } = await supabase.from("archetype_answers").select("question_id, score").eq("user_id", user.id);
+          if (ans) {
+            ans.forEach(a => { defaults[a.question_id] = a.score; });
+          }
         }
+        setAnswers(defaults);
       }
     };
     load();
@@ -39,8 +43,8 @@ const ArchetypeQuestionnaire = () => {
 
   const totalPages = Math.ceil(questions.length / QUESTIONS_PER_PAGE);
   const pageQuestions = questions.slice(page * QUESTIONS_PER_PAGE, (page + 1) * QUESTIONS_PER_PAGE);
-  const answeredCount = Object.keys(answers).length;
-  const progress = Math.round((answeredCount / 72) * 100);
+  const answeredCount = questions.length > 0 ? Object.keys(answers).length : 0;
+  const progress = questions.length > 0 ? Math.round((answeredCount / questions.length) * 100) : 0;
 
   const saveAnswers = useCallback(async () => {
     if (!user) return;
@@ -107,15 +111,15 @@ const ArchetypeQuestionnaire = () => {
         </div>
 
         <div className="flex justify-between pt-2">
-          <Button variant="outline" onClick={() => { saveAnswers(); setPage(p => p - 1); }} disabled={page === 0}>
+          <Button variant="outline" onClick={async () => { await saveAnswers(); setPage(p => p - 1); }} disabled={page === 0 || saving}>
             <ChevronLeft className="h-4 w-4 mr-1" /> Anterior
           </Button>
           {page < totalPages - 1 ? (
-            <Button onClick={() => { saveAnswers(); setPage(p => p + 1); }}>
+            <Button onClick={async () => { await saveAnswers(); setPage(p => p + 1); }} disabled={saving}>
               Próximo <ChevronRight className="h-4 w-4 ml-1" />
             </Button>
           ) : (
-            <Button onClick={handleFinish} disabled={answeredCount < 72}>
+            <Button onClick={handleFinish} disabled={answeredCount < questions.length || saving}>
               Calcular resultados ✓
             </Button>
           )}

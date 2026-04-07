@@ -21,12 +21,14 @@ const Dashboard = () => {
       const [profileRes, bqRes, answersRes, reportRes] = await Promise.all([
         supabase.from("profiles").select("*").eq("user_id", user.id).single(),
         supabase.from("business_questionnaires").select("is_complete").eq("user_id", user.id).order("version", { ascending: false }).limit(1),
-        supabase.from("archetype_answers").select("id").eq("user_id", user.id),
+        supabase.from("archetype_answers").select("question_id").eq("user_id", user.id),
         supabase.from("reports").select("status").eq("user_id", user.id).eq("status", "completed").limit(1),
       ]);
       setProfile(profileRes.data);
       setBusinessComplete(bqRes.data?.[0]?.is_complete ?? false);
-      setArchetypeCount(answersRes.data?.length ?? 0);
+      // Count distinct question_ids to avoid duplicates inflating count
+      const uniqueQuestions = new Set(answersRes.data?.map(a => a.question_id) ?? []);
+      setArchetypeCount(uniqueQuestions.size);
       setHasReport((reportRes.data?.length ?? 0) > 0);
     };
     load();
