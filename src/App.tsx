@@ -12,6 +12,8 @@ import Dashboard from "./pages/Dashboard";
 import BusinessQuestionnaire from "./pages/BusinessQuestionnaire";
 import ArchetypeQuestionnaire from "./pages/ArchetypeQuestionnaire";
 import Results from "./pages/Results";
+import StoryBrand from "./pages/StoryBrand";
+import EditorialPage from "./pages/EditorialPage";
 import Report from "./pages/Report";
 import HistoryPage from "./pages/HistoryPage";
 import PostEditorPage from "./pages/PostEditorPage";
@@ -39,6 +41,8 @@ const App = () => (
             <Route path="/report" element={<ProtectedRoute><Report /></ProtectedRoute>} />
             <Route path="/history" element={<ProtectedRoute><HistoryPage /></ProtectedRoute>} />
             <Route path="/post-editor" element={<ProtectedRoute><PostEditorPage /></ProtectedRoute>} />
+            <Route path="/storybrand" element={<ProtectedRoute><StoryBrand /></ProtectedRoute>} />
+            <Route path="/editorial" element={<ProtectedRoute><EditorialPage /></ProtectedRoute>} />
             <Route path="/admin" element={<ProtectedRoute requireAdmin><AdminDashboard /></ProtectedRoute>} />
             <Route path="/admin/users" element={<ProtectedRoute requireAdmin><AdminUsers /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
