@@ -16,7 +16,7 @@ interface PostCanvasProps {
   layout: "centered" | "top" | "split";
   onTextChange?: (newText: string) => void;
   onTitleChange?: (newTitle: string) => void;
-  canvasRef?: React.RefObject<HTMLDivElement>;
+  canvasRef?: React.RefObject<HTMLDivElement> | ((el: HTMLDivElement | null) => void);
 }
 
 const PostCanvas: React.FC<PostCanvasProps> = ({
@@ -60,7 +60,10 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   return (
     <div ref={containerRef} className="flex items-center justify-center w-full">
       <div
-        ref={canvasRef}
+        ref={(el) => {
+          if (typeof canvasRef === "function") canvasRef(el);
+          else if (canvasRef && "current" in canvasRef) (canvasRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+        }}
         className={`relative flex flex-col items-center ${justifyClass} overflow-hidden`}
         style={{
           width: 1080,
