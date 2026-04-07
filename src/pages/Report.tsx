@@ -105,7 +105,8 @@ const Report = () => {
   };
 
   const handleDownloadPDF = async () => {
-    const { default: jsPDF } = await import("jspdf");
+    try {
+    const jsPDF = (await import("jspdf")).jsPDF;
     const doc = new jsPDF();
     let y = 20;
 
@@ -167,6 +168,12 @@ const Report = () => {
         week.forEach((day: any) => {
           addSubtitle(`Dia ${day.day}: ${day.theme} (${day.format})`);
           addBody(`Legenda: ${day.caption}`);
+          if (day.card_copy?.length > 0) {
+            addSubtitle(day.format?.toLowerCase() === "carrossel" ? "Conteúdo dos Slides:" : "Copy do Post:");
+            day.card_copy.forEach((copy: string, idx: number) => {
+              addBody(day.format?.toLowerCase() === "carrossel" ? `Slide ${idx + 1}: ${copy}` : copy);
+            });
+          }
           addBody(`CTA: ${day.cta}`);
           if (day.script) addBody(`Roteiro: ${day.script}`);
         });
@@ -177,6 +184,10 @@ const Report = () => {
     }
 
     doc.save("archebrand-relatorio.pdf");
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      toast({ title: "Erro ao gerar PDF", description: "Tente novamente.", variant: "destructive" });
+    }
   };
 
   if (loading) {
@@ -421,6 +432,23 @@ const Report = () => {
                               <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">Legenda</h4>
                               <p className="text-xs leading-relaxed text-foreground/80 whitespace-pre-wrap">{day.caption}</p>
                             </div>
+                            {day.card_copy?.length > 0 && (
+                              <div>
+                                <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">
+                                  {day.format?.toLowerCase() === "carrossel" ? "Conteúdo dos Slides" : "Copy do Post"}
+                                </h4>
+                                <div className="space-y-1.5">
+                                  {day.card_copy.map((copy: string, idx: number) => (
+                                    <div key={idx} className="flex gap-2 items-start">
+                                      {day.format?.toLowerCase() === "carrossel" && (
+                                        <Badge variant="outline" className="text-[10px] shrink-0 mt-0.5">Slide {idx + 1}</Badge>
+                                      )}
+                                      <p className="text-xs leading-relaxed text-foreground/80">{copy}</p>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
                             <div>
                               <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">CTA</h4>
                               <p className="text-xs font-medium text-primary">{day.cta}</p>

@@ -67,6 +67,7 @@ O JSON deve seguir EXATAMENTE esta estrutura:
       "theme": "...",
       "format": "reels|carrossel|stories|post",
       "caption": "...",
+      "card_copy": ["texto do slide/card 1", "texto do slide/card 2"],
       "cta": "...",
       "script": "..."
     }
@@ -77,6 +78,7 @@ Regras para o campo "editorial":
 - OBRIGATORIAMENTE 7 dias (day 1 a 7)
 - Cada dia deve ter um tema diferente e relevante
 - O campo "caption" deve conter a LEGENDA COMPLETA pronta para copiar e colar no Instagram
+- O campo "card_copy": para formato "carrossel", deve ser um ARRAY com o texto completo de CADA SLIDE (mínimo 5 slides); para formato "post", deve ser um array com 1 item contendo o texto visual do card; para "reels" e "stories", pode ser array vazio []
 - O campo "script" deve conter o ROTEIRO COMPLETO para Reels (gancho de abertura, desenvolvimento, CTA final). Para outros formatos, descrever o conteúdo visual de cada slide/frame
 - O campo "cta" deve ser específico e acionável
 - Varie os formatos ao longo da semana
