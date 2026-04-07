@@ -1,112 +1,48 @@
 
+Objetivo: corrigir os 3 sintomas do mesmo fluxo quebrado: contagem errada (49/72), botão “Calcular resultados” desabilitado e erro ao gerar relatório com IA.
 
-# ArcheBrand — Posicionamento de Imagem no Instagram
+Diagnóstico confirmado:
+1. O questionário de arquétipos mostra o slider em “3 / Neutro” mesmo quando a resposta não existe no estado nem no banco. Ou seja: visualmente parece respondido, mas tecnicamente não está salvo.
+2. O botão “Calcular resultados” depende de `answeredCount < 72`, e essa contagem hoje usa apenas as chaves realmente presentes em `answers`, por isso fica menor que 72.
+3. O dashboard repete o mesmo problema porque conta linhas salvas em `archetype_answers`, então exibe 49/72 se várias perguntas ficaram no valor visual padrão sem persistência.
+4. O erro da IA está separado do problema acima: a edge function usa a URL errada do gateway (`ai-gateway...`), enquanto o endpoint correto é `ai.gateway...`, o que bate exatamente com o erro de DNS dos prints/logs.
 
-## Visão Geral
-Aplicação SaaS completa para posicionamento de marca no Instagram, combinando arquétipos de marca com a metodologia StoryBrand. O usuário preenche questionários, o sistema calcula seus arquétipos dominantes, envia para IA e gera um relatório estratégico personalizado.
+Plano de implementação:
+1. Corrigir o estado inicial do questionário de arquétipos
+- Ao carregar as 72 perguntas, montar `answers` com todas elas.
+- Para perguntas já respondidas, manter o valor salvo.
+- Para perguntas sem resposta, preencher com valor padrão `3`, já que a UI já exibe “Neutro” por padrão.
+- Assim, o que aparece na tela passa a bater com o que o sistema considera respondido.
 
-## Stack
-- **Frontend**: React + TypeScript + Tailwind + shadcn/ui
-- **Backend**: Lovable Cloud (Supabase) — auth, banco, edge functions
-- **IA**: Lovable AI Gateway (Gemini) via edge function
-- **PDF**: Geração client-side com jsPDF
+2. Corrigir a lógica de contagem e habilitação
+- Recalcular `answeredCount` com base na lista real de perguntas carregadas, não só em `Object.keys(answers)`.
+- Manter o botão “Calcular resultados” habilitado quando existir uma resposta efetiva para as 72 perguntas.
+- Garantir que a navegação entre páginas espere o salvamento antes de avançar/voltar/finalizar, evitando inconsistência por corrida assíncrona.
 
----
+3. Corrigir o dashboard e a leitura dos resultados
+- Ajustar o dashboard para contar cobertura real das 72 perguntas, em vez de confiar apenas no total bruto de linhas.
+- Restringir leituras ao conjunto/versionamento correto para evitar mistura de dados e já deixar a base mais segura para histórico futuro.
+- Fazer a página de resultados usar a mesma referência consistente de respostas.
 
-## Banco de Dados
+4. Corrigir a geração do relatório com IA
+- Trocar a URL da edge function para `https://ai.gateway.lovable.dev/v1/chat/completions`.
+- Melhorar o tratamento de erro para retornar mensagens mais claras em casos de falha do gateway, limite ou crédito.
+- Manter a chamada da IA no backend, como já está estruturado.
 
-### Tabelas
-1. **user_roles** — RBAC (enum: admin, user)
-2. **profiles** — nome, telefone, profissão, nicho (trigger on signup)
-3. **business_questionnaires** — 12 campos do questionário do negócio, user_id, versão, timestamps
-4. **archetype_questions** — id, número (1-72), texto da afirmação, archetype_name
-5. **archetype_answers** — user_id, questionnaire_version, question_id, score (1-5)
-6. **archetype_scores** — user_id, versão, archetype_name, total_score (calculado)
-7. **user_top_archetypes** — user_id, versão, archetype_name, rank (1/2/3), score
-8. **reports** — user_id, versão, conteúdo (JSON/texto), status, timestamps
+Arquivos a ajustar:
+- `src/pages/ArchetypeQuestionnaire.tsx`
+- `src/pages/Dashboard.tsx`
+- `src/pages/Results.tsx`
+- `supabase/functions/generate-report/index.ts`
 
-### RLS
-- Usuário normal: SELECT/INSERT/UPDATE apenas onde `user_id = auth.uid()`
-- Admin: acesso total via função `has_role(auth.uid(), 'admin')`
+Detalhes técnicos:
+- O problema principal não parece ser do banco, e sim um desalinhamento entre valor visual padrão do slider e estado persistido.
+- Não vejo necessidade de migração de banco para essa correção.
+- Usuários que ficaram com respostas “faltando” devem se recuperar automaticamente quando o questionário recarregar e salvar os itens ausentes com valor 3.
 
----
-
-## Telas Principais
-
-### Autenticação
-- **Login** — email + senha
-- **Cadastro** — nome, email, senha, profissão, nicho
-
-### Fluxo do Usuário (stepper com barra de progresso)
-1. **Dashboard** — resumo: status dos questionários, último relatório, ações rápidas
-2. **Questionário do Negócio** — formulário com 12 perguntas em etapas (autosave)
-3. **Questionário de Arquétipos** — 72 afirmações com slider 1-5, agrupadas em páginas de 12
-4. **Resultados** — pontuação de todos os 12 arquétipos (gráfico radar), top 3 destacados
-5. **Relatório** — estratégia StoryBrand completa, visualização em tela, botão de download PDF
-6. **Histórico** — lista de versões anteriores, comparação
-
-### Painel Administrativo (rota `/admin`)
-- **Dashboard Admin** — métricas: total usuários, questionários completos, relatórios gerados
-- **Lista de Usuários** — tabela com filtros (nome, email, profissão, nicho, data), ações (ver, bloquear, excluir)
-- **Detalhe do Usuário** — todas as respostas, scores, relatórios
-- **Exportação** — CSV/Excel de usuários e dados
-
----
-
-## Lógica de Cálculo dos Arquétipos
-
-Mapeamento fixo das 72 questões para 12 arquétipos (6 questões cada). Soma das respostas por arquétipo → ordenação → top 3 classificados como primário, secundário e terciário. Campo de desempate reservado para regra futura.
-
----
-
-## Integração com IA (Edge Function)
-
-### Payload enviado
-```json
-{
-  "business": { /* 12 respostas do questionário */ },
-  "niche": "área de atuação",
-  "archetypes": {
-    "primary": { "name": "Herói", "score": 28 },
-    "secondary": { "name": "Explorador", "score": 25 },
-    "tertiary": { "name": "Criador", "score": 23 }
-  }
-}
-```
-
-### System prompt
-Instrução detalhada para gerar relatório StoryBrand com: descrição dos arquétipos, paleta de cores, tipografia, tom de voz, figurino, linha editorial de 7 dias (tema, formato, legenda, CTA).
-
-### Resposta
-Texto estruturado em seções, salvo na tabela `reports`.
-
----
-
-## Relatório Final (exibição + PDF)
-
-Seções:
-1. **Arquétipos** — top 3 com descrição e aplicação visual
-2. **Identidade Visual** — paleta, tipografia, figurino
-3. **Tom de Voz** — diretrizes de comunicação
-4. **StoryBrand** — herói, guia, problema, plano, CTA, sucesso, fracasso
-5. **Linha Editorial** — 7 dias de conteúdo com tema, formato, legenda e CTA
-
----
-
-## Permissões (RBAC)
-
-- Rotas `/admin/*` protegidas — redireciona se não for admin
-- Todas as queries filtram por `user_id` no lado do banco (RLS)
-- Admin bypass via `has_role()` security definer
-
----
-
-## UX
-
-- Stepper visual com progresso percentual
-- Autosave a cada mudança de campo (debounced)
-- Skeleton loaders durante carregamento
-- Toasts para feedback de ações
-- Responsivo mobile-first
-- Navegação por sidebar no dashboard, tabs no admin
-
+Validação após implementação:
+1. Abrir um usuário afetado e confirmar que o questionário sobe para 72/72.
+2. Verificar que o botão “Calcular resultados” fica habilitado na última página.
+3. Confirmar que o dashboard mostra 72/72 após salvar.
+4. Gerar relatório e validar que o erro 500 de DNS desapareceu.
+5. Testar o fluxo completo: negócio → arquétipos → resultados → gerar relatório → visualizar relatório.
