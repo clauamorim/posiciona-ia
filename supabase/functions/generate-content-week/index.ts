@@ -67,6 +67,7 @@ O JSON deve ser um array com 7 objetos:
     "theme": "...",
     "format": "reels|carrossel|stories|post",
     "caption": "LEGENDA COMPLETA pronta para postar",
+    "card_copy": ["texto do slide/card 1", "texto do slide/card 2"],
     "cta": "CTA específico",
     "script": "ROTEIRO COMPLETO para Reels ou descrição visual para outros formatos"
   }
@@ -76,6 +77,7 @@ Regras:
 - 7 dias obrigatórios
 - Legendas completas prontas para copiar e colar
 - Roteiros detalhados com gancho, desenvolvimento e CTA
+- O campo "card_copy": para "carrossel", array com texto de CADA SLIDE (mínimo 5); para "post", array com 1 item (texto visual do card); para "reels"/"stories", array vazio []
 - Variar formatos ao longo da semana
 - NÃO repetir temas ou abordagens dos conteúdos anteriores
 - Responda em português brasileiro`;
