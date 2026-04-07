@@ -44,6 +44,7 @@ const App = () => (
             <Route path="/post-editor" element={<ProtectedRoute><PostEditorPage /></ProtectedRoute>} />
             <Route path="/storybrand" element={<ProtectedRoute><StoryBrand /></ProtectedRoute>} />
             <Route path="/editorial" element={<ProtectedRoute><EditorialPage /></ProtectedRoute>} />
+            <Route path="/instagram-analysis" element={<ProtectedRoute><InstagramAnalysis /></ProtectedRoute>} />
             <Route path="/admin" element={<ProtectedRoute requireAdmin><AdminDashboard /></ProtectedRoute>} />
             <Route path="/admin/users" element={<ProtectedRoute requireAdmin><AdminUsers /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
