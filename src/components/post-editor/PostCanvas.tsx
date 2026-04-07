@@ -45,7 +45,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
       if (containerRef.current) {
         const parent = containerRef.current.parentElement;
         if (parent) {
-          const s = Math.min(parent.clientWidth / 1080, parent.clientHeight / 1080, 0.55);
+          const s = Math.min(parent.clientWidth / 1080, 0.55);
           setScale(s);
         }
       }
@@ -60,123 +60,132 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   return (
     <div ref={containerRef} className="flex items-center justify-center w-full">
       <div
-        ref={(el) => {
-          if (typeof canvasRef === "function") canvasRef(el);
-          else if (canvasRef && "current" in canvasRef) (canvasRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
-        }}
-        className={`relative flex flex-col items-center ${justifyClass} overflow-hidden`}
         style={{
-          width: 1080,
-          height: 1080,
-          transform: `scale(${scale})`,
-          transformOrigin: "center center",
-          backgroundColor: bgColor,
-          color: textColor,
-          fontFamily: `'${bodyFont}', sans-serif`,
+          width: 1080 * scale,
+          height: 1080 * scale,
+          overflow: "hidden",
+          position: "relative",
         }}
       >
-        {/* Decorative elements */}
         <div
-          className="absolute top-0 left-0 w-full h-2"
-          style={{ backgroundColor: accentColor }}
-        />
-        <div
-          className="absolute bottom-0 left-0 w-full h-2"
-          style={{ backgroundColor: accentColor }}
-        />
-
-        {/* Slide number indicator */}
-        {slideNumber !== undefined && totalSlides !== undefined && (
+          ref={(el) => {
+            if (typeof canvasRef === "function") canvasRef(el);
+            else if (canvasRef && "current" in canvasRef) (canvasRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+          }}
+          className={`absolute top-0 left-0 flex flex-col items-center ${justifyClass}`}
+          style={{
+            width: 1080,
+            height: 1080,
+            transform: `scale(${scale})`,
+            transformOrigin: "top left",
+            backgroundColor: bgColor,
+            color: textColor,
+            fontFamily: `'${bodyFont}', sans-serif`,
+          }}
+        >
+          {/* Decorative elements */}
           <div
-            className="absolute top-6 right-6 w-14 h-14 rounded-full flex items-center justify-center text-lg font-bold"
-            style={{ backgroundColor: accentColor, color: bgColor, fontFamily: `'${displayFont}', sans-serif` }}
-          >
-            {slideNumber}/{totalSlides}
-          </div>
-        )}
+            className="absolute top-0 left-0 w-full h-2"
+            style={{ backgroundColor: accentColor }}
+          />
+          <div
+            className="absolute bottom-0 left-0 w-full h-2"
+            style={{ backgroundColor: accentColor }}
+          />
 
-        {/* Cover slide layout */}
-        {isCoverSlide && (
-          <div className="flex flex-col items-center justify-center flex-1 px-[100px] text-center gap-8">
+          {/* Slide number indicator */}
+          {slideNumber !== undefined && totalSlides !== undefined && (
             <div
-              className="w-20 h-1 rounded-full"
-              style={{ backgroundColor: accentColor }}
-            />
-            <h1
-              contentEditable={!!onTitleChange}
-              suppressContentEditableWarning
-              onBlur={(e) => onTitleChange?.(e.currentTarget.textContent || "")}
-              className="text-[64px] leading-tight font-bold outline-none focus:ring-2 focus:ring-white/30 rounded-lg px-4 py-2"
-              style={{ fontFamily: `'${displayFont}', sans-serif` }}
+              className="absolute top-6 right-6 w-14 h-14 rounded-full flex items-center justify-center text-lg font-bold"
+              style={{ backgroundColor: accentColor, color: bgColor, fontFamily: `'${displayFont}', sans-serif` }}
             >
-              {title}
-            </h1>
-            <p
-              contentEditable={!!onTextChange}
-              suppressContentEditableWarning
-              onBlur={(e) => onTextChange?.(e.currentTarget.textContent || "")}
-              className="text-[28px] leading-relaxed opacity-80 outline-none focus:ring-2 focus:ring-white/30 rounded-lg px-4 py-2 max-w-[800px]"
-            >
-              {text}
-            </p>
-            <div
-              className="w-20 h-1 rounded-full"
-              style={{ backgroundColor: accentColor }}
-            />
-          </div>
-        )}
+              {slideNumber}/{totalSlides}
+            </div>
+          )}
 
-        {/* CTA / last slide layout */}
-        {isLastSlide && !isCoverSlide && (
-          <div className="flex flex-col items-center justify-center flex-1 px-[100px] text-center gap-10">
-            <p
-              contentEditable={!!onTextChange}
-              suppressContentEditableWarning
-              onBlur={(e) => onTextChange?.(e.currentTarget.textContent || "")}
-              className="text-[32px] leading-relaxed outline-none focus:ring-2 focus:ring-white/30 rounded-lg px-4 py-2"
-            >
-              {text}
-            </p>
-            {cta && (
+          {/* Cover slide layout */}
+          {isCoverSlide && (
+            <div className="flex flex-col items-center justify-center flex-1 px-[100px] text-center gap-8">
               <div
-                className="px-12 py-5 rounded-2xl text-[28px] font-bold"
-                style={{ backgroundColor: accentColor, color: bgColor, fontFamily: `'${displayFont}', sans-serif` }}
-              >
-                {cta}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Regular content slide */}
-        {!isCoverSlide && !isLastSlide && (
-          <div className={`flex flex-col flex-1 px-[80px] w-full ${justifyClass} gap-6`}>
-            {title && (
-              <h2
+                className="w-20 h-1 rounded-full"
+                style={{ backgroundColor: accentColor }}
+              />
+              <h1
                 contentEditable={!!onTitleChange}
                 suppressContentEditableWarning
                 onBlur={(e) => onTitleChange?.(e.currentTarget.textContent || "")}
-                className="text-[44px] leading-tight font-bold outline-none focus:ring-2 focus:ring-white/30 rounded-lg px-4 py-2"
+                className="text-[64px] leading-tight font-bold outline-none focus:ring-2 focus:ring-white/30 rounded-lg px-4 py-2"
                 style={{ fontFamily: `'${displayFont}', sans-serif` }}
               >
                 {title}
-              </h2>
-            )}
-            <p
-              contentEditable={!!onTextChange}
-              suppressContentEditableWarning
-              onBlur={(e) => onTextChange?.(e.currentTarget.textContent || "")}
-              className="text-[28px] leading-relaxed outline-none focus:ring-2 focus:ring-white/30 rounded-lg px-4 py-2"
-            >
-              {text}
-            </p>
-            {cta && layout === "split" && (
-              <div className="text-[22px] font-semibold opacity-70 pb-[60px]" style={{ color: accentColor }}>
-                {cta}
-              </div>
-            )}
-          </div>
-        )}
+              </h1>
+              <p
+                contentEditable={!!onTextChange}
+                suppressContentEditableWarning
+                onBlur={(e) => onTextChange?.(e.currentTarget.textContent || "")}
+                className="text-[28px] leading-relaxed opacity-80 outline-none focus:ring-2 focus:ring-white/30 rounded-lg px-4 py-2 max-w-[800px]"
+              >
+                {text}
+              </p>
+              <div
+                className="w-20 h-1 rounded-full"
+                style={{ backgroundColor: accentColor }}
+              />
+            </div>
+          )}
+
+          {/* CTA / last slide layout */}
+          {isLastSlide && !isCoverSlide && (
+            <div className="flex flex-col items-center justify-center flex-1 px-[100px] text-center gap-10">
+              <p
+                contentEditable={!!onTextChange}
+                suppressContentEditableWarning
+                onBlur={(e) => onTextChange?.(e.currentTarget.textContent || "")}
+                className="text-[32px] leading-relaxed outline-none focus:ring-2 focus:ring-white/30 rounded-lg px-4 py-2"
+              >
+                {text}
+              </p>
+              {cta && (
+                <div
+                  className="px-12 py-5 rounded-2xl text-[28px] font-bold"
+                  style={{ backgroundColor: accentColor, color: bgColor, fontFamily: `'${displayFont}', sans-serif` }}
+                >
+                  {cta}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Regular content slide */}
+          {!isCoverSlide && !isLastSlide && (
+            <div className={`flex flex-col flex-1 px-[80px] w-full ${justifyClass} gap-6`}>
+              {title && (
+                <h2
+                  contentEditable={!!onTitleChange}
+                  suppressContentEditableWarning
+                  onBlur={(e) => onTitleChange?.(e.currentTarget.textContent || "")}
+                  className="text-[44px] leading-tight font-bold outline-none focus:ring-2 focus:ring-white/30 rounded-lg px-4 py-2"
+                  style={{ fontFamily: `'${displayFont}', sans-serif` }}
+                >
+                  {title}
+                </h2>
+              )}
+              <p
+                contentEditable={!!onTextChange}
+                suppressContentEditableWarning
+                onBlur={(e) => onTextChange?.(e.currentTarget.textContent || "")}
+                className="text-[28px] leading-relaxed outline-none focus:ring-2 focus:ring-white/30 rounded-lg px-4 py-2"
+              >
+                {text}
+              </p>
+              {cta && layout === "split" && (
+                <div className="text-[22px] font-semibold opacity-70 pb-[60px]" style={{ color: accentColor }}>
+                  {cta}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
