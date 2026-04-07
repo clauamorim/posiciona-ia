@@ -99,8 +99,11 @@ const Results = () => {
 
       if (error) throw error;
 
+      // data.report is already parsed JSON from the edge function (or a fallback string)
+      const reportContent = data.report;
+
       await supabase.from("reports").update({
-        content: data.report,
+        content: reportContent,
         status: "completed",
       }).eq("user_id", user.id).eq("version", 1);
 

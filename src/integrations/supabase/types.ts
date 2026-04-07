@@ -203,6 +203,7 @@ export type Database = {
         Row: {
           content: Json | null
           created_at: string
+          editorial_weeks: Json | null
           error_message: string | null
           id: string
           status: string
@@ -213,6 +214,7 @@ export type Database = {
         Insert: {
           content?: Json | null
           created_at?: string
+          editorial_weeks?: Json | null
           error_message?: string | null
           id?: string
           status?: string
@@ -223,12 +225,37 @@ export type Database = {
         Update: {
           content?: Json | null
           created_at?: string
+          editorial_weeks?: Json | null
           error_message?: string | null
           id?: string
           status?: string
           updated_at?: string
           user_id?: string
           version?: number
+        }
+        Relationships: []
+      }
+      user_credits: {
+        Row: {
+          balance: number
+          created_at: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          balance?: number
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          balance?: number
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
