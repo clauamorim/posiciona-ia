@@ -3,7 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   Sparkles, LayoutDashboard, Building2, Brain, BarChart3,
-  FileText, History, LogOut, Shield, Menu, X
+  FileText, History, LogOut, Shield, Menu, X, Target, Calendar
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -12,8 +12,10 @@ const userNav = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { label: "Questionário do Negócio", href: "/business-questionnaire", icon: Building2 },
   { label: "Questionário de Arquétipos", href: "/archetype-questionnaire", icon: Brain },
-  { label: "Resultados", href: "/results", icon: BarChart3 },
-  { label: "Relatório", href: "/report", icon: FileText },
+  { label: "Arquétipos", href: "/results", icon: BarChart3 },
+  { label: "StoryBrand", href: "/storybrand", icon: Target },
+  { label: "Análises", href: "/report", icon: FileText },
+  { label: "Linha Editorial", href: "/editorial", icon: Calendar },
   { label: "Histórico", href: "/history", icon: History },
 ];
 

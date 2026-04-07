@@ -120,7 +120,7 @@ const ArchetypeQuestionnaire = () => {
             </Button>
           ) : (
             <Button onClick={handleFinish} disabled={answeredCount < questions.length || saving}>
-              Calcular resultados ✓
+              Calcular Arquétipos ✓
             </Button>
           )}
         </div>

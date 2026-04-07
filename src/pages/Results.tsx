@@ -1,21 +1,16 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { calculateScores, getTop3, ARCHETYPE_COLORS, type ArchetypeScore } from "@/lib/archetypes";
-import { toast } from "@/hooks/use-toast";
-import { Sparkles, FileText, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 const Results = () => {
   const { user } = useAuth();
-  const navigate = useNavigate();
   const [scores, setScores] = useState<ArchetypeScore[]>([]);
   const [loading, setLoading] = useState(true);
-  const [generating, setGenerating] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -30,7 +25,6 @@ const Results = () => {
         const calc = calculateScores(questions, answerMap);
         setScores(calc);
 
-        // Save scores to DB
         const upserts = calc.map(s => ({
           user_id: user.id,
           version: 1,
@@ -39,7 +33,6 @@ const Results = () => {
         }));
         await supabase.from("archetype_scores").upsert(upserts, { onConflict: "user_id,version,archetype_name" });
 
-        // Save top 3
         const top3 = getTop3(calc);
         const topUpserts = top3.map(t => ({
           user_id: user.id,
@@ -58,67 +51,6 @@ const Results = () => {
   const top3 = getTop3(scores);
   const maxScore = 30;
 
-  const handleGenerateReport = async () => {
-    if (!user) return;
-    setGenerating(true);
-    try {
-      // Get business questionnaire
-      const { data: bq } = await supabase
-        .from("business_questionnaires")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("version", { ascending: false })
-        .limit(1)
-        .single();
-
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("niche")
-        .eq("user_id", user.id)
-        .single();
-
-      // Create pending report
-      await supabase.from("reports").upsert({
-        user_id: user.id,
-        version: 1,
-        status: "generating",
-      }, { onConflict: "user_id,version" });
-
-      // Call edge function
-      const { data, error } = await supabase.functions.invoke("generate-report", {
-        body: {
-          business: bq,
-          niche: profile?.niche || "",
-          archetypes: {
-            primary: top3[0],
-            secondary: top3[1],
-            tertiary: top3[2],
-          },
-        },
-      });
-
-      if (error) throw error;
-
-      // data.report is already parsed JSON from the edge function (or a fallback string)
-      const reportContent = data.report;
-
-      await supabase.from("reports").update({
-        content: reportContent,
-        status: "completed",
-      }).eq("user_id", user.id).eq("version", 1);
-
-      toast({ title: "Relatório gerado com sucesso!" });
-      navigate("/report");
-    } catch (err: any) {
-      await supabase.from("reports").update({
-        status: "error",
-        error_message: err.message,
-      }).eq("user_id", user.id).eq("version", 1);
-      toast({ title: "Erro ao gerar relatório", description: err.message, variant: "destructive" });
-    }
-    setGenerating(false);
-  };
-
   if (loading) {
     return (
       <DashboardLayout>
@@ -133,11 +65,10 @@ const Results = () => {
     <DashboardLayout>
       <div className="space-y-8">
         <div>
-          <h1 className="text-2xl font-bold font-display">Seus Resultados</h1>
+          <h1 className="text-2xl font-bold font-display">Seus Arquétipos</h1>
           <p className="text-muted-foreground text-sm mt-1">Seus 12 arquétipos de marca calculados</p>
         </div>
 
-        {/* Top 3 */}
         <div className="grid gap-4 md:grid-cols-3">
           {top3.map(t => (
             <Card key={t.name} className="border-2 relative overflow-hidden" style={{ borderColor: ARCHETYPE_COLORS[t.name] }}>
@@ -153,7 +84,6 @@ const Results = () => {
           ))}
         </div>
 
-        {/* All scores */}
         <Card>
           <CardHeader>
             <CardTitle className="font-display">Todos os arquétipos</CardTitle>
@@ -176,13 +106,6 @@ const Results = () => {
             ))}
           </CardContent>
         </Card>
-
-        <div className="flex justify-center">
-          <Button size="lg" onClick={handleGenerateReport} disabled={generating} className="gap-2">
-            {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-            {generating ? "Gerando relatório..." : "Gerar Relatório com IA"}
-          </Button>
-        </div>
       </div>
     </DashboardLayout>
   );

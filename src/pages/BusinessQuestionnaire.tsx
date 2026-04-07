@@ -10,7 +10,7 @@ import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { ChevronLeft, ChevronRight, Save } from "lucide-react";
+import { ChevronLeft, ChevronRight, Save, Sparkles, Loader2 } from "lucide-react";
 
 const fields = [
   { key: "company_name", label: "Nome da empresa ou negócio", type: "input", placeholder: "Ex: Studio Bella" },
@@ -34,6 +34,8 @@ const BusinessQuestionnaire = () => {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [existingId, setExistingId] = useState<string | null>(null);
+  const [isComplete, setIsComplete] = useState(false);
+  const [generatingStoryBrand, setGeneratingStoryBrand] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -43,9 +45,10 @@ const BusinessQuestionnaire = () => {
       .eq("user_id", user.id)
       .order("version", { ascending: false })
       .limit(1)
-      .then(({ data }) => {
+    .then(({ data }) => {
         if (data?.[0]) {
           setExistingId(data[0].id);
+          setIsComplete(data[0].is_complete || false);
           const existing: Record<string, string> = {};
           fields.forEach(f => { existing[f.key] = (data[0] as any)[f.key] || ""; });
           setAnswers(existing);
@@ -68,9 +71,57 @@ const BusinessQuestionnaire = () => {
       if (data) setExistingId(data.id);
     }
     setSaving(false);
+    if (complete) setIsComplete(true);
     toast({ title: complete ? "Questionário completo!" : "Salvo automaticamente" });
     if (complete) navigate("/archetype-questionnaire");
   }, [user, answers, existingId, navigate]);
+
+  const handleGenerateStoryBrand = async () => {
+    if (!user) return;
+    setGeneratingStoryBrand(true);
+    try {
+      const { data: bq } = await supabase.from("business_questionnaires").select("*").eq("user_id", user.id).order("version", { ascending: false }).limit(1).single();
+      const { data: profile } = await supabase.from("profiles").select("niche").eq("user_id", user.id).single();
+      const { data: topArchetypes } = await supabase.from("user_top_archetypes").select("*").eq("user_id", user.id).order("rank", { ascending: true }).limit(3);
+
+      const archetypes = {
+        primary: topArchetypes?.[0],
+        secondary: topArchetypes?.[1],
+        tertiary: topArchetypes?.[2],
+      };
+
+      await supabase.from("reports").upsert({
+        user_id: user.id,
+        version: 1,
+        status: "generating",
+      }, { onConflict: "user_id,version" });
+
+      const { data, error } = await supabase.functions.invoke("generate-report", {
+        body: {
+          business: bq,
+          niche: profile?.niche || "",
+          archetypes,
+        },
+      });
+
+      if (error) throw error;
+
+      await supabase.from("reports").update({
+        content: data.report,
+        status: "completed",
+      }).eq("user_id", user.id).eq("version", 1);
+
+      toast({ title: "StoryBrand gerado com sucesso!" });
+      navigate("/storybrand");
+    } catch (err: any) {
+      await supabase.from("reports").update({
+        status: "error",
+        error_message: err.message,
+      }).eq("user_id", user.id).eq("version", 1);
+      toast({ title: "Erro ao gerar StoryBrand", description: err.message, variant: "destructive" });
+    }
+    setGeneratingStoryBrand(false);
+  };
 
   const field = fields[step];
   const progress = Math.round(((step + 1) / fields.length) * 100);
@@ -143,6 +194,18 @@ const BusinessQuestionnaire = () => {
             </button>
           ))}
         </div>
+
+        {isComplete && (
+          <Card className="border-primary/30 bg-primary/5">
+            <CardContent className="pt-6 flex flex-col items-center gap-3">
+              <p className="text-sm text-muted-foreground">Questionário completo! Gere sua análise StoryBrand.</p>
+              <Button onClick={handleGenerateStoryBrand} disabled={generatingStoryBrand} className="gap-2" size="lg">
+                {generatingStoryBrand ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                {generatingStoryBrand ? "Gerando StoryBrand..." : "Gerar StoryBrand"}
+              </Button>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </DashboardLayout>
   );
