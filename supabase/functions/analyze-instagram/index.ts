@@ -12,7 +12,7 @@ Deno.serve(async (req) => {
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const supabase = createClient(
@@ -21,15 +21,13 @@ Deno.serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } }
     );
 
-    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(
-      authHeader.replace("Bearer ", "")
-    );
-    if (claimsError || !claimsData?.claims) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
-    const userId = claimsData.claims.sub;
+    const userId = user.id;
 
-    const { username, manualData } = await req.json();
+    const { username } = await req.json();
     if (!username) {
       return new Response(JSON.stringify({ error: "username is required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -46,59 +44,35 @@ Deno.serve(async (req) => {
     const visualIdentity = (reportRes.data?.content as any)?.visual_identity || null;
     const archetypes = archRes.data || [];
 
-    let profileData: string;
-    let screenshotBase64: string | null = null;
-
-    if (manualData) {
-      // Manual fallback
-      profileData = `
-Nome do perfil: ${manualData.profileName || "Não informado"}
-Bio: ${manualData.bio || "Não informada"}
-Destaques: ${manualData.highlights || "Não informados"}
-CTA: ${manualData.hasCta || "Não informado"}
-Posts fixados: ${manualData.pinnedPosts || "Não informados"}
-Aparência do feed: ${manualData.feedDescription || "Não descrita"}
-Foto de perfil: ${manualData.profilePhotoDescription || "Não descrita"}
-      `.trim();
-    } else {
-      // Try Firecrawl scrape
-      const firecrawlKey = Deno.env.get("FIRECRAWL_API_KEY");
-      if (!firecrawlKey) {
-        return new Response(JSON.stringify({ fallback: true, error: "Firecrawl not configured" }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      try {
-        const scrapeRes = await fetch("https://api.firecrawl.dev/v1/scrape", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${firecrawlKey}`, "Content-Type": "application/json" },
-          body: JSON.stringify({
-            url: `https://www.instagram.com/${username}/`,
-            formats: ["screenshot", "markdown"],
-            waitFor: 3000,
-          }),
-        });
-
-        const scrapeData = await scrapeRes.json();
-
-        if (!scrapeRes.ok || !scrapeData.success) {
-          console.error("Firecrawl error:", scrapeData);
-          return new Response(JSON.stringify({ fallback: true, error: "Instagram inacessível" }), {
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
-
-        const d = scrapeData.data || scrapeData;
-        profileData = d.markdown || "Conteúdo não disponível";
-        screenshotBase64 = d.screenshot || null;
-      } catch (e) {
-        console.error("Firecrawl fetch error:", e);
-        return new Response(JSON.stringify({ fallback: true, error: "Erro ao acessar Instagram" }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+    // Firecrawl scrape
+    const firecrawlKey = Deno.env.get("FIRECRAWL_API_KEY");
+    if (!firecrawlKey) {
+      return new Response(JSON.stringify({ error: "Firecrawl não configurado" }), {
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
+
+    const scrapeRes = await fetch("https://api.firecrawl.dev/v1/scrape", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${firecrawlKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        url: `https://www.instagram.com/${username}/`,
+        formats: ["screenshot", "markdown"],
+        waitFor: 3000,
+      }),
+    });
+
+    const scrapeData = await scrapeRes.json();
+    if (!scrapeRes.ok || !scrapeData.success) {
+      console.error("Firecrawl error:", scrapeData);
+      return new Response(JSON.stringify({ error: "Não foi possível acessar o perfil do Instagram. Verifique o @ e tente novamente." }), {
+        status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const d = scrapeData.data || scrapeData;
+    const profileData = d.markdown || "Conteúdo não disponível";
+    const screenshotBase64 = d.screenshot || null;
 
     // Build AI prompt
     const systemPrompt = `Você é um especialista em branding e marketing digital. Analise o perfil do Instagram com base nos dados do StoryBrand e arquétipos do usuário. Retorne análise prática e acionável.`;
@@ -133,11 +107,8 @@ Analise os seguintes aspectos e forneça sugestões baseadas no StoryBrand e arq
       });
     }
 
-    const messages: any[] = [
-      { role: "system", content: systemPrompt },
-    ];
+    const messages: any[] = [{ role: "system", content: systemPrompt }];
 
-    // If we have a screenshot, use multimodal
     if (screenshotBase64) {
       messages.push({
         role: "user",
@@ -159,33 +130,31 @@ Analise os seguintes aspectos e forneça sugestões baseadas no StoryBrand e arq
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
         messages,
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "instagram_analysis",
-              description: "Retorna a análise do perfil do Instagram",
-              parameters: {
-                type: "object",
-                properties: {
-                  analysis: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        aspect: { type: "string", description: "Nome do aspecto analisado" },
-                        current: { type: "string", description: "Situação atual detectada" },
-                        suggestion: { type: "string", description: "Sugestão de melhoria baseada em StoryBrand e arquétipos" },
-                      },
-                      required: ["aspect", "current", "suggestion"],
+        tools: [{
+          type: "function",
+          function: {
+            name: "instagram_analysis",
+            description: "Retorna a análise do perfil do Instagram",
+            parameters: {
+              type: "object",
+              properties: {
+                analysis: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      aspect: { type: "string", description: "Nome do aspecto analisado" },
+                      current: { type: "string", description: "Situação atual detectada" },
+                      suggestion: { type: "string", description: "Sugestão de melhoria baseada em StoryBrand e arquétipos" },
                     },
+                    required: ["aspect", "current", "suggestion"],
                   },
                 },
-                required: ["analysis"],
               },
+              required: ["analysis"],
             },
           },
-        ],
+        }],
         tool_choice: { type: "function", function: { name: "instagram_analysis" } },
       }),
     });
@@ -198,11 +167,6 @@ Analise os seguintes aspectos e forneça sugestões baseadas no StoryBrand e arq
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      if (aiRes.status === 402) {
-        return new Response(JSON.stringify({ error: "Créditos insuficientes." }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
       return new Response(JSON.stringify({ error: "Erro na análise com IA" }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -210,18 +174,15 @@ Analise os seguintes aspectos e forneça sugestões baseadas no StoryBrand e arq
 
     const aiData = await aiRes.json();
     const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
-    let analysis;
 
-    if (toolCall?.function?.arguments) {
-      const parsed = JSON.parse(toolCall.function.arguments);
-      analysis = parsed.analysis;
-    } else {
+    if (!toolCall?.function?.arguments) {
       return new Response(JSON.stringify({ error: "Resposta da IA inválida" }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    return new Response(JSON.stringify({ analysis, screenshot: screenshotBase64 }), {
+    const parsed = JSON.parse(toolCall.function.arguments);
+    return new Response(JSON.stringify({ analysis: parsed.analysis, screenshot: screenshotBase64 }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {

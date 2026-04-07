@@ -4,7 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
@@ -19,18 +18,6 @@ const InstagramAnalysis = () => {
   const [analysis, setAnalysis] = useState<AnalysisItem[] | null>(null);
   const [screenshot, setScreenshot] = useState<string | null>(null);
   const [hasPrereqs, setHasPrereqs] = useState<boolean | null>(null);
-  const [showManualFallback, setShowManualFallback] = useState(false);
-
-  // Manual fallback fields
-  const [manualData, setManualData] = useState({
-    profileName: "",
-    bio: "",
-    highlights: "",
-    hasCta: "",
-    pinnedPosts: "",
-    feedDescription: "",
-    profilePhotoDescription: "",
-  });
 
   useEffect(() => {
     if (!user) return;
@@ -49,7 +36,6 @@ const InstagramAnalysis = () => {
     setLoading(true);
     setAnalysis(null);
     setScreenshot(null);
-    setShowManualFallback(false);
 
     try {
       const { data, error } = await supabase.functions.invoke("analyze-instagram", {
@@ -57,35 +43,10 @@ const InstagramAnalysis = () => {
       });
 
       if (error) throw error;
+      if (data.error) throw new Error(data.error);
 
-      if (data.fallback) {
-        setShowManualFallback(true);
-        toast({ title: "Instagram inacessível", description: "Preencha os dados manualmente para a análise.", variant: "destructive" });
-      } else {
-        setAnalysis(data.analysis);
-        if (data.screenshot) setScreenshot(data.screenshot);
-      }
-    } catch (e: any) {
-      console.error(e);
-      toast({ title: "Erro na análise", description: e.message || "Tente novamente.", variant: "destructive" });
-      setShowManualFallback(true);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleManualAnalyze = async () => {
-    setLoading(true);
-    setAnalysis(null);
-    try {
-      const { data, error } = await supabase.functions.invoke("analyze-instagram", {
-        body: {
-          username: username.replace("@", "").trim(),
-          manualData,
-        },
-      });
-      if (error) throw error;
       setAnalysis(data.analysis);
+      if (data.screenshot) setScreenshot(data.screenshot);
     } catch (e: any) {
       console.error(e);
       toast({ title: "Erro na análise", description: e.message || "Tente novamente.", variant: "destructive" });
@@ -126,7 +87,6 @@ const InstagramAnalysis = () => {
           <p className="text-muted-foreground">Analise seu perfil com base no seu StoryBrand e arquétipos.</p>
         </div>
 
-        {/* Input */}
         <Card>
           <CardContent className="pt-6">
             <div className="flex gap-3 items-end">
@@ -148,53 +108,6 @@ const InstagramAnalysis = () => {
           </CardContent>
         </Card>
 
-        {/* Manual fallback */}
-        {showManualFallback && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Dados do Perfil (Manual)</CardTitle>
-              <p className="text-sm text-muted-foreground">Não foi possível acessar o Instagram automaticamente. Preencha os dados abaixo.</p>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                  <Label>Nome do perfil</Label>
-                  <Input value={manualData.profileName} onChange={e => setManualData(p => ({ ...p, profileName: e.target.value }))} />
-                </div>
-                <div>
-                  <Label>CTA na bio</Label>
-                  <Input placeholder="Ex: Link na bio, Agende agora..." value={manualData.hasCta} onChange={e => setManualData(p => ({ ...p, hasCta: e.target.value }))} />
-                </div>
-              </div>
-              <div>
-                <Label>Bio</Label>
-                <Textarea value={manualData.bio} onChange={e => setManualData(p => ({ ...p, bio: e.target.value }))} />
-              </div>
-              <div>
-                <Label>Destaques (separados por vírgula)</Label>
-                <Input value={manualData.highlights} onChange={e => setManualData(p => ({ ...p, highlights: e.target.value }))} />
-              </div>
-              <div>
-                <Label>Posts fixados (descrição)</Label>
-                <Input value={manualData.pinnedPosts} onChange={e => setManualData(p => ({ ...p, pinnedPosts: e.target.value }))} />
-              </div>
-              <div>
-                <Label>Aparência do feed</Label>
-                <Textarea placeholder="Descreva cores, estilo, tipos de post..." value={manualData.feedDescription} onChange={e => setManualData(p => ({ ...p, feedDescription: e.target.value }))} />
-              </div>
-              <div>
-                <Label>Foto de perfil</Label>
-                <Input placeholder="Descreva sua foto de perfil..." value={manualData.profilePhotoDescription} onChange={e => setManualData(p => ({ ...p, profilePhotoDescription: e.target.value }))} />
-              </div>
-              <Button onClick={handleManualAnalyze} disabled={loading} className="w-full">
-                {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                Analisar com Dados Manuais
-              </Button>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Loading */}
         {loading && (
           <div className="text-center py-12">
             <Loader2 className="h-10 w-10 animate-spin text-primary mx-auto mb-4" />
@@ -202,7 +115,6 @@ const InstagramAnalysis = () => {
           </div>
         )}
 
-        {/* Screenshot */}
         {screenshot && (
           <Card>
             <CardHeader><CardTitle className="text-lg">Screenshot do Perfil</CardTitle></CardHeader>
@@ -212,7 +124,6 @@ const InstagramAnalysis = () => {
           </Card>
         )}
 
-        {/* Results */}
         {analysis && (
           <div className="space-y-4">
             <h2 className="text-xl font-bold font-display">Resultados da Análise</h2>
