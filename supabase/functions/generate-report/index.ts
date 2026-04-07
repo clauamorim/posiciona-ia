@@ -19,31 +19,71 @@ serve(async (req) => {
       });
     }
 
-    const systemPrompt = `Você é um especialista em branding, arquétipos de marca e metodologia StoryBrand. 
+    const systemPrompt = `Você é um especialista em branding, arquétipos de marca e metodologia StoryBrand.
 Gere um relatório estratégico completo e personalizado para posicionamento de marca no Instagram.
 
-O relatório deve conter as seguintes seções em formato estruturado:
+IMPORTANTE: Responda APENAS com um JSON válido, sem markdown, sem backticks, sem texto antes ou depois do JSON.
 
-1. **Arquétipos Principais**: Descreva os 3 arquétipos do usuário (primário, secundário e terciário), suas características e como se aplicam ao negócio.
+O JSON deve seguir EXATAMENTE esta estrutura:
 
-2. **Identidade Visual**: Sugira paleta de cores (com códigos hex), tipografia recomendada, estilo de figurino/visual para fotos e vídeos.
+{
+  "archetypes": {
+    "primary": { "name": "...", "description": "...", "application": "..." },
+    "secondary": { "name": "...", "description": "...", "application": "..." },
+    "tertiary": { "name": "...", "description": "...", "application": "..." }
+  },
+  "visual_identity": {
+    "palette": [
+      { "hex": "#...", "name": "...", "usage": "..." },
+      { "hex": "#...", "name": "...", "usage": "..." },
+      { "hex": "#...", "name": "...", "usage": "..." },
+      { "hex": "#...", "name": "...", "usage": "..." },
+      { "hex": "#...", "name": "...", "usage": "..." }
+    ],
+    "typography": { "display": "...", "body": "...", "accent": "..." },
+    "style": "..."
+  },
+  "tone_of_voice": {
+    "summary": "...",
+    "words_to_use": ["..."],
+    "words_to_avoid": ["..."],
+    "emotions_to_evoke": ["..."],
+    "communication_style": "..."
+  },
+  "storybrand": {
+    "hero": "...",
+    "guide": "...",
+    "external_problem": "...",
+    "internal_problem": "...",
+    "philosophical_problem": "...",
+    "plan": ["...", "...", "..."],
+    "cta": "...",
+    "success": "...",
+    "failure": "..."
+  },
+  "editorial": [
+    {
+      "day": 1,
+      "theme": "...",
+      "format": "reels|carrossel|stories|post",
+      "caption": "...",
+      "cta": "...",
+      "script": "..."
+    }
+  ]
+}
 
-3. **Tom de Voz**: Diretrizes de comunicação alinhadas aos arquétipos — como falar, que palavras usar, que emoções evocar.
+Regras para o campo "editorial":
+- OBRIGATORIAMENTE 7 dias (day 1 a 7)
+- Cada dia deve ter um tema diferente e relevante
+- O campo "caption" deve conter a LEGENDA COMPLETA pronta para copiar e colar no Instagram
+- O campo "script" deve conter o ROTEIRO COMPLETO para Reels (gancho de abertura, desenvolvimento, CTA final). Para outros formatos, descrever o conteúdo visual de cada slide/frame
+- O campo "cta" deve ser específico e acionável
+- Varie os formatos ao longo da semana
 
-4. **Estratégia StoryBrand**: Aplique o framework completo:
-   - O Herói (cliente)
-   - O Guia (marca)
-   - O Problema (externo, interno, filosófico)
-   - O Plano (etapas claras)
-   - A Chamada para Ação
-   - O Sucesso (transformação)
-   - O Fracasso (o que acontece se não agir)
-
-5. **Linha Editorial de 7 Dias**: Para cada dia, forneça:
-   - Tema do conteúdo
-   - Formato (reels, carrossel, stories, post estático)
-   - Legenda sugerida
-   - CTA específico
+Regras para "visual_identity.palette":
+- EXATAMENTE 5 cores
+- Cada cor deve ter hex válido, nome descritivo em português e uso recomendado (ex: "Cor de fundo principal", "Cor de destaque para CTAs", "Cor de texto secundário")
 
 Responda APENAS em português brasileiro. Seja específico, prático e personalizado.`;
 
@@ -69,7 +109,7 @@ Arquétipos principais:
 - Secundário: ${archetypes.secondary?.name} (pontuação: ${archetypes.secondary?.score}/30)
 - Terciário: ${archetypes.tertiary?.name} (pontuação: ${archetypes.tertiary?.score}/30)
 
-Gere o relatório completo agora.`;
+Gere o relatório completo em JSON agora.`;
 
     const response = await fetch(API_URL, {
       method: "POST",
@@ -83,7 +123,7 @@ Gere o relatório completo agora.`;
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
-        max_tokens: 4000,
+        max_tokens: 8000,
       }),
     });
 
@@ -103,7 +143,17 @@ Gere o relatório completo agora.`;
     }
 
     const data = await response.json();
-    const reportContent = data.choices?.[0]?.message?.content || "Erro ao gerar relatório";
+    const rawContent = data.choices?.[0]?.message?.content || "";
+
+    // Try to parse as JSON, fallback to raw string
+    let reportContent: any;
+    try {
+      // Remove possible markdown code fences
+      const cleaned = rawContent.replace(/^```json?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
+      reportContent = JSON.parse(cleaned);
+    } catch {
+      reportContent = rawContent;
+    }
 
     return new Response(JSON.stringify({ report: reportContent }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
