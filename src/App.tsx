@@ -14,6 +14,7 @@ import ArchetypeQuestionnaire from "./pages/ArchetypeQuestionnaire";
 import Results from "./pages/Results";
 import Report from "./pages/Report";
 import HistoryPage from "./pages/HistoryPage";
+import PostEditorPage from "./pages/PostEditorPage";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminUsers from "./pages/admin/AdminUsers";
 import NotFound from "./pages/NotFound";
@@ -37,6 +38,7 @@ const App = () => (
             <Route path="/results" element={<ProtectedRoute><Results /></ProtectedRoute>} />
             <Route path="/report" element={<ProtectedRoute><Report /></ProtectedRoute>} />
             <Route path="/history" element={<ProtectedRoute><HistoryPage /></ProtectedRoute>} />
+            <Route path="/post-editor" element={<ProtectedRoute><PostEditorPage /></ProtectedRoute>} />
             <Route path="/admin" element={<ProtectedRoute requireAdmin><AdminDashboard /></ProtectedRoute>} />
             <Route path="/admin/users" element={<ProtectedRoute requireAdmin><AdminUsers /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,7 +12,7 @@ import { toast } from "@/hooks/use-toast";
 import {
   Loader2, Download, FileText, Sparkles, ChevronDown, Palette, Type, MessageSquare,
   Target, Calendar, Video, Image, Smartphone, ImageIcon, Crown, Shield, Heart,
-  Users, Zap, BookOpen, Eye, Compass, Star, Megaphone
+  Users, Zap, BookOpen, Eye, Compass, Star, Megaphone, PenTool
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -43,6 +44,7 @@ function getContrastColor(hex: string): string {
 }
 
 const Report = () => {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [report, setReport] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -464,6 +466,16 @@ const Report = () => {
                                   </div>
                                 </CollapsibleContent>
                               </Collapsible>
+                            )}
+                            {(day.format?.toLowerCase() === "carrossel" || day.format?.toLowerCase() === "post") && day.card_copy?.length > 0 && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="w-full gap-2 mt-2"
+                                onClick={() => navigate(`/post-editor?week=${wi}&day=${di}`)}
+                              >
+                                <PenTool className="h-3 w-3" /> Criar Post Visual
+                              </Button>
                             )}
                           </CardContent>
                         </Card>
