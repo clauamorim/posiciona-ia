@@ -1,95 +1,73 @@
 
 
-# Melhorias no Relatório + Preparação para Créditos e Funcionalidades Futuras
+# Correções: PDF + Copy de Cards no Editorial
 
-## Resumo
+## Problemas identificados
 
-Implementar 5 frentes: (1) prompt da IA com 7 dias completos + copy + roteiros de Reels, (2) visual do relatório estilo slides/Canva, (3) paleta de cores visual com swatches, (4) geração de semanas adicionais, (5) tabela de créditos preparada para o futuro.
+1. **PDF não funciona**: O `import("jspdf")` dinâmico pode falhar silenciosamente porque o jsPDF v4 usa export nomeado, não default. A linha `const { default: jsPDF } = await import("jspdf")` pode retornar `undefined`.
+
+2. **Copy de cards ausente**: O prompt da IA pede apenas `caption` (legenda) e `script` (roteiro de Reels), mas não pede a **copy individual de cada slide do carrossel** nem o **texto do card de posts únicos**. O frontend também não renderiza esse campo.
 
 ---
 
-## 1. Banco de dados — preparar para créditos e semanas extras
+## Correções
 
-**Migração SQL:**
-- Adicionar coluna `editorial_weeks jsonb default '[]'` na tabela `reports` para armazenar semanas adicionais
-- Criar tabela `user_credits` com: `user_id`, `balance` (integer, default 1 — o relatório inicial é gratuito), `created_at`, `updated_at`
-- RLS: usuário lê/atualiza próprios créditos; admin lê/atualiza todos
-- Cada geração de +7 dias consome 1 crédito; a primeira semana (do relatório) é incluída sem custo
+### 1. PDF — corrigir import e adicionar try/catch
 
-Essa tabela ficará pronta para quando o sistema de pagamento for implementado. Por agora, todo usuário começa com 1 crédito gratuito para testar a geração extra.
+**Arquivo:** `src/pages/Report.tsx`
 
-## 2. Prompt da IA — relatório completo com JSON estruturado
+- Corrigir o import dinâmico do jsPDF para funcionar com v4: `const jsPDF = (await import("jspdf")).jsPDF`
+- Envolver em try/catch com toast de erro para o usuário saber se falhar
+- Incluir o novo campo `card_copy` no PDF quando presente
+
+### 2. Prompt da IA — adicionar campo `card_copy`
 
 **Arquivo:** `supabase/functions/generate-report/index.ts`
 
-- Aumentar `max_tokens` para 8000
-- Reescrever o `systemPrompt` para pedir resposta em **JSON estruturado** com seções:
-  - `archetypes` — descrição dos 3 arquétipos aplicados ao negócio
-  - `visual_identity` — paleta de 5 cores (hex + nome + uso), tipografia, estilo/figurino
-  - `tone_of_voice` — diretrizes de comunicação
-  - `storybrand` — herói, guia, problema (externo/interno/filosófico), plano, CTA, sucesso, fracasso
-  - `editorial` — array de 7 objetos, cada um com: dia, tema, formato, legenda/copy completa, CTA, e roteiro completo para Reels
-- Parse JSON no edge function antes de retornar; fallback para texto se falhar
+- Adicionar campo `card_copy` ao schema JSON do editorial:
+  ```json
+  {
+    "day": 1,
+    "theme": "...",
+    "format": "carrossel",
+    "caption": "legenda completa",
+    "card_copy": ["Slide 1: texto...", "Slide 2: texto...", "Slide 3: texto..."],
+    "cta": "...",
+    "script": "..."
+  }
+  ```
+- Instruir a IA: para carrosséis, `card_copy` é um array com o texto de cada slide; para posts únicos, `card_copy` é um array com 1 item (o texto do card); para Reels/Stories, pode ser vazio
+- Manter `caption` como a legenda do Instagram e `card_copy` como o conteúdo visual dos slides
 
-## 3. Nova edge function — gerar semanas adicionais
+### 3. Frontend — renderizar `card_copy` nos cards editoriais
+
+**Arquivo:** `src/pages/Report.tsx`
+
+- Na seção editorial, após a legenda, se `day.card_copy` existir e tiver itens, renderizar uma lista numerada com o texto de cada slide/card
+- Estilizar com badges "Slide 1", "Slide 2" etc. para carrosséis
+- Para posts únicos, mostrar como "Copy do Post"
+
+### 4. Edge function de semanas extras — mesmo campo
 
 **Arquivo:** `supabase/functions/generate-content-week/index.ts`
 
-- Recebe: dados do negócio, arquétipos, e conteúdos anteriores (para não repetir)
-- Verifica créditos do usuário antes de gerar (consulta `user_credits`)
-- Debita 1 crédito após geração bem-sucedida
-- Retorna 7 novos dias no mesmo formato JSON
-- O frontend salva no campo `editorial_weeks` da tabela `reports`
-
-## 4. Visual do relatório estilo Canva/slides
-
-**Arquivo:** `src/pages/Report.tsx` (reescrita completa)
-
-Seções visuais com fundo alternado, simulando slides:
-
-- **Arquétipos**: 3 cards com gradiente da cor do arquétipo, badge de classificação, descrição
-- **Paleta de Cores**: 5 blocos coloridos estilo Coolors — retângulo com a cor de fundo, hex e nome sobrepostos, uso recomendado abaixo
-- **Tipografia e Estilo**: card com sugestões visuais
-- **Tom de Voz**: card formatado com ícone
-- **StoryBrand**: 7 cards individuais (Herói, Guia, Problema, Plano, CTA, Sucesso, Fracasso)
-- **Linha Editorial**: grid de 7 cards por semana, cada um com:
-  - Badge do formato (Reels, Carrossel, Stories, Post)
-  - Tema em destaque
-  - Copy/legenda completa
-  - CTA
-  - Seção expansível com roteiro do Reel (quando aplicável)
-- **Abas "Semana 1", "Semana 2"...** para semanas adicionais
-- **Botão "Gerar +7 dias"** — verifica créditos, mostra saldo, gera ou avisa que precisa comprar
-
-## 5. Atualizar Results.tsx
-
-- Parsear a resposta JSON da IA e salvar como objeto (não string) no campo `content`
-- Tratar erro de parse com fallback
-
-## 6. PDF atualizado
-
-- Headers coloridos por seção
-- Swatches de cor representados como blocos
-- Editorial em formato de tabela organizada
+- Adicionar `card_copy` ao schema pedido no prompt, mesma lógica
 
 ---
 
-## Arquivos a criar/editar
+## Arquivos a editar
 
-| Arquivo | Ação |
-|---------|------|
-| Migração SQL | `editorial_weeks` em reports + tabela `user_credits` |
-| `supabase/functions/generate-report/index.ts` | Reescrever prompt, pedir JSON, 8000 tokens |
-| `supabase/functions/generate-content-week/index.ts` | Nova função para semanas extras com verificação de créditos |
-| `src/pages/Report.tsx` | Reescrita completa — visual slides/Canva |
-| `src/pages/Results.tsx` | Parse JSON da resposta da IA |
+| Arquivo | Mudança |
+|---------|---------|
+| `src/pages/Report.tsx` | Fix import jsPDF + renderizar `card_copy` + incluir no PDF |
+| `supabase/functions/generate-report/index.ts` | Adicionar `card_copy` ao schema do prompt |
+| `supabase/functions/generate-content-week/index.ts` | Adicionar `card_copy` ao schema do prompt |
 
 ---
 
 ## Detalhes técnicos
 
-- A tabela `user_credits` é criada agora mas só será alimentada por pagamento em versão futura. Por enquanto, o trigger `handle_new_user` será atualizado para inserir 1 crédito inicial.
-- A coluna `content` (jsonb) já suporta objetos; o novo formato será o JSON estruturado descrito acima.
-- O campo `editorial_weeks` será um array JSON de arrays de 7 dias.
-- O botão "Gerar +7 dias" mostrará o saldo de créditos e desabilitará se saldo = 0, com mensagem "Adquira mais créditos" (link futuro para landing page).
+- O jsPDF v4 exporta a classe como `export { jsPDF }`, não como default. O import correto é `(await import("jspdf")).jsPDF`.
+- O campo `card_copy` é opcional no JSON — Reels e Stories podem não ter. O frontend faz check `day.card_copy?.length > 0`.
+- Relatórios já gerados sem `card_copy` continuam funcionando (graceful fallback).
 
