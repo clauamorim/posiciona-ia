@@ -1,27 +1,19 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import {
-  Loader2, Download, FileText, Sparkles, ChevronDown, Palette, Type, MessageSquare,
-  Target, Calendar, Video, Image, Smartphone, ImageIcon, Crown, Shield, Heart,
-  Users, Zap, BookOpen, Eye, Compass, Star, Megaphone, PenTool
+  Loader2, Download, FileText, Palette, Type, MessageSquare,
+  Target, Crown, Shield, Heart,
+  Users, Zap, BookOpen, Compass, Star, Megaphone
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
-const FORMAT_CONFIG: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
-  reels: { label: "Reels", icon: <Video className="h-3 w-3" />, color: "bg-pink-500/10 text-pink-600 border-pink-200" },
-  carrossel: { label: "Carrossel", icon: <Image className="h-3 w-3" />, color: "bg-blue-500/10 text-blue-600 border-blue-200" },
-  stories: { label: "Stories", icon: <Smartphone className="h-3 w-3" />, color: "bg-amber-500/10 text-amber-600 border-amber-200" },
-  post: { label: "Post", icon: <ImageIcon className="h-3 w-3" />, color: "bg-emerald-500/10 text-emerald-600 border-emerald-200" },
-};
+// FORMAT_CONFIG removed — moved to EditorialPage
 
 const STORYBRAND_ITEMS = [
   { key: "hero", label: "O Herói (Cliente)", icon: <Users className="h-5 w-5" /> },
@@ -44,23 +36,17 @@ function getContrastColor(hex: string): string {
 }
 
 const Report = () => {
-  const navigate = useNavigate();
   const { user } = useAuth();
   const [report, setReport] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [credits, setCredits] = useState(0);
-  const [generatingWeek, setGeneratingWeek] = useState(false);
 
   useEffect(() => {
     if (!user) return;
-    Promise.all([
-      supabase.from("reports").select("*").eq("user_id", user.id).order("version", { ascending: false }).limit(1).single(),
-      supabase.from("user_credits").select("balance").eq("user_id", user.id).single(),
-    ]).then(([reportRes, creditsRes]) => {
-      setReport(reportRes.data);
-      setCredits(creditsRes.data?.balance ?? 0);
-      setLoading(false);
-    });
+    supabase.from("reports").select("*").eq("user_id", user.id).order("version", { ascending: false }).limit(1).single()
+      .then(({ data }) => {
+        setReport(data);
+        setLoading(false);
+      });
   }, [user]);
 
   const content = report?.content;
