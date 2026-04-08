@@ -6,11 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { ChevronLeft, ChevronRight, Save, Sparkles, Loader2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Save, Sparkles, Loader2, Lock, AlertTriangle } from "lucide-react";
 
 const fields = [
   { key: "company_name", label: "Nome da empresa ou negócio", type: "input", placeholder: "Ex: Studio Bella" },
@@ -27,6 +28,8 @@ const fields = [
   { key: "promised_transformations", label: "Conquistas ou transformações prometidas", type: "textarea", placeholder: "Como a vida do cliente muda após seu serviço?" },
 ];
 
+type QStatus = "draft" | "submitted" | "locked";
+
 const BusinessQuestionnaire = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -35,7 +38,12 @@ const BusinessQuestionnaire = () => {
   const [saving, setSaving] = useState(false);
   const [existingId, setExistingId] = useState<string | null>(null);
   const [isComplete, setIsComplete] = useState(false);
+  const [status, setStatus] = useState<QStatus>("draft");
   const [generatingStoryBrand, setGeneratingStoryBrand] = useState(false);
+
+  const isLocked = status === "locked";
+  const isSubmitted = status === "submitted";
+  const isEditable = status === "draft";
 
   useEffect(() => {
     if (!user) return;
@@ -45,10 +53,11 @@ const BusinessQuestionnaire = () => {
       .eq("user_id", user.id)
       .order("version", { ascending: false })
       .limit(1)
-    .then(({ data }) => {
+      .then(({ data }) => {
         if (data?.[0]) {
           setExistingId(data[0].id);
           setIsComplete(data[0].is_complete || false);
+          setStatus((data[0].status as QStatus) || "draft");
           const existing: Record<string, string> = {};
           fields.forEach(f => { existing[f.key] = (data[0] as any)[f.key] || ""; });
           setAnswers(existing);
@@ -57,12 +66,14 @@ const BusinessQuestionnaire = () => {
   }, [user]);
 
   const save = useCallback(async (complete = false) => {
-    if (!user) return;
+    if (!user || isLocked) return;
     setSaving(true);
+    const newStatus = complete ? "submitted" : "draft";
     const payload = {
       user_id: user.id,
       ...answers,
       is_complete: complete,
+      status: newStatus,
     };
     if (existingId) {
       await supabase.from("business_questionnaires").update(payload).eq("id", existingId);
@@ -71,10 +82,13 @@ const BusinessQuestionnaire = () => {
       if (data) setExistingId(data.id);
     }
     setSaving(false);
-    if (complete) setIsComplete(true);
-    toast({ title: complete ? "Questionário completo!" : "Salvo automaticamente" });
+    if (complete) {
+      setIsComplete(true);
+      setStatus("submitted");
+    }
+    toast({ title: complete ? "Questionário enviado!" : "Salvo automaticamente" });
     if (complete) navigate("/archetype-questionnaire");
-  }, [user, answers, existingId, navigate]);
+  }, [user, answers, existingId, navigate, isLocked]);
 
   const handleGenerateStoryBrand = async () => {
     if (!user) return;
@@ -97,11 +111,7 @@ const BusinessQuestionnaire = () => {
       }, { onConflict: "user_id,version" });
 
       const { data, error } = await supabase.functions.invoke("generate-report", {
-        body: {
-          business: bq,
-          niche: profile?.niche || "",
-          archetypes,
-        },
+        body: { business: bq, niche: profile?.niche || "", archetypes },
       });
 
       if (error) throw error;
@@ -110,6 +120,12 @@ const BusinessQuestionnaire = () => {
         content: data.report,
         status: "completed",
       }).eq("user_id", user.id).eq("version", 1);
+
+      // Lock questionnaire after successful generation
+      if (existingId) {
+        await supabase.from("business_questionnaires").update({ status: "locked" }).eq("id", existingId);
+        setStatus("locked");
+      }
 
       toast({ title: "StoryBrand gerado com sucesso!" });
       navigate("/storybrand");
@@ -130,10 +146,39 @@ const BusinessQuestionnaire = () => {
   return (
     <DashboardLayout>
       <div className="max-w-2xl mx-auto space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold font-display">Questionário do Negócio</h1>
-          <p className="text-muted-foreground text-sm mt-1">Pergunta {step + 1} de {fields.length}</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold font-display">Questionário do Negócio</h1>
+            <p className="text-muted-foreground text-sm mt-1">Pergunta {step + 1} de {fields.length}</p>
+          </div>
+          <Badge
+            variant="outline"
+            className={
+              isLocked
+                ? "bg-red-500/10 text-red-600 border-red-200"
+                : isSubmitted
+                  ? "bg-amber-500/10 text-amber-600 border-amber-200"
+                  : "bg-green-500/10 text-green-600 border-green-200"
+            }
+          >
+            {isLocked && <Lock className="h-3 w-3 mr-1" />}
+            {isLocked ? "Bloqueado" : isSubmitted ? "Enviado" : "Rascunho"}
+          </Badge>
         </div>
+
+        {isLocked && (
+          <Card className="border-red-200 bg-red-500/5">
+            <CardContent className="pt-4 pb-4 flex items-center gap-3">
+              <Lock className="h-5 w-5 text-red-500 flex-shrink-0" />
+              <div>
+                <p className="text-sm font-medium">Questionário bloqueado</p>
+                <p className="text-xs text-muted-foreground">
+                  Este questionário foi bloqueado após a geração do StoryBrand. Contate o administrador para desbloquear.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <Progress value={progress} className="h-2" />
 
@@ -148,6 +193,7 @@ const BusinessQuestionnaire = () => {
                 value={answers[field.key] || ""}
                 onChange={e => setAnswers(prev => ({ ...prev, [field.key]: e.target.value }))}
                 placeholder={field.placeholder}
+                disabled={isLocked}
               />
             ) : (
               <Textarea
@@ -155,23 +201,28 @@ const BusinessQuestionnaire = () => {
                 onChange={e => setAnswers(prev => ({ ...prev, [field.key]: e.target.value }))}
                 placeholder={field.placeholder}
                 rows={4}
+                disabled={isLocked}
               />
             )}
             <div className="flex justify-between pt-2">
               <Button variant="outline" onClick={() => setStep(s => s - 1)} disabled={step === 0}>
                 <ChevronLeft className="h-4 w-4 mr-1" /> Anterior
               </Button>
-              <Button variant="ghost" size="sm" onClick={() => save(false)} disabled={saving}>
-                <Save className="h-4 w-4 mr-1" /> {saving ? "Salvando..." : "Salvar"}
-              </Button>
+              {isEditable && (
+                <Button variant="ghost" size="sm" onClick={() => save(false)} disabled={saving}>
+                  <Save className="h-4 w-4 mr-1" /> {saving ? "Salvando..." : "Salvar"}
+                </Button>
+              )}
               {step < fields.length - 1 ? (
-                <Button onClick={() => { save(false); setStep(s => s + 1); }}>
+                <Button onClick={() => { if (isEditable) save(false); setStep(s => s + 1); }}>
                   Próximo <ChevronRight className="h-4 w-4 ml-1" />
                 </Button>
-              ) : (
+              ) : isEditable ? (
                 <Button onClick={() => save(true)} disabled={!allFilled}>
                   Finalizar ✓
                 </Button>
+              ) : (
+                <div />
               )}
             </div>
           </CardContent>
@@ -186,7 +237,7 @@ const BusinessQuestionnaire = () => {
                 i === step
                   ? "bg-primary text-primary-foreground"
                   : (answers[f.key] || "").trim()
-                    ? "bg-success/10 text-success border border-success/20"
+                    ? "bg-green-500/10 text-green-600 border border-green-200"
                     : "bg-muted text-muted-foreground"
               }`}
             >
@@ -195,7 +246,7 @@ const BusinessQuestionnaire = () => {
           ))}
         </div>
 
-        {isComplete && (
+        {isComplete && !isLocked && (
           <Card className="border-primary/30 bg-primary/5">
             <CardContent className="pt-6 flex flex-col items-center gap-3">
               <p className="text-sm text-muted-foreground">Questionário completo! Gere sua análise StoryBrand.</p>
@@ -203,6 +254,9 @@ const BusinessQuestionnaire = () => {
                 {generatingStoryBrand ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
                 {generatingStoryBrand ? "Gerando StoryBrand..." : "Gerar StoryBrand"}
               </Button>
+              <p className="text-xs text-muted-foreground flex items-center gap-1">
+                <AlertTriangle className="h-3 w-3" /> Após gerar, o questionário será bloqueado para edição.
+              </p>
             </CardContent>
           </Card>
         )}
