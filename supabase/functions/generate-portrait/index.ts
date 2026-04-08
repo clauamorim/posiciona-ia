@@ -92,24 +92,24 @@ serve(async (req) => {
       });
     }
 
-    // Distribute 5 generations across available selfies
+    // All selfies are sent as reference for each portrait generation
+    // More selfies = better understanding of the person's features
     const TOTAL = 5;
-    const selfieForIndex: number[] = [];
-    for (let i = 0; i < TOTAL; i++) {
-      selfieForIndex.push(i % selfies.length);
-    }
+
+    // Build reference images array from all selfies
+    const referenceImages = selfies.map((s: string) => ({
+      type: "image_url" as const,
+      image_url: { url: s.startsWith("data:") ? s : `data:image/jpeg;base64,${s}` },
+    }));
 
     const portraits: string[] = [];
     for (let i = 0; i < TOTAL; i++) {
-      const selfieBase64 = selfies[selfieForIndex[i]];
-      const imageUrl = selfieBase64.startsWith("data:")
-        ? selfieBase64
-        : `data:image/jpeg;base64,${selfieBase64}`;
-
       const variationStyle = STYLE_VARIATIONS[i];
 
-      const prompt = `Transform this selfie into a professional brand portrait photo.
-IMPORTANT: Maintain the person's facial features, likeness, and identity exactly as they are.
+      const refCount = selfies.length > 1 ? ` I'm providing ${selfies.length} reference photos of the same person from different angles to help you accurately capture their features.` : "";
+
+      const prompt = `Transform these reference selfie(s) into a professional brand portrait photo.${refCount}
+IMPORTANT: Maintain the person's facial features, likeness, and identity exactly as they are. Use all provided photos as reference to better understand the person's face from multiple angles.
 Style variation: ${variationStyle}
 Apply the following brand visual identity:
 - Brand archetypes: ${archetypeNames}
@@ -133,7 +133,13 @@ Do NOT add text or watermarks.`;
               role: "user",
               content: [
                 { type: "text", text: prompt },
-                { type: "image_url", image_url: { url: imageUrl } },
+                ...referenceImages,
+              ],
+            },
+          ],
+          modalities: ["image", "text"],
+        }),
+      });
               ],
             },
           ],
