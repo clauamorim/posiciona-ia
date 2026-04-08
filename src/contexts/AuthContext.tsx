@@ -113,11 +113,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       async (_event, session) => {
         setSession(session);
         if (session?.user) {
-          setTimeout(() => {
-            checkAdmin(session.user.id);
-            loadSubscription(session.user.id);
-            loadBalances(session.user.id);
-          }, 0);
+          await Promise.all([
+            checkAdmin(session.user.id),
+            loadSubscription(session.user.id),
+            loadBalances(session.user.id),
+          ]);
         } else {
           setIsAdmin(false);
           setSubscription(null);
@@ -127,12 +127,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     );
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
       if (session?.user) {
-        checkAdmin(session.user.id);
-        loadSubscription(session.user.id);
-        loadBalances(session.user.id);
+        await Promise.all([
+          checkAdmin(session.user.id),
+          loadSubscription(session.user.id),
+          loadBalances(session.user.id),
+        ]);
       }
       setIsLoading(false);
     });
