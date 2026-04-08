@@ -3,7 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   Sparkles, LayoutDashboard, Building2, Brain, BarChart3,
-  FileText, History, LogOut, Shield, Menu, X, Target, Calendar, Instagram
+  FileText, History, LogOut, Shield, Menu, X, Target, Calendar, Instagram, Camera
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -17,6 +17,7 @@ const userNav = [
   { label: "Análises", href: "/report", icon: FileText },
   { label: "Linha Editorial", href: "/editorial", icon: Calendar },
   { label: "Análise do Instagram", href: "/instagram-analysis", icon: Instagram },
+  { label: "Retratos de Marca", href: "/portraits", icon: Camera },
   { label: "Histórico", href: "/history", icon: History },
 ];
 
