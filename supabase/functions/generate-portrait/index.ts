@@ -140,12 +140,6 @@ Do NOT add text or watermarks.`;
           modalities: ["image", "text"],
         }),
       });
-              ],
-            },
-          ],
-          modalities: ["image", "text"],
-        }),
-      });
 
       if (!response.ok) {
         const status = response.status;
