@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useRef, useState } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -50,21 +50,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
   const [subscription, setSubscription] = useState<UserSubscription | null>(null);
   const [balances, setBalances] = useState<UserBalances | null>(null);
+  const authRequestRef = useRef(0);
+  const initialSessionResolvedRef = useRef(false);
 
-  const checkAdmin = async (userId: string) => {
+  const resetAuthState = () => {
+    setSession(null);
+    setIsAdmin(false);
+    setSubscription(null);
+    setBalances(null);
+  };
+
+  const checkAdmin = async (userId: string, requestId: number) => {
     try {
       const { data } = await supabase.rpc("has_role", {
         _user_id: userId,
         _role: "admin",
       });
+      if (authRequestRef.current !== requestId) return;
       setIsAdmin(!!data);
     } catch (e) {
       console.error("checkAdmin error:", e);
+      if (authRequestRef.current !== requestId) return;
       setIsAdmin(false);
     }
   };
 
-  const loadSubscription = async (userId: string) => {
+  const loadSubscription = async (userId: string, requestId: number) => {
     try {
       const { data: sub } = await supabase
         .from("subscriptions")
@@ -75,12 +86,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .limit(1)
         .maybeSingle();
 
+      if (authRequestRef.current !== requestId) return;
+
       if (sub) {
         const { data: plan } = await supabase
           .from("plans")
           .select("slug, name")
           .eq("id", sub.plan_id)
           .single();
+
+        if (authRequestRef.current !== requestId) return;
 
         setSubscription({
           plan_id: sub.plan_id,
@@ -97,7 +112,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const loadBalances = async (userId: string) => {
+  const loadBalances = async (userId: string, requestId: number) => {
     try {
       const { data } = await supabase
         .from("user_balances")
@@ -105,70 +120,80 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .eq("user_id", userId)
         .maybeSingle();
 
+      if (authRequestRef.current !== requestId) return;
       setBalances(data || null);
     } catch (e) {
       console.error("loadBalances error:", e);
     }
   };
 
-  const loadUserData = async (userId: string) => {
+  const loadUserData = async (userId: string, requestId: number) => {
     await Promise.all([
-      checkAdmin(userId),
-      loadSubscription(userId),
-      loadBalances(userId),
+      checkAdmin(userId, requestId),
+      loadSubscription(userId, requestId),
+      loadBalances(userId, requestId),
     ]);
+  };
+
+  const applyAuthenticatedSession = async (nextSession: Session) => {
+    const requestId = ++authRequestRef.current;
+    setSession(nextSession);
+    await loadUserData(nextSession.user.id, requestId);
+
+    if (authRequestRef.current !== requestId) return;
+    initialSessionResolvedRef.current = true;
+    setIsLoading(false);
+  };
+
+  const applySignedOutState = () => {
+    authRequestRef.current += 1;
+    resetAuthState();
+    initialSessionResolvedRef.current = true;
+    setIsLoading(false);
   };
 
   const refreshSubscription = async () => {
     const userId = session?.user?.id;
     if (!userId) return;
-    await Promise.all([loadSubscription(userId), loadBalances(userId)]);
+    const requestId = authRequestRef.current;
+    await Promise.all([loadSubscription(userId, requestId), loadBalances(userId, requestId)]);
   };
 
   useEffect(() => {
     let mounted = true;
 
     const { data: { subscription: authSub } } = supabase.auth.onAuthStateChange(
-      async (event, newSession) => {
+      (event, newSession) => {
         if (!mounted) return;
 
         if (event === "SIGNED_OUT") {
-          setSession(null);
-          setIsAdmin(false);
-          setSubscription(null);
-          setBalances(null);
-          setIsLoading(false);
+          applySignedOutState();
           return;
         }
 
         if (newSession?.user) {
-          setSession(newSession);
-          await loadUserData(newSession.user.id);
-          if (mounted) setIsLoading(false);
-        } else if (event === "TOKEN_REFRESHED" || event === "INITIAL_SESSION") {
-          // If session is null on these events, try to recover
-          const { data: { session: recovered } } = await supabase.auth.getSession();
-          if (recovered?.user) {
-            setSession(recovered);
-            await loadUserData(recovered.user.id);
-          } else {
-            setSession(null);
-            setIsAdmin(false);
-            setSubscription(null);
-            setBalances(null);
-          }
-          if (mounted) setIsLoading(false);
+          void applyAuthenticatedSession(newSession);
+          return;
         }
+
+        if (!initialSessionResolvedRef.current) {
+          return;
+        }
+
+        if (event === "TOKEN_REFRESHED") return;
+
+        applySignedOutState();
       }
     );
 
-    supabase.auth.getSession().then(async ({ data: { session: initialSession } }) => {
+    void supabase.auth.getSession().then(async ({ data: { session: initialSession } }) => {
       if (!mounted) return;
-      setSession(initialSession);
+
       if (initialSession?.user) {
-        await loadUserData(initialSession.user.id);
+        await applyAuthenticatedSession(initialSession);
+      } else {
+        applySignedOutState();
       }
-      if (mounted) setIsLoading(false);
     });
 
     return () => {
