@@ -7,7 +7,8 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
-import { Instagram, Loader2, AlertTriangle, CheckCircle2, ArrowRight, Upload, X, Image } from "lucide-react";
+import { Instagram, Loader2, AlertTriangle, CheckCircle2, ArrowRight, Upload, X, Image, Download } from "lucide-react";
+import jsPDF from "jspdf";
 
 type AnalysisItem = { aspect: string; current: string; suggestion: string };
 
@@ -73,12 +74,78 @@ const InstagramAnalysis = () => {
       if (data.error) throw new Error(data.error);
 
       setAnalysis(data.analysis);
+
+      // Save analysis to DB
+      if (user && data.analysis) {
+        await supabase.from("instagram_analyses").insert({
+          user_id: user.id,
+          username: username.replace("@", "").trim() || null,
+          analysis: data.analysis,
+        });
+      }
     } catch (e: any) {
       console.error(e);
       toast({ title: "Erro na análise", description: e.message || "Tente novamente.", variant: "destructive" });
     } finally {
       setLoading(false);
     }
+  };
+
+  const downloadPDF = () => {
+    if (!analysis) return;
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 20;
+    const maxWidth = pageWidth - margin * 2;
+    let y = 20;
+
+    doc.setFontSize(18);
+    doc.text("Análise do Instagram", margin, y);
+    y += 8;
+    if (username) {
+      doc.setFontSize(12);
+      doc.text(`@${username.replace("@", "")}`, margin, y);
+      y += 8;
+    }
+    doc.setFontSize(10);
+    doc.text(new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" }), margin, y);
+    y += 12;
+
+    for (const item of analysis) {
+      if (y > 260) {
+        doc.addPage();
+        y = 20;
+      }
+
+      doc.setFontSize(13);
+      doc.setFont("helvetica", "bold");
+      doc.text(item.aspect, margin, y);
+      y += 7;
+
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.text("Situação Atual:", margin, y);
+      y += 5;
+      doc.setFont("helvetica", "normal");
+      const currentLines = doc.splitTextToSize(item.current, maxWidth);
+      doc.text(currentLines, margin, y);
+      y += currentLines.length * 5 + 4;
+
+      if (y > 260) {
+        doc.addPage();
+        y = 20;
+      }
+
+      doc.setFont("helvetica", "bold");
+      doc.text("Sugestão:", margin, y);
+      y += 5;
+      doc.setFont("helvetica", "normal");
+      const suggestionLines = doc.splitTextToSize(item.suggestion, maxWidth);
+      doc.text(suggestionLines, margin, y);
+      y += suggestionLines.length * 5 + 10;
+    }
+
+    doc.save(`analise-instagram${username ? `-${username.replace("@", "")}` : ""}.pdf`);
   };
 
   if (hasPrereqs === null) {
@@ -166,7 +233,13 @@ const InstagramAnalysis = () => {
 
         {analysis && (
           <div className="space-y-4">
-            <h2 className="text-xl font-bold font-display">Resultados da Análise</h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-bold font-display">Resultados da Análise</h2>
+              <Button variant="outline" size="sm" onClick={downloadPDF} className="gap-2">
+                <Download className="h-4 w-4" />
+                Baixar PDF
+              </Button>
+            </div>
             <div className="grid gap-4 md:grid-cols-2">
               {analysis.map((item, i) => (
                 <Card key={i}>

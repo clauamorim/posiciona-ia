@@ -52,54 +52,71 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [balances, setBalances] = useState<UserBalances | null>(null);
 
   const checkAdmin = async (userId: string) => {
-    const { data } = await supabase.rpc("has_role", {
-      _user_id: userId,
-      _role: "admin",
-    });
-    setIsAdmin(!!data);
+    try {
+      const { data } = await supabase.rpc("has_role", {
+        _user_id: userId,
+        _role: "admin",
+      });
+      setIsAdmin(!!data);
+    } catch (e) {
+      console.error("checkAdmin error:", e);
+      setIsAdmin(false);
+    }
   };
 
   const loadSubscription = async (userId: string) => {
-    const { data: sub } = await supabase
-      .from("subscriptions")
-      .select("plan_id, status, current_period_end")
-      .eq("user_id", userId)
-      .eq("status", "active")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    try {
+      const { data: sub } = await supabase
+        .from("subscriptions")
+        .select("plan_id, status, current_period_end")
+        .eq("user_id", userId)
+        .eq("status", "active")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-    if (sub) {
-      const { data: plan } = await supabase
-        .from("plans")
-        .select("slug, name")
-        .eq("id", sub.plan_id)
-        .single();
+      if (sub) {
+        const { data: plan } = await supabase
+          .from("plans")
+          .select("slug, name")
+          .eq("id", sub.plan_id)
+          .single();
 
-      setSubscription({
-        plan_id: sub.plan_id,
-        plan_slug: plan?.slug || "",
-        plan_name: plan?.name || "",
-        status: sub.status,
-        current_period_end: sub.current_period_end,
-      });
-    } else {
-      setSubscription(null);
+        setSubscription({
+          plan_id: sub.plan_id,
+          plan_slug: plan?.slug || "",
+          plan_name: plan?.name || "",
+          status: sub.status,
+          current_period_end: sub.current_period_end,
+        });
+      } else {
+        setSubscription(null);
+      }
+    } catch (e) {
+      console.error("loadSubscription error:", e);
     }
   };
 
   const loadBalances = async (userId: string) => {
-    const { data } = await supabase
-      .from("user_balances")
-      .select("weekly_cycles, reanalysis_credits, portrait_credits_included, portrait_credits_extra, regeneration_credits")
-      .eq("user_id", userId)
-      .maybeSingle();
+    try {
+      const { data } = await supabase
+        .from("user_balances")
+        .select("weekly_cycles, reanalysis_credits, portrait_credits_included, portrait_credits_extra, regeneration_credits")
+        .eq("user_id", userId)
+        .maybeSingle();
 
-    if (data) {
-      setBalances(data);
-    } else {
-      setBalances(null);
+      setBalances(data || null);
+    } catch (e) {
+      console.error("loadBalances error:", e);
     }
+  };
+
+  const loadUserData = async (userId: string) => {
+    await Promise.all([
+      checkAdmin(userId),
+      loadSubscription(userId),
+      loadBalances(userId),
+    ]);
   };
 
   const refreshSubscription = async () => {
@@ -109,37 +126,55 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
+    let mounted = true;
+
     const { data: { subscription: authSub } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        setSession(session);
-        if (session?.user) {
-          await Promise.all([
-            checkAdmin(session.user.id),
-            loadSubscription(session.user.id),
-            loadBalances(session.user.id),
-          ]);
-        } else {
+      async (event, newSession) => {
+        if (!mounted) return;
+
+        if (event === "SIGNED_OUT") {
+          setSession(null);
           setIsAdmin(false);
           setSubscription(null);
           setBalances(null);
+          setIsLoading(false);
+          return;
         }
-        setIsLoading(false);
+
+        if (newSession?.user) {
+          setSession(newSession);
+          await loadUserData(newSession.user.id);
+          if (mounted) setIsLoading(false);
+        } else if (event === "TOKEN_REFRESHED" || event === "INITIAL_SESSION") {
+          // If session is null on these events, try to recover
+          const { data: { session: recovered } } = await supabase.auth.getSession();
+          if (recovered?.user) {
+            setSession(recovered);
+            await loadUserData(recovered.user.id);
+          } else {
+            setSession(null);
+            setIsAdmin(false);
+            setSubscription(null);
+            setBalances(null);
+          }
+          if (mounted) setIsLoading(false);
+        }
       }
     );
 
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      setSession(session);
-      if (session?.user) {
-        await Promise.all([
-          checkAdmin(session.user.id),
-          loadSubscription(session.user.id),
-          loadBalances(session.user.id),
-        ]);
+    supabase.auth.getSession().then(async ({ data: { session: initialSession } }) => {
+      if (!mounted) return;
+      setSession(initialSession);
+      if (initialSession?.user) {
+        await loadUserData(initialSession.user.id);
       }
-      setIsLoading(false);
+      if (mounted) setIsLoading(false);
     });
 
-    return () => authSub.unsubscribe();
+    return () => {
+      mounted = false;
+      authSub.unsubscribe();
+    };
   }, []);
 
   const signOut = async () => {

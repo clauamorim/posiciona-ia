@@ -3,26 +3,38 @@ import { DashboardLayout } from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
-import { Upload, X, Download, Loader2, ImageIcon, PackageOpen } from "lucide-react";
+import { Upload, X, Download, Loader2, ImageIcon, PackageOpen, ShoppingCart, Camera } from "lucide-react";
 import JSZip from "jszip";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 const MAX_FILES = 5;
 const MAX_SIZE_MB = 5;
 const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
 
 const PortraitGenerator = () => {
-  const { user } = useAuth();
+  const { user, balances, refreshSubscription } = useAuth();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [selfies, setSelfies] = useState<{ file: File; preview: string; base64: string }[]>([]);
   const [portraits, setPortraits] = useState<string[]>([]);
   const [generating, setGenerating] = useState(false);
-  const [progress, setProgress] = useState({ current: 0, total: 0 });
+  const [progress, setProgress] = useState({ current: 0, total: 1 });
+  const [packDialogOpen, setPackDialogOpen] = useState(false);
+  const [loadingPack, setLoadingPack] = useState<string | null>(null);
+
+  const totalCredits = (balances?.portrait_credits_included ?? 0) + (balances?.portrait_credits_extra ?? 0);
 
   // Check prerequisites
   const { data: archetypes } = useQuery({
@@ -52,6 +64,18 @@ const PortraitGenerator = () => {
       return data;
     },
     enabled: !!user,
+  });
+
+  const { data: packs } = useQuery({
+    queryKey: ["portrait-packs"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("portrait_packs")
+        .select("*")
+        .eq("active", true)
+        .order("credits", { ascending: true });
+      return data || [];
+    },
   });
 
   const hasPrerequisites = (archetypes?.length ?? 0) > 0 && !!report;
@@ -100,9 +124,16 @@ const PortraitGenerator = () => {
 
   const handleGenerate = async () => {
     if (selfies.length === 0) return;
+
+    if (totalCredits <= 0) {
+      toast({ title: "Sem créditos de retrato", description: "Compre um pacote de retratos para continuar.", variant: "destructive" });
+      setPackDialogOpen(true);
+      return;
+    }
+
     setGenerating(true);
     setPortraits([]);
-    setProgress({ current: 0, total: selfies.length });
+    setProgress({ current: 0, total: 1 });
 
     try {
       const { data, error } = await supabase.functions.invoke("generate-portrait", {
@@ -110,25 +141,33 @@ const PortraitGenerator = () => {
       });
 
       if (error) throw error;
-
       if (data?.error) {
         toast({ title: "Erro", description: data.error, variant: "destructive" });
-        // Still show any partial results
-        if (data.portraits?.length) {
-          setPortraits(data.portraits.filter((p: string) => p));
+        if (data.portrait) {
+          setPortraits([data.portrait]);
         }
       } else {
-        const validPortraits = (data.portraits || []).filter((p: string) => p);
-        setPortraits(validPortraits);
-        if (validPortraits.length > 0) {
-          toast({ title: `${validPortraits.length} retrato(s) gerado(s) com sucesso!` });
+        const portrait = data.portrait;
+        if (portrait) {
+          setPortraits([portrait]);
+          toast({ title: "Retrato gerado com sucesso!" });
+
+          // Save to DB
+          await supabase.from("portrait_generations").insert({
+            user_id: user!.id,
+            portraits: [portrait],
+            style_index: data.style_index ?? null,
+          });
         } else {
           toast({ title: "Nenhum retrato foi gerado", variant: "destructive" });
         }
       }
+
+      // Refresh balances after generation
+      await refreshSubscription();
     } catch (err: any) {
       console.error("Generate error:", err);
-      toast({ title: "Erro ao gerar retratos", description: err.message, variant: "destructive" });
+      toast({ title: "Erro ao gerar retrato", description: err.message, variant: "destructive" });
     } finally {
       setGenerating(false);
       setProgress({ current: 0, total: 0 });
@@ -162,15 +201,87 @@ const PortraitGenerator = () => {
     handleFiles(e.dataTransfer.files);
   };
 
+  const handleBuyPack = async (packId: string) => {
+    setLoadingPack(packId);
+    try {
+      const { data, error } = await supabase.functions.invoke("portrait-pack-checkout", {
+        body: { pack_id: packId },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      if (data?.url) {
+        window.location.href = data.url;
+      }
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    }
+    setLoadingPack(null);
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold font-display text-foreground">Retratos de Marca</h1>
-          <p className="text-muted-foreground mt-1">
-            Faça upload de selfies e gere retratos profissionais alinhados à sua identidade de marca.
-          </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold font-display text-foreground">Retratos de Marca</h1>
+            <p className="text-muted-foreground mt-1">
+              Faça upload de selfies e gere retratos profissionais alinhados à sua identidade de marca.
+            </p>
+          </div>
+          <Dialog open={packDialogOpen} onOpenChange={setPackDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="gap-2">
+                <ShoppingCart className="h-4 w-4" />
+                Comprar Retratos
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Pacotes de Retrato</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-3">
+                {(packs || []).map((pack: any) => (
+                  <Card key={pack.id} className="border-border/50">
+                    <CardContent className="flex items-center justify-between py-4">
+                      <div>
+                        <p className="font-semibold">{pack.name}</p>
+                        <p className="text-sm text-muted-foreground">{pack.credits} retratos</p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="font-bold">R$ {(pack.price_cents / 100).toFixed(0)}</span>
+                        <Button
+                          size="sm"
+                          onClick={() => handleBuyPack(pack.id)}
+                          disabled={loadingPack === pack.id}
+                        >
+                          {loadingPack === pack.id ? <Loader2 className="h-4 w-4 animate-spin" /> : "Comprar"}
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
+
+        {/* Credit info */}
+        <Card className="border-primary/20 bg-primary/5">
+          <CardContent className="flex items-center justify-between py-4">
+            <div className="flex items-center gap-3">
+              <Camera className="h-5 w-5 text-primary" />
+              <div>
+                <p className="font-semibold">Saldo de Retratos</p>
+                <p className="text-xs text-muted-foreground">
+                  {balances?.portrait_credits_included ?? 0} inclusos no plano • {balances?.portrait_credits_extra ?? 0} extras comprados
+                </p>
+              </div>
+            </div>
+            <Badge variant={totalCredits > 0 ? "default" : "destructive"}>
+              {totalCredits} disponível{totalCredits !== 1 ? "is" : ""}
+            </Badge>
+          </CardContent>
+        </Card>
 
         {!hasPrerequisites && (
           <Card className="border-destructive/50 bg-destructive/5">
@@ -238,28 +349,37 @@ const PortraitGenerator = () => {
 
                 <Button
                   onClick={handleGenerate}
-                  disabled={selfies.length === 0 || generating}
+                  disabled={selfies.length === 0 || generating || totalCredits <= 0}
                   className="w-full"
                   size="lg"
                 >
                   {generating ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      Gerando retrato {progress.current} de 5...
+                      Gerando retrato...
                     </>
                   ) : (
                     <>
                       <ImageIcon className="h-4 w-4" />
-                      Gerar 5 Retratos
+                      Gerar 1 Retrato (1 crédito)
                     </>
                   )}
                 </Button>
+
+                {totalCredits <= 0 && (
+                  <p className="text-sm text-center text-destructive">
+                    Você não tem créditos de retrato.{" "}
+                    <button className="underline" onClick={() => setPackDialogOpen(true)}>
+                      Compre um pacote
+                    </button>
+                  </p>
+                )}
 
                 {generating && (
                   <div className="space-y-2">
                     <Progress value={undefined} className="animate-pulse" />
                     <p className="text-xs text-center text-muted-foreground">
-                      Gerando 5 retratos com variações de estilo... Isso pode levar alguns minutos.
+                      Gerando retrato com estilo de marca... Isso pode levar alguns segundos.
                     </p>
                   </div>
                 )}
@@ -272,7 +392,7 @@ const PortraitGenerator = () => {
                 <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle className="flex items-center gap-2">
                     <ImageIcon className="h-5 w-5" />
-                    Retratos Gerados
+                    Retrato Gerado
                   </CardTitle>
                   {portraits.length > 1 && (
                     <Button variant="outline" size="sm" onClick={downloadAll}>

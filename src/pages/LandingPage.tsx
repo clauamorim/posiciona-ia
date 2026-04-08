@@ -24,11 +24,11 @@ import {
   Zap,
   Eye,
   Layers,
-  Clock,
   Repeat,
   Loader2,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const plans = [
   {
@@ -125,14 +125,9 @@ const faqItems = [
 ];
 
 const LandingPage = () => {
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
   const navigate = useNavigate();
   const [loadingSlug, setLoadingSlug] = useState<string | null>(null);
-
-  useEffect(() => {
-    // If logged in with active plan, redirect to dashboard
-    // (will be enhanced when AuthContext has subscription info)
-  }, []);
 
   const handleCheckout = async (slug: string) => {
     if (!user) {
@@ -145,13 +140,16 @@ const LandingPage = () => {
         body: { plan_slug: slug },
       });
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
       if (data?.url) {
-        window.open(data.url, "_blank");
+        window.location.href = data.url;
+      } else {
+        throw new Error("URL de pagamento não retornada");
       }
     } catch (err: any) {
       toast({ title: "Erro ao iniciar pagamento", description: err.message, variant: "destructive" });
+      setLoadingSlug(null);
     }
-    setLoadingSlug(null);
   };
 
   return (
@@ -163,7 +161,9 @@ const LandingPage = () => {
             ArcheBrand
           </span>
           <div className="flex gap-3">
-            {user ? (
+            {isLoading ? (
+              <Skeleton className="h-9 w-24" />
+            ) : user ? (
               <Button onClick={() => navigate("/dashboard")} size="sm">Dashboard</Button>
             ) : (
               <>
