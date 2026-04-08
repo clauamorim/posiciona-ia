@@ -246,20 +246,6 @@ const BusinessQuestionnaire = () => {
           ))}
         </div>
 
-        {isComplete && !isLocked && (
-          <Card className="border-primary/30 bg-primary/5">
-            <CardContent className="pt-6 flex flex-col items-center gap-3">
-              <p className="text-sm text-muted-foreground">Questionário completo! Gere sua análise StoryBrand.</p>
-              <Button onClick={handleGenerateStoryBrand} disabled={generatingStoryBrand} className="gap-2" size="lg">
-                {generatingStoryBrand ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                {generatingStoryBrand ? "Gerando StoryBrand..." : "Gerar StoryBrand"}
-              </Button>
-              <p className="text-xs text-muted-foreground flex items-center gap-1">
-                <AlertTriangle className="h-3 w-3" /> Após gerar, o questionário será bloqueado para edição.
-              </p>
-            </CardContent>
-          </Card>
-        )}
       </div>
     </DashboardLayout>
   );
