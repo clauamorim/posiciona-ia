@@ -193,6 +193,30 @@ export type Database = {
         }
         Relationships: []
       }
+      instagram_analyses: {
+        Row: {
+          analysis: Json
+          created_at: string
+          id: string
+          user_id: string
+          username: string | null
+        }
+        Insert: {
+          analysis: Json
+          created_at?: string
+          id?: string
+          user_id: string
+          username?: string | null
+        }
+        Update: {
+          analysis?: Json
+          created_at?: string
+          id?: string
+          user_id?: string
+          username?: string | null
+        }
+        Relationships: []
+      }
       plans: {
         Row: {
           active: boolean
@@ -235,6 +259,60 @@ export type Database = {
           slug?: string
           stripe_price_id?: string | null
           weekly_cycles?: number
+        }
+        Relationships: []
+      }
+      portrait_generations: {
+        Row: {
+          created_at: string
+          id: string
+          portraits: Json
+          style_index: number | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          portraits?: Json
+          style_index?: number | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          portraits?: Json
+          style_index?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      portrait_packs: {
+        Row: {
+          active: boolean
+          created_at: string
+          credits: number
+          id: string
+          name: string
+          price_cents: number
+          stripe_price_id: string | null
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          credits: number
+          id?: string
+          name: string
+          price_cents: number
+          stripe_price_id?: string | null
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          credits?: number
+          id?: string
+          name?: string
+          price_cents?: number
+          stripe_price_id?: string | null
         }
         Relationships: []
       }
