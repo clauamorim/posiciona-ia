@@ -1,55 +1,29 @@
 
 
-# Retratos de Marca via Upload de Selfies
+# Gerar Sempre 5 Retratos (independente da qtd de selfies)
 
-## Visão geral
+## Lógica
 
-Nova página onde o usuário faz upload de 1 a 5 selfies. A IA gera retratos estilizados aplicando as características visuais do relatório (paleta de cores, estilo visual, tipografia) e a personalidade dos arquétipos (ex: "Mago" = tons místicos, "Governante" = postura autoritária, "Rebelde" = estilo ousado).
-
-## Fluxo do usuário
-
-1. Acessa "Retratos de Marca" no menu lateral
-2. Faz upload de 1-5 selfies (arrastando ou clicando)
-3. Vê preview das imagens selecionadas
-4. Clica "Gerar Retratos"
-5. A edge function busca arquétipos + identidade visual do relatório
-6. Para cada selfie, chama o modelo de edição de imagem (Gemini 3.1 Flash Image) com prompt baseado nos dados de marca
-7. Retratos gerados aparecem em grid com botão de download individual e "Baixar Todos" (ZIP)
+Atualmente: 1 selfie → 1 retrato. O usuário quer: qualquer qtd de selfies → sempre 5 retratos com variações de estilo/cenário.
 
 ## Alterações
 
-### Nova edge function: `supabase/functions/generate-portrait/index.ts`
-- Recebe `{ selfies: string[] }` (array de base64, 1-5 imagens)
-- Busca `user_top_archetypes` (top 3) e `reports.content.visual_identity` do usuário
-- Monta prompt de edição baseado em: paleta de cores, estilo visual, arquétipos dominantes
-- Para cada selfie, chama `google/gemini-3.1-flash-image-preview` (edit-image) via Lovable AI Gateway
-- Retorna array de imagens base64 geradas
-- Trata erros 429/402
+### `supabase/functions/generate-portrait/index.ts`
+- Alterar o loop: ao invés de iterar sobre cada selfie, gerar **5 retratos no total**
+- Se o usuário enviou 1 selfie, usar essa mesma selfie 5 vezes com prompts variados
+- Se enviou mais de 1, distribuir as 5 gerações entre as selfies (ex: 2 selfies → 3+2, 3 selfies → 2+2+1)
+- Criar 5 variações de prompt: "studio lighting", "outdoor natural light", "editorial magazine style", "corporate headshot", "artistic/creative portrait"
+- Retornar `{ portraits: string[] }` com 5 itens
 
-### Nova página: `src/pages/PortraitGenerator.tsx`
-- Upload múltiplo (1-5 imagens, máx 5MB cada)
-- Preview das selfies com opção de remover individualmente
-- Verificação de pré-requisitos (arquétipos + relatório completo)
-- Grid dos retratos gerados com download individual (PNG) e "Baixar Todos" (ZIP via jszip)
-- Loading state com progresso (ex: "Gerando retrato 2 de 3...")
+### `src/pages/PortraitGenerator.tsx`
+- Atualizar texto do botão para "Gerar 5 Retratos" (fixo, sem depender da qtd de selfies)
+- Atualizar mensagem de progresso: "Gerando retrato X de 5..."
+- Grid de resultados mostra sempre até 5 retratos
 
-### `src/App.tsx`
-- Adicionar rota `/portraits`
-
-### `src/components/DashboardLayout.tsx`
-- Adicionar item "Retratos de Marca" no menu lateral
-
-## Detalhes técnicos
-
-- **Modelo**: `google/gemini-3.1-flash-image-preview` — rápido e com qualidade pro para edição
-- **Prompt de edição**: construído dinamicamente a partir dos dados do usuário, ex: "Transform this selfie into a professional brand portrait. Apply a color palette of [cores]. The style should evoke [arquétipo primário] archetype: [descrição]. Maintain facial features and likeness. Style: [visual_identity.style]"
-- **Limite**: 5 selfies por vez para controlar custo/tempo
-- **ZIP**: usa `jszip` (já instalado) para download em lote
+## Arquivos alterados
 
 | Arquivo | Ação |
 |---------|------|
-| `supabase/functions/generate-portrait/index.ts` | Criar — edge function de geração |
-| `src/pages/PortraitGenerator.tsx` | Criar — página de upload e galeria |
-| `src/App.tsx` | Adicionar rota `/portraits` |
-| `src/components/DashboardLayout.tsx` | Adicionar menu item |
+| `supabase/functions/generate-portrait/index.ts` | Gerar sempre 5 retratos com variações de prompt |
+| `src/pages/PortraitGenerator.tsx` | Atualizar UI para refletir 5 retratos fixos |
 
