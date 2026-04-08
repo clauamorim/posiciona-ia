@@ -22,6 +22,7 @@ import InstagramAnalysis from "./pages/InstagramAnalysis";
 import PortraitGenerator from "./pages/PortraitGenerator";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminUsers from "./pages/admin/AdminUsers";
+import ChoosePlan from "./pages/ChoosePlan";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -38,17 +39,18 @@ const App = () => (
             <Route path="/checkout-success" element={<CheckoutSuccess />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
-            <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-            <Route path="/business-questionnaire" element={<ProtectedRoute><BusinessQuestionnaire /></ProtectedRoute>} />
-            <Route path="/archetype-questionnaire" element={<ProtectedRoute><ArchetypeQuestionnaire /></ProtectedRoute>} />
-            <Route path="/results" element={<ProtectedRoute><Results /></ProtectedRoute>} />
-            <Route path="/report" element={<ProtectedRoute><Report /></ProtectedRoute>} />
-            <Route path="/history" element={<ProtectedRoute><HistoryPage /></ProtectedRoute>} />
-            <Route path="/post-editor" element={<ProtectedRoute><PostEditorPage /></ProtectedRoute>} />
-            <Route path="/storybrand" element={<ProtectedRoute><StoryBrand /></ProtectedRoute>} />
-            <Route path="/editorial" element={<ProtectedRoute><EditorialPage /></ProtectedRoute>} />
-            <Route path="/instagram-analysis" element={<ProtectedRoute><InstagramAnalysis /></ProtectedRoute>} />
-            <Route path="/portraits" element={<ProtectedRoute><PortraitGenerator /></ProtectedRoute>} />
+            <Route path="/choose-plan" element={<ProtectedRoute><ChoosePlan /></ProtectedRoute>} />
+            <Route path="/dashboard" element={<ProtectedRoute requirePlan><Dashboard /></ProtectedRoute>} />
+            <Route path="/business-questionnaire" element={<ProtectedRoute requirePlan><BusinessQuestionnaire /></ProtectedRoute>} />
+            <Route path="/archetype-questionnaire" element={<ProtectedRoute requirePlan><ArchetypeQuestionnaire /></ProtectedRoute>} />
+            <Route path="/results" element={<ProtectedRoute requirePlan><Results /></ProtectedRoute>} />
+            <Route path="/report" element={<ProtectedRoute requirePlan><Report /></ProtectedRoute>} />
+            <Route path="/history" element={<ProtectedRoute requirePlan><HistoryPage /></ProtectedRoute>} />
+            <Route path="/post-editor" element={<ProtectedRoute requirePlan><PostEditorPage /></ProtectedRoute>} />
+            <Route path="/storybrand" element={<ProtectedRoute requirePlan><StoryBrand /></ProtectedRoute>} />
+            <Route path="/editorial" element={<ProtectedRoute requirePlan><EditorialPage /></ProtectedRoute>} />
+            <Route path="/instagram-analysis" element={<ProtectedRoute requirePlan><InstagramAnalysis /></ProtectedRoute>} />
+            <Route path="/portraits" element={<ProtectedRoute requirePlan><PortraitGenerator /></ProtectedRoute>} />
             <Route path="/admin" element={<ProtectedRoute requireAdmin><AdminDashboard /></ProtectedRoute>} />
             <Route path="/admin/users" element={<ProtectedRoute requireAdmin><AdminUsers /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
