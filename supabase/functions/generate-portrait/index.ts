@@ -92,18 +92,22 @@ serve(async (req) => {
       });
     }
 
-    // Distribute 5 generations across available selfies
+    // All selfies are sent as reference for each portrait generation
+    // More selfies = better understanding of the person's features
     const TOTAL = 5;
-    const selfieForIndex: number[] = [];
-    for (let i = 0; i < TOTAL; i++) {
-      selfieForIndex.push(i % selfies.length);
-    }
+
+    // Build reference images array from all selfies
+    const referenceImages = selfies.map((s: string) => ({
+      type: "image_url" as const,
+      image_url: { url: s.startsWith("data:") ? s : `data:image/jpeg;base64,${s}` },
+    }));
 
     const portraits: string[] = [];
     for (let i = 0; i < TOTAL; i++) {
-      const selfieBase64 = selfies[selfieForIndex[i]];
-      const imageUrl = selfieBase64.startsWith("data:")
-        ? selfieBase64
+      // Use first selfie as the primary image for transformation
+      const primarySelfie = selfies[0];
+      const imageUrl = primarySelfie.startsWith("data:")
+        ? primarySelfie
         : `data:image/jpeg;base64,${selfieBase64}`;
 
       const variationStyle = STYLE_VARIATIONS[i];
