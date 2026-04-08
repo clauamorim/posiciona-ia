@@ -116,6 +116,7 @@ export type Database = {
           negative_consequences: string | null
           promised_transformations: string | null
           services: string | null
+          status: string
           target_audience: string | null
           updated_at: string
           user_id: string
@@ -136,6 +137,7 @@ export type Database = {
           negative_consequences?: string | null
           promised_transformations?: string | null
           services?: string | null
+          status?: string
           target_audience?: string | null
           updated_at?: string
           user_id: string
@@ -156,10 +158,83 @@ export type Database = {
           negative_consequences?: string | null
           promised_transformations?: string | null
           services?: string | null
+          status?: string
           target_audience?: string | null
           updated_at?: string
           user_id?: string
           version?: number
+        }
+        Relationships: []
+      }
+      credit_logs: {
+        Row: {
+          amount: number
+          created_at: string
+          credit_type: string
+          description: string | null
+          id: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          credit_type: string
+          description?: string | null
+          id?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          credit_type?: string
+          description?: string | null
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      plans: {
+        Row: {
+          active: boolean
+          billing_type: string
+          created_at: string
+          id: string
+          name: string
+          portrait_credits: number
+          price_cents: number
+          reanalysis_credits: number
+          regeneration_credits: number
+          slug: string
+          stripe_price_id: string | null
+          weekly_cycles: number
+        }
+        Insert: {
+          active?: boolean
+          billing_type?: string
+          created_at?: string
+          id?: string
+          name: string
+          portrait_credits?: number
+          price_cents: number
+          reanalysis_credits?: number
+          regeneration_credits?: number
+          slug: string
+          stripe_price_id?: string | null
+          weekly_cycles?: number
+        }
+        Update: {
+          active?: boolean
+          billing_type?: string
+          created_at?: string
+          id?: string
+          name?: string
+          portrait_credits?: number
+          price_cents?: number
+          reanalysis_credits?: number
+          regeneration_credits?: number
+          slug?: string
+          stripe_price_id?: string | null
+          weekly_cycles?: number
         }
         Relationships: []
       }
@@ -232,6 +307,86 @@ export type Database = {
           updated_at?: string
           user_id?: string
           version?: number
+        }
+        Relationships: []
+      }
+      subscriptions: {
+        Row: {
+          created_at: string
+          current_period_end: string | null
+          current_period_start: string | null
+          id: string
+          plan_id: string
+          status: string
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          current_period_end?: string | null
+          current_period_start?: string | null
+          id?: string
+          plan_id: string
+          status?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          current_period_end?: string | null
+          current_period_start?: string | null
+          id?: string
+          plan_id?: string
+          status?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_balances: {
+        Row: {
+          id: string
+          portrait_credits_extra: number
+          portrait_credits_included: number
+          reanalysis_credits: number
+          regeneration_credits: number
+          updated_at: string
+          user_id: string
+          weekly_cycles: number
+        }
+        Insert: {
+          id?: string
+          portrait_credits_extra?: number
+          portrait_credits_included?: number
+          reanalysis_credits?: number
+          regeneration_credits?: number
+          updated_at?: string
+          user_id: string
+          weekly_cycles?: number
+        }
+        Update: {
+          id?: string
+          portrait_credits_extra?: number
+          portrait_credits_included?: number
+          reanalysis_credits?: number
+          regeneration_credits?: number
+          updated_at?: string
+          user_id?: string
+          weekly_cycles?: number
         }
         Relationships: []
       }
