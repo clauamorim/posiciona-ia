@@ -9,6 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import { Instagram, Loader2, AlertTriangle, CheckCircle2, ArrowRight, Upload, X, Image, Download } from "lucide-react";
 import jsPDF from "jspdf";
+import { compressImage } from "@/lib/imageUtils";
 
 type AnalysisItem = { aspect: string; current: string; suggestion: string };
 
@@ -46,10 +47,15 @@ const InstagramAnalysis = () => {
     }
 
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       const result = reader.result as string;
       setImagePreview(result);
-      setImageBase64(result);
+      try {
+        const compressed = await compressImage(result, 1200, 0.7);
+        setImageBase64(compressed);
+      } catch {
+        setImageBase64(result);
+      }
     };
     reader.readAsDataURL(file);
   };

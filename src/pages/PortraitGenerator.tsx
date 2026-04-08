@@ -10,6 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { Upload, X, Download, Loader2, ImageIcon, PackageOpen, ShoppingCart, Camera } from "lucide-react";
 import JSZip from "jszip";
+import { compressImage } from "@/lib/imageUtils";
 import {
   Dialog,
   DialogContent,
@@ -108,7 +109,13 @@ const PortraitGenerator = () => {
         toast({ title: `${file.name} excede ${MAX_SIZE_MB}MB`, variant: "destructive" });
         continue;
       }
-      const base64 = await fileToBase64(file);
+      const raw = await fileToBase64(file);
+      let base64: string;
+      try {
+        base64 = await compressImage(raw, 1024, 0.8);
+      } catch {
+        base64 = raw;
+      }
       newSelfies.push({ file, preview: URL.createObjectURL(file), base64 });
     }
 
