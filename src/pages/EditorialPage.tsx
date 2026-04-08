@@ -23,22 +23,26 @@ const FORMAT_CONFIG: Record<string, { label: string; icon: React.ReactNode; colo
 
 const EditorialPage = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, balances, refreshSubscription } = useAuth();
   const [report, setReport] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [credits, setCredits] = useState(0);
   const [generatingWeek, setGeneratingWeek] = useState(false);
+
+  const weeklyCycles = balances?.weekly_cycles ?? 0;
 
   useEffect(() => {
     if (!user) return;
-    Promise.all([
-      supabase.from("reports").select("*").eq("user_id", user.id).order("version", { ascending: false }).limit(1).single(),
-      supabase.from("user_credits").select("balance").eq("user_id", user.id).single(),
-    ]).then(([reportRes, creditsRes]) => {
-      setReport(reportRes.data);
-      setCredits(creditsRes.data?.balance ?? 0);
-      setLoading(false);
-    });
+    supabase
+      .from("reports")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("version", { ascending: false })
+      .limit(1)
+      .single()
+      .then(({ data }) => {
+        setReport(data);
+        setLoading(false);
+      });
   }, [user]);
 
   const content = report?.content;
@@ -50,8 +54,8 @@ const EditorialPage = () => {
   ];
 
   const handleGenerateWeek = async () => {
-    if (!user || credits < 1) {
-      toast({ title: "Créditos insuficientes", description: "Adquira mais créditos para gerar conteúdo adicional.", variant: "destructive" });
+    if (!user || weeklyCycles < 1) {
+      toast({ title: "Créditos insuficientes", description: "Você não tem ciclos semanais disponíveis.", variant: "destructive" });
       return;
     }
     setGeneratingWeek(true);
@@ -75,8 +79,22 @@ const EditorialPage = () => {
       const updatedWeeks = [...editorialWeeks, data.editorial];
       await supabase.from("reports").update({ editorial_weeks: updatedWeeks }).eq("user_id", user.id).eq("version", report.version);
 
+      // Consume weekly cycle credit
+      await supabase
+        .from("user_balances")
+        .update({ weekly_cycles: weeklyCycles - 1 })
+        .eq("user_id", user.id);
+
+      // Log the consumption
+      await supabase.from("credit_logs").insert({
+        user_id: user.id,
+        credit_type: "weekly_cycle",
+        amount: -1,
+        description: `Geração da semana ${allWeeks.length + 1} de conteúdo editorial`,
+      });
+
       setReport({ ...report, editorial_weeks: updatedWeeks });
-      setCredits(c => c - 1);
+      await refreshSubscription();
       toast({ title: "Nova semana gerada com sucesso!" });
     } catch (err: any) {
       toast({ title: "Erro ao gerar conteúdo", description: err.message, variant: "destructive" });
@@ -107,6 +125,20 @@ const EditorialPage = () => {
     );
   }
 
+  const generateButton = (
+    <div className="flex flex-col items-center gap-2">
+      <Button onClick={handleGenerateWeek} disabled={generatingWeek || weeklyCycles < 1} size="lg" className="gap-2">
+        {generatingWeek ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+        {generatingWeek ? "Gerando..." : allWeeks.length === 0 ? "Gerar primeira semana de conteúdo" : "Gerar +7 dias de conteúdo"}
+      </Button>
+      <p className="text-xs text-muted-foreground">
+        {weeklyCycles > 0
+          ? `${weeklyCycles} ciclo${weeklyCycles > 1 ? "s" : ""} semanal${weeklyCycles > 1 ? "is" : ""} disponível${weeklyCycles > 1 ? "is" : ""}`
+          : "Sem ciclos semanais disponíveis."}
+      </p>
+    </div>
+  );
+
   if (allWeeks.length === 0) {
     return (
       <DashboardLayout>
@@ -118,13 +150,7 @@ const EditorialPage = () => {
           <div className="flex flex-col items-center justify-center h-48 text-center gap-4">
             <Calendar className="h-12 w-12 text-muted-foreground" />
             <p className="text-muted-foreground">Nenhuma semana de conteúdo gerada ainda.</p>
-            <Button onClick={handleGenerateWeek} disabled={generatingWeek || credits < 1} size="lg" className="gap-2">
-              {generatingWeek ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-              {generatingWeek ? "Gerando..." : "Gerar primeira semana de conteúdo"}
-            </Button>
-            <p className="text-xs text-muted-foreground">
-              {credits > 0 ? `${credits} crédito${credits > 1 ? "s" : ""} disponível${credits > 1 ? "is" : ""}` : "Sem créditos disponíveis."}
-            </p>
+            {generateButton}
           </div>
         </div>
       </DashboardLayout>
@@ -221,16 +247,8 @@ const EditorialPage = () => {
             ))}
           </Tabs>
 
-          <div className="flex flex-col items-center mt-8 gap-2">
-            <Button onClick={handleGenerateWeek} disabled={generatingWeek || credits < 1} size="lg" className="gap-2">
-              {generatingWeek ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-              {generatingWeek ? "Gerando nova semana..." : "Gerar +7 dias de conteúdo"}
-            </Button>
-            <p className="text-xs text-muted-foreground">
-              {credits > 0
-                ? `Você tem ${credits} crédito${credits > 1 ? "s" : ""} disponível${credits > 1 ? "is" : ""}`
-                : "Sem créditos disponíveis. Adquira mais créditos para continuar."}
-            </p>
+          <div className="mt-8">
+            {generateButton}
           </div>
         </div>
       </div>
