@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -6,13 +6,24 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 import { Sparkles } from "lucide-react";
 
 const Login = () => {
   const navigate = useNavigate();
+  const { user, isLoading: authLoading, hasActivePlan, isAdmin } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [loginTriggered, setLoginTriggered] = useState(false);
+
+  // Redirect only after AuthContext has fully hydrated post-login
+  useEffect(() => {
+    if (!loginTriggered || authLoading) return;
+    if (user) {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [loginTriggered, authLoading, user, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,7 +33,7 @@ const Login = () => {
     if (error) {
       toast({ title: "Erro ao entrar", description: error.message, variant: "destructive" });
     } else {
-      navigate("/dashboard");
+      setLoginTriggered(true);
     }
   };
 

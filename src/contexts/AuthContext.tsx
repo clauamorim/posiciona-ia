@@ -59,22 +59,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setBalances(null);
   };
 
-  const checkAdmin = async (userId: string, requestId: number) => {
+  const checkAdmin = async (userId: string): Promise<boolean> => {
     try {
       const { data } = await supabase.rpc("has_role", {
         _user_id: userId,
         _role: "admin",
       });
-      if (authRequestRef.current !== requestId) return;
-      setIsAdmin(!!data);
+      return !!data;
     } catch (e) {
       console.error("checkAdmin error:", e);
-      if (authRequestRef.current !== requestId) return;
-      setIsAdmin(false);
+      return false;
     }
   };
 
-  const loadSubscription = async (userId: string, requestId: number) => {
+  const loadSubscription = async (userId: string): Promise<UserSubscription | null> => {
     try {
       const { data: sub } = await supabase
         .from("subscriptions")
@@ -85,8 +83,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .limit(1)
         .maybeSingle();
 
-      if (authRequestRef.current !== requestId) return;
-
       if (sub) {
         const { data: plan } = await supabase
           .from("plans")
@@ -94,43 +90,68 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           .eq("id", sub.plan_id)
           .single();
 
-        if (authRequestRef.current !== requestId) return;
-
-        setSubscription({
+        return {
           plan_id: sub.plan_id,
           plan_slug: plan?.slug || "",
           plan_name: plan?.name || "",
           status: sub.status,
           current_period_end: sub.current_period_end,
-        });
-      } else {
-        setSubscription(null);
+        };
       }
+      return null;
     } catch (e) {
       console.error("loadSubscription error:", e);
+      return null;
     }
   };
 
-  const loadBalances = async (userId: string, requestId: number) => {
+  const loadBalances = async (userId: string): Promise<UserBalances | null> => {
     try {
       const { data } = await supabase
         .from("user_balances")
         .select("weekly_cycles, reanalysis_credits, portrait_credits_included, portrait_credits_extra, regeneration_credits")
         .eq("user_id", userId)
         .maybeSingle();
-
-      if (authRequestRef.current !== requestId) return;
-      setBalances(data || null);
+      return data || null;
     } catch (e) {
       console.error("loadBalances error:", e);
+      return null;
     }
+  };
+
+  /**
+   * Hydrates all user data atomically. isLoading is set to true BEFORE calling
+   * this, and only set to false AFTER all data is resolved — so ProtectedRoute
+   * never sees a partially-loaded state.
+   */
+  const hydrateUser = async (newSession: Session, requestId: number) => {
+    const userId = newSession.user.id;
+
+    const [adminResult, subResult, balResult] = await Promise.all([
+      checkAdmin(userId),
+      loadSubscription(userId),
+      loadBalances(userId),
+    ]);
+
+    // Bail if a newer auth event has arrived while we were loading
+    if (authRequestRef.current !== requestId) return;
+
+    setSession(newSession);
+    setIsAdmin(adminResult);
+    setSubscription(subResult);
+    setBalances(balResult);
+    setIsLoading(false);
   };
 
   const refreshSubscription = async () => {
     const userId = session?.user?.id;
     if (!userId) return;
-    const requestId = authRequestRef.current;
-    await Promise.all([loadSubscription(userId, requestId), loadBalances(userId, requestId)]);
+    const [subResult, balResult] = await Promise.all([
+      loadSubscription(userId),
+      loadBalances(userId),
+    ]);
+    setSubscription(subResult);
+    setBalances(balResult);
   };
 
   useEffect(() => {
@@ -148,30 +169,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         if (event === "TOKEN_REFRESHED") {
-          // Just update the session object without reloading everything
-          if (newSession) {
-            setSession(newSession);
-          }
+          if (newSession) setSession(newSession);
           return;
         }
 
         // INITIAL_SESSION, SIGNED_IN, USER_UPDATED
         if (newSession?.user) {
           const requestId = ++authRequestRef.current;
-          setSession(newSession);
-
-          Promise.all([
-            checkAdmin(newSession.user.id, requestId),
-            loadSubscription(newSession.user.id, requestId),
-            loadBalances(newSession.user.id, requestId),
-          ]).then(() => {
-            if (!mounted || authRequestRef.current !== requestId) return;
-            setIsLoading(false);
-          });
+          // Keep isLoading=true (or set it back to true) so ProtectedRoute
+          // shows the skeleton until ALL user data is ready.
+          setIsLoading(true);
+          hydrateUser(newSession, requestId);
           return;
         }
 
-        // No session and not SIGNED_OUT — e.g. INITIAL_SESSION with null session
+        // INITIAL_SESSION with no session (user not logged in)
         if (event === "INITIAL_SESSION") {
           authRequestRef.current += 1;
           resetAuthState();
