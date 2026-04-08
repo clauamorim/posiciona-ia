@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, FileText, Users, Target, Heart, BookOpen, Compass, Zap, Megaphone, Star, Shield } from "lucide-react";
+import { Loader2, FileText, Users, Target, Heart, BookOpen, Compass, Zap, Megaphone, Star, Shield, Sparkles, AlertTriangle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "@/hooks/use-toast";
 
 const DIAGRAM_NODES = [
   { key: "hero", label: "Um Personagem", shortLabel: "Personagem", icon: Users, x: 80, y: 280 },
@@ -36,15 +38,67 @@ const StoryBrand = () => {
   const [report, setReport] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [activeNode, setActiveNode] = useState<string | null>(null);
+  const [generating, setGenerating] = useState(false);
+  const [hasBusinessQ, setHasBusinessQ] = useState(false);
 
   useEffect(() => {
     if (!user) return;
-    supabase.from("reports").select("*").eq("user_id", user.id).order("version", { ascending: false }).limit(1).single()
-      .then(({ data }) => {
-        setReport(data);
-        setLoading(false);
-      });
+    Promise.all([
+      supabase.from("reports").select("*").eq("user_id", user.id).order("version", { ascending: false }).limit(1).single(),
+      supabase.from("business_questionnaires").select("id, is_complete").eq("user_id", user.id).eq("is_complete", true).limit(1),
+    ]).then(([{ data: reportData }, { data: bqData }]) => {
+      setReport(reportData);
+      setHasBusinessQ((bqData?.length ?? 0) > 0);
+      setLoading(false);
+    });
   }, [user]);
+
+  const handleGenerate = async () => {
+    if (!user) return;
+    setGenerating(true);
+    try {
+      const [{ data: bq }, { data: profile }, { data: topArchetypes }] = await Promise.all([
+        supabase.from("business_questionnaires").select("*").eq("user_id", user.id).order("version", { ascending: false }).limit(1).single(),
+        supabase.from("profiles").select("niche").eq("user_id", user.id).single(),
+        supabase.from("user_top_archetypes").select("*").eq("user_id", user.id).order("rank", { ascending: true }).limit(3),
+      ]);
+
+      const archetypes = {
+        primary: topArchetypes?.[0],
+        secondary: topArchetypes?.[1],
+        tertiary: topArchetypes?.[2],
+      };
+
+      await supabase.from("reports").upsert({
+        user_id: user.id,
+        version: 1,
+        status: "generating",
+      }, { onConflict: "user_id,version" });
+
+      const { data, error } = await supabase.functions.invoke("generate-report", {
+        body: { business: bq, niche: profile?.niche || "", archetypes },
+      });
+
+      if (error) throw error;
+
+      await supabase.from("reports").update({
+        content: data.report,
+        status: "completed",
+      }).eq("user_id", user.id).eq("version", 1);
+
+      await supabase.from("business_questionnaires").update({ status: "locked" }).eq("user_id", user.id);
+
+      setReport({ content: data.report, status: "completed" });
+      toast({ title: "StoryBrand gerado com sucesso!" });
+    } catch (err: any) {
+      await supabase.from("reports").update({
+        status: "error",
+        error_message: err.message,
+      }).eq("user_id", user.id).eq("version", 1);
+      toast({ title: "Erro ao gerar StoryBrand", description: err.message, variant: "destructive" });
+    }
+    setGenerating(false);
+  };
 
   if (loading) {
     return (
@@ -63,10 +117,25 @@ const StoryBrand = () => {
   if (!storybrand) {
     return (
       <DashboardLayout>
-        <div className="flex flex-col items-center justify-center h-64 text-center">
-          <FileText className="h-12 w-12 text-muted-foreground mb-4" />
+        <div className="flex flex-col items-center justify-center h-64 text-center gap-4">
+          <FileText className="h-12 w-12 text-muted-foreground" />
           <h2 className="text-xl font-bold font-display">StoryBrand não disponível</h2>
-          <p className="text-muted-foreground mt-1">Complete o questionário do negócio e gere seu StoryBrand.</p>
+          {hasBusinessQ ? (
+            <>
+              <p className="text-muted-foreground text-sm max-w-md">
+                O questionário do negócio está completo. Gere sua estratégia StoryBrand agora.
+              </p>
+              <Button onClick={handleGenerate} disabled={generating} className="gap-2" size="lg">
+                {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                {generating ? "Gerando StoryBrand..." : "Gerar Estratégia StoryBrand"}
+              </Button>
+              <p className="text-xs text-muted-foreground flex items-center gap-1">
+                <AlertTriangle className="h-3 w-3" /> Após gerar, o questionário será bloqueado para edição.
+              </p>
+            </>
+          ) : (
+            <p className="text-muted-foreground text-sm">Complete o questionário do negócio primeiro.</p>
+          )}
         </div>
       </DashboardLayout>
     );
