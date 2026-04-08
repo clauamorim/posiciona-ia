@@ -8,11 +8,11 @@ const corsHeaders = {
 };
 
 const STYLE_VARIATIONS = [
-  "Professional studio portrait with soft, controlled lighting and a clean, elegant background. High-end corporate branding style.",
-  "Outdoor portrait with warm, golden-hour natural light. Relaxed yet professional, with a softly blurred natural background.",
-  "Editorial magazine cover style portrait. Dramatic lighting with high contrast. Bold, confident pose and cinematic atmosphere.",
-  "Corporate headshot with clean, neutral background. Even lighting, sharp focus, polished and approachable look.",
-  "Artistic and creative portrait with unique color grading, textured background, and expressive lighting. Fashion-forward and memorable.",
+  "Professional studio portrait with soft, controlled lighting and a clean, elegant background. High-end corporate branding style. Shot on a medium-format camera with shallow depth of field.",
+  "Outdoor portrait with warm, golden-hour natural light. Relaxed yet professional, with a softly blurred natural background. Captured with a 85mm lens for natural compression.",
+  "Editorial magazine cover style portrait. Dramatic lighting with high contrast. Bold, confident pose and cinematic atmosphere. Studio lighting with a single key light and subtle fill.",
+  "Corporate headshot with clean, neutral background. Even lighting, sharp focus, polished and approachable look. Two-light setup with soft modifiers.",
+  "Artistic and creative portrait with unique color grading, textured background, and expressive lighting. Fashion-forward and memorable. Shot with natural window light and reflectors.",
 ];
 
 serve(async (req) => {
@@ -125,17 +125,26 @@ serve(async (req) => {
 
     const refCount = selfies.length > 1 ? ` I'm providing ${selfies.length} reference photos of the same person from different angles to help you accurately capture their features.` : "";
 
-    const prompt = `Transform these reference selfie(s) into a professional brand portrait photo.${refCount}
-IMPORTANT: Maintain the person's facial features, likeness, and identity exactly as they are. Use all provided photos as reference to better understand the person's face from multiple angles.
+    const prompt = `Transform these reference selfie(s) into a hyper-realistic professional brand portrait photograph. The result MUST look like a real photograph taken in a professional studio — NOT a digital illustration, painting, or AI-generated looking image.${refCount}
+
+CRITICAL REALISM RULES:
+- Maintain the person's EXACT facial features, skin texture, pores, and natural imperfections. Do NOT smooth or idealize the skin.
+- Hair MUST look natural with some loose strands, flyaway hairs, and natural texture — overly styled or perfectly arranged hair looks artificial.
+- Eyes must have natural reflections and catchlights from the lighting setup.
+- Clothing should have realistic fabric texture, natural wrinkles and folds.
+- The overall image should be indistinguishable from a photograph taken with a professional DSLR or mirrorless camera.
+
 Style variation: ${variationStyle}
-Apply the following brand visual identity:
+
+Apply the following brand visual identity subtly through lighting, color grading, and atmosphere:
 - Brand archetypes: ${archetypeNames}
-- Color palette: ${palette || "Use colors that evoke " + archetypeNames}
+- Color palette influence: ${palette || "Use tones that evoke " + archetypeNames}
 - Visual style: ${style || "Professional, polished, aspirational"}
 - Typography mood: ${typography || "Modern and clean"}
 
-The portrait should capture the essence of the ${archetypes[0]?.archetype_name || "brand"} archetype.
-Do NOT add text or watermarks.`;
+The portrait should subtly capture the essence of the ${archetypes[0]?.archetype_name || "brand"} archetype through body language, expression, and lighting — NOT through costumes, props, or literal archetype representations.
+Do NOT add text, watermarks, or any graphic overlays.
+Do NOT make the person look like a character or caricature. This is a professional branding photo, not cosplay.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",

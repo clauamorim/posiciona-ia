@@ -68,6 +68,8 @@ Analise os seguintes aspectos e forneça sugestões baseadas no StoryBrand e arq
 5. Posts Fixados
 6. Aparência do Feed
 7. Foto de Perfil
+8. Estilo e Figurino – Analise as roupas, acessórios, maquiagem e estilo pessoal visíveis nas fotos do perfil e do feed. Avalie se o estilo visual pessoal está coerente com os arquétipos de marca. Sugira ajustes de figurino, paleta de cores das roupas, tipo de acessórios e maquiagem que reforcem o posicionamento.
+9. Cenário e Ambientação – Analise os cenários e backgrounds das fotos. Avalie se comunicam a mensagem certa e sugira ambientações mais alinhadas à identidade de marca.
     `.trim();
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
