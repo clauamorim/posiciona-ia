@@ -7,6 +7,14 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const STYLE_VARIATIONS = [
+  "Professional studio portrait with soft, controlled lighting and a clean, elegant background. High-end corporate branding style.",
+  "Outdoor portrait with warm, golden-hour natural light. Relaxed yet professional, with a softly blurred natural background.",
+  "Editorial magazine cover style portrait. Dramatic lighting with high contrast. Bold, confident pose and cinematic atmosphere.",
+  "Corporate headshot with clean, neutral background. Even lighting, sharp focus, polished and approachable look.",
+  "Artistic and creative portrait with unique color grading, textured background, and expressive lighting. Fashion-forward and memorable.",
+];
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -43,7 +51,6 @@ serve(async (req) => {
       });
     }
 
-    // Fetch brand data
     const [archetypesRes, reportRes] = await Promise.all([
       supabase
         .from("user_top_archetypes")
@@ -71,24 +78,11 @@ serve(async (req) => {
       });
     }
 
-    // Build style prompt from brand data
     const archetypeNames = archetypes.map((a: any) => a.archetype_name).join(", ");
     const visualIdentity = reportContent?.visual_identity || {};
     const palette = visualIdentity.color_palette || "";
     const style = visualIdentity.visual_style || "";
     const typography = visualIdentity.typography || "";
-
-    const stylePrompt = `Transform this selfie into a professional brand portrait photo. 
-IMPORTANT: Maintain the person's facial features, likeness, and identity exactly as they are.
-Apply the following brand visual identity:
-- Brand archetypes: ${archetypeNames}
-- Color palette: ${palette || "Use colors that evoke " + archetypeNames}
-- Visual style: ${style || "Professional, polished, aspirational"}
-- Typography mood: ${typography || "Modern and clean"}
-
-The portrait should feel like a professional branding photoshoot that captures the essence of the ${archetypes[0]?.archetype_name || "brand"} archetype.
-Keep the background elegant and on-brand. The lighting should be cinematic and flattering.
-Do NOT add text or watermarks.`;
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
@@ -98,14 +92,33 @@ Do NOT add text or watermarks.`;
       });
     }
 
-    // Generate portraits one by one
+    // Distribute 5 generations across available selfies
+    const TOTAL = 5;
+    const selfieForIndex: number[] = [];
+    for (let i = 0; i < TOTAL; i++) {
+      selfieForIndex.push(i % selfies.length);
+    }
+
     const portraits: string[] = [];
-    for (let i = 0; i < selfies.length; i++) {
-      const selfieBase64 = selfies[i];
-      
+    for (let i = 0; i < TOTAL; i++) {
+      const selfieBase64 = selfies[selfieForIndex[i]];
       const imageUrl = selfieBase64.startsWith("data:")
         ? selfieBase64
         : `data:image/jpeg;base64,${selfieBase64}`;
+
+      const variationStyle = STYLE_VARIATIONS[i];
+
+      const prompt = `Transform this selfie into a professional brand portrait photo.
+IMPORTANT: Maintain the person's facial features, likeness, and identity exactly as they are.
+Style variation: ${variationStyle}
+Apply the following brand visual identity:
+- Brand archetypes: ${archetypeNames}
+- Color palette: ${palette || "Use colors that evoke " + archetypeNames}
+- Visual style: ${style || "Professional, polished, aspirational"}
+- Typography mood: ${typography || "Modern and clean"}
+
+The portrait should capture the essence of the ${archetypes[0]?.archetype_name || "brand"} archetype.
+Do NOT add text or watermarks.`;
 
       const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
@@ -119,7 +132,7 @@ Do NOT add text or watermarks.`;
             {
               role: "user",
               content: [
-                { type: "text", text: stylePrompt },
+                { type: "text", text: prompt },
                 { type: "image_url", image_url: { url: imageUrl } },
               ],
             },
@@ -143,7 +156,7 @@ Do NOT add text or watermarks.`;
           });
         }
         console.error(`Portrait ${i + 1} error:`, status, await response.text());
-        portraits.push(""); // empty placeholder for failed generation
+        portraits.push("");
         continue;
       }
 

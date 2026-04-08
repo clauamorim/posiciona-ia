@@ -245,12 +245,12 @@ const PortraitGenerator = () => {
                   {generating ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      Gerando retratos...
+                      Gerando retrato {progress.current} de 5...
                     </>
                   ) : (
                     <>
                       <ImageIcon className="h-4 w-4" />
-                      Gerar Retratos ({selfies.length})
+                      Gerar 5 Retratos
                     </>
                   )}
                 </Button>
@@ -259,7 +259,7 @@ const PortraitGenerator = () => {
                   <div className="space-y-2">
                     <Progress value={undefined} className="animate-pulse" />
                     <p className="text-xs text-center text-muted-foreground">
-                      Processando {selfies.length} selfie(s)... Isso pode levar alguns minutos.
+                      Gerando 5 retratos com variações de estilo... Isso pode levar alguns minutos.
                     </p>
                   </div>
                 )}
