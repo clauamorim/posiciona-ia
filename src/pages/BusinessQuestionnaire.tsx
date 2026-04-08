@@ -11,7 +11,7 @@ import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { ChevronLeft, ChevronRight, Save, Sparkles, Loader2, Lock, AlertTriangle } from "lucide-react";
+import { ChevronLeft, ChevronRight, Save, Loader2, Lock } from "lucide-react";
 
 const fields = [
   { key: "company_name", label: "Nome da empresa ou negócio", type: "input", placeholder: "Ex: Studio Bella" },
@@ -39,7 +39,7 @@ const BusinessQuestionnaire = () => {
   const [existingId, setExistingId] = useState<string | null>(null);
   const [isComplete, setIsComplete] = useState(false);
   const [status, setStatus] = useState<QStatus>("draft");
-  const [generatingStoryBrand, setGeneratingStoryBrand] = useState(false);
+  
 
   const isLocked = status === "locked";
   const isSubmitted = status === "submitted";
@@ -90,54 +90,6 @@ const BusinessQuestionnaire = () => {
     if (complete) navigate("/archetype-questionnaire");
   }, [user, answers, existingId, navigate, isLocked]);
 
-  const handleGenerateStoryBrand = async () => {
-    if (!user) return;
-    setGeneratingStoryBrand(true);
-    try {
-      const { data: bq } = await supabase.from("business_questionnaires").select("*").eq("user_id", user.id).order("version", { ascending: false }).limit(1).single();
-      const { data: profile } = await supabase.from("profiles").select("niche").eq("user_id", user.id).single();
-      const { data: topArchetypes } = await supabase.from("user_top_archetypes").select("*").eq("user_id", user.id).order("rank", { ascending: true }).limit(3);
-
-      const archetypes = {
-        primary: topArchetypes?.[0],
-        secondary: topArchetypes?.[1],
-        tertiary: topArchetypes?.[2],
-      };
-
-      await supabase.from("reports").upsert({
-        user_id: user.id,
-        version: 1,
-        status: "generating",
-      }, { onConflict: "user_id,version" });
-
-      const { data, error } = await supabase.functions.invoke("generate-report", {
-        body: { business: bq, niche: profile?.niche || "", archetypes },
-      });
-
-      if (error) throw error;
-
-      await supabase.from("reports").update({
-        content: data.report,
-        status: "completed",
-      }).eq("user_id", user.id).eq("version", 1);
-
-      // Lock questionnaire after successful generation
-      if (existingId) {
-        await supabase.from("business_questionnaires").update({ status: "locked" }).eq("id", existingId);
-        setStatus("locked");
-      }
-
-      toast({ title: "StoryBrand gerado com sucesso!" });
-      navigate("/storybrand");
-    } catch (err: any) {
-      await supabase.from("reports").update({
-        status: "error",
-        error_message: err.message,
-      }).eq("user_id", user.id).eq("version", 1);
-      toast({ title: "Erro ao gerar StoryBrand", description: err.message, variant: "destructive" });
-    }
-    setGeneratingStoryBrand(false);
-  };
 
   const field = fields[step];
   const progress = Math.round(((step + 1) / fields.length) * 100);
