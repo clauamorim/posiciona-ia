@@ -18,6 +18,7 @@ import {
   RefreshCw,
   Sparkles,
   Repeat,
+  ShoppingCart,
 } from "lucide-react";
 
 const Dashboard = () => {
@@ -137,7 +138,9 @@ const Dashboard = () => {
                     <div>
                       <p className="text-xs text-muted-foreground">Retratos</p>
                       <p className="font-semibold">
-                        {balances.portrait_credits_included + balances.portrait_credits_extra}
+                        {balances.portrait_credits_included} <span className="text-xs text-muted-foreground">inclusos</span>
+                        {" + "}
+                        {balances.portrait_credits_extra} <span className="text-xs text-muted-foreground">extras</span>
                       </p>
                     </div>
                   </div>
@@ -151,6 +154,14 @@ const Dashboard = () => {
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground">Nenhum saldo disponível</p>
+              )}
+              {hasActivePlan && (
+                <Link to="/portraits">
+                  <Button variant="outline" size="sm" className="w-full mt-3 gap-2">
+                    <ShoppingCart className="h-4 w-4" />
+                    Comprar retratos extras
+                  </Button>
+                </Link>
               )}
             </CardContent>
           </Card>

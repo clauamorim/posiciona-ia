@@ -67,13 +67,16 @@ const ChoosePlan = () => {
         body: { plan_slug: slug },
       });
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
       if (data?.url) {
-        window.open(data.url, "_blank");
+        window.location.href = data.url;
+      } else {
+        throw new Error("URL de pagamento não retornada");
       }
     } catch (err: any) {
       toast({ title: "Erro ao iniciar pagamento", description: err.message, variant: "destructive" });
+      setLoadingSlug(null);
     }
-    setLoadingSlug(null);
   };
 
   return (

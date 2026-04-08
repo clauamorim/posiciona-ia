@@ -29,7 +29,6 @@ async function provisionBalances(userId: string, plan: any) {
     { onConflict: "user_id" }
   );
 
-  // Log the provisioning
   const creditTypes = [
     { type: "weekly_cycle", amount: plan.weekly_cycles },
     { type: "reanalysis", amount: plan.reanalysis_credits },
@@ -49,10 +48,41 @@ async function provisionBalances(userId: string, plan: any) {
   }
 }
 
-async function getUserIdFromCustomerEmail(customerEmail: string): Promise<string | null> {
-  const { data } = await supabase.auth.admin.listUsers();
-  const user = data?.users?.find((u: any) => u.email === customerEmail);
-  return user?.id || null;
+async function handlePortraitPackPurchase(session: Stripe.Checkout.Session) {
+  const userId = session.metadata?.user_id;
+  const packCredits = parseInt(session.metadata?.pack_credits || "0", 10);
+  const packId = session.metadata?.pack_id;
+
+  if (!userId || !packCredits) {
+    log("Portrait pack: missing metadata", session.metadata);
+    return;
+  }
+
+  // Add credits to portrait_credits_extra
+  const { data: currentBalance } = await supabase
+    .from("user_balances")
+    .select("portrait_credits_extra")
+    .eq("user_id", userId)
+    .single();
+
+  const currentExtra = currentBalance?.portrait_credits_extra ?? 0;
+
+  await supabase.from("user_balances").upsert(
+    {
+      user_id: userId,
+      portrait_credits_extra: currentExtra + packCredits,
+    },
+    { onConflict: "user_id" }
+  );
+
+  await supabase.from("credit_logs").insert({
+    user_id: userId,
+    credit_type: "portrait_extra",
+    amount: packCredits,
+    description: `Compra de pacote de retratos (${packCredits} créditos)`,
+  });
+
+  log("Portrait pack purchased", { userId, packCredits, packId });
 }
 
 serve(async (req) => {
@@ -60,7 +90,6 @@ serve(async (req) => {
     const body = await req.text();
     const sig = req.headers.get("stripe-signature");
 
-    // For now, parse the event directly (webhook secret can be added later)
     let event: Stripe.Event;
     const webhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET");
     if (webhookSecret && sig) {
@@ -74,6 +103,13 @@ serve(async (req) => {
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
+
+        // Check if it's a portrait pack purchase
+        if (session.metadata?.type === "portrait_pack") {
+          await handlePortraitPackPurchase(session);
+          break;
+        }
+
         const userId = session.metadata?.user_id;
         const planSlug = session.metadata?.plan_slug;
         const planId = session.metadata?.plan_id;
@@ -83,7 +119,6 @@ serve(async (req) => {
           break;
         }
 
-        // Fetch plan details
         const { data: plan } = await supabase
           .from("plans")
           .select("*")
@@ -95,7 +130,6 @@ serve(async (req) => {
           break;
         }
 
-        // Create/update subscription
         const subscriptionData: any = {
           user_id: userId,
           plan_id: planId,
@@ -105,15 +139,12 @@ serve(async (req) => {
         };
 
         if (plan.billing_type === "one_time") {
-          // One-time: no end date, no stripe_subscription_id
           subscriptionData.stripe_subscription_id = null;
           subscriptionData.current_period_end = null;
         } else {
           subscriptionData.stripe_subscription_id = session.subscription as string;
-          // End date will be updated by invoice.paid
         }
 
-        // Upsert: if user already has a subscription, update it
         const { data: existingSub } = await supabase
           .from("subscriptions")
           .select("id")
@@ -130,9 +161,7 @@ serve(async (req) => {
           await supabase.from("subscriptions").insert(subscriptionData);
         }
 
-        // Provision balances
         await provisionBalances(userId, plan);
-
         log("Checkout completed", { userId, planSlug });
         break;
       }
@@ -142,7 +171,6 @@ serve(async (req) => {
         const subscriptionId = invoice.subscription as string;
         if (!subscriptionId) break;
 
-        // Find the subscription in our DB
         const { data: sub } = await supabase
           .from("subscriptions")
           .select("*, plans(*)")
@@ -154,7 +182,6 @@ serve(async (req) => {
           break;
         }
 
-        // Update period
         const stripeSubscription = await stripe.subscriptions.retrieve(subscriptionId);
         await supabase
           .from("subscriptions")
@@ -165,7 +192,6 @@ serve(async (req) => {
           })
           .eq("id", sub.id);
 
-        // Re-provision monthly credits
         if (sub.plans) {
           await provisionBalances(sub.user_id, sub.plans);
         }
