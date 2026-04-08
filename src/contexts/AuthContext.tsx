@@ -51,7 +51,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [subscription, setSubscription] = useState<UserSubscription | null>(null);
   const [balances, setBalances] = useState<UserBalances | null>(null);
   const authRequestRef = useRef(0);
-  const initialSessionResolvedRef = useRef(false);
 
   const resetAuthState = () => {
     setSession(null);
@@ -127,31 +126,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const loadUserData = async (userId: string, requestId: number) => {
-    await Promise.all([
-      checkAdmin(userId, requestId),
-      loadSubscription(userId, requestId),
-      loadBalances(userId, requestId),
-    ]);
-  };
-
-  const applyAuthenticatedSession = async (nextSession: Session) => {
-    const requestId = ++authRequestRef.current;
-    setSession(nextSession);
-    await loadUserData(nextSession.user.id, requestId);
-
-    if (authRequestRef.current !== requestId) return;
-    initialSessionResolvedRef.current = true;
-    setIsLoading(false);
-  };
-
-  const applySignedOutState = () => {
-    authRequestRef.current += 1;
-    resetAuthState();
-    initialSessionResolvedRef.current = true;
-    setIsLoading(false);
-  };
-
   const refreshSubscription = async () => {
     const userId = session?.user?.id;
     if (!userId) return;
@@ -167,34 +141,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (!mounted) return;
 
         if (event === "SIGNED_OUT") {
-          applySignedOutState();
+          authRequestRef.current += 1;
+          resetAuthState();
+          setIsLoading(false);
           return;
         }
 
+        if (event === "TOKEN_REFRESHED") {
+          // Just update the session object without reloading everything
+          if (newSession) {
+            setSession(newSession);
+          }
+          return;
+        }
+
+        // INITIAL_SESSION, SIGNED_IN, USER_UPDATED
         if (newSession?.user) {
-          void applyAuthenticatedSession(newSession);
+          const requestId = ++authRequestRef.current;
+          setSession(newSession);
+
+          Promise.all([
+            checkAdmin(newSession.user.id, requestId),
+            loadSubscription(newSession.user.id, requestId),
+            loadBalances(newSession.user.id, requestId),
+          ]).then(() => {
+            if (!mounted || authRequestRef.current !== requestId) return;
+            setIsLoading(false);
+          });
           return;
         }
 
-        if (!initialSessionResolvedRef.current) {
-          return;
+        // No session and not SIGNED_OUT — e.g. INITIAL_SESSION with null session
+        if (event === "INITIAL_SESSION") {
+          authRequestRef.current += 1;
+          resetAuthState();
+          setIsLoading(false);
         }
-
-        if (event === "TOKEN_REFRESHED") return;
-
-        applySignedOutState();
       }
     );
-
-    void supabase.auth.getSession().then(async ({ data: { session: initialSession } }) => {
-      if (!mounted) return;
-
-      if (initialSession?.user) {
-        await applyAuthenticatedSession(initialSession);
-      } else {
-        applySignedOutState();
-      }
-    });
 
     return () => {
       mounted = false;
