@@ -104,16 +104,12 @@ serve(async (req) => {
 
     const portraits: string[] = [];
     for (let i = 0; i < TOTAL; i++) {
-      // Use first selfie as the primary image for transformation
-      const primarySelfie = selfies[0];
-      const imageUrl = primarySelfie.startsWith("data:")
-        ? primarySelfie
-        : `data:image/jpeg;base64,${selfieBase64}`;
-
       const variationStyle = STYLE_VARIATIONS[i];
 
-      const prompt = `Transform this selfie into a professional brand portrait photo.
-IMPORTANT: Maintain the person's facial features, likeness, and identity exactly as they are.
+      const refCount = selfies.length > 1 ? ` I'm providing ${selfies.length} reference photos of the same person from different angles to help you accurately capture their features.` : "";
+
+      const prompt = `Transform these reference selfie(s) into a professional brand portrait photo.${refCount}
+IMPORTANT: Maintain the person's facial features, likeness, and identity exactly as they are. Use all provided photos as reference to better understand the person's face from multiple angles.
 Style variation: ${variationStyle}
 Apply the following brand visual identity:
 - Brand archetypes: ${archetypeNames}
@@ -137,7 +133,13 @@ Do NOT add text or watermarks.`;
               role: "user",
               content: [
                 { type: "text", text: prompt },
-                { type: "image_url", image_url: { url: imageUrl } },
+                ...referenceImages,
+              ],
+            },
+          ],
+          modalities: ["image", "text"],
+        }),
+      });
               ],
             },
           ],
