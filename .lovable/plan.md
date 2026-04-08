@@ -1,24 +1,38 @@
 
 
-## Problem
+## Atribuir Planos e Créditos a Usuários pelo Painel Admin
 
-The admin user is being redirected to `/choose-plan` because of a race condition in `AuthContext`. The `checkAdmin` call is wrapped in `setTimeout(..., 0)`, which defers it. When `ProtectedRoute` renders, `isLoading` is already `false` but `isAdmin` is still `false`, so line 28 redirects the admin to `/choose-plan`.
+### Problema
+O painel admin atual mostra usuários mas não permite atribuir planos/assinaturas. O admin só consegue editar créditos legados (`user_credits.balance`) e bloquear/desbloquear.
 
-## Solution
+### Solução
+Adicionar duas novas ações no painel de usuários:
 
-Ensure `isLoading` stays `true` until ALL async checks (admin role, subscription, balances) have completed. This way `ProtectedRoute` shows the loading skeleton until the full auth state is resolved.
+1. **Botão "Atribuir Plano"** — abre um dialog onde o admin seleciona um plano e a duração (1, 2, 3... meses). Ao salvar:
+   - Cria/atualiza registro na tabela `subscriptions` com status `active` e `current_period_end` calculado
+   - Provisiona os créditos correspondentes na tabela `user_balances` com base nos valores do plano selecionado (`weekly_cycles`, `reanalysis_credits`, `portrait_credits`, `regeneration_credits`)
+   - Registra log em `credit_logs`
 
-### Changes to `src/contexts/AuthContext.tsx`
+2. **Mostrar plano atual na tabela** — nova coluna "Plano" exibindo o plano ativo do usuário (ou "Nenhum")
 
-1. Remove the `setTimeout` wrapper around the async calls in `onAuthStateChange`.
-2. Make the auth state change handler `await` all three checks (`checkAdmin`, `loadSubscription`, `loadBalances`) before setting `isLoading = false`.
-3. In `getSession`, similarly await all checks before setting `isLoading = false`.
-4. Refactor so `setIsLoading(false)` only runs **after** all parallel checks resolve.
+### Alterações
 
-Specifically:
-- In `onAuthStateChange`: call `await Promise.all([checkAdmin(...), loadSubscription(...), loadBalances(...)])` then `setIsLoading(false)`.
-- In `getSession().then(...)`: same pattern — await all checks, then set loading false.
-- Make `checkAdmin`, `loadSubscription`, `loadBalances` return their promises (they already do since they're async).
+**`src/pages/admin/AdminUsers.tsx`**:
+- Carregar dados de `subscriptions` e `plans` no `loadUsers` para mostrar plano ativo de cada usuário
+- Adicionar coluna "Plano" na tabela
+- Novo botão de ação (ícone Crown/CreditCard) para abrir dialog de atribuição de plano
+- Novo dialog "Atribuir Plano" com:
+  - Select para escolher o plano (carregado da tabela `plans`)
+  - Input numérico para duração em meses
+  - Ao salvar: upsert em `subscriptions`, atualizar `user_balances` com créditos do plano multiplicados pela duração, inserir `credit_log`
+- Atualizar dialog de créditos existente para editar `user_balances` (créditos granulares) em vez do legado `user_credits`
 
-This is a single-file fix (~15 lines changed) that resolves the race condition for all `requirePlan` and `requireAdmin` routes.
+**Nenhuma migração necessária** — as tabelas `subscriptions`, `user_balances`, `plans` e `credit_logs` já existem com as RLS policies corretas (admin pode inserir subscriptions e atualizar balances).
+
+### Fluxo do Admin
+1. Clica no ícone de plano ao lado do usuário
+2. Seleciona "Autoridade Total" e digita "3" meses
+3. Sistema cria subscription ativa com `current_period_end = now + 3 meses`
+4. Sistema seta `user_balances`: `weekly_cycles = 4×3=12`, `reanalysis_credits = 2×3=6`, etc.
+5. Tabela atualiza mostrando "Autoridade Total" na coluna Plano
 
