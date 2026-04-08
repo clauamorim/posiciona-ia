@@ -10,9 +10,19 @@ import { Sparkles } from "lucide-react";
 
 const Login = () => {
   const navigate = useNavigate();
+  const { user, isLoading: authLoading, hasActivePlan, isAdmin } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [loginTriggered, setLoginTriggered] = useState(false);
+
+  // Redirect only after AuthContext has fully hydrated post-login
+  useEffect(() => {
+    if (!loginTriggered || authLoading) return;
+    if (user) {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [loginTriggered, authLoading, user, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,7 +32,7 @@ const Login = () => {
     if (error) {
       toast({ title: "Erro ao entrar", description: error.message, variant: "destructive" });
     } else {
-      navigate("/dashboard");
+      setLoginTriggered(true);
     }
   };
 
