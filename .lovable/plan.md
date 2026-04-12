@@ -1,92 +1,56 @@
 
 
-## Plano: Correção de 7 problemas relatados
+## Plano: 3 correções — caixas de texto, cor de fundo custom, qualidade dos retratos
 
-### 1. Paleta de cores inconsistente entre gerações
+### 1. Caixas de texto não são selecionáveis/redimensionáveis
 
-**Problema:** A paleta é gerada pela IA a cada vez que o relatório é gerado. Mesmo com mesmos arquétipos/pontuações, a IA pode gerar cores diferentes.
+**Problema:** As caixas de texto (`contentEditable` `<p>` e `<h1>`) são elementos inline do canvas — não são tratadas como overlay images. Os handles de resize e a lógica de drag só se aplicam a `overlayImages`. As caixas de texto ficam fixas no layout e não podem ser movidas nem redimensionadas.
 
-**Solução:** No `generate-report/index.ts`, adicionar instrução no prompt para que a paleta de cores siga um mapeamento FIXO por arquétipo primário (semelhante ao que já existe para tipografia). Adicionar uma tabela de referência de paletas por arquétipo no prompt do sistema para que as cores sejam determinísticas.
+**Solução:** Transformar cada bloco de texto (título e corpo) em elementos overlay posicionáveis e redimensionáveis, como as imagens. Isso requer:
+- Adicionar um tipo `"text"` ao sistema de overlays existente, com propriedades extras (`text`, `fontSize`, `fontWeight`, etc.)
+- Quando o post é carregado, criar overlays de texto a partir do título e corpo
+- Os overlays de texto usam os mesmos handles de resize e drag que as imagens
+- O texto é editável via duplo-clique (contentEditable ativado ao entrar no modo edição)
 
-| Arquivo | Ação |
-|---------|------|
-| `supabase/functions/generate-report/index.ts` | Adicionar mapeamento fixo de paletas por arquétipo no prompt |
-
-### 2. Erro ao gerar semana 3+ de conteúdo editorial
-
-**Problema:** O `generate-content-week` usa `user_credits` (balance) para verificar créditos, mas a `EditorialPage` usa `user_balances.weekly_cycles` para deduzir. Discrepância: a função edge verifica `user_credits.balance` (que pode ser 0 após a primeira geração do relatório) enquanto o frontend usa `weekly_cycles`.
-
-**Solução:** Alterar `generate-content-week/index.ts` para verificar `user_balances.weekly_cycles` em vez de `user_credits.balance`, alinhando com o frontend.
+**Alternativa mais simples (recomendada):** Fazer os `<p>` e `<h2>` ficarem dentro de `<div>` com resize CSS (`resize: both; overflow: auto`) e tornar o container clicável/arrastável. Isso não requer refatoração do sistema de overlays — apenas adicionar CSS de resize e um wrapper com drag.
 
 | Arquivo | Ação |
 |---------|------|
-| `supabase/functions/generate-content-week/index.ts` | Trocar verificação de créditos de `user_credits.balance` para `user_balances.weekly_cycles` |
+| `src/components/post-editor/PostCanvas.tsx` | Envolver textos em containers com `resize: both` e drag handles |
 
-### 3. Primeiro retrato sem fisionomia das fotos
+### 2. Cor de fundo personalizada (além da paleta)
 
-**Problema:** Comportamento do modelo de IA — difícil garantir 100%. Porém, podemos reforçar o prompt e usar mais selfies na primeira mensagem, enfatizando a preservação facial.
+**Problema:** O seletor de cor de fundo (`Cor de fundo` na toolbar) só mostra as cores da paleta. Não há opção para cor custom.
 
-**Solução:** Reforçar ainda mais o prompt de `generate-portrait` com instruções mais enfáticas sobre preservação de identidade facial na primeira geração. Adicionar "IDENTITY PRESERVATION IS THE #1 PRIORITY" no topo do prompt.
-
-| Arquivo | Ação |
-|---------|------|
-| `supabase/functions/generate-portrait/index.ts` | Reforçar prioridade de preservação facial no prompt |
-
-### 4. Gerar retratos com todas as opções de figurino
-
-**Problema:** Atualmente gera apenas 1 retrato. O usuário quer que sejam geradas variações usando diferentes peças de figurino do relatório.
-
-**Solução:** Adicionar opção na UI para selecionar qual "look" de figurino usar. Gerar múltiplos retratos em sequência (1 por look), cada um com peças diferentes do figurino. Adicionar um seletor de "Opção de figurino" no `PortraitGenerator` que divide as peças-chave em looks distintos.
+**Solução:** Adicionar um `<input type="color">` ao lado das cores da paleta (mesmo padrão já usado na "Cor do texto"). Requer:
+- Adicionar prop `onCustomBgColorChange` ou reutilizar `onBgChange` com um valor custom
+- Adicionar state `customBgColor` no `PostEditorPage`
+- Quando o usuário escolhe cor custom, usar essa cor em vez da paleta
 
 | Arquivo | Ação |
 |---------|------|
-| `src/pages/PortraitGenerator.tsx` | Adicionar seletor de look/figurino e gerar variações |
-| `supabase/functions/generate-portrait/index.ts` | Aceitar parâmetro `wardrobeVariation` para usar peças diferentes |
+| `src/components/post-editor/PostToolbar.tsx` | Adicionar `<input type="color">` na seção "Cor de fundo" + prop para cor custom |
+| `src/pages/PostEditorPage.tsx` | Adicionar state `customBgColor` e lógica para usar cor custom no canvas |
 
-### 5. Redimensionamento de elementos no editor de posts (não proporcional)
+### 3. Qualidade dos retratos — melhorar realismo
 
-**Problema:** O resize do `PostCanvas` só usa o handle bottom-right e mantém proporção fixa. Faltam handles nos outros cantos/lados para redimensionamento livre.
+**Problema:** O modelo `gemini-3.1-flash-image-preview` prioriza velocidade sobre qualidade. O prompt é muito longo e pode confundir o modelo.
 
-**Solução:** Adicionar 8 handles de redimensionamento (4 cantos + 4 lados). Os cantos com Shift mantêm proporção; sem Shift = livre. Os lados redimensionam apenas uma dimensão.
-
-| Arquivo | Ação |
-|---------|------|
-| `src/components/post-editor/PostCanvas.tsx` | Adicionar 8 handles de resize; lógica proporcional vs livre |
-
-### 6. Melhorias no editor de posts: alinhamento de texto, caixa de texto redimensionável, cores da paleta + custom, botão copiar legenda
-
-**Soluções:**
-- **Alinhamento de texto:** Adicionar botões left/center/right/justify no `PostToolbar` e prop `textAlign` no `PostCanvas`
-- **Redimensionar caixa de texto:** Fazer os textos editáveis em containers redimensionáveis
-- **Cores da paleta + custom:** Mostrar as cores da paleta na toolbar como botões rápidos + input type="color" para cor customizada
-- **Botão copiar legenda:** Adicionar botão "Copiar" ao lado da legenda do Instagram no `PostEditorPage`
+**Soluções combinadas:**
+- **Trocar modelo** para `google/gemini-3-pro-image-preview` que produz qualidade superior (conforme documentação)
+- **Simplificar o prompt** — remover instruções redundantes e focar nas 3 regras mais críticas: (1) preservar identidade exata, (2) foto real de estúdio, (3) vestimenta estratégica. Prompts mais curtos e diretos tendem a gerar resultados melhores
+- **Colocar as referências ANTES do texto** no array de content, para que o modelo processe as imagens primeiro
 
 | Arquivo | Ação |
 |---------|------|
-| `src/components/post-editor/PostToolbar.tsx` | Alinhamento de texto, cores da paleta + color picker custom |
-| `src/components/post-editor/PostCanvas.tsx` | Prop textAlign, caixa de texto redimensionável |
-| `src/pages/PostEditorPage.tsx` | Estado textAlign, botão copiar legenda |
+| `supabase/functions/generate-portrait/index.ts` | Trocar modelo para `gemini-3-pro-image-preview`, simplificar prompt, reordenar content (imagens primeiro) |
 
-### 7. Scroll para topo ao mudar de página no questionário de arquétipos
-
-**Problema:** Ao clicar "Próximo", a página permanece na posição do botão.
-
-**Solução:** Adicionar `window.scrollTo(0, 0)` após mudar de página.
-
-| Arquivo | Ação |
-|---------|------|
-| `src/pages/ArchetypeQuestionnaire.tsx` | Adicionar scrollTo(0,0) ao mudar página |
-
-### Resumo de arquivos
+### Resumo
 
 | Arquivo | Alterações |
 |---------|-----------|
-| `supabase/functions/generate-report/index.ts` | Paletas fixas por arquétipo |
-| `supabase/functions/generate-content-week/index.ts` | Corrigir verificação de créditos |
-| `supabase/functions/generate-portrait/index.ts` | Reforçar preservação facial + aceitar variação de figurino |
-| `src/pages/PortraitGenerator.tsx` | Seletor de look/figurino |
-| `src/components/post-editor/PostCanvas.tsx` | 8 handles resize + textAlign + caixa texto |
-| `src/components/post-editor/PostToolbar.tsx` | Alinhamento texto + color picker |
-| `src/pages/PostEditorPage.tsx` | textAlign state + copiar legenda |
-| `src/pages/ArchetypeQuestionnaire.tsx` | Scroll to top ao mudar página |
+| `src/components/post-editor/PostCanvas.tsx` | Texto redimensionável com CSS `resize: both` + drag |
+| `src/components/post-editor/PostToolbar.tsx` | Input color custom para cor de fundo |
+| `src/pages/PostEditorPage.tsx` | State para cor de fundo personalizada |
+| `supabase/functions/generate-portrait/index.ts` | Modelo pro, prompt simplificado, imagens primeiro |
 
