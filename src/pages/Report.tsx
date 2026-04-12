@@ -53,7 +53,8 @@ const Report = () => {
     });
   }, [user]);
 
-  const content = report?.content;
+  const rawContent = report?.content;
+  const content = typeof rawContent === "string" ? (() => { try { return JSON.parse(rawContent); } catch { return rawContent; } })() : rawContent;
   const isStructured = typeof content === "object" && content !== null && content.archetypes;
   const editorialWeeks: any[][] = report?.editorial_weeks || [];
   const allWeeks = [
