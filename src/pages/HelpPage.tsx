@@ -68,8 +68,8 @@ const HelpPage = () => {
     <DashboardLayout>
       <div className="space-y-6 max-w-3xl">
         <div>
-          <h1 className="text-2xl font-bold font-display flex items-center gap-2">
-            <HelpCircle className="h-6 w-6" /> Ajuda
+          <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
+            <HelpCircle className="h-5 w-5 text-muted-foreground" /> Ajuda
           </h1>
           <p className="text-muted-foreground text-sm mt-1">
             Encontre respostas sobre conceitos e como usar o Posiciona

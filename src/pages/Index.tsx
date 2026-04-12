@@ -8,7 +8,7 @@ const Index = () => {
 
   useEffect(() => {
     if (!isLoading) {
-      navigate(user ? "/dashboard" : "/login", { replace: true });
+      navigate(user ? "/dashboard" : "/", { replace: true });
     }
   }, [user, isLoading, navigate]);
 

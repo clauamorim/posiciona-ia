@@ -114,8 +114,8 @@ const HistoryPage = () => {
     <DashboardLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold font-display flex items-center gap-2">
-            <History className="h-6 w-6" /> Histórico
+          <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
+            <History className="h-5 w-5 text-muted-foreground" /> Histórico
           </h1>
           <p className="text-muted-foreground text-sm mt-1">Relatórios, análises e retratos gerados</p>
         </div>
