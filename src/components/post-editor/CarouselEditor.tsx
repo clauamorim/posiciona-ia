@@ -28,6 +28,7 @@ interface CarouselEditorProps {
   fontSize?: number;
   fontWeight?: string;
   fontStyle?: string;
+  bgGradient?: string | null;
 }
 
 const CarouselEditor: React.FC<CarouselEditorProps> = ({
@@ -54,6 +55,7 @@ const CarouselEditor: React.FC<CarouselEditorProps> = ({
   fontSize,
   fontWeight,
   fontStyle,
+  bgGradient,
 }) => {
   const total = slides.length;
   const isCover = currentSlide === 0;
@@ -85,6 +87,7 @@ const CarouselEditor: React.FC<CarouselEditorProps> = ({
         fontSize={fontSize}
         fontWeight={fontWeight}
         fontStyle={fontStyle}
+        bgGradient={bgGradient}
       />
 
       {/* Navigation */}
