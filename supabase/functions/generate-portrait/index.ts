@@ -66,7 +66,7 @@ serve(async (req) => {
       });
     }
 
-    const { selfies } = await req.json();
+    const { selfies, wardrobeVariation } = await req.json();
     if (!selfies || !Array.isArray(selfies) || selfies.length === 0 || selfies.length > 5) {
       return new Response(JSON.stringify({ error: "Envie de 1 a 5 selfies" }), {
         status: 400,
@@ -109,16 +109,30 @@ serve(async (req) => {
 
     const refCount = selfies.length > 1 ? ` I'm providing ${selfies.length} reference photos of the same person from different angles to help you accurately capture their features.` : "";
 
-    // Build wardrobe instructions from figurino
+    // Build wardrobe instructions from figurino with variation support
     let wardrobeInstructions = "";
     if (figurino.pecas_chave?.length > 0 || figurino.cores_roupa?.length > 0 || figurino.acessorios?.length > 0) {
-      const pieces = figurino.pecas_chave?.slice(0, 3).join(", ") || "";
-      const colors = figurino.cores_roupa?.slice(0, 3).join(", ") || "";
-      const accessories = figurino.acessorios?.slice(0, 2).join(", ") || "";
+      const allPieces = figurino.pecas_chave || [];
+      const allColors = figurino.cores_roupa || [];
+      const allAccessories = figurino.acessorios || [];
+
+      // If wardrobeVariation is specified, pick different subsets
+      let pieces: string[], colors: string[], accessories: string[];
+      if (typeof wardrobeVariation === "number" && wardrobeVariation > 0) {
+        const offset = wardrobeVariation;
+        pieces = allPieces.length > 0 ? [allPieces[offset % allPieces.length], allPieces[(offset + 1) % allPieces.length], allPieces[(offset + 2) % allPieces.length]].filter((v, i, a) => a.indexOf(v) === i) : [];
+        colors = allColors.length > 0 ? [allColors[offset % allColors.length], allColors[(offset + 1) % allColors.length]].filter((v, i, a) => a.indexOf(v) === i) : [];
+        accessories = allAccessories.length > 0 ? [allAccessories[offset % allAccessories.length]] : [];
+      } else {
+        pieces = allPieces.slice(0, 3);
+        colors = allColors.slice(0, 3);
+        accessories = allAccessories.slice(0, 2);
+      }
+
       wardrobeInstructions = `\n\nSTRATEGIC WARDROBE (based on brand archetypes):
-- Dress the person in: ${pieces}
-- Clothing colors: ${colors}
-- Accessories: ${accessories}
+- Dress the person in: ${pieces.join(", ")}
+- Clothing colors: ${colors.join(", ")}
+- Accessories: ${accessories.join(", ")}
 - Gender: ${gender === "Feminino" ? "Female" : gender === "Masculino" ? "Male" : "Neutral"}`;
       if (gender === "Feminino" && figurino.maquiagem_grooming) {
         wardrobeInstructions += `\n- Makeup style: ${figurino.maquiagem_grooming}`;
@@ -131,7 +145,15 @@ serve(async (req) => {
       }
     }
 
-    const prompt = `Transform these reference selfie(s) into a hyper-realistic professional brand portrait photograph. The result MUST look like a real photograph taken in a professional studio — NOT a digital illustration, painting, or AI-generated looking image.${refCount}
+    const prompt = `IDENTITY PRESERVATION IS THE #1 PRIORITY. You MUST reproduce the EXACT same person from the reference photos. Study every detail: face shape, nose, eyes, eyebrows, lips, jawline, skin color, hair color and texture, facial hair, moles, freckles, wrinkles. The generated portrait MUST be immediately recognizable as the same person.
+
+Transform these reference selfie(s) into a hyper-realistic professional brand portrait photograph. The result MUST look like a real photograph taken in a professional studio — NOT a digital illustration, painting, or AI-generated looking image.${refCount}
+
+CRITICAL IDENTITY RULES:
+- The person in the output MUST be the EXACT same person as in the reference photos — same face, same features, same ethnicity, same age
+- Do NOT generate a generic or idealized person. Copy the SPECIFIC facial features from the references
+- If the reference shows a specific skin tone, reproduce it EXACTLY
+- Compare your output with the references — they must be clearly the same individual
 
 CRITICAL REALISM RULES:
 - Maintain the person's EXACT facial features, bone structure, and proportions. Do NOT idealize or beautify.
