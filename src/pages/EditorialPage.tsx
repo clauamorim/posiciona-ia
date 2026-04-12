@@ -10,7 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import {
-  Loader2, Sparkles, ChevronDown, Calendar, Video, Image, Smartphone, ImageIcon, PenTool, FileText
+  Loader2, Sparkles, ChevronDown, Calendar, Video, Image, Smartphone, ImageIcon, PenTool, FileText, RefreshCw
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -27,8 +27,10 @@ const EditorialPage = () => {
   const [report, setReport] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [generatingWeek, setGeneratingWeek] = useState(false);
+  const [regeneratingPost, setRegeneratingPost] = useState<string | null>(null);
 
   const weeklyCycles = balances?.weekly_cycles ?? 0;
+  const regenerationCredits = balances?.regeneration_credits ?? 0;
 
   useEffect(() => {
     if (!user) return;
@@ -79,13 +81,11 @@ const EditorialPage = () => {
       const updatedWeeks = [...editorialWeeks, data.editorial];
       await supabase.from("reports").update({ editorial_weeks: updatedWeeks }).eq("user_id", user.id).eq("version", report.version);
 
-      // Consume weekly cycle credit
       await supabase
         .from("user_balances")
         .update({ weekly_cycles: weeklyCycles - 1 })
         .eq("user_id", user.id);
 
-      // Log the consumption
       await supabase.from("credit_logs").insert({
         user_id: user.id,
         credit_type: "weekly_cycle",
@@ -100,6 +100,76 @@ const EditorialPage = () => {
       toast({ title: "Erro ao gerar conteúdo", description: err.message, variant: "destructive" });
     }
     setGeneratingWeek(false);
+  };
+
+  const handleRegeneratePost = async (weekIndex: number, dayIndex: number) => {
+    if (!user || regenerationCredits < 1) {
+      toast({ title: "Créditos insuficientes", description: "Você não tem créditos de regeneração.", variant: "destructive" });
+      return;
+    }
+
+    const key = `${weekIndex}-${dayIndex}`;
+    setRegeneratingPost(key);
+
+    try {
+      const week = allWeeks[weekIndex];
+      const day = week[dayIndex];
+
+      const { data: bq } = await supabase.from("business_questionnaires").select("*").eq("user_id", user.id).order("version", { ascending: false }).limit(1).single();
+      const { data: profile } = await supabase.from("profiles").select("niche").eq("user_id", user.id).single();
+      const { data: topArchetypes } = await supabase.from("user_top_archetypes").select("*").eq("user_id", user.id).order("rank", { ascending: true }).limit(3);
+
+      // Collect all existing posts to avoid duplication
+      const existingPosts = allWeeks.flat();
+
+      const { data, error } = await supabase.functions.invoke("regenerate-single-post", {
+        body: {
+          format: day.format,
+          theme: day.theme,
+          dayNumber: day.day || dayIndex + 1,
+          business: bq,
+          niche: profile?.niche || "",
+          archetypes: { primary: topArchetypes?.[0], secondary: topArchetypes?.[1], tertiary: topArchetypes?.[2] },
+          existingPosts,
+        },
+      });
+
+      if (error) throw error;
+
+      const isFirstWeek = isStructured && content.editorial && weekIndex === 0;
+
+      if (isFirstWeek) {
+        // Update content.editorial
+        const newEditorial = [...content.editorial];
+        newEditorial[dayIndex] = data.post;
+        const newContent = { ...content, editorial: newEditorial };
+        await supabase.from("reports").update({ content: newContent }).eq("user_id", user.id).eq("version", report.version);
+        setReport({ ...report, content: newContent });
+      } else {
+        // Update editorial_weeks
+        const adjustedWeekIndex = isStructured && content.editorial ? weekIndex - 1 : weekIndex;
+        const newWeeks = [...editorialWeeks];
+        newWeeks[adjustedWeekIndex] = [...newWeeks[adjustedWeekIndex]];
+        newWeeks[adjustedWeekIndex][dayIndex] = data.post;
+        await supabase.from("reports").update({ editorial_weeks: newWeeks }).eq("user_id", user.id).eq("version", report.version);
+        setReport({ ...report, editorial_weeks: newWeeks });
+      }
+
+      // Consume credit
+      await supabase.from("user_balances").update({ regeneration_credits: regenerationCredits - 1 }).eq("user_id", user.id);
+      await supabase.from("credit_logs").insert({
+        user_id: user.id,
+        credit_type: "regeneration",
+        amount: -1,
+        description: `Regeneração de post: ${day.theme}`,
+      });
+
+      await refreshSubscription();
+      toast({ title: "Post regenerado com sucesso!" });
+    } catch (err: any) {
+      toast({ title: "Erro ao regenerar post", description: err.message, variant: "destructive" });
+    }
+    setRegeneratingPost(null);
   };
 
   if (loading) {
@@ -160,9 +230,16 @@ const EditorialPage = () => {
   return (
     <DashboardLayout>
       <div className="space-y-8">
-        <div>
-          <h1 className="text-3xl font-bold font-display">Linha Editorial</h1>
-          <p className="text-sm text-muted-foreground mt-1">Planejamento semanal de conteúdo</p>
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div>
+            <h1 className="text-3xl font-bold font-display">Linha Editorial</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Planejamento semanal de conteúdo
+              {regenerationCredits > 0 && (
+                <span className="ml-2">· {regenerationCredits} regeneração{regenerationCredits > 1 ? "ões" : ""} disponível{regenerationCredits > 1 ? "is" : ""}</span>
+              )}
+            </p>
+          </div>
         </div>
 
         <div className="bg-muted/30 rounded-2xl p-6 md:p-8">
@@ -179,6 +256,7 @@ const EditorialPage = () => {
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                   {(week || []).map((day: any, di: number) => {
                     const fmt = FORMAT_CONFIG[day.format?.toLowerCase()] || FORMAT_CONFIG.post;
+                    const regenKey = `${wi}-${di}`;
                     return (
                       <Card key={di} className="flex flex-col">
                         <CardHeader className="pb-2">
@@ -228,16 +306,29 @@ const EditorialPage = () => {
                               </CollapsibleContent>
                             </Collapsible>
                           )}
-                          {(day.format?.toLowerCase() === "carrossel" || day.format?.toLowerCase() === "post") && day.card_copy?.length > 0 && (
+                          <div className="flex gap-2 mt-2">
+                            {(day.format?.toLowerCase() === "carrossel" || day.format?.toLowerCase() === "post") && day.card_copy?.length > 0 && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="flex-1 gap-2"
+                                onClick={() => navigate(`/post-editor?week=${wi}&day=${di}`)}
+                              >
+                                <PenTool className="h-3 w-3" /> Criar Post
+                              </Button>
+                            )}
                             <Button
                               variant="outline"
                               size="sm"
-                              className="w-full gap-2 mt-2"
-                              onClick={() => navigate(`/post-editor?week=${wi}&day=${di}`)}
+                              className="gap-2"
+                              onClick={() => handleRegeneratePost(wi, di)}
+                              disabled={regeneratingPost === regenKey || regenerationCredits < 1}
+                              title={regenerationCredits < 1 ? "Sem créditos de regeneração" : "Gerar novo post"}
                             >
-                              <PenTool className="h-3 w-3" /> Criar Post Visual
+                              {regeneratingPost === regenKey ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                              Gerar novo
                             </Button>
-                          )}
+                          </div>
                         </CardContent>
                       </Card>
                     );

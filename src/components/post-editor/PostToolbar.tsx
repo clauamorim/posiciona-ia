@@ -1,11 +1,22 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { Download, RotateCcw, AlignCenter, AlignLeft, Columns } from "lucide-react";
+import { Download, RotateCcw, AlignCenter, AlignLeft, Columns, Upload, ImagePlus } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Label } from "@/components/ui/label";
 
 interface PaletteColor {
   hex: string;
   name: string;
+}
+
+export interface OverlayImage {
+  id: string;
+  src: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  type: "logo" | "photo";
 }
 
 interface PostToolbarProps {
@@ -16,6 +27,7 @@ interface PostToolbarProps {
   onLayoutChange: (layout: "centered" | "top" | "split") => void;
   onDownload: () => void;
   onReset: () => void;
+  onAddImage?: (image: OverlayImage) => void;
 }
 
 const LAYOUTS = [
@@ -32,7 +44,33 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
   onLayoutChange,
   onDownload,
   onReset,
+  onAddImage,
 }) => {
+  const handleFileUpload = (type: "logo" | "photo") => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/*";
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        const img: OverlayImage = {
+          id: crypto.randomUUID(),
+          src: reader.result as string,
+          x: type === "logo" ? 40 : 200,
+          y: type === "logo" ? 40 : 200,
+          width: type === "logo" ? 150 : 400,
+          height: type === "logo" ? 150 : 400,
+          type,
+        };
+        onAddImage?.(img);
+      };
+      reader.readAsDataURL(file);
+    };
+    input.click();
+  };
+
   return (
     <div className="flex flex-col gap-6 p-4 rounded-xl bg-card border">
       {/* Colors */}
@@ -76,6 +114,21 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
           ))}
         </div>
       </div>
+
+      {/* Images */}
+      {onAddImage && (
+        <div>
+          <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">Imagens</h4>
+          <div className="flex flex-col gap-2">
+            <Button variant="outline" size="sm" className="gap-2 w-full" onClick={() => handleFileUpload("logo")}>
+              <Upload className="h-4 w-4" /> Upload Logo
+            </Button>
+            <Button variant="outline" size="sm" className="gap-2 w-full" onClick={() => handleFileUpload("photo")}>
+              <ImagePlus className="h-4 w-4" /> Upload Foto
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Actions */}
       <div className="flex flex-col gap-2">
