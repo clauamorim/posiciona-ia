@@ -131,7 +131,7 @@ const BusinessQuestionnaire = () => {
       <div className="max-w-2xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold font-display">Questionário do Negócio</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">Questionário do Negócio</h1>
             <p className="text-muted-foreground text-sm mt-1">Pergunta {step + 1} de {fields.length}</p>
           </div>
           <div className="flex items-center gap-2">
@@ -158,19 +158,19 @@ const BusinessQuestionnaire = () => {
               }
             >
               {isLocked && <Lock className="h-3 w-3 mr-1" />}
-              {isLocked ? "Bloqueado" : isSubmitted ? "Enviado" : "Rascunho"}
+              {isLocked ? "Em uso nas análises" : isSubmitted ? "Concluído" : "Rascunho"}
             </Badge>
           </div>
         </div>
 
         {isLocked && (
-          <Card className="border-red-200 bg-red-500/5">
+          <Card className="border-border bg-muted/30">
             <CardContent className="pt-4 pb-4 flex items-center gap-3">
-              <Lock className="h-5 w-5 text-red-500 flex-shrink-0" />
+              <Lock className="h-5 w-5 text-muted-foreground flex-shrink-0" />
               <div>
-                <p className="text-sm font-medium">Questionário bloqueado</p>
+                <p className="text-sm font-medium">Concluído — suas respostas já estão sendo usadas nas análises.</p>
                 <p className="text-xs text-muted-foreground">
-                  Este questionário foi bloqueado após a geração do StoryBrand. Use "Refazer análise" para desbloquear (consome 1 crédito).
+                  Para atualizar os resultados, faça uma nova análise usando 1 crédito de reanálise.
                 </p>
               </div>
             </CardContent>
@@ -216,7 +216,7 @@ const BusinessQuestionnaire = () => {
                 </Button>
               ) : isEditable ? (
                 <Button onClick={() => save(true)} disabled={!allFilled}>
-                  Finalizar ✓
+                  Concluir questionário
                 </Button>
               ) : (
                 <div />
