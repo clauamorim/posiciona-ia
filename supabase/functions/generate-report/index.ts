@@ -90,15 +90,20 @@ O JSON deve seguir EXATAMENTE esta estrutura:
   ]
 }
 
+⚠️ REGRA CRÍTICA SOBRE GÊNERO — OBRIGATÓRIO SEGUIR:
+O gênero do cliente é: **${genderLabel}**
+TODO o figurino DEVE ser gerado para o gênero "${genderLabel}". NÃO gere figurino para outro gênero.
+
 Regras para o campo "figurino":
 - O figurino deve ser 100% baseado na COMBINAÇÃO dos 3 arquétipos da marca
-- Gênero do cliente: ${genderLabel}
-- Se o gênero for "Feminino": gerar maquiagem feminina (batom, sombra, blush, etc.), acessórios femininos (brincos, colares, bolsas, etc.), penteados femininos
-- Se o gênero for "Masculino": gerar grooming masculino (barba, skincare, etc.), acessórios masculinos (relógio, gravata, etc.), cortes de cabelo masculinos
+- GÊNERO: ${genderLabel} — TODAS as recomendações devem ser para este gênero
+- Se o gênero for "Feminino": OBRIGATORIAMENTE gerar maquiagem feminina (batom, sombra, blush, delineador, etc.), acessórios femininos (brincos, colares, pulseiras, bolsas, scarpin, etc.), penteados femininos (ondas, coque, babyliss, etc.). NÃO mencionar barba, grooming masculino, gravata ou relógio masculino.
+- Se o gênero for "Masculino": OBRIGATORIAMENTE gerar grooming masculino (barba, skincare, cabelo curto, etc.), acessórios masculinos (relógio, gravata, abotoaduras, etc.). NÃO mencionar maquiagem, batom, sombra, brincos femininos ou bolsas femininas.
 - Se o gênero for "Não informado" ou "Prefiro não informar": gerar versão neutra/unissex
 - As peças-chave devem ser específicas (ex: "blazer de linho bege", não apenas "blazer")
 - As cores de roupa devem ser alinhadas à paleta de cores da marca
 - Incluir pelo menos 5 peças-chave e 3 acessórios
+- O campo "maquiagem_grooming" DEVE corresponder ao gênero: maquiagem para feminino, grooming para masculino
 
 Regras para o campo "simbolos":
 - Cada arquétipo tem um símbolo clássico (ex: Herói = espada/escudo, Mago = varinha/cristal, Explorador = bússola, etc.)
@@ -157,7 +162,8 @@ Dados do negócio:
 
 Nicho/área de atuação: ${niche || "Não informado"}
 
-Gênero do cliente: ${genderLabel}
+⚠️ GÊNERO DO CLIENTE (OBRIGATÓRIO para figurino): ${genderLabel}
+Gere TODAS as recomendações de figurino, maquiagem/grooming, acessórios e cabelo para o gênero ${genderLabel}.
 
 Arquétipos principais (calculados pela aplicação — use EXATAMENTE estes nomes):
 - Primário: ${archetypes.primary?.archetype_name || archetypes.primary?.name} (pontuação: ${archetypes.primary?.score}/30)
