@@ -18,6 +18,7 @@ interface PostCanvasProps {
   fontSize?: number;
   fontWeight?: string;
   fontStyle?: string;
+  textAlign?: "left" | "center" | "right" | "justify";
   onTextChange?: (newText: string) => void;
   onTitleChange?: (newTitle: string) => void;
   canvasRef?: React.RefObject<HTMLDivElement> | ((el: HTMLDivElement | null) => void);
@@ -29,12 +30,19 @@ interface PostCanvasProps {
   bgGradient?: string | null;
 }
 
-const RESIZE_HANDLE_SIZE = 16;
+const RESIZE_HANDLE_SIZE = 14;
+
+type Corner = "tl" | "tr" | "bl" | "br" | "t" | "b" | "l" | "r";
+
+const CURSORS: Record<Corner, string> = {
+  tl: "nwse-resize", tr: "nesw-resize", bl: "nesw-resize", br: "nwse-resize",
+  t: "ns-resize", b: "ns-resize", l: "ew-resize", r: "ew-resize",
+};
 
 const PostCanvas: React.FC<PostCanvasProps> = ({
   text, title, slideNumber, totalSlides, cta, isLastSlide, isCoverSlide,
   bgColor, textColor, accentColor, displayFont, bodyFont, layout,
-  fontSize, fontWeight, fontStyle,
+  fontSize, fontWeight, fontStyle, textAlign,
   onTextChange, onTitleChange, canvasRef,
   overlayImages = [], onImageMove, onImageResize,
   selectedImageId, onSelectImage, bgGradient,
@@ -42,7 +50,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0.4);
   const [dragging, setDragging] = useState<{ id: string; startX: number; startY: number; origX: number; origY: number } | null>(null);
-  const [resizing, setResizing] = useState<{ id: string; startX: number; startY: number; origW: number; origH: number; corner: string } | null>(null);
+  const [resizing, setResizing] = useState<{ id: string; startX: number; startY: number; origX: number; origY: number; origW: number; origH: number; corner: Corner } | null>(null);
 
   useEffect(() => {
     const updateScale = () => {
@@ -66,11 +74,11 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
     setDragging({ id: img.id, startX: e.clientX, startY: e.clientY, origX: img.x, origY: img.y });
   };
 
-  const handleResizeDown = (e: React.MouseEvent, img: OverlayImage, corner: string) => {
+  const handleResizeDown = (e: React.MouseEvent, img: OverlayImage, corner: Corner) => {
     e.preventDefault();
     e.stopPropagation();
     onSelectImage?.(img.id);
-    setResizing({ id: img.id, startX: e.clientX, startY: e.clientY, origW: img.width, origH: img.height, corner });
+    setResizing({ id: img.id, startX: e.clientX, startY: e.clientY, origX: img.x, origY: img.y, origW: img.width, origH: img.height, corner });
   };
 
   useEffect(() => {
@@ -91,16 +99,35 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
     const handleMouseMove = (e: MouseEvent) => {
       const dx = (e.clientX - resizing.startX) / scale;
       const dy = (e.clientY - resizing.startY) / scale;
-      const aspectRatio = resizing.origW / resizing.origH;
-      let newW = Math.max(40, resizing.origW + dx);
-      let newH = newW / aspectRatio;
+      const { corner, origW, origH, origX, origY } = resizing;
+      const img = overlayImages.find(i => i.id === resizing.id);
+      if (!img) return;
+
+      let newW = origW, newH = origH, newX = origX, newY = origY;
+
+      if (corner === "br") { newW = Math.max(40, origW + dx); newH = Math.max(40, origH + dy); }
+      else if (corner === "bl") { newW = Math.max(40, origW - dx); newH = Math.max(40, origH + dy); newX = origX + (origW - newW); }
+      else if (corner === "tr") { newW = Math.max(40, origW + dx); newH = Math.max(40, origH - dy); newY = origY + (origH - newH); }
+      else if (corner === "tl") { newW = Math.max(40, origW - dx); newH = Math.max(40, origH - dy); newX = origX + (origW - newW); newY = origY + (origH - newH); }
+      else if (corner === "r") { newW = Math.max(40, origW + dx); }
+      else if (corner === "l") { newW = Math.max(40, origW - dx); newX = origX + (origW - newW); }
+      else if (corner === "b") { newH = Math.max(40, origH + dy); }
+      else if (corner === "t") { newH = Math.max(40, origH - dy); newY = origY + (origH - newH); }
+
+      // Shift = proportional for corners
+      if (e.shiftKey && ["tl", "tr", "bl", "br"].includes(corner)) {
+        const ratio = origW / origH;
+        newH = newW / ratio;
+      }
+
       onImageResize?.(resizing.id, newW, newH);
+      if (newX !== img.x || newY !== img.y) onImageMove?.(resizing.id, newX, newY);
     };
     const handleMouseUp = () => setResizing(null);
     window.addEventListener("mousemove", handleMouseMove);
     window.addEventListener("mouseup", handleMouseUp);
     return () => { window.removeEventListener("mousemove", handleMouseMove); window.removeEventListener("mouseup", handleMouseUp); };
-  }, [resizing, scale, onImageResize]);
+  }, [resizing, scale, onImageResize, onImageMove, overlayImages]);
 
   const handleCanvasClick = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget || (e.target as HTMLElement).closest("[data-overlay]") === null) {
@@ -109,10 +136,33 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   };
 
   const justifyClass = layout === "top" ? "justify-start pt-[120px]" : layout === "split" ? "justify-between" : "justify-center";
-
   const bodyFontSize = fontSize || 28;
   const bodyFontWeight = fontWeight || "normal";
   const bodyFontStyle2 = fontStyle || "normal";
+  const bodyTextAlign = textAlign || "center";
+
+  const renderResizeHandles = (img: OverlayImage) => {
+    const hs = RESIZE_HANDLE_SIZE;
+    const half = hs / 2;
+    const handles: { corner: Corner; style: React.CSSProperties }[] = [
+      { corner: "tl", style: { left: -half, top: -half } },
+      { corner: "tr", style: { right: -half, top: -half } },
+      { corner: "bl", style: { left: -half, bottom: -half } },
+      { corner: "br", style: { right: -half, bottom: -half } },
+      { corner: "t", style: { left: "50%", top: -half, transform: "translateX(-50%)" } },
+      { corner: "b", style: { left: "50%", bottom: -half, transform: "translateX(-50%)" } },
+      { corner: "l", style: { left: -half, top: "50%", transform: "translateY(-50%)" } },
+      { corner: "r", style: { right: -half, top: "50%", transform: "translateY(-50%)" } },
+    ];
+    return handles.map(h => (
+      <div key={h.corner} style={{
+        position: "absolute", ...h.style,
+        width: hs, height: hs,
+        backgroundColor: "white", border: "2px solid rgba(0,0,0,0.5)",
+        borderRadius: 3, cursor: CURSORS[h.corner],
+      }} onMouseDown={(e) => handleResizeDown(e, img, h.corner)} />
+    ));
+  };
 
   return (
     <div ref={containerRef} className="flex items-center justify-center w-full">
@@ -147,11 +197,11 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
               <h1 contentEditable={!!onTitleChange} suppressContentEditableWarning
                 onBlur={(e) => onTitleChange?.(e.currentTarget.textContent || "")}
                 className="text-[64px] leading-tight font-bold outline-none focus:ring-2 focus:ring-white/30 rounded-lg px-4 py-2"
-                style={{ fontFamily: `'${displayFont}', sans-serif` }}>{title}</h1>
+                style={{ fontFamily: `'${displayFont}', sans-serif`, textAlign: bodyTextAlign }}>{title}</h1>
               <p contentEditable={!!onTextChange} suppressContentEditableWarning
                 onBlur={(e) => onTextChange?.(e.currentTarget.textContent || "")}
                 className="leading-relaxed opacity-80 outline-none focus:ring-2 focus:ring-white/30 rounded-lg px-4 py-2 max-w-[800px]"
-                style={{ fontSize: bodyFontSize, fontWeight: bodyFontWeight, fontStyle: bodyFontStyle2 }}>{text}</p>
+                style={{ fontSize: bodyFontSize, fontWeight: bodyFontWeight, fontStyle: bodyFontStyle2, textAlign: bodyTextAlign }}>{text}</p>
               <div className="w-20 h-1 rounded-full" style={{ backgroundColor: accentColor }} />
             </div>
           )}
@@ -161,7 +211,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
               <p contentEditable={!!onTextChange} suppressContentEditableWarning
                 onBlur={(e) => onTextChange?.(e.currentTarget.textContent || "")}
                 className="leading-relaxed outline-none focus:ring-2 focus:ring-white/30 rounded-lg px-4 py-2"
-                style={{ fontSize: bodyFontSize + 4, fontWeight: bodyFontWeight, fontStyle: bodyFontStyle2 }}>{text}</p>
+                style={{ fontSize: bodyFontSize + 4, fontWeight: bodyFontWeight, fontStyle: bodyFontStyle2, textAlign: bodyTextAlign }}>{text}</p>
               {cta && (
                 <div className="px-12 py-5 rounded-2xl text-[28px] font-bold"
                   style={{ backgroundColor: accentColor, color: bgColor, fontFamily: `'${displayFont}', sans-serif` }}>{cta}</div>
@@ -175,12 +225,12 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
                 <h2 contentEditable={!!onTitleChange} suppressContentEditableWarning
                   onBlur={(e) => onTitleChange?.(e.currentTarget.textContent || "")}
                   className="text-[44px] leading-tight font-bold outline-none focus:ring-2 focus:ring-white/30 rounded-lg px-4 py-2"
-                  style={{ fontFamily: `'${displayFont}', sans-serif` }}>{title}</h2>
+                  style={{ fontFamily: `'${displayFont}', sans-serif`, textAlign: bodyTextAlign }}>{title}</h2>
               )}
               <p contentEditable={!!onTextChange} suppressContentEditableWarning
                 onBlur={(e) => onTextChange?.(e.currentTarget.textContent || "")}
                 className="leading-relaxed outline-none focus:ring-2 focus:ring-white/30 rounded-lg px-4 py-2"
-                style={{ fontSize: bodyFontSize, fontWeight: bodyFontWeight, fontStyle: bodyFontStyle2 }}>{text}</p>
+                style={{ fontSize: bodyFontSize, fontWeight: bodyFontWeight, fontStyle: bodyFontStyle2, textAlign: bodyTextAlign }}>{text}</p>
               {cta && layout === "split" && (
                 <div className="text-[22px] font-semibold opacity-70 pb-[60px]" style={{ color: accentColor }}>{cta}</div>
               )}
@@ -205,20 +255,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
                 <img src={img.src} alt={img.type}
                   style={{ width: "100%", height: "100%", objectFit: "contain", pointerEvents: "none", opacity: img.opacity ?? 1 }}
                   draggable={false} />
-                {isSelected && (
-                  <>
-                    {/* Bottom-right resize handle */}
-                    <div
-                      style={{
-                        position: "absolute", right: -RESIZE_HANDLE_SIZE / 2, bottom: -RESIZE_HANDLE_SIZE / 2,
-                        width: RESIZE_HANDLE_SIZE, height: RESIZE_HANDLE_SIZE,
-                        backgroundColor: "white", border: "2px solid rgba(0,0,0,0.5)",
-                        borderRadius: 3, cursor: "nwse-resize",
-                      }}
-                      onMouseDown={(e) => handleResizeDown(e, img, "br")}
-                    />
-                  </>
-                )}
+                {isSelected && renderResizeHandles(img)}
               </div>
             );
           })}

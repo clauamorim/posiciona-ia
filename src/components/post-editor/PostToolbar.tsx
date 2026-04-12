@@ -50,6 +50,12 @@ interface PostToolbarProps {
   onBodyFontChange: (f: string) => void;
   displayFont: string;
   onDisplayFontChange: (f: string) => void;
+  // Text alignment
+  textAlign?: "left" | "center" | "right" | "justify";
+  onTextAlignChange?: (align: "left" | "center" | "right" | "justify") => void;
+  // Text color
+  textColor?: string;
+  onTextColorChange?: (color: string) => void;
   // Opacity
   selectedImageId?: string | null;
   overlayImages?: OverlayImage[];
@@ -143,6 +149,7 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
   onDownload, onReset, onAddImage,
   recommendedFonts, fontSize, onFontSizeChange, fontWeight, onFontWeightChange,
   fontStyle, onFontStyleChange, bodyFont, onBodyFontChange, displayFont, onDisplayFontChange,
+  textAlign, onTextAlignChange, textColor, onTextColorChange,
   selectedImageId, overlayImages, onImageOpacityChange,
   useGradient, onUseGradientChange, gradientColor2Index, onGradientColor2Change, gradientDirection, onGradientDirectionChange,
 }) => {
