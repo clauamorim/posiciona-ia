@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useState } from "react";
+import type { OverlayImage } from "./PostToolbar";
 
 interface PostCanvasProps {
   text: string;
@@ -17,6 +18,9 @@ interface PostCanvasProps {
   onTextChange?: (newText: string) => void;
   onTitleChange?: (newTitle: string) => void;
   canvasRef?: React.RefObject<HTMLDivElement> | ((el: HTMLDivElement | null) => void);
+  overlayImages?: OverlayImage[];
+  onImageMove?: (id: string, x: number, y: number) => void;
+  onImageResize?: (id: string, width: number, height: number) => void;
 }
 
 const PostCanvas: React.FC<PostCanvasProps> = ({
@@ -36,9 +40,13 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   onTextChange,
   onTitleChange,
   canvasRef,
+  overlayImages = [],
+  onImageMove,
+  onImageResize,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0.4);
+  const [dragging, setDragging] = useState<{ id: string; startX: number; startY: number; origX: number; origY: number } | null>(null);
 
   useEffect(() => {
     const updateScale = () => {
@@ -54,6 +62,28 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
     window.addEventListener("resize", updateScale);
     return () => window.removeEventListener("resize", updateScale);
   }, []);
+
+  const handleMouseDown = (e: React.MouseEvent, img: OverlayImage) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragging({ id: img.id, startX: e.clientX, startY: e.clientY, origX: img.x, origY: img.y });
+  };
+
+  useEffect(() => {
+    if (!dragging) return;
+    const handleMouseMove = (e: MouseEvent) => {
+      const dx = (e.clientX - dragging.startX) / scale;
+      const dy = (e.clientY - dragging.startY) / scale;
+      onImageMove?.(dragging.id, dragging.origX + dx, dragging.origY + dy);
+    };
+    const handleMouseUp = () => setDragging(null);
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [dragging, scale, onImageMove]);
 
   const justifyClass = layout === "top" ? "justify-start pt-[120px]" : layout === "split" ? "justify-between" : "justify-center";
 
@@ -84,14 +114,8 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
           }}
         >
           {/* Decorative elements */}
-          <div
-            className="absolute top-0 left-0 w-full h-2"
-            style={{ backgroundColor: accentColor }}
-          />
-          <div
-            className="absolute bottom-0 left-0 w-full h-2"
-            style={{ backgroundColor: accentColor }}
-          />
+          <div className="absolute top-0 left-0 w-full h-2" style={{ backgroundColor: accentColor }} />
+          <div className="absolute bottom-0 left-0 w-full h-2" style={{ backgroundColor: accentColor }} />
 
           {/* Slide number indicator */}
           {slideNumber !== undefined && totalSlides !== undefined && (
@@ -106,10 +130,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
           {/* Cover slide layout */}
           {isCoverSlide && (
             <div className="flex flex-col items-center justify-center flex-1 px-[100px] text-center gap-8">
-              <div
-                className="w-20 h-1 rounded-full"
-                style={{ backgroundColor: accentColor }}
-              />
+              <div className="w-20 h-1 rounded-full" style={{ backgroundColor: accentColor }} />
               <h1
                 contentEditable={!!onTitleChange}
                 suppressContentEditableWarning
@@ -127,10 +148,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
               >
                 {text}
               </p>
-              <div
-                className="w-20 h-1 rounded-full"
-                style={{ backgroundColor: accentColor }}
-              />
+              <div className="w-20 h-1 rounded-full" style={{ backgroundColor: accentColor }} />
             </div>
           )}
 
@@ -185,6 +203,28 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
               )}
             </div>
           )}
+
+          {/* Overlay images */}
+          {overlayImages.map((img) => (
+            <img
+              key={img.id}
+              src={img.src}
+              alt={img.type}
+              onMouseDown={(e) => handleMouseDown(e, img)}
+              style={{
+                position: "absolute",
+                left: img.x,
+                top: img.y,
+                width: img.width,
+                height: img.height,
+                objectFit: "contain",
+                cursor: "move",
+                border: dragging?.id === img.id ? "2px dashed rgba(255,255,255,0.5)" : "none",
+                userSelect: "none",
+              }}
+              draggable={false}
+            />
+          ))}
         </div>
       </div>
     </div>

@@ -10,6 +10,7 @@ import { ArrowLeft } from "lucide-react";
 import PostCanvas from "@/components/post-editor/PostCanvas";
 import CarouselEditor from "@/components/post-editor/CarouselEditor";
 import PostToolbar from "@/components/post-editor/PostToolbar";
+import type { OverlayImage } from "@/components/post-editor/PostToolbar";
 
 function getContrastColor(hex: string): string {
   const r = parseInt(hex.slice(1, 3), 16);
@@ -44,6 +45,7 @@ const PostEditorPage = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [editedTexts, setEditedTexts] = useState<string[]>([]);
   const [editedTitle, setEditedTitle] = useState("");
+  const [overlayImages, setOverlayImages] = useState<OverlayImage[]>([]);
   const singleCanvasRef = useRef<HTMLDivElement>(null);
   const slideRefs = useRef<(HTMLDivElement | null)[]>([]);
 
@@ -75,13 +77,11 @@ const PostEditorPage = () => {
   const palette = content?.visual_identity?.palette || [];
   const typography = content?.visual_identity?.typography || {};
 
-  // Load fonts
   useEffect(() => {
     if (typography.display) loadGoogleFont(typography.display);
     if (typography.body) loadGoogleFont(typography.body);
   }, [typography]);
 
-  // Initialize editable texts
   useEffect(() => {
     if (!day) return;
     const copies = day.card_copy || [day.caption || ""];
@@ -97,13 +97,20 @@ const PostEditorPage = () => {
 
   const isCarousel = day?.format?.toLowerCase() === "carrossel";
 
+  const handleAddImage = (image: OverlayImage) => {
+    setOverlayImages((prev) => [...prev, image]);
+  };
+
+  const handleImageMove = (id: string, x: number, y: number) => {
+    setOverlayImages((prev) => prev.map((img) => (img.id === id ? { ...img, x, y } : img)));
+  };
+
   const handleDownloadSlide = useCallback(async (index: number) => {
     try {
       const html2canvas = (await import("html2canvas")).default;
       const el = isCarousel ? slideRefs.current[index] : singleCanvasRef.current;
       if (!el) return;
 
-      // Temporarily remove scale for full-res capture
       const original = el.style.transform;
       el.style.transform = "scale(1)";
       el.style.transformOrigin = "top left";
@@ -129,9 +136,8 @@ const PostEditorPage = () => {
       const zip = new JSZip();
 
       for (let i = 0; i < editedTexts.length; i++) {
-        // We need to render each slide — navigate to it, capture
         setCurrentSlide(i);
-        await new Promise((r) => setTimeout(r, 200)); // wait for render
+        await new Promise((r) => setTimeout(r, 200));
 
         const el = slideRefs.current[i];
         if (!el) continue;
@@ -167,6 +173,7 @@ const PostEditorPage = () => {
     const copies = day.card_copy || [day.caption || ""];
     setEditedTexts(copies);
     setEditedTitle(day.theme || "");
+    setOverlayImages([]);
   };
 
   if (loading) {
@@ -185,8 +192,8 @@ const PostEditorPage = () => {
       <DashboardLayout>
         <div className="flex flex-col items-center justify-center h-64 text-center">
           <p className="text-muted-foreground">Conteúdo não encontrado.</p>
-          <Button variant="outline" className="mt-4 gap-2" onClick={() => navigate("/report")}>
-            <ArrowLeft className="h-4 w-4" /> Voltar ao relatório
+          <Button variant="outline" className="mt-4 gap-2" onClick={() => navigate("/editorial")}>
+            <ArrowLeft className="h-4 w-4" /> Voltar à linha editorial
           </Button>
         </div>
       </DashboardLayout>
@@ -198,7 +205,7 @@ const PostEditorPage = () => {
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center gap-4 flex-wrap">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/report")}>
+          <Button variant="ghost" size="icon" onClick={() => navigate("/editorial")}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
@@ -252,6 +259,8 @@ const PostEditorPage = () => {
                   onTextChange={(t) => setEditedTexts([t])}
                   onTitleChange={setEditedTitle}
                   canvasRef={singleCanvasRef}
+                  overlayImages={overlayImages}
+                  onImageMove={handleImageMove}
                 />
               </div>
             )}
@@ -266,6 +275,7 @@ const PostEditorPage = () => {
             onLayoutChange={setLayout}
             onDownload={() => handleDownloadSlide(isCarousel ? currentSlide : 0)}
             onReset={handleReset}
+            onAddImage={handleAddImage}
           />
         </div>
 

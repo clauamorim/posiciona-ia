@@ -87,6 +87,23 @@ Regras para "visual_identity.palette":
 - EXATAMENTE 5 cores
 - Cada cor deve ter hex válido, nome descritivo em português e uso recomendado (ex: "Cor de fundo principal", "Cor de destaque para CTAs", "Cor de texto secundário")
 
+Regras para "visual_identity.typography":
+- Use APENAS fontes do Google Fonts
+- A tipografia DEVE ser alinhada ao arquétipo primário da marca, seguindo este mapeamento:
+  - Herói/Guerreiro → Display: Oswald ou Bebas Neue | Body: Montserrat ou Source Sans Pro
+  - Mago → Display: Cinzel ou Cormorant Garamond | Body: Lora ou EB Garamond
+  - Fora-da-Lei/Rebelde → Display: Permanent Marker ou Rubik Mono One | Body: Barlow ou Work Sans
+  - Explorador → Display: Fjalla One ou Pathway Gothic One | Body: Open Sans ou Nunito
+  - Sábio → Display: Merriweather ou Libre Baskerville | Body: Source Serif Pro ou Noto Serif
+  - Inocente → Display: Quicksand ou Comfortaa | Body: Poppins ou Nunito Sans
+  - Criador → Display: Playfair Display ou DM Serif Display | Body: Inter ou Karla
+  - Governante → Display: Cormorant Garamond ou Libre Baskerville | Body: Raleway ou Lato
+  - Cuidador → Display: Lora ou Merriweather | Body: Open Sans ou Nunito
+  - Cara Comum → Display: Roboto Slab ou Bitter | Body: Roboto ou Open Sans
+  - Bobo da Corte → Display: Fredoka One ou Baloo 2 | Body: Nunito ou Quicksand
+  - Amante → Display: Playfair Display ou Cormorant | Body: Lora ou EB Garamond
+- Escolha as fontes mais adequadas dentre as opções do arquétipo primário
+
 Responda APENAS em português brasileiro. Seja específico, prático e personalizado.`;
 
     const userPrompt = `

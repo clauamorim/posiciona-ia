@@ -6,11 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { Search, Download, Ban, Coins, Crown } from "lucide-react";
+import { Search, Download, Ban, Coins, Crown, Trash2, MailCheck, Loader2 } from "lucide-react";
 
 interface Plan {
   id: string;
@@ -26,6 +27,7 @@ const AdminUsers = () => {
   const [users, setUsers] = useState<any[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [filter, setFilter] = useState("");
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   // Credits dialog
   const [editingCredits, setEditingCredits] = useState<{ userId: string; name: string } | null>(null);
@@ -35,6 +37,9 @@ const AdminUsers = () => {
   const [assigningPlan, setAssigningPlan] = useState<{ userId: string; name: string } | null>(null);
   const [selectedPlanId, setSelectedPlanId] = useState("");
   const [planMonths, setPlanMonths] = useState("1");
+
+  // Delete confirm
+  const [deletingUser, setDeletingUser] = useState<{ userId: string; name: string } | null>(null);
 
   const loadPlans = async () => {
     const { data } = await supabase.from("plans").select("*").eq("active", true);
@@ -84,6 +89,39 @@ const AdminUsers = () => {
     loadUsers();
   };
 
+  const handleDeleteUser = async () => {
+    if (!deletingUser) return;
+    setActionLoading("delete");
+    try {
+      const { data, error } = await supabase.functions.invoke("admin-manage-user", {
+        body: { action: "delete_user", userId: deletingUser.userId },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast({ title: "Usuário excluído com sucesso" });
+      loadUsers();
+    } catch (err: any) {
+      toast({ title: "Erro ao excluir", description: err.message, variant: "destructive" });
+    }
+    setActionLoading(null);
+    setDeletingUser(null);
+  };
+
+  const handleConfirmEmail = async (userId: string) => {
+    setActionLoading(userId);
+    try {
+      const { data, error } = await supabase.functions.invoke("admin-manage-user", {
+        body: { action: "confirm_email", userId },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast({ title: "E-mail confirmado com sucesso" });
+    } catch (err: any) {
+      toast({ title: "Erro ao confirmar e-mail", description: err.message, variant: "destructive" });
+    }
+    setActionLoading(null);
+  };
+
   // --- Credits ---
   const openCreditsDialog = (u: any) => {
     const b = u.balances;
@@ -120,7 +158,6 @@ const AdminUsers = () => {
     const end = new Date(now);
     end.setMonth(end.getMonth() + months);
 
-    // Upsert subscription
     const { data: existingSub } = await supabase.from("subscriptions").select("id").eq("user_id", assigningPlan.userId).eq("status", "active").maybeSingle();
 
     if (existingSub) {
@@ -140,7 +177,6 @@ const AdminUsers = () => {
       });
     }
 
-    // Provision balances
     await supabase.from("user_balances").update({
       weekly_cycles: plan.weekly_cycles * months,
       reanalysis_credits: plan.reanalysis_credits * months,
@@ -148,7 +184,6 @@ const AdminUsers = () => {
       regeneration_credits: plan.regeneration_credits * months,
     }).eq("user_id", assigningPlan.userId);
 
-    // Log
     await supabase.from("credit_logs").insert({
       user_id: assigningPlan.userId,
       credit_type: "admin_plan_assign",
@@ -176,7 +211,7 @@ const AdminUsers = () => {
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url; a.download = "usuarios-archebrand.csv"; a.click();
+    a.href = url; a.download = "usuarios-posiciona.csv"; a.click();
   };
 
   return (
@@ -242,8 +277,14 @@ const AdminUsers = () => {
                       <Button variant="ghost" size="icon" title="Editar Créditos" onClick={() => openCreditsDialog(u)}>
                         <Coins className="h-4 w-4" />
                       </Button>
+                      <Button variant="ghost" size="icon" title="Confirmar E-mail" onClick={() => handleConfirmEmail(u.user_id)} disabled={actionLoading === u.user_id}>
+                        {actionLoading === u.user_id ? <Loader2 className="h-4 w-4 animate-spin" /> : <MailCheck className="h-4 w-4" />}
+                      </Button>
                       <Button variant="ghost" size="icon" title={u.is_blocked ? "Desbloquear" : "Bloquear"} onClick={() => toggleBlock(u.user_id, u.is_blocked)}>
                         <Ban className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" title="Excluir Usuário" className="text-destructive hover:text-destructive" onClick={() => setDeletingUser({ userId: u.user_id, name: u.full_name })}>
+                        <Trash2 className="h-4 w-4" />
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -329,6 +370,25 @@ const AdminUsers = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Alert: Excluir Usuário */}
+      <AlertDialog open={!!deletingUser} onOpenChange={() => setDeletingUser(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir usuário</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir permanentemente o usuário <strong>{deletingUser?.name}</strong>? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteUser} disabled={actionLoading === "delete"} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {actionLoading === "delete" ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   );
 };

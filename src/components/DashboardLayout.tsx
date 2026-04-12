@@ -42,7 +42,7 @@ export const DashboardLayout = ({ children }: { children: React.ReactNode }) => 
       )}>
         <div className="flex items-center gap-2 p-6 border-b border-sidebar-border">
           <Sparkles className="h-6 w-6 text-sidebar-primary" />
-          <span className="text-xl font-bold font-display">ArcheBrand</span>
+          <span className="text-xl font-bold font-display">Posiciona</span>
         </div>
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
           {navItems.map(item => (
@@ -79,7 +79,7 @@ export const DashboardLayout = ({ children }: { children: React.ReactNode }) => 
           <Button variant="ghost" size="icon" onClick={() => setMobileOpen(true)}>
             <Menu className="h-5 w-5" />
           </Button>
-          <span className="ml-3 font-display font-bold text-primary">ArcheBrand</span>
+          <span className="ml-3 font-display font-bold text-primary">Posiciona</span>
         </header>
         <div className="p-6 lg:p-8 max-w-5xl mx-auto">
           {children}

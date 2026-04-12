@@ -5,8 +5,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
 import { Sparkles } from "lucide-react";
+
+const GOALS = [
+  "Atrair novos clientes/pacientes",
+  "Construir autoridade na minha área",
+  "Aumentar minha visibilidade no Instagram",
+  "Me diferenciar da concorrência",
+  "Manter presença ativa sem perder tempo",
+  "Outro",
+];
 
 const Signup = () => {
   const navigate = useNavigate();
@@ -15,6 +25,8 @@ const Signup = () => {
   const [password, setPassword] = useState("");
   const [profession, setProfession] = useState("");
   const [niche, setNiche] = useState("");
+  const [whatsapp, setWhatsapp] = useState("");
+  const [mainGoal, setMainGoal] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleSignup = async (e: React.FormEvent) => {
@@ -34,7 +46,7 @@ const Signup = () => {
       return;
     }
     if (data.user) {
-      await supabase.from("profiles").update({ profession, niche }).eq("user_id", data.user.id);
+      await supabase.from("profiles").update({ profession, niche, whatsapp, main_goal: mainGoal }).eq("user_id", data.user.id);
     }
     setLoading(false);
     toast({ title: "Conta criada!", description: "Verifique seu e-mail para confirmar." });
@@ -47,7 +59,7 @@ const Signup = () => {
         <CardHeader className="text-center space-y-2">
           <div className="flex items-center justify-center gap-2 mb-2">
             <Sparkles className="h-8 w-8 text-primary" />
-            <h1 className="text-3xl font-bold font-display text-primary">ArcheBrand</h1>
+            <h1 className="text-3xl font-bold font-display text-primary">Posiciona</h1>
           </div>
           <CardTitle className="text-xl font-display">Criar sua conta</CardTitle>
           <CardDescription>Comece a construir seu posicionamento de marca</CardDescription>
@@ -66,6 +78,10 @@ const Signup = () => {
               <Label htmlFor="password">Senha</Label>
               <Input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} placeholder="Mínimo 6 caracteres" />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="whatsapp">WhatsApp</Label>
+              <Input id="whatsapp" type="tel" value={whatsapp} onChange={e => setWhatsapp(e.target.value)} placeholder="(11) 99999-9999" />
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label htmlFor="profession">Profissão</Label>
@@ -75,6 +91,19 @@ const Signup = () => {
                 <Label htmlFor="niche">Nicho</Label>
                 <Input id="niche" value={niche} onChange={e => setNiche(e.target.value)} placeholder="Ex: Moda" />
               </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Objetivo principal com o Posiciona</Label>
+              <Select value={mainGoal} onValueChange={setMainGoal}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione seu objetivo" />
+                </SelectTrigger>
+                <SelectContent>
+                  {GOALS.map(g => (
+                    <SelectItem key={g} value={g}>{g}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "Criando..." : "Criar conta"}
