@@ -50,6 +50,11 @@ const PostEditorPage = () => {
   const [fontSize, setFontSize] = useState(28);
   const [fontWeight, setFontWeight] = useState("normal");
   const [fontStyle, setFontStyle] = useState("normal");
+  // Gradient state
+  const [useGradient, setUseGradient] = useState(false);
+  const [gradientColor2Index, setGradientColor2Index] = useState(1);
+  const [gradientDirection, setGradientDirection] = useState("to right");
+
   const singleCanvasRef = useRef<HTMLDivElement>(null);
   const slideRefs = useRef<(HTMLDivElement | null)[]>([]);
 
@@ -105,11 +110,17 @@ const PostEditorPage = () => {
   const textColor = getContrastColor(bgColor);
   const accentColor = palette[(bgIndex + 1) % Math.max(palette.length, 1)]?.hex || "#7c3aed";
 
+  // Compute gradient string
+  const bgGradient = useGradient && palette.length >= 2
+    ? `linear-gradient(${gradientDirection}, ${bgColor}, ${palette[gradientColor2Index]?.hex || accentColor})`
+    : null;
+
   const isCarousel = day?.format?.toLowerCase() === "carrossel";
 
   const handleAddImage = (image: OverlayImage) => setOverlayImages((prev) => [...prev, image]);
   const handleImageMove = (id: string, x: number, y: number) => setOverlayImages((prev) => prev.map((img) => (img.id === id ? { ...img, x, y } : img)));
   const handleImageResize = (id: string, width: number, height: number) => setOverlayImages((prev) => prev.map((img) => (img.id === id ? { ...img, width, height } : img)));
+  const handleImageOpacityChange = (id: string, opacity: number) => setOverlayImages((prev) => prev.map((img) => (img.id === id ? { ...img, opacity } : img)));
 
   const handleDownloadSlide = useCallback(async (index: number) => {
     try {
@@ -167,6 +178,7 @@ const PostEditorPage = () => {
     setFontSize(28);
     setFontWeight("normal");
     setFontStyle("normal");
+    setUseGradient(false);
     if (typography.display) setDisplayFont(typography.display);
     if (typography.body) setBodyFont(typography.body);
   };
@@ -223,6 +235,7 @@ const PostEditorPage = () => {
                 overlayImages={overlayImages} onImageMove={handleImageMove} onImageResize={handleImageResize}
                 selectedImageId={selectedImageId} onSelectImage={setSelectedImageId}
                 fontSize={fontSize} fontWeight={fontWeight} fontStyle={fontStyle}
+                bgGradient={bgGradient}
               />
             ) : (
               <PostCanvas
@@ -234,6 +247,7 @@ const PostEditorPage = () => {
                 canvasRef={singleCanvasRef}
                 overlayImages={overlayImages} onImageMove={handleImageMove} onImageResize={handleImageResize}
                 selectedImageId={selectedImageId} onSelectImage={setSelectedImageId}
+                bgGradient={bgGradient}
               />
             )}
           </div>
@@ -250,6 +264,12 @@ const PostEditorPage = () => {
             fontStyle={fontStyle} onFontStyleChange={setFontStyle}
             bodyFont={bodyFont} onBodyFontChange={(f) => { loadGoogleFont(f); setBodyFont(f); }}
             displayFont={displayFont} onDisplayFontChange={(f) => { loadGoogleFont(f); setDisplayFont(f); }}
+            selectedImageId={selectedImageId}
+            overlayImages={overlayImages}
+            onImageOpacityChange={handleImageOpacityChange}
+            useGradient={useGradient} onUseGradientChange={setUseGradient}
+            gradientColor2Index={gradientColor2Index} onGradientColor2Change={setGradientColor2Index}
+            gradientDirection={gradientDirection} onGradientDirectionChange={setGradientDirection}
           />
         </div>
 
