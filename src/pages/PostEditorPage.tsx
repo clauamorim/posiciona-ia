@@ -58,6 +58,8 @@ const PostEditorPage = () => {
   const [textAlign, setTextAlign] = useState<"left" | "center" | "right" | "justify">("center");
   // Custom text color
   const [customTextColor, setCustomTextColor] = useState<string | null>(null);
+  // Custom bg color
+  const [customBgColor, setCustomBgColor] = useState<string | null>(null);
   // Copy caption
   const [copied, setCopied] = useState(false);
 
@@ -112,7 +114,7 @@ const PostEditorPage = () => {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [selectedImageId]);
 
-  const bgColor = palette[bgIndex]?.hex || "#1a1a2e";
+  const bgColor = customBgColor || palette[bgIndex]?.hex || "#1a1a2e";
   const textColor = customTextColor || getContrastColor(bgColor);
   const accentColor = palette[(bgIndex + 1) % Math.max(palette.length, 1)]?.hex || "#7c3aed";
 
@@ -187,6 +189,7 @@ const PostEditorPage = () => {
     setUseGradient(false);
     setTextAlign("center");
     setCustomTextColor(null);
+    setCustomBgColor(null);
     if (typography.display) setDisplayFont(typography.display);
     if (typography.body) setBodyFont(typography.body);
   };
@@ -276,7 +279,8 @@ const PostEditorPage = () => {
 
           <PostToolbar
             palette={palette.map((c: any) => ({ hex: c.hex, name: c.name }))}
-            selectedBgIndex={bgIndex} onBgChange={setBgIndex}
+            selectedBgIndex={bgIndex} onBgChange={(i) => { setCustomBgColor(null); setBgIndex(i); }}
+            onCustomBgColorChange={setCustomBgColor}
             layout={layout} onLayoutChange={setLayout}
             onDownload={() => handleDownloadSlide(isCarousel ? currentSlide : 0)}
             onReset={handleReset} onAddImage={handleAddImage}
