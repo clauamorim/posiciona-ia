@@ -34,6 +34,7 @@ const PortraitGenerator = () => {
   const [progress, setProgress] = useState({ current: 0, total: 1 });
   const [packDialogOpen, setPackDialogOpen] = useState(false);
   const [loadingPack, setLoadingPack] = useState<string | null>(null);
+  const [selectedWardrobe, setSelectedWardrobe] = useState(0);
 
   const totalCredits = (balances?.portrait_credits_included ?? 0) + (balances?.portrait_credits_extra ?? 0);
 
@@ -53,19 +54,28 @@ const PortraitGenerator = () => {
   });
 
   const { data: report } = useQuery({
-    queryKey: ["report-check", user?.id],
+    queryKey: ["report-for-portrait", user?.id],
     queryFn: async () => {
       const { data } = await supabase
         .from("reports")
-        .select("id")
+        .select("id, content")
         .eq("user_id", user!.id)
         .eq("status", "completed")
+        .order("created_at", { ascending: false })
         .limit(1)
         .single();
       return data;
     },
     enabled: !!user,
   });
+
+  const figurino = (report?.content as any)?.figurino;
+  const wardrobeOptions = figurino?.pecas_chave?.length > 0
+    ? Array.from({ length: Math.min(Math.ceil((figurino.pecas_chave?.length || 0) / 2), 3) }, (_, i) => ({
+        label: `Look ${i + 1}`,
+        variation: i,
+      }))
+    : [{ label: "Padrão", variation: 0 }];
 
   const { data: packs } = useQuery({
     queryKey: ["portrait-packs"],
@@ -144,7 +154,7 @@ const PortraitGenerator = () => {
 
     try {
       const { data, error } = await supabase.functions.invoke("generate-portrait", {
-        body: { selfies: selfies.map(s => s.base64) },
+        body: { selfies: selfies.map(s => s.base64), wardrobeVariation: selectedWardrobe },
       });
 
       if (error) throw error;
@@ -351,6 +361,28 @@ const PortraitGenerator = () => {
                         </button>
                       </div>
                     ))}
+                  </div>
+                )}
+
+                {/* Wardrobe selector */}
+                {wardrobeOptions.length > 1 && (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Opção de figurino</label>
+                    <div className="flex gap-2 flex-wrap">
+                      {wardrobeOptions.map((opt, i) => (
+                        <Button
+                          key={i}
+                          variant={selectedWardrobe === opt.variation ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setSelectedWardrobe(opt.variation)}
+                        >
+                          {opt.label}
+                        </Button>
+                      ))}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Cada look usa peças e acessórios diferentes do seu figurino estratégico.
+                    </p>
                   </div>
                 )}
 

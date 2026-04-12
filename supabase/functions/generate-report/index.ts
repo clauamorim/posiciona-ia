@@ -123,6 +123,20 @@ Regras para o campo "editorial":
 Regras para "visual_identity.palette":
 - EXATAMENTE 5 cores
 - Cada cor deve ter hex válido, nome descritivo em português e uso recomendado (ex: "Cor de fundo principal", "Cor de destaque para CTAs", "Cor de texto secundário")
+- A paleta DEVE ser determinística e baseada no arquétipo PRIMÁRIO, seguindo este mapeamento FIXO:
+  - Herói → #C0392B (Vermelho Poder), #2C3E50 (Azul Aço), #ECF0F1 (Branco Nobre), #E74C3C (Vermelho Impacto), #1A1A2E (Escuro Épico)
+  - Mago → #6C3483 (Roxo Místico), #1B2631 (Azul Profundo), #F4ECF7 (Lilás Suave), #A569BD (Ametista), #2E4053 (Noite Cósmica)
+  - Rebelde → #1C1C1C (Preto Rebelde), #E74C3C (Vermelho Fogo), #F5F5F5 (Branco Contraste), #95A5A6 (Cinza Urbano), #2C3E50 (Azul Escuro)
+  - Explorador → #1ABC9C (Verde Aventura), #2C3E50 (Azul Oceano), #F0F3F4 (Branco Areia), #F39C12 (Âmbar), #16A085 (Verde Floresta)
+  - Sábio → #2C3E50 (Azul Sabedoria), #1A5276 (Azul Profundo), #FDFEFE (Branco Puro), #85929E (Cinza Acadêmico), #154360 (Azul Noturno)
+  - Inocente → #F9E79F (Amarelo Suave), #AED6F1 (Azul Céu), #FDFEFE (Branco Puro), #ABEBC6 (Verde Esperança), #FAD7A0 (Pêssego)
+  - Criador → #8E44AD (Roxo Criativo), #F39C12 (Laranja Inspiração), #FDFEFE (Branco Tela), #2ECC71 (Verde Inovação), #2C3E50 (Azul Profundo)
+  - Governante → #D4AC0D (Dourado Real), #1B2631 (Azul Marinho), #FDFEFE (Branco Majestade), #85929E (Prata), #6E2C00 (Bronze Imperial)
+  - Cuidador → #27AE60 (Verde Cuidado), #2980B9 (Azul Confiança), #F8F9F9 (Branco Suave), #82E0AA (Verde Menta), #AED6F1 (Azul Celeste)
+  - Cara-comum → #5D6D7E (Cinza Equilibrado), #2E86C1 (Azul Confiável), #F2F3F4 (Branco Natural), #A9CCE3 (Azul Claro), #85929E (Cinza Neutro)
+  - Bobo-da-corte → #F39C12 (Laranja Alegria), #E74C3C (Vermelho Energia), #FDFEFE (Branco), #3498DB (Azul Divertido), #2ECC71 (Verde Brilhante)
+  - Amante → #C0392B (Vermelho Paixão), #6C3483 (Roxo Sedução), #FDEDEC (Rosa Suave), #F5B7B1 (Rosa Quente), #1A1A2E (Escuro Elegante)
+- Você PODE ajustar levemente os tons para harmonizar com o nicho e os arquétipos secundário/terciário, mas a base DEVE seguir o mapeamento acima
 
 Regras para "visual_identity.typography":
 - Use APENAS fontes do Google Fonts

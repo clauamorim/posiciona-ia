@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Copy, Check } from "lucide-react";
 import PostCanvas from "@/components/post-editor/PostCanvas";
 import CarouselEditor from "@/components/post-editor/CarouselEditor";
 import PostToolbar from "@/components/post-editor/PostToolbar";
@@ -54,6 +54,12 @@ const PostEditorPage = () => {
   const [useGradient, setUseGradient] = useState(false);
   const [gradientColor2Index, setGradientColor2Index] = useState(1);
   const [gradientDirection, setGradientDirection] = useState("to right");
+  // Text alignment
+  const [textAlign, setTextAlign] = useState<"left" | "center" | "right" | "justify">("center");
+  // Custom text color
+  const [customTextColor, setCustomTextColor] = useState<string | null>(null);
+  // Copy caption
+  const [copied, setCopied] = useState(false);
 
   const singleCanvasRef = useRef<HTMLDivElement>(null);
   const slideRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -107,7 +113,7 @@ const PostEditorPage = () => {
   }, [selectedImageId]);
 
   const bgColor = palette[bgIndex]?.hex || "#1a1a2e";
-  const textColor = getContrastColor(bgColor);
+  const textColor = customTextColor || getContrastColor(bgColor);
   const accentColor = palette[(bgIndex + 1) % Math.max(palette.length, 1)]?.hex || "#7c3aed";
 
   // Compute gradient string
@@ -179,8 +185,22 @@ const PostEditorPage = () => {
     setFontWeight("normal");
     setFontStyle("normal");
     setUseGradient(false);
+    setTextAlign("center");
+    setCustomTextColor(null);
     if (typography.display) setDisplayFont(typography.display);
     if (typography.body) setBodyFont(typography.body);
+  };
+
+  const handleCopyCaption = async () => {
+    if (!day?.caption) return;
+    try {
+      await navigator.clipboard.writeText(day.caption);
+      setCopied(true);
+      toast({ title: "Legenda copiada!" });
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast({ title: "Erro ao copiar", variant: "destructive" });
+    }
   };
 
   if (loading) {
@@ -235,6 +255,7 @@ const PostEditorPage = () => {
                 overlayImages={overlayImages} onImageMove={handleImageMove} onImageResize={handleImageResize}
                 selectedImageId={selectedImageId} onSelectImage={setSelectedImageId}
                 fontSize={fontSize} fontWeight={fontWeight} fontStyle={fontStyle}
+                textAlign={textAlign}
                 bgGradient={bgGradient}
               />
             ) : (
@@ -243,6 +264,7 @@ const PostEditorPage = () => {
                 bgColor={bgColor} textColor={textColor} accentColor={accentColor}
                 displayFont={displayFont} bodyFont={bodyFont} layout={layout}
                 fontSize={fontSize} fontWeight={fontWeight} fontStyle={fontStyle}
+                textAlign={textAlign}
                 onTextChange={(t) => setEditedTexts([t])} onTitleChange={setEditedTitle}
                 canvasRef={singleCanvasRef}
                 overlayImages={overlayImages} onImageMove={handleImageMove} onImageResize={handleImageResize}
@@ -264,6 +286,8 @@ const PostEditorPage = () => {
             fontStyle={fontStyle} onFontStyleChange={setFontStyle}
             bodyFont={bodyFont} onBodyFontChange={(f) => { loadGoogleFont(f); setBodyFont(f); }}
             displayFont={displayFont} onDisplayFontChange={(f) => { loadGoogleFont(f); setDisplayFont(f); }}
+            textAlign={textAlign} onTextAlignChange={setTextAlign}
+            textColor={textColor} onTextColorChange={setCustomTextColor}
             selectedImageId={selectedImageId}
             overlayImages={overlayImages}
             onImageOpacityChange={handleImageOpacityChange}
@@ -274,7 +298,13 @@ const PostEditorPage = () => {
         </div>
 
         <div className="bg-card rounded-xl border p-4">
-          <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-2">Legenda do Instagram</h3>
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Legenda do Instagram</h3>
+            <Button variant="outline" size="sm" className="gap-2" onClick={handleCopyCaption}>
+              {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+              {copied ? "Copiado!" : "Copiar"}
+            </Button>
+          </div>
           <p className="text-sm text-foreground/80 whitespace-pre-wrap">{day.caption}</p>
         </div>
       </div>

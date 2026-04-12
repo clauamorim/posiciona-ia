@@ -196,11 +196,11 @@ const ArchetypeQuestionnaire = () => {
         </div>
 
         <div className="flex justify-between pt-2">
-          <Button variant="outline" onClick={async () => { if (!isLocked) await saveAnswers(); setPage(p => p - 1); }} disabled={page === 0 || saving}>
+          <Button variant="outline" onClick={async () => { if (!isLocked) await saveAnswers(); setPage(p => p - 1); window.scrollTo({ top: 0, behavior: "smooth" }); }} disabled={page === 0 || saving}>
             <ChevronLeft className="h-4 w-4 mr-1" /> Anterior
           </Button>
           {page < totalPages - 1 ? (
-            <Button onClick={async () => { if (!isLocked) await saveAnswers(); setPage(p => p + 1); }} disabled={saving}>
+            <Button onClick={async () => { if (!isLocked) await saveAnswers(); setPage(p => p + 1); window.scrollTo({ top: 0, behavior: "smooth" }); }} disabled={saving}>
               Próximo <ChevronRight className="h-4 w-4 ml-1" />
             </Button>
           ) : !isLocked ? (

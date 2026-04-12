@@ -36,15 +36,15 @@ serve(async (req) => {
 
     const { business, niche, archetypes, previousWeeks } = await req.json();
 
-    // Check credits
-    const { data: credits } = await supabase
-      .from("user_credits")
-      .select("balance")
+    // Check weekly_cycles credits
+    const { data: balanceData } = await supabase
+      .from("user_balances")
+      .select("weekly_cycles")
       .eq("user_id", user.id)
       .single();
 
-    if (!credits || credits.balance < 1) {
-      return new Response(JSON.stringify({ error: "Créditos insuficientes. Adquira mais créditos para continuar gerando conteúdo." }), {
+    if (!balanceData || balanceData.weekly_cycles < 1) {
+      return new Response(JSON.stringify({ error: "Créditos de ciclos semanais insuficientes. Adquira mais créditos para continuar gerando conteúdo." }), {
         status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -130,10 +130,10 @@ Gere 7 novos dias de conteúdo em JSON.`;
       throw new Error("Falha ao processar resposta da IA. Tente novamente.");
     }
 
-    // Deduct 1 credit
+    // Deduct 1 weekly cycle
     await supabase
-      .from("user_credits")
-      .update({ balance: credits.balance - 1 })
+      .from("user_balances")
+      .update({ weekly_cycles: balanceData.weekly_cycles - 1 })
       .eq("user_id", user.id);
 
     return new Response(JSON.stringify({ editorial }), {

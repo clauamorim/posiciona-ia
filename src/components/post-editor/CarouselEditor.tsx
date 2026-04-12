@@ -28,6 +28,7 @@ interface CarouselEditorProps {
   fontSize?: number;
   fontWeight?: string;
   fontStyle?: string;
+  textAlign?: "left" | "center" | "right" | "justify";
   bgGradient?: string | null;
 }
 
@@ -55,6 +56,7 @@ const CarouselEditor: React.FC<CarouselEditorProps> = ({
   fontSize,
   fontWeight,
   fontStyle,
+  textAlign,
   bgGradient,
 }) => {
   const total = slides.length;
@@ -87,6 +89,7 @@ const CarouselEditor: React.FC<CarouselEditorProps> = ({
         fontSize={fontSize}
         fontWeight={fontWeight}
         fontStyle={fontStyle}
+        textAlign={textAlign}
         bgGradient={bgGradient}
       />
 
