@@ -34,6 +34,7 @@ interface PostToolbarProps {
   palette: PaletteColor[];
   selectedBgIndex: number;
   onBgChange: (index: number) => void;
+  onCustomBgColorChange?: (color: string) => void;
   layout: "centered" | "top" | "split";
   onLayoutChange: (layout: "centered" | "top" | "split") => void;
   onDownload: () => void;
@@ -145,7 +146,7 @@ function loadGoogleFont(fontName: string) {
 }
 
 const PostToolbar: React.FC<PostToolbarProps> = ({
-  palette, selectedBgIndex, onBgChange, layout, onLayoutChange,
+  palette, selectedBgIndex, onBgChange, onCustomBgColorChange, layout, onLayoutChange,
   onDownload, onReset, onAddImage,
   recommendedFonts, fontSize, onFontSizeChange, fontWeight, onFontWeightChange,
   fontStyle, onFontStyleChange, bodyFont, onBodyFontChange, displayFont, onDisplayFontChange,
