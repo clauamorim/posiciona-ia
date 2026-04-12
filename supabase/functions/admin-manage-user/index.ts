@@ -70,6 +70,18 @@ serve(async (req) => {
       });
     }
 
+    if (action === "list_users") {
+      const { data: { users }, error } = await adminClient.auth.admin.listUsers({ perPage: 1000 });
+      if (error) throw error;
+      const emailMap: Record<string, string> = {};
+      for (const u of users) {
+        emailMap[u.id] = u.email || "";
+      }
+      return new Response(JSON.stringify({ emailMap }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     return new Response(JSON.stringify({ error: "Unknown action" }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
