@@ -202,7 +202,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
                 onClick={(e) => { e.stopPropagation(); onSelectImage?.(img.id); }}
               >
                 <img src={img.src} alt={img.type}
-                  style={{ width: "100%", height: "100%", objectFit: "contain", pointerEvents: "none" }}
+                  style={{ width: "100%", height: "100%", objectFit: "contain", pointerEvents: "none", opacity: img.opacity ?? 1 }}
                   draggable={false} />
                 {isSelected && (
                   <>

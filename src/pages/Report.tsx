@@ -13,8 +13,6 @@ import {
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
-// FORMAT_CONFIG removed — moved to EditorialPage
-
 const STORYBRAND_ITEMS = [
   { key: "hero", label: "O Herói (Cliente)", icon: <Users className="h-5 w-5" /> },
   { key: "guide", label: "O Guia (Marca)", icon: <Compass className="h-5 w-5" /> },
@@ -39,14 +37,19 @@ const Report = () => {
   const { user } = useAuth();
   const [report, setReport] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [topArchetypes, setTopArchetypes] = useState<any[]>([]);
 
   useEffect(() => {
     if (!user) return;
-    supabase.from("reports").select("*").eq("user_id", user.id).order("version", { ascending: false }).limit(1).single()
-      .then(({ data }) => {
-        setReport(data);
-        setLoading(false);
-      });
+    // Fetch report and top archetypes in parallel
+    Promise.all([
+      supabase.from("reports").select("*").eq("user_id", user.id).order("version", { ascending: false }).limit(1).single(),
+      supabase.from("user_top_archetypes").select("*").eq("user_id", user.id).order("rank", { ascending: true }).limit(3),
+    ]).then(([reportRes, archRes]) => {
+      setReport(reportRes.data);
+      setTopArchetypes(archRes.data || []);
+      setLoading(false);
+    });
   }, [user]);
 
   const content = report?.content;
@@ -56,6 +59,35 @@ const Report = () => {
     ...(isStructured && content.editorial ? [content.editorial] : []),
     ...editorialWeeks,
   ];
+
+  // Build archetypes from user_top_archetypes table, with descriptions from LLM content
+  const getArchetypeData = () => {
+    if (topArchetypes.length === 0) return null;
+    const rankKeys = ["primary", "secondary", "tertiary"];
+    return topArchetypes.map((arch, i) => {
+      // Try to find matching description from LLM content
+      const llmArchetypes = content?.archetypes || {};
+      let description = "";
+      let application = "";
+      // Search across all LLM archetype slots for matching name
+      for (const key of rankKeys) {
+        const llm = llmArchetypes[key];
+        if (llm && llm.name && llm.name.toLowerCase() === arch.archetype_name.toLowerCase()) {
+          description = llm.description || "";
+          application = llm.application || "";
+          break;
+        }
+      }
+      return {
+        name: arch.archetype_name,
+        rank: i,
+        label: i === 0 ? "Primário" : i === 1 ? "Secundário" : "Terciário",
+        score: arch.score,
+        description,
+        application,
+      };
+    });
+  };
 
   const handleDownloadPDF = async () => {
     try {
@@ -96,10 +128,19 @@ const Report = () => {
 
     if (isStructured) {
       addTitle("Arquétipos de Marca");
-      ["primary", "secondary", "tertiary"].forEach(rank => {
-        const a = content.archetypes?.[rank];
-        if (a) { addSubtitle(`${rank === "primary" ? "Primário" : rank === "secondary" ? "Secundário" : "Terciário"}: ${a.name}`); addBody(a.description || ""); addBody(a.application || ""); }
-      });
+      const archetypeData = getArchetypeData();
+      if (archetypeData) {
+        archetypeData.forEach(a => {
+          addSubtitle(`${a.label}: ${a.name}`);
+          if (a.description) addBody(a.description);
+          if (a.application) addBody(a.application);
+        });
+      } else {
+        ["primary", "secondary", "tertiary"].forEach(rank => {
+          const a = content.archetypes?.[rank];
+          if (a) { addSubtitle(`${rank === "primary" ? "Primário" : rank === "secondary" ? "Secundário" : "Terciário"}: ${a.name}`); addBody(a.description || ""); addBody(a.application || ""); }
+        });
+      }
 
       addTitle("Identidade Visual");
       content.visual_identity?.palette?.forEach((c: any) => { addBody(`${c.name}: ${c.hex} — ${c.usage}`); });
@@ -191,6 +232,8 @@ const Report = () => {
     );
   }
 
+  const archetypeData = getArchetypeData();
+
   return (
     <DashboardLayout>
       <div className="space-y-10">
@@ -203,14 +246,26 @@ const Report = () => {
           <Button onClick={handleDownloadPDF} className="gap-2"><Download className="h-4 w-4" /> Baixar PDF</Button>
         </div>
 
-        {/* SECTION: Archetypes */}
+        {/* SECTION: Archetypes — from user_top_archetypes table */}
         <section>
           <div className="flex items-center gap-2 mb-4">
             <Crown className="h-5 w-5 text-primary" />
             <h2 className="text-xl font-bold font-display">Seus Arquétipos de Marca</h2>
           </div>
           <div className="grid gap-4 md:grid-cols-3">
-            {(["primary", "secondary", "tertiary"] as const).map((rank, i) => {
+            {archetypeData ? archetypeData.map((a) => (
+              <Card key={a.name} className="relative overflow-hidden border-2 border-primary/20 hover:border-primary/40 transition-colors">
+                <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-primary to-accent" />
+                <CardContent className="pt-8 pb-6">
+                  <Badge variant="outline" className="mb-3 text-xs">{a.label}</Badge>
+                  <h3 className="text-lg font-bold font-display mb-2">{a.name}</h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed">{a.description}</p>
+                  {a.application && (
+                    <p className="text-sm mt-3 p-3 rounded-lg bg-primary/5 text-foreground/80">{a.application}</p>
+                  )}
+                </CardContent>
+              </Card>
+            )) : (["primary", "secondary", "tertiary"] as const).map((rank, i) => {
               const a = content.archetypes?.[rank];
               if (!a) return null;
               const labels = ["Primário", "Secundário", "Terciário"];
