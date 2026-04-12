@@ -26,7 +26,7 @@ function loadGoogleFont(fontName: string) {
   const link = document.createElement("link");
   link.id = id;
   link.rel = "stylesheet";
-  link.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(fontName)}:wght@300;400;500;600;700&display=swap`;
+  link.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(fontName)}:wght@300;400;500;600;700;800;900&display=swap`;
   document.head.appendChild(link);
 }
 
@@ -46,27 +46,21 @@ const PostEditorPage = () => {
   const [editedTexts, setEditedTexts] = useState<string[]>([]);
   const [editedTitle, setEditedTitle] = useState("");
   const [overlayImages, setOverlayImages] = useState<OverlayImage[]>([]);
+  const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
+  const [fontSize, setFontSize] = useState(28);
+  const [fontWeight, setFontWeight] = useState("normal");
+  const [fontStyle, setFontStyle] = useState("normal");
   const singleCanvasRef = useRef<HTMLDivElement>(null);
   const slideRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   useEffect(() => {
     if (!user) return;
-    supabase
-      .from("reports")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("version", { ascending: false })
-      .limit(1)
-      .single()
-      .then(({ data }) => {
-        setReport(data);
-        setLoading(false);
-      });
+    supabase.from("reports").select("*").eq("user_id", user.id).order("version", { ascending: false }).limit(1).single()
+      .then(({ data }) => { setReport(data); setLoading(false); });
   }, [user]);
 
   const content = report?.content;
   const isStructured = typeof content === "object" && content !== null && content.archetypes;
-
   const editorialWeeks: any[][] = report?.editorial_weeks || [];
   const allWeeks = [
     ...(isStructured && content.editorial ? [content.editorial] : []),
@@ -77,10 +71,13 @@ const PostEditorPage = () => {
   const palette = content?.visual_identity?.palette || [];
   const typography = content?.visual_identity?.typography || {};
 
+  const [displayFont, setDisplayFont] = useState(typography.display || "Space Grotesk");
+  const [bodyFont, setBodyFont] = useState(typography.body || "Inter");
+
   useEffect(() => {
-    if (typography.display) loadGoogleFont(typography.display);
-    if (typography.body) loadGoogleFont(typography.body);
-  }, [typography]);
+    if (typography.display) { setDisplayFont(typography.display); loadGoogleFont(typography.display); }
+    if (typography.body) { setBodyFont(typography.body); loadGoogleFont(typography.body); }
+  }, [typography.display, typography.body]);
 
   useEffect(() => {
     if (!day) return;
@@ -89,44 +86,47 @@ const PostEditorPage = () => {
     setEditedTitle(day.theme || "");
   }, [day]);
 
+  // Keyboard: Delete selected overlay
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.key === "Delete" || e.key === "Backspace") && selectedImageId) {
+        const target = e.target as HTMLElement;
+        if (target.isContentEditable || target.tagName === "INPUT" || target.tagName === "TEXTAREA") return;
+        e.preventDefault();
+        setOverlayImages((prev) => prev.filter((img) => img.id !== selectedImageId));
+        setSelectedImageId(null);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedImageId]);
+
   const bgColor = palette[bgIndex]?.hex || "#1a1a2e";
   const textColor = getContrastColor(bgColor);
   const accentColor = palette[(bgIndex + 1) % Math.max(palette.length, 1)]?.hex || "#7c3aed";
-  const displayFont = typography.display || "Space Grotesk";
-  const bodyFont = typography.body || "Inter";
 
   const isCarousel = day?.format?.toLowerCase() === "carrossel";
 
-  const handleAddImage = (image: OverlayImage) => {
-    setOverlayImages((prev) => [...prev, image]);
-  };
-
-  const handleImageMove = (id: string, x: number, y: number) => {
-    setOverlayImages((prev) => prev.map((img) => (img.id === id ? { ...img, x, y } : img)));
-  };
+  const handleAddImage = (image: OverlayImage) => setOverlayImages((prev) => [...prev, image]);
+  const handleImageMove = (id: string, x: number, y: number) => setOverlayImages((prev) => prev.map((img) => (img.id === id ? { ...img, x, y } : img)));
+  const handleImageResize = (id: string, width: number, height: number) => setOverlayImages((prev) => prev.map((img) => (img.id === id ? { ...img, width, height } : img)));
 
   const handleDownloadSlide = useCallback(async (index: number) => {
     try {
       const html2canvas = (await import("html2canvas")).default;
       const el = isCarousel ? slideRefs.current[index] : singleCanvasRef.current;
       if (!el) return;
-
       const original = el.style.transform;
       el.style.transform = "scale(1)";
       el.style.transformOrigin = "top left";
-
       const canvas = await html2canvas(el, { scale: 2, width: 1080, height: 1080, useCORS: true });
-
       el.style.transform = original;
       el.style.transformOrigin = "center center";
-
       const link = document.createElement("a");
       link.download = `post-dia${day?.day || dayIndex + 1}${isCarousel ? `-slide${index + 1}` : ""}.png`;
       link.href = canvas.toDataURL("image/png");
       link.click();
-    } catch (err) {
-      toast({ title: "Erro ao exportar imagem", variant: "destructive" });
-    }
+    } catch { toast({ title: "Erro ao exportar imagem", variant: "destructive" }); }
   }, [isCarousel, day, dayIndex]);
 
   const handleDownloadAll = useCallback(async () => {
@@ -134,55 +134,47 @@ const PostEditorPage = () => {
       const html2canvas = (await import("html2canvas")).default;
       const JSZip = (await import("jszip")).default;
       const zip = new JSZip();
-
       for (let i = 0; i < editedTexts.length; i++) {
         setCurrentSlide(i);
         await new Promise((r) => setTimeout(r, 200));
-
         const el = slideRefs.current[i];
         if (!el) continue;
-
         const original = el.style.transform;
         el.style.transform = "scale(1)";
         el.style.transformOrigin = "top left";
-
         const canvas = await html2canvas(el, { scale: 2, width: 1080, height: 1080, useCORS: true });
-
         el.style.transform = original;
         el.style.transformOrigin = "center center";
-
         const blob = await new Promise<Blob>((resolve) => canvas.toBlob((b) => resolve(b!), "image/png"));
         zip.file(`slide-${i + 1}.png`, blob);
       }
-
       const zipBlob = await zip.generateAsync({ type: "blob" });
       const link = document.createElement("a");
       link.download = `carrossel-dia${day?.day || dayIndex + 1}.zip`;
       link.href = URL.createObjectURL(zipBlob);
       link.click();
       URL.revokeObjectURL(link.href);
-
       toast({ title: "Carrossel exportado com sucesso!" });
-    } catch (err) {
-      toast({ title: "Erro ao exportar ZIP", variant: "destructive" });
-    }
+    } catch { toast({ title: "Erro ao exportar ZIP", variant: "destructive" }); }
   }, [editedTexts, day, dayIndex]);
 
   const handleReset = () => {
     if (!day) return;
-    const copies = day.card_copy || [day.caption || ""];
-    setEditedTexts(copies);
+    setEditedTexts(day.card_copy || [day.caption || ""]);
     setEditedTitle(day.theme || "");
     setOverlayImages([]);
+    setSelectedImageId(null);
+    setFontSize(28);
+    setFontWeight("normal");
+    setFontStyle("normal");
+    if (typography.display) setDisplayFont(typography.display);
+    if (typography.body) setBodyFont(typography.body);
   };
 
   if (loading) {
     return (
       <DashboardLayout>
-        <div className="space-y-4">
-          <Skeleton className="h-8 w-64" />
-          <Skeleton className="h-96 w-full" />
-        </div>
+        <div className="space-y-4"><Skeleton className="h-8 w-64" /><Skeleton className="h-96 w-full" /></div>
       </DashboardLayout>
     );
   }
@@ -203,85 +195,64 @@ const PostEditorPage = () => {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        {/* Header */}
         <div className="flex items-center gap-4 flex-wrap">
           <Button variant="ghost" size="icon" onClick={() => navigate("/editorial")}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
-            <h1 className="text-xl font-bold font-display">
-              Dia {day.day || dayIndex + 1}: {day.theme}
-            </h1>
+            <h1 className="text-xl font-bold font-display">Dia {day.day || dayIndex + 1}: {day.theme}</h1>
             <p className="text-sm text-muted-foreground">
               Semana {weekIndex + 1} · {day.format}
               {isCarousel && ` · ${editedTexts.length} slides`}
+              {selectedImageId && " · Pressione Delete para remover elemento selecionado"}
             </p>
           </div>
         </div>
 
-        {/* Editor area */}
         <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
           <div className="flex items-center justify-center min-h-[400px] bg-muted/30 rounded-2xl p-4 overflow-hidden">
             {isCarousel ? (
               <CarouselEditor
-                slides={editedTexts}
-                theme={editedTitle}
-                cta={day.cta || ""}
-                bgColor={bgColor}
-                textColor={textColor}
-                accentColor={accentColor}
-                displayFont={displayFont}
-                bodyFont={bodyFont}
-                layout={layout}
-                currentSlide={currentSlide}
-                onSlideChange={setCurrentSlide}
-                onSlideTextChange={(i, t) => {
-                  const copy = [...editedTexts];
-                  copy[i] = t;
-                  setEditedTexts(copy);
-                }}
-                onDownloadSlide={handleDownloadSlide}
-                onDownloadAll={handleDownloadAll}
+                slides={editedTexts} theme={editedTitle} cta={day.cta || ""}
+                bgColor={bgColor} textColor={textColor} accentColor={accentColor}
+                displayFont={displayFont} bodyFont={bodyFont} layout={layout}
+                currentSlide={currentSlide} onSlideChange={setCurrentSlide}
+                onSlideTextChange={(i, t) => { const copy = [...editedTexts]; copy[i] = t; setEditedTexts(copy); }}
+                onDownloadSlide={handleDownloadSlide} onDownloadAll={handleDownloadAll}
                 slideRefs={slideRefs}
-                overlayImages={overlayImages}
-                onImageMove={handleImageMove}
+                overlayImages={overlayImages} onImageMove={handleImageMove} onImageResize={handleImageResize}
+                selectedImageId={selectedImageId} onSelectImage={setSelectedImageId}
+                fontSize={fontSize} fontWeight={fontWeight} fontStyle={fontStyle}
               />
             ) : (
-              <div className="flex flex-col items-center gap-4">
-                <PostCanvas
-                  text={editedTexts[0] || ""}
-                  title={editedTitle}
-                  cta={day.cta}
-                  bgColor={bgColor}
-                  textColor={textColor}
-                  accentColor={accentColor}
-                  displayFont={displayFont}
-                  bodyFont={bodyFont}
-                  layout={layout}
-                  onTextChange={(t) => setEditedTexts([t])}
-                  onTitleChange={setEditedTitle}
-                  canvasRef={singleCanvasRef}
-                  overlayImages={overlayImages}
-                  onImageMove={handleImageMove}
-                />
-              </div>
+              <PostCanvas
+                text={editedTexts[0] || ""} title={editedTitle} cta={day.cta}
+                bgColor={bgColor} textColor={textColor} accentColor={accentColor}
+                displayFont={displayFont} bodyFont={bodyFont} layout={layout}
+                fontSize={fontSize} fontWeight={fontWeight} fontStyle={fontStyle}
+                onTextChange={(t) => setEditedTexts([t])} onTitleChange={setEditedTitle}
+                canvasRef={singleCanvasRef}
+                overlayImages={overlayImages} onImageMove={handleImageMove} onImageResize={handleImageResize}
+                selectedImageId={selectedImageId} onSelectImage={setSelectedImageId}
+              />
             )}
           </div>
 
-          {/* Toolbar */}
           <PostToolbar
             palette={palette.map((c: any) => ({ hex: c.hex, name: c.name }))}
-            selectedBgIndex={bgIndex}
-            onBgChange={setBgIndex}
-            layout={layout}
-            onLayoutChange={setLayout}
+            selectedBgIndex={bgIndex} onBgChange={setBgIndex}
+            layout={layout} onLayoutChange={setLayout}
             onDownload={() => handleDownloadSlide(isCarousel ? currentSlide : 0)}
-            onReset={handleReset}
-            onAddImage={handleAddImage}
+            onReset={handleReset} onAddImage={handleAddImage}
+            recommendedFonts={{ display: typography.display, body: typography.body }}
+            fontSize={fontSize} onFontSizeChange={setFontSize}
+            fontWeight={fontWeight} onFontWeightChange={setFontWeight}
+            fontStyle={fontStyle} onFontStyleChange={setFontStyle}
+            bodyFont={bodyFont} onBodyFontChange={(f) => { loadGoogleFont(f); setBodyFont(f); }}
+            displayFont={displayFont} onDisplayFontChange={(f) => { loadGoogleFont(f); setDisplayFont(f); }}
           />
         </div>
 
-        {/* Caption section */}
         <div className="bg-card rounded-xl border p-4">
           <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-2">Legenda do Instagram</h3>
           <p className="text-sm text-foreground/80 whitespace-pre-wrap">{day.caption}</p>
