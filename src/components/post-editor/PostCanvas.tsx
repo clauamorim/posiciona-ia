@@ -26,6 +26,7 @@ interface PostCanvasProps {
   onImageResize?: (id: string, width: number, height: number) => void;
   selectedImageId?: string | null;
   onSelectImage?: (id: string | null) => void;
+  bgGradient?: string | null;
 }
 
 const RESIZE_HANDLE_SIZE = 16;
@@ -36,7 +37,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   fontSize, fontWeight, fontStyle,
   onTextChange, onTitleChange, canvasRef,
   overlayImages = [], onImageMove, onImageResize,
-  selectedImageId, onSelectImage,
+  selectedImageId, onSelectImage, bgGradient,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0.4);
