@@ -31,7 +31,6 @@ const Results = () => {
     if (!user) return;
     const run = async () => {
       try {
-        // 1. Calculate archetypes
         setStage("calculating");
         const [{ data: questions }, { data: answersData }] = await Promise.all([
           supabase.from("archetype_questions").select("id, question_number"),
@@ -44,50 +43,26 @@ const Results = () => {
         const calc = calculateScores(questions, answerMap);
         setScores(calc);
 
-        // 2. Save scores
         setStage("saving");
         const upserts = calc.map(s => ({
-          user_id: user.id,
-          version: 1,
-          archetype_name: s.name,
-          total_score: s.score,
+          user_id: user.id, version: 1, archetype_name: s.name, total_score: s.score,
         }));
         await supabase.from("archetype_scores").upsert(upserts, { onConflict: "user_id,version,archetype_name" });
 
         const top3 = getTop3(calc);
         const topUpserts = top3.map(t => ({
-          user_id: user.id,
-          version: 1,
-          archetype_name: t.name,
-          rank: t.rank,
-          score: t.score,
+          user_id: user.id, version: 1, archetype_name: t.name, rank: t.rank, score: t.score,
         }));
         await supabase.from("user_top_archetypes").upsert(topUpserts, { onConflict: "user_id,version,rank" });
 
-        // 3. Check if business questionnaire is complete
         const { data: bqData } = await supabase
-          .from("business_questionnaires")
-          .select("*")
-          .eq("user_id", user.id)
-          .eq("is_complete", true)
-          .order("version", { ascending: false })
-          .limit(1)
-          .single();
+          .from("business_questionnaires").select("*").eq("user_id", user.id)
+          .eq("is_complete", true).order("version", { ascending: false }).limit(1).single();
 
-        if (!bqData) {
-          // No business questionnaire — just show results
-          setStage("done");
-          return;
-        }
+        if (!bqData) { setStage("done"); return; }
 
-        // 4. Auto-generate report
         setStage("generating_report");
-
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("niche, gender")
-          .eq("user_id", user.id)
-          .single();
+        const { data: profile } = await supabase.from("profiles").select("niche, gender").eq("user_id", user.id).single();
 
         const archetypes = {
           primary: { archetype_name: top3[0]?.name, score: top3[0]?.score },
@@ -96,27 +71,16 @@ const Results = () => {
         };
 
         await supabase.from("reports").upsert({
-          user_id: user.id,
-          version: 1,
-          status: "generating",
+          user_id: user.id, version: 1, status: "generating",
         }, { onConflict: "user_id,version" });
 
         const { data: reportData, error: reportError } = await supabase.functions.invoke("generate-report", {
-          body: {
-            business: bqData,
-            niche: profile?.niche || "",
-            archetypes,
-            gender: profile?.gender || "Não informado",
-          },
+          body: { business: bqData, niche: profile?.niche || "", archetypes, gender: profile?.gender || "Não informado" },
         });
-
         if (reportError) throw reportError;
 
-        await supabase.from("reports").update({
-          content: reportData.report,
-          status: "completed",
-        }).eq("user_id", user.id).eq("version", 1);
-
+        await supabase.from("reports").update({ content: reportData.report, status: "completed" })
+          .eq("user_id", user.id).eq("version", 1);
         await supabase.from("business_questionnaires").update({ status: "locked" }).eq("user_id", user.id);
 
         setStage("done");
@@ -125,11 +89,8 @@ const Results = () => {
         console.error("Results error:", err);
         setErrorMsg(err.message || "Erro desconhecido");
         setStage("error");
-        // Mark report as error if it was being generated
-        await supabase.from("reports").update({
-          status: "error",
-          error_message: err.message,
-        }).eq("user_id", user.id).eq("version", 1);
+        await supabase.from("reports").update({ status: "error", error_message: err.message })
+          .eq("user_id", user.id).eq("version", 1);
         toast({ title: "Erro", description: err.message, variant: "destructive" });
       }
     };
@@ -140,56 +101,63 @@ const Results = () => {
   const maxScore = 30;
   const isProcessing = stage !== "done" && stage !== "error";
 
+  const classificationLabels: Record<string, string> = {
+    "Primário": "Arquétipo dominante — define o tom central da sua marca",
+    "Secundário": "Complemento estratégico — enriquece sua comunicação",
+    "Terciário": "Apoio sutil — adiciona profundidade e nuance",
+  };
+
   return (
     <DashboardLayout>
-      <div className="space-y-8">
+      <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold font-display">Seus Arquétipos</h1>
-          <p className="text-muted-foreground text-sm mt-1">Seus 12 arquétipos de marca calculados</p>
+          <h1 className="text-2xl font-semibold tracking-tight">Seus Arquétipos</h1>
+          <p className="text-muted-foreground text-sm mt-1">Mapa completo da personalidade da sua marca</p>
         </div>
 
-        {/* Progress indicator */}
-        <Card className="border-primary/30">
-          <CardContent className="pt-6 pb-5">
-            <div className="flex items-center gap-3">
-              {isProcessing ? (
-                <Loader2 className="h-6 w-6 animate-spin text-primary shrink-0" />
-              ) : stage === "done" ? (
-                <CheckCircle2 className="h-6 w-6 text-green-500 shrink-0" />
-              ) : (
-                <Sparkles className="h-6 w-6 text-destructive shrink-0" />
+        {/* Status */}
+        <Card className={`${stage === "error" ? "border-destructive/30" : "border-primary/15"}`}>
+          <CardContent className="py-4 flex items-center gap-3">
+            {isProcessing ? (
+              <Loader2 className="h-5 w-5 animate-spin text-primary shrink-0" />
+            ) : stage === "done" ? (
+              <CheckCircle2 className="h-5 w-5 text-success shrink-0" />
+            ) : (
+              <Sparkles className="h-5 w-5 text-destructive shrink-0" />
+            )}
+            <div className="flex-1">
+              <p className="font-medium text-sm">{STAGE_LABELS[stage]}</p>
+              {stage === "error" && errorMsg && (
+                <p className="text-xs text-muted-foreground mt-0.5">{errorMsg}</p>
               )}
-              <div>
-                <p className="font-semibold text-sm">{STAGE_LABELS[stage]}</p>
-                {stage === "error" && errorMsg && (
-                  <p className="text-xs text-muted-foreground mt-1">{errorMsg}</p>
-                )}
-              </div>
             </div>
             {stage === "done" && (
-              <div className="flex gap-3 mt-4">
-                <Button onClick={() => navigate("/report")} className="gap-2">
-                  Ver Relatório Completo <ArrowRight className="h-4 w-4" />
+              <div className="flex gap-2">
+                <Button size="sm" onClick={() => navigate("/report")} className="gap-1.5">
+                  Acessar relatório <ArrowRight className="h-3.5 w-3.5" />
                 </Button>
-                <Button variant="outline" onClick={() => navigate("/storybrand")} className="gap-2">
-                  Ver StoryBrand
+                <Button size="sm" variant="outline" onClick={() => navigate("/storybrand")}>
+                  Ver narrativa
                 </Button>
               </div>
             )}
           </CardContent>
         </Card>
 
-        {/* Top 3 cards */}
+        {/* Top 3 */}
         {top3.length > 0 && (
           <div className="grid gap-4 md:grid-cols-3">
             {top3.map(t => (
-              <Card key={t.name} className="border-2 relative overflow-hidden" style={{ borderColor: ARCHETYPE_COLORS[t.name] }}>
+              <Card key={t.name} className="relative overflow-hidden border" style={{ borderColor: ARCHETYPE_COLORS[t.name] + "40" }}>
                 <div className="absolute top-0 left-0 right-0 h-1" style={{ background: ARCHETYPE_COLORS[t.name] }} />
-                <CardContent className="pt-6 text-center">
-                  <Badge variant="outline" className="mb-2">{t.classification}</Badge>
-                  <h3 className="text-xl font-bold font-display">{t.name}</h3>
-                  <p className="text-3xl font-bold mt-2" style={{ color: ARCHETYPE_COLORS[t.name] }}>
-                    {t.score}<span className="text-sm text-muted-foreground">/{maxScore}</span>
+                <CardContent className="pt-5 pb-4 space-y-2">
+                  <Badge variant="outline" className="text-[10px]">{t.classification}</Badge>
+                  <h3 className="text-lg font-semibold">{t.name}</h3>
+                  <p className="text-2xl font-bold" style={{ color: ARCHETYPE_COLORS[t.name] }}>
+                    {t.score}<span className="text-sm text-muted-foreground font-normal">/{maxScore}</span>
+                  </p>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    {classificationLabels[t.classification] || ""}
                   </p>
                 </CardContent>
               </Card>
@@ -197,24 +165,21 @@ const Results = () => {
           </div>
         )}
 
-        {/* All archetypes bar chart */}
+        {/* Ranking */}
         {scores.length > 0 && (
           <Card>
-            <CardContent className="pt-6 space-y-3">
-              <h3 className="font-bold font-display mb-2">Todos os arquétipos</h3>
+            <CardContent className="py-5 space-y-2.5">
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Ranking completo</p>
               {scores.map(s => (
                 <div key={s.name} className="flex items-center gap-3">
-                  <span className="text-sm w-28 font-medium">{s.name}</span>
-                  <div className="flex-1 bg-muted rounded-full h-3 overflow-hidden">
+                  <span className="text-xs w-24 font-medium truncate">{s.name}</span>
+                  <div className="flex-1 bg-muted rounded-full h-2 overflow-hidden">
                     <div
                       className="h-full rounded-full transition-all duration-500"
-                      style={{
-                        width: `${(s.score / maxScore) * 100}%`,
-                        background: ARCHETYPE_COLORS[s.name],
-                      }}
+                      style={{ width: `${(s.score / maxScore) * 100}%`, background: ARCHETYPE_COLORS[s.name] }}
                     />
                   </div>
-                  <span className="text-sm font-semibold w-8 text-right">{s.score}</span>
+                  <span className="text-xs font-semibold w-6 text-right">{s.score}</span>
                 </div>
               ))}
             </CardContent>
