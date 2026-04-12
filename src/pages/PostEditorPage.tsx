@@ -263,6 +263,7 @@ const PostEditorPage = () => {
                 bgColor={bgColor} textColor={textColor} accentColor={accentColor}
                 displayFont={displayFont} bodyFont={bodyFont} layout={layout}
                 fontSize={fontSize} fontWeight={fontWeight} fontStyle={fontStyle}
+                textAlign={textAlign}
                 onTextChange={(t) => setEditedTexts([t])} onTitleChange={setEditedTitle}
                 canvasRef={singleCanvasRef}
                 overlayImages={overlayImages} onImageMove={handleImageMove} onImageResize={handleImageResize}
@@ -284,6 +285,8 @@ const PostEditorPage = () => {
             fontStyle={fontStyle} onFontStyleChange={setFontStyle}
             bodyFont={bodyFont} onBodyFontChange={(f) => { loadGoogleFont(f); setBodyFont(f); }}
             displayFont={displayFont} onDisplayFontChange={(f) => { loadGoogleFont(f); setDisplayFont(f); }}
+            textAlign={textAlign} onTextAlignChange={setTextAlign}
+            textColor={textColor} onTextColorChange={setCustomTextColor}
             selectedImageId={selectedImageId}
             overlayImages={overlayImages}
             onImageOpacityChange={handleImageOpacityChange}
@@ -294,7 +297,13 @@ const PostEditorPage = () => {
         </div>
 
         <div className="bg-card rounded-xl border p-4">
-          <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-2">Legenda do Instagram</h3>
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Legenda do Instagram</h3>
+            <Button variant="outline" size="sm" className="gap-2" onClick={handleCopyCaption}>
+              {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+              {copied ? "Copiado!" : "Copiar"}
+            </Button>
+          </div>
           <p className="text-sm text-foreground/80 whitespace-pre-wrap">{day.caption}</p>
         </div>
       </div>
