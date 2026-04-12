@@ -59,7 +59,7 @@ const StoryBrand = () => {
     try {
       const [{ data: bq }, { data: profile }, { data: topArchetypes }] = await Promise.all([
         supabase.from("business_questionnaires").select("*").eq("user_id", user.id).order("version", { ascending: false }).limit(1).single(),
-        supabase.from("profiles").select("niche").eq("user_id", user.id).single(),
+        supabase.from("profiles").select("niche, gender").eq("user_id", user.id).single(),
         supabase.from("user_top_archetypes").select("*").eq("user_id", user.id).order("rank", { ascending: true }).limit(3),
       ]);
 
@@ -76,7 +76,7 @@ const StoryBrand = () => {
       }, { onConflict: "user_id,version" });
 
       const { data, error } = await supabase.functions.invoke("generate-report", {
-        body: { business: bq, niche: profile?.niche || "", archetypes },
+        body: { business: bq, niche: profile?.niche || "", archetypes, gender: profile?.gender || "Não informado" },
       });
 
       if (error) throw error;

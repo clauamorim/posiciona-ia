@@ -320,6 +320,7 @@ export type Database = {
         Row: {
           created_at: string
           full_name: string
+          gender: string | null
           id: string
           is_blocked: boolean
           main_goal: string | null
@@ -333,6 +334,7 @@ export type Database = {
         Insert: {
           created_at?: string
           full_name?: string
+          gender?: string | null
           id?: string
           is_blocked?: boolean
           main_goal?: string | null
@@ -346,6 +348,7 @@ export type Database = {
         Update: {
           created_at?: string
           full_name?: string
+          gender?: string | null
           id?: string
           is_blocked?: boolean
           main_goal?: string | null

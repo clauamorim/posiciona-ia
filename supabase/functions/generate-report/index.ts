@@ -10,7 +10,7 @@ serve(async (req) => {
   }
 
   try {
-    const { business, niche, archetypes } = await req.json();
+    const { business, niche, archetypes, gender } = await req.json();
 
     if (!business || !archetypes) {
       return new Response(JSON.stringify({ error: "Missing required fields" }), {
@@ -18,6 +18,8 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    const genderLabel = gender || "Não informado";
 
     const systemPrompt = `Você é um especialista em branding, arquétipos de marca e metodologia StoryBrand.
 Gere um relatório estratégico completo e personalizado para posicionamento de marca no Instagram.
@@ -61,6 +63,20 @@ O JSON deve seguir EXATAMENTE esta estrutura:
     "success": "...",
     "failure": "..."
   },
+  "figurino": {
+    "resumo": "Resumo geral do figurino estratégico ideal para a marca pessoal",
+    "cores_roupa": ["cor 1", "cor 2", "cor 3"],
+    "pecas_chave": ["peça 1", "peça 2", "peça 3", "peça 4", "peça 5"],
+    "acessorios": ["acessório 1", "acessório 2", "acessório 3"],
+    "cabelo": "Orientação detalhada de estilo de cabelo",
+    "maquiagem_grooming": "Orientação de maquiagem (feminino) ou grooming/barba (masculino) ou versão neutra",
+    "evitar": ["item a evitar 1", "item a evitar 2"]
+  },
+  "simbolos": {
+    "primary": { "nome": "...", "simbolo": "...", "significado": "...", "aplicacao": "..." },
+    "secondary": { "nome": "...", "simbolo": "...", "significado": "...", "aplicacao": "..." },
+    "tertiary": { "nome": "...", "simbolo": "...", "significado": "...", "aplicacao": "..." }
+  },
   "editorial": [
     {
       "day": 1,
@@ -73,6 +89,22 @@ O JSON deve seguir EXATAMENTE esta estrutura:
     }
   ]
 }
+
+Regras para o campo "figurino":
+- O figurino deve ser 100% baseado na COMBINAÇÃO dos 3 arquétipos da marca
+- Gênero do cliente: ${genderLabel}
+- Se o gênero for "Feminino": gerar maquiagem feminina (batom, sombra, blush, etc.), acessórios femininos (brincos, colares, bolsas, etc.), penteados femininos
+- Se o gênero for "Masculino": gerar grooming masculino (barba, skincare, etc.), acessórios masculinos (relógio, gravata, etc.), cortes de cabelo masculinos
+- Se o gênero for "Não informado" ou "Prefiro não informar": gerar versão neutra/unissex
+- As peças-chave devem ser específicas (ex: "blazer de linho bege", não apenas "blazer")
+- As cores de roupa devem ser alinhadas à paleta de cores da marca
+- Incluir pelo menos 5 peças-chave e 3 acessórios
+
+Regras para o campo "simbolos":
+- Cada arquétipo tem um símbolo clássico (ex: Herói = espada/escudo, Mago = varinha/cristal, Explorador = bússola, etc.)
+- O campo "simbolo" deve ser o emoji ou nome do símbolo principal
+- O campo "significado" explica o que o símbolo representa
+- O campo "aplicacao" descreve como usar o símbolo na comunicação visual (posts, stories, logo, etc.)
 
 Regras para o campo "editorial":
 - OBRIGATORIAMENTE 7 dias (day 1 a 7)
@@ -104,6 +136,8 @@ Regras para "visual_identity.typography":
   - Amante → Display: Playfair Display ou Cormorant | Body: Lora ou EB Garamond
 - Escolha as fontes mais adequadas dentre as opções do arquétipo primário
 
+IMPORTANTE: Use os nomes dos arquétipos EXATAMENTE como fornecidos nos dados abaixo. NÃO invente nomes diferentes.
+
 Responda APENAS em português brasileiro. Seja específico, prático e personalizado.`;
 
     const userPrompt = `
@@ -123,10 +157,12 @@ Dados do negócio:
 
 Nicho/área de atuação: ${niche || "Não informado"}
 
-Arquétipos principais:
-- Primário: ${archetypes.primary?.name} (pontuação: ${archetypes.primary?.score}/30)
-- Secundário: ${archetypes.secondary?.name} (pontuação: ${archetypes.secondary?.score}/30)
-- Terciário: ${archetypes.tertiary?.name} (pontuação: ${archetypes.tertiary?.score}/30)
+Gênero do cliente: ${genderLabel}
+
+Arquétipos principais (calculados pela aplicação — use EXATAMENTE estes nomes):
+- Primário: ${archetypes.primary?.archetype_name || archetypes.primary?.name} (pontuação: ${archetypes.primary?.score}/30)
+- Secundário: ${archetypes.secondary?.archetype_name || archetypes.secondary?.name} (pontuação: ${archetypes.secondary?.score}/30)
+- Terciário: ${archetypes.tertiary?.archetype_name || archetypes.tertiary?.name} (pontuação: ${archetypes.tertiary?.score}/30)
 
 Gere o relatório completo em JSON agora.`;
 
@@ -142,7 +178,7 @@ Gere o relatório completo em JSON agora.`;
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
-        max_tokens: 8000,
+        max_tokens: 10000,
       }),
     });
 
@@ -164,10 +200,8 @@ Gere o relatório completo em JSON agora.`;
     const data = await response.json();
     const rawContent = data.choices?.[0]?.message?.content || "";
 
-    // Try to parse as JSON, fallback to raw string
     let reportContent: any;
     try {
-      // Remove possible markdown code fences
       const cleaned = rawContent.replace(/^```json?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
       reportContent = JSON.parse(cleaned);
     } catch {

@@ -27,6 +27,7 @@ const Signup = () => {
   const [niche, setNiche] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
   const [mainGoal, setMainGoal] = useState("");
+  const [gender, setGender] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleSignup = async (e: React.FormEvent) => {
@@ -46,7 +47,7 @@ const Signup = () => {
       return;
     }
     if (data.user) {
-      await supabase.from("profiles").update({ profession, niche, whatsapp, main_goal: mainGoal }).eq("user_id", data.user.id);
+      await supabase.from("profiles").update({ profession, niche, whatsapp, main_goal: mainGoal, gender }).eq("user_id", data.user.id);
     }
     setLoading(false);
     toast({ title: "Conta criada!", description: "Verifique seu e-mail para confirmar." });
@@ -86,9 +87,24 @@ const Signup = () => {
               <Label htmlFor="password">Senha</Label>
               <Input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} placeholder="Mínimo 6 caracteres" />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="whatsapp">WhatsApp</Label>
-              <Input id="whatsapp" type="tel" value={whatsapp} onChange={e => setWhatsapp(e.target.value)} placeholder="(11) 99999-9999" />
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="whatsapp">WhatsApp</Label>
+                <Input id="whatsapp" type="tel" value={whatsapp} onChange={e => setWhatsapp(e.target.value)} placeholder="(11) 99999-9999" />
+              </div>
+              <div className="space-y-2">
+                <Label>Gênero</Label>
+                <Select value={gender} onValueChange={setGender}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Feminino">Feminino</SelectItem>
+                    <SelectItem value="Masculino">Masculino</SelectItem>
+                    <SelectItem value="Prefiro não informar">Prefiro não informar</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">

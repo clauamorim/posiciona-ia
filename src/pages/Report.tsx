@@ -9,7 +9,8 @@ import { toast } from "@/hooks/use-toast";
 import {
   Loader2, Download, FileText, Palette, Type, MessageSquare,
   Target, Crown, Shield, Heart,
-  Users, Zap, BookOpen, Compass, Star, Megaphone
+  Users, Zap, BookOpen, Compass, Star, Megaphone,
+  Shirt, Gem, Scissors, Eye, Ban
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -156,6 +157,27 @@ const Report = () => {
         const val = content.storybrand?.[item.key];
         if (val) { addSubtitle(item.label); addBody(Array.isArray(val) ? val.join(", ") : val); }
       });
+
+      // Figurino
+      if (content.figurino) {
+        addTitle("Figurino Estratégico");
+        if (content.figurino.resumo) addBody(content.figurino.resumo);
+        if (content.figurino.pecas_chave?.length) { addSubtitle("Peças-chave"); content.figurino.pecas_chave.forEach((p: string) => addBody(`• ${p}`)); }
+        if (content.figurino.cores_roupa?.length) { addSubtitle("Cores de Roupa"); addBody(content.figurino.cores_roupa.join(", ")); }
+        if (content.figurino.acessorios?.length) { addSubtitle("Acessórios"); content.figurino.acessorios.forEach((a: string) => addBody(`• ${a}`)); }
+        if (content.figurino.cabelo) { addSubtitle("Cabelo"); addBody(content.figurino.cabelo); }
+        if (content.figurino.maquiagem_grooming) { addSubtitle("Maquiagem / Grooming"); addBody(content.figurino.maquiagem_grooming); }
+        if (content.figurino.evitar?.length) { addSubtitle("Evitar"); content.figurino.evitar.forEach((e: string) => addBody(`• ${e}`)); }
+      }
+
+      // Símbolos
+      if (content.simbolos) {
+        addTitle("Símbolos dos Arquétipos");
+        ["primary", "secondary", "tertiary"].forEach(rank => {
+          const s = content.simbolos[rank];
+          if (s) { addSubtitle(`${s.nome} — ${s.simbolo}`); addBody(`Significado: ${s.significado}`); addBody(`Aplicação: ${s.aplicacao}`); }
+        });
+      }
 
       allWeeks.forEach((week, wi) => {
         addTitle(`Linha Editorial — Semana ${wi + 1}`);
@@ -370,6 +392,116 @@ const Report = () => {
                   </div>
                 )}
               </div>
+            </div>
+          </section>
+        )}
+
+        {/* SECTION: Figurino Estratégico */}
+        {content.figurino && (
+          <section className="bg-muted/30 rounded-2xl p-6 md:p-8">
+            <div className="flex items-center gap-2 mb-6">
+              <Shirt className="h-5 w-5 text-primary" />
+              <h2 className="text-xl font-bold font-display">Figurino Estratégico</h2>
+            </div>
+            {content.figurino.resumo && (
+              <p className="text-sm leading-relaxed mb-6">{content.figurino.resumo}</p>
+            )}
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {content.figurino.pecas_chave?.length > 0 && (
+                <Card>
+                  <CardContent className="pt-5 pb-4">
+                    <div className="flex items-center gap-2 mb-3 text-primary">
+                      <Shirt className="h-4 w-4" />
+                      <h3 className="font-bold font-display text-sm">Peças-chave</h3>
+                    </div>
+                    <ul className="space-y-1.5">{content.figurino.pecas_chave.map((p: string, i: number) => <li key={i} className="text-sm text-foreground/80">• {p}</li>)}</ul>
+                  </CardContent>
+                </Card>
+              )}
+              {content.figurino.cores_roupa?.length > 0 && (
+                <Card>
+                  <CardContent className="pt-5 pb-4">
+                    <div className="flex items-center gap-2 mb-3 text-primary">
+                      <Palette className="h-4 w-4" />
+                      <h3 className="font-bold font-display text-sm">Cores de Roupa</h3>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">{content.figurino.cores_roupa.map((c: string, i: number) => <Badge key={i} variant="outline" className="text-xs">{c}</Badge>)}</div>
+                  </CardContent>
+                </Card>
+              )}
+              {content.figurino.acessorios?.length > 0 && (
+                <Card>
+                  <CardContent className="pt-5 pb-4">
+                    <div className="flex items-center gap-2 mb-3 text-primary">
+                      <Gem className="h-4 w-4" />
+                      <h3 className="font-bold font-display text-sm">Acessórios</h3>
+                    </div>
+                    <ul className="space-y-1.5">{content.figurino.acessorios.map((a: string, i: number) => <li key={i} className="text-sm text-foreground/80">• {a}</li>)}</ul>
+                  </CardContent>
+                </Card>
+              )}
+              {content.figurino.cabelo && (
+                <Card>
+                  <CardContent className="pt-5 pb-4">
+                    <div className="flex items-center gap-2 mb-3 text-primary">
+                      <Scissors className="h-4 w-4" />
+                      <h3 className="font-bold font-display text-sm">Cabelo</h3>
+                    </div>
+                    <p className="text-sm text-foreground/80 leading-relaxed">{content.figurino.cabelo}</p>
+                  </CardContent>
+                </Card>
+              )}
+              {content.figurino.maquiagem_grooming && (
+                <Card>
+                  <CardContent className="pt-5 pb-4">
+                    <div className="flex items-center gap-2 mb-3 text-primary">
+                      <Eye className="h-4 w-4" />
+                      <h3 className="font-bold font-display text-sm">Maquiagem / Grooming</h3>
+                    </div>
+                    <p className="text-sm text-foreground/80 leading-relaxed">{content.figurino.maquiagem_grooming}</p>
+                  </CardContent>
+                </Card>
+              )}
+              {content.figurino.evitar?.length > 0 && (
+                <Card>
+                  <CardContent className="pt-5 pb-4">
+                    <div className="flex items-center gap-2 mb-3 text-destructive">
+                      <Ban className="h-4 w-4" />
+                      <h3 className="font-bold font-display text-sm">Evitar</h3>
+                    </div>
+                    <ul className="space-y-1.5">{content.figurino.evitar.map((e: string, i: number) => <li key={i} className="text-sm text-foreground/80">• {e}</li>)}</ul>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* SECTION: Símbolos dos Arquétipos */}
+        {content.simbolos && (
+          <section>
+            <div className="flex items-center gap-2 mb-4">
+              <Star className="h-5 w-5 text-primary" />
+              <h2 className="text-xl font-bold font-display">Símbolos dos Arquétipos</h2>
+            </div>
+            <div className="grid gap-4 md:grid-cols-3">
+              {(["primary", "secondary", "tertiary"] as const).map((rank, idx) => {
+                const s = content.simbolos[rank];
+                if (!s) return null;
+                const labels = ["Primário", "Secundário", "Terciário"];
+                return (
+                  <Card key={rank} className="relative overflow-hidden border-2 border-primary/20 hover:border-primary/40 transition-colors">
+                    <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-primary to-accent" />
+                    <CardContent className="pt-8 pb-6">
+                      <Badge variant="outline" className="mb-2 text-xs">{labels[idx]}</Badge>
+                      <h3 className="text-lg font-bold font-display mb-1">{s.nome}</h3>
+                      <p className="text-2xl mb-3">{s.simbolo}</p>
+                      <p className="text-sm text-muted-foreground leading-relaxed mb-2"><span className="font-semibold">Significado:</span> {s.significado}</p>
+                      <p className="text-sm p-3 rounded-lg bg-primary/5 text-foreground/80"><span className="font-semibold">Aplicação:</span> {s.aplicacao}</p>
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           </section>
         )}
