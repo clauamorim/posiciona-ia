@@ -1,89 +1,65 @@
 
 
-## Plano: Rebranding para "Posiciona" + novas funcionalidades
+## Plano: Domínio customizado, correções no editor e fluxo de reanálise
 
-### 1. Renomear ArcheBrand → Posiciona
+### 1. Domínio customizado posiciona.ia.br
 
-**Arquivos afetados:** `index.html`, `src/pages/LandingPage.tsx`, `src/pages/Login.tsx`, `src/pages/Signup.tsx`, `src/components/DashboardLayout.tsx`, `src/pages/Report.tsx`, `src/pages/admin/AdminUsers.tsx`
+Isso precisa ser feito manualmente no painel do projeto:
+- Ir em **Project Settings → Domains → Connect Domain**
+- Inserir `posiciona.ia.br`
+- Configurar os registros DNS (A record apontando para `185.158.133.1` e TXT `_lovable`) no registrador do domínio `.ia.br`
+- Aguardar propagação DNS (até 72h)
 
-- Substituir todas as ocorrências de "ArcheBrand" por "Posiciona"
-- Atualizar meta tags no `index.html`
-
----
-
-### 2. Admin: excluir usuário e confirmar e-mail manualmente
-
-**Arquivos afetados:** `src/pages/admin/AdminUsers.tsx`, nova edge function `supabase/functions/admin-manage-user/index.ts`
-
-- Criar edge function `admin-manage-user` que usa `supabase.auth.admin.deleteUser()` e `supabase.auth.admin.updateUserById()` (para confirmar e-mail via `email_confirmed_at`)
-- Requer validação de que o chamador é admin (via `has_role`)
-- Adicionar botões na tabela de usuários: ícone de lixeira (excluir com confirmação) e ícone de e-mail (confirmar e-mail)
-- Exibir indicador de e-mail confirmado/pendente na lista
+**Isso NÃO requer mudança de código** -- é uma configuração na interface do Lovable.
 
 ---
 
-### 3. Cadastro: campo WhatsApp + objetivo principal
+### 2. Fotos uploadadas não aparecem no canvas
 
-**Arquivos afetados:** `src/pages/Signup.tsx`, migration SQL para adicionar colunas na tabela `profiles`
+**Problema:** As `overlayImages` são gerenciadas no `PostEditorPage` e passadas para o `PostCanvas` via props, mas no `CarouselEditor` as overlay images NÃO são passadas. Além disso, o `CarouselEditor` não aceita `overlayImages` como prop.
 
-- Adicionar colunas `whatsapp` (text, nullable) e `main_goal` (text, nullable) à tabela `profiles`
-- Adicionar campo de WhatsApp com máscara/placeholder e dropdown "Objetivo principal" com as opções:
-  - Atrair novos clientes/pacientes
-  - Construir autoridade na minha área
-  - Aumentar minha visibilidade no Instagram
-  - Me diferenciar da concorrência
-  - Manter presença ativa sem perder tempo
-  - Outro
-- Salvar ambos no `profiles` após signup
+**Correção:**
+- Adicionar props `overlayImages`, `onImageMove`, `onImageResize` no `CarouselEditor`
+- Passar essas props do `PostEditorPage` para o `CarouselEditor`
+- No `PostCanvas`, garantir que as imagens overlay são renderizadas corretamente (já estão no código, mas verificar se `html2canvas` captura elas com `useCORS: true`)
 
 ---
 
-### 4. Login: botão de voltar à página inicial
+### 3. Elementos gráficos para as artes
 
-**Arquivo:** `src/pages/Login.tsx`
+**Problema:** A toolbar tem upload de logo/foto mas não tem seletor de elementos gráficos (ícones/shapes).
 
-- Adicionar link/botão "← Voltar à página inicial" que navega para `/`
-
----
-
-### 5. Linha editorial: "Gerar novo" post individual
-
-**Arquivos afetados:** `src/pages/EditorialPage.tsx`, nova edge function `supabase/functions/regenerate-single-post/index.ts`
-
-- Criar edge function que recebe o formato desejado, todos os posts existentes (para evitar repetição) e gera UM novo post
-- Na UI, adicionar botão "Gerar novo" em cada card de dia na linha editorial
-- O post gerado substitui o atual no array da semana correspondente
-- Consome 1 crédito de regeneração (`regeneration_credits` de `user_balances`)
+**Implementação:**
+- Adicionar seção "Elementos" na `PostToolbar` com grid de ícones Lucide populares (setas, estrelas, coração, check, aspas, etc.)
+- Ao clicar num ícone, renderizar seu SVG como `OverlayImage` no canvas (converter SVG para data URL)
+- Reutilizar o mesmo sistema de arraste já existente
 
 ---
 
-### 6. Upload de logos/fotos no editor de posts
+### 4. Botão "Gerar novo" abaixo do "Criar Post"
 
-**Arquivos afetados:** `src/components/post-editor/PostCanvas.tsx`, `src/components/post-editor/PostToolbar.tsx`, `src/pages/PostEditorPage.tsx`
-
-- Adicionar na toolbar seção "Imagens" com botões para upload de logo e foto
-- Imagens carregadas via `<input type="file">` e convertidas para data URL
-- No PostCanvas, renderizar as imagens como elementos arrastáveis/redimensionáveis (com position absolute dentro do canvas 1080x1080)
-- Usar estado no PostEditorPage para gerenciar lista de imagens sobrepostas (posição x, y, largura, altura)
+**Correção em `EditorialPage.tsx`:**
+- Reorganizar os botões no card: "Criar Post" primeiro (acima), "Gerar novo" segundo (abaixo)
+- Atualmente estão lado a lado com `flex gap-2`; mudar para `flex-col`
 
 ---
 
-### 7. Elementos gráficos para as artes
+### 5. Refazer análise com créditos + desabilitar edição dos questionários
 
-Existem bibliotecas de ícones/shapes que podem ser usadas diretamente:
-- **Lucide React** (já instalada) para ícones vetoriais
-- **SVG shapes/decorações** podem ser embutidos como componentes React
+**Lógica atual:** Os questionários têm status `draft`/`submitted`/`locked`. Quando locked, não podem ser editados.
 
-**Recomendação:** usar os ícones Lucide já disponíveis como elementos gráficos inseríveis no post (setas, estrelas, círculos, etc.). Para elementos mais elaborados (molduras, texturas, patterns), seria necessário cadastrar SVGs customizados. Posso implementar um seletor de elementos gráficos Lucide na toolbar do editor.
+**Nova lógica:**
+- Questionários ficam **sempre desabilitados para edição** após ter um report completo (comportamento `locked` atual)
+- Adicionar botão "Refazer análise" visível quando há report completo, mostrando créditos de reanálise disponíveis (`reanalysis_credits`)
+- Ao clicar "Refazer análise", mostrar dialog com duas opções:
+  1. **"Editar questionários existentes"** → desbloqueia os questionários para edição, consome 1 crédito de reanálise
+  2. **"Refazer do zero"** → limpa todas as respostas, consome 1 crédito de reanálise
+- Após editar/refazer, o usuário pode submeter novamente para gerar nova estratégia
 
----
-
-### 8. Validar fontes dos arquétipos vs fontes do report
-
-**Arquivo:** `supabase/functions/generate-report/index.ts`
-
-- Atualizar o prompt do `generate-report` para incluir um mapeamento explícito de fontes recomendadas por arquétipo, garantindo que o campo `typography` do relatório use fontes do Google Fonts alinhadas ao arquétipo primário
-- Adicionar no prompt regras como: "Herói → Oswald/Montserrat", "Amante → Playfair Display/Cormorant", etc.
+**Arquivos afetados:**
+- `src/pages/BusinessQuestionnaire.tsx` — adicionar botão "Refazer análise" e dialog
+- `src/pages/ArchetypeQuestionnaire.tsx` — mesma lógica
+- `src/pages/Dashboard.tsx` — mostrar opção de reanálise se report existe
 
 ---
 
@@ -91,14 +67,10 @@ Existem bibliotecas de ícones/shapes que podem ser usadas diretamente:
 
 | Ação | Arquivo |
 |------|---------|
-| Editar | 7+ arquivos para renomear ArcheBrand → Posiciona |
-| Criar | `supabase/functions/admin-manage-user/index.ts` |
-| Criar | `supabase/functions/regenerate-single-post/index.ts` |
-| Migração | Adicionar `whatsapp`, `main_goal` em `profiles` |
-| Editar | `src/pages/Signup.tsx` (campos novos) |
-| Editar | `src/pages/Login.tsx` (botão voltar) |
-| Editar | `src/pages/EditorialPage.tsx` (botão gerar novo) |
-| Editar | `src/pages/admin/AdminUsers.tsx` (excluir + confirmar email) |
-| Editar | `src/components/post-editor/*` (upload imagens) |
-| Editar | `supabase/functions/generate-report/index.ts` (fontes por arquétipo) |
+| Editar | `src/components/post-editor/CarouselEditor.tsx` (passar overlay images) |
+| Editar | `src/components/post-editor/PostToolbar.tsx` (adicionar elementos gráficos) |
+| Editar | `src/pages/PostEditorPage.tsx` (passar overlays ao carousel) |
+| Editar | `src/pages/EditorialPage.tsx` (reordenar botões) |
+| Editar | `src/pages/BusinessQuestionnaire.tsx` (refazer análise + desabilitar edição) |
+| Editar | `src/pages/ArchetypeQuestionnaire.tsx` (mesma lógica de reanálise) |
 
