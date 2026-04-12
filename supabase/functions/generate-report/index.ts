@@ -162,7 +162,8 @@ Dados do negócio:
 
 Nicho/área de atuação: ${niche || "Não informado"}
 
-Gênero do cliente: ${genderLabel}
+⚠️ GÊNERO DO CLIENTE (OBRIGATÓRIO para figurino): ${genderLabel}
+Gere TODAS as recomendações de figurino, maquiagem/grooming, acessórios e cabelo para o gênero ${genderLabel}.
 
 Arquétipos principais (calculados pela aplicação — use EXATAMENTE estes nomes):
 - Primário: ${archetypes.primary?.archetype_name || archetypes.primary?.name} (pontuação: ${archetypes.primary?.score}/30)
