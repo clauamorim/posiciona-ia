@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
-import { Sparkles } from "lucide-react";
+import { Sparkles, ArrowLeft } from "lucide-react";
 
 const GOALS = [
   "Atrair novos clientes/pacientes",
@@ -54,7 +54,15 @@ const Signup = () => {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4 bg-background">
+    <div className="flex min-h-screen items-center justify-center px-4 bg-background relative">
+      <Button
+        variant="ghost"
+        size="sm"
+        className="absolute top-4 left-4 gap-2 text-muted-foreground"
+        onClick={() => navigate("/")}
+      >
+        <ArrowLeft className="h-4 w-4" /> Página inicial
+      </Button>
       <Card className="w-full max-w-md border-border/50 shadow-xl">
         <CardHeader className="text-center space-y-2">
           <div className="flex items-center justify-center gap-2 mb-2">
