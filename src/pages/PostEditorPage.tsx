@@ -255,6 +255,7 @@ const PostEditorPage = () => {
                 overlayImages={overlayImages} onImageMove={handleImageMove} onImageResize={handleImageResize}
                 selectedImageId={selectedImageId} onSelectImage={setSelectedImageId}
                 fontSize={fontSize} fontWeight={fontWeight} fontStyle={fontStyle}
+                textAlign={textAlign}
                 bgGradient={bgGradient}
               />
             ) : (
