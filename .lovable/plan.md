@@ -1,88 +1,51 @@
 
 
-## Plano: Correções no editor, histórico, ajuda e melhorias de UX
+## Plano: E-mail em português, consistência de arquétipos, elementos gráficos avançados
 
-### 1. Histórico: dados não carregam sem reload
+### 1. E-mail de confirmação em português + redirect para login
 
-**Problema:** Os dados são buscados uma única vez no `useEffect` com dependência `[user]`. Quando o usuário navega para a página, o `user` já está definido e não muda, então a busca já deveria funcionar. Provável causa: o componente está sendo montado antes do `user` estar disponível, e quando `user` chega os dados carregam, mas ao navegar entre páginas via React Router o componente pode não remontar.
+**Problema:** O e-mail de confirmação usa o template padrão (em inglês). Também o `emailRedirectTo` aponta para `/` em vez de `/login`.
 
-**Correção em `HistoryPage.tsx`:**
-- Adicionar `key={location.pathname}` ou usar `useCallback` para refetch
-- Adicionar estado `loading` com progress bar (`Progress`) enquanto os dados carregam
-- Usar `Skeleton` ou `Progress` component durante carregamento
-
----
-
-### 2. Progress bar durante carregamento
-
-**Arquivos:** `HistoryPage.tsx`, `Report.tsx`, `EditorialPage.tsx`, `InstagramAnalysis.tsx`
-- Adicionar estado `loading` e exibir `<Progress value={...} />` animado enquanto dados/análises carregam
-- Usar progress indeterminado (animação de pulso) para operações sem percentual exato
+**Solução:**
+- Configurar templates de e-mail customizados usando o sistema de e-mail integrado do Lovable Cloud (scaffold auth email templates)
+- Traduzir todos os templates (signup, recovery, magic-link, etc.) para português brasileiro
+- Alterar `emailRedirectTo` em `Signup.tsx` para `window.location.origin + "/login"`
+- Aplicar branding do Posiciona (cores, nome) aos templates
 
 ---
 
-### 3. Menu "Ajuda" com pesquisa e tópicos
+### 2. Arquétipos consistentes entre "Arquétipos" e "Análises"
 
-**Novo arquivo:** `src/pages/HelpPage.tsx`
-**Editar:** `DashboardLayout.tsx` (adicionar item "Ajuda" ao menu)
-- Criar página com campo de pesquisa e accordion com tópicos principais:
-  - O que são Arquétipos de Marca
-  - Como funciona o StoryBrand
-  - Como usar a Linha Editorial
-  - Como editar posts
-  - Análise do Instagram
-  - Retratos de Marca
-  - Créditos e planos
-- Filtrar tópicos pela pesquisa do usuário
-- Ícone: `HelpCircle`
+**Problema:** A página Results calcula os arquétipos client-side e salva em `user_top_archetypes`. A página Report mostra `content.archetypes` que vem do LLM (generate-report), que pode gerar nomes/ordens diferentes.
+
+**Solução em `Report.tsx`:**
+- Na seção "Seus Arquétipos de Marca", buscar os dados de `user_top_archetypes` em vez de usar `content.archetypes`
+- Manter `content.archetypes` apenas para as descrições/aplicações, mas forçar os **nomes** e **ranking** a virem da tabela `user_top_archetypes`
+- Isso garante que ambas as páginas mostram os mesmos arquétipos na mesma ordem
 
 ---
 
-### 4. Editor de posts: delete, redimensionar overlay
+### 3. Mais elementos gráficos + transparência + gradiente
 
-**Editar:** `PostCanvas.tsx`, `PostEditorPage.tsx`
-- Adicionar estado `selectedImageId` para rastrear elemento selecionado (clique seleciona)
-- Ao pressionar `Delete`/`Backspace`, remover o elemento selecionado do array `overlayImages`
-- Adicionar handles de redimensionamento (cantos) no elemento selecionado
-- Implementar `onImageResize` callback (já existe na interface mas não está implementado)
+**Arquivos:** `PostToolbar.tsx`, `PostCanvas.tsx`, `PostEditorPage.tsx`
 
----
+**Novos elementos gráficos:**
+- Adicionar barras horizontais/verticais (SVGs customizados: barra fina, barra grossa, linha decorativa)
+- Adicionar molduras (frame retangular, frame circular, cantos decorativos)
+- Adicionar separadores e ornamentos (ondulado, pontilhado, divider decorativo)
+- Implementar como SVGs inline convertidos para data URL (mesmo pattern dos ícones Lucide)
 
-### 5. Logo persistente na toolbar
+**Transparência para fotos e logos:**
+- Adicionar propriedade `opacity` ao tipo `OverlayImage`
+- Quando um overlay está selecionado, mostrar slider de opacidade na toolbar (0% a 100%)
+- Aplicar `style={{ opacity }}` no elemento do canvas
+- Callback `onImageOpacityChange` no PostEditorPage
 
-**Editar:** `PostToolbar.tsx`, `PostEditorPage.tsx`
-- Quando o usuário faz upload de logo, salvar o `dataURL` em `localStorage` (chave `posiciona_user_logo`)
-- Na toolbar, se já existe logo salva, mostrar thumbnail da logo na seção "Imagens" como elemento clicável (igual aos elementos gráficos)
-- Mudar o texto do botão de "Upload Logo" para "Trocar Logo" quando já existe uma salva
-- Clicar na thumbnail adiciona a logo ao canvas; clicar em "Trocar Logo" abre file picker
-
----
-
-### 6. Remover "Slide X" da copy nos cards da linha editorial
-
-**Editar:** `EditorialPage.tsx` linha 284-285
-- Remover o `<Badge>Slide {idx + 1}</Badge>` que aparece ao lado de cada copy de carrossel
-- Manter apenas o texto do slide sem numeração
-
----
-
-### 7. Opções de fonte, tamanho, negrito, itálico no editor
-
-**Editar:** `PostToolbar.tsx`, `PostCanvas.tsx`, `PostEditorPage.tsx`
-- Adicionar seção "Tipografia" na toolbar com:
-  - Dropdown de fontes (Google Fonts populares), com as fontes do relatório (`typography.display` e `typography.body`) no topo marcadas como "(Recomendada)"
-  - Slider ou input de tamanho de fonte
-  - Botões toggle para negrito e itálico
-- Passar `fontSize`, `fontWeight`, `fontStyle`, `fontFamily` como props ao `PostCanvas`
-- Aplicar estilos ao texto editável no canvas
-
----
-
-### 8. Botão "Home" na tela de login e cadastro
-
-**Editar:** `Login.tsx` — já tem "Voltar à página inicial", mover para o canto superior esquerdo
-**Editar:** `Signup.tsx` — adicionar botão "Home" / ícone no canto superior esquerdo
-- Usar ícone `Home` ou `ArrowLeft` posicionado fixo no topo esquerdo da tela, fora do card
+**Gradiente para fundos:**
+- Adicionar opção "Gradiente" na seção de cores da toolbar
+- Permitir selecionar duas cores da paleta para criar gradiente (linear)
+- Adicionar seletor de direção do gradiente (horizontal, vertical, diagonal)
+- Aplicar `background: linear-gradient(...)` no canvas em vez de `backgroundColor`
 
 ---
 
@@ -90,14 +53,10 @@
 
 | Ação | Arquivo |
 |------|---------|
-| Editar | `src/pages/HistoryPage.tsx` (reload + progress bar) |
-| Criar | `src/pages/HelpPage.tsx` (ajuda com pesquisa) |
-| Editar | `src/components/DashboardLayout.tsx` (menu Ajuda) |
-| Editar | `src/App.tsx` (rota /help) |
-| Editar | `src/components/post-editor/PostCanvas.tsx` (delete, resize, tipografia) |
-| Editar | `src/components/post-editor/PostToolbar.tsx` (logo persistente, tipografia, elementos) |
-| Editar | `src/pages/PostEditorPage.tsx` (selected state, keyboard, font props) |
-| Editar | `src/pages/EditorialPage.tsx` (remover "Slide X") |
-| Editar | `src/pages/Login.tsx` (botão home no topo) |
-| Editar | `src/pages/Signup.tsx` (botão home no topo) |
+| Scaffold | Templates de auth email (via ferramenta integrada) |
+| Editar | `src/pages/Signup.tsx` (emailRedirectTo → /login) |
+| Editar | `src/pages/Report.tsx` (buscar arquétipos de user_top_archetypes) |
+| Editar | `src/components/post-editor/PostToolbar.tsx` (elementos, transparência, gradiente) |
+| Editar | `src/components/post-editor/PostCanvas.tsx` (opacity, gradiente fundo) |
+| Editar | `src/pages/PostEditorPage.tsx` (estado opacity, gradiente) |
 
