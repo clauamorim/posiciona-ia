@@ -8,11 +8,11 @@ const corsHeaders = {
 };
 
 const STUDIO_STYLES = [
-  "Professional studio portrait with soft, controlled lighting and a clean, neutral gray background. High-end corporate branding style. Shot on a medium-format camera with shallow depth of field. Two-light setup with large softboxes.",
-  "Elegant studio portrait with warm, neutral-toned seamless backdrop. Rembrandt lighting with a single key light creating subtle shadow on one side. Shot with an 85mm f/1.4 lens.",
-  "Modern studio headshot with pure white background and even, diffused lighting. Clean and polished. Ring light combined with fill light for minimal shadows.",
-  "Sophisticated studio portrait with dark charcoal backdrop. Dramatic single key light from 45 degrees with subtle rim light separating subject from background. Cinematic feel.",
-  "Clean studio portrait with light beige/cream backdrop. Butterfly lighting setup. Soft, flattering light that emphasizes natural features. Fashion-editorial approach.",
+  "Professional studio portrait, soft controlled lighting, clean neutral gray backdrop. Medium-format camera, shallow depth of field, two-light setup with large softboxes.",
+  "Warm neutral-toned seamless backdrop. Rembrandt lighting, single key light, subtle shadow on one side. 85mm f/1.4 lens.",
+  "Pure white background, even diffused lighting. Ring light with fill, minimal shadows. Clean modern headshot.",
+  "Dark charcoal backdrop. Dramatic single key light from 45 degrees with subtle rim light. Cinematic feel.",
+  "Light beige/cream backdrop. Butterfly lighting, soft flattering light. Fashion-editorial approach.",
 ];
 
 serve(async (req) => {
@@ -48,7 +48,6 @@ serve(async (req) => {
       });
     }
 
-    // Fetch balance, profile (gender), archetypes, and report in parallel
     const [balanceRes, profileRes, archetypesRes, reportRes] = await Promise.all([
       supabase.from("user_balances").select("portrait_credits_included, portrait_credits_extra").eq("user_id", user.id).single(),
       supabase.from("profiles").select("gender").eq("user_id", user.id).single(),
@@ -86,8 +85,6 @@ serve(async (req) => {
     }
 
     const archetypeNames = archetypes.map((a: any) => a.archetype_name).join(", ");
-    const visualIdentity = reportContent?.visual_identity || {};
-    const palette = visualIdentity.palette?.map((c: any) => c.hex).join(", ") || "";
     const figurino = reportContent?.figurino || {};
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -98,7 +95,6 @@ serve(async (req) => {
       });
     }
 
-    // Random studio style
     const styleIndex = Math.floor(Math.random() * STUDIO_STYLES.length);
     const studioStyle = STUDIO_STYLES[styleIndex];
 
@@ -107,21 +103,18 @@ serve(async (req) => {
       image_url: { url: s.startsWith("data:") ? s : `data:image/jpeg;base64,${s}` },
     }));
 
-    const refCount = selfies.length > 1 ? ` I'm providing ${selfies.length} reference photos of the same person from different angles to help you accurately capture their features.` : "";
-
-    // Build wardrobe instructions from figurino with variation support
-    let wardrobeInstructions = "";
-    if (figurino.pecas_chave?.length > 0 || figurino.cores_roupa?.length > 0 || figurino.acessorios?.length > 0) {
+    // Build wardrobe line
+    let wardrobeLine = "";
+    if (figurino.pecas_chave?.length > 0 || figurino.cores_roupa?.length > 0) {
       const allPieces = figurino.pecas_chave || [];
       const allColors = figurino.cores_roupa || [];
       const allAccessories = figurino.acessorios || [];
 
-      // If wardrobeVariation is specified, pick different subsets
       let pieces: string[], colors: string[], accessories: string[];
       if (typeof wardrobeVariation === "number" && wardrobeVariation > 0) {
         const offset = wardrobeVariation;
-        pieces = allPieces.length > 0 ? [allPieces[offset % allPieces.length], allPieces[(offset + 1) % allPieces.length], allPieces[(offset + 2) % allPieces.length]].filter((v, i, a) => a.indexOf(v) === i) : [];
-        colors = allColors.length > 0 ? [allColors[offset % allColors.length], allColors[(offset + 1) % allColors.length]].filter((v, i, a) => a.indexOf(v) === i) : [];
+        pieces = allPieces.length > 0 ? [allPieces[offset % allPieces.length], allPieces[(offset + 1) % allPieces.length], allPieces[(offset + 2) % allPieces.length]].filter((v: string, i: number, a: string[]) => a.indexOf(v) === i) : [];
+        colors = allColors.length > 0 ? [allColors[offset % allColors.length], allColors[(offset + 1) % allColors.length]].filter((v: string, i: number, a: string[]) => a.indexOf(v) === i) : [];
         accessories = allAccessories.length > 0 ? [allAccessories[offset % allAccessories.length]] : [];
       } else {
         pieces = allPieces.slice(0, 3);
@@ -129,55 +122,28 @@ serve(async (req) => {
         accessories = allAccessories.slice(0, 2);
       }
 
-      wardrobeInstructions = `\n\nSTRATEGIC WARDROBE (based on brand archetypes):
-- Dress the person in: ${pieces.join(", ")}
-- Clothing colors: ${colors.join(", ")}
-- Accessories: ${accessories.join(", ")}
-- Gender: ${gender === "Feminino" ? "Female" : gender === "Masculino" ? "Male" : "Neutral"}`;
-      if (gender === "Feminino" && figurino.maquiagem_grooming) {
-        wardrobeInstructions += `\n- Makeup style: ${figurino.maquiagem_grooming}`;
-      }
-      if (gender === "Masculino" && figurino.maquiagem_grooming) {
-        wardrobeInstructions += `\n- Grooming: ${figurino.maquiagem_grooming}`;
-      }
-      if (figurino.cabelo) {
-        wardrobeInstructions += `\n- Hair style: ${figurino.cabelo}`;
+      const genderLabel = gender === "Feminino" ? "Female" : gender === "Masculino" ? "Male" : "Neutral";
+      wardrobeLine = `\nWardrobe: ${pieces.join(", ")}. Colors: ${colors.join(", ")}. Accessories: ${accessories.join(", ")}. Gender: ${genderLabel}.`;
+      if (figurino.cabelo) wardrobeLine += ` Hair: ${figurino.cabelo}.`;
+      if (figurino.maquiagem_grooming) {
+        wardrobeLine += gender === "Feminino" ? ` Makeup: ${figurino.maquiagem_grooming}.` : ` Grooming: ${figurino.maquiagem_grooming}.`;
       }
     }
 
-    const prompt = `IDENTITY PRESERVATION IS THE #1 PRIORITY. You MUST reproduce the EXACT same person from the reference photos. Study every detail: face shape, nose, eyes, eyebrows, lips, jawline, skin color, hair color and texture, facial hair, moles, freckles, wrinkles. The generated portrait MUST be immediately recognizable as the same person.
+    const prompt = `You are a portrait photographer. Study the reference photos carefully. Reproduce the EXACT SAME PERSON — same face shape, nose, eyes, eyebrows, lips, jawline, skin tone, hair color/texture, facial hair, moles, freckles, wrinkles, age, ethnicity. The output must be immediately recognizable as the same individual.
 
-Transform these reference selfie(s) into a hyper-realistic professional brand portrait photograph. The result MUST look like a real photograph taken in a professional studio — NOT a digital illustration, painting, or AI-generated looking image.${refCount}
+Create a hyper-realistic professional studio photograph. NOT an illustration, NOT a painting, NOT AI-looking.
 
-CRITICAL IDENTITY RULES:
-- The person in the output MUST be the EXACT same person as in the reference photos — same face, same features, same ethnicity, same age
-- Do NOT generate a generic or idealized person. Copy the SPECIFIC facial features from the references
-- If the reference shows a specific skin tone, reproduce it EXACTLY
-- Compare your output with the references — they must be clearly the same individual
+REALISM: Keep all facial asymmetries. Skin must show natural pores, texture, fine lines — no airbrushing or plastic skin. Hair must have natural flyaways. Eyes must have natural catchlights. Clothing must have realistic fabric wrinkles. If hands are visible: exactly 5 fingers per hand, correct proportions.
 
-CRITICAL REALISM RULES:
-- Maintain the person's EXACT facial features, bone structure, and proportions. Do NOT idealize or beautify.
-- Preserve ALL facial asymmetries — do NOT mirror or symmetrize the face. Real faces are asymmetric.
-- Skin MUST show natural pores, texture, fine lines, and color variation. Do NOT apply plastic, airbrushed, or porcelain-smooth skin. Think "high-end retouching" not "beauty filter".
-- Hair MUST look natural with some loose strands, flyaway hairs, and natural texture — overly styled or perfectly arranged hair looks artificial.
-- Eyes must have natural reflections and catchlights from the lighting setup.
-- Clothing should have realistic fabric texture, natural wrinkles and folds.
-- HANDS: If hands are visible in the frame, ensure EXACTLY 5 fingers per hand with correct proportions, natural joint bending, and realistic positioning. Pay special attention to thumb placement and finger spacing.
+STUDIO: ${studioStyle}
+Always use a studio backdrop — never outdoor or nature.
 
-STUDIO BACKGROUND — MANDATORY:
-${studioStyle}
-Do NOT use outdoor backgrounds, nature scenes, or any non-studio setting. ALWAYS use a professional studio backdrop.
+Brand archetypes: ${archetypeNames}. Express through body language and expression, not costumes or props.${wardrobeLine}
 
-Apply the following brand visual identity subtly through lighting, color grading, and atmosphere:
-- Brand archetypes: ${archetypeNames}
-- Color palette influence for grading: ${palette || "tones that evoke " + archetypeNames}
-${wardrobeInstructions}
+No text, no watermarks, no overlays. Professional branding photo indistinguishable from a real DSLR photograph.`;
 
-The portrait should subtly capture the essence of the ${archetypes[0]?.archetype_name || "brand"} archetype through body language, expression, and lighting — NOT through costumes, props, or literal archetype representations.
-Do NOT add text, watermarks, or any graphic overlays.
-Do NOT make the person look like a character or caricature. This is a professional branding photo.
-The overall image should be indistinguishable from a photograph taken with a professional DSLR or mirrorless camera.`;
-
+    // Send reference images FIRST, then the text prompt
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -185,13 +151,13 @@ The overall image should be indistinguishable from a photograph taken with a pro
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3.1-flash-image-preview",
+        model: "google/gemini-3-pro-image-preview",
         messages: [
           {
             role: "user",
             content: [
-              { type: "text", text: prompt },
               ...referenceImages,
+              { type: "text", text: prompt },
             ],
           },
         ],
@@ -231,7 +197,6 @@ The overall image should be indistinguishable from a photograph taken with a pro
       });
     }
 
-    // Consume 1 credit: included first, then extra
     if (included > 0) {
       await supabaseAdmin.from("user_balances").update({
         portrait_credits_included: included - 1,
@@ -242,7 +207,6 @@ The overall image should be indistinguishable from a photograph taken with a pro
       }).eq("user_id", user.id);
     }
 
-    // Log
     await supabaseAdmin.from("credit_logs").insert({
       user_id: user.id,
       credit_type: "portrait",
