@@ -260,12 +260,12 @@ const Report = () => {
     <DashboardLayout>
       <div className="space-y-10">
         {/* Header */}
-        <div className="flex items-center justify-between flex-wrap gap-4">
+        <div className="flex items-start justify-between flex-wrap gap-4">
           <div>
-            <h1 className="text-3xl font-bold font-display">Suas Análises</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">Suas Análises</h1>
             <p className="text-sm text-muted-foreground mt-1">Gerado em {new Date(report.created_at).toLocaleDateString("pt-BR")}</p>
           </div>
-          <Button onClick={handleDownloadPDF} className="gap-2"><Download className="h-4 w-4" /> Baixar PDF</Button>
+          <Button onClick={handleDownloadPDF} variant="outline" size="sm" className="gap-2"><Download className="h-4 w-4" /> Baixar PDF</Button>
         </div>
 
         {/* SECTION: Archetypes — from user_top_archetypes table */}

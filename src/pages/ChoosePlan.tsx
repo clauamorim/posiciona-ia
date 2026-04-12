@@ -83,8 +83,8 @@ const ChoosePlan = () => {
     <div className="min-h-screen bg-background flex items-center justify-center px-4 py-12">
       <div className="max-w-4xl w-full space-y-8">
         <div className="text-center">
-          <h1 className="text-3xl font-bold font-display">Escolha seu plano</h1>
-          <p className="text-muted-foreground mt-2">Selecione um plano para acessar a plataforma</p>
+          <h1 className="text-2xl font-semibold tracking-tight">Escolha seu plano</h1>
+          <p className="text-muted-foreground text-sm mt-2">Comece com clareza. Evolua com constância.</p>
         </div>
         <div className="grid md:grid-cols-3 gap-6">
           {plans.map((p) => (
