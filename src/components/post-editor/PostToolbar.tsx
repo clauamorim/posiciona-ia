@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Download, RotateCcw, AlignCenter, AlignLeft, Columns, Upload, ImagePlus, Shapes, Bold, Italic, Type, Minus, MoreHorizontal, Maximize, CircleDashed, Grip } from "lucide-react";
+import { Download, RotateCcw, AlignCenter, AlignLeft, AlignRight, AlignJustify, Columns, Upload, ImagePlus, Shapes, Bold, Italic, Type, Minus, MoreHorizontal, Maximize, CircleDashed, Grip } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -347,6 +347,56 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
               <Italic className="h-4 w-4" />
             </Toggle>
           </div>
+          {/* Text alignment */}
+          {onTextAlignChange && (
+            <div>
+              <label className="text-xs text-muted-foreground">Alinhamento</label>
+              <div className="flex gap-1 mt-1">
+                {([
+                  { value: "left" as const, icon: AlignLeft, label: "Esquerda" },
+                  { value: "center" as const, icon: AlignCenter, label: "Centro" },
+                  { value: "right" as const, icon: AlignRight, label: "Direita" },
+                  { value: "justify" as const, icon: AlignJustify, label: "Justificado" },
+                ]).map(({ value, icon: Icon, label }) => (
+                  <Tooltip key={value}>
+                    <TooltipTrigger asChild>
+                      <Button variant={textAlign === value ? "default" : "outline"} size="icon" className="h-7 w-7" onClick={() => onTextAlignChange(value)}>
+                        <Icon className="h-3.5 w-3.5" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>{label}</TooltipContent>
+                  </Tooltip>
+                ))}
+              </div>
+            </div>
+          )}
+          {/* Text color with palette + custom */}
+          {onTextColorChange && (
+            <div>
+              <label className="text-xs text-muted-foreground">Cor do texto</label>
+              <div className="flex gap-1 flex-wrap mt-1 items-center">
+                {palette.map((color, i) => (
+                  <Tooltip key={i}>
+                    <TooltipTrigger asChild>
+                      <button onClick={() => onTextColorChange(color.hex)}
+                        className={`w-6 h-6 rounded-md border transition-all ${textColor === color.hex ? "ring-2 ring-primary ring-offset-1 scale-110" : "hover:scale-105"}`}
+                        style={{ backgroundColor: color.hex, borderColor: textColor === color.hex ? color.hex : "transparent" }} />
+                    </TooltipTrigger>
+                    <TooltipContent>{color.name}</TooltipContent>
+                  </Tooltip>
+                ))}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <label className="w-6 h-6 rounded-md border border-dashed border-muted-foreground/40 cursor-pointer flex items-center justify-center hover:bg-muted transition-colors overflow-hidden">
+                      <input type="color" value={textColor || "#ffffff"} onChange={e => onTextColorChange(e.target.value)} className="opacity-0 absolute w-6 h-6 cursor-pointer" />
+                      <Type className="h-3 w-3 text-muted-foreground" />
+                    </label>
+                  </TooltipTrigger>
+                  <TooltipContent>Cor personalizada</TooltipContent>
+                </Tooltip>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
