@@ -9,7 +9,8 @@ import { toast } from "@/hooks/use-toast";
 import {
   Loader2, Download, FileText, Palette, Type, MessageSquare,
   Target, Crown, Shield, Heart,
-  Users, Zap, BookOpen, Compass, Star, Megaphone
+  Users, Zap, BookOpen, Compass, Star, Megaphone,
+  Shirt, Gem, Scissors, Eye, Ban
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
