@@ -2,6 +2,7 @@ import React, { useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, ArrowRight, Download, Package } from "lucide-react";
 import PostCanvas from "./PostCanvas";
+import type { OverlayImage } from "./PostToolbar";
 
 interface CarouselEditorProps {
   slides: string[];
@@ -19,6 +20,9 @@ interface CarouselEditorProps {
   onDownloadSlide: (index: number) => void;
   onDownloadAll: () => void;
   slideRefs: React.MutableRefObject<(HTMLDivElement | null)[]>;
+  overlayImages?: OverlayImage[];
+  onImageMove?: (id: string, x: number, y: number) => void;
+  onImageResize?: (id: string, width: number, height: number) => void;
 }
 
 const CarouselEditor: React.FC<CarouselEditorProps> = ({
@@ -37,6 +41,9 @@ const CarouselEditor: React.FC<CarouselEditorProps> = ({
   onDownloadSlide,
   onDownloadAll,
   slideRefs,
+  overlayImages = [],
+  onImageMove,
+  onImageResize,
 }) => {
   const total = slides.length;
   const isCover = currentSlide === 0;
@@ -60,6 +67,9 @@ const CarouselEditor: React.FC<CarouselEditorProps> = ({
         layout={layout}
         onTextChange={(t) => onSlideTextChange(currentSlide, t)}
         canvasRef={(el: HTMLDivElement | null) => { slideRefs.current[currentSlide] = el; }}
+        overlayImages={overlayImages}
+        onImageMove={onImageMove}
+        onImageResize={onImageResize}
       />
 
       {/* Navigation */}

@@ -1,15 +1,16 @@
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Slider } from "@/components/ui/slider";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { ChevronLeft, ChevronRight, Lock } from "lucide-react";
+import { ChevronLeft, ChevronRight, Lock, RefreshCw, Pencil, Trash2 } from "lucide-react";
 
 const QUESTIONS_PER_PAGE = 12;
 const scoreLabels = ["", "Discordo totalmente", "Discordo", "Neutro", "Concordo", "Concordo totalmente"];
@@ -17,15 +18,17 @@ const scoreLabels = ["", "Discordo totalmente", "Discordo", "Neutro", "Concordo"
 type QStatus = "draft" | "submitted" | "locked";
 
 const ArchetypeQuestionnaire = () => {
-  const { user } = useAuth();
+  const { user, balances, refreshSubscription } = useAuth();
   const navigate = useNavigate();
   const [questions, setQuestions] = useState<any[]>([]);
   const [answers, setAnswers] = useState<Record<string, number>>({});
   const [page, setPage] = useState(0);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<QStatus>("draft");
+  const [showReanalysisDialog, setShowReanalysisDialog] = useState(false);
 
   const isLocked = status === "locked";
+  const reanalysisCredits = balances?.reanalysis_credits ?? 0;
 
   useEffect(() => {
     const load = async () => {
@@ -43,7 +46,6 @@ const ArchetypeQuestionnaire = () => {
         setAnswers(defaults);
       }
 
-      // Check if report exists (locked state)
       if (user) {
         const { data: report } = await supabase
           .from("reports")
@@ -83,6 +85,33 @@ const ArchetypeQuestionnaire = () => {
     navigate("/results");
   };
 
+  const handleReanalysis = async (mode: "edit" | "reset") => {
+    if (!user || reanalysisCredits < 1) return;
+
+    await supabase.from("user_balances").update({ reanalysis_credits: reanalysisCredits - 1 }).eq("user_id", user.id);
+    await supabase.from("credit_logs").insert({
+      user_id: user.id,
+      credit_type: "reanalysis",
+      amount: -1,
+      description: `Reanálise: ${mode === "edit" ? "editar questionário de arquétipos" : "refazer do zero"}`,
+    });
+
+    if (mode === "reset") {
+      // Reset all answers to default 3
+      const defaults: Record<string, number> = {};
+      questions.forEach(q => { defaults[q.id] = 3; });
+      setAnswers(defaults);
+      // Delete existing answers
+      await supabase.from("archetype_answers").delete().eq("user_id", user.id);
+    }
+
+    setStatus("draft");
+    setShowReanalysisDialog(false);
+    setPage(0);
+    await refreshSubscription();
+    toast({ title: mode === "edit" ? "Questionário desbloqueado para edição" : "Questionário reiniciado" });
+  };
+
   return (
     <DashboardLayout>
       <div className="max-w-2xl mx-auto space-y-6">
@@ -93,11 +122,25 @@ const ArchetypeQuestionnaire = () => {
               Página {page + 1} de {totalPages} • {answeredCount}/72 respondidas
             </p>
           </div>
-          {isLocked && (
-            <Badge variant="outline" className="bg-red-500/10 text-red-600 border-red-200">
-              <Lock className="h-3 w-3 mr-1" /> Bloqueado
-            </Badge>
-          )}
+          <div className="flex items-center gap-2">
+            {isLocked && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                onClick={() => setShowReanalysisDialog(true)}
+                disabled={reanalysisCredits < 1}
+              >
+                <RefreshCw className="h-3 w-3" />
+                Refazer análise ({reanalysisCredits})
+              </Button>
+            )}
+            {isLocked && (
+              <Badge variant="outline" className="bg-red-500/10 text-red-600 border-red-200">
+                <Lock className="h-3 w-3 mr-1" /> Bloqueado
+              </Badge>
+            )}
+          </div>
         </div>
 
         {isLocked && (
@@ -107,7 +150,7 @@ const ArchetypeQuestionnaire = () => {
               <div>
                 <p className="text-sm font-medium">Questionário bloqueado</p>
                 <p className="text-xs text-muted-foreground">
-                  Este questionário foi bloqueado após a geração da estratégia. Contate o administrador para desbloquear.
+                  Este questionário foi bloqueado após a geração da estratégia. Use "Refazer análise" para desbloquear (consome 1 crédito).
                 </p>
               </div>
             </CardContent>
@@ -171,6 +214,29 @@ const ArchetypeQuestionnaire = () => {
           )}
         </div>
       </div>
+
+      {/* Reanalysis Dialog */}
+      <Dialog open={showReanalysisDialog} onOpenChange={setShowReanalysisDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Refazer análise</DialogTitle>
+            <DialogDescription>
+              Isso consumirá 1 crédito de reanálise. Você tem {reanalysisCredits} crédito{reanalysisCredits !== 1 ? "s" : ""} disponível{reanalysisCredits !== 1 ? "is" : ""}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 py-4">
+            <Button className="w-full gap-2" onClick={() => handleReanalysis("edit")}>
+              <Pencil className="h-4 w-4" /> Editar questionários existentes
+            </Button>
+            <Button variant="outline" className="w-full gap-2" onClick={() => handleReanalysis("reset")}>
+              <Trash2 className="h-4 w-4" /> Refazer do zero
+            </Button>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShowReanalysisDialog(false)}>Cancelar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 };

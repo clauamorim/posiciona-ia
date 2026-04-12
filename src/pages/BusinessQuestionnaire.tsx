@@ -5,13 +5,13 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { ChevronLeft, ChevronRight, Save, Loader2, Lock } from "lucide-react";
+import { ChevronLeft, ChevronRight, Save, Lock, RefreshCw, Pencil, Trash2 } from "lucide-react";
 
 const fields = [
   { key: "company_name", label: "Nome da empresa ou negócio", type: "input", placeholder: "Ex: Studio Bella" },
@@ -31,7 +31,7 @@ const fields = [
 type QStatus = "draft" | "submitted" | "locked";
 
 const BusinessQuestionnaire = () => {
-  const { user } = useAuth();
+  const { user, balances, refreshSubscription } = useAuth();
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -39,11 +39,12 @@ const BusinessQuestionnaire = () => {
   const [existingId, setExistingId] = useState<string | null>(null);
   const [isComplete, setIsComplete] = useState(false);
   const [status, setStatus] = useState<QStatus>("draft");
-  
+  const [showReanalysisDialog, setShowReanalysisDialog] = useState(false);
 
   const isLocked = status === "locked";
   const isSubmitted = status === "submitted";
   const isEditable = status === "draft";
+  const reanalysisCredits = balances?.reanalysis_credits ?? 0;
 
   useEffect(() => {
     if (!user) return;
@@ -90,6 +91,36 @@ const BusinessQuestionnaire = () => {
     if (complete) navigate("/archetype-questionnaire");
   }, [user, answers, existingId, navigate, isLocked]);
 
+  const handleReanalysis = async (mode: "edit" | "reset") => {
+    if (!user || reanalysisCredits < 1) return;
+
+    // Consume credit
+    await supabase.from("user_balances").update({ reanalysis_credits: reanalysisCredits - 1 }).eq("user_id", user.id);
+    await supabase.from("credit_logs").insert({
+      user_id: user.id,
+      credit_type: "reanalysis",
+      amount: -1,
+      description: `Reanálise: ${mode === "edit" ? "editar questionário de negócio" : "refazer do zero"}`,
+    });
+
+    if (mode === "reset") {
+      const cleared: Record<string, string> = {};
+      fields.forEach(f => { cleared[f.key] = ""; });
+      setAnswers(cleared);
+    }
+
+    // Unlock questionnaire
+    if (existingId) {
+      await supabase.from("business_questionnaires").update({ status: "draft", is_complete: false }).eq("id", existingId);
+    }
+
+    setStatus("draft");
+    setIsComplete(false);
+    setShowReanalysisDialog(false);
+    setStep(0);
+    await refreshSubscription();
+    toast({ title: mode === "edit" ? "Questionário desbloqueado para edição" : "Questionário reiniciado" });
+  };
 
   const field = fields[step];
   const progress = Math.round(((step + 1) / fields.length) * 100);
@@ -103,19 +134,33 @@ const BusinessQuestionnaire = () => {
             <h1 className="text-2xl font-bold font-display">Questionário do Negócio</h1>
             <p className="text-muted-foreground text-sm mt-1">Pergunta {step + 1} de {fields.length}</p>
           </div>
-          <Badge
-            variant="outline"
-            className={
-              isLocked
-                ? "bg-red-500/10 text-red-600 border-red-200"
-                : isSubmitted
-                  ? "bg-amber-500/10 text-amber-600 border-amber-200"
-                  : "bg-green-500/10 text-green-600 border-green-200"
-            }
-          >
-            {isLocked && <Lock className="h-3 w-3 mr-1" />}
-            {isLocked ? "Bloqueado" : isSubmitted ? "Enviado" : "Rascunho"}
-          </Badge>
+          <div className="flex items-center gap-2">
+            {(isLocked || isSubmitted) && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                onClick={() => setShowReanalysisDialog(true)}
+                disabled={reanalysisCredits < 1}
+              >
+                <RefreshCw className="h-3 w-3" />
+                Refazer análise ({reanalysisCredits})
+              </Button>
+            )}
+            <Badge
+              variant="outline"
+              className={
+                isLocked
+                  ? "bg-red-500/10 text-red-600 border-red-200"
+                  : isSubmitted
+                    ? "bg-amber-500/10 text-amber-600 border-amber-200"
+                    : "bg-green-500/10 text-green-600 border-green-200"
+              }
+            >
+              {isLocked && <Lock className="h-3 w-3 mr-1" />}
+              {isLocked ? "Bloqueado" : isSubmitted ? "Enviado" : "Rascunho"}
+            </Badge>
+          </div>
         </div>
 
         {isLocked && (
@@ -125,7 +170,7 @@ const BusinessQuestionnaire = () => {
               <div>
                 <p className="text-sm font-medium">Questionário bloqueado</p>
                 <p className="text-xs text-muted-foreground">
-                  Este questionário foi bloqueado após a geração do StoryBrand. Contate o administrador para desbloquear.
+                  Este questionário foi bloqueado após a geração do StoryBrand. Use "Refazer análise" para desbloquear (consome 1 crédito).
                 </p>
               </div>
             </CardContent>
@@ -145,7 +190,7 @@ const BusinessQuestionnaire = () => {
                 value={answers[field.key] || ""}
                 onChange={e => setAnswers(prev => ({ ...prev, [field.key]: e.target.value }))}
                 placeholder={field.placeholder}
-                disabled={isLocked}
+                disabled={isLocked || isSubmitted}
               />
             ) : (
               <Textarea
@@ -153,7 +198,7 @@ const BusinessQuestionnaire = () => {
                 onChange={e => setAnswers(prev => ({ ...prev, [field.key]: e.target.value }))}
                 placeholder={field.placeholder}
                 rows={4}
-                disabled={isLocked}
+                disabled={isLocked || isSubmitted}
               />
             )}
             <div className="flex justify-between pt-2">
@@ -197,8 +242,30 @@ const BusinessQuestionnaire = () => {
             </button>
           ))}
         </div>
-
       </div>
+
+      {/* Reanalysis Dialog */}
+      <Dialog open={showReanalysisDialog} onOpenChange={setShowReanalysisDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Refazer análise</DialogTitle>
+            <DialogDescription>
+              Isso consumirá 1 crédito de reanálise. Você tem {reanalysisCredits} crédito{reanalysisCredits !== 1 ? "s" : ""} disponível{reanalysisCredits !== 1 ? "is" : ""}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 py-4">
+            <Button className="w-full gap-2" onClick={() => handleReanalysis("edit")}>
+              <Pencil className="h-4 w-4" /> Editar questionários existentes
+            </Button>
+            <Button variant="outline" className="w-full gap-2" onClick={() => handleReanalysis("reset")}>
+              <Trash2 className="h-4 w-4" /> Refazer do zero
+            </Button>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShowReanalysisDialog(false)}>Cancelar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 };

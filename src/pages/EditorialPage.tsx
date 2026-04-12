@@ -306,12 +306,12 @@ const EditorialPage = () => {
                               </CollapsibleContent>
                             </Collapsible>
                           )}
-                          <div className="flex gap-2 mt-2">
+                          <div className="flex flex-col gap-2 mt-2">
                             {(day.format?.toLowerCase() === "carrossel" || day.format?.toLowerCase() === "post") && day.card_copy?.length > 0 && (
                               <Button
                                 variant="outline"
                                 size="sm"
-                                className="flex-1 gap-2"
+                                className="w-full gap-2"
                                 onClick={() => navigate(`/post-editor?week=${wi}&day=${di}`)}
                               >
                                 <PenTool className="h-3 w-3" /> Criar Post
@@ -320,7 +320,7 @@ const EditorialPage = () => {
                             <Button
                               variant="outline"
                               size="sm"
-                              className="gap-2"
+                              className="w-full gap-2"
                               onClick={() => handleRegeneratePost(wi, di)}
                               disabled={regeneratingPost === regenKey || regenerationCredits < 1}
                               title={regenerationCredits < 1 ? "Sem créditos de regeneração" : "Gerar novo post"}
