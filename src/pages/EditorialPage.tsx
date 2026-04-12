@@ -14,6 +14,7 @@ import {
   ImageIcon, PenTool, FileText, RefreshCw, Copy
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { parseReportContent } from "@/lib/reportParser";
 
 const FORMAT_CONFIG: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
   reels: { label: "Reels", icon: <Video className="h-3 w-3" />, color: "bg-pink-500/10 text-pink-600 border-pink-200" },
@@ -40,11 +41,12 @@ const EditorialPage = () => {
       .then(({ data }) => { setReport(data); setLoading(false); });
   }, [user]);
 
-  const content = report?.content;
-  const isStructured = typeof content === "object" && content !== null && content.archetypes;
-  const editorialWeeks: any[][] = report?.editorial_weeks || [];
+  const { contentObject, hasEditorial } = parseReportContent(report?.content);
+  const content = contentObject ?? {};
+  const structuredEditorial = Array.isArray(content.editorial) ? content.editorial : [];
+  const editorialWeeks: any[][] = Array.isArray(report?.editorial_weeks) ? report.editorial_weeks : [];
   const allWeeks = [
-    ...(isStructured && content.editorial ? [content.editorial] : []),
+    ...(hasEditorial && structuredEditorial.length > 0 ? [structuredEditorial] : []),
     ...editorialWeeks,
   ];
 
@@ -106,15 +108,15 @@ const EditorialPage = () => {
       });
       if (error) throw error;
 
-      const isFirstWeek = isStructured && content.editorial && weekIndex === 0;
+      const isFirstWeek = structuredEditorial.length > 0 && weekIndex === 0;
       if (isFirstWeek) {
-        const newEditorial = [...content.editorial];
+        const newEditorial = [...structuredEditorial];
         newEditorial[dayIndex] = data.post;
         const newContent = { ...content, editorial: newEditorial };
         await supabase.from("reports").update({ content: newContent }).eq("user_id", user.id).eq("version", report.version);
         setReport({ ...report, content: newContent });
       } else {
-        const adjustedWeekIndex = isStructured && content.editorial ? weekIndex - 1 : weekIndex;
+        const adjustedWeekIndex = structuredEditorial.length > 0 ? weekIndex - 1 : weekIndex;
         const newWeeks = [...editorialWeeks];
         newWeeks[adjustedWeekIndex] = [...newWeeks[adjustedWeekIndex]];
         newWeeks[adjustedWeekIndex][dayIndex] = data.post;

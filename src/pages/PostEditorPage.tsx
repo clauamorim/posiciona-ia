@@ -11,6 +11,7 @@ import PostCanvas from "@/components/post-editor/PostCanvas";
 import CarouselEditor from "@/components/post-editor/CarouselEditor";
 import PostToolbar from "@/components/post-editor/PostToolbar";
 import type { OverlayImage } from "@/components/post-editor/PostToolbar";
+import { parseReportContent } from "@/lib/reportParser";
 
 function getContrastColor(hex: string): string {
   const r = parseInt(hex.slice(1, 3), 16);
@@ -72,17 +73,20 @@ const PostEditorPage = () => {
       .then(({ data }) => { setReport(data); setLoading(false); });
   }, [user]);
 
-  const content = report?.content;
-  const isStructured = typeof content === "object" && content !== null && content.archetypes;
-  const editorialWeeks: any[][] = report?.editorial_weeks || [];
+  const { contentObject, hasEditorial } = parseReportContent(report?.content);
+  const content = contentObject ?? {};
+  const structuredEditorial = Array.isArray(content.editorial) ? content.editorial : [];
+  const editorialWeeks: any[][] = Array.isArray(report?.editorial_weeks) ? report.editorial_weeks : [];
   const allWeeks = [
-    ...(isStructured && content.editorial ? [content.editorial] : []),
+    ...(hasEditorial && structuredEditorial.length > 0 ? [structuredEditorial] : []),
     ...editorialWeeks,
   ];
 
   const day = allWeeks[weekIndex]?.[dayIndex];
-  const palette = content?.visual_identity?.palette || [];
-  const typography = content?.visual_identity?.typography || {};
+  const palette = Array.isArray(content.visual_identity?.palette) ? content.visual_identity.palette : [];
+  const typography = typeof content.visual_identity?.typography === "object" && content.visual_identity?.typography !== null
+    ? content.visual_identity.typography
+    : {};
 
   const [displayFont, setDisplayFont] = useState(typography.display || "Space Grotesk");
   const [bodyFont, setBodyFont] = useState(typography.body || "Inter");
