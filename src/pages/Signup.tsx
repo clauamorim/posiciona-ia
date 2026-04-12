@@ -47,7 +47,7 @@ const Signup = () => {
         <CardHeader className="text-center space-y-2">
           <div className="flex items-center justify-center gap-2 mb-2">
             <Sparkles className="h-8 w-8 text-primary" />
-            <h1 className="text-3xl font-bold font-display text-primary">ArcheBrand</h1>
+            <h1 className="text-3xl font-bold font-display text-primary">Posiciona</h1>
           </div>
           <CardTitle className="text-xl font-display">Criar sua conta</CardTitle>
           <CardDescription>Comece a construir seu posicionamento de marca</CardDescription>

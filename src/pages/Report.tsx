@@ -91,7 +91,7 @@ const Report = () => {
 
     doc.setFontSize(22);
     doc.setFont("helvetica", "bold");
-    doc.text("ArcheBrand - Relatório de Posicionamento", 20, y);
+    doc.text("Posiciona - Relatório de Posicionamento", 20, y);
     y += 15;
 
     if (isStructured) {
@@ -136,7 +136,7 @@ const Report = () => {
       addBody(text);
     }
 
-    doc.save("archebrand-relatorio.pdf");
+    doc.save("posiciona-relatorio.pdf");
     } catch (error) {
       console.error("Error generating PDF:", error);
       toast({ title: "Erro ao gerar PDF", description: "Tente novamente.", variant: "destructive" });

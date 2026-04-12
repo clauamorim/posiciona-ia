@@ -158,7 +158,7 @@ const LandingPage = () => {
       <nav className="border-b border-border/50 bg-background/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
           <span className="text-xl font-bold font-display bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-            ArcheBrand
+            Posiciona
           </span>
           <div className="flex gap-3">
             {isLoading ? (
@@ -186,7 +186,7 @@ const LandingPage = () => {
             <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent"> transforme em conteúdo</span>
           </h1>
           <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto">
-            O ArcheBrand define seus arquétipos, gera seu StoryBrand, analisa seu Instagram, cria sua linha editorial semanal, gera posts prontos e oferece retratos profissionais alinhados ao seu posicionamento.
+            O Posiciona define seus arquétipos, gera seu StoryBrand, analisa seu Instagram, cria sua linha editorial semanal, gera posts prontos e oferece retratos profissionais alinhados ao seu posicionamento.
           </p>
           <div className="flex gap-4 justify-center pt-4">
             <Button size="lg" className="gap-2 text-base" onClick={() => document.getElementById("planos")?.scrollIntoView({ behavior: "smooth" })}>
@@ -229,7 +229,7 @@ const LandingPage = () => {
       <section className="py-20 px-4">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold font-display">Por que usar o ArcheBrand</h2>
+            <h2 className="text-3xl md:text-4xl font-bold font-display">Por que usar o Posiciona</h2>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {benefits.map((b, i) => (
@@ -332,7 +332,7 @@ const LandingPage = () => {
 
       {/* FOOTER */}
       <footer className="border-t border-border/50 py-8 px-4 text-center text-sm text-muted-foreground">
-        <p>© {new Date().getFullYear()} ArcheBrand. Todos os direitos reservados.</p>
+        <p>© {new Date().getFullYear()} Posiciona. Todos os direitos reservados.</p>
       </footer>
     </div>
   );
