@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { Search, Download, Ban, Coins, Crown, Trash2, MailCheck, Loader2 } from "lucide-react";
+import { Search, Download, Ban, Coins, Crown, Trash2, MailCheck, Loader2, Eye } from "lucide-react";
 
 interface Plan {
   id: string;
@@ -26,8 +26,12 @@ interface Plan {
 const AdminUsers = () => {
   const [users, setUsers] = useState<any[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
+  const [emailMap, setEmailMap] = useState<Record<string, string>>({});
   const [filter, setFilter] = useState("");
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+  // Detail dialog
+  const [viewingUser, setViewingUser] = useState<any | null>(null);
 
   // Credits dialog
   const [editingCredits, setEditingCredits] = useState<{ userId: string; name: string } | null>(null);
@@ -44,6 +48,19 @@ const AdminUsers = () => {
   const loadPlans = async () => {
     const { data } = await supabase.from("plans").select("*").eq("active", true);
     if (data) setPlans(data);
+  };
+
+  const loadEmails = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke("admin-manage-user", {
+        body: { action: "list_users", userId: "system" },
+      });
+      if (!error && data?.emailMap) {
+        setEmailMap(data.emailMap);
+      }
+    } catch (e) {
+      console.error("Failed to load emails:", e);
+    }
   };
 
   const loadUsers = async () => {
@@ -73,14 +90,15 @@ const AdminUsers = () => {
     })));
   };
 
-  useEffect(() => { loadPlans(); loadUsers(); }, []);
+  useEffect(() => { loadPlans(); loadUsers(); loadEmails(); }, []);
 
   const getPlanName = (planId: string) => plans.find(p => p.id === planId)?.name || "—";
 
   const filtered = users.filter(u =>
     (u.full_name || "").toLowerCase().includes(filter.toLowerCase()) ||
     (u.profession || "").toLowerCase().includes(filter.toLowerCase()) ||
-    (u.niche || "").toLowerCase().includes(filter.toLowerCase())
+    (u.niche || "").toLowerCase().includes(filter.toLowerCase()) ||
+    (emailMap[u.user_id] || "").toLowerCase().includes(filter.toLowerCase())
   );
 
   const toggleBlock = async (userId: string, currentlyBlocked: boolean) => {
@@ -199,9 +217,10 @@ const AdminUsers = () => {
   };
 
   const exportCSV = () => {
-    const headers = ["Nome", "Profissão", "Nicho", "Plano", "Relatórios", "Questionário", "Status", "Criado em"];
+    const headers = ["Nome", "E-mail", "Gênero", "WhatsApp", "Profissão", "Nicho", "Objetivo", "Plano", "Relatórios", "Questionário", "Status", "Criado em"];
     const rows = filtered.map(u => [
-      u.full_name, u.profession || "", u.niche || "",
+      u.full_name, emailMap[u.user_id] || "", u.gender || "", u.whatsapp || "",
+      u.profession || "", u.niche || "", u.main_goal || "",
       u.subscription ? getPlanName(u.subscription.plan_id) : "Nenhum",
       u.reportsCount, u.bqComplete ? "Completo" : "Incompleto",
       u.is_blocked ? "Bloqueado" : "Ativo",
@@ -226,19 +245,20 @@ const AdminUsers = () => {
 
         <div className="relative">
           <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Buscar por nome, profissão ou nicho..." value={filter} onChange={e => setFilter(e.target.value)} className="pl-9" />
+          <Input placeholder="Buscar por nome, e-mail, profissão ou nicho..." value={filter} onChange={e => setFilter(e.target.value)} className="pl-9" />
         </div>
 
         <Card>
-          <CardContent className="p-0">
+          <CardContent className="p-0 overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Nome</TableHead>
-                  <TableHead>Profissão</TableHead>
+                  <TableHead>E-mail</TableHead>
+                  <TableHead>Gênero</TableHead>
+                  <TableHead>Profissão / Nicho</TableHead>
+                  <TableHead>WhatsApp</TableHead>
                   <TableHead>Plano</TableHead>
-                  <TableHead>Relatórios</TableHead>
-                  <TableHead>Questionário</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Cadastro</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
@@ -248,19 +268,19 @@ const AdminUsers = () => {
                 {filtered.map(u => (
                   <TableRow key={u.id}>
                     <TableCell className="font-medium">{u.full_name || "—"}</TableCell>
-                    <TableCell>{u.profession || "—"}</TableCell>
+                    <TableCell className="text-sm">{emailMap[u.user_id] || "—"}</TableCell>
+                    <TableCell>{u.gender || "—"}</TableCell>
+                    <TableCell>
+                      <div className="text-sm">{u.profession || "—"}</div>
+                      <div className="text-xs text-muted-foreground">{u.niche || "—"}</div>
+                    </TableCell>
+                    <TableCell className="text-sm">{u.whatsapp || "—"}</TableCell>
                     <TableCell>
                       {u.subscription ? (
                         <Badge variant="default">{getPlanName(u.subscription.plan_id)}</Badge>
                       ) : (
                         <Badge variant="secondary">Nenhum</Badge>
                       )}
-                    </TableCell>
-                    <TableCell>{u.reportsCount}</TableCell>
-                    <TableCell>
-                      <Badge variant={u.bqComplete ? "default" : "secondary"}>
-                        {u.bqComplete ? "Completo" : "Pendente"}
-                      </Badge>
                     </TableCell>
                     <TableCell>
                       <Badge variant={u.is_blocked ? "destructive" : "default"}>
@@ -271,6 +291,9 @@ const AdminUsers = () => {
                       {new Date(u.created_at).toLocaleDateString("pt-BR")}
                     </TableCell>
                     <TableCell className="text-right space-x-1">
+                      <Button variant="ghost" size="icon" title="Ver Detalhes" onClick={() => setViewingUser(u)}>
+                        <Eye className="h-4 w-4" />
+                      </Button>
                       <Button variant="ghost" size="icon" title="Atribuir Plano" onClick={() => { setAssigningPlan({ userId: u.user_id, name: u.full_name }); setSelectedPlanId(u.subscription?.plan_id || ""); setPlanMonths("1"); }}>
                         <Crown className="h-4 w-4" />
                       </Button>
@@ -291,7 +314,7 @@ const AdminUsers = () => {
                 ))}
                 {filtered.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Nenhum usuário encontrado</TableCell>
+                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Nenhum usuário encontrado</TableCell>
                   </TableRow>
                 )}
               </TableBody>
@@ -299,6 +322,53 @@ const AdminUsers = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Dialog: Ver Detalhes */}
+      <Dialog open={!!viewingUser} onOpenChange={() => setViewingUser(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Detalhes do Usuário</DialogTitle>
+          </DialogHeader>
+          {viewingUser && (
+            <div className="grid grid-cols-2 gap-3 py-4 text-sm">
+              {[
+                { label: "Nome", value: viewingUser.full_name },
+                { label: "E-mail", value: emailMap[viewingUser.user_id] || "—" },
+                { label: "Gênero", value: viewingUser.gender || "—" },
+                { label: "WhatsApp", value: viewingUser.whatsapp || "—" },
+                { label: "Profissão", value: viewingUser.profession || "—" },
+                { label: "Nicho", value: viewingUser.niche || "—" },
+                { label: "Objetivo Principal", value: viewingUser.main_goal || "—" },
+                { label: "Plano", value: viewingUser.subscription ? getPlanName(viewingUser.subscription.plan_id) : "Nenhum" },
+                { label: "Relatórios", value: viewingUser.reportsCount },
+                { label: "Questionário", value: viewingUser.bqComplete ? "Completo" : "Pendente" },
+                { label: "Status", value: viewingUser.is_blocked ? "Bloqueado" : "Ativo" },
+                { label: "Cadastro", value: new Date(viewingUser.created_at).toLocaleDateString("pt-BR") },
+              ].map(({ label, value }) => (
+                <div key={label}>
+                  <p className="text-muted-foreground text-xs">{label}</p>
+                  <p className="font-medium">{value}</p>
+                </div>
+              ))}
+              {viewingUser.balances && (
+                <div className="col-span-2 mt-2 rounded-md border p-3 bg-muted/50 space-y-1">
+                  <p className="font-medium text-xs text-muted-foreground mb-1">Créditos</p>
+                  <div className="grid grid-cols-2 gap-1 text-xs">
+                    <span>Ciclos semanais: <strong>{viewingUser.balances.weekly_cycles}</strong></span>
+                    <span>Reanálises: <strong>{viewingUser.balances.reanalysis_credits}</strong></span>
+                    <span>Retratos (inclusos): <strong>{viewingUser.balances.portrait_credits_included}</strong></span>
+                    <span>Retratos (extras): <strong>{viewingUser.balances.portrait_credits_extra}</strong></span>
+                    <span>Regenerações: <strong>{viewingUser.balances.regeneration_credits}</strong></span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setViewingUser(null)}>Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Dialog: Atribuir Plano */}
       <Dialog open={!!assigningPlan} onOpenChange={() => setAssigningPlan(null)}>
