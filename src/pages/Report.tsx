@@ -13,6 +13,7 @@ import {
   Shirt, Gem, Scissors, Eye, Ban
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { getReportFallbackText, parseReportContent } from "@/lib/reportParser";
 
 const STORYBRAND_ITEMS = [
   { key: "hero", label: "O Herói (Cliente)", icon: <Users className="h-5 w-5" /> },
@@ -53,12 +54,13 @@ const Report = () => {
     });
   }, [user]);
 
-  const rawContent = report?.content;
-  const content = typeof rawContent === "string" ? (() => { try { return JSON.parse(rawContent); } catch { return rawContent; } })() : rawContent;
-  const isStructured = typeof content === "object" && content !== null && content.archetypes;
-  const editorialWeeks: any[][] = report?.editorial_weeks || [];
+  const { contentObject, isStructuredReport, hasEditorial } = parseReportContent(report?.content);
+  const content = contentObject ?? {};
+  const fallbackText = getReportFallbackText(report?.content);
+  const structuredEditorial = Array.isArray(content.editorial) ? content.editorial : [];
+  const editorialWeeks: any[][] = Array.isArray(report?.editorial_weeks) ? report.editorial_weeks : [];
   const allWeeks = [
-    ...(isStructured && content.editorial ? [content.editorial] : []),
+    ...(hasEditorial && structuredEditorial.length > 0 ? [structuredEditorial] : []),
     ...editorialWeeks,
   ];
 
@@ -128,7 +130,7 @@ const Report = () => {
     doc.text("Posiciona - Relatório de Posicionamento", 20, y);
     y += 15;
 
-    if (isStructured) {
+    if (isStructuredReport) {
       addTitle("Arquétipos de Marca");
       const archetypeData = getArchetypeData();
       if (archetypeData) {
@@ -196,8 +198,7 @@ const Report = () => {
         });
       });
     } else {
-      const text = typeof content === "string" ? content : JSON.stringify(content, null, 2);
-      addBody(text);
+      addBody(fallbackText);
     }
 
     doc.save("posiciona-relatorio.pdf");
@@ -234,7 +235,7 @@ const Report = () => {
   }
 
   // Fallback for old text-based reports
-  if (!isStructured) {
+  if (!isStructuredReport) {
     return (
       <DashboardLayout>
         <div className="space-y-6">
@@ -247,7 +248,7 @@ const Report = () => {
           </div>
           <Card>
             <CardContent className="pt-6 prose prose-sm max-w-none">
-              <div className="whitespace-pre-wrap text-sm">{String(content)}</div>
+              <div className="whitespace-pre-wrap text-sm">{fallbackText}</div>
             </CardContent>
           </Card>
         </div>

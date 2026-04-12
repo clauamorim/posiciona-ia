@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Loader2, FileText, Users, Target, Heart, BookOpen, Compass, Zap, Megaphone, Star, Shield, Copy, ArrowRight } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { parseReportContent } from "@/lib/reportParser";
 
 const DETAIL_ITEMS = [
   { key: "hero", label: "O Personagem (Cliente)", icon: Users },
@@ -55,10 +56,10 @@ const StoryBrand = () => {
     );
   }
 
-  const content = report?.content;
-  const storybrand = typeof content === "object" && content !== null ? content.storybrand : null;
+  const { contentObject, hasStorybrand } = parseReportContent(report?.content);
+  const storybrand = contentObject?.storybrand;
 
-  if (!storybrand) {
+  if (!hasStorybrand || !storybrand) {
     return (
       <DashboardLayout>
         <div className="flex flex-col items-center justify-center h-64 text-center gap-4">

@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { calculateScores, getTop3, ARCHETYPE_COLORS, type ArchetypeScore } from "@/lib/archetypes";
 import { Loader2, CheckCircle2, Sparkles, ArrowRight } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { normalizeReportContent } from "@/lib/reportParser";
 
 type Stage = "calculating" | "saving" | "generating_report" | "done" | "error";
 
@@ -79,7 +80,9 @@ const Results = () => {
         });
         if (reportError) throw reportError;
 
-        await supabase.from("reports").update({ content: reportData.report, status: "completed" })
+        const normalizedReportContent = normalizeReportContent(reportData?.report) as any;
+
+        await supabase.from("reports").update({ content: normalizedReportContent, status: "completed" })
           .eq("user_id", user.id).eq("version", 1);
         await supabase.from("business_questionnaires").update({ status: "locked" }).eq("user_id", user.id);
 
