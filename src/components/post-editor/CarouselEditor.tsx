@@ -23,6 +23,11 @@ interface CarouselEditorProps {
   overlayImages?: OverlayImage[];
   onImageMove?: (id: string, x: number, y: number) => void;
   onImageResize?: (id: string, width: number, height: number) => void;
+  selectedImageId?: string | null;
+  onSelectImage?: (id: string | null) => void;
+  fontSize?: number;
+  fontWeight?: string;
+  fontStyle?: string;
 }
 
 const CarouselEditor: React.FC<CarouselEditorProps> = ({
@@ -44,6 +49,11 @@ const CarouselEditor: React.FC<CarouselEditorProps> = ({
   overlayImages = [],
   onImageMove,
   onImageResize,
+  selectedImageId,
+  onSelectImage,
+  fontSize,
+  fontWeight,
+  fontStyle,
 }) => {
   const total = slides.length;
   const isCover = currentSlide === 0;
@@ -70,6 +80,11 @@ const CarouselEditor: React.FC<CarouselEditorProps> = ({
         overlayImages={overlayImages}
         onImageMove={onImageMove}
         onImageResize={onImageResize}
+        selectedImageId={selectedImageId}
+        onSelectImage={onSelectImage}
+        fontSize={fontSize}
+        fontWeight={fontWeight}
+        fontStyle={fontStyle}
       />
 
       {/* Navigation */}
