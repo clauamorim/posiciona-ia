@@ -158,6 +158,27 @@ const Report = () => {
         if (val) { addSubtitle(item.label); addBody(Array.isArray(val) ? val.join(", ") : val); }
       });
 
+      // Figurino
+      if (content.figurino) {
+        addTitle("Figurino Estratégico");
+        if (content.figurino.resumo) addBody(content.figurino.resumo);
+        if (content.figurino.pecas_chave?.length) { addSubtitle("Peças-chave"); content.figurino.pecas_chave.forEach((p: string) => addBody(`• ${p}`)); }
+        if (content.figurino.cores_roupa?.length) { addSubtitle("Cores de Roupa"); addBody(content.figurino.cores_roupa.join(", ")); }
+        if (content.figurino.acessorios?.length) { addSubtitle("Acessórios"); content.figurino.acessorios.forEach((a: string) => addBody(`• ${a}`)); }
+        if (content.figurino.cabelo) { addSubtitle("Cabelo"); addBody(content.figurino.cabelo); }
+        if (content.figurino.maquiagem_grooming) { addSubtitle("Maquiagem / Grooming"); addBody(content.figurino.maquiagem_grooming); }
+        if (content.figurino.evitar?.length) { addSubtitle("Evitar"); content.figurino.evitar.forEach((e: string) => addBody(`• ${e}`)); }
+      }
+
+      // Símbolos
+      if (content.simbolos) {
+        addTitle("Símbolos dos Arquétipos");
+        ["primary", "secondary", "tertiary"].forEach(rank => {
+          const s = content.simbolos[rank];
+          if (s) { addSubtitle(`${s.nome} — ${s.simbolo}`); addBody(`Significado: ${s.significado}`); addBody(`Aplicação: ${s.aplicacao}`); }
+        });
+      }
+
       allWeeks.forEach((week, wi) => {
         addTitle(`Linha Editorial — Semana ${wi + 1}`);
         week.forEach((day: any) => {
