@@ -34,6 +34,7 @@ interface PostToolbarProps {
   palette: PaletteColor[];
   selectedBgIndex: number;
   onBgChange: (index: number) => void;
+  onCustomBgColorChange?: (color: string) => void;
   layout: "centered" | "top" | "split";
   onLayoutChange: (layout: "centered" | "top" | "split") => void;
   onDownload: () => void;
@@ -145,7 +146,7 @@ function loadGoogleFont(fontName: string) {
 }
 
 const PostToolbar: React.FC<PostToolbarProps> = ({
-  palette, selectedBgIndex, onBgChange, layout, onLayoutChange,
+  palette, selectedBgIndex, onBgChange, onCustomBgColorChange, layout, onLayoutChange,
   onDownload, onReset, onAddImage,
   recommendedFonts, fontSize, onFontSizeChange, fontWeight, onFontWeightChange,
   fontStyle, onFontStyleChange, bodyFont, onBodyFontChange, displayFont, onDisplayFontChange,
@@ -247,7 +248,7 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
       {/* Colors */}
       <div>
         <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">Cor de fundo</h4>
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex gap-2 flex-wrap items-center">
           {palette.map((color, i) => (
             <Tooltip key={i}>
               <TooltipTrigger asChild>
@@ -258,6 +259,18 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
               <TooltipContent>{color.name}</TooltipContent>
             </Tooltip>
           ))}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <label className="w-10 h-10 rounded-lg border-2 border-dashed border-muted-foreground/40 cursor-pointer flex items-center justify-center hover:bg-muted transition-colors overflow-hidden relative">
+                <input type="color" value={palette[selectedBgIndex]?.hex || "#1a1a2e"} onChange={e => {
+                  const customHex = e.target.value;
+                  if (onCustomBgColorChange) onCustomBgColorChange(customHex);
+                }} className="opacity-0 absolute inset-0 w-full h-full cursor-pointer" />
+                <span className="text-muted-foreground text-lg font-bold">+</span>
+              </label>
+            </TooltipTrigger>
+            <TooltipContent>Cor personalizada</TooltipContent>
+          </Tooltip>
         </div>
         {/* Gradient toggle */}
         {palette.length >= 2 && (
