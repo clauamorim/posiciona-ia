@@ -322,33 +322,39 @@ export type Database = {
           full_name: string
           id: string
           is_blocked: boolean
+          main_goal: string | null
           niche: string | null
           phone: string | null
           profession: string | null
           updated_at: string
           user_id: string
+          whatsapp: string | null
         }
         Insert: {
           created_at?: string
           full_name?: string
           id?: string
           is_blocked?: boolean
+          main_goal?: string | null
           niche?: string | null
           phone?: string | null
           profession?: string | null
           updated_at?: string
           user_id: string
+          whatsapp?: string | null
         }
         Update: {
           created_at?: string
           full_name?: string
           id?: string
           is_blocked?: boolean
+          main_goal?: string | null
           niche?: string | null
           phone?: string | null
           profession?: string | null
           updated_at?: string
           user_id?: string
+          whatsapp?: string | null
         }
         Relationships: []
       }
