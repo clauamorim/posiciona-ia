@@ -33,11 +33,11 @@ const Signup = () => {
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { data, error } = await supabase.auth.signUp({
+    const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        data: { full_name: fullName },
+        data: { full_name: fullName, profession, niche, whatsapp, main_goal: mainGoal, gender },
         emailRedirectTo: window.location.origin + "/login",
       },
     });
@@ -45,9 +45,6 @@ const Signup = () => {
       toast({ title: "Erro ao criar conta", description: error.message, variant: "destructive" });
       setLoading(false);
       return;
-    }
-    if (data.user) {
-      await supabase.from("profiles").update({ profession, niche, whatsapp, main_goal: mainGoal, gender }).eq("user_id", data.user.id);
     }
     setLoading(false);
     toast({ title: "Conta criada!", description: "Verifique seu e-mail para confirmar." });
