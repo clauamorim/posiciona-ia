@@ -7,12 +7,12 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const STYLE_VARIATIONS = [
-  "Professional studio portrait with soft, controlled lighting and a clean, elegant background. High-end corporate branding style. Shot on a medium-format camera with shallow depth of field.",
-  "Outdoor portrait with warm, golden-hour natural light. Relaxed yet professional, with a softly blurred natural background. Captured with a 85mm lens for natural compression.",
-  "Editorial magazine cover style portrait. Dramatic lighting with high contrast. Bold, confident pose and cinematic atmosphere. Studio lighting with a single key light and subtle fill.",
-  "Corporate headshot with clean, neutral background. Even lighting, sharp focus, polished and approachable look. Two-light setup with soft modifiers.",
-  "Artistic and creative portrait with unique color grading, textured background, and expressive lighting. Fashion-forward and memorable. Shot with natural window light and reflectors.",
+const STUDIO_STYLES = [
+  "Professional studio portrait with soft, controlled lighting and a clean, neutral gray background. High-end corporate branding style. Shot on a medium-format camera with shallow depth of field. Two-light setup with large softboxes.",
+  "Elegant studio portrait with warm, neutral-toned seamless backdrop. Rembrandt lighting with a single key light creating subtle shadow on one side. Shot with an 85mm f/1.4 lens.",
+  "Modern studio headshot with pure white background and even, diffused lighting. Clean and polished. Ring light combined with fill light for minimal shadows.",
+  "Sophisticated studio portrait with dark charcoal backdrop. Dramatic single key light from 45 degrees with subtle rim light separating subject from background. Cinematic feel.",
+  "Clean studio portrait with light beige/cream backdrop. Butterfly lighting setup. Soft, flattering light that emphasizes natural features. Fashion-editorial approach.",
 ];
 
 serve(async (req) => {
@@ -48,15 +48,16 @@ serve(async (req) => {
       });
     }
 
-    // Check credit balance
-    const { data: balanceData } = await supabase
-      .from("user_balances")
-      .select("portrait_credits_included, portrait_credits_extra")
-      .eq("user_id", user.id)
-      .single();
+    // Fetch balance, profile (gender), archetypes, and report in parallel
+    const [balanceRes, profileRes, archetypesRes, reportRes] = await Promise.all([
+      supabase.from("user_balances").select("portrait_credits_included, portrait_credits_extra").eq("user_id", user.id).single(),
+      supabase.from("profiles").select("gender").eq("user_id", user.id).single(),
+      supabase.from("user_top_archetypes").select("archetype_name, rank, score").eq("user_id", user.id).order("rank", { ascending: true }).limit(3),
+      supabase.from("reports").select("content").eq("user_id", user.id).eq("status", "completed").order("created_at", { ascending: false }).limit(1).single(),
+    ]);
 
-    const included = balanceData?.portrait_credits_included ?? 0;
-    const extra = balanceData?.portrait_credits_extra ?? 0;
+    const included = balanceRes.data?.portrait_credits_included ?? 0;
+    const extra = balanceRes.data?.portrait_credits_extra ?? 0;
 
     if (included + extra <= 0) {
       return new Response(JSON.stringify({ error: "Sem créditos de retrato disponíveis. Compre um pacote de retratos." }), {
@@ -73,25 +74,9 @@ serve(async (req) => {
       });
     }
 
-    const [archetypesRes, reportRes] = await Promise.all([
-      supabase
-        .from("user_top_archetypes")
-        .select("archetype_name, rank, score")
-        .eq("user_id", user.id)
-        .order("rank", { ascending: true })
-        .limit(3),
-      supabase
-        .from("reports")
-        .select("content")
-        .eq("user_id", user.id)
-        .eq("status", "completed")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .single(),
-    ]);
-
     const archetypes = archetypesRes.data || [];
     const reportContent = reportRes.data?.content as Record<string, any> | null;
+    const gender = profileRes.data?.gender || "Não informado";
 
     if (archetypes.length === 0) {
       return new Response(JSON.stringify({ error: "Complete o questionário de arquétipos primeiro" }), {
@@ -102,9 +87,8 @@ serve(async (req) => {
 
     const archetypeNames = archetypes.map((a: any) => a.archetype_name).join(", ");
     const visualIdentity = reportContent?.visual_identity || {};
-    const palette = visualIdentity.color_palette || "";
-    const style = visualIdentity.visual_style || "";
-    const typography = visualIdentity.typography || "";
+    const palette = visualIdentity.palette?.map((c: any) => c.hex).join(", ") || "";
+    const figurino = reportContent?.figurino || {};
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
@@ -114,9 +98,9 @@ serve(async (req) => {
       });
     }
 
-    // Generate 1 portrait with random style
-    const styleIndex = Math.floor(Math.random() * STYLE_VARIATIONS.length);
-    const variationStyle = STYLE_VARIATIONS[styleIndex];
+    // Random studio style
+    const styleIndex = Math.floor(Math.random() * STUDIO_STYLES.length);
+    const studioStyle = STUDIO_STYLES[styleIndex];
 
     const referenceImages = selfies.map((s: string) => ({
       type: "image_url" as const,
@@ -125,26 +109,52 @@ serve(async (req) => {
 
     const refCount = selfies.length > 1 ? ` I'm providing ${selfies.length} reference photos of the same person from different angles to help you accurately capture their features.` : "";
 
+    // Build wardrobe instructions from figurino
+    let wardrobeInstructions = "";
+    if (figurino.pecas_chave?.length > 0 || figurino.cores_roupa?.length > 0 || figurino.acessorios?.length > 0) {
+      const pieces = figurino.pecas_chave?.slice(0, 3).join(", ") || "";
+      const colors = figurino.cores_roupa?.slice(0, 3).join(", ") || "";
+      const accessories = figurino.acessorios?.slice(0, 2).join(", ") || "";
+      wardrobeInstructions = `\n\nSTRATEGIC WARDROBE (based on brand archetypes):
+- Dress the person in: ${pieces}
+- Clothing colors: ${colors}
+- Accessories: ${accessories}
+- Gender: ${gender === "Feminino" ? "Female" : gender === "Masculino" ? "Male" : "Neutral"}`;
+      if (gender === "Feminino" && figurino.maquiagem_grooming) {
+        wardrobeInstructions += `\n- Makeup style: ${figurino.maquiagem_grooming}`;
+      }
+      if (gender === "Masculino" && figurino.maquiagem_grooming) {
+        wardrobeInstructions += `\n- Grooming: ${figurino.maquiagem_grooming}`;
+      }
+      if (figurino.cabelo) {
+        wardrobeInstructions += `\n- Hair style: ${figurino.cabelo}`;
+      }
+    }
+
     const prompt = `Transform these reference selfie(s) into a hyper-realistic professional brand portrait photograph. The result MUST look like a real photograph taken in a professional studio — NOT a digital illustration, painting, or AI-generated looking image.${refCount}
 
 CRITICAL REALISM RULES:
-- Maintain the person's EXACT facial features, skin texture, pores, and natural imperfections. Do NOT smooth or idealize the skin.
+- Maintain the person's EXACT facial features, bone structure, and proportions. Do NOT idealize or beautify.
+- Preserve ALL facial asymmetries — do NOT mirror or symmetrize the face. Real faces are asymmetric.
+- Skin MUST show natural pores, texture, fine lines, and color variation. Do NOT apply plastic, airbrushed, or porcelain-smooth skin. Think "high-end retouching" not "beauty filter".
 - Hair MUST look natural with some loose strands, flyaway hairs, and natural texture — overly styled or perfectly arranged hair looks artificial.
 - Eyes must have natural reflections and catchlights from the lighting setup.
 - Clothing should have realistic fabric texture, natural wrinkles and folds.
-- The overall image should be indistinguishable from a photograph taken with a professional DSLR or mirrorless camera.
+- HANDS: If hands are visible in the frame, ensure EXACTLY 5 fingers per hand with correct proportions, natural joint bending, and realistic positioning. Pay special attention to thumb placement and finger spacing.
 
-Style variation: ${variationStyle}
+STUDIO BACKGROUND — MANDATORY:
+${studioStyle}
+Do NOT use outdoor backgrounds, nature scenes, or any non-studio setting. ALWAYS use a professional studio backdrop.
 
 Apply the following brand visual identity subtly through lighting, color grading, and atmosphere:
 - Brand archetypes: ${archetypeNames}
-- Color palette influence: ${palette || "Use tones that evoke " + archetypeNames}
-- Visual style: ${style || "Professional, polished, aspirational"}
-- Typography mood: ${typography || "Modern and clean"}
+- Color palette influence for grading: ${palette || "tones that evoke " + archetypeNames}
+${wardrobeInstructions}
 
 The portrait should subtly capture the essence of the ${archetypes[0]?.archetype_name || "brand"} archetype through body language, expression, and lighting — NOT through costumes, props, or literal archetype representations.
 Do NOT add text, watermarks, or any graphic overlays.
-Do NOT make the person look like a character or caricature. This is a professional branding photo, not cosplay.`;
+Do NOT make the person look like a character or caricature. This is a professional branding photo.
+The overall image should be indistinguishable from a photograph taken with a professional DSLR or mirrorless camera.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
