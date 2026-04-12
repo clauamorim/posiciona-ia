@@ -1,8 +1,14 @@
-import React from "react";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Download, RotateCcw, AlignCenter, AlignLeft, Columns, Upload, ImagePlus } from "lucide-react";
+import { Download, RotateCcw, AlignCenter, AlignLeft, Columns, Upload, ImagePlus, Shapes } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Label } from "@/components/ui/label";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  Star, Heart, CheckCircle, Quote, ArrowRight, ArrowUp, Zap, Award,
+  Circle, Square, Triangle, Hexagon, Diamond, Flame, Target, Crown,
+  ThumbsUp, Bookmark, Send, AtSign, Hash, MapPin, Clock, Eye,
+} from "lucide-react";
+import { renderToStaticMarkup } from "react-dom/server";
 
 interface PaletteColor {
   hex: string;
@@ -16,7 +22,7 @@ export interface OverlayImage {
   y: number;
   width: number;
   height: number;
-  type: "logo" | "photo";
+  type: "logo" | "photo" | "element";
 }
 
 interface PostToolbarProps {
@@ -36,6 +42,40 @@ const LAYOUTS = [
   { value: "split" as const, icon: Columns, label: "Dividido" },
 ];
 
+const GRAPHIC_ELEMENTS = [
+  { icon: Star, name: "Estrela" },
+  { icon: Heart, name: "Coração" },
+  { icon: CheckCircle, name: "Check" },
+  { icon: Quote, name: "Aspas" },
+  { icon: ArrowRight, name: "Seta direita" },
+  { icon: ArrowUp, name: "Seta cima" },
+  { icon: Zap, name: "Raio" },
+  { icon: Award, name: "Prêmio" },
+  { icon: Circle, name: "Círculo" },
+  { icon: Square, name: "Quadrado" },
+  { icon: Triangle, name: "Triângulo" },
+  { icon: Hexagon, name: "Hexágono" },
+  { icon: Diamond, name: "Diamante" },
+  { icon: Flame, name: "Chama" },
+  { icon: Target, name: "Alvo" },
+  { icon: Crown, name: "Coroa" },
+  { icon: ThumbsUp, name: "Curtir" },
+  { icon: Bookmark, name: "Salvar" },
+  { icon: Send, name: "Enviar" },
+  { icon: AtSign, name: "Arroba" },
+  { icon: Hash, name: "Hashtag" },
+  { icon: MapPin, name: "Local" },
+  { icon: Clock, name: "Relógio" },
+  { icon: Eye, name: "Olho" },
+];
+
+function iconToDataUrl(IconComponent: React.FC<any>, color: string): string {
+  const svgMarkup = renderToStaticMarkup(
+    <IconComponent size={120} color={color} strokeWidth={2} />
+  );
+  return `data:image/svg+xml;base64,${btoa(svgMarkup)}`;
+}
+
 const PostToolbar: React.FC<PostToolbarProps> = ({
   palette,
   selectedBgIndex,
@@ -46,6 +86,9 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
   onReset,
   onAddImage,
 }) => {
+  const [elementsOpen, setElementsOpen] = useState(false);
+  const accentColor = palette[(selectedBgIndex + 1) % Math.max(palette.length, 1)]?.hex || "#7c3aed";
+
   const handleFileUpload = (type: "logo" | "photo") => {
     const input = document.createElement("input");
     input.type = "file";
@@ -69,6 +112,20 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
       reader.readAsDataURL(file);
     };
     input.click();
+  };
+
+  const handleAddElement = (element: typeof GRAPHIC_ELEMENTS[0]) => {
+    const src = iconToDataUrl(element.icon, accentColor);
+    const img: OverlayImage = {
+      id: crypto.randomUUID(),
+      src,
+      x: 460,
+      y: 460,
+      width: 160,
+      height: 160,
+      type: "element",
+    };
+    onAddImage?.(img);
   };
 
   return (
@@ -128,6 +185,34 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
             </Button>
           </div>
         </div>
+      )}
+
+      {/* Graphic Elements */}
+      {onAddImage && (
+        <Collapsible open={elementsOpen} onOpenChange={setElementsOpen}>
+          <CollapsibleTrigger asChild>
+            <Button variant="outline" size="sm" className="gap-2 w-full">
+              <Shapes className="h-4 w-4" /> Elementos gráficos
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="grid grid-cols-4 gap-2 mt-3">
+              {GRAPHIC_ELEMENTS.map((el) => (
+                <Tooltip key={el.name}>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => handleAddElement(el)}
+                      className="w-full aspect-square flex items-center justify-center rounded-lg border bg-muted/50 hover:bg-muted transition-colors"
+                    >
+                      <el.icon className="h-5 w-5 text-foreground/70" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>{el.name}</TooltipContent>
+                </Tooltip>
+              ))}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
       )}
 
       {/* Actions */}

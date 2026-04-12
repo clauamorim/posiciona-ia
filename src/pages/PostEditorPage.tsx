@@ -243,6 +243,8 @@ const PostEditorPage = () => {
                 onDownloadSlide={handleDownloadSlide}
                 onDownloadAll={handleDownloadAll}
                 slideRefs={slideRefs}
+                overlayImages={overlayImages}
+                onImageMove={handleImageMove}
               />
             ) : (
               <div className="flex flex-col items-center gap-4">
