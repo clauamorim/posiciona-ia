@@ -1,65 +1,88 @@
 
 
-## Plano: Domínio customizado, correções no editor e fluxo de reanálise
+## Plano: Correções no editor, histórico, ajuda e melhorias de UX
 
-### 1. Domínio customizado posiciona.ia.br
+### 1. Histórico: dados não carregam sem reload
 
-Isso precisa ser feito manualmente no painel do projeto:
-- Ir em **Project Settings → Domains → Connect Domain**
-- Inserir `posiciona.ia.br`
-- Configurar os registros DNS (A record apontando para `185.158.133.1` e TXT `_lovable`) no registrador do domínio `.ia.br`
-- Aguardar propagação DNS (até 72h)
+**Problema:** Os dados são buscados uma única vez no `useEffect` com dependência `[user]`. Quando o usuário navega para a página, o `user` já está definido e não muda, então a busca já deveria funcionar. Provável causa: o componente está sendo montado antes do `user` estar disponível, e quando `user` chega os dados carregam, mas ao navegar entre páginas via React Router o componente pode não remontar.
 
-**Isso NÃO requer mudança de código** -- é uma configuração na interface do Lovable.
-
----
-
-### 2. Fotos uploadadas não aparecem no canvas
-
-**Problema:** As `overlayImages` são gerenciadas no `PostEditorPage` e passadas para o `PostCanvas` via props, mas no `CarouselEditor` as overlay images NÃO são passadas. Além disso, o `CarouselEditor` não aceita `overlayImages` como prop.
-
-**Correção:**
-- Adicionar props `overlayImages`, `onImageMove`, `onImageResize` no `CarouselEditor`
-- Passar essas props do `PostEditorPage` para o `CarouselEditor`
-- No `PostCanvas`, garantir que as imagens overlay são renderizadas corretamente (já estão no código, mas verificar se `html2canvas` captura elas com `useCORS: true`)
+**Correção em `HistoryPage.tsx`:**
+- Adicionar `key={location.pathname}` ou usar `useCallback` para refetch
+- Adicionar estado `loading` com progress bar (`Progress`) enquanto os dados carregam
+- Usar `Skeleton` ou `Progress` component durante carregamento
 
 ---
 
-### 3. Elementos gráficos para as artes
+### 2. Progress bar durante carregamento
 
-**Problema:** A toolbar tem upload de logo/foto mas não tem seletor de elementos gráficos (ícones/shapes).
-
-**Implementação:**
-- Adicionar seção "Elementos" na `PostToolbar` com grid de ícones Lucide populares (setas, estrelas, coração, check, aspas, etc.)
-- Ao clicar num ícone, renderizar seu SVG como `OverlayImage` no canvas (converter SVG para data URL)
-- Reutilizar o mesmo sistema de arraste já existente
+**Arquivos:** `HistoryPage.tsx`, `Report.tsx`, `EditorialPage.tsx`, `InstagramAnalysis.tsx`
+- Adicionar estado `loading` e exibir `<Progress value={...} />` animado enquanto dados/análises carregam
+- Usar progress indeterminado (animação de pulso) para operações sem percentual exato
 
 ---
 
-### 4. Botão "Gerar novo" abaixo do "Criar Post"
+### 3. Menu "Ajuda" com pesquisa e tópicos
 
-**Correção em `EditorialPage.tsx`:**
-- Reorganizar os botões no card: "Criar Post" primeiro (acima), "Gerar novo" segundo (abaixo)
-- Atualmente estão lado a lado com `flex gap-2`; mudar para `flex-col`
+**Novo arquivo:** `src/pages/HelpPage.tsx`
+**Editar:** `DashboardLayout.tsx` (adicionar item "Ajuda" ao menu)
+- Criar página com campo de pesquisa e accordion com tópicos principais:
+  - O que são Arquétipos de Marca
+  - Como funciona o StoryBrand
+  - Como usar a Linha Editorial
+  - Como editar posts
+  - Análise do Instagram
+  - Retratos de Marca
+  - Créditos e planos
+- Filtrar tópicos pela pesquisa do usuário
+- Ícone: `HelpCircle`
 
 ---
 
-### 5. Refazer análise com créditos + desabilitar edição dos questionários
+### 4. Editor de posts: delete, redimensionar overlay
 
-**Lógica atual:** Os questionários têm status `draft`/`submitted`/`locked`. Quando locked, não podem ser editados.
+**Editar:** `PostCanvas.tsx`, `PostEditorPage.tsx`
+- Adicionar estado `selectedImageId` para rastrear elemento selecionado (clique seleciona)
+- Ao pressionar `Delete`/`Backspace`, remover o elemento selecionado do array `overlayImages`
+- Adicionar handles de redimensionamento (cantos) no elemento selecionado
+- Implementar `onImageResize` callback (já existe na interface mas não está implementado)
 
-**Nova lógica:**
-- Questionários ficam **sempre desabilitados para edição** após ter um report completo (comportamento `locked` atual)
-- Adicionar botão "Refazer análise" visível quando há report completo, mostrando créditos de reanálise disponíveis (`reanalysis_credits`)
-- Ao clicar "Refazer análise", mostrar dialog com duas opções:
-  1. **"Editar questionários existentes"** → desbloqueia os questionários para edição, consome 1 crédito de reanálise
-  2. **"Refazer do zero"** → limpa todas as respostas, consome 1 crédito de reanálise
-- Após editar/refazer, o usuário pode submeter novamente para gerar nova estratégia
+---
 
-**Arquivos afetados:**
-- `src/pages/BusinessQuestionnaire.tsx` — adicionar botão "Refazer análise" e dialog
-- `src/pages/ArchetypeQuestionnaire.tsx` — mesma lógica
-- `src/pages/Dashboard.tsx` — mostrar opção de reanálise se report existe
+### 5. Logo persistente na toolbar
+
+**Editar:** `PostToolbar.tsx`, `PostEditorPage.tsx`
+- Quando o usuário faz upload de logo, salvar o `dataURL` em `localStorage` (chave `posiciona_user_logo`)
+- Na toolbar, se já existe logo salva, mostrar thumbnail da logo na seção "Imagens" como elemento clicável (igual aos elementos gráficos)
+- Mudar o texto do botão de "Upload Logo" para "Trocar Logo" quando já existe uma salva
+- Clicar na thumbnail adiciona a logo ao canvas; clicar em "Trocar Logo" abre file picker
+
+---
+
+### 6. Remover "Slide X" da copy nos cards da linha editorial
+
+**Editar:** `EditorialPage.tsx` linha 284-285
+- Remover o `<Badge>Slide {idx + 1}</Badge>` que aparece ao lado de cada copy de carrossel
+- Manter apenas o texto do slide sem numeração
+
+---
+
+### 7. Opções de fonte, tamanho, negrito, itálico no editor
+
+**Editar:** `PostToolbar.tsx`, `PostCanvas.tsx`, `PostEditorPage.tsx`
+- Adicionar seção "Tipografia" na toolbar com:
+  - Dropdown de fontes (Google Fonts populares), com as fontes do relatório (`typography.display` e `typography.body`) no topo marcadas como "(Recomendada)"
+  - Slider ou input de tamanho de fonte
+  - Botões toggle para negrito e itálico
+- Passar `fontSize`, `fontWeight`, `fontStyle`, `fontFamily` como props ao `PostCanvas`
+- Aplicar estilos ao texto editável no canvas
+
+---
+
+### 8. Botão "Home" na tela de login e cadastro
+
+**Editar:** `Login.tsx` — já tem "Voltar à página inicial", mover para o canto superior esquerdo
+**Editar:** `Signup.tsx` — adicionar botão "Home" / ícone no canto superior esquerdo
+- Usar ícone `Home` ou `ArrowLeft` posicionado fixo no topo esquerdo da tela, fora do card
 
 ---
 
@@ -67,10 +90,14 @@ Isso precisa ser feito manualmente no painel do projeto:
 
 | Ação | Arquivo |
 |------|---------|
-| Editar | `src/components/post-editor/CarouselEditor.tsx` (passar overlay images) |
-| Editar | `src/components/post-editor/PostToolbar.tsx` (adicionar elementos gráficos) |
-| Editar | `src/pages/PostEditorPage.tsx` (passar overlays ao carousel) |
-| Editar | `src/pages/EditorialPage.tsx` (reordenar botões) |
-| Editar | `src/pages/BusinessQuestionnaire.tsx` (refazer análise + desabilitar edição) |
-| Editar | `src/pages/ArchetypeQuestionnaire.tsx` (mesma lógica de reanálise) |
+| Editar | `src/pages/HistoryPage.tsx` (reload + progress bar) |
+| Criar | `src/pages/HelpPage.tsx` (ajuda com pesquisa) |
+| Editar | `src/components/DashboardLayout.tsx` (menu Ajuda) |
+| Editar | `src/App.tsx` (rota /help) |
+| Editar | `src/components/post-editor/PostCanvas.tsx` (delete, resize, tipografia) |
+| Editar | `src/components/post-editor/PostToolbar.tsx` (logo persistente, tipografia, elementos) |
+| Editar | `src/pages/PostEditorPage.tsx` (selected state, keyboard, font props) |
+| Editar | `src/pages/EditorialPage.tsx` (remover "Slide X") |
+| Editar | `src/pages/Login.tsx` (botão home no topo) |
+| Editar | `src/pages/Signup.tsx` (botão home no topo) |
 
