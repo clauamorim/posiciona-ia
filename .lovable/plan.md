@@ -1,56 +1,104 @@
 
 
-## Plano: 3 correções — caixas de texto, cor de fundo custom, qualidade dos retratos
+## Plano: Reformulação Completa do Posiciona — UX, UI, Copy e Hierarquia Visual
 
-### 1. Caixas de texto não são selecionáveis/redimensionáveis
+Este é um redesign profundo que preserva toda a lógica funcional existente. Será executado em **4 fases sequenciais** para manter o app funcional durante todo o processo.
 
-**Problema:** As caixas de texto (`contentEditable` `<p>` e `<h1>`) são elementos inline do canvas — não são tratadas como overlay images. Os handles de resize e a lógica de drag só se aplicam a `overlayImages`. As caixas de texto ficam fixas no layout e não podem ser movidas nem redimensionadas.
+---
 
-**Solução:** Transformar cada bloco de texto (título e corpo) em elementos overlay posicionáveis e redimensionáveis, como as imagens. Isso requer:
-- Adicionar um tipo `"text"` ao sistema de overlays existente, com propriedades extras (`text`, `fontSize`, `fontWeight`, etc.)
-- Quando o post é carregado, criar overlays de texto a partir do título e corpo
-- Os overlays de texto usam os mesmos handles de resize e drag que as imagens
-- O texto é editável via duplo-clique (contentEditable ativado ao entrar no modo edição)
+### FASE 1 — Fundação Visual e Shell do App
 
-**Alternativa mais simples (recomendada):** Fazer os `<p>` e `<h2>` ficarem dentro de `<div>` com resize CSS (`resize: both; overflow: auto`) e tornar o container clicável/arrastável. Isso não requer refatoração do sistema de overlays — apenas adicionar CSS de resize e um wrapper com drag.
+**Objetivo:** Estabelecer o novo sistema de design, tipografia, paleta e layout base.
 
-| Arquivo | Ação |
-|---------|------|
-| `src/components/post-editor/PostCanvas.tsx` | Envolver textos em containers com `resize: both` e drag handles |
+**Arquivos editados:**
 
-### 2. Cor de fundo personalizada (além da paleta)
-
-**Problema:** O seletor de cor de fundo (`Cor de fundo` na toolbar) só mostra as cores da paleta. Não há opção para cor custom.
-
-**Solução:** Adicionar um `<input type="color">` ao lado das cores da paleta (mesmo padrão já usado na "Cor do texto"). Requer:
-- Adicionar prop `onCustomBgColorChange` ou reutilizar `onBgChange` com um valor custom
-- Adicionar state `customBgColor` no `PostEditorPage`
-- Quando o usuário escolhe cor custom, usar essa cor em vez da paleta
-
-| Arquivo | Ação |
-|---------|------|
-| `src/components/post-editor/PostToolbar.tsx` | Adicionar `<input type="color">` na seção "Cor de fundo" + prop para cor custom |
-| `src/pages/PostEditorPage.tsx` | Adicionar state `customBgColor` e lógica para usar cor custom no canvas |
-
-### 3. Qualidade dos retratos — melhorar realismo
-
-**Problema:** O modelo `gemini-3.1-flash-image-preview` prioriza velocidade sobre qualidade. O prompt é muito longo e pode confundir o modelo.
-
-**Soluções combinadas:**
-- **Trocar modelo** para `google/gemini-3-pro-image-preview` que produz qualidade superior (conforme documentação)
-- **Simplificar o prompt** — remover instruções redundantes e focar nas 3 regras mais críticas: (1) preservar identidade exata, (2) foto real de estúdio, (3) vestimenta estratégica. Prompts mais curtos e diretos tendem a gerar resultados melhores
-- **Colocar as referências ANTES do texto** no array de content, para que o modelo processe as imagens primeiro
-
-| Arquivo | Ação |
-|---------|------|
-| `supabase/functions/generate-portrait/index.ts` | Trocar modelo para `gemini-3-pro-image-preview`, simplificar prompt, reordenar content (imagens primeiro) |
-
-### Resumo
-
-| Arquivo | Alterações |
+| Arquivo | Alteração |
 |---------|-----------|
-| `src/components/post-editor/PostCanvas.tsx` | Texto redimensionável com CSS `resize: both` + drag |
-| `src/components/post-editor/PostToolbar.tsx` | Input color custom para cor de fundo |
-| `src/pages/PostEditorPage.tsx` | State para cor de fundo personalizada |
-| `supabase/functions/generate-portrait/index.ts` | Modelo pro, prompt simplificado, imagens primeiro |
+| `src/index.css` | Nova paleta (landing dark + app light), importar Cormorant Garamond + Inter, CSS variables para ambos ambientes |
+| `tailwind.config.ts` | Adicionar tokens `landing-*` para background, texto, bordas do tema dark; ajustar cores do tema light interno |
+| `src/components/DashboardLayout.tsx` | Refatorar sidebar com 5 grupos (Início, Diagnóstico, Estratégia, Produção, Conta) com separadores visuais; header mobile mais compacto (menos altura, menu+logo enxutos); reorganizar nav items conforme especificado |
+| `src/App.tsx` | Sem alteração de lógica — apenas confirmar rotas existentes |
+
+**Detalhes da sidebar:**
+- Grupo 1: Dashboard
+- Grupo 2: Questionário do Negócio, Questionário de Arquétipos
+- Grupo 3: Arquétipos, StoryBrand, Análises, Análise do Instagram, Linha Editorial
+- Grupo 4: Conteúdos (editorial), Retratos de Marca
+- Grupo 5: Histórico, Plano e Créditos (link para /choose-plan), Ajuda
+- Rodapé: email + Sair mais refinado
+- Cor sidebar: `#111627`
+- Header mobile: ~40px altura, sem duplicação
+
+---
+
+### FASE 2 — Landing Page Pública (Dark Premium Editorial)
+
+**Objetivo:** Reconstruir a landing com StoryBrand aplicado, visual dark premium, tipografia editorial.
+
+**Arquivo editado:** `src/pages/LandingPage.tsx`
+
+**Estrutura completa:**
+
+1. **Header** — Logo, nav links (Como funciona, Resultados, Planos, FAQ, Entrar), CTA "Criar conta". Mobile: menu hamburger elegante
+2. **Hero** — Selo badge, headline "Você já é referência...", subheadline, 2 CTAs, linha de apoio. Tipografia Cormorant Garamond para títulos
+3. **Seção Problema** — "Quando sua presença digital não acompanha..." com 4 itens curtos
+4. **Seção Plano** — 3 etapas com ícones e textos conforme especificado
+5. **Seção Por que usar** — 4 blocos curtos
+6. **Seção Prova Concreta** — Mockups visuais com previews plausíveis (cards estilizados simulando arquétipos, StoryBrand, calendário, posts, retratos)
+7. **Planos** — 3 cards com hierarquia forte, badge "Mais escolhido" no Presença Mensal
+8. **FAQ** — Accordion dark com 7 perguntas reais
+9. **CTA Final** — Headline emocional + botão + texto de apoio
+10. **Footer** — Minimalista
+
+**Paleta landing:** `#0B0820` bg, `#F6F1EA` texto, `#7A4DE8` roxo, `#C9A54C` dourado, `#2B2348` bordas
+
+---
+
+### FASE 3 — Dashboard e Páginas Internas (Light Premium Workspace)
+
+**Objetivo:** Redesenhar dashboard orientado à jornada e refinar todas as páginas internas.
+
+**Arquivos editados:**
+
+| Arquivo | Alteração |
+|---------|-----------|
+| `src/pages/Dashboard.tsx` | Reconstruir com: (1) Hero interno com subtítulo dinâmico, (2) Card "Seu próximo passo" contextual, (3) Card Plano redesenhado, (4) Créditos com nomenclatura nova e microtexto, (5) Jornada visual em 7 etapas com status, (6) Cards de entregas disponíveis, (7) Histórico recente |
+| `src/pages/Results.tsx` | Melhorar apresentação visual. Cabeçalho com data e ações. Top 3 com cards sofisticados (papel na marca, forças, riscos, aplicação, tom de voz). Ranking completo preservado |
+| `src/pages/StoryBrand.tsx` | Texto como principal (não diagrama). Resumo executivo no topo. 9 blocos com ícone + título + texto + botão copiar. Aplicação prática + próximo passo no final |
+| `src/pages/Report.tsx` | Padrão de página estratégica: cabeçalho forte, resumo executivo, conteúdo principal, aplicação prática, próximo passo |
+| `src/pages/EditorialPage.tsx` | Tabs de semana melhores. Visão resumida por dia. Badges de formato (post/reels/carrossel). Botões: Criar post, Copiar legenda, Ver roteiro. Menos texto por bloco |
+| `src/pages/BusinessQuestionnaire.tsx` | Melhorar cabeçalho, progresso, microcopy ("Revisar respostas" em vez de "Editar"), estado bloqueado premium |
+| `src/pages/ArchetypeQuestionnaire.tsx` | Mesmas melhorias de microcopy e estado bloqueado |
+| `src/pages/InstagramAnalysis.tsx` | Padrão de página estratégica |
+| `src/pages/ChoosePlan.tsx` | Reestilizar com visual light premium |
+
+**Paleta interna:** `#F5F4F1` fundo, `#FBFAF7` cards, `#6E3FE6` roxo ação, `#2E9B63` verde status, `#E6E0D9` bordas
+
+---
+
+### FASE 4 — Editor, Retratos, Histórico, Ajuda e Refinamentos Finais
+
+**Arquivos editados:**
+
+| Arquivo | Alteração |
+|---------|-----------|
+| `src/pages/PostEditorPage.tsx` | Cabeçalho com título+semana+tipo+voltar. Melhor agrupamento de ferramentas. Botão "Baixar imagem" / "Exportar PNG" |
+| `src/components/post-editor/PostToolbar.tsx` | Reorganizar ferramentas em grupos visuais com melhores labels e espaçamento |
+| `src/pages/PortraitGenerator.tsx` | Cabeçalho refinado. Card de saldo premium. Upload com melhor explicação. Diferenciação clara gerar vs refinar. Galeria mais bonita |
+| `src/pages/HistoryPage.tsx` | Melhorar hierarquia, visual dos itens, status, ação principal |
+| `src/pages/HelpPage.tsx` | Visual consistente, tópicos organizados, respostas mais profundas |
+
+---
+
+### Regras transversais
+
+- **Nenhuma lógica funcional será alterada** — questionários, bloqueios, reanálises, créditos, geração, editor, retratos permanecem idênticos
+- **Mobile-first real** — todos os layouts testados para 390px
+- **Microcopy** — "Revisar respostas", "Acessar relatório", "Ver estratégia", "Continuar jornada", "Criar conteúdo", "Refinar retrato", "Atualizar análise"
+- **Consistência** — Landing = porta de entrada premium (dark). App = estúdio estratégico (light)
+- **Tipografia** — Cormorant Garamond só na landing e destaques premium internos; Inter como base em todo o app
+
+### Ordem de execução
+
+Devido ao tamanho, recomendo executar **uma fase por vez**. Começamos pela Fase 1 (fundação + shell), depois Fase 2 (landing), Fase 3 (dashboard + páginas internas), e Fase 4 (editor + retratos + refinamentos).
 
