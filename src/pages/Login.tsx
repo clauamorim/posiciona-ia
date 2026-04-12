@@ -37,7 +37,15 @@ const Login = () => {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4 bg-background">
+    <div className="flex min-h-screen items-center justify-center px-4 bg-background relative">
+      <Button
+        variant="ghost"
+        size="sm"
+        className="absolute top-4 left-4 gap-2 text-muted-foreground"
+        onClick={() => navigate("/")}
+      >
+        <ArrowLeft className="h-4 w-4" /> Página inicial
+      </Button>
       <Card className="w-full max-w-md border-border/50 shadow-xl">
         <CardHeader className="text-center space-y-2">
           <div className="flex items-center justify-center gap-2 mb-2">
@@ -65,11 +73,6 @@ const Login = () => {
             Não tem uma conta?{" "}
             <Link to="/signup" className="text-primary hover:underline font-medium">Criar conta</Link>
           </p>
-          <div className="text-center mt-3">
-            <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground" onClick={() => navigate("/")}>
-              <ArrowLeft className="h-4 w-4" /> Voltar à página inicial
-            </Button>
-          </div>
         </CardContent>
       </Card>
     </div>

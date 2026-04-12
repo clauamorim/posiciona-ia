@@ -3,7 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   Sparkles, LayoutDashboard, Building2, Brain, BarChart3,
-  FileText, History, LogOut, Shield, Menu, X, Target, Calendar, Instagram, Camera
+  FileText, History, LogOut, Shield, Menu, X, Target, Calendar, Instagram, Camera, HelpCircle
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -19,6 +19,7 @@ const userNav = [
   { label: "Análise do Instagram", href: "/instagram-analysis", icon: Instagram },
   { label: "Retratos de Marca", href: "/portraits", icon: Camera },
   { label: "Histórico", href: "/history", icon: History },
+  { label: "Ajuda", href: "/help", icon: HelpCircle },
 ];
 
 const adminNav = [

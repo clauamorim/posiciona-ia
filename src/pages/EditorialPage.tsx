@@ -281,9 +281,6 @@ const EditorialPage = () => {
                               <div className="space-y-1.5">
                                 {day.card_copy.map((copy: string, idx: number) => (
                                   <div key={idx} className="flex gap-2 items-start">
-                                    {day.format?.toLowerCase() === "carrossel" && (
-                                      <Badge variant="outline" className="text-[10px] shrink-0 mt-0.5">Slide {idx + 1}</Badge>
-                                    )}
                                     <p className="text-xs leading-relaxed text-foreground/80">{copy}</p>
                                   </div>
                                 ))}
