@@ -126,7 +126,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
           style={{
             width: 1080, height: 1080,
             transform: `scale(${scale})`, transformOrigin: "top left",
-            backgroundColor: bgColor, color: textColor,
+            background: bgGradient || bgColor, color: textColor,
             fontFamily: `'${bodyFont}', sans-serif`,
           }}
           onClick={handleCanvasClick}
