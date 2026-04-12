@@ -7,17 +7,16 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { Sparkles } from "lucide-react";
+import { Sparkles, ArrowLeft } from "lucide-react";
 
 const Login = () => {
   const navigate = useNavigate();
-  const { user, isLoading: authLoading, hasActivePlan, isAdmin } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [loginTriggered, setLoginTriggered] = useState(false);
 
-  // Redirect only after AuthContext has fully hydrated post-login
   useEffect(() => {
     if (!loginTriggered || authLoading) return;
     if (user) {
@@ -66,6 +65,11 @@ const Login = () => {
             Não tem uma conta?{" "}
             <Link to="/signup" className="text-primary hover:underline font-medium">Criar conta</Link>
           </p>
+          <div className="text-center mt-3">
+            <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground" onClick={() => navigate("/")}>
+              <ArrowLeft className="h-4 w-4" /> Voltar à página inicial
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>
