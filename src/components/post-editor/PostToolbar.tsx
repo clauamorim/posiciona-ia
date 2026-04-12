@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Download, RotateCcw, AlignCenter, AlignLeft, Columns, Upload, ImagePlus, Shapes, Bold, Italic, Type } from "lucide-react";
+import { Download, RotateCcw, AlignCenter, AlignLeft, Columns, Upload, ImagePlus, Shapes, Bold, Italic, Type, Minus, MoreHorizontal, Maximize, CircleDashed, Grip } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Toggle } from "@/components/ui/toggle";
+import { Label } from "@/components/ui/label";
 import {
   Star, Heart, CheckCircle, Quote, ArrowRight, ArrowUp, Zap, Award,
   Circle, Square, Triangle, Hexagon, Diamond, Flame, Target, Crown,
@@ -26,6 +27,7 @@ export interface OverlayImage {
   width: number;
   height: number;
   type: "logo" | "photo" | "element";
+  opacity?: number;
 }
 
 interface PostToolbarProps {
@@ -48,6 +50,17 @@ interface PostToolbarProps {
   onBodyFontChange: (f: string) => void;
   displayFont: string;
   onDisplayFontChange: (f: string) => void;
+  // Opacity
+  selectedImageId?: string | null;
+  overlayImages?: OverlayImage[];
+  onImageOpacityChange?: (id: string, opacity: number) => void;
+  // Gradient
+  useGradient?: boolean;
+  onUseGradientChange?: (v: boolean) => void;
+  gradientColor2Index?: number;
+  onGradientColor2Change?: (index: number) => void;
+  gradientDirection?: string;
+  onGradientDirectionChange?: (d: string) => void;
 }
 
 const LAYOUTS = [
@@ -71,12 +84,34 @@ const GRAPHIC_ELEMENTS = [
   { icon: Clock, name: "Relógio" }, { icon: Eye, name: "Olho" },
 ];
 
+// SVG-based decorative elements
+const SVG_ELEMENTS: { name: string; svg: string }[] = [
+  { name: "Barra horizontal fina", svg: `<svg width="400" height="8" xmlns="http://www.w3.org/2000/svg"><rect width="400" height="8" rx="4" fill="currentColor"/></svg>` },
+  { name: "Barra horizontal grossa", svg: `<svg width="400" height="24" xmlns="http://www.w3.org/2000/svg"><rect width="400" height="24" rx="4" fill="currentColor"/></svg>` },
+  { name: "Barra vertical", svg: `<svg width="8" height="400" xmlns="http://www.w3.org/2000/svg"><rect width="8" height="400" rx="4" fill="currentColor"/></svg>` },
+  { name: "Moldura retangular", svg: `<svg width="400" height="400" xmlns="http://www.w3.org/2000/svg"><rect x="8" y="8" width="384" height="384" rx="12" fill="none" stroke="currentColor" stroke-width="8"/></svg>` },
+  { name: "Moldura circular", svg: `<svg width="400" height="400" xmlns="http://www.w3.org/2000/svg"><circle cx="200" cy="200" r="190" fill="none" stroke="currentColor" stroke-width="8"/></svg>` },
+  { name: "Cantos decorativos", svg: `<svg width="400" height="400" xmlns="http://www.w3.org/2000/svg"><path d="M8 80 L8 8 L80 8" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round"/><path d="M320 8 L392 8 L392 80" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round"/><path d="M392 320 L392 392 L320 392" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round"/><path d="M80 392 L8 392 L8 320" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round"/></svg>` },
+  { name: "Linha ondulada", svg: `<svg width="400" height="40" xmlns="http://www.w3.org/2000/svg"><path d="M0 20 Q50 0 100 20 Q150 40 200 20 Q250 0 300 20 Q350 40 400 20" fill="none" stroke="currentColor" stroke-width="4"/></svg>` },
+  { name: "Linha pontilhada", svg: `<svg width="400" height="8" xmlns="http://www.w3.org/2000/svg"><line x1="0" y1="4" x2="400" y2="4" stroke="currentColor" stroke-width="4" stroke-dasharray="12 8" stroke-linecap="round"/></svg>` },
+  { name: "Divider decorativo", svg: `<svg width="400" height="24" xmlns="http://www.w3.org/2000/svg"><line x1="0" y1="12" x2="170" y2="12" stroke="currentColor" stroke-width="2"/><circle cx="200" cy="12" r="6" fill="currentColor"/><line x1="230" y1="12" x2="400" y2="12" stroke="currentColor" stroke-width="2"/></svg>` },
+  { name: "Aspas grandes", svg: `<svg width="120" height="100" xmlns="http://www.w3.org/2000/svg"><text x="0" y="80" font-size="100" font-family="Georgia" fill="currentColor">"</text></svg>` },
+  { name: "Seta larga", svg: `<svg width="200" height="60" xmlns="http://www.w3.org/2000/svg"><polygon points="0,15 150,15 150,0 200,30 150,60 150,45 0,45" fill="currentColor"/></svg>` },
+];
+
 const GOOGLE_FONTS = [
   "Inter", "Montserrat", "Playfair Display", "Roboto", "Poppins",
   "Raleway", "Oswald", "Lato", "Merriweather", "Nunito",
   "Open Sans", "Source Sans 3", "Space Grotesk", "DM Sans",
   "Cormorant Garamond", "Libre Baskerville", "Bebas Neue",
   "Archivo", "Work Sans", "Josefin Sans",
+];
+
+const GRADIENT_DIRECTIONS = [
+  { value: "to right", label: "→ Horizontal" },
+  { value: "to bottom", label: "↓ Vertical" },
+  { value: "to bottom right", label: "↘ Diagonal" },
+  { value: "to bottom left", label: "↙ Diagonal inv." },
 ];
 
 const LOGO_STORAGE_KEY = "posiciona_user_logo";
@@ -86,6 +121,11 @@ function iconToDataUrl(IconComponent: React.FC<any>, color: string): string {
     <IconComponent size={120} color={color} strokeWidth={2} />
   );
   return `data:image/svg+xml;base64,${btoa(svgMarkup)}`;
+}
+
+function svgToDataUrl(svg: string, color: string): string {
+  const colored = svg.replace(/currentColor/g, color);
+  return `data:image/svg+xml;base64,${btoa(colored)}`;
 }
 
 function loadGoogleFont(fontName: string) {
@@ -103,10 +143,15 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
   onDownload, onReset, onAddImage,
   recommendedFonts, fontSize, onFontSizeChange, fontWeight, onFontWeightChange,
   fontStyle, onFontStyleChange, bodyFont, onBodyFontChange, displayFont, onDisplayFontChange,
+  selectedImageId, overlayImages, onImageOpacityChange,
+  useGradient, onUseGradientChange, gradientColor2Index, onGradientColor2Change, gradientDirection, onGradientDirectionChange,
 }) => {
   const [elementsOpen, setElementsOpen] = useState(false);
+  const [svgElementsOpen, setSvgElementsOpen] = useState(false);
   const [savedLogo, setSavedLogo] = useState<string | null>(null);
   const accentColor = palette[(selectedBgIndex + 1) % Math.max(palette.length, 1)]?.hex || "#7c3aed";
+
+  const selectedOverlay = overlayImages?.find(img => img.id === selectedImageId);
 
   useEffect(() => {
     const logo = localStorage.getItem(LOGO_STORAGE_KEY);
@@ -142,7 +187,7 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
           id: crypto.randomUUID(), src,
           x: type === "logo" ? 40 : 200, y: type === "logo" ? 40 : 200,
           width: type === "logo" ? 150 : 400, height: type === "logo" ? 150 : 400,
-          type,
+          type, opacity: 1,
         };
         onAddImage?.(img);
       };
@@ -155,7 +200,7 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
     if (!savedLogo) return;
     const img: OverlayImage = {
       id: crypto.randomUUID(), src: savedLogo,
-      x: 40, y: 40, width: 150, height: 150, type: "logo",
+      x: 40, y: 40, width: 150, height: 150, type: "logo", opacity: 1,
     };
     onAddImage?.(img);
   };
@@ -164,7 +209,22 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
     const src = iconToDataUrl(element.icon, accentColor);
     const img: OverlayImage = {
       id: crypto.randomUUID(), src,
-      x: 460, y: 460, width: 160, height: 160, type: "element",
+      x: 460, y: 460, width: 160, height: 160, type: "element", opacity: 1,
+    };
+    onAddImage?.(img);
+  };
+
+  const handleAddSvgElement = (el: typeof SVG_ELEMENTS[0]) => {
+    const src = svgToDataUrl(el.svg, accentColor);
+    // Parse SVG dimensions for aspect ratio
+    const wMatch = el.svg.match(/width="(\d+)"/);
+    const hMatch = el.svg.match(/height="(\d+)"/);
+    const svgW = wMatch ? parseInt(wMatch[1]) : 400;
+    const svgH = hMatch ? parseInt(hMatch[1]) : 400;
+    const scale = 0.8;
+    const img: OverlayImage = {
+      id: crypto.randomUUID(), src,
+      x: 340, y: 460, width: svgW * scale, height: svgH * scale, type: "element", opacity: 1,
     };
     onAddImage?.(img);
   };
@@ -192,6 +252,37 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
             </Tooltip>
           ))}
         </div>
+        {/* Gradient toggle */}
+        {palette.length >= 2 && (
+          <div className="mt-3 space-y-2">
+            <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+              <input type="checkbox" checked={useGradient || false} onChange={e => onUseGradientChange?.(e.target.checked)} className="rounded" />
+              Gradiente
+            </label>
+            {useGradient && (
+              <div className="space-y-2">
+                <div>
+                  <span className="text-xs text-muted-foreground">2ª cor:</span>
+                  <div className="flex gap-1 flex-wrap mt-1">
+                    {palette.map((color, i) => (
+                      <button key={i} onClick={() => onGradientColor2Change?.(i)}
+                        className={`w-7 h-7 rounded-md border-2 transition-all ${i === gradientColor2Index ? "ring-2 ring-primary ring-offset-1 scale-110" : "hover:scale-105"}`}
+                        style={{ backgroundColor: color.hex, borderColor: i === gradientColor2Index ? color.hex : "transparent" }} />
+                    ))}
+                  </div>
+                </div>
+                <Select value={gradientDirection || "to right"} onValueChange={v => onGradientDirectionChange?.(v)}>
+                  <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {GRADIENT_DIRECTIONS.map(d => (
+                      <SelectItem key={d.value} value={d.value} className="text-xs">{d.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Layout */}
@@ -252,6 +343,21 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
         </div>
       </div>
 
+      {/* Opacity control for selected overlay */}
+      {selectedOverlay && onImageOpacityChange && (
+        <div>
+          <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">Transparência</h4>
+          <div>
+            <label className="text-xs text-muted-foreground">Opacidade: {Math.round((selectedOverlay.opacity ?? 1) * 100)}%</label>
+            <Slider
+              value={[(selectedOverlay.opacity ?? 1) * 100]}
+              onValueChange={([v]) => onImageOpacityChange(selectedOverlay.id, v / 100)}
+              min={5} max={100} step={1} className="mt-1"
+            />
+          </div>
+        </div>
+      )}
+
       {/* Images */}
       {onAddImage && (
         <div>
@@ -276,12 +382,12 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
         </div>
       )}
 
-      {/* Graphic Elements */}
+      {/* Graphic Elements (icons) */}
       {onAddImage && (
         <Collapsible open={elementsOpen} onOpenChange={setElementsOpen}>
           <CollapsibleTrigger asChild>
             <Button variant="outline" size="sm" className="gap-2 w-full">
-              <Shapes className="h-4 w-4" /> Elementos gráficos
+              <Shapes className="h-4 w-4" /> Ícones
             </Button>
           </CollapsibleTrigger>
           <CollapsibleContent>
@@ -292,6 +398,32 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
                     <button onClick={() => handleAddElement(el)}
                       className="w-full aspect-square flex items-center justify-center rounded-lg border bg-muted/50 hover:bg-muted transition-colors">
                       <el.icon className="h-5 w-5 text-foreground/70" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>{el.name}</TooltipContent>
+                </Tooltip>
+              ))}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+      )}
+
+      {/* SVG Decorative Elements */}
+      {onAddImage && (
+        <Collapsible open={svgElementsOpen} onOpenChange={setSvgElementsOpen}>
+          <CollapsibleTrigger asChild>
+            <Button variant="outline" size="sm" className="gap-2 w-full">
+              <Minus className="h-4 w-4" /> Barras e molduras
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="grid grid-cols-2 gap-2 mt-3">
+              {SVG_ELEMENTS.map((el) => (
+                <Tooltip key={el.name}>
+                  <TooltipTrigger asChild>
+                    <button onClick={() => handleAddSvgElement(el)}
+                      className="w-full py-2 px-2 flex items-center justify-center rounded-lg border bg-muted/50 hover:bg-muted transition-colors text-xs text-muted-foreground">
+                      {el.name}
                     </button>
                   </TooltipTrigger>
                   <TooltipContent>{el.name}</TooltipContent>

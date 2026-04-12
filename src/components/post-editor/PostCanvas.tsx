@@ -26,6 +26,7 @@ interface PostCanvasProps {
   onImageResize?: (id: string, width: number, height: number) => void;
   selectedImageId?: string | null;
   onSelectImage?: (id: string | null) => void;
+  bgGradient?: string | null;
 }
 
 const RESIZE_HANDLE_SIZE = 16;
@@ -36,7 +37,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   fontSize, fontWeight, fontStyle,
   onTextChange, onTitleChange, canvasRef,
   overlayImages = [], onImageMove, onImageResize,
-  selectedImageId, onSelectImage,
+  selectedImageId, onSelectImage, bgGradient,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0.4);
@@ -125,7 +126,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
           style={{
             width: 1080, height: 1080,
             transform: `scale(${scale})`, transformOrigin: "top left",
-            backgroundColor: bgColor, color: textColor,
+            background: bgGradient || bgColor, color: textColor,
             fontFamily: `'${bodyFont}', sans-serif`,
           }}
           onClick={handleCanvasClick}
@@ -202,7 +203,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
                 onClick={(e) => { e.stopPropagation(); onSelectImage?.(img.id); }}
               >
                 <img src={img.src} alt={img.type}
-                  style={{ width: "100%", height: "100%", objectFit: "contain", pointerEvents: "none" }}
+                  style={{ width: "100%", height: "100%", objectFit: "contain", pointerEvents: "none", opacity: img.opacity ?? 1 }}
                   draggable={false} />
                 {isSelected && (
                   <>
