@@ -281,7 +281,7 @@ const PostEditorPage = () => {
           <div className="flex items-center justify-center min-h-[400px] bg-muted/30 rounded-2xl p-4 overflow-hidden">
             {isCarousel ? (
               <CarouselEditor
-                slides={editedTexts} theme={editedTitle} cta={day.cta || ""}
+                slides={editedTexts} theme={editedTitle} cta={ctaText || day.cta || ""}
                 bgColor={bgColor} textColor={textColor} accentColor={accentColor}
                 displayFont={displayFont} bodyFont={bodyFont} layout={layout}
                 currentSlide={currentSlide} onSlideChange={setCurrentSlide}
@@ -291,8 +291,10 @@ const PostEditorPage = () => {
                 overlayImages={overlayImages} onImageMove={handleImageMove} onImageResize={handleImageResize}
                 selectedImageId={selectedImageId} onSelectImage={setSelectedImageId}
                 fontSize={fontSize} fontWeight={fontWeight} fontStyle={fontStyle}
-                textAlign={textAlign}
-                bgGradient={bgGradient}
+                textAlign={textAlign} bgGradient={bgGradient}
+                titleFontSize={titleFontSize} titleColor={titleColor} titleFontFamily={titleFontFamily}
+                ctaText={ctaText} ctaBgColor={ctaBgColor} ctaTextColor={ctaTextColor}
+                ctaFontSize={ctaFontSize} ctaPosition={ctaPosition} onCtaMove={handleCtaMove}
               />
             ) : (
               <PostCanvas
@@ -306,6 +308,9 @@ const PostEditorPage = () => {
                 overlayImages={overlayImages} onImageMove={handleImageMove} onImageResize={handleImageResize}
                 selectedImageId={selectedImageId} onSelectImage={setSelectedImageId}
                 bgGradient={bgGradient}
+                titleFontSize={titleFontSize} titleColor={titleColor} titleFontFamily={titleFontFamily}
+                ctaText={ctaText} ctaBgColor={ctaBgColor} ctaTextColor={ctaTextColor}
+                ctaFontSize={ctaFontSize} ctaPosition={ctaPosition} onCtaMove={handleCtaMove}
               />
             )}
           </div>
