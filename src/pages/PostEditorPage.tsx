@@ -77,6 +77,18 @@ const PostEditorPage = () => {
     if (!user) return;
     supabase.from("reports").select("*").eq("user_id", user.id).order("version", { ascending: false }).limit(1).single()
       .then(({ data }) => { setReport(data); setLoading(false); });
+    // Fetch user portraits
+    supabase.from("portrait_generations").select("portraits").eq("user_id", user.id).order("created_at", { ascending: false })
+      .then(({ data }) => {
+        if (data) {
+          const urls: string[] = [];
+          data.forEach((row: any) => {
+            const p = row.portraits;
+            if (Array.isArray(p)) p.forEach((u: any) => { if (typeof u === "string") urls.push(u); });
+          });
+          setUserPortraits(urls);
+        }
+      });
   }, [user]);
 
   const { contentObject, hasEditorial } = parseReportContent(report?.content);
@@ -107,6 +119,7 @@ const PostEditorPage = () => {
     const copies = day.card_copy || [day.caption || ""];
     setEditedTexts(copies);
     setEditedTitle(day.theme || "");
+    setCtaText(day.cta || "");
   }, [day]);
 
   // Keyboard: Delete selected overlay
@@ -187,6 +200,8 @@ const PostEditorPage = () => {
     } catch { toast({ title: "Erro ao exportar ZIP", variant: "destructive" }); }
   }, [editedTexts, day, dayIndex]);
 
+  const handleCtaMove = (x: number, y: number) => setCtaPosition({ x, y });
+
   const handleReset = () => {
     if (!day) return;
     setEditedTexts(day.card_copy || [day.caption || ""]);
@@ -200,6 +215,14 @@ const PostEditorPage = () => {
     setTextAlign("center");
     setCustomTextColor(null);
     setCustomBgColor(null);
+    setTitleFontSize(44);
+    setTitleColor(null);
+    setTitleFontFamily(null);
+    setCtaText(day.cta || "");
+    setCtaBgColor(null);
+    setCtaTextColor(null);
+    setCtaFontSize(28);
+    setCtaPosition(null);
     if (typography.display) setDisplayFont(typography.display);
     if (typography.body) setBodyFont(typography.body);
   };
