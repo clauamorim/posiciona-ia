@@ -8,6 +8,13 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// Price IDs for "Semana Extra de Conteúdo" by active plan
+const SEMANA_EXTRA_PRICES: Record<string, string> = {
+  semana_conteudo: "price_1TLrz6CzHWisuWdYPzTDCKMM",   // R$ 87
+  presenca_mensal: "price_1TLrzXCzHWisuWdYYow41jtY",   // R$ 77
+  autoridade_total: "price_1TLs02CzHWisuWdYTuzC06QK",  // R$ 67
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -25,22 +32,36 @@ serve(async (req) => {
     const user = data.user;
     if (!user?.email) throw new Error("User not authenticated");
 
-    const { plan_slug, coupon_code } = await req.json();
-    if (!plan_slug) throw new Error("plan_slug is required");
+    const { type } = await req.json();
+    if (type !== "semana_extra") throw new Error("Invalid type");
 
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
-    const { data: plan, error: planError } = await supabaseAdmin
+
+    // Get user's active plan
+    const { data: sub } = await supabaseAdmin
+      .from("subscriptions")
+      .select("plan_id")
+      .eq("user_id", user.id)
+      .eq("status", "active")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (!sub) throw new Error("Você precisa ter um plano ativo para comprar semana extra");
+
+    const { data: plan } = await supabaseAdmin
       .from("plans")
-      .select("*")
-      .eq("slug", plan_slug)
-      .eq("active", true)
+      .select("slug")
+      .eq("id", sub.plan_id)
       .single();
 
-    if (planError || !plan) throw new Error("Plan not found");
-    if (!plan.stripe_price_id) throw new Error("Plan has no Stripe price configured");
+    if (!plan) throw new Error("Plan not found");
+
+    const priceId = SEMANA_EXTRA_PRICES[plan.slug];
+    if (!priceId) throw new Error("No price configured for your plan");
 
     const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
       apiVersion: "2025-08-27.basil",
@@ -52,40 +73,21 @@ serve(async (req) => {
       customerId = customers.data[0].id;
     }
 
-    const mode = plan.billing_type === "one_time" ? "payment" : "subscription";
     const origin = req.headers.get("origin") || "https://posiciona.ia.br";
 
-    // Build session params
-    const sessionParams: any = {
+    const session = await stripe.checkout.sessions.create({
       customer: customerId,
       customer_email: customerId ? undefined : user.email,
-      line_items: [{ price: plan.stripe_price_id, quantity: 1 }],
-      mode,
+      line_items: [{ price: priceId, quantity: 1 }],
+      mode: "payment",
       success_url: `${origin}/checkout-success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${origin}/choose-plan`,
+      cancel_url: `${origin}/dashboard`,
       metadata: {
         user_id: user.id,
+        type: "semana_extra",
         plan_slug: plan.slug,
-        plan_id: plan.id,
       },
-    };
-
-    // Apply coupon for recurring plans only
-    if (coupon_code && mode === "subscription") {
-      try {
-        const coupon = await stripe.coupons.retrieve(coupon_code);
-        if (coupon && coupon.valid) {
-          sessionParams.discounts = [{ coupon: coupon.id }];
-        } else {
-          throw new Error("Cupom inválido ou expirado");
-        }
-      } catch (e: any) {
-        if (e.message === "Cupom inválido ou expirado") throw e;
-        throw new Error("Cupom não encontrado");
-      }
-    }
-
-    const session = await stripe.checkout.sessions.create(sessionParams);
+    });
 
     return new Response(JSON.stringify({ url: session.url }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

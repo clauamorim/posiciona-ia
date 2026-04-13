@@ -295,6 +295,7 @@ export type Database = {
           name: string
           price_cents: number
           stripe_price_id: string | null
+          stripe_price_ids: Json
         }
         Insert: {
           active?: boolean
@@ -304,6 +305,7 @@ export type Database = {
           name: string
           price_cents: number
           stripe_price_id?: string | null
+          stripe_price_ids?: Json
         }
         Update: {
           active?: boolean
@@ -313,6 +315,7 @@ export type Database = {
           name?: string
           price_cents?: number
           stripe_price_id?: string | null
+          stripe_price_ids?: Json
         }
         Relationships: []
       }

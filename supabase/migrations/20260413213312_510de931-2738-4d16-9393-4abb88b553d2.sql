@@ -1,0 +1,1 @@
+ALTER TABLE public.portrait_packs ADD COLUMN stripe_price_ids jsonb NOT NULL DEFAULT '{}'::jsonb;

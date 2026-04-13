@@ -41,7 +41,35 @@ serve(async (req) => {
       .single();
 
     if (packError || !pack) throw new Error("Pack not found");
-    if (!pack.stripe_price_id) throw new Error("Pack has no Stripe price configured");
+
+    // Get user's active plan to determine tiered pricing
+    const { data: sub } = await supabaseAdmin
+      .from("subscriptions")
+      .select("plan_id")
+      .eq("user_id", user.id)
+      .eq("status", "active")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    let priceId = pack.stripe_price_id; // default price
+
+    if (sub) {
+      const { data: plan } = await supabaseAdmin
+        .from("plans")
+        .select("slug")
+        .eq("id", sub.plan_id)
+        .single();
+
+      if (plan?.slug && pack.stripe_price_ids && typeof pack.stripe_price_ids === "object") {
+        const tierPrice = (pack.stripe_price_ids as Record<string, string>)[plan.slug];
+        if (tierPrice) {
+          priceId = tierPrice;
+        }
+      }
+    }
+
+    if (!priceId) throw new Error("Pack has no Stripe price configured");
 
     const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
       apiVersion: "2025-08-27.basil",
@@ -53,12 +81,12 @@ serve(async (req) => {
       customerId = customers.data[0].id;
     }
 
-    const origin = req.headers.get("origin") || "https://archetype-story-builder.lovable.app";
+    const origin = req.headers.get("origin") || "https://posiciona.ia.br";
 
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       customer_email: customerId ? undefined : user.email,
-      line_items: [{ price: pack.stripe_price_id, quantity: 1 }],
+      line_items: [{ price: priceId, quantity: 1 }],
       mode: "payment",
       success_url: `${origin}/checkout-success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/portraits`,

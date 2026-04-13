@@ -18,12 +18,20 @@ const log = (step: string, details?: any) => {
 async function provisionBalances(userId: string, plan: any) {
   log("Provisioning balances", { userId, planSlug: plan.slug });
 
+  // Preserve portrait_credits_extra (purchased separately)
+  const { data: currentBalance } = await supabase
+    .from("user_balances")
+    .select("portrait_credits_extra")
+    .eq("user_id", userId)
+    .single();
+
   await supabase.from("user_balances").upsert(
     {
       user_id: userId,
       weekly_cycles: plan.weekly_cycles,
       reanalysis_credits: plan.reanalysis_credits,
       portrait_credits_included: plan.portrait_credits,
+      portrait_credits_extra: currentBalance?.portrait_credits_extra ?? 0,
       regeneration_credits: plan.regeneration_credits,
     },
     { onConflict: "user_id" }
@@ -58,7 +66,6 @@ async function handlePortraitPackPurchase(session: Stripe.Checkout.Session) {
     return;
   }
 
-  // Add credits to portrait_credits_extra
   const { data: currentBalance } = await supabase
     .from("user_balances")
     .select("portrait_credits_extra")
@@ -85,6 +92,93 @@ async function handlePortraitPackPurchase(session: Stripe.Checkout.Session) {
   log("Portrait pack purchased", { userId, packCredits, packId });
 }
 
+async function handleSemanaExtra(session: Stripe.Checkout.Session) {
+  const userId = session.metadata?.user_id;
+  if (!userId) {
+    log("Semana extra: missing user_id", session.metadata);
+    return;
+  }
+
+  const { data: currentBalance } = await supabase
+    .from("user_balances")
+    .select("weekly_cycles")
+    .eq("user_id", userId)
+    .single();
+
+  const currentCycles = currentBalance?.weekly_cycles ?? 0;
+
+  await supabase.from("user_balances").upsert(
+    {
+      user_id: userId,
+      weekly_cycles: currentCycles + 1,
+    },
+    { onConflict: "user_id" }
+  );
+
+  await supabase.from("credit_logs").insert({
+    user_id: userId,
+    credit_type: "weekly_cycle",
+    amount: 1,
+    description: "Compra de semana extra de conteúdo",
+  });
+
+  log("Semana extra purchased", { userId });
+}
+
+async function handleUpgrade(session: Stripe.Checkout.Session) {
+  const userId = session.metadata?.user_id;
+  const toPlan = session.metadata?.to_plan;
+
+  if (!userId || !toPlan) {
+    log("Upgrade: missing metadata", session.metadata);
+    return;
+  }
+
+  const { data: targetPlan } = await supabase
+    .from("plans")
+    .select("*")
+    .eq("slug", toPlan)
+    .eq("active", true)
+    .single();
+
+  if (!targetPlan) {
+    log("Upgrade: target plan not found", { toPlan });
+    return;
+  }
+
+  // Update subscription record
+  const { data: existingSub } = await supabase
+    .from("subscriptions")
+    .select("id")
+    .eq("user_id", userId)
+    .limit(1)
+    .single();
+
+  const subscriptionData: any = {
+    user_id: userId,
+    plan_id: targetPlan.id,
+    stripe_customer_id: session.customer as string,
+    status: "active",
+    current_period_start: new Date().toISOString(),
+  };
+
+  if (session.mode === "subscription") {
+    subscriptionData.stripe_subscription_id = session.subscription as string;
+  }
+
+  if (existingSub) {
+    await supabase
+      .from("subscriptions")
+      .update(subscriptionData)
+      .eq("id", existingSub.id);
+  } else {
+    await supabase.from("subscriptions").insert(subscriptionData);
+  }
+
+  await provisionBalances(userId, targetPlan);
+  log("Upgrade completed", { userId, toPlan });
+}
+
 serve(async (req) => {
   try {
     const body = await req.text();
@@ -103,13 +197,24 @@ serve(async (req) => {
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
+        const metaType = session.metadata?.type;
 
-        // Check if it's a portrait pack purchase
-        if (session.metadata?.type === "portrait_pack") {
+        if (metaType === "portrait_pack") {
           await handlePortraitPackPurchase(session);
           break;
         }
 
+        if (metaType === "semana_extra") {
+          await handleSemanaExtra(session);
+          break;
+        }
+
+        if (metaType === "upgrade") {
+          await handleUpgrade(session);
+          break;
+        }
+
+        // Default: plan purchase
         const userId = session.metadata?.user_id;
         const planSlug = session.metadata?.plan_slug;
         const planId = session.metadata?.plan_id;

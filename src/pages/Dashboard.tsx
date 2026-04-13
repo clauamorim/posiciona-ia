@@ -1,16 +1,18 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
 import {
   Building2, Brain, FileText, ArrowRight, CreditCard, Calendar,
   Camera, RefreshCw, Sparkles, Repeat, BarChart3, Target, Instagram,
-  CheckCircle2, Clock, Circle
+  CheckCircle2, Clock, Circle, ArrowUp, Loader2
 } from "lucide-react";
+import ExtrasSection from "@/components/ExtrasSection";
 
 type JourneyStep = {
   label: string;
@@ -20,6 +22,7 @@ type JourneyStep = {
 
 const Dashboard = () => {
   const { user, subscription, balances, hasActivePlan } = useAuth();
+  const navigate = useNavigate();
   const [profile, setProfile] = useState<any>(null);
   const [businessComplete, setBusinessComplete] = useState(false);
   const [archetypeCount, setArchetypeCount] = useState(0);
@@ -27,6 +30,7 @@ const Dashboard = () => {
   const [hasInstagram, setHasInstagram] = useState(false);
   const [hasEditorial, setHasEditorial] = useState(false);
   const [hasPortraits, setHasPortraits] = useState(false);
+  const [loadingUpgrade, setLoadingUpgrade] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -54,7 +58,6 @@ const Dashboard = () => {
 
   const archetypesDone = archetypeCount === 72;
 
-  // Dynamic subtitle
   const getSubtitle = () => {
     if (!businessComplete) return "Comece pelo diagnóstico do seu negócio para desbloquear sua estratégia.";
     if (!archetypesDone) return "Complete o questionário de arquétipos para revelar a essência da sua marca.";
@@ -64,7 +67,6 @@ const Dashboard = () => {
     return "Sua estratégia está completa. Continue produzindo com consistência.";
   };
 
-  // Next step
   const getNextStep = () => {
     if (!businessComplete) return { label: "Preencher questionário do negócio", href: "/business-questionnaire", icon: Building2 };
     if (!archetypesDone) return { label: "Completar questionário de arquétipos", href: "/archetype-questionnaire", icon: Brain };
@@ -76,7 +78,6 @@ const Dashboard = () => {
 
   const nextStep = getNextStep();
 
-  // Journey steps
   const journeySteps: JourneyStep[] = [
     { label: "Diagnóstico", status: businessComplete ? "done" : "in_progress", href: "/business-questionnaire" },
     { label: "Arquétipos", status: archetypesDone ? "done" : businessComplete ? "in_progress" : "pending", href: "/archetype-questionnaire" },
@@ -97,6 +98,28 @@ const Dashboard = () => {
     if (status === "in_progress") return <Clock className="h-4 w-4 text-primary" />;
     return <Circle className="h-4 w-4 text-muted-foreground/30" />;
   };
+
+  const handleUpgrade = async (targetPlan: string) => {
+    setLoadingUpgrade(targetPlan);
+    try {
+      const { data, error } = await supabase.functions.invoke("upgrade-checkout", {
+        body: { target_plan: targetPlan },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      if (data?.url) {
+        window.location.href = data.url;
+      } else if (data?.success) {
+        toast({ title: "Upgrade realizado!", description: data.message });
+        window.location.reload();
+      }
+    } catch (err: any) {
+      toast({ title: "Erro no upgrade", description: err.message, variant: "destructive" });
+    }
+    setLoadingUpgrade(null);
+  };
+
+  const currentSlug = subscription?.plan_slug;
 
   return (
     <DashboardLayout>
@@ -130,6 +153,51 @@ const Dashboard = () => {
             </Link>
           </CardContent>
         </Card>
+
+        {/* Upgrade section */}
+        {currentSlug === "semana_conteudo" && (
+          <Card className="border-primary/30 bg-gradient-to-r from-primary/5 to-transparent">
+            <CardContent className="py-5 space-y-3">
+              <div className="flex items-center gap-2">
+                <ArrowUp className="h-4 w-4 text-primary" />
+                <p className="text-xs font-semibold uppercase tracking-wider text-primary">Upgrade disponível</p>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Faça upgrade em até 7 dias da compra e desconte os R$ 197 já pagos.
+              </p>
+              <div className="flex gap-3 flex-wrap">
+                <Button size="sm" onClick={() => handleUpgrade("presenca_mensal")} disabled={loadingUpgrade === "presenca_mensal"}>
+                  {loadingUpgrade === "presenca_mensal" ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <ArrowUp className="h-3.5 w-3.5 mr-1.5" />}
+                  Presença Mensal — R$ 100*
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => handleUpgrade("autoridade_total")} disabled={loadingUpgrade === "autoridade_total"}>
+                  {loadingUpgrade === "autoridade_total" ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <ArrowUp className="h-3.5 w-3.5 mr-1.5" />}
+                  Autoridade Total — R$ 300*
+                </Button>
+              </div>
+              <p className="text-[10px] text-muted-foreground">*Valor com abatimento dos R$ 197 (válido nos primeiros 7 dias). Após esse prazo, será cobrado o valor cheio como assinatura mensal.</p>
+            </CardContent>
+          </Card>
+        )}
+
+        {currentSlug === "presenca_mensal" && (
+          <Card className="border-primary/30 bg-gradient-to-r from-primary/5 to-transparent">
+            <CardContent className="py-5 space-y-3">
+              <div className="flex items-center gap-2">
+                <ArrowUp className="h-4 w-4 text-primary" />
+                <p className="text-xs font-semibold uppercase tracking-wider text-primary">Upgrade disponível</p>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Passe para o Autoridade Total e ganhe 5 retratos inclusos, 2 reanálises e 20 regenerações por mês.
+              </p>
+              <Button size="sm" onClick={() => handleUpgrade("autoridade_total")} disabled={loadingUpgrade === "autoridade_total"}>
+                {loadingUpgrade === "autoridade_total" ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <ArrowUp className="h-3.5 w-3.5 mr-1.5" />}
+                Upgrade para Autoridade Total — R$ 497/mês
+              </Button>
+              <p className="text-[10px] text-muted-foreground">A diferença será cobrada proporcionalmente ao período restante.</p>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Plano + Créditos */}
         <div className="grid gap-4 md:grid-cols-2">
@@ -192,6 +260,9 @@ const Dashboard = () => {
             </CardContent>
           </Card>
         </div>
+
+        {/* Extras section */}
+        {hasActivePlan && <ExtrasSection />}
 
         {/* Jornada */}
         <Card>

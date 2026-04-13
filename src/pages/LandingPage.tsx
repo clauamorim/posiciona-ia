@@ -29,14 +29,15 @@ const plans = [
     highlight: false,
     features: [
       "Diagnóstico inicial completo",
-      "Guia de posicionamento",
-      "StoryBrand personalizado",
+      "Guia de posicionamento e StoryBrand",
       "3 arquétipos principais",
       "Análise inicial do Instagram",
       "1 ciclo editorial de 7 dias",
-      "7 conteúdos prontos",
+      "7 conteúdos prontos para publicar",
+      "3 créditos de regeneração",
     ],
     notIncluded: ["Retratos não inclusos"],
+    footer: "Upgrade em até 7 dias e desconte R$ 197",
   },
   {
     name: "Presença Mensal",
@@ -46,13 +47,14 @@ const plans = [
     description: "Para quem quer manter consistência e continuar produzindo com estratégia ao longo do mês.",
     highlight: true,
     features: [
-      "Diagnóstico inicial completo",
+      "Tudo do Semana de Conteúdo",
       "4 ciclos semanais por mês",
-      "Conteúdos semanais estratégicos",
-      "1 reanálise de perfil por mês",
-      "Posts, carrosséis e roteiros",
+      "1 reanálise estratégica mensal",
+      "12 créditos de regeneração/mês",
+      "Preço especial em extras",
     ],
     notIncluded: ["Retratos não inclusos"],
+    footer: null,
   },
   {
     name: "Autoridade Total",
@@ -63,12 +65,13 @@ const plans = [
     highlight: false,
     features: [
       "Tudo do Presença Mensal",
-      "2 reanálises de perfil por mês",
-      "Créditos mensais de retrato inclusos",
-      "20 créditos de regeneração",
-      "Compra de créditos extras",
+      "2 reanálises estratégicas/mês",
+      "5 créditos de retrato inclusos/mês",
+      "20 créditos de regeneração/mês",
+      "Melhor preço em extras",
     ],
     notIncluded: [],
+    footer: null,
   },
 ];
 
@@ -402,6 +405,10 @@ const LandingPage = () => {
                     </li>
                   ))}
                 </ul>
+
+                {p.footer && (
+                  <p className="text-[10px] text-landing-text-secondary/60 mt-2 text-center italic">{p.footer}</p>
+                )}
 
                 <Button
                   className={`w-full ${
