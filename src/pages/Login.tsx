@@ -50,7 +50,7 @@ const Login = () => {
       <Card className="w-full max-w-md border-border/50 shadow-xl">
         <CardHeader className="text-center space-y-2">
           <div className="flex items-center justify-center gap-2 mb-2">
-            <img src={posicionaLogo} alt="Posiciona" className="h-8 w-8" />
+            <img src={posicionaLogo} alt="Posiciona" className="h-12 w-12" />
             <h1 className="text-3xl font-bold font-display text-primary">Posiciona</h1>
           </div>
           <CardTitle className="text-xl font-display">Entrar na sua conta</CardTitle>
