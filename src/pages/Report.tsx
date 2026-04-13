@@ -441,6 +441,7 @@ const Report = () => {
                     <ul className="space-y-1.5">{content.figurino.sapatos.map((s: string, i: number) => <li key={i} className="text-sm text-foreground/80">• {s}</li>)}</ul>
                   </CardContent>
                 </Card>
+              )}
               {content.figurino.acessorios?.length > 0 && (
                 <Card>
                   <CardContent className="pt-5 pb-4">
