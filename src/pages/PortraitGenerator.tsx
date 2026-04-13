@@ -24,7 +24,7 @@ const MAX_SIZE_MB = 5;
 const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
 
 const PortraitGenerator = () => {
-  const { user, balances, refreshSubscription } = useAuth();
+  const { user, balances, subscription, refreshSubscription } = useAuth();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
