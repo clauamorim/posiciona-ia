@@ -32,7 +32,12 @@ const Results = () => {
     if (!user) return;
     const run = async () => {
       try {
-        setStage("calculating");
+        // Check if report already exists and is completed
+        const { data: existingReport } = await supabase
+          .from("reports").select("status")
+          .eq("user_id", user.id).eq("version", 1).single();
+
+        // Also load scores to display
         const [{ data: questions }, { data: answersData }] = await Promise.all([
           supabase.from("archetype_questions").select("id, question_number"),
           supabase.from("archetype_answers").select("question_id, score").eq("user_id", user.id),
@@ -43,6 +48,12 @@ const Results = () => {
         answersData.forEach(a => { answerMap[a.question_id] = a.score; });
         const calc = calculateScores(questions, answerMap);
         setScores(calc);
+
+        // If report is already completed, skip regeneration
+        if (existingReport?.status === "completed") {
+          setStage("done");
+          return;
+        }
 
         setStage("saving");
         const upserts = calc.map(s => ({

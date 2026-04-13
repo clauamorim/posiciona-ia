@@ -167,6 +167,7 @@ const Report = () => {
         if (content.figurino.resumo) addBody(content.figurino.resumo);
         if (content.figurino.pecas_chave?.length) { addSubtitle("Peças-chave"); content.figurino.pecas_chave.forEach((p: string) => addBody(`• ${p}`)); }
         if (content.figurino.cores_roupa?.length) { addSubtitle("Cores de Roupa"); addBody(content.figurino.cores_roupa.join(", ")); }
+        if (content.figurino.sapatos?.length) { addSubtitle("Sapatos"); content.figurino.sapatos.forEach((s: string) => addBody(`• ${s}`)); }
         if (content.figurino.acessorios?.length) { addSubtitle("Acessórios"); content.figurino.acessorios.forEach((a: string) => addBody(`• ${a}`)); }
         if (content.figurino.cabelo) { addSubtitle("Cabelo"); addBody(content.figurino.cabelo); }
         if (content.figurino.maquiagem_grooming) { addSubtitle("Maquiagem / Grooming"); addBody(content.figurino.maquiagem_grooming); }
@@ -264,7 +265,7 @@ const Report = () => {
         {/* Header */}
         <div className="flex items-start justify-between flex-wrap gap-4">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Suas Análises</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">Seu Relatório</h1>
             <p className="text-sm text-muted-foreground mt-1">Gerado em {new Date(report.created_at).toLocaleDateString("pt-BR")}</p>
           </div>
           <Button onClick={handleDownloadPDF} variant="outline" size="sm" className="gap-2"><Download className="h-4 w-4" /> Baixar PDF</Button>
@@ -428,6 +429,17 @@ const Report = () => {
                       <h3 className="font-bold font-display text-sm">Cores de Roupa</h3>
                     </div>
                     <div className="flex flex-wrap gap-1.5">{content.figurino.cores_roupa.map((c: string, i: number) => <Badge key={i} variant="outline" className="text-xs">{c}</Badge>)}</div>
+                  </CardContent>
+                </Card>
+              )}
+              {content.figurino.sapatos?.length > 0 && (
+                <Card>
+                  <CardContent className="pt-5 pb-4">
+                    <div className="flex items-center gap-2 mb-3 text-primary">
+                      <Compass className="h-4 w-4" />
+                      <h3 className="font-bold font-display text-sm">Sapatos</h3>
+                    </div>
+                    <ul className="space-y-1.5">{content.figurino.sapatos.map((s: string, i: number) => <li key={i} className="text-sm text-foreground/80">• {s}</li>)}</ul>
                   </CardContent>
                 </Card>
               )}

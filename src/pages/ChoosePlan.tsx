@@ -6,8 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { Check, Loader2, ArrowUp, Tag } from "lucide-react";
-import { useState } from "react";
+import { Check, Loader2, ArrowUp, Tag, Calendar, RefreshCw, Camera, Repeat } from "lucide-react";
 
 const plans = [
   {
@@ -65,9 +64,11 @@ const plans = [
   },
 ];
 
+import { useState } from "react";
+
 const ChoosePlan = () => {
   const navigate = useNavigate();
-  const { user, subscription } = useAuth();
+  const { user, subscription, balances } = useAuth();
   const [loadingSlug, setLoadingSlug] = useState<string | null>(null);
   const [couponCode, setCouponCode] = useState("");
   const [loadingUpgrade, setLoadingUpgrade] = useState<string | null>(null);
@@ -148,6 +149,29 @@ const ChoosePlan = () => {
             Comece com clareza. Evolua com constância. Reforce com imagem.
           </p>
         </div>
+
+        {/* Credits summary for active subscribers */}
+        {currentSlug && balances && (
+          <Card className="max-w-2xl mx-auto">
+            <CardContent className="py-5 space-y-3">
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Seus Créditos</p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                {[
+                  { icon: Calendar, value: balances.weekly_cycles, label: "Ciclos semanais" },
+                  { icon: RefreshCw, value: balances.reanalysis_credits, label: "Reanálises" },
+                  { icon: Camera, value: balances.portrait_credits_included + balances.portrait_credits_extra, label: "Retratos" },
+                  { icon: Repeat, value: balances.regeneration_credits, label: "Regenerações" },
+                ].map((item, i) => (
+                  <div key={i} className="p-2.5 rounded-lg bg-muted/40 text-center space-y-0.5">
+                    <item.icon className="h-4 w-4 mx-auto text-muted-foreground" />
+                    <p className="text-xl font-semibold">{item.value}</p>
+                    <p className="text-[11px] text-muted-foreground">{item.label}</p>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Coupon input for new subscribers */}
         {!currentSlug && (

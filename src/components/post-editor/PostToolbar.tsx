@@ -7,10 +7,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from "@/components/ui/slider";
 import { Toggle } from "@/components/ui/toggle";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import {
   Star, Heart, CheckCircle, Quote, ArrowRight, ArrowUp, Zap, Award,
   Circle, Square, Triangle, Hexagon, Diamond, Flame, Target, Crown,
   ThumbsUp, Bookmark, Send, AtSign, Hash, MapPin, Clock, Eye,
+  Lightbulb, Gift, Camera, Coffee, Smile, Bell, Flag, Shield, Layers,
+  Feather, Music, Pen, Globe, Sparkles, Lock, Unlock, Settings,
 } from "lucide-react";
 import { renderToStaticMarkup } from "react-dom/server";
 
@@ -51,23 +54,37 @@ interface PostToolbarProps {
   onBodyFontChange: (f: string) => void;
   displayFont: string;
   onDisplayFontChange: (f: string) => void;
-  // Text alignment
   textAlign?: "left" | "center" | "right" | "justify";
   onTextAlignChange?: (align: "left" | "center" | "right" | "justify") => void;
-  // Text color
   textColor?: string;
   onTextColorChange?: (color: string) => void;
-  // Opacity
   selectedImageId?: string | null;
   overlayImages?: OverlayImage[];
   onImageOpacityChange?: (id: string, opacity: number) => void;
-  // Gradient
   useGradient?: boolean;
   onUseGradientChange?: (v: boolean) => void;
   gradientColor2Index?: number;
   onGradientColor2Change?: (index: number) => void;
   gradientDirection?: string;
   onGradientDirectionChange?: (d: string) => void;
+  // Title controls
+  titleFontSize?: number;
+  onTitleFontSizeChange?: (size: number) => void;
+  titleColor?: string;
+  onTitleColorChange?: (color: string) => void;
+  titleFontFamily?: string;
+  onTitleFontFamilyChange?: (f: string) => void;
+  // CTA controls
+  ctaText?: string;
+  onCtaTextChange?: (text: string) => void;
+  ctaBgColor?: string;
+  onCtaBgColorChange?: (color: string) => void;
+  ctaTextColor?: string;
+  onCtaTextColorChange?: (color: string) => void;
+  ctaFontSize?: number;
+  onCtaFontSizeChange?: (size: number) => void;
+  // Portraits panel
+  userPortraits?: string[];
 }
 
 const LAYOUTS = [
@@ -89,9 +106,17 @@ const GRAPHIC_ELEMENTS = [
   { icon: Send, name: "Enviar" }, { icon: AtSign, name: "Arroba" },
   { icon: Hash, name: "Hashtag" }, { icon: MapPin, name: "Local" },
   { icon: Clock, name: "Relógio" }, { icon: Eye, name: "Olho" },
+  { icon: Lightbulb, name: "Lâmpada" }, { icon: Gift, name: "Presente" },
+  { icon: Camera, name: "Câmera" }, { icon: Coffee, name: "Café" },
+  { icon: Smile, name: "Sorriso" }, { icon: Bell, name: "Sino" },
+  { icon: Flag, name: "Bandeira" }, { icon: Shield, name: "Escudo" },
+  { icon: Layers, name: "Camadas" }, { icon: Feather, name: "Pena" },
+  { icon: Music, name: "Música" }, { icon: Pen, name: "Caneta" },
+  { icon: Globe, name: "Globo" }, { icon: Sparkles, name: "Brilho" },
+  { icon: Lock, name: "Cadeado" }, { icon: Unlock, name: "Desbloq." },
+  { icon: Settings, name: "Config." },
 ];
 
-// SVG-based decorative elements
 const SVG_ELEMENTS: { name: string; svg: string }[] = [
   { name: "Barra horizontal fina", svg: `<svg width="400" height="8" xmlns="http://www.w3.org/2000/svg"><rect width="400" height="8" rx="4" fill="currentColor"/></svg>` },
   { name: "Barra horizontal grossa", svg: `<svg width="400" height="24" xmlns="http://www.w3.org/2000/svg"><rect width="400" height="24" rx="4" fill="currentColor"/></svg>` },
@@ -104,6 +129,10 @@ const SVG_ELEMENTS: { name: string; svg: string }[] = [
   { name: "Divider decorativo", svg: `<svg width="400" height="24" xmlns="http://www.w3.org/2000/svg"><line x1="0" y1="12" x2="170" y2="12" stroke="currentColor" stroke-width="2"/><circle cx="200" cy="12" r="6" fill="currentColor"/><line x1="230" y1="12" x2="400" y2="12" stroke="currentColor" stroke-width="2"/></svg>` },
   { name: "Aspas grandes", svg: `<svg width="120" height="100" xmlns="http://www.w3.org/2000/svg"><text x="0" y="80" font-size="100" font-family="Georgia" fill="currentColor">"</text></svg>` },
   { name: "Seta larga", svg: `<svg width="200" height="60" xmlns="http://www.w3.org/2000/svg"><polygon points="0,15 150,15 150,0 200,30 150,60 150,45 0,45" fill="currentColor"/></svg>` },
+  { name: "Moldura dupla", svg: `<svg width="400" height="400" xmlns="http://www.w3.org/2000/svg"><rect x="8" y="8" width="384" height="384" rx="12" fill="none" stroke="currentColor" stroke-width="4"/><rect x="20" y="20" width="360" height="360" rx="8" fill="none" stroke="currentColor" stroke-width="2"/></svg>` },
+  { name: "Moldura arredondada", svg: `<svg width="400" height="400" xmlns="http://www.w3.org/2000/svg"><rect x="8" y="8" width="384" height="384" rx="40" fill="none" stroke="currentColor" stroke-width="6"/></svg>` },
+  { name: "Separador losango", svg: `<svg width="400" height="24" xmlns="http://www.w3.org/2000/svg"><line x1="0" y1="12" x2="160" y2="12" stroke="currentColor" stroke-width="2"/><polygon points="200,0 212,12 200,24 188,12" fill="currentColor"/><line x1="240" y1="12" x2="400" y2="12" stroke="currentColor" stroke-width="2"/></svg>` },
+  { name: "Barra diagonal", svg: `<svg width="400" height="60" xmlns="http://www.w3.org/2000/svg"><line x1="0" y1="60" x2="400" y2="0" stroke="currentColor" stroke-width="4"/></svg>` },
 ];
 
 const GOOGLE_FONTS = [
@@ -112,6 +141,8 @@ const GOOGLE_FONTS = [
   "Open Sans", "Source Sans 3", "Space Grotesk", "DM Sans",
   "Cormorant Garamond", "Libre Baskerville", "Bebas Neue",
   "Archivo", "Work Sans", "Josefin Sans",
+  "Quicksand", "Comfortaa", "Fredoka One", "Baloo 2",
+  "Cinzel", "Fjalla One", "Permanent Marker", "Roboto Slab", "Bitter",
 ];
 
 const GRADIENT_DIRECTIONS = [
@@ -153,10 +184,15 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
   textAlign, onTextAlignChange, textColor, onTextColorChange,
   selectedImageId, overlayImages, onImageOpacityChange,
   useGradient, onUseGradientChange, gradientColor2Index, onGradientColor2Change, gradientDirection, onGradientDirectionChange,
+  titleFontSize, onTitleFontSizeChange, titleColor, onTitleColorChange, titleFontFamily, onTitleFontFamilyChange,
+  ctaText, onCtaTextChange, ctaBgColor, onCtaBgColorChange, ctaTextColor, onCtaTextColorChange, ctaFontSize, onCtaFontSizeChange,
+  userPortraits,
 }) => {
   const [elementsOpen, setElementsOpen] = useState(false);
   const [svgElementsOpen, setSvgElementsOpen] = useState(false);
+  const [portraitsOpen, setPortraitsOpen] = useState(false);
   const [savedLogo, setSavedLogo] = useState<string | null>(null);
+  const [elementColorPickerOpen, setElementColorPickerOpen] = useState(false);
   const accentColor = palette[(selectedBgIndex + 1) % Math.max(palette.length, 1)]?.hex || "#7c3aed";
 
   const selectedOverlay = overlayImages?.find(img => img.id === selectedImageId);
@@ -213,8 +249,10 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
     onAddImage?.(img);
   };
 
+  const [elementColor, setElementColor] = useState(accentColor);
+
   const handleAddElement = (element: typeof GRAPHIC_ELEMENTS[0]) => {
-    const src = iconToDataUrl(element.icon, accentColor);
+    const src = iconToDataUrl(element.icon, elementColor);
     const img: OverlayImage = {
       id: crypto.randomUUID(), src,
       x: 460, y: 460, width: 160, height: 160, type: "element", opacity: 1,
@@ -223,8 +261,7 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
   };
 
   const handleAddSvgElement = (el: typeof SVG_ELEMENTS[0]) => {
-    const src = svgToDataUrl(el.svg, accentColor);
-    // Parse SVG dimensions for aspect ratio
+    const src = svgToDataUrl(el.svg, elementColor);
     const wMatch = el.svg.match(/width="(\d+)"/);
     const hMatch = el.svg.match(/height="(\d+)"/);
     const svgW = wMatch ? parseInt(wMatch[1]) : 400;
@@ -233,6 +270,14 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
     const img: OverlayImage = {
       id: crypto.randomUUID(), src,
       x: 340, y: 460, width: svgW * scale, height: svgH * scale, type: "element", opacity: 1,
+    };
+    onAddImage?.(img);
+  };
+
+  const handleAddPortrait = (url: string) => {
+    const img: OverlayImage = {
+      id: crypto.randomUUID(), src: url,
+      x: 200, y: 200, width: 400, height: 400, type: "photo", opacity: 1,
     };
     onAddImage?.(img);
   };
@@ -263,8 +308,7 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
             <TooltipTrigger asChild>
               <label className="w-10 h-10 rounded-lg border-2 border-dashed border-muted-foreground/40 cursor-pointer flex items-center justify-center hover:bg-muted transition-colors overflow-hidden relative">
                 <input type="color" value={palette[selectedBgIndex]?.hex || "#1a1a2e"} onChange={e => {
-                  const customHex = e.target.value;
-                  if (onCustomBgColorChange) onCustomBgColorChange(customHex);
+                  if (onCustomBgColorChange) onCustomBgColorChange(e.target.value);
                 }} className="opacity-0 absolute inset-0 w-full h-full cursor-pointer" />
                 <span className="text-muted-foreground text-lg font-bold">+</span>
               </label>
@@ -272,7 +316,6 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
             <TooltipContent>Cor personalizada</TooltipContent>
           </Tooltip>
         </div>
-        {/* Gradient toggle */}
         {palette.length >= 2 && (
           <div className="mt-3 space-y-2">
             <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
@@ -322,21 +365,52 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
         </div>
       </div>
 
-      {/* Typography */}
-      <div>
-        <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">Tipografia</h4>
-        <div className="space-y-3">
-          <div>
-            <label className="text-xs text-muted-foreground">Fonte título</label>
-            <Select value={displayFont} onValueChange={(v) => handleFontChange(v, "display")}>
-              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {getFontOptions("display").map((f) => (
-                  <SelectItem key={f.value} value={f.value} className="text-xs">{f.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+      {/* Title controls */}
+      {onTitleFontSizeChange && (
+        <div>
+          <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">Título</h4>
+          <div className="space-y-3">
+            {onTitleFontFamilyChange && (
+              <div>
+                <label className="text-xs text-muted-foreground">Fonte título</label>
+                <Select value={titleFontFamily || displayFont} onValueChange={(v) => { loadGoogleFont(v); onTitleFontFamilyChange(v); }}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {getFontOptions("display").map((f) => (
+                      <SelectItem key={f.value} value={f.value} className="text-xs">{f.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <div>
+              <label className="text-xs text-muted-foreground">Tamanho: {titleFontSize || 44}px</label>
+              <Slider value={[titleFontSize || 44]} onValueChange={([v]) => onTitleFontSizeChange(v)} min={20} max={80} step={1} className="mt-1" />
+            </div>
+            {onTitleColorChange && (
+              <div>
+                <label className="text-xs text-muted-foreground">Cor do título</label>
+                <div className="flex gap-1 flex-wrap mt-1 items-center">
+                  {palette.map((color, i) => (
+                    <button key={i} onClick={() => onTitleColorChange(color.hex)}
+                      className={`w-6 h-6 rounded-md border transition-all ${titleColor === color.hex ? "ring-2 ring-primary ring-offset-1 scale-110" : "hover:scale-105"}`}
+                      style={{ backgroundColor: color.hex, borderColor: titleColor === color.hex ? color.hex : "transparent" }} />
+                  ))}
+                  <label className="w-6 h-6 rounded-md border border-dashed border-muted-foreground/40 cursor-pointer flex items-center justify-center hover:bg-muted transition-colors overflow-hidden">
+                    <input type="color" value={titleColor || "#ffffff"} onChange={e => onTitleColorChange(e.target.value)} className="opacity-0 absolute w-6 h-6 cursor-pointer" />
+                    <Type className="h-3 w-3 text-muted-foreground" />
+                  </label>
+                </div>
+              </div>
+            )}
           </div>
+        </div>
+      )}
+
+      {/* Body Typography */}
+      <div>
+        <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">Corpo do texto</h4>
+        <div className="space-y-3">
           <div>
             <label className="text-xs text-muted-foreground">Fonte corpo</label>
             <Select value={bodyFont} onValueChange={(v) => handleFontChange(v, "body")}>
@@ -360,7 +434,6 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
               <Italic className="h-4 w-4" />
             </Toggle>
           </div>
-          {/* Text alignment */}
           {onTextAlignChange && (
             <div>
               <label className="text-xs text-muted-foreground">Alinhamento</label>
@@ -383,7 +456,6 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
               </div>
             </div>
           )}
-          {/* Text color with palette + custom */}
           {onTextColorChange && (
             <div>
               <label className="text-xs text-muted-foreground">Cor do texto</label>
@@ -413,10 +485,55 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
         </div>
       </div>
 
+      {/* CTA Controls */}
+      {onCtaTextChange && (
+        <div>
+          <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">Botão CTA</h4>
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs text-muted-foreground">Texto do botão</label>
+              <Input value={ctaText || ""} onChange={e => onCtaTextChange(e.target.value)} className="h-8 text-xs mt-1" placeholder="CTA" />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground">Tamanho: {ctaFontSize || 28}px</label>
+              <Slider value={[ctaFontSize || 28]} onValueChange={([v]) => onCtaFontSizeChange?.(v)} min={16} max={48} step={1} className="mt-1" />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground">Cor do fundo</label>
+              <div className="flex gap-1 flex-wrap mt-1 items-center">
+                {palette.map((color, i) => (
+                  <button key={i} onClick={() => onCtaBgColorChange?.(color.hex)}
+                    className={`w-6 h-6 rounded-md border transition-all ${ctaBgColor === color.hex ? "ring-2 ring-primary ring-offset-1 scale-110" : "hover:scale-105"}`}
+                    style={{ backgroundColor: color.hex, borderColor: ctaBgColor === color.hex ? color.hex : "transparent" }} />
+                ))}
+                <label className="w-6 h-6 rounded-md border border-dashed border-muted-foreground/40 cursor-pointer flex items-center justify-center hover:bg-muted transition-colors overflow-hidden">
+                  <input type="color" value={ctaBgColor || accentColor} onChange={e => onCtaBgColorChange?.(e.target.value)} className="opacity-0 absolute w-6 h-6 cursor-pointer" />
+                  <span className="text-muted-foreground text-xs">+</span>
+                </label>
+              </div>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground">Cor do texto</label>
+              <div className="flex gap-1 flex-wrap mt-1 items-center">
+                {palette.map((color, i) => (
+                  <button key={i} onClick={() => onCtaTextColorChange?.(color.hex)}
+                    className={`w-6 h-6 rounded-md border transition-all ${ctaTextColor === color.hex ? "ring-2 ring-primary ring-offset-1 scale-110" : "hover:scale-105"}`}
+                    style={{ backgroundColor: color.hex, borderColor: ctaTextColor === color.hex ? color.hex : "transparent" }} />
+                ))}
+                <label className="w-6 h-6 rounded-md border border-dashed border-muted-foreground/40 cursor-pointer flex items-center justify-center hover:bg-muted transition-colors overflow-hidden">
+                  <input type="color" value={ctaTextColor || "#ffffff"} onChange={e => onCtaTextColorChange?.(e.target.value)} className="opacity-0 absolute w-6 h-6 cursor-pointer" />
+                  <Type className="h-3 w-3 text-muted-foreground" />
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Opacity control for selected overlay */}
       {selectedOverlay && onImageOpacityChange && (
         <div>
-          <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">Transparência</h4>
+          <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">Elemento selecionado</h4>
           <div>
             <label className="text-xs text-muted-foreground">Opacidade: {Math.round((selectedOverlay.opacity ?? 1) * 100)}%</label>
             <Slider
@@ -452,22 +569,57 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
         </div>
       )}
 
+      {/* Portraits panel */}
+      {onAddImage && userPortraits && userPortraits.length > 0 && (
+        <Collapsible open={portraitsOpen} onOpenChange={setPortraitsOpen}>
+          <CollapsibleTrigger asChild>
+            <Button variant="outline" size="sm" className="gap-2 w-full">
+              <Camera className="h-4 w-4" /> Meus Retratos ({userPortraits.length})
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="grid grid-cols-3 gap-2 mt-3">
+              {userPortraits.map((url, i) => (
+                <button key={i} onClick={() => handleAddPortrait(url)}
+                  className="aspect-square rounded-lg border bg-muted/50 hover:bg-muted transition-colors overflow-hidden">
+                  <img src={url} alt={`Retrato ${i + 1}`} className="w-full h-full object-cover" />
+                </button>
+              ))}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+      )}
+
       {/* Graphic Elements (icons) */}
       {onAddImage && (
         <Collapsible open={elementsOpen} onOpenChange={setElementsOpen}>
           <CollapsibleTrigger asChild>
             <Button variant="outline" size="sm" className="gap-2 w-full">
-              <Shapes className="h-4 w-4" /> Ícones
+              <Shapes className="h-4 w-4" /> Ícones ({GRAPHIC_ELEMENTS.length})
             </Button>
           </CollapsibleTrigger>
           <CollapsibleContent>
-            <div className="grid grid-cols-4 gap-2 mt-3">
+            <div className="mt-2 mb-2">
+              <label className="text-xs text-muted-foreground">Cor dos elementos:</label>
+              <div className="flex gap-1 flex-wrap mt-1 items-center">
+                {palette.map((color, i) => (
+                  <button key={i} onClick={() => setElementColor(color.hex)}
+                    className={`w-5 h-5 rounded border transition-all ${elementColor === color.hex ? "ring-2 ring-primary ring-offset-1 scale-110" : "hover:scale-105"}`}
+                    style={{ backgroundColor: color.hex }} />
+                ))}
+                <label className="w-5 h-5 rounded border border-dashed border-muted-foreground/40 cursor-pointer flex items-center justify-center overflow-hidden">
+                  <input type="color" value={elementColor} onChange={e => setElementColor(e.target.value)} className="opacity-0 absolute w-5 h-5 cursor-pointer" />
+                  <span className="text-muted-foreground text-[8px]">+</span>
+                </label>
+              </div>
+            </div>
+            <div className="grid grid-cols-5 gap-1.5">
               {GRAPHIC_ELEMENTS.map((el) => (
                 <Tooltip key={el.name}>
                   <TooltipTrigger asChild>
                     <button onClick={() => handleAddElement(el)}
                       className="w-full aspect-square flex items-center justify-center rounded-lg border bg-muted/50 hover:bg-muted transition-colors">
-                      <el.icon className="h-5 w-5 text-foreground/70" />
+                      <el.icon className="h-4 w-4 text-foreground/70" />
                     </button>
                   </TooltipTrigger>
                   <TooltipContent>{el.name}</TooltipContent>
@@ -483,7 +635,7 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
         <Collapsible open={svgElementsOpen} onOpenChange={setSvgElementsOpen}>
           <CollapsibleTrigger asChild>
             <Button variant="outline" size="sm" className="gap-2 w-full">
-              <Minus className="h-4 w-4" /> Barras e molduras
+              <Minus className="h-4 w-4" /> Barras e molduras ({SVG_ELEMENTS.length})
             </Button>
           </CollapsibleTrigger>
           <CollapsibleContent>

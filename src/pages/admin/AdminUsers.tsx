@@ -252,15 +252,16 @@ const AdminUsers = () => {
           <CardContent className="p-0 overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow>
+             <TableRow>
                   <TableHead>Nome</TableHead>
                   <TableHead>E-mail</TableHead>
-                  <TableHead>Gênero</TableHead>
                   <TableHead>Profissão / Nicho</TableHead>
-                  <TableHead>WhatsApp</TableHead>
                   <TableHead>Plano</TableHead>
+                  <TableHead>Validade</TableHead>
+                  <TableHead>Ciclos</TableHead>
+                  <TableHead>Retratos</TableHead>
+                  <TableHead>Regen.</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Cadastro</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -268,13 +269,11 @@ const AdminUsers = () => {
                 {filtered.map(u => (
                   <TableRow key={u.id}>
                     <TableCell className="font-medium">{u.full_name || "—"}</TableCell>
-                    <TableCell className="text-sm">{emailMap[u.user_id] || "—"}</TableCell>
-                    <TableCell>{u.gender || "—"}</TableCell>
+                    <TableCell className="text-xs">{emailMap[u.user_id] || "—"}</TableCell>
                     <TableCell>
                       <div className="text-sm">{u.profession || "—"}</div>
                       <div className="text-xs text-muted-foreground">{u.niche || "—"}</div>
                     </TableCell>
-                    <TableCell className="text-sm">{u.whatsapp || "—"}</TableCell>
                     <TableCell>
                       {u.subscription ? (
                         <Badge variant="default">{getPlanName(u.subscription.plan_id)}</Badge>
@@ -282,13 +281,18 @@ const AdminUsers = () => {
                         <Badge variant="secondary">Nenhum</Badge>
                       )}
                     </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {u.subscription?.current_period_end
+                        ? new Date(u.subscription.current_period_end).toLocaleDateString("pt-BR")
+                        : "—"}
+                    </TableCell>
+                    <TableCell className="text-center">{u.balances?.weekly_cycles ?? 0}</TableCell>
+                    <TableCell className="text-center">{(u.balances?.portrait_credits_included ?? 0) + (u.balances?.portrait_credits_extra ?? 0)}</TableCell>
+                    <TableCell className="text-center">{u.balances?.regeneration_credits ?? 0}</TableCell>
                     <TableCell>
                       <Badge variant={u.is_blocked ? "destructive" : "default"}>
                         {u.is_blocked ? "Bloqueado" : "Ativo"}
                       </Badge>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {new Date(u.created_at).toLocaleDateString("pt-BR")}
                     </TableCell>
                     <TableCell className="text-right space-x-1">
                       <Button variant="ghost" size="icon" title="Ver Detalhes" onClick={() => setViewingUser(u)}>
@@ -314,7 +318,7 @@ const AdminUsers = () => {
                 ))}
                 {filtered.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Nenhum usuário encontrado</TableCell>
+                    <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">Nenhum usuário encontrado</TableCell>
                   </TableRow>
                 )}
               </TableBody>

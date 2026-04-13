@@ -11,21 +11,22 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { ChevronLeft, ChevronRight, Save, Lock, RefreshCw, Pencil, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Save, Lock, RefreshCw, Pencil, Trash2, HelpCircle } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 const fields = [
-  { key: "company_name", label: "Nome da empresa ou negócio", type: "input", placeholder: "Ex: Studio Bella" },
-  { key: "services", label: "Serviços ou produtos oferecidos", type: "textarea", placeholder: "Descreva seus principais serviços ou produtos" },
-  { key: "target_audience", label: "Público-alvo", type: "textarea", placeholder: "Quem são seus clientes ideais?" },
-  { key: "external_problems", label: "Problemas externos que resolve", type: "textarea", placeholder: "Que problemas práticos você resolve para o cliente?" },
-  { key: "internal_problems", label: "Problemas internos do cliente", type: "textarea", placeholder: "Como o cliente se sente antes de contratar você?" },
-  { key: "empathic_statements", label: "Declarações empáticas", type: "textarea", placeholder: "Frases que mostram que você entende o cliente" },
-  { key: "authority_proofs", label: "Provas de autoridade", type: "textarea", placeholder: "Certificações, cases, depoimentos, números" },
-  { key: "hiring_steps", label: "Etapas para contratar", type: "textarea", placeholder: "Quais os passos para o cliente contratar seu serviço?" },
-  { key: "client_fears", label: "Medos do cliente em relação ao setor", type: "textarea", placeholder: "O que impede o cliente de agir?" },
-  { key: "main_cta", label: "Principal chamada para ação", type: "input", placeholder: "Ex: Agende sua consultoria gratuita" },
-  { key: "negative_consequences", label: "Consequências negativas evitadas", type: "textarea", placeholder: "O que acontece se o cliente NÃO agir?" },
-  { key: "promised_transformations", label: "Conquistas ou transformações prometidas", type: "textarea", placeholder: "Como a vida do cliente muda após seu serviço?" },
+  { key: "company_name", label: "Nome da empresa ou negócio", type: "input", placeholder: "Ex: Studio Bella", help: "Pode ser o nome fantasia, nome pessoal ou como você é conhecida(o) no mercado." },
+  { key: "services", label: "Serviços ou produtos oferecidos", type: "textarea", placeholder: "Descreva seus principais serviços ou produtos", help: "Liste os principais serviços/produtos que você oferece. Exemplo: consultoria de imagem, design de interiores, aulas de yoga." },
+  { key: "target_audience", label: "Público-alvo", type: "textarea", placeholder: "Quem são seus clientes ideais?", help: "Descreva quem é seu cliente ideal: idade, gênero, profissão, nível de renda, interesses e dores. Quanto mais específico, melhor a estratégia." },
+  { key: "external_problems", label: "Problemas externos que resolve", type: "textarea", placeholder: "Que problemas práticos você resolve para o cliente?", help: "Problemas externos são dificuldades práticas e visíveis. Exemplo: 'Não consegue se vestir bem para reuniões', 'Não sabe montar treinos sozinho'." },
+  { key: "internal_problems", label: "Problemas internos do cliente", type: "textarea", placeholder: "Como o cliente se sente antes de contratar você?", help: "São os sentimentos e frustrações do cliente. Exemplo: 'Se sente insegura com a própria imagem', 'Tem medo de parecer amador'." },
+  { key: "empathic_statements", label: "Declarações empáticas", type: "textarea", placeholder: "Frases que mostram que você entende o cliente", help: "Frases que demonstram empatia. Exemplo: 'Eu sei como é difícil se posicionar quando ninguém parece notar seu trabalho'. Isso cria conexão." },
+  { key: "authority_proofs", label: "Provas de autoridade", type: "textarea", placeholder: "Certificações, cases, depoimentos, números", help: "O que prova que você é qualificada(o)? Certificações, anos de experiência, número de clientes atendidos, depoimentos ou resultados concretos." },
+  { key: "hiring_steps", label: "Etapas para contratar", type: "textarea", placeholder: "Quais os passos para o cliente contratar seu serviço?", help: "Descreva o passo a passo simples para contratar você. Exemplo: '1) Agende uma conversa, 2) Receba o diagnóstico, 3) Comece o acompanhamento'." },
+  { key: "client_fears", label: "Medos do cliente em relação ao setor", type: "textarea", placeholder: "O que impede o cliente de agir?", help: "Quais medos impedem o cliente de comprar? Exemplo: 'Medo de gastar dinheiro e não ter resultado', 'Medo de ser julgado'." },
+  { key: "main_cta", label: "Principal chamada para ação", type: "input", placeholder: "Ex: Agende sua consultoria gratuita", help: "A ação principal que você quer que o cliente tome. Deve ser clara e direta. Exemplo: 'Agende agora', 'Comece seu diagnóstico', 'Fale comigo no WhatsApp'." },
+  { key: "negative_consequences", label: "Consequências negativas evitadas", type: "textarea", placeholder: "O que acontece se o cliente NÃO agir?", help: "O que acontece se o cliente não agir? Exemplo: 'Continua invisível no mercado', 'Perde oportunidades para a concorrência'. Ajuda a criar urgência." },
+  { key: "promised_transformations", label: "Conquistas ou transformações prometidas", type: "textarea", placeholder: "Como a vida do cliente muda após seu serviço?", help: "Descreva a transformação que você entrega. Exemplo: 'Se torna referência no nicho', 'Dobra o faturamento em 6 meses', 'Sente confiança ao se apresentar'." },
 ];
 
 type QStatus = "draft" | "submitted" | "locked";
@@ -181,7 +182,21 @@ const BusinessQuestionnaire = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg font-display">{field.label}</CardTitle>
+            <CardTitle className="text-lg font-display flex items-center gap-2">
+              {field.label}
+              {field.help && (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button type="button" className="text-muted-foreground hover:text-foreground transition-colors">
+                      <HelpCircle className="h-4 w-4" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="text-sm max-w-xs" side="top">
+                    {field.help}
+                  </PopoverContent>
+                </Popover>
+              )}
+            </CardTitle>
             <CardDescription>Etapa {step + 1}/{fields.length}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
