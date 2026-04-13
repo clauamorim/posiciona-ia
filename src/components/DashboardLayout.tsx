@@ -3,8 +3,9 @@ import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard, Building2, Brain, BarChart3,
-  FileText, History, LogOut, Shield, Menu, X, Target, Calendar, Instagram, Camera, HelpCircle, CreditCard, Sparkles
+  FileText, History, LogOut, Shield, Menu, X, Target, Calendar, Instagram, Camera, HelpCircle, CreditCard
 } from "lucide-react";
+import posicionaLogo from "@/assets/posiciona-logo.png";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
@@ -78,7 +79,7 @@ export const DashboardLayout = ({ children }: { children: React.ReactNode }) => 
       )}>
         {/* Logo */}
         <div className="flex items-center gap-2.5 px-5 py-4 border-b border-sidebar-border">
-          <Sparkles className="h-5 w-5 text-sidebar-primary" />
+          <img src={posicionaLogo} alt="Posiciona" className="h-5 w-5" />
           <span className="text-lg font-semibold text-sidebar-foreground tracking-tight">Posiciona</span>
         </div>
 
@@ -139,7 +140,7 @@ export const DashboardLayout = ({ children }: { children: React.ReactNode }) => 
             <Menu className="h-5 w-5 text-muted-foreground" />
           </button>
           <div className="flex items-center gap-1.5 ml-3">
-            <Sparkles className="h-4 w-4 text-primary" />
+            <img src={posicionaLogo} alt="Posiciona" className="h-4 w-4" />
             <span className="text-sm font-semibold text-foreground tracking-tight">Posiciona</span>
           </div>
         </header>

@@ -11,10 +11,11 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import {
-  Sparkles, Target, Brain, BarChart3, Calendar, FileText, Camera,
+  Target, Brain, BarChart3, Calendar, FileText, Camera,
   Check, ArrowRight, Loader2, Menu, X, Search, Palette, MessageSquare,
   Image, TrendingUp, Zap
 } from "lucide-react";
+import posicionaLogo from "@/assets/posiciona-logo.png";
 import { useState } from "react";
 
 /* ── Plan data ── */
@@ -112,7 +113,7 @@ const LandingPage = () => {
       <header className="sticky top-0 z-50 border-b border-landing-border/60 bg-landing-bg/90 backdrop-blur-md">
         <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-landing-purple" />
+            <img src={posicionaLogo} alt="Posiciona" className="h-5 w-5" />
             <span className="text-lg font-semibold tracking-tight">Posiciona</span>
           </div>
 
@@ -166,7 +167,7 @@ const LandingPage = () => {
       <section className="pt-16 pb-20 md:pt-24 md:pb-28 px-4">
         <div className="max-w-3xl mx-auto text-center space-y-6">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-landing-border bg-landing-bg-secondary/50 text-xs text-landing-text-secondary">
-            <Sparkles className="h-3 w-3 text-landing-gold" />
+            <img src={posicionaLogo} alt="Posiciona" className="h-3 w-3" />
             Posicionamento estratégico com IA para profissionais que vendem expertise
           </div>
 

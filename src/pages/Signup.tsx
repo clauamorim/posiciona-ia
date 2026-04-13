@@ -7,7 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
-import { Sparkles, ArrowLeft } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
+import posicionaLogo from "@/assets/posiciona-logo.png";
 
 const GOALS = [
   "Atrair novos clientes/pacientes",
@@ -64,7 +65,7 @@ const Signup = () => {
       <Card className="w-full max-w-md border-border/50 shadow-xl">
         <CardHeader className="text-center space-y-2">
           <div className="flex items-center justify-center gap-2 mb-2">
-            <Sparkles className="h-8 w-8 text-primary" />
+            <img src={posicionaLogo} alt="Posiciona" className="h-8 w-8" />
             <h1 className="text-3xl font-bold font-display text-primary">Posiciona</h1>
           </div>
           <CardTitle className="text-xl font-display">Criar sua conta</CardTitle>
