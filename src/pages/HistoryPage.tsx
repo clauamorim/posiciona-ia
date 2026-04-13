@@ -149,8 +149,10 @@ const HistoryPage = () => {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {reports.map(r => (
-                    <Card key={r.id} className="cursor-pointer hover:border-primary/40 transition-colors" onClick={() => navigate("/report")}>
+                  {reports.map(r => {
+                    const isCompleted = r.status === "completed";
+                    return (
+                    <Card key={r.id} className={`${isCompleted ? "cursor-pointer hover:border-primary/40" : ""} transition-colors`} onClick={() => isCompleted && setSelectedReport(r)}>
                       <CardContent className="flex items-center justify-between py-4">
                         <div>
                           <p className="font-medium font-display">Versão {r.version}</p>
@@ -164,7 +166,8 @@ const HistoryPage = () => {
                         </div>
                       </CardContent>
                     </Card>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </TabsContent>
