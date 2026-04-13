@@ -79,7 +79,7 @@ export const DashboardLayout = ({ children }: { children: React.ReactNode }) => 
       )}>
         {/* Logo */}
         <div className="flex items-center gap-2.5 px-5 py-4 border-b border-sidebar-border">
-          <img src={posicionaLogo} alt="Posiciona" className="h-5 w-5" />
+          <img src={posicionaLogo} alt="Posiciona" className="h-8 w-8" />
           <span className="text-lg font-semibold text-sidebar-foreground tracking-tight">Posiciona</span>
         </div>
 
@@ -140,7 +140,7 @@ export const DashboardLayout = ({ children }: { children: React.ReactNode }) => 
             <Menu className="h-5 w-5 text-muted-foreground" />
           </button>
           <div className="flex items-center gap-1.5 ml-3">
-            <img src={posicionaLogo} alt="Posiciona" className="h-4 w-4" />
+            <img src={posicionaLogo} alt="Posiciona" className="h-6 w-6" />
             <span className="text-sm font-semibold text-foreground tracking-tight">Posiciona</span>
           </div>
         </header>
