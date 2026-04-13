@@ -431,6 +431,16 @@ const Report = () => {
                   </CardContent>
                 </Card>
               )}
+              {content.figurino.sapatos?.length > 0 && (
+                <Card>
+                  <CardContent className="pt-5 pb-4">
+                    <div className="flex items-center gap-2 mb-3 text-primary">
+                      <Compass className="h-4 w-4" />
+                      <h3 className="font-bold font-display text-sm">Sapatos</h3>
+                    </div>
+                    <ul className="space-y-1.5">{content.figurino.sapatos.map((s: string, i: number) => <li key={i} className="text-sm text-foreground/80">• {s}</li>)}</ul>
+                  </CardContent>
+                </Card>
               {content.figurino.acessorios?.length > 0 && (
                 <Card>
                   <CardContent className="pt-5 pb-4">
