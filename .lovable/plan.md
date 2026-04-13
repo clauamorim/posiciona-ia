@@ -1,30 +1,17 @@
 
 
-## Plano: Substituir ícone Sparkles pelo logo Posiciona + favicon
+## Plano: Aumentar tamanho do símbolo Posiciona
 
-### O que será feito
+Aumentar o tamanho do logo em todos os locais onde aparece:
 
-1. **Copiar a imagem** para `src/assets/posiciona-logo.png` (para uso em componentes React) e `public/favicon.png` (para favicon)
+| Arquivo | Local | Atual | Novo |
+|---------|-------|-------|------|
+| `DashboardLayout.tsx` | Sidebar | `h-5 w-5` | `h-8 w-8` |
+| `DashboardLayout.tsx` | Mobile header | `h-4 w-4` | `h-6 w-6` |
+| `LandingPage.tsx` | Header | `h-5 w-5` | `h-8 w-8` |
+| `LandingPage.tsx` | Hero badge | `h-3 w-3` | `h-5 w-5` |
+| `Login.tsx` | Card header | `h-8 w-8` | `h-12 w-12` |
+| `Signup.tsx` | Card header | `h-8 w-8` | `h-12 w-12` |
 
-2. **Substituir o ícone Sparkles** pelo logo em todos os locais onde aparece ao lado de "Posiciona":
-
-| Arquivo | Local |
-|---------|-------|
-| `src/components/DashboardLayout.tsx` | Sidebar (linha 81) e header mobile (linha 142) |
-| `src/pages/LandingPage.tsx` | Header (linha 115) e selo do hero (linha 169) |
-| `src/pages/Login.tsx` | Cabeçalho do card (linha 52) |
-| `src/pages/Signup.tsx` | Cabeçalho do card (linha 67) |
-
-Em cada local: substituir `<Sparkles className="..." />` por `<img src={posicionaLogo} alt="Posiciona" className="h-5 w-5" />` (ajustando tamanho conforme contexto).
-
-3. **Atualizar favicon** em `index.html`: adicionar `<link rel="icon" href="/favicon.png" type="image/png">` e remover `public/favicon.ico` se existir.
-
-### Arquivos editados
-- `src/assets/posiciona-logo.png` (novo — cópia do upload)
-- `public/favicon.png` (novo — cópia do upload)
-- `src/components/DashboardLayout.tsx`
-- `src/pages/LandingPage.tsx`
-- `src/pages/Login.tsx`
-- `src/pages/Signup.tsx`
-- `index.html`
+Também atualizar `public/favicon.png` — o favicon do navegador tem tamanho fixo, mas posso recortar/redimensionar para preencher melhor o espaço de 32×32px.
 
