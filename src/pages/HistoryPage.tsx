@@ -27,6 +27,7 @@ const HistoryPage = () => {
   const [analyses, setAnalyses] = useState<any[]>([]);
   const [portraits, setPortraits] = useState<any[]>([]);
   const [selectedAnalysis, setSelectedAnalysis] = useState<any | null>(null);
+  const [selectedReport, setSelectedReport] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [progress, setProgress] = useState(0);
 
