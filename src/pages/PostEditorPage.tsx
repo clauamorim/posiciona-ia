@@ -336,6 +336,14 @@ const PostEditorPage = () => {
             useGradient={useGradient} onUseGradientChange={setUseGradient}
             gradientColor2Index={gradientColor2Index} onGradientColor2Change={setGradientColor2Index}
             gradientDirection={gradientDirection} onGradientDirectionChange={setGradientDirection}
+            titleFontSize={titleFontSize} onTitleFontSizeChange={setTitleFontSize}
+            titleColor={titleColor} onTitleColorChange={setTitleColor}
+            titleFontFamily={titleFontFamily} onTitleFontFamilyChange={setTitleFontFamily}
+            ctaText={ctaText} onCtaTextChange={setCtaText}
+            ctaBgColor={ctaBgColor} onCtaBgColorChange={setCtaBgColor}
+            ctaTextColor={ctaTextColor} onCtaTextColorChange={setCtaTextColor}
+            ctaFontSize={ctaFontSize} onCtaFontSizeChange={setCtaFontSize}
+            userPortraits={userPortraits}
           />
         </div>
 
