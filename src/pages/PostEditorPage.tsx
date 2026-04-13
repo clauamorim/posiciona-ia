@@ -51,18 +51,24 @@ const PostEditorPage = () => {
   const [fontSize, setFontSize] = useState(28);
   const [fontWeight, setFontWeight] = useState("normal");
   const [fontStyle, setFontStyle] = useState("normal");
-  // Gradient state
   const [useGradient, setUseGradient] = useState(false);
   const [gradientColor2Index, setGradientColor2Index] = useState(1);
   const [gradientDirection, setGradientDirection] = useState("to right");
-  // Text alignment
   const [textAlign, setTextAlign] = useState<"left" | "center" | "right" | "justify">("center");
-  // Custom text color
   const [customTextColor, setCustomTextColor] = useState<string | null>(null);
-  // Custom bg color
   const [customBgColor, setCustomBgColor] = useState<string | null>(null);
-  // Copy caption
   const [copied, setCopied] = useState(false);
+  // Title controls
+  const [titleFontSize, setTitleFontSize] = useState(44);
+  const [titleColor, setTitleColor] = useState<string | null>(null);
+  const [titleFontFamily, setTitleFontFamily] = useState<string | null>(null);
+  // CTA controls
+  const [ctaText, setCtaText] = useState("");
+  const [ctaBgColor, setCtaBgColor] = useState<string | null>(null);
+  const [ctaTextColor, setCtaTextColor] = useState<string | null>(null);
+  const [ctaFontSize, setCtaFontSize] = useState(28);
+  // User portraits
+  const [userPortraits, setUserPortraits] = useState<string[]>([]);
 
   const singleCanvasRef = useRef<HTMLDivElement>(null);
   const slideRefs = useRef<(HTMLDivElement | null)[]>([]);
