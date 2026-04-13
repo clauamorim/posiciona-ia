@@ -274,6 +274,68 @@ const HistoryPage = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Dialog: Ver Relatório */}
+      <Dialog open={!!selectedReport} onOpenChange={(open) => !open && setSelectedReport(null)}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Relatório — Versão {selectedReport?.version}
+            </DialogTitle>
+            <p className="text-sm text-muted-foreground">{selectedReport && formatDate(selectedReport.created_at)}</p>
+          </DialogHeader>
+          {selectedReport?.content && (() => {
+            const c = typeof selectedReport.content === "string" ? JSON.parse(selectedReport.content) : selectedReport.content;
+            return (
+              <div className="space-y-4 mt-2 text-sm">
+                {/* Archetypes */}
+                {c.archetypes && (
+                  <div>
+                    <h3 className="font-semibold mb-2">Arquétipos</h3>
+                    {["primary", "secondary", "tertiary"].map(rank => {
+                      const a = c.archetypes[rank];
+                      if (!a) return null;
+                      return (
+                        <div key={rank} className="mb-2 p-2 bg-muted/30 rounded-lg">
+                          <p className="font-medium">{rank === "primary" ? "Primário" : rank === "secondary" ? "Secundário" : "Terciário"}: {a.name}</p>
+                          <p className="text-muted-foreground text-xs">{a.description}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {/* Tone */}
+                {c.tone_of_voice?.summary && (
+                  <div>
+                    <h3 className="font-semibold mb-1">Tom de Voz</h3>
+                    <p className="text-muted-foreground">{c.tone_of_voice.summary}</p>
+                  </div>
+                )}
+                {/* StoryBrand */}
+                {c.storybrand && (
+                  <div>
+                    <h3 className="font-semibold mb-1">StoryBrand</h3>
+                    <div className="grid grid-cols-2 gap-2">
+                      {Object.entries(c.storybrand).map(([k, v]) => (
+                        <div key={k} className="p-2 bg-muted/30 rounded text-xs">
+                          <p className="font-medium capitalize">{k.replace(/_/g, " ")}</p>
+                          <p className="text-muted-foreground">{Array.isArray(v) ? (v as string[]).join(", ") : String(v)}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div className="flex justify-end">
+                  <Button variant="outline" size="sm" onClick={() => { setSelectedReport(null); navigate("/report"); }}>
+                    Ver relatório completo
+                  </Button>
+                </div>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 };
