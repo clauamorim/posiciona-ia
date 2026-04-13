@@ -257,26 +257,49 @@ const PortraitGenerator = () => {
                 <DialogTitle>Pacotes de Retrato</DialogTitle>
               </DialogHeader>
               <div className="space-y-3">
-                {(packs || []).map((pack: any) => (
-                  <Card key={pack.id} className="border-border/50">
-                    <CardContent className="flex items-center justify-between py-4">
-                      <div>
-                        <p className="font-semibold">{pack.name}</p>
-                        <p className="text-sm text-muted-foreground">{pack.credits} retratos</p>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className="font-bold">R$ {(pack.price_cents / 100).toFixed(0)}</span>
-                        <Button
-                          size="sm"
-                          onClick={() => handleBuyPack(pack.id)}
-                          disabled={loadingPack === pack.id}
-                        >
-                          {loadingPack === pack.id ? <Loader2 className="h-4 w-4 animate-spin" /> : "Comprar"}
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                {(packs || []).map((pack: any) => {
+                  const planSlug = subscription?.plan_slug || "semana_conteudo";
+                  const hasDiscount = planSlug !== "semana_conteudo";
+                  let priceCents = pack.price_cents;
+                  if (pack.stripe_price_ids && typeof pack.stripe_price_ids === "object") {
+                    if (pack.credits === 5) {
+                      if (planSlug === "presenca_mensal") priceCents = 6400;
+                      else if (planSlug === "autoridade_total") priceCents = 5900;
+                    } else if (pack.credits === 10) {
+                      if (planSlug === "presenca_mensal") priceCents = 10900;
+                      else if (planSlug === "autoridade_total") priceCents = 9900;
+                    } else if (pack.credits === 15) {
+                      if (planSlug === "presenca_mensal") priceCents = 15400;
+                      else if (planSlug === "autoridade_total") priceCents = 13900;
+                    }
+                  }
+                  const showDiscount = hasDiscount && priceCents < pack.price_cents;
+                  return (
+                    <Card key={pack.id} className="border-border/50">
+                      <CardContent className="flex items-center justify-between py-4">
+                        <div>
+                          <p className="font-semibold">{pack.name}</p>
+                          <p className="text-sm text-muted-foreground">{pack.credits} retratos</p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div className="text-right">
+                            <span className="font-bold">R$ {(priceCents / 100).toFixed(0)}</span>
+                            {showDiscount && (
+                              <span className="text-xs text-muted-foreground line-through ml-1.5">R$ {(pack.price_cents / 100).toFixed(0)}</span>
+                            )}
+                          </div>
+                          <Button
+                            size="sm"
+                            onClick={() => handleBuyPack(pack.id)}
+                            disabled={loadingPack === pack.id}
+                          >
+                            {loadingPack === pack.id ? <Loader2 className="h-4 w-4 animate-spin" /> : "Comprar"}
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
             </DialogContent>
           </Dialog>
