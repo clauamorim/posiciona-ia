@@ -245,7 +245,7 @@ const Dashboard = () => {
                     { icon: Calendar, value: balances.weekly_cycles, label: "Ciclos de conteúdo", desc: "semanas de conteúdo restantes" },
                     { icon: RefreshCw, value: balances.reanalysis_credits, label: "Reanálises de perfil", desc: "atualizações de diagnóstico" },
                     { icon: Camera, value: balances.portrait_credits_included + balances.portrait_credits_extra, label: "Retratos disponíveis", desc: `${balances.portrait_credits_included} inclusos + ${balances.portrait_credits_extra} extras` },
-                    { icon: Repeat, value: balances.regeneration_credits, label: "Regenerações", desc: "de retrato restantes" },
+                    { icon: Repeat, value: balances.regeneration_credits, label: "Regenerações", desc: "de posts restantes" },
                   ].map((item, i) => (
                     <div key={i} className="p-2.5 rounded-lg bg-muted/40 space-y-0.5">
                       <p className="text-xl font-semibold">{item.value}</p>

@@ -57,7 +57,7 @@ const Signup = () => {
       <Button
         variant="ghost"
         size="sm"
-        className="absolute top-4 left-4 gap-2 text-muted-foreground"
+        className="absolute top-4 left-4 gap-2 text-muted-foreground hidden sm:flex z-10"
         onClick={() => navigate("/")}
       >
         <ArrowLeft className="h-4 w-4" /> Página inicial
