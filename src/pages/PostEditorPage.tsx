@@ -67,9 +67,9 @@ const PostEditorPage = () => {
   const [ctaBgColor, setCtaBgColor] = useState<string | null>(null);
   const [ctaTextColor, setCtaTextColor] = useState<string | null>(null);
   const [ctaFontSize, setCtaFontSize] = useState(28);
+  const [ctaPosition, setCtaPosition] = useState<{ x: number; y: number } | null>(null);
   // User portraits
   const [userPortraits, setUserPortraits] = useState<string[]>([]);
-
   const singleCanvasRef = useRef<HTMLDivElement>(null);
   const slideRefs = useRef<(HTMLDivElement | null)[]>([]);
 

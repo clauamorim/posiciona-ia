@@ -1,4 +1,4 @@
-import React, { useCallback } from "react";
+import React from "react";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, ArrowRight, Download, Package } from "lucide-react";
 import PostCanvas from "./PostCanvas";
@@ -30,34 +30,26 @@ interface CarouselEditorProps {
   fontStyle?: string;
   textAlign?: "left" | "center" | "right" | "justify";
   bgGradient?: string | null;
+  // Title styling
+  titleFontSize?: number;
+  titleColor?: string | null;
+  titleFontFamily?: string | null;
+  // CTA styling
+  ctaText?: string;
+  ctaBgColor?: string | null;
+  ctaTextColor?: string | null;
+  ctaFontSize?: number;
+  ctaPosition?: { x: number; y: number } | null;
+  onCtaMove?: (x: number, y: number) => void;
 }
 
 const CarouselEditor: React.FC<CarouselEditorProps> = ({
-  slides,
-  theme,
-  cta,
-  bgColor,
-  textColor,
-  accentColor,
-  displayFont,
-  bodyFont,
-  layout,
-  currentSlide,
-  onSlideChange,
-  onSlideTextChange,
-  onDownloadSlide,
-  onDownloadAll,
-  slideRefs,
-  overlayImages = [],
-  onImageMove,
-  onImageResize,
-  selectedImageId,
-  onSelectImage,
-  fontSize,
-  fontWeight,
-  fontStyle,
-  textAlign,
-  bgGradient,
+  slides, theme, cta, bgColor, textColor, accentColor, displayFont, bodyFont, layout,
+  currentSlide, onSlideChange, onSlideTextChange, onDownloadSlide, onDownloadAll, slideRefs,
+  overlayImages = [], onImageMove, onImageResize, selectedImageId, onSelectImage,
+  fontSize, fontWeight, fontStyle, textAlign, bgGradient,
+  titleFontSize, titleColor, titleFontFamily,
+  ctaText, ctaBgColor, ctaTextColor, ctaFontSize, ctaPosition, onCtaMove,
 }) => {
   const total = slides.length;
   const isCover = currentSlide === 0;
@@ -73,68 +65,39 @@ const CarouselEditor: React.FC<CarouselEditorProps> = ({
         cta={isLast ? cta : undefined}
         isCoverSlide={isCover}
         isLastSlide={isLast}
-        bgColor={bgColor}
-        textColor={textColor}
-        accentColor={accentColor}
-        displayFont={displayFont}
-        bodyFont={bodyFont}
-        layout={layout}
+        bgColor={bgColor} textColor={textColor} accentColor={accentColor}
+        displayFont={displayFont} bodyFont={bodyFont} layout={layout}
         onTextChange={(t) => onSlideTextChange(currentSlide, t)}
         canvasRef={(el: HTMLDivElement | null) => { slideRefs.current[currentSlide] = el; }}
-        overlayImages={overlayImages}
-        onImageMove={onImageMove}
-        onImageResize={onImageResize}
-        selectedImageId={selectedImageId}
-        onSelectImage={onSelectImage}
-        fontSize={fontSize}
-        fontWeight={fontWeight}
-        fontStyle={fontStyle}
-        textAlign={textAlign}
-        bgGradient={bgGradient}
+        overlayImages={overlayImages} onImageMove={onImageMove} onImageResize={onImageResize}
+        selectedImageId={selectedImageId} onSelectImage={onSelectImage}
+        fontSize={fontSize} fontWeight={fontWeight} fontStyle={fontStyle}
+        textAlign={textAlign} bgGradient={bgGradient}
+        titleFontSize={titleFontSize} titleColor={titleColor} titleFontFamily={titleFontFamily}
+        ctaText={ctaText} ctaBgColor={ctaBgColor} ctaTextColor={ctaTextColor}
+        ctaFontSize={ctaFontSize} ctaPosition={ctaPosition} onCtaMove={onCtaMove}
       />
 
-      {/* Navigation */}
       <div className="flex items-center gap-4">
-        <Button
-          variant="outline"
-          size="icon"
-          disabled={currentSlide === 0}
-          onClick={() => onSlideChange(currentSlide - 1)}
-        >
+        <Button variant="outline" size="icon" disabled={currentSlide === 0} onClick={() => onSlideChange(currentSlide - 1)}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <span className="text-sm font-medium text-muted-foreground">
-          {currentSlide + 1} / {total}
-        </span>
-        <Button
-          variant="outline"
-          size="icon"
-          disabled={currentSlide === total - 1}
-          onClick={() => onSlideChange(currentSlide + 1)}
-        >
+        <span className="text-sm font-medium text-muted-foreground">{currentSlide + 1} / {total}</span>
+        <Button variant="outline" size="icon" disabled={currentSlide === total - 1} onClick={() => onSlideChange(currentSlide + 1)}>
           <ArrowRight className="h-4 w-4" />
         </Button>
       </div>
 
-      {/* Slide thumbnails */}
       <div className="flex gap-2 flex-wrap justify-center">
         {slides.map((_, i) => (
-          <button
-            key={i}
-            onClick={() => onSlideChange(i)}
-            className={`w-8 h-8 rounded-md text-xs font-bold transition-all ${
-              i === currentSlide
-                ? "ring-2 ring-primary scale-110"
-                : "opacity-60 hover:opacity-100"
-            }`}
-            style={{ backgroundColor: bgColor, color: textColor, border: `2px solid ${accentColor}` }}
-          >
+          <button key={i} onClick={() => onSlideChange(i)}
+            className={`w-8 h-8 rounded-md text-xs font-bold transition-all ${i === currentSlide ? "ring-2 ring-primary scale-110" : "opacity-60 hover:opacity-100"}`}
+            style={{ backgroundColor: bgColor, color: textColor, border: `2px solid ${accentColor}` }}>
             {i + 1}
           </button>
         ))}
       </div>
 
-      {/* Download buttons */}
       <div className="flex gap-2">
         <Button variant="outline" size="sm" className="gap-2" onClick={() => onDownloadSlide(currentSlide)}>
           <Download className="h-3 w-3" /> Baixar slide {currentSlide + 1}
