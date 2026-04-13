@@ -67,9 +67,9 @@ const PostEditorPage = () => {
   const [ctaBgColor, setCtaBgColor] = useState<string | null>(null);
   const [ctaTextColor, setCtaTextColor] = useState<string | null>(null);
   const [ctaFontSize, setCtaFontSize] = useState(28);
+  const [ctaPosition, setCtaPosition] = useState<{ x: number; y: number } | null>(null);
   // User portraits
   const [userPortraits, setUserPortraits] = useState<string[]>([]);
-
   const singleCanvasRef = useRef<HTMLDivElement>(null);
   const slideRefs = useRef<(HTMLDivElement | null)[]>([]);
 
@@ -77,6 +77,18 @@ const PostEditorPage = () => {
     if (!user) return;
     supabase.from("reports").select("*").eq("user_id", user.id).order("version", { ascending: false }).limit(1).single()
       .then(({ data }) => { setReport(data); setLoading(false); });
+    // Fetch user portraits
+    supabase.from("portrait_generations").select("portraits").eq("user_id", user.id).order("created_at", { ascending: false })
+      .then(({ data }) => {
+        if (data) {
+          const urls: string[] = [];
+          data.forEach((row: any) => {
+            const p = row.portraits;
+            if (Array.isArray(p)) p.forEach((u: any) => { if (typeof u === "string") urls.push(u); });
+          });
+          setUserPortraits(urls);
+        }
+      });
   }, [user]);
 
   const { contentObject, hasEditorial } = parseReportContent(report?.content);
@@ -107,6 +119,7 @@ const PostEditorPage = () => {
     const copies = day.card_copy || [day.caption || ""];
     setEditedTexts(copies);
     setEditedTitle(day.theme || "");
+    setCtaText(day.cta || "");
   }, [day]);
 
   // Keyboard: Delete selected overlay
@@ -187,6 +200,8 @@ const PostEditorPage = () => {
     } catch { toast({ title: "Erro ao exportar ZIP", variant: "destructive" }); }
   }, [editedTexts, day, dayIndex]);
 
+  const handleCtaMove = (x: number, y: number) => setCtaPosition({ x, y });
+
   const handleReset = () => {
     if (!day) return;
     setEditedTexts(day.card_copy || [day.caption || ""]);
@@ -200,6 +215,14 @@ const PostEditorPage = () => {
     setTextAlign("center");
     setCustomTextColor(null);
     setCustomBgColor(null);
+    setTitleFontSize(44);
+    setTitleColor(null);
+    setTitleFontFamily(null);
+    setCtaText(day.cta || "");
+    setCtaBgColor(null);
+    setCtaTextColor(null);
+    setCtaFontSize(28);
+    setCtaPosition(null);
     if (typography.display) setDisplayFont(typography.display);
     if (typography.body) setBodyFont(typography.body);
   };
@@ -258,7 +281,7 @@ const PostEditorPage = () => {
           <div className="flex items-center justify-center min-h-[400px] bg-muted/30 rounded-2xl p-4 overflow-hidden">
             {isCarousel ? (
               <CarouselEditor
-                slides={editedTexts} theme={editedTitle} cta={day.cta || ""}
+                slides={editedTexts} theme={editedTitle} cta={ctaText || day.cta || ""}
                 bgColor={bgColor} textColor={textColor} accentColor={accentColor}
                 displayFont={displayFont} bodyFont={bodyFont} layout={layout}
                 currentSlide={currentSlide} onSlideChange={setCurrentSlide}
@@ -268,8 +291,10 @@ const PostEditorPage = () => {
                 overlayImages={overlayImages} onImageMove={handleImageMove} onImageResize={handleImageResize}
                 selectedImageId={selectedImageId} onSelectImage={setSelectedImageId}
                 fontSize={fontSize} fontWeight={fontWeight} fontStyle={fontStyle}
-                textAlign={textAlign}
-                bgGradient={bgGradient}
+                textAlign={textAlign} bgGradient={bgGradient}
+                titleFontSize={titleFontSize} titleColor={titleColor} titleFontFamily={titleFontFamily}
+                ctaText={ctaText} ctaBgColor={ctaBgColor} ctaTextColor={ctaTextColor}
+                ctaFontSize={ctaFontSize} ctaPosition={ctaPosition} onCtaMove={handleCtaMove}
               />
             ) : (
               <PostCanvas
@@ -283,6 +308,9 @@ const PostEditorPage = () => {
                 overlayImages={overlayImages} onImageMove={handleImageMove} onImageResize={handleImageResize}
                 selectedImageId={selectedImageId} onSelectImage={setSelectedImageId}
                 bgGradient={bgGradient}
+                titleFontSize={titleFontSize} titleColor={titleColor} titleFontFamily={titleFontFamily}
+                ctaText={ctaText} ctaBgColor={ctaBgColor} ctaTextColor={ctaTextColor}
+                ctaFontSize={ctaFontSize} ctaPosition={ctaPosition} onCtaMove={handleCtaMove}
               />
             )}
           </div>
@@ -308,6 +336,14 @@ const PostEditorPage = () => {
             useGradient={useGradient} onUseGradientChange={setUseGradient}
             gradientColor2Index={gradientColor2Index} onGradientColor2Change={setGradientColor2Index}
             gradientDirection={gradientDirection} onGradientDirectionChange={setGradientDirection}
+            titleFontSize={titleFontSize} onTitleFontSizeChange={setTitleFontSize}
+            titleColor={titleColor} onTitleColorChange={setTitleColor}
+            titleFontFamily={titleFontFamily} onTitleFontFamilyChange={setTitleFontFamily}
+            ctaText={ctaText} onCtaTextChange={setCtaText}
+            ctaBgColor={ctaBgColor} onCtaBgColorChange={setCtaBgColor}
+            ctaTextColor={ctaTextColor} onCtaTextColorChange={setCtaTextColor}
+            ctaFontSize={ctaFontSize} onCtaFontSizeChange={setCtaFontSize}
+            userPortraits={userPortraits}
           />
         </div>
 
