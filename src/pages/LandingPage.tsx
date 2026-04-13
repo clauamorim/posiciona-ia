@@ -406,6 +406,10 @@ const LandingPage = () => {
                   ))}
                 </ul>
 
+                {p.footer && (
+                  <p className="text-[10px] text-landing-text-secondary/60 mt-2 text-center italic">{p.footer}</p>
+                )}
+
                 <Button
                   className={`w-full ${
                     p.highlight
