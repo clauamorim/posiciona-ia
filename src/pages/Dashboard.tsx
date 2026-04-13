@@ -104,7 +104,7 @@ const Dashboard = () => {
         {/* Hero interno */}
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">
-            Olá, {profile?.full_name || "Usuário"} 👋
+            Olá, {profile?.full_name || "Usuário"}
           </h1>
           <p className="text-muted-foreground text-sm mt-1 leading-relaxed max-w-lg">
             {getSubtitle()}
