@@ -67,6 +67,7 @@ O JSON deve seguir EXATAMENTE esta estrutura:
     "resumo": "Resumo geral do figurino estratégico ideal para a marca pessoal",
     "cores_roupa": ["cor 1", "cor 2", "cor 3"],
     "pecas_chave": ["peça 1", "peça 2", "peça 3", "peça 4", "peça 5"],
+    "sapatos": ["sapato 1", "sapato 2", "sapato 3"],
     "acessorios": ["acessório 1", "acessório 2", "acessório 3"],
     "cabelo": "Orientação detalhada de estilo de cabelo",
     "maquiagem_grooming": "Orientação de maquiagem (feminino) ou grooming/barba (masculino) ou versão neutra",
@@ -102,8 +103,8 @@ Regras para o campo "figurino":
 - Se o gênero for "Não informado" ou "Prefiro não informar": gerar versão neutra/unissex
 - As peças-chave devem ser específicas (ex: "blazer de linho bege", não apenas "blazer")
 - As cores de roupa devem ser alinhadas à paleta de cores da marca
-- Incluir pelo menos 5 peças-chave e 3 acessórios
-- O campo "maquiagem_grooming" DEVE corresponder ao gênero: maquiagem para feminino, grooming para masculino
+- Incluir pelo menos 5 peças-chave, 3 sapatos e 3 acessórios
+- O campo "sapatos" deve ter recomendações específicas (ex: "scarpin nude de salto médio", "tênis branco minimalista")
 
 Regras para o campo "simbolos":
 - Cada arquétipo tem um símbolo clássico (ex: Herói = espada/escudo, Mago = varinha/cristal, Explorador = bússola, etc.)
