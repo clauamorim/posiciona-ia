@@ -69,14 +69,11 @@ const EditorialPage = () => {
 
       const updatedWeeks = [...editorialWeeks, data.editorial];
       await supabase.from("reports").update({ editorial_weeks: updatedWeeks }).eq("user_id", user.id).eq("version", report.version);
-      await supabase.from("user_balances").update({ weekly_cycles: weeklyCycles - 1 }).eq("user_id", user.id);
-      await supabase.from("credit_logs").insert({
-        user_id: user.id, credit_type: "weekly_cycle", amount: -1,
-        description: `Geração da semana ${allWeeks.length + 1} de conteúdo editorial`,
-      });
+
+      // Credit deduction is handled by the edge function — just refresh balances
+      await refreshSubscription();
 
       setReport({ ...report, editorial_weeks: updatedWeeks });
-      await refreshSubscription();
       toast({ title: "Nova semana gerada com sucesso!" });
     } catch (err: any) {
       toast({ title: "Erro ao gerar conteúdo", description: err.message, variant: "destructive" });
