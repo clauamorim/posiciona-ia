@@ -6,13 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "@/hooks/use-toast";
 import {
   Building2, Brain, FileText, ArrowRight, CreditCard, Calendar,
   Camera, RefreshCw, Sparkles, Repeat, BarChart3, Target, Instagram,
-  CheckCircle2, Clock, Circle, ArrowUp, Loader2
+  CheckCircle2, Clock, Circle
 } from "lucide-react";
-import ExtrasSection from "@/components/ExtrasSection";
 
 type JourneyStep = {
   label: string;
@@ -30,7 +28,6 @@ const Dashboard = () => {
   const [hasInstagram, setHasInstagram] = useState(false);
   const [hasEditorial, setHasEditorial] = useState(false);
   const [hasPortraits, setHasPortraits] = useState(false);
-  const [loadingUpgrade, setLoadingUpgrade] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -99,32 +96,35 @@ const Dashboard = () => {
     return <Circle className="h-4 w-4 text-muted-foreground/30" />;
   };
 
-  const handleUpgrade = async (targetPlan: string) => {
-    setLoadingUpgrade(targetPlan);
-    try {
-      const { data, error } = await supabase.functions.invoke("upgrade-checkout", {
-        body: { target_plan: targetPlan },
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      if (data?.url) {
-        window.location.href = data.url;
-      } else if (data?.success) {
-        toast({ title: "Upgrade realizado!", description: data.message });
-        window.location.reload();
-      }
-    } catch (err: any) {
-      toast({ title: "Erro no upgrade", description: err.message, variant: "destructive" });
+  // Contextual suggestion logic
+  const getContextualSuggestion = (): { text: string } | null => {
+    if (!hasActivePlan || !balances || !subscription) return null;
+    const currentSlug = subscription.plan_slug;
+
+    // Don't show if user just started and has all credits intact
+    const totalPortraits = balances.portrait_credits_included + balances.portrait_credits_extra;
+
+    if (currentSlug === "semana_conteudo" && balances.weekly_cycles === 0) {
+      return { text: "Seu ciclo de conteúdo foi utilizado. Amplie seus recursos →" };
     }
-    setLoadingUpgrade(null);
+    if (totalPortraits === 0 && hasReport) {
+      return { text: "Sem retratos disponíveis. Adquira mais na página de planos →" };
+    }
+    if (balances.regeneration_credits === 0 && hasEditorial) {
+      return { text: "Suas regenerações acabaram. Veja opções para continuar →" };
+    }
+    if (currentSlug !== "autoridade_total") {
+      return { text: "Seu plano pode ser ampliado. Conheça as opções →" };
+    }
+    return null;
   };
 
-  const currentSlug = subscription?.plan_slug;
+  const contextualSuggestion = getContextualSuggestion();
 
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        {/* Hero interno */}
+        {/* Saudação */}
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">
             Olá, {profile?.full_name || "Usuário"}
@@ -153,51 +153,6 @@ const Dashboard = () => {
             </Link>
           </CardContent>
         </Card>
-
-        {/* Upgrade section */}
-        {currentSlug === "semana_conteudo" && (
-          <Card className="border-primary/30 bg-gradient-to-r from-primary/5 to-transparent">
-            <CardContent className="py-5 space-y-3">
-              <div className="flex items-center gap-2">
-                <ArrowUp className="h-4 w-4 text-primary" />
-                <p className="text-xs font-semibold uppercase tracking-wider text-primary">Upgrade disponível</p>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Faça upgrade em até 7 dias da compra e desconte os R$ 197 já pagos.
-              </p>
-              <div className="flex gap-3 flex-wrap">
-                <Button size="sm" onClick={() => handleUpgrade("presenca_mensal")} disabled={loadingUpgrade === "presenca_mensal"}>
-                  {loadingUpgrade === "presenca_mensal" ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <ArrowUp className="h-3.5 w-3.5 mr-1.5" />}
-                  Presença Mensal — R$ 100*
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => handleUpgrade("autoridade_total")} disabled={loadingUpgrade === "autoridade_total"}>
-                  {loadingUpgrade === "autoridade_total" ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <ArrowUp className="h-3.5 w-3.5 mr-1.5" />}
-                  Autoridade Total — R$ 300*
-                </Button>
-              </div>
-              <p className="text-[10px] text-muted-foreground">*Valor com abatimento dos R$ 197 (válido nos primeiros 7 dias). Após esse prazo, será cobrado o valor cheio como assinatura mensal.</p>
-            </CardContent>
-          </Card>
-        )}
-
-        {currentSlug === "presenca_mensal" && (
-          <Card className="border-primary/30 bg-gradient-to-r from-primary/5 to-transparent">
-            <CardContent className="py-5 space-y-3">
-              <div className="flex items-center gap-2">
-                <ArrowUp className="h-4 w-4 text-primary" />
-                <p className="text-xs font-semibold uppercase tracking-wider text-primary">Upgrade disponível</p>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Passe para o Autoridade Total e ganhe 5 retratos inclusos, 2 reanálises e 20 regenerações por mês.
-              </p>
-              <Button size="sm" onClick={() => handleUpgrade("autoridade_total")} disabled={loadingUpgrade === "autoridade_total"}>
-                {loadingUpgrade === "autoridade_total" ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <ArrowUp className="h-3.5 w-3.5 mr-1.5" />}
-                Upgrade para Autoridade Total — R$ 497/mês
-              </Button>
-              <p className="text-[10px] text-muted-foreground">A diferença será cobrada proporcionalmente ao período restante.</p>
-            </CardContent>
-          </Card>
-        )}
 
         {/* Plano + Créditos */}
         <div className="grid gap-4 md:grid-cols-2">
@@ -261,9 +216,6 @@ const Dashboard = () => {
           </Card>
         </div>
 
-        {/* Extras section */}
-        {hasActivePlan && <ExtrasSection />}
-
         {/* Jornada */}
         <Card>
           <CardContent className="py-5">
@@ -315,6 +267,18 @@ const Dashboard = () => {
             ))}
           </div>
         </div>
+
+        {/* Sugestão contextual discreta */}
+        {contextualSuggestion && (
+          <div className="pt-2">
+            <Link
+              to="/choose-plan"
+              className="text-sm text-muted-foreground hover:text-primary transition-colors inline-flex items-center gap-1.5"
+            >
+              {contextualSuggestion.text}
+            </Link>
+          </div>
+        )}
       </div>
     </DashboardLayout>
   );
