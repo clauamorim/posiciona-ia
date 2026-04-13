@@ -167,6 +167,7 @@ const Report = () => {
         if (content.figurino.resumo) addBody(content.figurino.resumo);
         if (content.figurino.pecas_chave?.length) { addSubtitle("Peças-chave"); content.figurino.pecas_chave.forEach((p: string) => addBody(`• ${p}`)); }
         if (content.figurino.cores_roupa?.length) { addSubtitle("Cores de Roupa"); addBody(content.figurino.cores_roupa.join(", ")); }
+        if (content.figurino.sapatos?.length) { addSubtitle("Sapatos"); content.figurino.sapatos.forEach((s: string) => addBody(`• ${s}`)); }
         if (content.figurino.acessorios?.length) { addSubtitle("Acessórios"); content.figurino.acessorios.forEach((a: string) => addBody(`• ${a}`)); }
         if (content.figurino.cabelo) { addSubtitle("Cabelo"); addBody(content.figurino.cabelo); }
         if (content.figurino.maquiagem_grooming) { addSubtitle("Maquiagem / Grooming"); addBody(content.figurino.maquiagem_grooming); }
