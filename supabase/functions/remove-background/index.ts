@@ -13,7 +13,6 @@ serve(async (req) => {
   }
 
   try {
-    // Auth check
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -49,12 +48,11 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    // Build the image content - if it's a URL, fetch and convert to base64
+    // Build image content
     let imageContent: string;
     if (imageUrl.startsWith("data:")) {
       imageContent = imageUrl;
     } else {
-      // Fetch the image and convert to base64
       const imgResp = await fetch(imageUrl);
       if (!imgResp.ok) {
         return new Response(JSON.stringify({ error: "Failed to fetch image" }), {
@@ -87,7 +85,7 @@ serve(async (req) => {
             content: [
               {
                 type: "text",
-                text: "Remove the background from this image completely. Make the background fully transparent (alpha channel = 0). Keep ONLY the main subject/person with clean, precise edges. Output ONLY a PNG image with a truly transparent background. IMPORTANT: Do NOT add a checkerboard pattern. Do NOT add any solid color background (white, gray, or any other). Do NOT add any text, watermark, or annotation. The result must have real alpha transparency, not a simulated transparent look.",
+                text: "Remove the background from this image. Replace the background with a SOLID BRIGHT GREEN color (#00FF00, pure green). Keep ONLY the main subject/person with clean, precise edges. The entire background area must be filled with exactly #00FF00 pure green color. Do NOT use any other background color. Do NOT add checkerboard. Do NOT add gradients. Do NOT add any text or watermark. Output a PNG image.",
               },
               {
                 type: "image_url",
@@ -124,13 +122,11 @@ serve(async (req) => {
     const data = await response.json();
     console.log("AI response structure:", JSON.stringify(data).slice(0, 800));
 
-    // Try multiple extraction paths
     let resultImage =
       data.choices?.[0]?.message?.images?.[0]?.image_url?.url ||
       data.choices?.[0]?.message?.images?.[0]?.url ||
       null;
 
-    // Check in content array
     if (!resultImage && Array.isArray(data.choices?.[0]?.message?.content)) {
       for (const part of data.choices[0].message.content) {
         if (part.type === "image_url" && part.image_url?.url) {
@@ -144,7 +140,6 @@ serve(async (req) => {
       }
     }
 
-    // Ensure it's a proper data URL
     if (resultImage && !resultImage.startsWith("data:")) {
       resultImage = `data:image/png;base64,${resultImage}`;
     }
@@ -157,7 +152,8 @@ serve(async (req) => {
       });
     }
 
-    return new Response(JSON.stringify({ image: resultImage }), {
+    // Return with chromaKey flag so client knows to process green screen
+    return new Response(JSON.stringify({ image: resultImage, chromaKey: true }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
