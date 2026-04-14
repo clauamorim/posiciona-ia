@@ -67,9 +67,9 @@ O JSON deve seguir EXATAMENTE esta estrutura:
 
 {
   "archetypes": {
-    "primary": { "name": "...", "description": "...", "application": "..." },
-    "secondary": { "name": "...", "description": "...", "application": "..." },
-    "tertiary": { "name": "...", "description": "...", "application": "..." }
+    "primary": { "name": "...", "description": "...", "application": "...", "characteristics": ["característica 1", "característica 2", "característica 3", "característica 4", "característica 5"], "brands": ["marca 1", "marca 2", "marca 3"], "people": ["pessoa 1", "pessoa 2", "pessoa 3"] },
+    "secondary": { "name": "...", "description": "...", "application": "...", "characteristics": ["..."], "brands": ["..."], "people": ["..."] },
+    "tertiary": { "name": "...", "description": "...", "application": "...", "characteristics": ["..."], "brands": ["..."], "people": ["..."] }
   },
   "visual_identity": {
     "palette": [
@@ -102,18 +102,37 @@ O JSON deve seguir EXATAMENTE esta estrutura:
   },
   "figurino": {
     "resumo": "Resumo geral do figurino estratégico ideal para a marca pessoal",
-    "cores_roupa": ["cor 1", "cor 2", "cor 3"],
-    "pecas_chave": ["peça 1", "peça 2", "peça 3", "peça 4", "peça 5"],
-    "sapatos": ["sapato 1", "sapato 2", "sapato 3"],
-    "acessorios": ["acessório 1", "acessório 2", "acessório 3"],
+    "cores_roupa": ["cor 1", "cor 2", "cor 3", "cor 4"],
+    "pecas_chave": ["peça detalhada 1", "peça detalhada 2", "peça detalhada 3", "peça detalhada 4", "peça detalhada 5", "peça detalhada 6", "peça detalhada 7"],
+    "sapatos": ["sapato 1", "sapato 2", "sapato 3", "sapato 4"],
+    "acessorios": ["acessório 1", "acessório 2", "acessório 3", "acessório 4", "acessório 5"],
     "cabelo": "Orientação detalhada de estilo de cabelo",
     "maquiagem_grooming": "Orientação de maquiagem (feminino) ou grooming/barba (masculino) ou versão neutra",
-    "evitar": ["item a evitar 1", "item a evitar 2"]
+    "evitar": ["item a evitar 1", "item a evitar 2"],
+    "looks_completos": [
+      { "nome": "Look 1", "pecas": ["peça 1", "peça 2", "peça 3"], "ocasiao": "..." },
+      { "nome": "Look 2", "pecas": ["peça 1", "peça 2", "peça 3"], "ocasiao": "..." },
+      { "nome": "Look 3", "pecas": ["peça 1", "peça 2", "peça 3"], "ocasiao": "..." }
+    ],
+    "texturas_tecidos": ["textura/tecido 1", "textura/tecido 2", "textura/tecido 3"],
+    "estampas": ["estampa 1", "estampa 2", "estampa 3"]
   },
   "simbolos": {
-    "primary": { "nome": "...", "simbolo": "...", "significado": "...", "aplicacao": "..." },
-    "secondary": { "nome": "...", "simbolo": "...", "significado": "...", "aplicacao": "..." },
-    "tertiary": { "nome": "...", "simbolo": "...", "significado": "...", "aplicacao": "..." }
+    "primary": [
+      { "nome": "...", "simbolo": "...", "significado": "...", "aplicacao": "..." },
+      { "nome": "...", "simbolo": "...", "significado": "...", "aplicacao": "..." },
+      { "nome": "...", "simbolo": "...", "significado": "...", "aplicacao": "..." }
+    ],
+    "secondary": [
+      { "nome": "...", "simbolo": "...", "significado": "...", "aplicacao": "..." },
+      { "nome": "...", "simbolo": "...", "significado": "...", "aplicacao": "..." },
+      { "nome": "...", "simbolo": "...", "significado": "...", "aplicacao": "..." }
+    ],
+    "tertiary": [
+      { "nome": "...", "simbolo": "...", "significado": "...", "aplicacao": "..." },
+      { "nome": "...", "simbolo": "...", "significado": "...", "aplicacao": "..." },
+      { "nome": "...", "simbolo": "...", "significado": "...", "aplicacao": "..." }
+    ]
   },
   "editorial": [
     {
@@ -132,29 +151,37 @@ O JSON deve seguir EXATAMENTE esta estrutura:
 O gênero do cliente é: **${genderLabel}**
 TODO o figurino DEVE ser gerado para o gênero "${genderLabel}". NÃO gere figurino para outro gênero.
 
+Regras para o campo "archetypes":
+- Cada arquétipo deve ter "characteristics": array de 5-7 características-chave do arquétipo
+- Cada arquétipo deve ter "brands": array de 3-5 marcas famosas que representam o arquétipo (ex: Nike, Apple, Harley-Davidson)
+- Cada arquétipo deve ter "people": array de 3-5 personalidades/pessoas famosas que incorporam o arquétipo (ex: Oprah Winfrey, Steve Jobs)
+
 Regras para o campo "figurino":
 - O figurino deve ser 100% baseado na COMBINAÇÃO dos 3 arquétipos da marca
 - GÊNERO: ${genderLabel} — TODAS as recomendações devem ser para este gênero
 - Se o gênero for "Feminino": OBRIGATORIAMENTE gerar maquiagem feminina (batom, sombra, blush, delineador, etc.), acessórios femininos (brincos, colares, pulseiras, bolsas, scarpin, etc.), penteados femininos (ondas, coque, babyliss, etc.). NÃO mencionar barba, grooming masculino, gravata ou relógio masculino.
 - Se o gênero for "Masculino": OBRIGATORIAMENTE gerar grooming masculino (barba, skincare, cabelo curto, etc.), acessórios masculinos (relógio, gravata, abotoaduras, etc.). NÃO mencionar maquiagem, batom, sombra, brincos femininos ou bolsas femininas.
 - Se o gênero for "Não informado" ou "Prefiro não informar": gerar versão neutra/unissex
-- As peças-chave devem ser específicas (ex: "blazer de linho bege", não apenas "blazer")
+- As peças-chave devem ser específicas e detalhadas com cor e material (ex: "blazer de linho bege com botões dourados", não apenas "blazer")
 - As cores de roupa devem ser alinhadas à paleta de cores da marca
-- Incluir pelo menos 5 peças-chave, 3 sapatos e 3 acessórios
-- O campo "sapatos" deve ter recomendações específicas (ex: "scarpin nude de salto médio", "tênis branco minimalista")
+- Incluir pelo menos 7 peças-chave, 4 sapatos e 5 acessórios
+- O campo "sapatos" deve ter recomendações específicas (ex: "scarpin nude de salto médio em couro", "tênis branco minimalista de couro")
+- O campo "looks_completos" deve ter 3 looks completos, cada um com nome, array de peças que compõem o look, e ocasião de uso
+- O campo "texturas_tecidos" deve ter pelo menos 3 tecidos/texturas recomendados para o perfil
+- O campo "estampas" deve ter pelo menos 3 estampas recomendadas (ou "lisas/minimalistas" se for o caso)
 
 Regras para o campo "simbolos":
-- Cada arquétipo tem um símbolo clássico (ex: Herói = espada/escudo, Mago = varinha/cristal, Explorador = bússola, etc.)
-- O campo "simbolo" deve ser o emoji ou nome do símbolo principal
-- O campo "significado" explica o que o símbolo representa
-- O campo "aplicacao" descreve como usar o símbolo na comunicação visual (posts, stories, logo, etc.)
+- Cada arquétipo (primary, secondary, tertiary) recebe um ARRAY de 3 símbolos
+- Cada símbolo com: "nome", "simbolo" (emoji), "significado", "aplicacao"
+- Os símbolos devem ser clássicos e representativos do arquétipo (ex: Herói = espada, escudo, troféu; Mago = varinha, cristal, olho; Explorador = bússola, mapa, montanha)
+- A "aplicacao" descreve como usar o símbolo na comunicação visual (posts, stories, logo, etc.)
 
 Regras para o campo "editorial":
 - OBRIGATORIAMENTE 7 dias (day 1 a 7)
 - Cada dia deve ter um tema diferente e relevante
 - O campo "caption" deve conter a LEGENDA COMPLETA pronta para copiar e colar no Instagram
 - O campo "card_copy": para formato "carrossel", deve ser um ARRAY com o texto completo de CADA SLIDE (mínimo 5 slides); para formato "post", deve ser um array com 1 item contendo o texto visual do card; para "reels" e "stories", pode ser array vazio []
-- O campo "script" deve conter o ROTEIRO COMPLETO para Reels (gancho de abertura, desenvolvimento, CTA final). Para outros formatos, descrever o conteúdo visual de cada slide/frame
+- O campo "script": APENAS para "reels" e "stories" deve conter ROTEIRO COMPLETO (gancho de abertura, desenvolvimento, CTA final). Para "post" e "carrossel", o campo script DEVE ser string vazia ""
 - O campo "cta" deve ser específico e acionável
 - Varie os formatos ao longo da semana
 
