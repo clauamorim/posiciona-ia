@@ -48,8 +48,7 @@ const Signup = () => {
       return;
     }
     setLoading(false);
-    toast({ title: "Conta criada!", description: "Verifique seu e-mail para confirmar." });
-    navigate("/login");
+    navigate(`/verify-email?email=${encodeURIComponent(email)}`);
   };
 
   return (
