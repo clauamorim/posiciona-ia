@@ -263,7 +263,7 @@ const EditorialPage = () => {
                   const fmt = FORMAT_CONFIG[day.format?.toLowerCase()] || FORMAT_CONFIG.post;
                   const regenKey = `${wi}-${di}`;
                   return (
-                    <Card key={di} className="flex flex-col">
+                    <Card key={di} className="flex flex-col break-inside-avoid">
                       <CardContent className="py-4 flex-1 space-y-3">
                         <div className="flex items-center justify-between">
                           <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Dia {day.day || di + 1}</span>
