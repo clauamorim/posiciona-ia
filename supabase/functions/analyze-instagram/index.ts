@@ -11,12 +11,12 @@ async function fetchReferencePdfs(): Promise<{ mime_type: string; data: string }
       .select("file_path, file_size")
       .eq("is_active", true)
       .order("created_at", { ascending: true })
-      .limit(3);
+      .limit(5);
     if (!docs?.length) return [];
 
     const parts: { mime_type: string; data: string }[] = [];
     let totalSize = 0;
-    const MAX_TOTAL = 4 * 1024 * 1024;
+    const MAX_TOTAL = 8 * 1024 * 1024;
 
     for (const doc of docs) {
       if (totalSize + doc.file_size > MAX_TOTAL) break;
