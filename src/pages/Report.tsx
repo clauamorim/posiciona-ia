@@ -42,7 +42,8 @@ const Report = () => {
   const [report, setReport] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [topArchetypes, setTopArchetypes] = useState<any[]>([]);
-
+  const [regenerating, setRegenerating] = useState(false);
+  const reportRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!user) return;
     // Fetch report and top archetypes in parallel
