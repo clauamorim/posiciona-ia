@@ -173,23 +173,8 @@ const SobrePage = () => {
         </div>
       </section>
 
-      {/* ── MÉTRICAS ── */}
-      <section className="py-14 md:py-20 px-4">
-        <div className="max-w-3xl mx-auto">
-          <div className="grid sm:grid-cols-3 gap-6 text-center">
-            {[
-              { value: "4 anos", label: "posicionamento de imagem" },
-              { value: "20 anos", label: "experiência com fotografia" },
-              { value: "10 anos", label: "base em ciência da computação" },
-            ].map((m) => (
-              <div key={m.label} className="space-y-1.5">
-                <p className="text-3xl md:text-4xl font-display font-bold text-landing-gold">{m.value}</p>
-                <p className="text-xs text-landing-text-secondary uppercase tracking-wider">{m.label}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+
+
 
       {/* ── CTA FINAL ── */}
       <section className="px-4">
