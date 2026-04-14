@@ -92,6 +92,9 @@ interface PostToolbarProps {
   // Canvas format
   canvasFormat?: "square" | "reels";
   onCanvasFormatChange?: (f: "square" | "reels") => void;
+  // Remove background
+  onRemoveBackground?: (id: string) => void;
+  removingBackground?: boolean;
 }
 
 const LAYOUTS = [
