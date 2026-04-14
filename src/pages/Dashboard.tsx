@@ -36,7 +36,7 @@ const Dashboard = () => {
         supabase.from("profiles").select("*").eq("user_id", user.id).single(),
         supabase.from("business_questionnaires").select("is_complete").eq("user_id", user.id).order("version", { ascending: false }).limit(1),
         supabase.from("archetype_answers").select("question_id").eq("user_id", user.id),
-        supabase.from("reports").select("status, editorial_weeks").eq("user_id", user.id).eq("status", "completed").limit(1),
+        supabase.from("reports").select("status, editorial_weeks, content").eq("user_id", user.id).eq("status", "completed").limit(1),
         supabase.from("instagram_analyses").select("id").eq("user_id", user.id).limit(1),
         supabase.from("portrait_generations").select("id").eq("user_id", user.id).limit(1),
       ]);
@@ -46,7 +46,19 @@ const Dashboard = () => {
       setArchetypeCount(uniqueQuestions.size);
       const reportData = reportRes.data?.[0];
       setHasReport(!!reportData);
-      setHasEditorial(!!(reportData?.editorial_weeks && (reportData.editorial_weeks as any[]).length > 0));
+      const hasEditorialWeeks = !!(reportData?.editorial_weeks && (reportData.editorial_weeks as any[]).length > 0);
+      // Also check if editorial exists inside report content (week 1 generated with report)
+      let hasContentEditorial = false;
+      if (reportData) {
+        try {
+          let c = reportData.content;
+          if (typeof c === "string") c = JSON.parse(c);
+          if (c && typeof c === "object" && Array.isArray((c as any).editorial) && (c as any).editorial.length > 0) {
+            hasContentEditorial = true;
+          }
+        } catch {}
+      }
+      setHasEditorial(hasEditorialWeeks || hasContentEditorial);
       setHasInstagram((igRes.data?.length ?? 0) > 0);
       setHasPortraits((portraitRes.data?.length ?? 0) > 0);
     };
