@@ -200,15 +200,39 @@ const Report = () => {
 
   return (
     <DashboardLayout>
-      <div className="space-y-10">
+      <div className="space-y-10" ref={reportRef}>
         {/* Header */}
         <div className="flex items-start justify-between flex-wrap gap-4">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Seu Relatório</h1>
             <p className="text-sm text-muted-foreground mt-1">Gerado em {new Date(report.created_at).toLocaleDateString("pt-BR")}</p>
           </div>
-          <Button onClick={handleDownloadPDF} variant="outline" size="sm" className="gap-2"><Download className="h-4 w-4" /> Baixar PDF</Button>
+          <div className="flex gap-2">
+            <Button onClick={handleDownloadPDF} variant="outline" size="sm" className="gap-2"><Download className="h-4 w-4" /> Baixar PDF</Button>
+          </div>
         </div>
+
+        {/* Missing sections warning */}
+        {hasMissingSections && (
+          <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-950/20">
+            <AlertTriangle className="h-4 w-4 text-amber-600" />
+            <AlertTitle className="text-amber-800 dark:text-amber-400">Relatório incompleto</AlertTitle>
+            <AlertDescription className="text-amber-700 dark:text-amber-300">
+              Seu relatório foi gerado em uma versão anterior e não inclui {!hasFigurino && !hasSimbolos ? "figurino e símbolos" : !hasFigurino ? "figurino" : "símbolos"}.
+              Regenere para incluir essas seções.
+              <Button
+                variant="outline"
+                size="sm"
+                className="ml-3 gap-1.5"
+                onClick={handleRegenerate}
+                disabled={regenerating}
+              >
+                {regenerating ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                Regenerar relatório
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
 
         {/* SECTION: Archetypes — from user_top_archetypes table */}
         <section>
