@@ -184,6 +184,8 @@ Regras para o campo "simbolos":
 
 Regras para o campo "editorial":
 - OBRIGATORIAMENTE 7 dias (day 1 a 7)
+- A linha editorial deve ser guiada EXCLUSIVAMENTE pelo StoryBrand gerado acima, aprofundando cada faceta do framework ao longo da semana
+- Dia 1: Foque no HERÓI (cliente); Dia 2: PROBLEMA EXTERNO; Dia 3: PROBLEMA INTERNO; Dia 4: Marca como GUIA; Dia 5: O PLANO; Dia 6: CTA claro; Dia 7: SUCESSO vs FRACASSO
 - Cada dia deve ter um tema diferente e relevante
 - O campo "caption" deve conter a LEGENDA COMPLETA pronta para copiar e colar no Instagram
 - O campo "card_copy": para formato "carrossel", deve ser um ARRAY com o texto completo de CADA SLIDE (mínimo 5 slides); para formato "post", deve ser um array com 1 item contendo o texto visual do card; para "reels" e "stories", pode ser array vazio []
