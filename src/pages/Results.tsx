@@ -33,10 +33,10 @@ const Results = () => {
     if (!user) return;
     const run = async () => {
       try {
-        // Check if ANY completed report exists
-        const { data: existingReport } = await supabase
+        // Fetch the LATEST report regardless of status
+        const { data: latestReport } = await supabase
           .from("reports").select("status, version, content")
-          .eq("user_id", user.id).eq("status", "completed")
+          .eq("user_id", user.id)
           .order("version", { ascending: false }).limit(1).single();
 
         // Load scores to display
@@ -52,15 +52,15 @@ const Results = () => {
         setScores(calc);
 
         // Extract archetype details from report content
-        if (existingReport?.content) {
-          const normalized = normalizeReportContent(existingReport.content) as any;
+        if (latestReport?.content) {
+          const normalized = normalizeReportContent(latestReport.content) as any;
           if (normalized?.archetypes) {
             setArchetypeDetails(normalized.archetypes);
           }
         }
 
-        // If report is already completed, skip regeneration
-        if (existingReport?.status === "completed") {
+        // Only skip regeneration if the LATEST report is completed with valid content
+        if (latestReport?.status === "completed" && latestReport?.content) {
           setStage("done");
           return;
         }
