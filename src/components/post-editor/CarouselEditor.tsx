@@ -21,6 +21,7 @@ interface CarouselEditorProps {
   onDownloadAll: () => void;
   slideRefs: React.MutableRefObject<(HTMLDivElement | null)[]>;
   overlayImages?: OverlayImage[];
+  onUpdateOverlay?: (id: string, updates: Partial<OverlayImage>) => void;
   onImageMove?: (id: string, x: number, y: number) => void;
   onImageResize?: (id: string, width: number, height: number) => void;
   selectedImageId?: string | null;
@@ -30,26 +31,27 @@ interface CarouselEditorProps {
   fontStyle?: string;
   textAlign?: "left" | "center" | "right" | "justify";
   bgGradient?: string | null;
-  // Title styling
   titleFontSize?: number;
   titleColor?: string | null;
   titleFontFamily?: string | null;
-  // CTA styling
   ctaText?: string;
   ctaBgColor?: string | null;
   ctaTextColor?: string | null;
   ctaFontSize?: number;
   ctaPosition?: { x: number; y: number } | null;
   onCtaMove?: (x: number, y: number) => void;
+  canvasWidth?: number;
+  canvasHeight?: number;
 }
 
 const CarouselEditor: React.FC<CarouselEditorProps> = ({
   slides, theme, cta, bgColor, textColor, accentColor, displayFont, bodyFont, layout,
   currentSlide, onSlideChange, onSlideTextChange, onDownloadSlide, onDownloadAll, slideRefs,
-  overlayImages = [], onImageMove, onImageResize, selectedImageId, onSelectImage,
+  overlayImages = [], onUpdateOverlay, onImageMove, onImageResize, selectedImageId, onSelectImage,
   fontSize, fontWeight, fontStyle, textAlign, bgGradient,
   titleFontSize, titleColor, titleFontFamily,
   ctaText, ctaBgColor, ctaTextColor, ctaFontSize, ctaPosition, onCtaMove,
+  canvasWidth, canvasHeight,
 }) => {
   const total = slides.length;
   const isCover = currentSlide === 0;
@@ -69,13 +71,14 @@ const CarouselEditor: React.FC<CarouselEditorProps> = ({
         displayFont={displayFont} bodyFont={bodyFont} layout={layout}
         onTextChange={(t) => onSlideTextChange(currentSlide, t)}
         canvasRef={(el: HTMLDivElement | null) => { slideRefs.current[currentSlide] = el; }}
-        overlayImages={overlayImages} onImageMove={onImageMove} onImageResize={onImageResize}
+        overlayImages={overlayImages} onUpdateOverlay={onUpdateOverlay} onImageMove={onImageMove} onImageResize={onImageResize}
         selectedImageId={selectedImageId} onSelectImage={onSelectImage}
         fontSize={fontSize} fontWeight={fontWeight} fontStyle={fontStyle}
         textAlign={textAlign} bgGradient={bgGradient}
         titleFontSize={titleFontSize} titleColor={titleColor} titleFontFamily={titleFontFamily}
         ctaText={ctaText} ctaBgColor={ctaBgColor} ctaTextColor={ctaTextColor}
         ctaFontSize={ctaFontSize} ctaPosition={ctaPosition} onCtaMove={onCtaMove}
+        canvasWidth={canvasWidth} canvasHeight={canvasHeight}
       />
 
       <div className="flex items-center gap-4">

@@ -58,26 +58,26 @@ const PostEditorPage = () => {
   const [customTextColor, setCustomTextColor] = useState<string | null>(null);
   const [customBgColor, setCustomBgColor] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  // Title controls
   const [titleFontSize, setTitleFontSize] = useState(44);
   const [titleColor, setTitleColor] = useState<string | null>(null);
   const [titleFontFamily, setTitleFontFamily] = useState<string | null>(null);
-  // CTA controls
   const [ctaText, setCtaText] = useState("");
   const [ctaBgColor, setCtaBgColor] = useState<string | null>(null);
   const [ctaTextColor, setCtaTextColor] = useState<string | null>(null);
   const [ctaFontSize, setCtaFontSize] = useState(28);
   const [ctaPosition, setCtaPosition] = useState<{ x: number; y: number } | null>(null);
-  // User portraits
   const [userPortraits, setUserPortraits] = useState<string[]>([]);
+  const [canvasFormat, setCanvasFormat] = useState<"square" | "reels">("square");
   const singleCanvasRef = useRef<HTMLDivElement>(null);
   const slideRefs = useRef<(HTMLDivElement | null)[]>([]);
+
+  const cW = canvasFormat === "reels" ? 1080 : 1080;
+  const cH = canvasFormat === "reels" ? 1920 : 1080;
 
   useEffect(() => {
     if (!user) return;
     supabase.from("reports").select("*").eq("user_id", user.id).order("version", { ascending: false }).limit(1).single()
       .then(({ data }) => { setReport(data); setLoading(false); });
-    // Fetch user portraits
     supabase.from("portrait_generations").select("portraits").eq("user_id", user.id).order("created_at", { ascending: false })
       .then(({ data }) => {
         if (data) {
@@ -122,7 +122,6 @@ const PostEditorPage = () => {
     setCtaText(day.cta || "");
   }, [day]);
 
-  // Keyboard: Delete selected overlay
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.key === "Delete" || e.key === "Backspace") && selectedImageId) {
@@ -141,7 +140,6 @@ const PostEditorPage = () => {
   const textColor = customTextColor || getContrastColor(bgColor);
   const accentColor = palette[(bgIndex + 1) % Math.max(palette.length, 1)]?.hex || "#7c3aed";
 
-  // Compute gradient string
   const bgGradient = useGradient && palette.length >= 2
     ? `linear-gradient(${gradientDirection}, ${bgColor}, ${palette[gradientColor2Index]?.hex || accentColor})`
     : null;
@@ -149,27 +147,35 @@ const PostEditorPage = () => {
   const isCarousel = day?.format?.toLowerCase() === "carrossel";
 
   const handleAddImage = (image: OverlayImage) => setOverlayImages((prev) => [...prev, image]);
-  const handleImageMove = (id: string, x: number, y: number) => setOverlayImages((prev) => prev.map((img) => (img.id === id ? { ...img, x, y } : img)));
-  const handleImageResize = (id: string, width: number, height: number) => setOverlayImages((prev) => prev.map((img) => (img.id === id ? { ...img, width, height } : img)));
-  const handleImageOpacityChange = (id: string, opacity: number) => setOverlayImages((prev) => prev.map((img) => (img.id === id ? { ...img, opacity } : img)));
+
+  // Unified overlay update
+  const handleUpdateOverlay = (id: string, updates: Partial<OverlayImage>) => {
+    setOverlayImages((prev) => prev.map((img) => (img.id === id ? { ...img, ...updates } : img)));
+  };
+
+  // Legacy compat
+  const handleImageMove = (id: string, x: number, y: number) => handleUpdateOverlay(id, { x, y });
+  const handleImageResize = (id: string, width: number, height: number) => handleUpdateOverlay(id, { width, height });
+  const handleImageOpacityChange = (id: string, opacity: number) => handleUpdateOverlay(id, { opacity });
 
   const handleDownloadSlide = useCallback(async (index: number) => {
     try {
       const html2canvas = (await import("html2canvas")).default;
       const el = isCarousel ? slideRefs.current[index] : singleCanvasRef.current;
       if (!el) return;
-      const original = el.style.transform;
+      const origTransform = el.style.transform;
+      const origTransformOrigin = el.style.transformOrigin;
       el.style.transform = "scale(1)";
       el.style.transformOrigin = "top left";
-      const canvas = await html2canvas(el, { scale: 2, width: 1080, height: 1080, useCORS: true });
-      el.style.transform = original;
-      el.style.transformOrigin = "center center";
+      const canvas = await html2canvas(el, { scale: 2, width: cW, height: cH, useCORS: true });
+      el.style.transform = origTransform;
+      el.style.transformOrigin = origTransformOrigin;
       const link = document.createElement("a");
       link.download = `post-dia${day?.day || dayIndex + 1}${isCarousel ? `-slide${index + 1}` : ""}.png`;
       link.href = canvas.toDataURL("image/png");
       link.click();
     } catch { toast({ title: "Erro ao exportar imagem", variant: "destructive" }); }
-  }, [isCarousel, day, dayIndex]);
+  }, [isCarousel, day, dayIndex, cW, cH]);
 
   const handleDownloadAll = useCallback(async () => {
     try {
@@ -181,12 +187,13 @@ const PostEditorPage = () => {
         await new Promise((r) => setTimeout(r, 200));
         const el = slideRefs.current[i];
         if (!el) continue;
-        const original = el.style.transform;
+        const origTransform = el.style.transform;
+        const origTransformOrigin = el.style.transformOrigin;
         el.style.transform = "scale(1)";
         el.style.transformOrigin = "top left";
-        const canvas = await html2canvas(el, { scale: 2, width: 1080, height: 1080, useCORS: true });
-        el.style.transform = original;
-        el.style.transformOrigin = "center center";
+        const canvas = await html2canvas(el, { scale: 2, width: cW, height: cH, useCORS: true });
+        el.style.transform = origTransform;
+        el.style.transformOrigin = origTransformOrigin;
         const blob = await new Promise<Blob>((resolve) => canvas.toBlob((b) => resolve(b!), "image/png"));
         zip.file(`slide-${i + 1}.png`, blob);
       }
@@ -198,7 +205,7 @@ const PostEditorPage = () => {
       URL.revokeObjectURL(link.href);
       toast({ title: "Carrossel exportado com sucesso!" });
     } catch { toast({ title: "Erro ao exportar ZIP", variant: "destructive" }); }
-  }, [editedTexts, day, dayIndex]);
+  }, [editedTexts, day, dayIndex, cW, cH]);
 
   const handleCtaMove = (x: number, y: number) => setCtaPosition({ x, y });
 
@@ -223,6 +230,7 @@ const PostEditorPage = () => {
     setCtaTextColor(null);
     setCtaFontSize(28);
     setCtaPosition(null);
+    setCanvasFormat("square");
     if (typography.display) setDisplayFont(typography.display);
     if (typography.body) setBodyFont(typography.body);
   };
@@ -272,6 +280,7 @@ const PostEditorPage = () => {
             <p className="text-sm text-muted-foreground">
               Semana {weekIndex + 1} · {day.format}
               {isCarousel && ` · ${editedTexts.length} slides`}
+              {canvasFormat === "reels" && " · Capa de Reels"}
               {selectedImageId && " · Pressione Delete para remover elemento selecionado"}
             </p>
           </div>
@@ -288,13 +297,15 @@ const PostEditorPage = () => {
                 onSlideTextChange={(i, t) => { const copy = [...editedTexts]; copy[i] = t; setEditedTexts(copy); }}
                 onDownloadSlide={handleDownloadSlide} onDownloadAll={handleDownloadAll}
                 slideRefs={slideRefs}
-                overlayImages={overlayImages} onImageMove={handleImageMove} onImageResize={handleImageResize}
+                overlayImages={overlayImages} onUpdateOverlay={handleUpdateOverlay}
+                onImageMove={handleImageMove} onImageResize={handleImageResize}
                 selectedImageId={selectedImageId} onSelectImage={setSelectedImageId}
                 fontSize={fontSize} fontWeight={fontWeight} fontStyle={fontStyle}
                 textAlign={textAlign} bgGradient={bgGradient}
                 titleFontSize={titleFontSize} titleColor={titleColor} titleFontFamily={titleFontFamily}
                 ctaText={ctaText} ctaBgColor={ctaBgColor} ctaTextColor={ctaTextColor}
                 ctaFontSize={ctaFontSize} ctaPosition={ctaPosition} onCtaMove={handleCtaMove}
+                canvasWidth={cW} canvasHeight={cH}
               />
             ) : (
               <PostCanvas
@@ -305,12 +316,14 @@ const PostEditorPage = () => {
                 textAlign={textAlign}
                 onTextChange={(t) => setEditedTexts([t])} onTitleChange={setEditedTitle}
                 canvasRef={singleCanvasRef}
-                overlayImages={overlayImages} onImageMove={handleImageMove} onImageResize={handleImageResize}
+                overlayImages={overlayImages} onUpdateOverlay={handleUpdateOverlay}
+                onImageMove={handleImageMove} onImageResize={handleImageResize}
                 selectedImageId={selectedImageId} onSelectImage={setSelectedImageId}
                 bgGradient={bgGradient}
                 titleFontSize={titleFontSize} titleColor={titleColor} titleFontFamily={titleFontFamily}
                 ctaText={ctaText} ctaBgColor={ctaBgColor} ctaTextColor={ctaTextColor}
                 ctaFontSize={ctaFontSize} ctaPosition={ctaPosition} onCtaMove={handleCtaMove}
+                canvasWidth={cW} canvasHeight={cH}
               />
             )}
           </div>
@@ -333,6 +346,7 @@ const PostEditorPage = () => {
             selectedImageId={selectedImageId}
             overlayImages={overlayImages}
             onImageOpacityChange={handleImageOpacityChange}
+            onUpdateOverlaySrc={handleUpdateOverlay}
             useGradient={useGradient} onUseGradientChange={setUseGradient}
             gradientColor2Index={gradientColor2Index} onGradientColor2Change={setGradientColor2Index}
             gradientDirection={gradientDirection} onGradientDirectionChange={setGradientDirection}
@@ -344,6 +358,7 @@ const PostEditorPage = () => {
             ctaTextColor={ctaTextColor} onCtaTextColorChange={setCtaTextColor}
             ctaFontSize={ctaFontSize} onCtaFontSizeChange={setCtaFontSize}
             userPortraits={userPortraits}
+            canvasFormat={canvasFormat} onCanvasFormatChange={setCanvasFormat}
           />
         </div>
 

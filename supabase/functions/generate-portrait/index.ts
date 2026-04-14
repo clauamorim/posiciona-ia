@@ -8,11 +8,11 @@ const corsHeaders = {
 };
 
 const STUDIO_STYLES = [
-  "Professional studio portrait, soft controlled lighting, clean neutral gray backdrop. Medium-format camera, shallow depth of field, two-light setup with large softboxes.",
-  "Warm neutral-toned seamless backdrop. Rembrandt lighting, single key light, subtle shadow on one side. 85mm f/1.4 lens.",
-  "Pure white background, even diffused lighting. Ring light with fill, minimal shadows. Clean modern headshot.",
-  "Dark charcoal backdrop. Dramatic single key light from 45 degrees with subtle rim light. Cinematic feel.",
-  "Light beige/cream backdrop. Butterfly lighting, soft flattering light. Fashion-editorial approach.",
+  "Professional studio portrait, soft controlled lighting, clean neutral gray backdrop with subtle tonal gradient. Medium-format camera, shallow depth of field, two-light setup with large softboxes.",
+  "Warm neutral-toned seamless backdrop with subtle texture and tonal variation simulating studio lighting. Rembrandt lighting, single key light, subtle shadow on one side. 85mm f/1.4 lens.",
+  "Dark charcoal backdrop with subtle gradient lighting from behind. Dramatic single key light from 45 degrees with subtle rim light. Cinematic feel.",
+  "Deep navy/dark teal textured backdrop with warm spotlight glow. Butterfly lighting, soft flattering light. Fashion-editorial approach.",
+  "Muted olive-gray backdrop with soft vignette and warm fill light. Two-light setup, elegant and understated. Professional branding aesthetic.",
 ];
 
 serve(async (req) => {
