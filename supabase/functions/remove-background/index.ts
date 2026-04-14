@@ -87,7 +87,7 @@ serve(async (req) => {
             content: [
               {
                 type: "text",
-                text: "Remove the background from this image completely. Make the background fully transparent. Keep only the main subject with clean, precise edges. Output a PNG with transparent background. Do not add any text or watermark.",
+                text: "Remove the background from this image completely. Make the background fully transparent (alpha channel = 0). Keep ONLY the main subject/person with clean, precise edges. Output ONLY a PNG image with a truly transparent background. IMPORTANT: Do NOT add a checkerboard pattern. Do NOT add any solid color background (white, gray, or any other). Do NOT add any text, watermark, or annotation. The result must have real alpha transparency, not a simulated transparent look.",
               },
               {
                 type: "image_url",
