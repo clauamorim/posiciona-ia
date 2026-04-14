@@ -226,6 +226,9 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
   const [elementsOpen, setElementsOpen] = useState(false);
   const [svgElementsOpen, setSvgElementsOpen] = useState(false);
   const [portraitsOpen, setPortraitsOpen] = useState(false);
+  const [galleryOpen, setGalleryOpen] = useState(false);
+  const [galleryAssets, setGalleryAssets] = useState<{ id: string; name: string; category: string; file_path: string }[]>([]);
+  const [galleryLoaded, setGalleryLoaded] = useState(false);
   const [savedLogo, setSavedLogo] = useState<string | null>(null);
   const accentColor = palette[(selectedBgIndex + 1) % Math.max(palette.length, 1)]?.hex || "#7c3aed";
 
