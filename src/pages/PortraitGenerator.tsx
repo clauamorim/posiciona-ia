@@ -30,7 +30,9 @@ const PortraitGenerator = () => {
 
   const [selfies, setSelfies] = useState<{ file: File; preview: string; base64: string }[]>([]);
   const [portraits, setPortraits] = useState<string[]>([]);
+  const [portraitStyleIndex, setPortraitStyleIndex] = useState<number | null>(null);
   const [generating, setGenerating] = useState(false);
+  const [confirmingDownload, setConfirmingDownload] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 1 });
   const [packDialogOpen, setPackDialogOpen] = useState(false);
   const [loadingPack, setLoadingPack] = useState<string | null>(null);
@@ -167,21 +169,14 @@ const PortraitGenerator = () => {
         const portrait = data.portrait;
         if (portrait) {
           setPortraits([portrait]);
-          toast({ title: "Retrato gerado com sucesso!" });
-
-          // Save to DB
-          await supabase.from("portrait_generations").insert({
-            user_id: user!.id,
-            portraits: [portrait],
-            style_index: data.style_index ?? null,
-          });
+          setPortraitStyleIndex(data.style_index ?? null);
+          toast({ title: "Retrato gerado! Baixe para salvar e debitar o crédito." });
         } else {
           toast({ title: "Nenhum retrato foi gerado", variant: "destructive" });
         }
       }
 
-      // Refresh balances after generation
-      await refreshSubscription();
+      // Do NOT refresh balances here — credits are only deducted on download
     } catch (err: any) {
       console.error("Generate error:", err);
       toast({ title: "Erro ao gerar retrato", description: err.message, variant: "destructive" });
@@ -191,11 +186,26 @@ const PortraitGenerator = () => {
     }
   };
 
-  const downloadPortrait = (base64Url: string, index: number) => {
-    const link = document.createElement("a");
-    link.href = base64Url;
-    link.download = `retrato-marca-${index + 1}.png`;
-    link.click();
+  const downloadPortrait = async (base64Url: string, index: number) => {
+    setConfirmingDownload(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("confirm-portrait", {
+        body: { portrait: base64Url, style_index: portraitStyleIndex },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      const link = document.createElement("a");
+      link.href = base64Url;
+      link.download = `retrato-marca-${index + 1}.png`;
+      link.click();
+
+      await refreshSubscription();
+      toast({ title: "Retrato salvo e crédito debitado!" });
+    } catch (err: any) {
+      toast({ title: "Erro ao confirmar retrato", description: err.message, variant: "destructive" });
+    }
+    setConfirmingDownload(false);
   };
 
   const downloadAll = async () => {
@@ -479,10 +489,12 @@ const PortraitGenerator = () => {
                           size="sm"
                           className="w-full"
                           onClick={() => downloadPortrait(portrait, i)}
+                          disabled={confirmingDownload}
                         >
-                          <Download className="h-4 w-4 mr-1" />
-                          Baixar Retrato {i + 1}
+                          {confirmingDownload ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Download className="h-4 w-4 mr-1" />}
+                          {confirmingDownload ? "Salvando..." : `Baixar Retrato ${i + 1}`}
                         </Button>
+                        <p className="text-[10px] text-muted-foreground text-center">1 crédito será debitado ao baixar</p>
                       </div>
                     ))}
                   </div>

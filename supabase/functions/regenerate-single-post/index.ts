@@ -52,7 +52,7 @@ serve(async (req) => {
   }
 
   try {
-    const { format, theme, dayNumber, business, niche, archetypes, existingPosts, storybrand, tone_of_voice } = await req.json();
+    const { format, theme, dayNumber, business, niche, existingPosts, storybrand, tone_of_voice } = await req.json();
 
     if (!format || !business) {
       return new Response(JSON.stringify({ error: "Missing required fields" }), {
@@ -66,7 +66,7 @@ serve(async (req) => {
     // Build StoryBrand context
     let storybrandContext = "";
     if (storybrand) {
-      storybrandContext = `\n\nESTRATÉGIA STORYBRAND DA MARCA:
+      storybrandContext = `\n\nESTRATÉGIA STORYBRAND DA MARCA (guia EXCLUSIVO do conteúdo):
 - Herói (Cliente): ${storybrand.hero || ""}
 - Guia (Marca): ${storybrand.guide || ""}
 - Problema Externo: ${storybrand.external_problem || ""}
@@ -83,7 +83,7 @@ serve(async (req) => {
 - Palavras para EVITAR: ${(tone_of_voice.words_to_avoid || []).join(", ")}`;
     }
 
-    const systemPrompt = `Você é um especialista em conteúdo para Instagram. Gere UM ÚNICO post novo.
+    const systemPrompt = `Você é um especialista em conteúdo para Instagram, usando exclusivamente a metodologia StoryBrand. Gere UM ÚNICO post novo.
 
 IMPORTANTE: Responda APENAS com um JSON válido, sem markdown, sem backticks.
 
@@ -105,14 +105,13 @@ Regras:
 - Para "reels"/"stories": card_copy pode ser []
 - "script": APENAS para "reels" e "stories" deve ter roteiro completo. Para "post" e "carrossel", DEVE ser string vazia ""
 - "caption" é a legenda completa pronta para Instagram
-- Use a estratégia StoryBrand e o tom de voz da marca para guiar o conteúdo
+- Use EXCLUSIVAMENTE a estratégia StoryBrand e o tom de voz da marca para guiar o conteúdo
 - Responda em português brasileiro`;
 
     const userPrompt = `Negócio: ${business.company_name || ""}
 Serviços: ${business.services || ""}
 Público: ${business.target_audience || ""}
 Nicho: ${niche || ""}
-Arquétipo primário: ${archetypes?.primary?.archetype_name || archetypes?.primary?.name || ""}
 ${storybrandContext}${toneContext}
 
 Posts já existentes (NÃO repita nenhum deles):
