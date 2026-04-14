@@ -70,7 +70,7 @@ const plans = [
 
 const ChoosePlan = () => {
   const navigate = useNavigate();
-  const { user, subscription, balances } = useAuth();
+  const { user, subscription, balances, signOut } = useAuth();
   const [loadingSlug, setLoadingSlug] = useState<string | null>(null);
   const [couponCode, setCouponCode] = useState("");
   const [loadingUpgrade, setLoadingUpgrade] = useState<string | null>(null);
