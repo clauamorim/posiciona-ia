@@ -1,36 +1,14 @@
 
 
-# Plano: Corrigir upload de PDFs no Admin
+# Plano: Aumentar limites de PDFs de referência
 
-## Diagnóstico
+Alterar os limites em ambas as Edge Functions (`generate-report` e `analyze-instagram`):
 
-O bucket `reference-pdfs` tem políticas de INSERT e DELETE para admins, mas **falta a política de UPDATE** no `storage.objects`. O Supabase Storage usa uploads multipart que exigem permissão de UPDATE além de INSERT. Sem essa política, o upload falha silenciosamente ou retorna erro de permissão.
+- `.limit(3)` → `.limit(5)`
+- `MAX_TOTAL = 4 * 1024 * 1024` → `MAX_TOTAL = 8 * 1024 * 1024`
 
-## Correção
-
-Uma migration SQL para adicionar a política de UPDATE faltante:
-
-```sql
-CREATE POLICY "Admins can update reference pdfs"
-ON storage.objects FOR UPDATE
-TO authenticated
-USING (bucket_id = 'reference-pdfs' AND has_role(auth.uid(), 'admin'::app_role));
-```
-
-Também vou adicionar a mesma política no bucket `asset-gallery` (prevenção):
-
-```sql
-CREATE POLICY "Admins can update gallery assets"
-ON storage.objects FOR UPDATE
-TO authenticated
-USING (bucket_id = 'asset-gallery' AND has_role(auth.uid(), 'admin'::app_role));
-```
-
-## Arquivo afetado
-
-| Arquivo | Ação |
-|---------|------|
-| Migration SQL | Adicionar políticas UPDATE nos buckets de storage |
-
-Nenhuma mudança no código frontend — apenas infraestrutura de permissões.
+| Arquivo | Mudança |
+|---------|---------|
+| `supabase/functions/generate-report/index.ts` | limit 5, MAX 8MB |
+| `supabase/functions/analyze-instagram/index.ts` | limit 5, MAX 8MB |
 
