@@ -241,6 +241,15 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
     if (logo) setSavedLogo(logo);
   }, []);
 
+  useEffect(() => {
+    if (galleryOpen && !galleryLoaded) {
+      supabase.from("gallery_assets").select("id, name, category, file_path").eq("is_active", true).order("created_at", { ascending: false }).then(({ data }) => {
+        setGalleryAssets((data as any[]) || []);
+        setGalleryLoaded(true);
+      });
+    }
+  }, [galleryOpen, galleryLoaded]);
+
   const getFontOptions = (type: "display" | "body") => {
     const recommended = type === "display" ? recommendedFonts?.display : recommendedFonts?.body;
     const fonts = [...GOOGLE_FONTS];
