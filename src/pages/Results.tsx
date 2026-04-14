@@ -92,17 +92,20 @@ const Results = () => {
           tertiary: { archetype_name: top3[2]?.name, score: top3[2]?.score },
         };
 
-        // Determine next version number
-        const { data: maxVersionRow } = await supabase
-          .from("reports").select("version")
-          .eq("user_id", user.id)
-          .order("version", { ascending: false }).limit(1).single();
-
-        const newVersion = (maxVersionRow?.version || 0) + 1;
-
-        await supabase.from("reports").insert({
-          user_id: user.id, version: newVersion, status: "generating",
-        });
+        // Use existing pending report or create a new version
+        let reportVersion: number;
+        if (latestReport && (latestReport.status === "pending" || latestReport.status === "generating")) {
+          // Reuse the pending/generating report
+          reportVersion = latestReport.version;
+          await supabase.from("reports").update({ status: "generating" })
+            .eq("user_id", user.id).eq("version", reportVersion);
+        } else {
+          // No report exists, create version 1
+          reportVersion = 1;
+          await supabase.from("reports").insert({
+            user_id: user.id, version: reportVersion, status: "generating",
+          });
+        }
 
         const { data: reportData, error: reportError } = await supabase.functions.invoke("generate-report", {
           body: { business: bqData, niche: profile?.niche || "", archetypes, gender: profile?.gender || "Não informado" },
