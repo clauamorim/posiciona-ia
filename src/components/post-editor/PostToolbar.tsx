@@ -609,6 +609,17 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
                 />
               </div>
             )}
+            {/* Remove background */}
+            {onRemoveBackground && (selectedOverlay.type === "photo" || selectedOverlay.type === "element" || selectedOverlay.type === "logo") && (
+              <Button variant="outline" size="sm" className="w-full gap-2" disabled={removingBackground}
+                onClick={() => onRemoveBackground(selectedOverlay.id)}>
+                {removingBackground ? (
+                  <><span className="animate-spin h-3.5 w-3.5 border-2 border-current border-t-transparent rounded-full" /> Removendo...</>
+                ) : (
+                  <><Paintbrush className="h-3.5 w-3.5" /> Remover fundo</>
+                )}
+              </Button>
+            )}
             {/* Recolor for SVG elements */}
             {isSelectedElement && onUpdateOverlaySrc && (
               <div>
