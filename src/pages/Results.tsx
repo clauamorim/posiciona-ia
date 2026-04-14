@@ -32,12 +32,13 @@ const Results = () => {
     if (!user) return;
     const run = async () => {
       try {
-        // Check if report already exists and is completed
+        // Check if ANY completed report exists
         const { data: existingReport } = await supabase
-          .from("reports").select("status")
-          .eq("user_id", user.id).eq("version", 1).single();
+          .from("reports").select("status, version")
+          .eq("user_id", user.id).eq("status", "completed")
+          .order("version", { ascending: false }).limit(1).single();
 
-        // Also load scores to display
+        // Load scores to display
         const [{ data: questions }, { data: answersData }] = await Promise.all([
           supabase.from("archetype_questions").select("id, question_number"),
           supabase.from("archetype_answers").select("question_id, score").eq("user_id", user.id),
@@ -82,9 +83,17 @@ const Results = () => {
           tertiary: { archetype_name: top3[2]?.name, score: top3[2]?.score },
         };
 
-        await supabase.from("reports").upsert({
-          user_id: user.id, version: 1, status: "generating",
-        }, { onConflict: "user_id,version" });
+        // Determine next version number
+        const { data: maxVersionRow } = await supabase
+          .from("reports").select("version")
+          .eq("user_id", user.id)
+          .order("version", { ascending: false }).limit(1).single();
+
+        const newVersion = (maxVersionRow?.version || 0) + 1;
+
+        await supabase.from("reports").insert({
+          user_id: user.id, version: newVersion, status: "generating",
+        });
 
         const { data: reportData, error: reportError } = await supabase.functions.invoke("generate-report", {
           body: { business: bqData, niche: profile?.niche || "", archetypes, gender: profile?.gender || "Não informado" },
@@ -94,7 +103,7 @@ const Results = () => {
         const normalizedReportContent = normalizeReportContent(reportData?.report) as any;
 
         await supabase.from("reports").update({ content: normalizedReportContent, status: "completed" })
-          .eq("user_id", user.id).eq("version", 1);
+          .eq("user_id", user.id).eq("version", newVersion);
         await supabase.from("business_questionnaires").update({ status: "locked" }).eq("user_id", user.id);
 
         setStage("done");
@@ -103,8 +112,6 @@ const Results = () => {
         console.error("Results error:", err);
         setErrorMsg(err.message || "Erro desconhecido");
         setStage("error");
-        await supabase.from("reports").update({ status: "error", error_message: err.message })
-          .eq("user_id", user.id).eq("version", 1);
         toast({ title: "Erro", description: err.message, variant: "destructive" });
       }
     };
