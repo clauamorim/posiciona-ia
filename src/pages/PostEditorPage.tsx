@@ -159,11 +159,50 @@ const PostEditorPage = () => {
   const handleImageResize = (id: string, width: number, height: number) => handleUpdateOverlay(id, { width, height });
   const handleImageOpacityChange = (id: string, opacity: number) => handleUpdateOverlay(id, { opacity });
 
+  const chromaKeyToTransparent = useCallback((dataUrl: string): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) { reject(new Error("Canvas context failed")); return; }
+        ctx.drawImage(img, 0, 0);
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const d = imageData.data;
+        // Remove pixels that are close to pure green (#00FF00)
+        // Use a tolerance to handle compression artifacts
+        const tolerance = 80;
+        for (let i = 0; i < d.length; i += 4) {
+          const r = d[i], g = d[i + 1], b = d[i + 2];
+          if (g > 150 && r < tolerance && b < tolerance && g > r + 40 && g > b + 40) {
+            d[i + 3] = 0; // Set alpha to 0
+          }
+          // Handle edge anti-aliasing: partially transparent for near-green pixels
+          else if (g > 120 && r < 120 && b < 120 && g > r && g > b) {
+            const greenness = (g - Math.max(r, b)) / g;
+            if (greenness > 0.3) {
+              d[i + 3] = Math.round(255 * (1 - greenness));
+              // Remove green tint from semi-transparent edge pixels
+              d[i] = Math.min(255, Math.round(r * 1.3));
+              d[i + 2] = Math.min(255, Math.round(b * 1.3));
+            }
+          }
+        }
+        ctx.putImageData(imageData, 0, 0);
+        resolve(canvas.toDataURL("image/png"));
+      };
+      img.onerror = () => reject(new Error("Failed to load image for chroma key"));
+      img.src = dataUrl;
+    });
+  }, []);
+
   const handleRemoveBackground = useCallback(async (id: string) => {
-    if (removingBackground) return; // Prevent double-click
+    if (removingBackground) return;
     const overlay = overlayImages.find((img) => img.id === id);
     if (!overlay) return;
-    const originalSrc = overlay.src; // Preserve original
+    const originalSrc = overlay.src;
     setRemovingBackground(true);
     try {
       const { data, error } = await supabase.functions.invoke("remove-background", {
@@ -171,19 +210,22 @@ const PostEditorPage = () => {
       });
       if (error) throw error;
       if (data?.image && data.image.startsWith("data:image/")) {
-        handleUpdateOverlay(id, { src: data.image });
+        // Apply chroma key processing to convert green background to transparency
+        const transparentImage = data.chromaKey
+          ? await chromaKeyToTransparent(data.image)
+          : data.image;
+        handleUpdateOverlay(id, { src: transparentImage });
         toast({ title: "Fundo removido com sucesso!" });
       } else {
         throw new Error(data?.error || "A IA não retornou uma imagem válida");
       }
     } catch (err: any) {
-      // Restore original on failure
       handleUpdateOverlay(id, { src: originalSrc });
       toast({ title: err.message || "Erro ao remover fundo", variant: "destructive" });
     } finally {
       setRemovingBackground(false);
     }
-  }, [overlayImages, removingBackground]);
+  }, [overlayImages, removingBackground, chromaKeyToTransparent]);
 
   const handleDownloadSlide = useCallback(async (index: number) => {
     try {
