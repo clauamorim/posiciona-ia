@@ -72,7 +72,7 @@ serve(async (req) => {
       });
     }
 
-    const { business, niche, archetypes, previousWeeks, storybrand, tone_of_voice } = await req.json();
+    const { business, niche, previousWeeks, storybrand, tone_of_voice } = await req.json();
 
     // Check weekly_cycles credits
     const { data: balanceData } = await supabase
@@ -96,7 +96,7 @@ serve(async (req) => {
     // Build StoryBrand context
     let storybrandContext = "";
     if (storybrand) {
-      storybrandContext = `\n\nESTRATÉGIA STORYBRAND DA MARCA (use como base para criar conteúdo):
+      storybrandContext = `\n\nESTRATÉGIA STORYBRAND DA MARCA (use como base PRINCIPAL para criar conteúdo):
 - Herói (Cliente): ${storybrand.hero || ""}
 - Guia (Marca): ${storybrand.guide || ""}
 - Problema Externo: ${storybrand.external_problem || ""}
@@ -119,10 +119,21 @@ serve(async (req) => {
 - Emoções para evocar: ${(tone_of_voice.emotions_to_evoke || []).join(", ")}`;
     }
 
-    const systemPrompt = `Você é um especialista em branding e marketing de conteúdo para Instagram.
+    const systemPrompt = `Você é um especialista em branding e marketing de conteúdo para Instagram, especializado na metodologia StoryBrand de Donald Miller.
+
 Gere EXATAMENTE 7 novos dias de conteúdo editorial, SEM REPETIR temas, abordagens ou formatos dos conteúdos anteriores.
 
 IMPORTANTE: Responda APENAS com um JSON válido, sem markdown, sem backticks.
+
+ESTRATÉGIA DE CONTEÚDO — BASEADA EXCLUSIVAMENTE NO STORYBRAND:
+Cada dia da semana deve explorar uma faceta diferente do framework StoryBrand:
+- Dia 1: Foque no HERÓI (cliente) — mostre que você entende quem ele é, seus desejos e aspirações
+- Dia 2: Explore o PROBLEMA EXTERNO — o obstáculo visível que o cliente enfrenta
+- Dia 3: Aprofunde o PROBLEMA INTERNO — a frustração emocional, a dúvida, o medo
+- Dia 4: Posicione a marca como GUIA — demonstre empatia e autoridade
+- Dia 5: Apresente o PLANO — mostre os passos claros que o cliente deve seguir
+- Dia 6: Faça o CTA com clareza — convoque à ação com urgência e propósito
+- Dia 7: Contraste SUCESSO vs FRACASSO — pinte o futuro positivo e o custo de não agir
 
 O JSON deve ser um array com 7 objetos:
 [
@@ -145,7 +156,7 @@ Regras:
 - O campo "card_copy": para "carrossel", array com texto de CADA SLIDE (mínimo 5); para "post", array com 1 item (texto visual do card); para "reels"/"stories", array vazio []
 - Variar formatos ao longo da semana
 - NÃO repetir temas ou abordagens dos conteúdos anteriores
-- Use a estratégia StoryBrand e o tom de voz da marca para guiar TODO o conteúdo
+- Use o StoryBrand e o tom de voz como guias EXCLUSIVOS de todo o conteúdo
 - Responda em português brasileiro`;
 
     const userPrompt = `
@@ -153,11 +164,6 @@ Negócio: ${business?.company_name || "Não informado"}
 Serviços: ${business?.services || "Não informado"}
 Público-alvo: ${business?.target_audience || "Não informado"}
 Nicho: ${niche || "Não informado"}
-
-Arquétipos:
-- Primário: ${archetypes?.primary?.archetype_name || archetypes?.primary?.name || ""}
-- Secundário: ${archetypes?.secondary?.archetype_name || archetypes?.secondary?.name || ""}
-- Terciário: ${archetypes?.tertiary?.archetype_name || archetypes?.tertiary?.name || ""}
 ${storybrandContext}${toneContext}
 
 CONTEÚDOS JÁ PUBLICADOS (NÃO REPETIR):

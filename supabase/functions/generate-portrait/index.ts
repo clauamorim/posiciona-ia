@@ -85,7 +85,6 @@ serve(async (req) => {
       });
     }
 
-    const archetypeNames = archetypes.map((a: any) => a.archetype_name).join(", ");
     const figurino = reportContent?.figurino || {};
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -104,62 +103,48 @@ serve(async (req) => {
       image_url: { url: s.startsWith("data:") ? s : `data:image/jpeg;base64,${s}` },
     }));
 
-    // Build wardrobe line
+    // Build wardrobe line (simplified to not compete with facial fidelity)
     let wardrobeLine = "";
     if (figurino.pecas_chave?.length > 0 || figurino.cores_roupa?.length > 0) {
       const allPieces = figurino.pecas_chave || [];
       const allColors = figurino.cores_roupa || [];
-      const allAccessories = figurino.acessorios || [];
 
-      let pieces: string[], colors: string[], accessories: string[];
+      let pieces: string[], colors: string[];
       if (typeof wardrobeVariation === "number" && wardrobeVariation > 0) {
         const offset = wardrobeVariation;
-        pieces = allPieces.length > 0 ? [allPieces[offset % allPieces.length], allPieces[(offset + 1) % allPieces.length], allPieces[(offset + 2) % allPieces.length]].filter((v: string, i: number, a: string[]) => a.indexOf(v) === i) : [];
-        colors = allColors.length > 0 ? [allColors[offset % allColors.length], allColors[(offset + 1) % allColors.length]].filter((v: string, i: number, a: string[]) => a.indexOf(v) === i) : [];
-        accessories = allAccessories.length > 0 ? [allAccessories[offset % allAccessories.length]] : [];
+        pieces = allPieces.length > 0 ? [allPieces[offset % allPieces.length], allPieces[(offset + 1) % allPieces.length]].filter((v: string, i: number, a: string[]) => a.indexOf(v) === i) : [];
+        colors = allColors.length > 0 ? [allColors[offset % allColors.length]] : [];
       } else {
-        pieces = allPieces.slice(0, 3);
-        colors = allColors.slice(0, 3);
-        accessories = allAccessories.slice(0, 2);
+        pieces = allPieces.slice(0, 2);
+        colors = allColors.slice(0, 2);
       }
 
       const genderLabel = gender === "Feminino" ? "Female" : gender === "Masculino" ? "Male" : "Neutral";
-      wardrobeLine = `\nWardrobe: ${pieces.join(", ")}. Colors: ${colors.join(", ")}. Accessories: ${accessories.join(", ")}. Gender: ${genderLabel}.`;
-      if (figurino.cabelo) wardrobeLine += ` Hair: ${figurino.cabelo}.`;
-      if (figurino.maquiagem_grooming) {
-        wardrobeLine += gender === "Feminino" ? ` Makeup: ${figurino.maquiagem_grooming}.` : ` Grooming: ${figurino.maquiagem_grooming}.`;
-      }
+      wardrobeLine = `\nClothing suggestion (secondary priority): ${pieces.join(", ")}. Colors: ${colors.join(", ")}. Gender: ${genderLabel}.`;
     }
 
-    // Build visual style context from report
-    let visualStyleLine = "";
-    const visualIdentity = reportContent?.visual_identity;
-    if (visualIdentity) {
-      if (visualIdentity.style) {
-        visualStyleLine += `\nBrand visual style: ${visualIdentity.style}.`;
-      }
-      if (visualIdentity.palette?.length > 0) {
-        const paletteColors = visualIdentity.palette.map((c: any) => `${c.name} (${c.hex})`).join(", ");
-        visualStyleLine += ` Brand color palette: ${paletteColors}. Use these colors as subtle influence in backdrop tones, clothing colors, or lighting mood — do NOT make the portrait look like a color swatch.`;
-      }
-    }
+    const prompt = `CRITICAL INSTRUCTION: This is an IMAGE EDITING task, NOT image generation. You must transform the reference photos into a professional studio portrait while preserving the EXACT SAME PERSON.
 
-    const prompt = `You are a portrait photographer. Study the reference photos carefully. Reproduce the EXACT SAME PERSON — same face shape, nose, eyes, eyebrows, lips, jawline, skin tone, hair color/texture, facial hair, moles, freckles, wrinkles, age, ethnicity. The output must be immediately recognizable as the same individual.
+FACIAL FIDELITY IS THE #1 PRIORITY — above all other instructions.
 
-Create a hyper-realistic professional studio photograph. NOT an illustration, NOT a painting, NOT AI-looking.
+Study the reference photos with extreme attention. Reproduce the EXACT SAME PERSON:
+- Same face shape, nose, eyes, eyebrows, lips, jawline, skin tone
+- Same hair color, texture, length, and style
+- Same facial hair (if any), moles, freckles, wrinkles, age, ethnicity
+- Same ear shape, neck proportions, head size
 
-REALISM: Keep all facial asymmetries. Skin must show natural pores and texture but do NOT over-sharpen or add excessive skin texture. Keep skin smooth and natural — do NOT add wrinkles, lines, or blemishes that are not visible in the reference photos. Do NOT exaggerate pore detail or add artificial grain. Hair must have natural flyaways. Eyes must have natural catchlights. Clothing must have realistic fabric wrinkles. If hands are visible: exactly 5 fingers per hand, correct proportions.
+Do NOT create a new person. Do NOT approximate. Do NOT idealize or beautify beyond what is in the references. The output must be IMMEDIATELY recognizable as the same individual — like a real photo taken on the same day.
 
-EXPRESSION: Match the expression from the reference photos. If the person is NOT smiling showing teeth in ANY reference photo, do NOT generate a photo showing teeth. Keep the expression natural and consistent with the references.
+EXPRESSION: Match the expression from the reference photos exactly. If the person is NOT smiling showing teeth in ANY reference photo, do NOT generate a photo showing teeth.
 
-STUDIO: ${studioStyle}
+REALISM: Natural skin with pores but do NOT over-sharpen or add excessive texture. Do NOT add wrinkles or blemishes not in references. Hair must have natural flyaways. Eyes must have natural catchlights.
+
+STUDIO SETUP: ${studioStyle}
 Always use a studio backdrop — never outdoor or nature.
-
-Brand archetypes: ${archetypeNames}. Express through body language and expression, not costumes or props.${wardrobeLine}${visualStyleLine}
+${wardrobeLine}
 
 No text, no watermarks, no overlays. Professional branding photo indistinguishable from a real DSLR photograph.`;
 
-    // Send reference images FIRST, then the text prompt
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -167,7 +152,7 @@ No text, no watermarks, no overlays. Professional branding photo indistinguishab
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-pro-image-preview",
+        model: "google/gemini-3.1-flash-image-preview",
         messages: [
           {
             role: "user",
@@ -213,22 +198,7 @@ No text, no watermarks, no overlays. Professional branding photo indistinguishab
       });
     }
 
-    if (included > 0) {
-      await supabaseAdmin.from("user_balances").update({
-        portrait_credits_included: included - 1,
-      }).eq("user_id", user.id);
-    } else {
-      await supabaseAdmin.from("user_balances").update({
-        portrait_credits_extra: extra - 1,
-      }).eq("user_id", user.id);
-    }
-
-    await supabaseAdmin.from("credit_logs").insert({
-      user_id: user.id,
-      credit_type: "portrait",
-      amount: -1,
-      description: `Retrato gerado (estilo ${styleIndex + 1})`,
-    });
+    // Do NOT deduct credits here — credits are deducted on download via confirm-portrait
 
     return new Response(JSON.stringify({ portrait: generatedImage, style_index: styleIndex }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
