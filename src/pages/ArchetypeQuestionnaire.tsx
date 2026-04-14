@@ -47,13 +47,15 @@ const ArchetypeQuestionnaire = () => {
       }
 
       if (user) {
-        const { data: report } = await supabase
+        // Check the LATEST report status, not any completed report
+        const { data: latestReport } = await supabase
           .from("reports")
           .select("status")
           .eq("user_id", user.id)
-          .eq("status", "completed")
-          .limit(1);
-        if (report && report.length > 0) {
+          .order("version", { ascending: false })
+          .limit(1)
+          .single();
+        if (latestReport && latestReport.status === "completed") {
           setStatus("locked");
         }
       }
@@ -103,9 +105,13 @@ const ArchetypeQuestionnaire = () => {
       await supabase.from("archetype_answers").delete().eq("user_id", user.id);
     }
 
-    // Reset report so Results.tsx will regenerate it
-    await supabase.from("reports").update({ status: "pending", content: null, error_message: null })
-      .eq("user_id", user.id).eq("version", 1);
+    // Reset the LATEST report so Results.tsx will regenerate it
+    const { data: latestReport } = await supabase.from("reports").select("version")
+      .eq("user_id", user.id).order("version", { ascending: false }).limit(1).single();
+    if (latestReport) {
+      await supabase.from("reports").update({ status: "pending", content: null, error_message: null, editorial_weeks: [] })
+        .eq("user_id", user.id).eq("version", latestReport.version);
+    }
 
     setStatus("draft");
     setShowReanalysisDialog(false);

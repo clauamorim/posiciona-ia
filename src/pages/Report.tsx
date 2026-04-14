@@ -175,16 +175,25 @@ const Report = () => {
     );
   }
 
-  if (!report || report.status !== "completed") {
+  if (!report || (report.status !== "completed" && report.status !== "generating" && report.status !== "pending")) {
     return (
       <DashboardLayout>
         <div className="flex flex-col items-center justify-center h-64 text-center">
           <FileText className="h-12 w-12 text-muted-foreground mb-4" />
           <h2 className="text-xl font-bold font-display">Nenhum relatório disponível</h2>
-          <p className="text-muted-foreground mt-1">
-            {report?.status === "generating" ? "Seu relatório está sendo gerado..." : "Complete os questionários e gere seu relatório na página de resultados."}
-          </p>
-          {report?.status === "generating" && <Loader2 className="h-6 w-6 animate-spin text-primary mt-4" />}
+          <p className="text-muted-foreground mt-1">Complete os questionários e gere seu relatório na página de resultados.</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (report.status === "generating" || report.status === "pending") {
+    return (
+      <DashboardLayout>
+        <div className="flex flex-col items-center justify-center h-64 text-center">
+          <Loader2 className="h-12 w-12 text-primary animate-spin mb-4" />
+          <h2 className="text-xl font-bold font-display">Gerando seu relatório...</h2>
+          <p className="text-muted-foreground mt-1">Sua estratégia está sendo criada. Volte em alguns instantes.</p>
         </div>
       </DashboardLayout>
     );

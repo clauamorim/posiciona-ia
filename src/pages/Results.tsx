@@ -33,10 +33,10 @@ const Results = () => {
     if (!user) return;
     const run = async () => {
       try {
-        // Check if ANY completed report exists
-        const { data: existingReport } = await supabase
+        // Fetch the LATEST report regardless of status
+        const { data: latestReport } = await supabase
           .from("reports").select("status, version, content")
-          .eq("user_id", user.id).eq("status", "completed")
+          .eq("user_id", user.id)
           .order("version", { ascending: false }).limit(1).single();
 
         // Load scores to display
@@ -52,15 +52,15 @@ const Results = () => {
         setScores(calc);
 
         // Extract archetype details from report content
-        if (existingReport?.content) {
-          const normalized = normalizeReportContent(existingReport.content) as any;
+        if (latestReport?.content) {
+          const normalized = normalizeReportContent(latestReport.content) as any;
           if (normalized?.archetypes) {
             setArchetypeDetails(normalized.archetypes);
           }
         }
 
-        // If report is already completed, skip regeneration
-        if (existingReport?.status === "completed") {
+        // Only skip regeneration if the LATEST report is completed with valid content
+        if (latestReport?.status === "completed" && latestReport?.content) {
           setStage("done");
           return;
         }
@@ -92,17 +92,20 @@ const Results = () => {
           tertiary: { archetype_name: top3[2]?.name, score: top3[2]?.score },
         };
 
-        // Determine next version number
-        const { data: maxVersionRow } = await supabase
-          .from("reports").select("version")
-          .eq("user_id", user.id)
-          .order("version", { ascending: false }).limit(1).single();
-
-        const newVersion = (maxVersionRow?.version || 0) + 1;
-
-        await supabase.from("reports").insert({
-          user_id: user.id, version: newVersion, status: "generating",
-        });
+        // Use existing pending report or create a new version
+        let reportVersion: number;
+        if (latestReport && (latestReport.status === "pending" || latestReport.status === "generating")) {
+          // Reuse the pending/generating report
+          reportVersion = latestReport.version;
+          await supabase.from("reports").update({ status: "generating" })
+            .eq("user_id", user.id).eq("version", reportVersion);
+        } else {
+          // No report exists, create version 1
+          reportVersion = 1;
+          await supabase.from("reports").insert({
+            user_id: user.id, version: reportVersion, status: "generating",
+          });
+        }
 
         const { data: reportData, error: reportError } = await supabase.functions.invoke("generate-report", {
           body: { business: bqData, niche: profile?.niche || "", archetypes, gender: profile?.gender || "Não informado" },
@@ -117,7 +120,7 @@ const Results = () => {
         }
 
         await supabase.from("reports").update({ content: normalizedReportContent, status: "completed" })
-          .eq("user_id", user.id).eq("version", newVersion);
+          .eq("user_id", user.id).eq("version", reportVersion);
         await supabase.from("business_questionnaires").update({ status: "locked" }).eq("user_id", user.id);
 
         setStage("done");
