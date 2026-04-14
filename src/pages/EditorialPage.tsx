@@ -413,6 +413,11 @@ const EditorialPage = () => {
                               <PenTool className="h-3 w-3" /> Criar post
                             </Button>
                           )}
+                          {day.format?.toLowerCase() === "reels" && (
+                            <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1 px-2" onClick={() => navigate(`/post-editor?week=${wi}&day=${di}&format=reels-cover`)}>
+                              <Image className="h-3 w-3" /> Gerar capa
+                            </Button>
+                          )}
                           <Button
                             variant="ghost" size="sm" className="h-7 text-[11px] gap-1 px-2"
                             onClick={() => handleRegeneratePost(wi, di)}
