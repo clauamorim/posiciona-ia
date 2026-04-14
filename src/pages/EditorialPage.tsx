@@ -107,7 +107,7 @@ const EditorialPage = () => {
         supabase.from("user_top_archetypes").select("*").eq("user_id", user.id).order("rank", { ascending: true }).limit(3),
         supabase.from("reports").select("content").eq("user_id", user.id).eq("status", "completed").order("version", { ascending: false }).limit(1).single(),
       ]);
-      const reportContent = reportData?.content as Record<string, any> | null;
+      const reportContent = normalizeReportContent(reportData?.content) as Record<string, any> | null;
       const existingPosts = allWeeks.flat();
       const { data, error } = await supabase.functions.invoke("regenerate-single-post", {
         body: {
