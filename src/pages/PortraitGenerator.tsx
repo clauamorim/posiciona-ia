@@ -186,11 +186,26 @@ const PortraitGenerator = () => {
     }
   };
 
-  const downloadPortrait = (base64Url: string, index: number) => {
-    const link = document.createElement("a");
-    link.href = base64Url;
-    link.download = `retrato-marca-${index + 1}.png`;
-    link.click();
+  const downloadPortrait = async (base64Url: string, index: number) => {
+    setConfirmingDownload(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("confirm-portrait", {
+        body: { portrait: base64Url, style_index: portraitStyleIndex },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      const link = document.createElement("a");
+      link.href = base64Url;
+      link.download = `retrato-marca-${index + 1}.png`;
+      link.click();
+
+      await refreshSubscription();
+      toast({ title: "Retrato salvo e crédito debitado!" });
+    } catch (err: any) {
+      toast({ title: "Erro ao confirmar retrato", description: err.message, variant: "destructive" });
+    }
+    setConfirmingDownload(false);
   };
 
   const downloadAll = async () => {
