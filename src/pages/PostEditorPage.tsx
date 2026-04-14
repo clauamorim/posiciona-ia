@@ -173,21 +173,28 @@ const PostEditorPage = () => {
         const d = imageData.data;
         // Remove pixels that are close to pure green (#00FF00)
         // Use a tolerance to handle compression artifacts
-        const tolerance = 80;
+        const tolerance = 120;
         for (let i = 0; i < d.length; i += 4) {
           const r = d[i], g = d[i + 1], b = d[i + 2];
-          if (g > 150 && r < tolerance && b < tolerance && g > r + 40 && g > b + 40) {
-            d[i + 3] = 0; // Set alpha to 0
+          if (g > 150 && r < tolerance && b < tolerance && g > r + 30 && g > b + 30) {
+            d[i + 3] = 0;
           }
-          // Handle edge anti-aliasing: partially transparent for near-green pixels
-          else if (g > 120 && r < 120 && b < 120 && g > r && g > b) {
+          else if (g > 80 && r < 160 && b < 160 && g > r && g > b) {
             const greenness = (g - Math.max(r, b)) / g;
-            if (greenness > 0.3) {
+            if (greenness > 0.15) {
               d[i + 3] = Math.round(255 * (1 - greenness));
-              // Remove green tint from semi-transparent edge pixels
               d[i] = Math.min(255, Math.round(r * 1.3));
               d[i + 2] = Math.min(255, Math.round(b * 1.3));
             }
+          }
+        }
+        // Despill pass: neutralize remaining green tint
+        for (let i = 0; i < d.length; i += 4) {
+          if (d[i + 3] === 0) continue;
+          const r = d[i], g = d[i + 1], b = d[i + 2];
+          const avg = (r + b) / 2;
+          if (g > avg + 10) {
+            d[i + 1] = Math.round(avg);
           }
         }
         ctx.putImageData(imageData, 0, 0);
