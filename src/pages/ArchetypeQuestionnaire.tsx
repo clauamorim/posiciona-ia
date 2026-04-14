@@ -97,13 +97,15 @@ const ArchetypeQuestionnaire = () => {
     });
 
     if (mode === "reset") {
-      // Reset all answers to default 3
       const defaults: Record<string, number> = {};
       questions.forEach(q => { defaults[q.id] = 3; });
       setAnswers(defaults);
-      // Delete existing answers
       await supabase.from("archetype_answers").delete().eq("user_id", user.id);
     }
+
+    // Reset report so Results.tsx will regenerate it
+    await supabase.from("reports").update({ status: "pending", content: null, error_message: null })
+      .eq("user_id", user.id).eq("version", 1);
 
     setStatus("draft");
     setShowReanalysisDialog(false);

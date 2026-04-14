@@ -115,6 +115,10 @@ const BusinessQuestionnaire = () => {
       await supabase.from("business_questionnaires").update({ status: "draft", is_complete: false }).eq("id", existingId);
     }
 
+    // Reset report so Results.tsx will regenerate it
+    await supabase.from("reports").update({ status: "pending", content: null, error_message: null })
+      .eq("user_id", user.id).eq("version", 1);
+
     setStatus("draft");
     setIsComplete(false);
     setShowReanalysisDialog(false);
