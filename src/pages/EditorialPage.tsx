@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,7 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import {
   Loader2, Sparkles, ChevronDown, Calendar, Video, Image, Smartphone,
-  ImageIcon, PenTool, FileText, RefreshCw, Copy
+  ImageIcon, PenTool, FileText, RefreshCw, Copy, Download
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { parseReportContent } from "@/lib/reportParser";
@@ -30,6 +30,8 @@ const EditorialPage = () => {
   const [loading, setLoading] = useState(true);
   const [generatingWeek, setGeneratingWeek] = useState(false);
   const [regeneratingPost, setRegeneratingPost] = useState<string | null>(null);
+  const [downloadingPDF, setDownloadingPDF] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   const weeklyCycles = balances?.weekly_cycles ?? 0;
   const regenerationCredits = balances?.regeneration_credits ?? 0;
@@ -138,6 +140,43 @@ const EditorialPage = () => {
     toast({ title: "Legenda copiada!" });
   };
 
+  const handleDownloadPDF = async () => {
+    if (!contentRef.current) return;
+    setDownloadingPDF(true);
+    const container = contentRef.current;
+    try {
+      const html2pdf = (await import("html2pdf.js")).default;
+      // Expand all collapsibles
+      const closedTriggers = container.querySelectorAll("[data-state='closed']");
+      closedTriggers.forEach((el) => {
+        if (el instanceof HTMLElement) el.click();
+      });
+      // Wait for expansion animation
+      await new Promise((r) => setTimeout(r, 400));
+      // Hide action buttons
+      container.querySelectorAll("[data-hide-pdf]").forEach((b) => (b as HTMLElement).style.display = "none");
+      container.classList.add("pdf-capture");
+
+      const opt = {
+        margin: [8, 5, 8, 5],
+        filename: "posiciona-linha-editorial.pdf",
+        image: { type: "jpeg", quality: 0.98 },
+        html2canvas: { scale: 2.5, useCORS: true, logging: false, scrollY: 0, letterRendering: true, backgroundColor: "#f2eeea" },
+        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" as const },
+        pagebreak: { mode: ["css"] },
+      };
+      await html2pdf().set(opt).from(container).save();
+      container.classList.remove("pdf-capture");
+      container.querySelectorAll("[data-hide-pdf]").forEach((b) => (b as HTMLElement).style.display = "");
+    } catch (error) {
+      console.error("Error generating editorial PDF:", error);
+      container.classList.remove("pdf-capture");
+      container.querySelectorAll("[data-hide-pdf]").forEach((b) => (b as HTMLElement).style.display = "");
+      toast({ title: "Erro ao gerar PDF", description: "Tente novamente.", variant: "destructive" });
+    }
+    setDownloadingPDF(false);
+  };
+
   if (loading) {
     return (
       <DashboardLayout>
@@ -193,7 +232,7 @@ const EditorialPage = () => {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
+      <div className="space-y-6" ref={contentRef}>
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Linha Editorial</h1>
@@ -202,6 +241,10 @@ const EditorialPage = () => {
               {regenerationCredits > 0 && ` · ${regenerationCredits} regeneraç${regenerationCredits > 1 ? "ões" : "ão"}`}
             </p>
           </div>
+          <Button onClick={handleDownloadPDF} variant="outline" size="sm" className="gap-2" disabled={downloadingPDF} data-hide-pdf>
+            {downloadingPDF ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+            Baixar PDF
+          </Button>
         </div>
 
         <Tabs defaultValue="week-0" className="w-full">
@@ -220,7 +263,7 @@ const EditorialPage = () => {
                   const fmt = FORMAT_CONFIG[day.format?.toLowerCase()] || FORMAT_CONFIG.post;
                   const regenKey = `${wi}-${di}`;
                   return (
-                    <Card key={di} className="flex flex-col">
+                    <Card key={di} className="flex flex-col break-inside-avoid">
                       <CardContent className="py-4 flex-1 space-y-3">
                         <div className="flex items-center justify-between">
                           <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Dia {day.day || di + 1}</span>
@@ -274,7 +317,7 @@ const EditorialPage = () => {
                         )}
 
                         {/* Actions */}
-                        <div className="flex flex-wrap gap-2 pt-1">
+                        <div className="flex flex-wrap gap-2 pt-1" data-hide-pdf>
                           {day.caption && (
                             <Button variant="ghost" size="sm" className="h-7 text-[11px] gap-1 px-2" onClick={() => copyCaption(day.caption)}>
                               <Copy className="h-3 w-3" /> Copiar legenda
@@ -303,7 +346,7 @@ const EditorialPage = () => {
           ))}
         </Tabs>
 
-        <div className="flex justify-center pt-2">
+        <div className="flex justify-center pt-2" data-hide-pdf>
           {generateButton}
         </div>
       </div>
