@@ -169,14 +169,14 @@ const PortraitGenerator = () => {
         const portrait = data.portrait;
         if (portrait) {
           setPortraits([portrait]);
+          setPortraitStyleIndex(data.style_index ?? null);
           toast({ title: "Retrato gerado! Baixe para salvar e debitar o crédito." });
         } else {
           toast({ title: "Nenhum retrato foi gerado", variant: "destructive" });
         }
       }
 
-      // Refresh balances after generation
-      await refreshSubscription();
+      // Do NOT refresh balances here — credits are only deducted on download
     } catch (err: any) {
       console.error("Generate error:", err);
       toast({ title: "Erro ao gerar retrato", description: err.message, variant: "destructive" });
