@@ -27,6 +27,7 @@ const Results = () => {
   const [scores, setScores] = useState<ArchetypeScore[]>([]);
   const [stage, setStage] = useState<Stage>("calculating");
   const [errorMsg, setErrorMsg] = useState("");
+  const [archetypeDetails, setArchetypeDetails] = useState<Record<string, any>>({});
 
   useEffect(() => {
     if (!user) return;
@@ -34,7 +35,7 @@ const Results = () => {
       try {
         // Check if ANY completed report exists
         const { data: existingReport } = await supabase
-          .from("reports").select("status, version")
+          .from("reports").select("status, version, content")
           .eq("user_id", user.id).eq("status", "completed")
           .order("version", { ascending: false }).limit(1).single();
 
@@ -49,6 +50,14 @@ const Results = () => {
         answersData.forEach(a => { answerMap[a.question_id] = a.score; });
         const calc = calculateScores(questions, answerMap);
         setScores(calc);
+
+        // Extract archetype details from report content
+        if (existingReport?.content) {
+          const normalized = normalizeReportContent(existingReport.content) as any;
+          if (normalized?.archetypes) {
+            setArchetypeDetails(normalized.archetypes);
+          }
+        }
 
         // If report is already completed, skip regeneration
         if (existingReport?.status === "completed") {
@@ -102,6 +111,11 @@ const Results = () => {
 
         const normalizedReportContent = normalizeReportContent(reportData?.report) as any;
 
+        // Extract archetype details from newly generated report
+        if (normalizedReportContent?.archetypes) {
+          setArchetypeDetails(normalizedReportContent.archetypes);
+        }
+
         await supabase.from("reports").update({ content: normalizedReportContent, status: "completed" })
           .eq("user_id", user.id).eq("version", newVersion);
         await supabase.from("business_questionnaires").update({ status: "locked" }).eq("user_id", user.id);
@@ -126,6 +140,16 @@ const Results = () => {
     "Primário": "Arquétipo dominante — define o tom central da sua marca",
     "Secundário": "Complemento estratégico — enriquece sua comunicação",
     "Terciário": "Apoio sutil — adiciona profundidade e nuance",
+  };
+
+  // Match top3 archetypes with LLM details
+  const getArchetypeLlmData = (archName: string) => {
+    const rankKeys = ["primary", "secondary", "tertiary"];
+    for (const key of rankKeys) {
+      const llm = archetypeDetails[key];
+      if (llm?.name?.toLowerCase() === archName.toLowerCase()) return llm;
+    }
+    return null;
   };
 
   return (
@@ -168,21 +192,43 @@ const Results = () => {
         {/* Top 3 */}
         {top3.length > 0 && (
           <div className="grid gap-4 md:grid-cols-3">
-            {top3.map(t => (
-              <Card key={t.name} className="relative overflow-hidden border" style={{ borderColor: ARCHETYPE_COLORS[t.name] + "40" }}>
-                <div className="absolute top-0 left-0 right-0 h-1" style={{ background: ARCHETYPE_COLORS[t.name] }} />
-                <CardContent className="pt-5 pb-4 space-y-2">
-                  <Badge variant="outline" className="text-[10px]">{t.classification}</Badge>
-                  <h3 className="text-lg font-semibold">{t.name}</h3>
-                  <p className="text-2xl font-bold" style={{ color: ARCHETYPE_COLORS[t.name] }}>
-                    {t.score}<span className="text-sm text-muted-foreground font-normal">/{maxScore}</span>
-                  </p>
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    {classificationLabels[t.classification] || ""}
-                  </p>
-                </CardContent>
-              </Card>
-            ))}
+            {top3.map(t => {
+              const llm = getArchetypeLlmData(t.name);
+              return (
+                <Card key={t.name} className="relative overflow-hidden border" style={{ borderColor: ARCHETYPE_COLORS[t.name] + "40" }}>
+                  <div className="absolute top-0 left-0 right-0 h-1" style={{ background: ARCHETYPE_COLORS[t.name] }} />
+                  <CardContent className="pt-5 pb-4 space-y-2">
+                    <Badge variant="outline" className="text-[10px]">{t.classification}</Badge>
+                    <h3 className="text-lg font-semibold">{t.name}</h3>
+                    <p className="text-2xl font-bold" style={{ color: ARCHETYPE_COLORS[t.name] }}>
+                      {t.score}<span className="text-sm text-muted-foreground font-normal">/{maxScore}</span>
+                    </p>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      {classificationLabels[t.classification] || ""}
+                    </p>
+                    {llm?.characteristics?.length > 0 && (
+                      <div className="flex flex-wrap gap-1 pt-1">
+                        {llm.characteristics.map((c: string, i: number) => (
+                          <Badge key={i} variant="secondary" className="text-[10px]">{c}</Badge>
+                        ))}
+                      </div>
+                    )}
+                    {llm?.brands?.length > 0 && (
+                      <div className="pt-1">
+                        <p className="text-[10px] font-semibold text-muted-foreground mb-0.5">Marcas de referência</p>
+                        <p className="text-xs text-foreground/80">{llm.brands.join(" · ")}</p>
+                      </div>
+                    )}
+                    {llm?.people?.length > 0 && (
+                      <div>
+                        <p className="text-[10px] font-semibold text-muted-foreground mb-0.5">Personalidades</p>
+                        <p className="text-xs text-foreground/80">{llm.people.join(" · ")}</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         )}
 

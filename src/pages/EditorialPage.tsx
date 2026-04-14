@@ -14,7 +14,7 @@ import {
   ImageIcon, PenTool, FileText, RefreshCw, Copy, Download
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { parseReportContent } from "@/lib/reportParser";
+import { parseReportContent, normalizeReportContent } from "@/lib/reportParser";
 
 const FORMAT_CONFIG: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
   reels: { label: "Reels", icon: <Video className="h-3 w-3" />, color: "bg-pink-500/10 text-pink-600 border-pink-200" },
@@ -66,7 +66,7 @@ const EditorialPage = () => {
         supabase.from("reports").select("content").eq("user_id", user.id).eq("status", "completed").order("version", { ascending: false }).limit(1).single(),
       ]);
 
-      const reportContent = reportData?.content as Record<string, any> | null;
+      const reportContent = normalizeReportContent(reportData?.content) as Record<string, any> | null;
       const archetypes = { primary: topArchetypes?.[0], secondary: topArchetypes?.[1], tertiary: topArchetypes?.[2] };
       const { data, error } = await supabase.functions.invoke("generate-content-week", {
         body: {
@@ -107,7 +107,7 @@ const EditorialPage = () => {
         supabase.from("user_top_archetypes").select("*").eq("user_id", user.id).order("rank", { ascending: true }).limit(3),
         supabase.from("reports").select("content").eq("user_id", user.id).eq("status", "completed").order("version", { ascending: false }).limit(1).single(),
       ]);
-      const reportContent = reportData?.content as Record<string, any> | null;
+      const reportContent = normalizeReportContent(reportData?.content) as Record<string, any> | null;
       const existingPosts = allWeeks.flat();
       const { data, error } = await supabase.functions.invoke("regenerate-single-post", {
         body: {

@@ -29,7 +29,13 @@ async function fetchReferencePdfs(): Promise<{ mime_type: string; data: string }
         .download(doc.file_path);
       if (error || !fileData) continue;
       const arrayBuf = await fileData.arrayBuffer();
-      const b64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuf)));
+      const bytes = new Uint8Array(arrayBuf);
+      let binary = "";
+      const CHUNK = 8192;
+      for (let i = 0; i < bytes.length; i += CHUNK) {
+        binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, Math.min(i + CHUNK, bytes.length))));
+      }
+      const b64 = btoa(binary);
       parts.push({ mime_type: "application/pdf", data: b64 });
       totalSize += doc.file_size;
     }
