@@ -317,7 +317,7 @@ const EditorialPage = () => {
                         )}
 
                         {/* Actions */}
-                        <div className="flex flex-wrap gap-2 pt-1">
+                        <div className="flex flex-wrap gap-2 pt-1" data-hide-pdf>
                           {day.caption && (
                             <Button variant="ghost" size="sm" className="h-7 text-[11px] gap-1 px-2" onClick={() => copyCaption(day.caption)}>
                               <Copy className="h-3 w-3" /> Copiar legenda
