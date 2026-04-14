@@ -28,6 +28,7 @@ import AdminGallery from "./pages/admin/AdminGallery";
 import ChoosePlan from "./pages/ChoosePlan";
 import HelpPage from "./pages/HelpPage";
 import NotFound from "./pages/NotFound";
+import SobrePage from "./pages/SobrePage";
 
 const queryClient = new QueryClient();
 
@@ -40,6 +41,7 @@ const App = () => (
         <AuthProvider>
           <Routes>
             <Route path="/" element={<LandingPage />} />
+            <Route path="/sobre" element={<SobrePage />} />
             <Route path="/checkout-success" element={<CheckoutSuccess />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />

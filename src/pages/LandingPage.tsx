@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -115,10 +115,10 @@ const LandingPage = () => {
       {/* ── HEADER ── */}
       <header className="sticky top-0 z-50 border-b border-landing-border/60 bg-landing-bg/90 backdrop-blur-md">
         <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-2">
+          <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
             <img src={posicionaLogo} alt="Posiciona" className="h-8 w-8" />
             <span className="text-lg font-semibold tracking-tight">Posiciona</span>
-          </div>
+          </Link>
 
           {/* Desktop nav */}
           <nav className="hidden md:flex items-center gap-6 text-sm text-landing-text-secondary">
@@ -126,6 +126,7 @@ const LandingPage = () => {
             <button onClick={() => scrollTo("resultados")} className="hover:text-landing-text transition-colors">Resultados</button>
             <button onClick={() => scrollTo("planos")} className="hover:text-landing-text transition-colors">Planos</button>
             <button onClick={() => scrollTo("faq")} className="hover:text-landing-text transition-colors">FAQ</button>
+            <Link to="/sobre" className="hover:text-landing-text transition-colors">Sobre</Link>
           </nav>
 
           <div className="hidden md:flex items-center gap-3">
@@ -152,6 +153,7 @@ const LandingPage = () => {
             <button onClick={() => scrollTo("resultados")} className="block text-sm text-landing-text-secondary hover:text-landing-text w-full text-left py-1">Resultados</button>
             <button onClick={() => scrollTo("planos")} className="block text-sm text-landing-text-secondary hover:text-landing-text w-full text-left py-1">Planos</button>
             <button onClick={() => scrollTo("faq")} className="block text-sm text-landing-text-secondary hover:text-landing-text w-full text-left py-1">FAQ</button>
+            <Link to="/sobre" onClick={() => setMobileMenuOpen(false)} className="block text-sm text-landing-text-secondary hover:text-landing-text w-full text-left py-1">Sobre</Link>
             <div className="pt-2 border-t border-landing-border/40 flex gap-3">
               {user ? (
                 <Button size="sm" onClick={() => navigate("/dashboard")} className="bg-landing-purple text-white w-full">Dashboard</Button>
