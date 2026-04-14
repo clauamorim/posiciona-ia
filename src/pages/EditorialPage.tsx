@@ -59,18 +59,16 @@ const EditorialPage = () => {
     }
     setGeneratingWeek(true);
     try {
-      const [{ data: bq }, { data: profile }, { data: topArchetypes }, { data: reportData }] = await Promise.all([
+      const [{ data: bq }, { data: profile }, { data: reportData }] = await Promise.all([
         supabase.from("business_questionnaires").select("*").eq("user_id", user.id).order("version", { ascending: false }).limit(1).single(),
         supabase.from("profiles").select("niche").eq("user_id", user.id).single(),
-        supabase.from("user_top_archetypes").select("*").eq("user_id", user.id).order("rank", { ascending: true }).limit(3),
         supabase.from("reports").select("content").eq("user_id", user.id).eq("status", "completed").order("version", { ascending: false }).limit(1).single(),
       ]);
 
       const reportContent = normalizeReportContent(reportData?.content) as Record<string, any> | null;
-      const archetypes = { primary: topArchetypes?.[0], secondary: topArchetypes?.[1], tertiary: topArchetypes?.[2] };
       const { data, error } = await supabase.functions.invoke("generate-content-week", {
         body: {
-          business: bq, niche: profile?.niche || "", archetypes, previousWeeks: allWeeks,
+          business: bq, niche: profile?.niche || "", previousWeeks: allWeeks,
           storybrand: reportContent?.storybrand || null,
           tone_of_voice: reportContent?.tone_of_voice || null,
         },
@@ -101,10 +99,9 @@ const EditorialPage = () => {
     try {
       const week = allWeeks[weekIndex];
       const day = week[dayIndex];
-      const [{ data: bq }, { data: profile }, { data: topArchetypes }, { data: reportData }] = await Promise.all([
+      const [{ data: bq }, { data: profile }, { data: reportData }] = await Promise.all([
         supabase.from("business_questionnaires").select("*").eq("user_id", user.id).order("version", { ascending: false }).limit(1).single(),
         supabase.from("profiles").select("niche").eq("user_id", user.id).single(),
-        supabase.from("user_top_archetypes").select("*").eq("user_id", user.id).order("rank", { ascending: true }).limit(3),
         supabase.from("reports").select("content").eq("user_id", user.id).eq("status", "completed").order("version", { ascending: false }).limit(1).single(),
       ]);
       const reportContent = normalizeReportContent(reportData?.content) as Record<string, any> | null;
@@ -113,7 +110,6 @@ const EditorialPage = () => {
         body: {
           format: day.format, theme: day.theme, dayNumber: day.day || dayIndex + 1,
           business: bq, niche: profile?.niche || "",
-          archetypes: { primary: topArchetypes?.[0], secondary: topArchetypes?.[1], tertiary: topArchetypes?.[2] },
           existingPosts,
           storybrand: reportContent?.storybrand || null,
           tone_of_voice: reportContent?.tone_of_voice || null,
