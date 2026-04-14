@@ -115,15 +115,18 @@ Analise os seguintes aspectos e forneça sugestões baseadas no StoryBrand e arq
       });
     }
 
+    // Fetch reference PDFs
+    const pdfParts = await fetchReferencePdfs();
+
+    const userContentParts: any[] = [
+      ...pdfParts.map(p => ({ type: "file", file: { filename: "reference.pdf", file_data: `data:application/pdf;base64,${p.data}` } })),
+      { type: "image_url", image_url: { url: screenshot.startsWith("data:") ? screenshot : `data:image/png;base64,${screenshot}` } },
+      { type: "text", text: userPrompt },
+    ];
+
     const messages: any[] = [
       { role: "system", content: systemPrompt },
-      {
-        role: "user",
-        content: [
-          { type: "image_url", image_url: { url: screenshot.startsWith("data:") ? screenshot : `data:image/png;base64,${screenshot}` } },
-          { type: "text", text: userPrompt },
-        ],
-      },
+      { role: "user", content: userContentParts },
     ];
 
     const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
