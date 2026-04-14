@@ -55,6 +55,8 @@ serve(async (req) => {
       supabase.from("reports").select("content").eq("user_id", user.id).eq("status", "completed").order("created_at", { ascending: false }).limit(1).single(),
     ]);
 
+    const reportContent = reportRes.data?.content as Record<string, any> | null;
+
     const included = balanceRes.data?.portrait_credits_included ?? 0;
     const extra = balanceRes.data?.portrait_credits_extra ?? 0;
 
@@ -74,7 +76,6 @@ serve(async (req) => {
     }
 
     const archetypes = archetypesRes.data || [];
-    const reportContent = reportRes.data?.content as Record<string, any> | null;
     const gender = profileRes.data?.gender || "Não informado";
 
     if (archetypes.length === 0) {
@@ -130,16 +131,31 @@ serve(async (req) => {
       }
     }
 
+    // Build visual style context from report
+    let visualStyleLine = "";
+    const visualIdentity = reportContent?.visual_identity;
+    if (visualIdentity) {
+      if (visualIdentity.style) {
+        visualStyleLine += `\nBrand visual style: ${visualIdentity.style}.`;
+      }
+      if (visualIdentity.palette?.length > 0) {
+        const paletteColors = visualIdentity.palette.map((c: any) => `${c.name} (${c.hex})`).join(", ");
+        visualStyleLine += ` Brand color palette: ${paletteColors}. Use these colors as subtle influence in backdrop tones, clothing colors, or lighting mood — do NOT make the portrait look like a color swatch.`;
+      }
+    }
+
     const prompt = `You are a portrait photographer. Study the reference photos carefully. Reproduce the EXACT SAME PERSON — same face shape, nose, eyes, eyebrows, lips, jawline, skin tone, hair color/texture, facial hair, moles, freckles, wrinkles, age, ethnicity. The output must be immediately recognizable as the same individual.
 
 Create a hyper-realistic professional studio photograph. NOT an illustration, NOT a painting, NOT AI-looking.
 
-REALISM: Keep all facial asymmetries. Skin must show natural pores, texture, fine lines — no airbrushing or plastic skin. Hair must have natural flyaways. Eyes must have natural catchlights. Clothing must have realistic fabric wrinkles. If hands are visible: exactly 5 fingers per hand, correct proportions.
+REALISM: Keep all facial asymmetries. Skin must show natural pores and texture but do NOT over-sharpen or add excessive skin texture. Keep skin smooth and natural — do NOT add wrinkles, lines, or blemishes that are not visible in the reference photos. Do NOT exaggerate pore detail or add artificial grain. Hair must have natural flyaways. Eyes must have natural catchlights. Clothing must have realistic fabric wrinkles. If hands are visible: exactly 5 fingers per hand, correct proportions.
+
+EXPRESSION: Match the expression from the reference photos. If the person is NOT smiling showing teeth in ANY reference photo, do NOT generate a photo showing teeth. Keep the expression natural and consistent with the references.
 
 STUDIO: ${studioStyle}
 Always use a studio backdrop — never outdoor or nature.
 
-Brand archetypes: ${archetypeNames}. Express through body language and expression, not costumes or props.${wardrobeLine}
+Brand archetypes: ${archetypeNames}. Express through body language and expression, not costumes or props.${wardrobeLine}${visualStyleLine}
 
 No text, no watermarks, no overlays. Professional branding photo indistinguishable from a real DSLR photograph.`;
 

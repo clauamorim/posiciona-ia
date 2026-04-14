@@ -59,13 +59,21 @@ const EditorialPage = () => {
     }
     setGeneratingWeek(true);
     try {
-      const { data: bq } = await supabase.from("business_questionnaires").select("*").eq("user_id", user.id).order("version", { ascending: false }).limit(1).single();
-      const { data: profile } = await supabase.from("profiles").select("niche").eq("user_id", user.id).single();
-      const { data: topArchetypes } = await supabase.from("user_top_archetypes").select("*").eq("user_id", user.id).order("rank", { ascending: true }).limit(3);
+      const [{ data: bq }, { data: profile }, { data: topArchetypes }, { data: reportData }] = await Promise.all([
+        supabase.from("business_questionnaires").select("*").eq("user_id", user.id).order("version", { ascending: false }).limit(1).single(),
+        supabase.from("profiles").select("niche").eq("user_id", user.id).single(),
+        supabase.from("user_top_archetypes").select("*").eq("user_id", user.id).order("rank", { ascending: true }).limit(3),
+        supabase.from("reports").select("content").eq("user_id", user.id).eq("status", "completed").order("version", { ascending: false }).limit(1).single(),
+      ]);
 
+      const reportContent = reportData?.content as Record<string, any> | null;
       const archetypes = { primary: topArchetypes?.[0], secondary: topArchetypes?.[1], tertiary: topArchetypes?.[2] };
       const { data, error } = await supabase.functions.invoke("generate-content-week", {
-        body: { business: bq, niche: profile?.niche || "", archetypes, previousWeeks: allWeeks },
+        body: {
+          business: bq, niche: profile?.niche || "", archetypes, previousWeeks: allWeeks,
+          storybrand: reportContent?.storybrand || null,
+          tone_of_voice: reportContent?.tone_of_voice || null,
+        },
       });
       if (error) throw error;
 
@@ -93,9 +101,13 @@ const EditorialPage = () => {
     try {
       const week = allWeeks[weekIndex];
       const day = week[dayIndex];
-      const { data: bq } = await supabase.from("business_questionnaires").select("*").eq("user_id", user.id).order("version", { ascending: false }).limit(1).single();
-      const { data: profile } = await supabase.from("profiles").select("niche").eq("user_id", user.id).single();
-      const { data: topArchetypes } = await supabase.from("user_top_archetypes").select("*").eq("user_id", user.id).order("rank", { ascending: true }).limit(3);
+      const [{ data: bq }, { data: profile }, { data: topArchetypes }, { data: reportData }] = await Promise.all([
+        supabase.from("business_questionnaires").select("*").eq("user_id", user.id).order("version", { ascending: false }).limit(1).single(),
+        supabase.from("profiles").select("niche").eq("user_id", user.id).single(),
+        supabase.from("user_top_archetypes").select("*").eq("user_id", user.id).order("rank", { ascending: true }).limit(3),
+        supabase.from("reports").select("content").eq("user_id", user.id).eq("status", "completed").order("version", { ascending: false }).limit(1).single(),
+      ]);
+      const reportContent = reportData?.content as Record<string, any> | null;
       const existingPosts = allWeeks.flat();
       const { data, error } = await supabase.functions.invoke("regenerate-single-post", {
         body: {
@@ -103,6 +115,8 @@ const EditorialPage = () => {
           business: bq, niche: profile?.niche || "",
           archetypes: { primary: topArchetypes?.[0], secondary: topArchetypes?.[1], tertiary: topArchetypes?.[2] },
           existingPosts,
+          storybrand: reportContent?.storybrand || null,
+          tone_of_voice: reportContent?.tone_of_voice || null,
         },
       });
       if (error) throw error;
@@ -195,7 +209,7 @@ const EditorialPage = () => {
             </div>`;
           }
 
-          if (day.script) {
+          if (day.script && (day.format?.toLowerCase() === "reels" || day.format?.toLowerCase() === "stories")) {
             html += `<div style="margin-top:6px;padding:8px;background:#f9fafb;border-radius:8px;border:1px solid #e5e7eb;">
               <p style="font-size:10px;font-weight:700;text-transform:uppercase;color:#9ca3af;margin-bottom:4px;">Roteiro</p>
               <p style="font-size:11px;color:#374151;line-height:1.4;white-space:pre-wrap;">${day.script}</p>
@@ -388,7 +402,7 @@ const EditorialPage = () => {
                           </Collapsible>
                         )}
 
-                        {day.script && (
+                        {day.script && (day.format?.toLowerCase() === "reels" || day.format?.toLowerCase() === "stories") && (
                           <Collapsible>
                             <CollapsibleTrigger className="flex items-center gap-1 text-[11px] font-medium text-primary hover:underline">
                               <ChevronDown className="h-3 w-3" /> Ver roteiro

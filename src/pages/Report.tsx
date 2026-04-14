@@ -77,12 +77,13 @@ const Report = () => {
       const llmArchetypes = content?.archetypes || {};
       let description = "";
       let application = "";
-      // Search across all LLM archetype slots for matching name
+      let llmMatch: any = null;
       for (const key of rankKeys) {
         const llm = llmArchetypes[key];
         if (llm && llm.name && llm.name.toLowerCase() === arch.archetype_name.toLowerCase()) {
           description = llm.description || "";
           application = llm.application || "";
+          llmMatch = llm;
           break;
         }
       }
@@ -93,8 +94,24 @@ const Report = () => {
         score: arch.score,
         description,
         application,
+        characteristics: llmMatch?.characteristics || [],
+        brands: llmMatch?.brands || [],
+        people: llmMatch?.people || [],
       };
     });
+  };
+
+  // Helper to find matching LLM archetype
+  const findLlmMatch = (archName: string) => {
+    const llmArchetypes = content?.archetypes || {};
+    const rankKeys = ["primary", "secondary", "tertiary"];
+    for (const key of rankKeys) {
+      const llm = llmArchetypes[key];
+      if (llm && llm.name && llm.name.toLowerCase() === archName.toLowerCase()) {
+        return llm;
+      }
+    }
+    return null;
   };
 
   const handleRegenerate = async () => {
@@ -249,6 +266,25 @@ const Report = () => {
                   <Badge variant="outline" className="mb-3 text-xs">{a.label}</Badge>
                   <h3 className="text-lg font-bold font-display mb-2">{a.name}</h3>
                   <p className="text-sm text-muted-foreground leading-relaxed">{a.description}</p>
+                  {a.characteristics?.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-3">
+                      {a.characteristics.map((c: string, i: number) => (
+                        <Badge key={i} variant="secondary" className="text-xs">{c}</Badge>
+                      ))}
+                    </div>
+                  )}
+                  {a.brands?.length > 0 && (
+                    <div className="mt-3">
+                      <p className="text-xs font-semibold text-muted-foreground mb-1">Marcas de referência</p>
+                      <p className="text-sm text-foreground/80">{a.brands.join(" · ")}</p>
+                    </div>
+                  )}
+                  {a.people?.length > 0 && (
+                    <div className="mt-2">
+                      <p className="text-xs font-semibold text-muted-foreground mb-1">Personalidades</p>
+                      <p className="text-sm text-foreground/80">{a.people.join(" · ")}</p>
+                    </div>
+                  )}
                   {a.application && (
                     <p className="text-sm mt-3 p-3 rounded-lg bg-primary/5 text-foreground/80">{a.application}</p>
                   )}
@@ -320,7 +356,7 @@ const Report = () => {
               {content.visual_identity.style && (
                 <Card>
                   <CardContent className="pt-6">
-                    <h3 className="font-bold font-display text-sm uppercase tracking-wider text-muted-foreground mb-2">Estilo Visual & Figurino</h3>
+                    <h3 className="font-bold font-display text-sm uppercase tracking-wider text-muted-foreground mb-2">Estilo Visual</h3>
                     <p className="text-sm text-foreground/80 leading-relaxed">{content.visual_identity.style}</p>
                   </CardContent>
                 </Card>
@@ -455,7 +491,51 @@ const Report = () => {
           </section>
         )}
 
-        {/* SECTION: Símbolos dos Arquétipos */}
+        {/* SECTION: Figurino — new expanded fields */}
+        {content.figurino?.looks_completos?.length > 0 && (
+          <section data-pdf-section className="break-inside-avoid">
+            <div className="flex items-center gap-2 mb-4">
+              <Shirt className="h-5 w-5 text-primary" />
+              <h2 className="text-xl font-bold font-display">Looks Completos</h2>
+            </div>
+            <div className="grid gap-4 md:grid-cols-3">
+              {content.figurino.looks_completos.map((look: any, i: number) => (
+                <Card key={i}>
+                  <CardContent className="pt-5 pb-4">
+                    <h3 className="font-bold font-display text-sm mb-2">{look.nome}</h3>
+                    <ul className="space-y-1 mb-2">{(look.pecas || []).map((p: string, j: number) => <li key={j} className="text-sm text-foreground/80">• {p}</li>)}</ul>
+                    {look.ocasiao && <p className="text-xs text-muted-foreground italic">📍 {look.ocasiao}</p>}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {(content.figurino?.texturas_tecidos?.length > 0 || content.figurino?.estampas?.length > 0) && (
+          <section data-pdf-section className="break-inside-avoid">
+            <div className="grid gap-4 md:grid-cols-2">
+              {content.figurino.texturas_tecidos?.length > 0 && (
+                <Card>
+                  <CardContent className="pt-5 pb-4">
+                    <h3 className="font-bold font-display text-sm mb-2">Tecidos & Texturas</h3>
+                    <div className="flex flex-wrap gap-1.5">{content.figurino.texturas_tecidos.map((t: string, i: number) => <Badge key={i} variant="outline" className="text-xs">{t}</Badge>)}</div>
+                  </CardContent>
+                </Card>
+              )}
+              {content.figurino.estampas?.length > 0 && (
+                <Card>
+                  <CardContent className="pt-5 pb-4">
+                    <h3 className="font-bold font-display text-sm mb-2">Estampas</h3>
+                    <div className="flex flex-wrap gap-1.5">{content.figurino.estampas.map((e: string, i: number) => <Badge key={i} variant="outline" className="text-xs">{e}</Badge>)}</div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* SECTION: Símbolos dos Arquétipos — now supports arrays */}
         {content.simbolos && (
           <section data-pdf-section>
             <div className="flex items-center gap-2 mb-4">
@@ -464,18 +544,23 @@ const Report = () => {
             </div>
             <div className="grid gap-4 md:grid-cols-3">
               {(["primary", "secondary", "tertiary"] as const).map((rank, idx) => {
-                const s = content.simbolos[rank];
-                if (!s) return null;
+                const symbolData = content.simbolos[rank];
+                if (!symbolData) return null;
                 const labels = ["Primário", "Secundário", "Terciário"];
+                const symbols = Array.isArray(symbolData) ? symbolData : [symbolData];
                 return (
                   <Card key={rank} className="relative overflow-hidden border-2 border-primary/20 hover:border-primary/40 transition-colors break-inside-avoid">
                     <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-primary to-accent" />
                     <CardContent className="pt-8 pb-6">
-                      <Badge variant="outline" className="mb-2 text-xs">{labels[idx]}</Badge>
-                      <h3 className="text-lg font-bold font-display mb-1">{s.nome}</h3>
-                      <p className="text-2xl mb-3">{s.simbolo}</p>
-                      <p className="text-sm text-muted-foreground leading-relaxed mb-2"><span className="font-semibold">Significado:</span> {s.significado}</p>
-                      <p className="text-sm p-3 rounded-lg bg-primary/5 text-foreground/80"><span className="font-semibold">Aplicação:</span> {s.aplicacao}</p>
+                      <Badge variant="outline" className="mb-3 text-xs">{labels[idx]}</Badge>
+                      {symbols.map((s: any, si: number) => (
+                        <div key={si} className={si > 0 ? "mt-4 pt-4 border-t" : ""}>
+                          <h3 className="text-lg font-bold font-display mb-1">{s.nome}</h3>
+                          <p className="text-2xl mb-2">{s.simbolo}</p>
+                          <p className="text-sm text-muted-foreground leading-relaxed mb-1"><span className="font-semibold">Significado:</span> {s.significado}</p>
+                          <p className="text-sm p-2 rounded-lg bg-primary/5 text-foreground/80 text-xs"><span className="font-semibold">Aplicação:</span> {s.aplicacao}</p>
+                        </div>
+                      ))}
                     </CardContent>
                   </Card>
                 );
