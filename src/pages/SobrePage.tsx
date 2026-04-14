@@ -88,7 +88,7 @@ const SobrePage = () => {
 
           {/* Identity */}
           <div className="space-y-1.5">
-            <p className="text-xs font-semibold uppercase tracking-widest text-landing-gold">Fundadora do Posiciona</p>
+            <p className="text-xs font-semibold uppercase tracking-widest text-landing-gold">Criadora do Posiciona</p>
             <h2 className="text-2xl md:text-3xl font-display font-semibold">Cláudia Amorim</h2>
             <p className="text-sm text-landing-text-secondary">Posicionamento de imagem, estratégia e tecnologia</p>
           </div>
