@@ -748,6 +748,49 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
         </Collapsible>
       )}
 
+      {/* Gallery Assets */}
+      {onAddImage && (
+        <Collapsible open={galleryOpen} onOpenChange={setGalleryOpen}>
+          <CollapsibleTrigger asChild>
+            <Button variant="outline" size="sm" className="gap-2 w-full">
+              <ImagePlus className="h-4 w-4" /> Galeria {galleryLoaded ? `(${galleryAssets.length})` : ""}
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            {!galleryLoaded ? (
+              <p className="text-xs text-muted-foreground mt-2">Carregando...</p>
+            ) : galleryAssets.length === 0 ? (
+              <p className="text-xs text-muted-foreground mt-2">Nenhuma imagem na galeria.</p>
+            ) : (
+              <div className="grid grid-cols-3 gap-2 mt-3">
+                {galleryAssets.map((asset) => {
+                  const url = supabase.storage.from("asset-gallery").getPublicUrl(asset.file_path).data.publicUrl;
+                  return (
+                    <Tooltip key={asset.id}>
+                      <TooltipTrigger asChild>
+                        <button
+                          onClick={() => {
+                            const img: OverlayImage = {
+                              id: crypto.randomUUID(), src: url,
+                              x: 200, y: 200, width: 300, height: 300, type: "photo", opacity: 1,
+                            };
+                            onAddImage(img);
+                          }}
+                          className="aspect-square rounded-lg border bg-muted/50 hover:bg-muted transition-colors overflow-hidden"
+                        >
+                          <img src={url} alt={asset.name} className="w-full h-full object-contain" crossOrigin="anonymous" loading="lazy" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent>{asset.name}</TooltipContent>
+                    </Tooltip>
+                  );
+                })}
+              </div>
+            )}
+          </CollapsibleContent>
+        </Collapsible>
+      )}
+
       {/* Graphic Elements (icons) */}
       {onAddImage && (
         <Collapsible open={elementsOpen} onOpenChange={setElementsOpen}>
