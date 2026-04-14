@@ -1,5 +1,41 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
+async function fetchReferencePdfs(): Promise<{ mime_type: string; data: string }[]> {
+  try {
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+    const { data: docs } = await supabaseAdmin
+      .from("reference_documents")
+      .select("file_path, file_size")
+      .eq("is_active", true)
+      .order("created_at", { ascending: true })
+      .limit(3);
+    if (!docs?.length) return [];
+
+    const parts: { mime_type: string; data: string }[] = [];
+    let totalSize = 0;
+    const MAX_TOTAL = 4 * 1024 * 1024;
+
+    for (const doc of docs) {
+      if (totalSize + doc.file_size > MAX_TOTAL) break;
+      const { data: fileData, error } = await supabaseAdmin.storage
+        .from("reference-pdfs")
+        .download(doc.file_path);
+      if (error || !fileData) continue;
+      const arrayBuf = await fileData.arrayBuffer();
+      const b64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuf)));
+      parts.push({ mime_type: "application/pdf", data: b64 });
+      totalSize += doc.file_size;
+    }
+    return parts;
+  } catch (e) {
+    console.error("Error fetching reference PDFs:", e);
+    return [];
+  }
+}
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -79,15 +115,18 @@ Analise os seguintes aspectos e forneça sugestões baseadas no StoryBrand e arq
       });
     }
 
+    // Fetch reference PDFs
+    const pdfParts = await fetchReferencePdfs();
+
+    const userContentParts: any[] = [
+      ...pdfParts.map(p => ({ type: "file", file: { filename: "reference.pdf", file_data: `data:application/pdf;base64,${p.data}` } })),
+      { type: "image_url", image_url: { url: screenshot.startsWith("data:") ? screenshot : `data:image/png;base64,${screenshot}` } },
+      { type: "text", text: userPrompt },
+    ];
+
     const messages: any[] = [
       { role: "system", content: systemPrompt },
-      {
-        role: "user",
-        content: [
-          { type: "image_url", image_url: { url: screenshot.startsWith("data:") ? screenshot : `data:image/png;base64,${screenshot}` } },
-          { type: "text", text: userPrompt },
-        ],
-      },
+      { role: "user", content: userContentParts },
     ];
 
     const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {

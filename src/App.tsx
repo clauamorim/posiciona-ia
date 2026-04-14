@@ -22,6 +22,8 @@ import InstagramAnalysis from "./pages/InstagramAnalysis";
 import PortraitGenerator from "./pages/PortraitGenerator";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminUsers from "./pages/admin/AdminUsers";
+import AdminDocuments from "./pages/admin/AdminDocuments";
+import AdminGallery from "./pages/admin/AdminGallery";
 import ChoosePlan from "./pages/ChoosePlan";
 import HelpPage from "./pages/HelpPage";
 import NotFound from "./pages/NotFound";
@@ -55,6 +57,8 @@ const App = () => (
             <Route path="/help" element={<ProtectedRoute requirePlan><HelpPage /></ProtectedRoute>} />
             <Route path="/admin" element={<ProtectedRoute requireAdmin><AdminDashboard /></ProtectedRoute>} />
             <Route path="/admin/users" element={<ProtectedRoute requireAdmin><AdminUsers /></ProtectedRoute>} />
+            <Route path="/admin/documents" element={<ProtectedRoute requireAdmin><AdminDocuments /></ProtectedRoute>} />
+            <Route path="/admin/gallery" element={<ProtectedRoute requireAdmin><AdminGallery /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>

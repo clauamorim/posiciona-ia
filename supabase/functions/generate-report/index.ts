@@ -1,8 +1,45 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 const API_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+
+async function fetchReferencePdfs(): Promise<{ mime_type: string; data: string }[]> {
+  try {
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+    const { data: docs } = await supabaseAdmin
+      .from("reference_documents")
+      .select("file_path, file_size")
+      .eq("is_active", true)
+      .order("created_at", { ascending: true })
+      .limit(3);
+    if (!docs?.length) return [];
+
+    const parts: { mime_type: string; data: string }[] = [];
+    let totalSize = 0;
+    const MAX_TOTAL = 4 * 1024 * 1024;
+
+    for (const doc of docs) {
+      if (totalSize + doc.file_size > MAX_TOTAL) break;
+      const { data: fileData, error } = await supabaseAdmin.storage
+        .from("reference-pdfs")
+        .download(doc.file_path);
+      if (error || !fileData) continue;
+      const arrayBuf = await fileData.arrayBuffer();
+      const b64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuf)));
+      parts.push({ mime_type: "application/pdf", data: b64 });
+      totalSize += doc.file_size;
+    }
+    return parts;
+  } catch (e) {
+    console.error("Error fetching reference PDFs:", e);
+    return [];
+  }
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -187,6 +224,17 @@ Arquétipos principais (calculados pela aplicação — use EXATAMENTE estes nom
 
 Gere o relatório completo em JSON agora.`;
 
+    // Fetch reference PDFs to include as context
+    const pdfParts = await fetchReferencePdfs();
+
+    // Build user message content — multipart if PDFs exist
+    const userContent: any = pdfParts.length > 0
+      ? [
+          ...pdfParts.map(p => ({ type: "file", file: { filename: "reference.pdf", file_data: `data:application/pdf;base64,${p.data}` } })),
+          { type: "text", text: userPrompt },
+        ]
+      : userPrompt;
+
     const response = await fetch(API_URL, {
       method: "POST",
       headers: {
@@ -197,7 +245,7 @@ Gere o relatório completo em JSON agora.`;
         model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
+          { role: "user", content: userContent },
         ],
         max_tokens: 10000,
       }),

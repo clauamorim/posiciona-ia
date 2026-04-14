@@ -3,7 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard, Building2, Brain, BarChart3,
-  FileText, History, LogOut, Shield, Menu, X, Target, Calendar, Instagram, Camera, HelpCircle, CreditCard
+  FileText, History, LogOut, Shield, Menu, X, Target, Calendar, Instagram, Camera, HelpCircle, CreditCard, FileUp, Image
 } from "lucide-react";
 import posicionaLogo from "@/assets/posiciona-logo.png";
 import { useState } from "react";
@@ -60,6 +60,8 @@ const adminGroup: NavGroup = {
   items: [
     { label: "Painel Admin", href: "/admin", icon: Shield },
     { label: "Usuários", href: "/admin/users", icon: LayoutDashboard },
+    { label: "Documentos LLM", href: "/admin/documents", icon: FileUp },
+    { label: "Galeria", href: "/admin/gallery", icon: Image },
   ],
 };
 
