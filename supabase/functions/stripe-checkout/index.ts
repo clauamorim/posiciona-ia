@@ -72,16 +72,14 @@ serve(async (req) => {
 
     // Apply coupon for recurring plans only
     if (coupon_code && mode === "subscription") {
-      try {
-        const coupon = await stripe.coupons.retrieve(coupon_code);
-        if (coupon && coupon.valid) {
-          sessionParams.discounts = [{ coupon: coupon.id }];
-        } else {
-          throw new Error("Cupom inválido ou expirado");
-        }
-      } catch (e: any) {
-        if (e.message === "Cupom inválido ou expirado") throw e;
-        throw new Error("Cupom não encontrado");
+      const coupons = await stripe.coupons.list({ limit: 100 });
+      const coupon = coupons.data.find(
+        (c) => c.name?.toUpperCase() === coupon_code.toUpperCase() && c.valid
+      );
+      if (coupon) {
+        sessionParams.discounts = [{ coupon: coupon.id }];
+      } else {
+        throw new Error("Cupom inválido ou expirado");
       }
     }
 
