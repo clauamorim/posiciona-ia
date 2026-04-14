@@ -113,14 +113,20 @@ const Report = () => {
         secondary: { archetype_name: top3[1]?.archetype_name, score: top3[1]?.score },
         tertiary: { archetype_name: top3[2]?.archetype_name, score: top3[2]?.score },
       };
-      await supabase.from("reports").update({ status: "generating" }).eq("user_id", user.id).eq("version", 1);
       const { data: reportData, error } = await supabase.functions.invoke("generate-report", {
         body: { business: bqData, niche: profile?.niche || "", archetypes, gender: profile?.gender || "Não informado" },
       });
       if (error) throw error;
       const normalizedContent = normalizeReportContent(reportData?.report) as any;
-      await supabase.from("reports").update({ content: normalizedContent, status: "completed" }).eq("user_id", user.id).eq("version", 1);
-      setReport({ ...report, content: normalizedContent, status: "completed" });
+      // Create new version instead of updating existing
+      const newVersion = (report?.version || 1) + 1;
+      await supabase.from("reports").insert({
+        user_id: user.id,
+        content: normalizedContent,
+        status: "completed",
+        version: newVersion,
+      });
+      setReport({ ...report, content: normalizedContent, status: "completed", version: newVersion });
       toast({ title: "Relatório regenerado com sucesso!" });
     } catch (err: any) {
       console.error("Regenerate error:", err);
@@ -134,17 +140,27 @@ const Report = () => {
     if (!reportRef.current) return;
     try {
       const html2pdf = (await import("html2pdf.js")).default;
+      // Hide interactive buttons during capture
+      const buttons = reportRef.current.querySelectorAll("button, [data-hide-pdf]");
+      buttons.forEach((b) => (b as HTMLElement).style.display = "none");
       const opt = {
-        margin: [10, 10, 10, 10],
+        margin: [8, 5, 8, 5],
         filename: "posiciona-relatorio.pdf",
-        image: { type: "jpeg", quality: 0.95 },
-        html2canvas: { scale: 2, useCORS: true, logging: false },
+        image: { type: "jpeg", quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, logging: false, scrollY: 0 },
         jsPDF: { unit: "mm", format: "a4", orientation: "portrait" as const },
         pagebreak: { mode: ["avoid-all", "css", "legacy"] },
       };
       await html2pdf().set(opt).from(reportRef.current).save();
+      // Restore buttons
+      buttons.forEach((b) => (b as HTMLElement).style.display = "");
     } catch (error) {
       console.error("Error generating PDF:", error);
+      // Restore buttons on error too
+      if (reportRef.current) {
+        const buttons = reportRef.current.querySelectorAll("button, [data-hide-pdf]");
+        buttons.forEach((b) => (b as HTMLElement).style.display = "");
+      }
       toast({ title: "Erro ao gerar PDF", description: "Tente novamente.", variant: "destructive" });
     }
   };
