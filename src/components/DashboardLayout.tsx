@@ -41,7 +41,6 @@ const userGroups: NavGroup[] = [
   {
     label: "Produção",
     items: [
-      { label: "Conteúdos", href: "/editorial", icon: Calendar },
       { label: "Retratos de Marca", href: "/portraits", icon: Camera },
     ],
   },
