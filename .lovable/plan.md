@@ -1,34 +1,38 @@
 
 
-# Plano: Correção de Remoção de Fundo e Cores Customizadas
+# Plano: Corrigir PDF do Relatório + Adicionar PDF na Linha Editorial
 
-## Problemas Identificados
+## Problema 1: PDF do Relatório com layout quebrado
 
-### 1. Remoção de fundo não funciona
-- **Auth:** `supabase.auth.getClaims(token)` não existe no SDK Supabase JS v2. Deve usar `supabase.auth.getUser(token)`.
-- **Resposta da IA:** O caminho `data.choices[0].message.images[0].image_url.url` pode não corresponder à resposta real do gateway. Precisa de logging e fallback para outros formatos de resposta (ex: `content[].image_url`).
-- **Duplo clique:** Não há guard contra clique duplo — o botão deveria ser desabilitado durante o processamento (já tem `disabled={removingBackground}` mas o estado pode não ser propagado corretamente se o overlay muda).
+O `html2pdf.js` usa `html2canvas` internamente que tem limitações com CSS moderno (gradients, backdrop, rounded corners, grid layouts). Os problemas típicos:
+- Cores de fundo de seções (`bg-muted/30`) podem não renderizar
+- Paleta de cores com `aspect-square` pode quebrar
+- `pagebreak` com `avoid-all` causa páginas em branco ou corte
 
-### 2. Cores customizadas não funcionam
-- **`handleRecolorSelected`** (linha 310) verifica `selectedOverlay.type !== "element"` e retorna early. Porém **ícones Lucide** também são tipo `"element"` — o problema é que `recolorSvgDataUrl` usa regex que procura `stroke|fill|color="(#hex|rgb|word)"` mas os SVGs gerados por `renderToStaticMarkup` do Lucide usam atributos como `stroke="currentColor"` que já são substituídos por cor na criação. Na segunda vez, o regex pode não casar se a cor tiver formato inesperado.
-- A regex `(#[0-9a-fA-F]{3,8}|rgb[^"]*|[a-zA-Z]+)` casa `[a-zA-Z]+` que inclui "none", mas o check `match.includes('"none"')` tenta preservar "none". O problema é que a regex também casa atributos como `xmlns` ou `version` se tiverem valor de cor falso.
+**Correção em `Report.tsx`:**
+- Melhorar config do `html2pdf.js`: usar `pagebreak: { mode: ["css"] }` com classes `break-inside-avoid` nos cards/sections
+- Aumentar `scale` para 2.5 para melhor qualidade
+- Adicionar `backgroundColor: "#f5f3ef"` (cor do background do tema) no html2canvas para evitar fundo branco
+- Adicionar `letterRendering: true` para melhor texto
+- Esconder sidebar/layout wrapper — usar `reportRef` apenas no conteúdo interno
+- Adicionar classe `print:` CSS para ajustes de impressão (margens, padding)
+- Adicionar `data-hide-pdf` nos botões de ação e esconder durante captura
 
-## Correções
+## Problema 2: PDF da Linha Editorial
 
-### Edge Function (`remove-background/index.ts`)
-1. Substituir `supabase.auth.getClaims(token)` por `supabase.auth.getUser(token)`
-2. Adicionar logging da resposta da IA para diagnóstico
-3. Tentar múltiplos caminhos de extração da imagem (o gateway pode retornar em `choices[0].message.content[0].image_url.url` ou como base64 inline)
-4. Retornar a imagem como data URL completo `data:image/png;base64,...` se vier só base64
-
-### Cores customizadas (`PostToolbar.tsx`)
-1. Corrigir `recolorSvgDataUrl` — usar regex mais precisa que só casa `fill` e `stroke` (não `color`), e ignorar `fill="none"` e `stroke="none"` corretamente
-2. Garantir que o color picker customizado no painel de "Elemento selecionado" chama `handleRecolorSelected` corretamente (já chama — o problema é o regex)
+**Correção em `EditorialPage.tsx`:**
+- Adicionar `useRef` para o container de conteúdo
+- Adicionar botão "Baixar PDF" no header (ao lado do título)
+- Implementar `handleDownloadPDF` usando mesma técnica do Report
+- Expandir todos os `Collapsible` antes da captura e restaurar depois
+- Esconder botões de ação dos cards durante captura
+- Configurar `pagebreak` para evitar cortar cards no meio
 
 ## Arquivos Afetados
 
 | Arquivo | Ação |
 |---------|------|
-| `supabase/functions/remove-background/index.ts` | Fix auth + parsing de resposta |
-| `src/components/post-editor/PostToolbar.tsx` | Fix regex de recoloração SVG |
+| `src/pages/Report.tsx` | Melhorar config html2pdf, adicionar break-inside-avoid, fix background |
+| `src/pages/EditorialPage.tsx` | Adicionar botão PDF + handler com expansão de collapsibles |
+| `src/index.css` | Adicionar utilitários de print CSS |
 
