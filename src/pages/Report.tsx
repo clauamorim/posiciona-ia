@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -10,10 +11,11 @@ import {
   Loader2, Download, FileText, Palette, Type, MessageSquare,
   Target, Crown, Shield, Heart,
   Users, Zap, BookOpen, Compass, Star, Megaphone,
-  Shirt, Gem, Scissors, Eye, Ban
+  Shirt, Gem, Scissors, Eye, Ban, AlertTriangle, RefreshCw
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getReportFallbackText, parseReportContent } from "@/lib/reportParser";
+import { normalizeReportContent } from "@/lib/reportParser";
 
 const STORYBRAND_ITEMS = [
   { key: "hero", label: "O Herói (Cliente)", icon: <Users className="h-5 w-5" /> },
@@ -40,7 +42,8 @@ const Report = () => {
   const [report, setReport] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [topArchetypes, setTopArchetypes] = useState<any[]>([]);
-
+  const [regenerating, setRegenerating] = useState(false);
+  const reportRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!user) return;
     // Fetch report and top archetypes in parallel
@@ -54,9 +57,10 @@ const Report = () => {
     });
   }, [user]);
 
-  const { contentObject, isStructuredReport, hasEditorial } = parseReportContent(report?.content);
+  const { contentObject, isStructuredReport, hasEditorial, hasFigurino, hasSimbolos } = parseReportContent(report?.content);
   const content = contentObject ?? {};
   const fallbackText = getReportFallbackText(report?.content);
+  const hasMissingSections = isStructuredReport && (!hasFigurino || !hasSimbolos);
   const structuredEditorial = Array.isArray(content.editorial) ? content.editorial : [];
   const editorialWeeks: any[][] = Array.isArray(report?.editorial_weeks) ? report.editorial_weeks : [];
   const allWeeks = [
@@ -93,116 +97,52 @@ const Report = () => {
     });
   };
 
-  const handleDownloadPDF = async () => {
+  const handleRegenerate = async () => {
+    if (!user) return;
+    setRegenerating(true);
     try {
-    const jsPDF = (await import("jspdf")).jsPDF;
-    const doc = new jsPDF();
-    let y = 20;
-
-    const addTitle = (text: string) => {
-      if (y > 250) { doc.addPage(); y = 20; }
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(16);
-      doc.text(text, 20, y);
-      y += 10;
-    };
-    const addSubtitle = (text: string) => {
-      if (y > 260) { doc.addPage(); y = 20; }
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(12);
-      doc.text(text, 20, y);
-      y += 7;
-    };
-    const addBody = (text: string) => {
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(10);
-      const lines = doc.splitTextToSize(text, 170);
-      for (const line of lines) {
-        if (y > 275) { doc.addPage(); y = 20; }
-        doc.text(line, 20, y);
-        y += 5;
-      }
-      y += 3;
-    };
-
-    doc.setFontSize(22);
-    doc.setFont("helvetica", "bold");
-    doc.text("Posiciona - Relatório de Posicionamento", 20, y);
-    y += 15;
-
-    if (isStructuredReport) {
-      addTitle("Arquétipos de Marca");
-      const archetypeData = getArchetypeData();
-      if (archetypeData) {
-        archetypeData.forEach(a => {
-          addSubtitle(`${a.label}: ${a.name}`);
-          if (a.description) addBody(a.description);
-          if (a.application) addBody(a.application);
-        });
-      } else {
-        ["primary", "secondary", "tertiary"].forEach(rank => {
-          const a = content.archetypes?.[rank];
-          if (a) { addSubtitle(`${rank === "primary" ? "Primário" : rank === "secondary" ? "Secundário" : "Terciário"}: ${a.name}`); addBody(a.description || ""); addBody(a.application || ""); }
-        });
-      }
-
-      addTitle("Identidade Visual");
-      content.visual_identity?.palette?.forEach((c: any) => { addBody(`${c.name}: ${c.hex} — ${c.usage}`); });
-      if (content.visual_identity?.typography) { addSubtitle("Tipografia"); addBody(`Display: ${content.visual_identity.typography.display || ""}`); addBody(`Corpo: ${content.visual_identity.typography.body || ""}`); }
-      if (content.visual_identity?.style) { addSubtitle("Estilo Visual"); addBody(content.visual_identity.style); }
-
-      addTitle("Tom de Voz");
-      if (content.tone_of_voice?.summary) addBody(content.tone_of_voice.summary);
-      if (content.tone_of_voice?.communication_style) addBody(content.tone_of_voice.communication_style);
-
-      addTitle("Estratégia StoryBrand");
-      STORYBRAND_ITEMS.forEach(item => {
-        const val = content.storybrand?.[item.key];
-        if (val) { addSubtitle(item.label); addBody(Array.isArray(val) ? val.join(", ") : val); }
+      const [{ data: bqData }, { data: profile }, { data: topArch }] = await Promise.all([
+        supabase.from("business_questionnaires").select("*").eq("user_id", user.id).eq("is_complete", true).order("version", { ascending: false }).limit(1).single(),
+        supabase.from("profiles").select("niche, gender").eq("user_id", user.id).single(),
+        supabase.from("user_top_archetypes").select("*").eq("user_id", user.id).order("rank", { ascending: true }).limit(3),
+      ]);
+      if (!bqData) { toast({ title: "Questionário de negócio não encontrado", variant: "destructive" }); return; }
+      const top3 = topArch || [];
+      const archetypes = {
+        primary: { archetype_name: top3[0]?.archetype_name, score: top3[0]?.score },
+        secondary: { archetype_name: top3[1]?.archetype_name, score: top3[1]?.score },
+        tertiary: { archetype_name: top3[2]?.archetype_name, score: top3[2]?.score },
+      };
+      await supabase.from("reports").update({ status: "generating" }).eq("user_id", user.id).eq("version", 1);
+      const { data: reportData, error } = await supabase.functions.invoke("generate-report", {
+        body: { business: bqData, niche: profile?.niche || "", archetypes, gender: profile?.gender || "Não informado" },
       });
-
-      // Figurino
-      if (content.figurino) {
-        addTitle("Figurino Estratégico");
-        if (content.figurino.resumo) addBody(content.figurino.resumo);
-        if (content.figurino.pecas_chave?.length) { addSubtitle("Peças-chave"); content.figurino.pecas_chave.forEach((p: string) => addBody(`• ${p}`)); }
-        if (content.figurino.cores_roupa?.length) { addSubtitle("Cores de Roupa"); addBody(content.figurino.cores_roupa.join(", ")); }
-        if (content.figurino.sapatos?.length) { addSubtitle("Sapatos"); content.figurino.sapatos.forEach((s: string) => addBody(`• ${s}`)); }
-        if (content.figurino.acessorios?.length) { addSubtitle("Acessórios"); content.figurino.acessorios.forEach((a: string) => addBody(`• ${a}`)); }
-        if (content.figurino.cabelo) { addSubtitle("Cabelo"); addBody(content.figurino.cabelo); }
-        if (content.figurino.maquiagem_grooming) { addSubtitle("Maquiagem / Grooming"); addBody(content.figurino.maquiagem_grooming); }
-        if (content.figurino.evitar?.length) { addSubtitle("Evitar"); content.figurino.evitar.forEach((e: string) => addBody(`• ${e}`)); }
-      }
-
-      // Símbolos
-      if (content.simbolos) {
-        addTitle("Símbolos dos Arquétipos");
-        ["primary", "secondary", "tertiary"].forEach(rank => {
-          const s = content.simbolos[rank];
-          if (s) { addSubtitle(`${s.nome} — ${s.simbolo}`); addBody(`Significado: ${s.significado}`); addBody(`Aplicação: ${s.aplicacao}`); }
-        });
-      }
-
-      allWeeks.forEach((week, wi) => {
-        addTitle(`Linha Editorial — Semana ${wi + 1}`);
-        week.forEach((day: any) => {
-          addSubtitle(`Dia ${day.day}: ${day.theme} (${day.format})`);
-          addBody(`Legenda: ${day.caption}`);
-          if (day.card_copy?.length > 0) {
-            addSubtitle(day.format?.toLowerCase() === "carrossel" ? "Conteúdo dos Slides:" : "Copy do Post:");
-            day.card_copy.forEach((copy: string, idx: number) => {
-              addBody(day.format?.toLowerCase() === "carrossel" ? `Slide ${idx + 1}: ${copy}` : copy);
-            });
-          }
-          addBody(`CTA: ${day.cta}`);
-          if (day.script) addBody(`Roteiro: ${day.script}`);
-        });
-      });
-    } else {
-      addBody(fallbackText);
+      if (error) throw error;
+      const normalizedContent = normalizeReportContent(reportData?.report) as any;
+      await supabase.from("reports").update({ content: normalizedContent, status: "completed" }).eq("user_id", user.id).eq("version", 1);
+      setReport({ ...report, content: normalizedContent, status: "completed" });
+      toast({ title: "Relatório regenerado com sucesso!" });
+    } catch (err: any) {
+      console.error("Regenerate error:", err);
+      toast({ title: "Erro ao regenerar", description: err.message, variant: "destructive" });
+    } finally {
+      setRegenerating(false);
     }
+  };
 
-    doc.save("posiciona-relatorio.pdf");
+  const handleDownloadPDF = async () => {
+    if (!reportRef.current) return;
+    try {
+      const html2pdf = (await import("html2pdf.js")).default;
+      const opt = {
+        margin: [10, 10, 10, 10],
+        filename: "posiciona-relatorio.pdf",
+        image: { type: "jpeg", quality: 0.95 },
+        html2canvas: { scale: 2, useCORS: true, logging: false },
+        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" as const },
+        pagebreak: { mode: ["avoid-all", "css", "legacy"] },
+      };
+      await html2pdf().set(opt).from(reportRef.current).save();
     } catch (error) {
       console.error("Error generating PDF:", error);
       toast({ title: "Erro ao gerar PDF", description: "Tente novamente.", variant: "destructive" });
@@ -261,15 +201,39 @@ const Report = () => {
 
   return (
     <DashboardLayout>
-      <div className="space-y-10">
+      <div className="space-y-10" ref={reportRef}>
         {/* Header */}
         <div className="flex items-start justify-between flex-wrap gap-4">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Seu Relatório</h1>
             <p className="text-sm text-muted-foreground mt-1">Gerado em {new Date(report.created_at).toLocaleDateString("pt-BR")}</p>
           </div>
-          <Button onClick={handleDownloadPDF} variant="outline" size="sm" className="gap-2"><Download className="h-4 w-4" /> Baixar PDF</Button>
+          <div className="flex gap-2">
+            <Button onClick={handleDownloadPDF} variant="outline" size="sm" className="gap-2"><Download className="h-4 w-4" /> Baixar PDF</Button>
+          </div>
         </div>
+
+        {/* Missing sections warning */}
+        {hasMissingSections && (
+          <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-950/20">
+            <AlertTriangle className="h-4 w-4 text-amber-600" />
+            <AlertTitle className="text-amber-800 dark:text-amber-400">Relatório incompleto</AlertTitle>
+            <AlertDescription className="text-amber-700 dark:text-amber-300">
+              Seu relatório foi gerado em uma versão anterior e não inclui {!hasFigurino && !hasSimbolos ? "figurino e símbolos" : !hasFigurino ? "figurino" : "símbolos"}.
+              Regenere para incluir essas seções.
+              <Button
+                variant="outline"
+                size="sm"
+                className="ml-3 gap-1.5"
+                onClick={handleRegenerate}
+                disabled={regenerating}
+              >
+                {regenerating ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                Regenerar relatório
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
 
         {/* SECTION: Archetypes — from user_top_archetypes table */}
         <section>
