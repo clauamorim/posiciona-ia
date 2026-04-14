@@ -36,7 +36,7 @@ const Dashboard = () => {
         supabase.from("profiles").select("*").eq("user_id", user.id).single(),
         supabase.from("business_questionnaires").select("is_complete").eq("user_id", user.id).order("version", { ascending: false }).limit(1),
         supabase.from("archetype_answers").select("question_id").eq("user_id", user.id),
-        supabase.from("reports").select("status, editorial_weeks, content").eq("user_id", user.id).eq("status", "completed").limit(1),
+        supabase.from("reports").select("status, editorial_weeks, content").eq("user_id", user.id).order("version", { ascending: false }).limit(1),
         supabase.from("instagram_analyses").select("id").eq("user_id", user.id).limit(1),
         supabase.from("portrait_generations").select("id").eq("user_id", user.id).limit(1),
       ]);
