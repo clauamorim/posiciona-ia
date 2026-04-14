@@ -748,8 +748,8 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
         </Collapsible>
       )}
 
-      {/* Gallery Assets */}
-      {onAddImage && (
+      {/* Gallery Assets — hidden temporarily until more images are added */}
+      {false && onAddImage && (
         <Collapsible open={galleryOpen} onOpenChange={setGalleryOpen}>
           <CollapsibleTrigger asChild>
             <Button variant="outline" size="sm" className="gap-2 w-full">
