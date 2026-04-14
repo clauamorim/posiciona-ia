@@ -224,6 +224,17 @@ Arquétipos principais (calculados pela aplicação — use EXATAMENTE estes nom
 
 Gere o relatório completo em JSON agora.`;
 
+    // Fetch reference PDFs to include as context
+    const pdfParts = await fetchReferencePdfs();
+
+    // Build user message content — multipart if PDFs exist
+    const userContent: any = pdfParts.length > 0
+      ? [
+          ...pdfParts.map(p => ({ type: "file", file: { filename: "reference.pdf", file_data: `data:application/pdf;base64,${p.data}` } })),
+          { type: "text", text: userPrompt },
+        ]
+      : userPrompt;
+
     const response = await fetch(API_URL, {
       method: "POST",
       headers: {
@@ -234,7 +245,7 @@ Gere o relatório completo em JSON agora.`;
         model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
+          { role: "user", content: userContent },
         ],
         max_tokens: 10000,
       }),
