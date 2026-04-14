@@ -182,13 +182,16 @@ function recolorSvgDataUrl(dataUrl: string, newColor: string): string | null {
     if (!dataUrl.startsWith("data:image/svg+xml;base64,")) return null;
     const b64 = dataUrl.replace("data:image/svg+xml;base64,", "");
     let svg = atob(b64);
-    // Replace color attributes: stroke="..." fill="..." color="..."
-    svg = svg.replace(/(?:stroke|fill|color)="(#[0-9a-fA-F]{3,8}|rgb[^"]*|[a-zA-Z]+)"/g, (match, _val) => {
-      // Don't replace "none"
-      if (match.includes('"none"')) return match;
-      const attr = match.split("=")[0];
-      return `${attr}="${newColor}"`;
-    });
+    // Only target fill="..." and stroke="..." attributes on SVG elements
+    svg = svg.replace(
+      /\b(fill|stroke)\s*=\s*"([^"]*)"/g,
+      (match, attr, val) => {
+        const lower = val.trim().toLowerCase();
+        // Preserve "none", "transparent", and URL references
+        if (lower === "none" || lower === "transparent" || lower.startsWith("url(")) return match;
+        return `${attr}="${newColor}"`;
+      }
+    );
     return `data:image/svg+xml;base64,${btoa(svg)}`;
   } catch {
     return null;
