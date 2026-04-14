@@ -57,9 +57,10 @@ const Report = () => {
     });
   }, [user]);
 
-  const { contentObject, isStructuredReport, hasEditorial } = parseReportContent(report?.content);
+  const { contentObject, isStructuredReport, hasEditorial, hasFigurino, hasSimbolos } = parseReportContent(report?.content);
   const content = contentObject ?? {};
   const fallbackText = getReportFallbackText(report?.content);
+  const hasMissingSections = isStructuredReport && (!hasFigurino || !hasSimbolos);
   const structuredEditorial = Array.isArray(content.editorial) ? content.editorial : [];
   const editorialWeeks: any[][] = Array.isArray(report?.editorial_weeks) ? report.editorial_weeks : [];
   const allWeeks = [
