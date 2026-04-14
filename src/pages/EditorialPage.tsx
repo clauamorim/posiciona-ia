@@ -30,6 +30,8 @@ const EditorialPage = () => {
   const [loading, setLoading] = useState(true);
   const [generatingWeek, setGeneratingWeek] = useState(false);
   const [regeneratingPost, setRegeneratingPost] = useState<string | null>(null);
+  const [downloadingPDF, setDownloadingPDF] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   const weeklyCycles = balances?.weekly_cycles ?? 0;
   const regenerationCredits = balances?.regeneration_credits ?? 0;
