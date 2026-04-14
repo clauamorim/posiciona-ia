@@ -201,18 +201,18 @@ const Report = () => {
     <DashboardLayout>
       <div className="space-y-10" ref={reportRef}>
         {/* Header */}
-        <div className="flex items-start justify-between flex-wrap gap-4">
+        <div data-pdf-section className="flex items-start justify-between flex-wrap gap-4">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Seu Relatório</h1>
             <p className="text-sm text-muted-foreground mt-1">Gerado em {new Date(report.created_at).toLocaleDateString("pt-BR")}</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2" data-hide-pdf>
             <Button onClick={handleDownloadPDF} variant="outline" size="sm" className="gap-2"><Download className="h-4 w-4" /> Baixar PDF</Button>
           </div>
         </div>
 
         {/* Missing sections warning */}
-        {hasMissingSections && (
+        {hasMissingSections && (<div data-hide-pdf>
           <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-950/20">
             <AlertTriangle className="h-4 w-4 text-amber-600" />
             <AlertTitle className="text-amber-800 dark:text-amber-400">Relatório incompleto</AlertTitle>
