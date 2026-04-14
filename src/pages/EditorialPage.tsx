@@ -140,6 +140,43 @@ const EditorialPage = () => {
     toast({ title: "Legenda copiada!" });
   };
 
+  const handleDownloadPDF = async () => {
+    if (!contentRef.current) return;
+    setDownloadingPDF(true);
+    const container = contentRef.current;
+    try {
+      const html2pdf = (await import("html2pdf.js")).default;
+      // Expand all collapsibles
+      const closedTriggers = container.querySelectorAll("[data-state='closed']");
+      closedTriggers.forEach((el) => {
+        if (el instanceof HTMLElement) el.click();
+      });
+      // Wait for expansion animation
+      await new Promise((r) => setTimeout(r, 400));
+      // Hide action buttons
+      container.querySelectorAll("[data-hide-pdf]").forEach((b) => (b as HTMLElement).style.display = "none");
+      container.classList.add("pdf-capture");
+
+      const opt = {
+        margin: [8, 5, 8, 5],
+        filename: "posiciona-linha-editorial.pdf",
+        image: { type: "jpeg", quality: 0.98 },
+        html2canvas: { scale: 2.5, useCORS: true, logging: false, scrollY: 0, letterRendering: true, backgroundColor: "#f2eeea" },
+        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" as const },
+        pagebreak: { mode: ["css"] },
+      };
+      await html2pdf().set(opt).from(container).save();
+      container.classList.remove("pdf-capture");
+      container.querySelectorAll("[data-hide-pdf]").forEach((b) => (b as HTMLElement).style.display = "");
+    } catch (error) {
+      console.error("Error generating editorial PDF:", error);
+      container.classList.remove("pdf-capture");
+      container.querySelectorAll("[data-hide-pdf]").forEach((b) => (b as HTMLElement).style.display = "");
+      toast({ title: "Erro ao gerar PDF", description: "Tente novamente.", variant: "destructive" });
+    }
+    setDownloadingPDF(false);
+  };
+
   if (loading) {
     return (
       <DashboardLayout>
