@@ -143,6 +143,8 @@ STUDIO SETUP: ${studioStyle}
 Always use a studio backdrop — never outdoor or nature.
 ${wardrobeLine}
 
+Photorealistic professional headshot, candid quality, natural imperfections preserved, shot on 85mm f/1.8 lens, subtle depth of field, documentary photography style — NOT commercial stock photo style.
+
 No text, no watermarks, no overlays. Professional branding photo indistinguishable from a real DSLR photograph.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
