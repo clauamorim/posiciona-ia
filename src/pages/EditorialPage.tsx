@@ -232,7 +232,7 @@ const EditorialPage = () => {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
+      <div className="space-y-6" ref={contentRef}>
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Linha Editorial</h1>
@@ -241,6 +241,10 @@ const EditorialPage = () => {
               {regenerationCredits > 0 && ` · ${regenerationCredits} regeneraç${regenerationCredits > 1 ? "ões" : "ão"}`}
             </p>
           </div>
+          <Button onClick={handleDownloadPDF} variant="outline" size="sm" className="gap-2" disabled={downloadingPDF} data-hide-pdf>
+            {downloadingPDF ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+            Baixar PDF
+          </Button>
         </div>
 
         <Tabs defaultValue="week-0" className="w-full">
