@@ -45,7 +45,8 @@ const Dashboard = () => {
       const uniqueQuestions = new Set(answersRes.data?.map(a => a.question_id) ?? []);
       setArchetypeCount(uniqueQuestions.size);
       const reportData = reportRes.data?.[0];
-      setHasReport(!!reportData);
+      const reportCompleted = reportData?.status === "completed";
+      setHasReport(reportCompleted);
       const hasEditorialWeeks = !!(reportData?.editorial_weeks && (reportData.editorial_weeks as any[]).length > 0);
       // Also check if editorial exists inside report content (week 1 generated with report)
       let hasContentEditorial = false;
