@@ -282,9 +282,22 @@ const ChoosePlan = () => {
 
   // No plan yet — standalone centered page
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-4 py-12">
-      <div className="max-w-4xl w-full">
-        {content}
+    <div className="min-h-screen bg-background flex flex-col px-4 py-12">
+      <div className="flex justify-end max-w-4xl w-full mx-auto mb-4">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => signOut()}
+          className="text-muted-foreground hover:text-foreground"
+        >
+          <LogOut className="h-4 w-4 mr-2" />
+          Sair
+        </Button>
+      </div>
+      <div className="flex-1 flex items-center justify-center">
+        <div className="max-w-4xl w-full">
+          {content}
+        </div>
       </div>
     </div>
   );
