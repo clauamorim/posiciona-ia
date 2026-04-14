@@ -41,6 +41,7 @@ const App = () => (
         <AuthProvider>
           <Routes>
             <Route path="/" element={<LandingPage />} />
+            <Route path="/sobre" element={<SobrePage />} />
             <Route path="/checkout-success" element={<CheckoutSuccess />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />

@@ -115,10 +115,10 @@ const LandingPage = () => {
       {/* ── HEADER ── */}
       <header className="sticky top-0 z-50 border-b border-landing-border/60 bg-landing-bg/90 backdrop-blur-md">
         <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-2">
+          <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
             <img src={posicionaLogo} alt="Posiciona" className="h-8 w-8" />
             <span className="text-lg font-semibold tracking-tight">Posiciona</span>
-          </div>
+          </Link>
 
           {/* Desktop nav */}
           <nav className="hidden md:flex items-center gap-6 text-sm text-landing-text-secondary">
