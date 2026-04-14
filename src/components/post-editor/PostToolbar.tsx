@@ -217,6 +217,7 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
   ctaText, onCtaTextChange, ctaBgColor, onCtaBgColorChange, ctaTextColor, onCtaTextColorChange, ctaFontSize, onCtaFontSizeChange,
   userPortraits,
   canvasFormat, onCanvasFormatChange,
+  onRemoveBackground, removingBackground,
 }) => {
   const [elementsOpen, setElementsOpen] = useState(false);
   const [svgElementsOpen, setSvgElementsOpen] = useState(false);
