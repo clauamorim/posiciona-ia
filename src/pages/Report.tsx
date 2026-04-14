@@ -290,8 +290,6 @@ const Report = () => {
                   )}
                 </CardContent>
               </Card>
-                </CardContent>
-              </Card>
             )) : (["primary", "secondary", "tertiary"] as const).map((rank, i) => {
               const a = content.archetypes?.[rank];
               if (!a) return null;
