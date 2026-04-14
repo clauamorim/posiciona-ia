@@ -9,6 +9,7 @@ import LandingPage from "./pages/LandingPage";
 import CheckoutSuccess from "./pages/CheckoutSuccess";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
+import VerifyEmail from "./pages/VerifyEmail";
 import Dashboard from "./pages/Dashboard";
 import BusinessQuestionnaire from "./pages/BusinessQuestionnaire";
 import ArchetypeQuestionnaire from "./pages/ArchetypeQuestionnaire";
