@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,7 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import {
   Loader2, Sparkles, ChevronDown, Calendar, Video, Image, Smartphone,
-  ImageIcon, PenTool, FileText, RefreshCw, Copy
+  ImageIcon, PenTool, FileText, RefreshCw, Copy, Download
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { parseReportContent } from "@/lib/reportParser";
