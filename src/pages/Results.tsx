@@ -120,7 +120,7 @@ const Results = () => {
         }
 
         await supabase.from("reports").update({ content: normalizedReportContent, status: "completed" })
-          .eq("user_id", user.id).eq("version", newVersion);
+          .eq("user_id", user.id).eq("version", reportVersion);
         await supabase.from("business_questionnaires").update({ status: "locked" }).eq("user_id", user.id);
 
         setStage("done");
