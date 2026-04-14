@@ -122,7 +122,32 @@ serve(async (req) => {
     }
 
     const data = await response.json();
-    const resultImage = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+    console.log("AI response structure:", JSON.stringify(data).slice(0, 800));
+
+    // Try multiple extraction paths
+    let resultImage =
+      data.choices?.[0]?.message?.images?.[0]?.image_url?.url ||
+      data.choices?.[0]?.message?.images?.[0]?.url ||
+      null;
+
+    // Check in content array
+    if (!resultImage && Array.isArray(data.choices?.[0]?.message?.content)) {
+      for (const part of data.choices[0].message.content) {
+        if (part.type === "image_url" && part.image_url?.url) {
+          resultImage = part.image_url.url;
+          break;
+        }
+        if (part.type === "image" && part.url) {
+          resultImage = part.url;
+          break;
+        }
+      }
+    }
+
+    // Ensure it's a proper data URL
+    if (resultImage && !resultImage.startsWith("data:")) {
+      resultImage = `data:image/png;base64,${resultImage}`;
+    }
 
     if (!resultImage) {
       console.error("No image in response:", JSON.stringify(data).slice(0, 500));
