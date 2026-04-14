@@ -1,29 +1,37 @@
 
 
-# Plano: Tela de confirmação de e-mail após cadastro
+# Plano: Corrigir validação de cupom no checkout
 
 ## Problema
-Após o cadastro, o usuário recebe apenas um toast discreto no canto inferior e é redirecionado para `/login`, onde pode não perceber que precisa confirmar o e-mail.
+O código usa `stripe.coupons.retrieve(coupon_code)` que espera o **ID do cupom** (ex: `suTWUv7R`), mas o usuário digita o **nome** (ex: `POSICIONA50`). Isso causa erro no Stripe.
 
 ## Solução
-Em vez de redirecionar para `/login` com um toast, redirecionar para uma **página dedicada de confirmação de e-mail** (`/verify-email`) com uma mensagem clara e visível, similar à página `CheckoutSuccess` já existente.
+Alterar `supabase/functions/stripe-checkout/index.ts` para buscar cupons por nome usando `stripe.coupons.list()` e encontrar o cupom correspondente.
 
-## O que será feito
+| Arquivo | Mudança |
+|---------|---------|
+| `supabase/functions/stripe-checkout/index.ts` | Substituir `stripe.coupons.retrieve()` por `stripe.coupons.list()` + filtro por nome |
 
-1. **Criar página `VerifyEmail.tsx`** — Tela centralizada com:
-   - Ícone de e-mail grande
-   - Título: "Verifique seu e-mail"
-   - Mensagem: "Enviamos um link de confirmação para **{email}**. Acesse sua caixa de entrada e clique no link para ativar sua conta."
-   - Botão "Ir para o Login"
-   - Estilo premium consistente com o restante do app
+### Trecho a alterar (linhas ~72-82)
 
-2. **Alterar `Signup.tsx`** — Após cadastro bem-sucedido, navegar para `/verify-email?email={email}` em vez de `/login`
+**Antes:**
+```typescript
+const coupon = await stripe.coupons.retrieve(coupon_code);
+if (coupon && coupon.valid) {
+  sessionParams.discounts = [{ coupon: coupon.id }];
+}
+```
 
-3. **Adicionar rota em `App.tsx`** — Rota pública `/verify-email`
-
-| Arquivo | Ação |
-|---------|------|
-| `src/pages/VerifyEmail.tsx` | Criar página |
-| `src/pages/Signup.tsx` | Redirecionar para `/verify-email` |
-| `src/App.tsx` | Adicionar rota |
+**Depois:**
+```typescript
+const coupons = await stripe.coupons.list({ limit: 100 });
+const coupon = coupons.data.find(
+  (c) => c.name?.toUpperCase() === coupon_code.toUpperCase() && c.valid
+);
+if (coupon) {
+  sessionParams.discounts = [{ coupon: coupon.id }];
+} else {
+  throw new Error("Cupom inválido ou expirado");
+}
+```
 
