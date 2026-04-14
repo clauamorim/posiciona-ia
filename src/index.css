@@ -108,3 +108,25 @@
     font-weight: 600;
   }
 }
+
+/* PDF capture helpers */
+.pdf-capture section,
+.pdf-capture .break-inside-avoid {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.pdf-capture .grid {
+  display: block;
+}
+
+.pdf-capture .grid > * {
+  display: inline-block;
+  vertical-align: top;
+  margin-bottom: 0.75rem;
+}
+
+.pdf-capture .md\:grid-cols-2 > * { width: 48%; margin-right: 2%; }
+.pdf-capture .md\:grid-cols-3 > * { width: 31%; margin-right: 2%; }
+.pdf-capture .md\:grid-cols-5 > * { width: 18%; margin-right: 2%; }
+.pdf-capture .lg\:grid-cols-3 > * { width: 31%; margin-right: 2%; }

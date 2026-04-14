@@ -138,29 +138,28 @@ const Report = () => {
 
   const handleDownloadPDF = async () => {
     if (!reportRef.current) return;
+    const container = reportRef.current;
     try {
       const html2pdf = (await import("html2pdf.js")).default;
       // Hide interactive buttons during capture
-      const buttons = reportRef.current.querySelectorAll("button, [data-hide-pdf]");
-      buttons.forEach((b) => (b as HTMLElement).style.display = "none");
+      container.querySelectorAll("button, [data-hide-pdf]").forEach((b) => (b as HTMLElement).style.display = "none");
+      // Add pdf-capture class for print-friendly styles
+      container.classList.add("pdf-capture");
       const opt = {
         margin: [8, 5, 8, 5],
         filename: "posiciona-relatorio.pdf",
         image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, logging: false, scrollY: 0 },
+        html2canvas: { scale: 2.5, useCORS: true, logging: false, scrollY: 0, letterRendering: true, backgroundColor: "#f2eeea" },
         jsPDF: { unit: "mm", format: "a4", orientation: "portrait" as const },
-        pagebreak: { mode: ["avoid-all", "css", "legacy"] },
+        pagebreak: { mode: ["css"] },
       };
-      await html2pdf().set(opt).from(reportRef.current).save();
-      // Restore buttons
-      buttons.forEach((b) => (b as HTMLElement).style.display = "");
+      await html2pdf().set(opt).from(container).save();
+      container.classList.remove("pdf-capture");
+      container.querySelectorAll("button, [data-hide-pdf]").forEach((b) => (b as HTMLElement).style.display = "");
     } catch (error) {
       console.error("Error generating PDF:", error);
-      // Restore buttons on error too
-      if (reportRef.current) {
-        const buttons = reportRef.current.querySelectorAll("button, [data-hide-pdf]");
-        buttons.forEach((b) => (b as HTMLElement).style.display = "");
-      }
+      container.classList.remove("pdf-capture");
+      container.querySelectorAll("button, [data-hide-pdf]").forEach((b) => (b as HTMLElement).style.display = "");
       toast({ title: "Erro ao gerar PDF", description: "Tente novamente.", variant: "destructive" });
     }
   };
@@ -257,9 +256,9 @@ const Report = () => {
             <Crown className="h-5 w-5 text-primary" />
             <h2 className="text-xl font-bold font-display">Seus Arquétipos de Marca</h2>
           </div>
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-3 break-inside-avoid-column">
             {archetypeData ? archetypeData.map((a) => (
-              <Card key={a.name} className="relative overflow-hidden border-2 border-primary/20 hover:border-primary/40 transition-colors">
+              <Card key={a.name} className="relative overflow-hidden border-2 border-primary/20 hover:border-primary/40 transition-colors break-inside-avoid">
                 <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-primary to-accent" />
                 <CardContent className="pt-8 pb-6">
                   <Badge variant="outline" className="mb-3 text-xs">{a.label}</Badge>
@@ -275,7 +274,7 @@ const Report = () => {
               if (!a) return null;
               const labels = ["Primário", "Secundário", "Terciário"];
               return (
-                <Card key={rank} className="relative overflow-hidden border-2 border-primary/20 hover:border-primary/40 transition-colors">
+                <Card key={rank} className="relative overflow-hidden border-2 border-primary/20 hover:border-primary/40 transition-colors break-inside-avoid">
                   <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-primary to-accent" />
                   <CardContent className="pt-8 pb-6">
                     <Badge variant="outline" className="mb-3 text-xs">{labels[i]}</Badge>
@@ -293,7 +292,7 @@ const Report = () => {
 
         {/* SECTION: Color Palette */}
         {content.visual_identity?.palette && (
-          <section className="bg-muted/30 rounded-2xl p-6 md:p-8">
+          <section className="bg-muted/30 rounded-2xl p-6 md:p-8 break-inside-avoid">
             <div className="flex items-center gap-2 mb-6">
               <Palette className="h-5 w-5 text-primary" />
               <h2 className="text-xl font-bold font-display">Paleta de Cores</h2>
@@ -347,7 +346,7 @@ const Report = () => {
 
         {/* SECTION: Tone of Voice */}
         {content.tone_of_voice && (
-          <section className="bg-muted/30 rounded-2xl p-6 md:p-8">
+          <section className="bg-muted/30 rounded-2xl p-6 md:p-8 break-inside-avoid">
             <div className="flex items-center gap-2 mb-4">
               <MessageSquare className="h-5 w-5 text-primary" />
               <h2 className="text-xl font-bold font-display">Tom de Voz</h2>
@@ -381,7 +380,7 @@ const Report = () => {
 
         {/* SECTION: Figurino Estratégico */}
         {content.figurino && (
-          <section className="bg-muted/30 rounded-2xl p-6 md:p-8">
+          <section className="bg-muted/30 rounded-2xl p-6 md:p-8 break-inside-avoid">
             <div className="flex items-center gap-2 mb-6">
               <Shirt className="h-5 w-5 text-primary" />
               <h2 className="text-xl font-bold font-display">Figurino Estratégico</h2>
@@ -484,7 +483,7 @@ const Report = () => {
                 if (!s) return null;
                 const labels = ["Primário", "Secundário", "Terciário"];
                 return (
-                  <Card key={rank} className="relative overflow-hidden border-2 border-primary/20 hover:border-primary/40 transition-colors">
+                  <Card key={rank} className="relative overflow-hidden border-2 border-primary/20 hover:border-primary/40 transition-colors break-inside-avoid">
                     <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-primary to-accent" />
                     <CardContent className="pt-8 pb-6">
                       <Badge variant="outline" className="mb-2 text-xs">{labels[idx]}</Badge>
@@ -512,7 +511,7 @@ const Report = () => {
                 const val = content.storybrand[item.key];
                 if (!val) return null;
                 return (
-                  <Card key={item.key} className="hover:shadow-md transition-shadow">
+                  <Card key={item.key} className="hover:shadow-md transition-shadow break-inside-avoid">
                     <CardContent className="pt-5 pb-4">
                       <div className="flex items-center gap-2 mb-2 text-primary">
                         {item.icon}
