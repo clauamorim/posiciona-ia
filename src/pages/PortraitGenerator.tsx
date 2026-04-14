@@ -30,7 +30,9 @@ const PortraitGenerator = () => {
 
   const [selfies, setSelfies] = useState<{ file: File; preview: string; base64: string }[]>([]);
   const [portraits, setPortraits] = useState<string[]>([]);
+  const [portraitStyleIndex, setPortraitStyleIndex] = useState<number | null>(null);
   const [generating, setGenerating] = useState(false);
+  const [confirmingDownload, setConfirmingDownload] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 1 });
   const [packDialogOpen, setPackDialogOpen] = useState(false);
   const [loadingPack, setLoadingPack] = useState<string | null>(null);
@@ -167,14 +169,7 @@ const PortraitGenerator = () => {
         const portrait = data.portrait;
         if (portrait) {
           setPortraits([portrait]);
-          toast({ title: "Retrato gerado com sucesso!" });
-
-          // Save to DB
-          await supabase.from("portrait_generations").insert({
-            user_id: user!.id,
-            portraits: [portrait],
-            style_index: data.style_index ?? null,
-          });
+          toast({ title: "Retrato gerado! Baixe para salvar e debitar o crédito." });
         } else {
           toast({ title: "Nenhum retrato foi gerado", variant: "destructive" });
         }
