@@ -126,6 +126,7 @@ const LandingPage = () => {
             <button onClick={() => scrollTo("resultados")} className="hover:text-landing-text transition-colors">Resultados</button>
             <button onClick={() => scrollTo("planos")} className="hover:text-landing-text transition-colors">Planos</button>
             <button onClick={() => scrollTo("faq")} className="hover:text-landing-text transition-colors">FAQ</button>
+            <Link to="/sobre" className="hover:text-landing-text transition-colors">Sobre</Link>
           </nav>
 
           <div className="hidden md:flex items-center gap-3">
@@ -152,6 +153,7 @@ const LandingPage = () => {
             <button onClick={() => scrollTo("resultados")} className="block text-sm text-landing-text-secondary hover:text-landing-text w-full text-left py-1">Resultados</button>
             <button onClick={() => scrollTo("planos")} className="block text-sm text-landing-text-secondary hover:text-landing-text w-full text-left py-1">Planos</button>
             <button onClick={() => scrollTo("faq")} className="block text-sm text-landing-text-secondary hover:text-landing-text w-full text-left py-1">FAQ</button>
+            <Link to="/sobre" onClick={() => setMobileMenuOpen(false)} className="block text-sm text-landing-text-secondary hover:text-landing-text w-full text-left py-1">Sobre</Link>
             <div className="pt-2 border-t border-landing-border/40 flex gap-3">
               {user ? (
                 <Button size="sm" onClick={() => navigate("/dashboard")} className="bg-landing-purple text-white w-full">Dashboard</Button>
