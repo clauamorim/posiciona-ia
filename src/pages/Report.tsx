@@ -236,7 +236,7 @@ const Report = () => {
         )}
 
         {/* SECTION: Archetypes — from user_top_archetypes table */}
-        <section>
+        <section data-pdf-section>
           <div className="flex items-center gap-2 mb-4">
             <Crown className="h-5 w-5 text-primary" />
             <h2 className="text-xl font-bold font-display">Seus Arquétipos de Marca</h2>
@@ -277,7 +277,7 @@ const Report = () => {
 
         {/* SECTION: Color Palette */}
         {content.visual_identity?.palette && (
-          <section className="bg-muted/30 rounded-2xl p-6 md:p-8 break-inside-avoid">
+          <section data-pdf-section className="bg-muted/30 rounded-2xl p-6 md:p-8 break-inside-avoid">
             <div className="flex items-center gap-2 mb-6">
               <Palette className="h-5 w-5 text-primary" />
               <h2 className="text-xl font-bold font-display">Paleta de Cores</h2>
@@ -301,7 +301,7 @@ const Report = () => {
 
         {/* SECTION: Typography & Style */}
         {content.visual_identity && (
-          <section>
+          <section data-pdf-section>
             <div className="flex items-center gap-2 mb-4">
               <Type className="h-5 w-5 text-primary" />
               <h2 className="text-xl font-bold font-display">Tipografia e Estilo</h2>
@@ -331,7 +331,7 @@ const Report = () => {
 
         {/* SECTION: Tone of Voice */}
         {content.tone_of_voice && (
-          <section className="bg-muted/30 rounded-2xl p-6 md:p-8 break-inside-avoid">
+          <section data-pdf-section className="bg-muted/30 rounded-2xl p-6 md:p-8 break-inside-avoid">
             <div className="flex items-center gap-2 mb-4">
               <MessageSquare className="h-5 w-5 text-primary" />
               <h2 className="text-xl font-bold font-display">Tom de Voz</h2>
@@ -365,7 +365,7 @@ const Report = () => {
 
         {/* SECTION: Figurino Estratégico */}
         {content.figurino && (
-          <section className="bg-muted/30 rounded-2xl p-6 md:p-8 break-inside-avoid">
+          <section data-pdf-section className="bg-muted/30 rounded-2xl p-6 md:p-8 break-inside-avoid">
             <div className="flex items-center gap-2 mb-6">
               <Shirt className="h-5 w-5 text-primary" />
               <h2 className="text-xl font-bold font-display">Figurino Estratégico</h2>
@@ -457,7 +457,7 @@ const Report = () => {
 
         {/* SECTION: Símbolos dos Arquétipos */}
         {content.simbolos && (
-          <section>
+          <section data-pdf-section>
             <div className="flex items-center gap-2 mb-4">
               <Star className="h-5 w-5 text-primary" />
               <h2 className="text-xl font-bold font-display">Símbolos dos Arquétipos</h2>
@@ -486,7 +486,7 @@ const Report = () => {
 
         {/* SECTION: StoryBrand */}
         {content.storybrand && (
-          <section>
+          <section data-pdf-section>
             <div className="flex items-center gap-2 mb-4">
               <Target className="h-5 w-5 text-primary" />
               <h2 className="text-xl font-bold font-display">Estratégia StoryBrand</h2>
