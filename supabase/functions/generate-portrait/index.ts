@@ -135,7 +135,7 @@ Study the reference photos with extreme attention. Reproduce the EXACT SAME PERS
 
 Do NOT create a new person. Do NOT approximate. Do NOT idealize or beautify beyond what is in the references. The output must be IMMEDIATELY recognizable as the same individual — like a real photo taken on the same day.
 
-EXPRESSION: Match the expression from the reference photos exactly. If the person is NOT smiling showing teeth in ANY reference photo, do NOT generate a photo showing teeth.
+CRITICAL — EXPRESSION & TEETH: Copy the exact expression from the reference photos. If NONE of the reference photos show the person smiling with visible teeth, you MUST NOT generate a smile showing teeth. This is mandatory — teeth pattern inconsistency breaks identity. Match the mouth position precisely: closed lips, slight smile, or open smile only if references show it.
 
 REALISM: Natural skin with pores but do NOT over-sharpen or add excessive texture. Do NOT add wrinkles or blemishes not in references. Hair must have natural flyaways. Eyes must have natural catchlights.
 
