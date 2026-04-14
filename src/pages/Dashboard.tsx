@@ -80,8 +80,7 @@ const Dashboard = () => {
     { label: "Arquétipos", status: archetypesDone ? "done" : businessComplete ? "in_progress" : "pending", href: "/archetype-questionnaire" },
     { label: "StoryBrand", status: hasReport ? "done" : "pending", href: "/storybrand" },
     { label: "Instagram", status: hasInstagram ? "done" : "pending", href: "/instagram-analysis" },
-    { label: "Editorial", status: hasEditorial ? "done" : hasReport ? "in_progress" : "pending", href: "/editorial" },
-    { label: "Conteúdos", status: hasEditorial ? "done" : "pending", href: "/editorial" },
+    { label: "Linha Editorial", status: hasEditorial ? "done" : hasReport ? "in_progress" : "pending", href: "/editorial" },
     { label: "Retratos", status: hasPortraits ? "done" : "pending", href: "/portraits" },
   ];
 
@@ -246,7 +245,6 @@ const Dashboard = () => {
               { icon: Target, label: "StoryBrand", status: hasReport ? "Disponível" : "Pendente", href: "/storybrand", done: hasReport },
               { icon: Instagram, label: "Análise do Instagram", status: hasInstagram ? "Disponível" : "Pendente", href: "/instagram-analysis", done: hasInstagram },
               { icon: Calendar, label: "Linha Editorial", status: hasEditorial ? "Disponível" : hasReport ? "Pronto para gerar" : "Pendente", href: "/editorial", done: hasEditorial },
-              { icon: FileText, label: "Conteúdos", status: hasEditorial ? "Disponível" : "Pendente", href: "/editorial", done: hasEditorial },
               { icon: Camera, label: "Retratos de Marca", status: hasPortraits ? "Disponível" : "Pendente", href: "/portraits", done: hasPortraits },
             ].map((item, i) => (
               <Link key={i} to={item.href}>
