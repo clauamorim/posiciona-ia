@@ -1,35 +1,29 @@
 
 
-# Plano: Personalizar e-mail de confirmação de conta
+# Plano: Tela de confirmação de e-mail após cadastro
 
-## Situação atual
+## Problema
+Após o cadastro, o usuário recebe apenas um toast discreto no canto inferior e é redirecionado para `/login`, onde pode não perceber que precisa confirmar o e-mail.
 
-O e-mail de confirmação usa o template padrão do sistema, que mostra "Archetype Story" como remetente e conteúdo em inglês. Para personalizar, é necessário configurar um domínio de e-mail e criar templates customizados.
+## Solução
+Em vez de redirecionar para `/login` com um toast, redirecionar para uma **página dedicada de confirmação de e-mail** (`/verify-email`) com uma mensagem clara e visível, similar à página `CheckoutSuccess` já existente.
 
 ## O que será feito
 
-1. **Configurar domínio de e-mail** — O primeiro passo é configurar um domínio de envio para que os e-mails possam ser personalizados. Isso será feito através do painel de configuração de e-mail.
+1. **Criar página `VerifyEmail.tsx`** — Tela centralizada com:
+   - Ícone de e-mail grande
+   - Título: "Verifique seu e-mail"
+   - Mensagem: "Enviamos um link de confirmação para **{email}**. Acesse sua caixa de entrada e clique no link para ativar sua conta."
+   - Botão "Ir para o Login"
+   - Estilo premium consistente com o restante do app
 
-2. **Criar templates de e-mail de autenticação** — Templates customizados em português com a marca "Posiciona":
-   - Remetente: **Posiciona**
-   - Assunto: "Confirme seu e-mail" (em vez de "Confirm your signup")
-   - Corpo todo em português
-   - Cores da marca (roxo `hsl(258, 76%, 57%)` como cor primária)
-   - Logo do Posiciona no topo
+2. **Alterar `Signup.tsx`** — Após cadastro bem-sucedido, navegar para `/verify-email?email={email}` em vez de `/login`
 
-3. **Templates afetados** (todos em português):
-   - Confirmação de cadastro
-   - Recuperação de senha
-   - Magic link
-   - Convite
-   - Alteração de e-mail
-   - Reautenticação
+3. **Adicionar rota em `App.tsx`** — Rota pública `/verify-email`
 
-## Primeiro passo
-
-Como não há domínio de e-mail configurado ainda, o primeiro passo é configurar um. Clique no botão abaixo para iniciar:
-
-<lov-actions>
-<lov-open-email-setup>Configurar domínio de e-mail</lov-open-email-setup>
-</lov-actions>
+| Arquivo | Ação |
+|---------|------|
+| `src/pages/VerifyEmail.tsx` | Criar página |
+| `src/pages/Signup.tsx` | Redirecionar para `/verify-email` |
+| `src/App.tsx` | Adicionar rota |
 
