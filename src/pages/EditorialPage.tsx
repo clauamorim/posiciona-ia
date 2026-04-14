@@ -288,12 +288,15 @@ const EditorialPage = () => {
   }
 
   if (!report || report.status !== "completed") {
+    const isPending = report?.status === "pending" || report?.status === "generating";
     return (
       <DashboardLayout>
         <div className="flex flex-col items-center justify-center h-64 text-center gap-3">
-          <FileText className="h-10 w-10 text-muted-foreground" />
+          {isPending ? <Loader2 className="h-10 w-10 text-primary animate-spin" /> : <FileText className="h-10 w-10 text-muted-foreground" />}
           <h2 className="text-lg font-semibold">Linha editorial não disponível</h2>
-          <p className="text-muted-foreground text-sm">Gere suas análises primeiro para ter acesso à linha editorial.</p>
+          <p className="text-muted-foreground text-sm">
+            {isPending ? "Sua estratégia está sendo gerada. Volte em alguns instantes." : "Gere suas análises primeiro para ter acesso à linha editorial."}
+          </p>
         </div>
       </DashboardLayout>
     );
