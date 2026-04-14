@@ -141,37 +141,122 @@ const EditorialPage = () => {
   };
 
   const handleDownloadPDF = async () => {
-    if (!contentRef.current) return;
     setDownloadingPDF(true);
-    const container = contentRef.current;
     try {
-      const html2pdf = (await import("html2pdf.js")).default;
-      // Expand all collapsibles
-      const closedTriggers = container.querySelectorAll("[data-state='closed']");
-      closedTriggers.forEach((el) => {
-        if (el instanceof HTMLElement) el.click();
-      });
-      // Wait for expansion animation
-      await new Promise((r) => setTimeout(r, 400));
-      // Hide action buttons
-      container.querySelectorAll("[data-hide-pdf]").forEach((b) => (b as HTMLElement).style.display = "none");
-      container.classList.add("pdf-capture");
+      const jsPDF = (await import("jspdf")).default;
+      const html2canvas = (await import("html2canvas")).default;
 
-      const opt = {
-        margin: [8, 5, 8, 5],
-        filename: "posiciona-linha-editorial.pdf",
-        image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2.5, useCORS: true, logging: false, scrollY: 0, letterRendering: true, backgroundColor: "#f2eeea" },
-        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" as const },
-        pagebreak: { mode: ["css"] },
-      };
-      await html2pdf().set(opt).from(container).save();
-      container.classList.remove("pdf-capture");
-      container.querySelectorAll("[data-hide-pdf]").forEach((b) => (b as HTMLElement).style.display = "");
+      // Create a hidden static container with ALL weeks expanded
+      const printContainer = document.createElement("div");
+      printContainer.style.cssText = "position:absolute;left:-9999px;top:0;width:900px;background:#f2eeea;padding:24px;font-family:Inter,sans-serif;";
+      document.body.appendChild(printContainer);
+
+      // Render all weeks statically
+      for (let wi = 0; wi < allWeeks.length; wi++) {
+        const week = allWeeks[wi];
+        const weekHeader = document.createElement("h2");
+        weekHeader.style.cssText = "font-size:18px;font-weight:700;margin:24px 0 12px;color:#1a1a2e;";
+        weekHeader.textContent = `Semana ${wi + 1}`;
+        printContainer.appendChild(weekHeader);
+
+        const grid = document.createElement("div");
+        grid.style.cssText = "display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px;";
+        
+        for (let di = 0; di < (week || []).length; di++) {
+          const day = week[di];
+          const fmt = FORMAT_CONFIG[day.format?.toLowerCase()] || FORMAT_CONFIG.post;
+          const card = document.createElement("div");
+          card.style.cssText = "background:white;border-radius:12px;padding:16px;border:1px solid #e5e1db;break-inside:avoid;";
+
+          let html = `<div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+            <span style="font-size:10px;font-weight:700;text-transform:uppercase;color:#6b7280;">Dia ${day.day || di + 1}</span>
+            <span style="font-size:10px;font-weight:600;color:#6b7280;">${fmt.label}</span>
+          </div>
+          <h3 style="font-size:13px;font-weight:600;margin-bottom:8px;color:#1a1a2e;">${day.theme || ""}</h3>`;
+
+          if (day.caption) {
+            html += `<div style="margin-bottom:6px;">
+              <p style="font-size:10px;font-weight:700;text-transform:uppercase;color:#9ca3af;margin-bottom:2px;">Legenda</p>
+              <p style="font-size:11px;color:#374151;line-height:1.5;">${day.caption}</p>
+            </div>`;
+          }
+
+          if (day.cta) {
+            html += `<div style="margin-bottom:6px;">
+              <p style="font-size:10px;font-weight:700;text-transform:uppercase;color:#9ca3af;margin-bottom:2px;">CTA</p>
+              <p style="font-size:11px;font-weight:600;color:#7c3aed;">${day.cta}</p>
+            </div>`;
+          }
+
+          if (day.card_copy?.length > 0) {
+            html += `<div style="margin-top:6px;padding:8px;background:#f9fafb;border-radius:8px;border:1px solid #e5e7eb;">
+              <p style="font-size:10px;font-weight:700;text-transform:uppercase;color:#9ca3af;margin-bottom:4px;">Conteúdo</p>
+              ${day.card_copy.map((c: string) => `<p style="font-size:11px;color:#374151;line-height:1.4;margin-bottom:4px;">${c}</p>`).join("")}
+            </div>`;
+          }
+
+          if (day.script) {
+            html += `<div style="margin-top:6px;padding:8px;background:#f9fafb;border-radius:8px;border:1px solid #e5e7eb;">
+              <p style="font-size:10px;font-weight:700;text-transform:uppercase;color:#9ca3af;margin-bottom:4px;">Roteiro</p>
+              <p style="font-size:11px;color:#374151;line-height:1.4;white-space:pre-wrap;">${day.script}</p>
+            </div>`;
+          }
+
+          card.innerHTML = html;
+          grid.appendChild(card);
+        }
+        printContainer.appendChild(grid);
+      }
+
+      // Capture sections
+      const A4_W = 210, A4_H = 297, M = 12;
+      const CW = A4_W - M * 2;
+      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+      let curY = M;
+
+      // Title
+      const titleEl = document.createElement("div");
+      titleEl.style.cssText = "padding:16px 0;";
+      titleEl.innerHTML = `<h1 style="font-size:22px;font-weight:700;color:#1a1a2e;">Linha Editorial</h1>
+        <p style="font-size:12px;color:#6b7280;">${allWeeks.length} semana${allWeeks.length > 1 ? "s" : ""} de conteúdo</p>`;
+      printContainer.insertBefore(titleEl, printContainer.firstChild);
+
+      const canvas = await html2canvas(printContainer, {
+        scale: 2, useCORS: true, backgroundColor: "#f2eeea", logging: false, windowWidth: 900,
+      });
+
+      document.body.removeChild(printContainer);
+
+      const wPx = canvas.width;
+      const hPx = canvas.height;
+      const sf = CW / wPx;
+      const hMM = hPx * sf;
+
+      if (hMM <= A4_H - M * 2) {
+        pdf.addImage(canvas.toDataURL("image/jpeg", 0.92), "JPEG", M, M, CW, hMM);
+      } else {
+        // Split across pages
+        const pageH = A4_H - M * 2;
+        const pagesNeeded = Math.ceil(hMM / pageH);
+        const sliceHPx = Math.floor(wPx * (pageH / CW));
+
+        for (let p = 0; p < pagesNeeded; p++) {
+          if (p > 0) pdf.addPage();
+          const srcY = p * sliceHPx;
+          const srcH = Math.min(sliceHPx, hPx - srcY);
+          const sliceCanvas = document.createElement("canvas");
+          sliceCanvas.width = wPx;
+          sliceCanvas.height = srcH;
+          const ctx = sliceCanvas.getContext("2d")!;
+          ctx.drawImage(canvas, 0, srcY, wPx, srcH, 0, 0, wPx, srcH);
+          const sliceHMM = srcH * sf;
+          pdf.addImage(sliceCanvas.toDataURL("image/jpeg", 0.92), "JPEG", M, M, CW, sliceHMM);
+        }
+      }
+
+      pdf.save("posiciona-linha-editorial.pdf");
     } catch (error) {
       console.error("Error generating editorial PDF:", error);
-      container.classList.remove("pdf-capture");
-      container.querySelectorAll("[data-hide-pdf]").forEach((b) => (b as HTMLElement).style.display = "");
       toast({ title: "Erro ao gerar PDF", description: "Tente novamente.", variant: "destructive" });
     }
     setDownloadingPDF(false);
