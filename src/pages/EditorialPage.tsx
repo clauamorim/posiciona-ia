@@ -346,7 +346,7 @@ const EditorialPage = () => {
           ))}
         </Tabs>
 
-        <div className="flex justify-center pt-2">
+        <div className="flex justify-center pt-2" data-hide-pdf>
           {generateButton}
         </div>
       </div>
