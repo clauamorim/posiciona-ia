@@ -1,143 +1,85 @@
 
-## Diagnóstico
 
-O problema principal não é que a reanálise “gerou errado” — é que ela provavelmente **nem substituiu a análise atual**.
+# Plano: 3 Melhorias — Editorial sem Arquétipos, Retratos com Nano Banana 2, Cobrança por Download
 
-Encontrei uma inconsistência clara no fluxo:
+## 1. Linha Editorial baseada apenas no StoryBrand (sem arquétipos)
 
-1. **A reanálise reseta apenas `version = 1`**
-   - `src/pages/BusinessQuestionnaire.tsx`
-   - `src/pages/ArchetypeQuestionnaire.tsx`
+**Problema**: Os prompts de `generate-content-week` e `regenerate-single-post` usam arquétipos para guiar o conteúdo. O pedido é focar exclusivamente no StoryBrand, aprofundando os assuntos.
 
-   Hoje o código faz:
-   - `reports.update(...).eq("user_id", user.id).eq("version", 1)`
+**Alterações**:
 
-   Se o usuário já teve regenerações/reanálises antes, a análise ativa pode estar em `version 2`, `3`, `4`...
-   Nesse caso, o crédito é consumido, mas a versão atual continua intacta.
+### `supabase/functions/generate-content-week/index.ts`
+- Remover referências a arquétipos do `systemPrompt` e `userPrompt`
+- Aprofundar a instrução de StoryBrand no prompt: cada post deve explorar uma faceta diferente do framework (herói, problema interno, externo, filosófico, plano, sucesso, fracasso)
+- Manter tom de voz
 
-2. **A página `Results.tsx` pula a regeneração se existir qualquer relatório concluído**
-   - Ela busca o último relatório com `status = "completed"` e, se encontrar, faz `setStage("done")` e retorna.
-   - Ou seja: mesmo depois de usar crédito, o app pode continuar usando um relatório antigo já concluído.
+### `supabase/functions/regenerate-single-post/index.ts`
+- Remover `Arquétipo primário: ...` do `userPrompt`
+- Reforçar StoryBrand como guia único do conteúdo
 
-3. **A janela de arquétipos continua lendo conteúdo antigo**
-   - As características, marcas e personalidades já estão renderizadas em `Results.tsx`.
-   - Se elas não aparecem, o mais provável é que o app esteja mostrando um relatório antigo, sem essas novas chaves.
+### `supabase/functions/generate-report/index.ts`
+- Nas regras do campo "editorial", reforçar que a semana 1 deve ser guiada pelo StoryBrand gerado, não pelos arquétipos
 
-4. **StoryBrand, linha editorial e relatório continuam “iguais” pelo mesmo motivo**
-   - As melhorias recentes só aparecem se uma nova geração realmente acontecer.
-   - Como o fluxo está reaproveitando um relatório antigo, os erros persistem visualmente.
-
-5. **Os PDFs já estão sendo enviados para as análises**
-   - `generate-report`
-   - `generate-content-week`
-   - `regenerate-single-post`
-
-   Então o problema não parece ser “os PDFs não estão sendo usados”, e sim que **a reanálise não está chegando a disparar uma nova geração efetiva da estratégia atual**.
+### `src/pages/EditorialPage.tsx`
+- Continuar enviando `storybrand` e `tone_of_voice` no body
+- Remover envio de `archetypes` no body de `generate-content-week` (linhas 70-73)
+- Remover envio de `archetypes` no body de `regenerate-single-post` (linha 116)
 
 ---
 
-## Plano de correção
+## 2. Melhorar qualidade dos retratos — Trocar para Nano Banana 2
 
-### 1. Corrigir o reset da reanálise
-**Arquivos:**
-- `src/pages/BusinessQuestionnaire.tsx`
-- `src/pages/ArchetypeQuestionnaire.tsx`
+**Problema**: Modelo atual (`google/gemini-3-pro-image-preview`) gera imagens genéricas sem respeitar as selfies. O modelo `google/gemini-3.1-flash-image-preview` (Nano Banana 2) tem melhor qualidade e velocidade.
 
-**Alteração:**
-- Em vez de resetar sempre `version = 1`, buscar o **relatório mais recente do usuário**.
-- Resetar esse relatório atual:
-  - `status: "pending"`
-  - `content: null`
-  - `error_message: null`
-  - `editorial_weeks: []`
+**Alterações**:
 
-Isso garante que a análise ativa seja realmente invalidada.
+### `supabase/functions/generate-portrait/index.ts`
+- Trocar `model: "google/gemini-3-pro-image-preview"` por `model: "google/gemini-3.1-flash-image-preview"`
+- Melhorar o prompt para enfatizar mais fortemente a fidelidade facial:
+  - Adicionar instrução explícita: "This is an IMAGE EDITING task, NOT image generation. Transform the reference photo into a professional studio portrait while preserving the EXACT person."
+  - Reforçar: "Do NOT create a new person. Do NOT approximate. The output must be the SAME person from the reference photos."
+  - Reduzir contexto de marca no prompt (menos instruções de figurino/arquétipos competindo com a instrução de fidelidade facial)
 
 ---
 
-### 2. Corrigir a lógica da `Results.tsx`
-**Arquivo:**
-- `src/pages/Results.tsx`
+## 3. Cobrar apenas pelos retratos que o usuário baixar (download = cobrança + histórico)
 
-**Alteração:**
-- Parar de buscar “qualquer relatório completed”.
-- Passar a buscar o **relatório mais recente, independente do status**.
-- Só pular a geração se **o relatório mais recente** estiver realmente:
-  - `completed`
-  - e com `content` válido
+**Problema atual**: O crédito é consumido na geração, antes do usuário ver o resultado. O pedido é cobrar apenas quando o usuário fizer download — e só salvar no histórico as fotos baixadas.
 
-Se o mais recente estiver `pending`, `error` ou vazio:
-- disparar `generate-report`
-- atualizar esse fluxo como a nova análise válida
+**Alterações**:
 
-Também vou ajustar para não criar lógica confusa com versões antigas ficando como referência principal.
+### `supabase/functions/generate-portrait/index.ts`
+- **Remover** a dedução de créditos (linhas 216-231)
+- **Remover** o insert em `credit_logs`
+- Continuar verificando se tem créditos (para não gerar se saldo = 0), mas não deduzir
+- Retornar o retrato sem salvar no banco
 
----
+### Nova edge function: `supabase/functions/confirm-portrait/index.ts`
+- Recebe: `{ portrait: string (base64), style_index: number }`
+- Verifica créditos do usuário
+- Deduz 1 crédito (`portrait_credits_included` primeiro, depois `portrait_credits_extra`)
+- Insere em `credit_logs`
+- Insere em `portrait_generations`
+- Retorna sucesso
 
-### 3. Corrigir o bloqueio do questionário de arquétipos
-**Arquivo:**
-- `src/pages/ArchetypeQuestionnaire.tsx`
-
-**Alteração:**
-- Hoje ele trava se existir qualquer relatório concluído.
-- Vou mudar para considerar apenas o **estado da análise atual**.
-
-Assim, depois de usar crédito de reanálise, o questionário realmente fica coerente com o novo ciclo.
+### `src/pages/PortraitGenerator.tsx`
+- Na geração (`handleGenerate`): **não** salvar no `portrait_generations` (remover linhas 172-177)
+- No botão "Baixar Retrato": antes de iniciar o download, chamar `confirm-portrait` para cobrar e salvar
+- Mostrar feedback: "Retrato salvo e crédito debitado"
+- Se o usuário não baixar, nenhum crédito é consumido
+- Atualizar saldo após confirmação (`refreshSubscription`)
 
 ---
 
-### 4. Corrigir o Dashboard para refletir a análise atual
-**Arquivo:**
-- `src/pages/Dashboard.tsx`
+## Resumo de arquivos
 
-**Alteração:**
-- Fazer o dashboard olhar para o **relatório mais recente**, não para qualquer completed.
-- Se a reanálise estiver em andamento ou pendente, mostrar isso corretamente.
-- Evitar que StoryBrand / Linha Editorial / Relatório apareçam como “prontos” só porque existe um relatório antigo.
-
----
-
-### 5. Ajustar estados de espera nas páginas estratégicas
-**Arquivos:**
-- `src/pages/Report.tsx`
-- `src/pages/StoryBrand.tsx`
-- `src/pages/EditorialPage.tsx`
-
-**Alteração:**
-- Tratar `pending` e `generating` como estados reais de processamento da nova análise.
-- Evitar mensagens enganosas do tipo “complete os questionários” quando, na verdade, a reanálise já foi iniciada.
-
----
-
-## Resultado esperado depois da correção
-
-Após usar um crédito de reanálise:
-
-1. a análise atual será realmente invalidada;
-2. o `/results` vai gerar uma nova estratégia em vez de reaproveitar uma antiga;
-3. StoryBrand e linha editorial voltarão a ser regenerados;
-4. o relatório passará a refletir as correções recentes;
-5. a janela de arquétipos deverá finalmente mostrar:
-   - características
-   - marcas
-   - personalidades
-
----
-
-## Arquivos envolvidos
-
-- `src/pages/BusinessQuestionnaire.tsx`
-- `src/pages/ArchetypeQuestionnaire.tsx`
-- `src/pages/Results.tsx`
-- `src/pages/Dashboard.tsx`
-- `src/pages/Report.tsx`
-- `src/pages/StoryBrand.tsx`
-- `src/pages/EditorialPage.tsx`
-
----
-
-## Observação técnica
-
-Não vejo necessidade de mudança no banco para isso.  
-O problema parece ser de **lógica de versionamento e seleção do relatório ativo** no frontend.
+| Arquivo | Alteração |
+|---------|-----------|
+| `supabase/functions/generate-content-week/index.ts` | Remover arquétipos, aprofundar StoryBrand |
+| `supabase/functions/regenerate-single-post/index.ts` | Remover arquétipos, foco no StoryBrand |
+| `supabase/functions/generate-report/index.ts` | Editorial guiado por StoryBrand |
+| `src/pages/EditorialPage.tsx` | Não enviar arquétipos nas chamadas |
+| `supabase/functions/generate-portrait/index.ts` | Trocar modelo, melhorar prompt, remover cobrança |
+| `supabase/functions/confirm-portrait/index.ts` | **Nova** — cobrar e salvar no download |
+| `src/pages/PortraitGenerator.tsx` | Cobrar no download, não na geração |
 
