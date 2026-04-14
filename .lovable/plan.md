@@ -1,93 +1,29 @@
 
 
-# Plano: Melhorias na Linha Editorial, Arquétipos, Figurino, Símbolos e Retratos
+# Plano: Corrigir Dashboard — próximo passo e duplicatas
 
-São 10 alterações agrupadas em 5 áreas. Todas podem ser feitas sem mudanças no banco de dados.
+## Problemas identificados
 
----
+1. **"Gerar linha editorial" aparece como próximo passo** mesmo quando a linha editorial já foi gerada automaticamente. A variável `hasEditorial` verifica `editorial_weeks` no relatório, mas a geração automática pode não estar sendo detectada corretamente.
 
-## 1. Remover campo "roteiro" para posts e carrosséis
+2. **"Linha Editorial" e "Conteúdos" são a mesma coisa** — ambos apontam para `/editorial`. Aparecem duplicados na jornada e nas entregas.
 
-**Problema**: Posts e carrosséis não precisam de roteiro (só Reels/Stories precisam).
+## Solução
 
-**Alterações**:
-- `supabase/functions/generate-report/index.ts` — Na regra do campo `script`, especificar: "Para 'post' e 'carrossel', o campo script deve ser string vazia"
-- `supabase/functions/generate-content-week/index.ts` — Mesma alteração no prompt
-- `supabase/functions/regenerate-single-post/index.ts` — Mesma alteração no prompt
-- `src/pages/EditorialPage.tsx` — Não exibir "Ver roteiro" quando `format` é `post` ou `carrossel`
-- PDF export na mesma página — Não incluir roteiro para esses formatos
+### Arquivo: `src/pages/Dashboard.tsx`
 
-## 2. Aprofundar linha editorial + usar PDFs e StoryBrand
+1. **Melhorar detecção de editorial**: Além de checar `editorial_weeks` no relatório, verificar também a tabela de conteúdos gerados (se existir) para garantir que a editorial gerada automaticamente seja reconhecida.
 
-**Problema**: As edge functions `generate-content-week` e `regenerate-single-post` NÃO usam os PDFs de referência nem o StoryBrand do relatório. Geram conteúdo genérico.
+2. **Unificar "Conteúdos" e "Linha Editorial"**: Remover o item duplicado "Conteúdos" tanto da lista `journeySteps` (progresso da jornada) quanto da lista de "Entregas disponíveis", mantendo apenas "Linha Editorial".
 
-**Alterações**:
-- `supabase/functions/generate-content-week/index.ts`:
-  - Adicionar `fetchReferencePdfs()` (copiar de generate-report)
-  - Receber e incluir `storybrand` e `tone_of_voice` do relatório no prompt
-  - Enviar PDFs como context ao modelo
-  - Enriquecer o prompt com tom de voz, StoryBrand, palavras a usar/evitar
-  - Aumentar `max_tokens` para 8000
-- `supabase/functions/regenerate-single-post/index.ts`:
-  - Mesmas melhorias: PDFs + StoryBrand + tom de voz no prompt
-- `src/pages/EditorialPage.tsx`:
-  - Enviar `storybrand`, `tone_of_voice` do relatório junto na chamada das edge functions
+3. **Corrigir lógica do próximo passo**: Após unificar, o `getNextStep()` não mostrará mais "Gerar linha editorial" quando `hasEditorial` for `true`, pulando direto para retratos.
 
-## 3. Figurino mais completo + Mais símbolos por arquétipo
+### Arquivo: `src/components/DashboardLayout.tsx`
 
-**Alterações em `supabase/functions/generate-report/index.ts`**:
+4. **Remover item duplicado "Conteúdos" do menu lateral**: No grupo "Produção", o item "Conteúdos" (que aponta para `/editorial`) é redundante com "Linha Editorial" no grupo "Estratégia". Remover o item duplicado.
 
-**Figurino** — Expandir o schema JSON do figurino para incluir:
-  - `looks_completos`: array de 3 looks completos (conjunto de peças + ocasião)
-  - `texturas_tecidos`: array de tecidos/texturas recomendados
-  - `estampas`: array de estampas recomendadas
-  - Aumentar mínimos: 7 peças-chave, 4 sapatos, 5 acessórios
-  - Adicionar regra no prompt para detalhar cada peça com cor e material
-
-**Símbolos** — Expandir de 1 símbolo por arquétipo para 3:
-  - Mudar schema de `simbolos.primary` ter 1 símbolo para ter array de 3 símbolos
-  - Cada símbolo com: `simbolo`, `nome`, `significado`, `aplicacao`
-
-**Alterações no frontend `src/pages/Report.tsx`**:
-- Exibir novos campos do figurino (looks completos, texturas, estampas)
-- Exibir múltiplos símbolos por arquétipo
-
-## 4. Arquétipos — características, marcas e pessoas exemplares
-
-**Alterações em `supabase/functions/generate-report/index.ts`**:
-- Expandir schema de `archetypes` para incluir:
-  - `characteristics`: array de 5-7 características-chave
-  - `brands`: array de 3-5 marcas famosas que usam o arquétipo
-  - `people`: array de 3-5 pessoas/personalidades do arquétipo
-
-**Alterações em `src/pages/Report.tsx`**:
-- Na seção de arquétipos, exibir características como badges
-- Exibir lista de marcas e pessoas como exemplos
-
-## 5. Renomear "Estilo Visual & Figurino" → "Estilo Visual"
-
-**Alteração em `src/pages/Report.tsx`**:
-- Linha 323: trocar `"Estilo Visual & Figurino"` → `"Estilo Visual"`
-
-## 6. Usar Estilo Visual na geração de retratos + Corrigir textura/sorriso
-
-**Alterações em `supabase/functions/generate-portrait/index.ts`**:
-- Buscar `visual_identity.style` e `visual_identity.palette` do relatório e incluir no prompt (ex: "Brand visual style: {style}. Brand colors: {palette colors}")
-- No bloco REALISM, adicionar: "Do NOT over-sharpen or add excessive skin texture. Keep skin smooth and natural — do NOT add wrinkles that are not visible in the reference photos."
-- Adicionar regra: "EXPRESSION: Match the expression from the reference photos. If the person is NOT smiling showing teeth in ANY reference photo, do NOT generate a photo showing teeth."
-
----
-
-## Resumo de arquivos afetados
-
-| Arquivo | Alterações |
+| Arquivo | Alteração |
 |---------|-----------|
-| `supabase/functions/generate-report/index.ts` | Figurino expandido, símbolos múltiplos, arquétipos com características/marcas/pessoas |
-| `supabase/functions/generate-content-week/index.ts` | PDFs + StoryBrand + tom de voz, sem roteiro para post/carrossel |
-| `supabase/functions/regenerate-single-post/index.ts` | PDFs + StoryBrand + tom de voz, sem roteiro para post/carrossel |
-| `supabase/functions/generate-portrait/index.ts` | Estilo visual no prompt, corrigir textura/nitidez, regra de sorriso |
-| `src/pages/Report.tsx` | Renomear label, exibir figurino expandido, símbolos múltiplos, características/marcas/pessoas |
-| `src/pages/EditorialPage.tsx` | Ocultar roteiro para post/carrossel, enviar StoryBrand/tom de voz |
-
-**Nota**: As alterações nos prompts só afetarão relatórios/conteúdos gerados **a partir de agora**. Relatórios existentes continuarão exibindo normalmente (o frontend trata campos ausentes graciosamente).
+| `src/pages/Dashboard.tsx` | Remover "Conteúdos" duplicado da jornada e entregas |
+| `src/components/DashboardLayout.tsx` | Remover "Conteúdos" duplicado do menu lateral |
 
