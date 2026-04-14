@@ -58,6 +58,7 @@ const PostEditorPage = () => {
   const [customTextColor, setCustomTextColor] = useState<string | null>(null);
   const [customBgColor, setCustomBgColor] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [removingBackground, setRemovingBackground] = useState(false);
   const [titleFontSize, setTitleFontSize] = useState(44);
   const [titleColor, setTitleColor] = useState<string | null>(null);
   const [titleFontFamily, setTitleFontFamily] = useState<string | null>(null);
@@ -157,6 +158,28 @@ const PostEditorPage = () => {
   const handleImageMove = (id: string, x: number, y: number) => handleUpdateOverlay(id, { x, y });
   const handleImageResize = (id: string, width: number, height: number) => handleUpdateOverlay(id, { width, height });
   const handleImageOpacityChange = (id: string, opacity: number) => handleUpdateOverlay(id, { opacity });
+
+  const handleRemoveBackground = useCallback(async (id: string) => {
+    const overlay = overlayImages.find((img) => img.id === id);
+    if (!overlay) return;
+    setRemovingBackground(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("remove-background", {
+        body: { imageUrl: overlay.src },
+      });
+      if (error) throw error;
+      if (data?.image) {
+        handleUpdateOverlay(id, { src: data.image });
+        toast({ title: "Fundo removido com sucesso!" });
+      } else {
+        throw new Error(data?.error || "Erro ao processar imagem");
+      }
+    } catch (err: any) {
+      toast({ title: err.message || "Erro ao remover fundo", variant: "destructive" });
+    } finally {
+      setRemovingBackground(false);
+    }
+  }, [overlayImages, handleUpdateOverlay]);
 
   const handleDownloadSlide = useCallback(async (index: number) => {
     try {
@@ -359,6 +382,7 @@ const PostEditorPage = () => {
             ctaFontSize={ctaFontSize} onCtaFontSizeChange={setCtaFontSize}
             userPortraits={userPortraits}
             canvasFormat={canvasFormat} onCanvasFormatChange={setCanvasFormat}
+            onRemoveBackground={handleRemoveBackground} removingBackground={removingBackground}
           />
         </div>
 

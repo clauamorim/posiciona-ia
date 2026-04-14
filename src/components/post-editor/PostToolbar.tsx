@@ -92,6 +92,9 @@ interface PostToolbarProps {
   // Canvas format
   canvasFormat?: "square" | "reels";
   onCanvasFormatChange?: (f: "square" | "reels") => void;
+  // Remove background
+  onRemoveBackground?: (id: string) => void;
+  removingBackground?: boolean;
 }
 
 const LAYOUTS = [
@@ -214,6 +217,7 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
   ctaText, onCtaTextChange, ctaBgColor, onCtaBgColorChange, ctaTextColor, onCtaTextColorChange, ctaFontSize, onCtaFontSizeChange,
   userPortraits,
   canvasFormat, onCanvasFormatChange,
+  onRemoveBackground, removingBackground,
 }) => {
   const [elementsOpen, setElementsOpen] = useState(false);
   const [svgElementsOpen, setSvgElementsOpen] = useState(false);
@@ -604,6 +608,17 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
                   min={5} max={100} step={1} className="mt-1"
                 />
               </div>
+            )}
+            {/* Remove background */}
+            {onRemoveBackground && (selectedOverlay.type === "photo" || selectedOverlay.type === "element" || selectedOverlay.type === "logo") && (
+              <Button variant="outline" size="sm" className="w-full gap-2" disabled={removingBackground}
+                onClick={() => onRemoveBackground(selectedOverlay.id)}>
+                {removingBackground ? (
+                  <><span className="animate-spin h-3.5 w-3.5 border-2 border-current border-t-transparent rounded-full" /> Removendo...</>
+                ) : (
+                  <><Paintbrush className="h-3.5 w-3.5" /> Remover fundo</>
+                )}
+              </Button>
             )}
             {/* Recolor for SVG elements */}
             {isSelectedElement && onUpdateOverlaySrc && (
