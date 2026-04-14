@@ -23,22 +23,24 @@ interface PostCanvasProps {
   onTitleChange?: (newTitle: string) => void;
   canvasRef?: React.RefObject<HTMLDivElement> | ((el: HTMLDivElement | null) => void);
   overlayImages?: OverlayImage[];
-  onImageMove?: (id: string, x: number, y: number) => void;
-  onImageResize?: (id: string, width: number, height: number) => void;
+  onUpdateOverlay?: (id: string, updates: Partial<OverlayImage>) => void;
   selectedImageId?: string | null;
   onSelectImage?: (id: string | null) => void;
   bgGradient?: string | null;
-  // Title styling
   titleFontSize?: number;
   titleColor?: string | null;
   titleFontFamily?: string | null;
-  // CTA styling
   ctaText?: string;
   ctaBgColor?: string | null;
   ctaTextColor?: string | null;
   ctaFontSize?: number;
   ctaPosition?: { x: number; y: number } | null;
   onCtaMove?: (x: number, y: number) => void;
+  canvasWidth?: number;
+  canvasHeight?: number;
+  // Legacy compat
+  onImageMove?: (id: string, x: number, y: number) => void;
+  onImageResize?: (id: string, width: number, height: number) => void;
 }
 
 const RESIZE_HANDLE_SIZE = 14;
@@ -64,10 +66,11 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   bgColor, textColor, accentColor, displayFont, bodyFont, layout,
   fontSize, fontWeight, fontStyle, textAlign,
   onTextChange, onTitleChange, canvasRef,
-  overlayImages = [], onImageMove, onImageResize,
+  overlayImages = [], onUpdateOverlay, onImageMove, onImageResize,
   selectedImageId, onSelectImage, bgGradient,
   titleFontSize, titleColor, titleFontFamily,
   ctaText, ctaBgColor, ctaTextColor, ctaFontSize, ctaPosition, onCtaMove,
+  canvasWidth = 1080, canvasHeight = 1080,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0.4);
@@ -78,31 +81,68 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
 
   const [textBoxes, setTextBoxes] = useState<TextBox[]>([]);
   const textBoxesInitialized = useRef(false);
+  const lastLayout = useRef(layout);
 
-  useEffect(() => {
-    if (textBoxesInitialized.current) return;
+  // Helper to update overlay (use unified or legacy)
+  const updateOverlay = (id: string, updates: Partial<OverlayImage>) => {
+    if (onUpdateOverlay) {
+      onUpdateOverlay(id, updates);
+    } else {
+      if (updates.x !== undefined || updates.y !== undefined) {
+        const img = overlayImages.find(i => i.id === id);
+        onImageMove?.(id, updates.x ?? img?.x ?? 0, updates.y ?? img?.y ?? 0);
+      }
+      if (updates.width !== undefined || updates.height !== undefined) {
+        const img = overlayImages.find(i => i.id === id);
+        onImageResize?.(id, updates.width ?? img?.width ?? 100, updates.height ?? img?.height ?? 100);
+      }
+    }
+  };
+
+  // Compute default text box positions for a given layout
+  const computeTextBoxPositions = (lyt: string, hasTitle: boolean, isCover: boolean) => {
     const boxes: TextBox[] = [];
-    if (title) {
+    if (hasTitle) {
       boxes.push({
         id: "text-title", type: "title",
-        x: isCoverSlide ? 100 : 80,
-        y: isCoverSlide ? 300 : (layout === "top" ? 120 : 250),
-        width: isCoverSlide ? 880 : 920,
-        height: isCoverSlide ? 140 : 100,
+        x: isCover ? 100 : 80,
+        y: isCover ? 300 : (lyt === "top" ? 120 : 250),
+        width: isCover ? 880 : 920,
+        height: isCover ? 140 : 100,
       });
     }
     boxes.push({
       id: "text-body", type: "body",
-      x: isCoverSlide ? 140 : 80,
-      y: title ? (isCoverSlide ? 480 : (layout === "top" ? 250 : 400)) : (layout === "top" ? 120 : 300),
-      width: isCoverSlide ? 800 : 920,
-      height: isCoverSlide ? 160 : 250,
+      x: isCover ? 140 : 80,
+      y: hasTitle ? (isCover ? 480 : (lyt === "top" ? 250 : 400)) : (lyt === "top" ? 120 : 300),
+      width: isCover ? 800 : 920,
+      height: isCover ? 160 : 250,
     });
+    return boxes;
+  };
+
+  // Initialize text boxes
+  useEffect(() => {
+    if (textBoxesInitialized.current) return;
+    const boxes = computeTextBoxPositions(layout, !!title, !!isCoverSlide);
     if (boxes.length > 0) {
       setTextBoxes(boxes);
       textBoxesInitialized.current = true;
     }
   }, [title, text, isCoverSlide, layout]);
+
+  // Re-position when layout changes
+  useEffect(() => {
+    if (!textBoxesInitialized.current) return;
+    if (lastLayout.current === layout) return;
+    lastLayout.current = layout;
+    const newPositions = computeTextBoxPositions(layout, !!title, !!isCoverSlide);
+    setTextBoxes(prev => prev.map(tb => {
+      const match = newPositions.find(n => n.id === tb.id);
+      if (match) return { ...tb, x: match.x, y: match.y, width: match.width, height: match.height };
+      return tb;
+    }));
+  }, [layout, title, isCoverSlide]);
 
   useEffect(() => {
     textBoxesInitialized.current = false;
@@ -113,7 +153,9 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
       if (containerRef.current) {
         const parent = containerRef.current.parentElement;
         if (parent) {
-          const s = Math.min(parent.clientWidth / 1080, 0.55);
+          const sW = parent.clientWidth / canvasWidth;
+          const sH = parent.clientHeight ? parent.clientHeight / canvasHeight : 1;
+          const s = Math.min(sW, sH, 0.55);
           setScale(s);
         }
       }
@@ -121,7 +163,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
     updateScale();
     window.addEventListener("resize", updateScale);
     return () => window.removeEventListener("resize", updateScale);
-  }, []);
+  }, [canvasWidth, canvasHeight]);
 
   const handleMouseDown = (e: React.MouseEvent, img: OverlayImage) => {
     e.preventDefault(); e.stopPropagation();
@@ -168,14 +210,14 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
       } else if (dragging.isText) {
         setTextBoxes(prev => prev.map(tb => tb.id === dragging.id ? { ...tb, x: dragging.origX + dx, y: dragging.origY + dy } : tb));
       } else {
-        onImageMove?.(dragging.id, dragging.origX + dx, dragging.origY + dy);
+        updateOverlay(dragging.id, { x: dragging.origX + dx, y: dragging.origY + dy });
       }
     };
     const handleMouseUp = () => setDragging(null);
     window.addEventListener("mousemove", handleMouseMove);
     window.addEventListener("mouseup", handleMouseUp);
     return () => { window.removeEventListener("mousemove", handleMouseMove); window.removeEventListener("mouseup", handleMouseUp); };
-  }, [dragging, scale, onImageMove, onCtaMove]);
+  }, [dragging, scale]);
 
   useEffect(() => {
     if (!resizing) return;
@@ -184,31 +226,33 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
       const dy = (e.clientY - resizing.startY) / scale;
       const { corner, origW, origH, origX, origY } = resizing;
       let newW = origW, newH = origH, newX = origX, newY = origY;
-      if (corner === "br") { newW = Math.max(40, origW + dx); newH = Math.max(40, origH + dy); }
-      else if (corner === "bl") { newW = Math.max(40, origW - dx); newH = Math.max(40, origH + dy); newX = origX + (origW - newW); }
-      else if (corner === "tr") { newW = Math.max(40, origW + dx); newH = Math.max(40, origH - dy); newY = origY + (origH - newH); }
-      else if (corner === "tl") { newW = Math.max(40, origW - dx); newH = Math.max(40, origH - dy); newX = origX + (origW - newW); newY = origY + (origH - newH); }
-      else if (corner === "r") { newW = Math.max(40, origW + dx); }
-      else if (corner === "l") { newW = Math.max(40, origW - dx); newX = origX + (origW - newW); }
-      else if (corner === "b") { newH = Math.max(40, origH + dy); }
-      else if (corner === "t") { newH = Math.max(40, origH - dy); newY = origY + (origH - newH); }
+      const MIN = 8;
+      if (corner === "br") { newW = Math.max(MIN, origW + dx); newH = Math.max(MIN, origH + dy); }
+      else if (corner === "bl") { newW = Math.max(MIN, origW - dx); newH = Math.max(MIN, origH + dy); newX = origX + (origW - newW); }
+      else if (corner === "tr") { newW = Math.max(MIN, origW + dx); newH = Math.max(MIN, origH - dy); newY = origY + (origH - newH); }
+      else if (corner === "tl") { newW = Math.max(MIN, origW - dx); newH = Math.max(MIN, origH - dy); newX = origX + (origW - newW); newY = origY + (origH - newH); }
+      else if (corner === "r") { newW = Math.max(MIN, origW + dx); }
+      else if (corner === "l") { newW = Math.max(MIN, origW - dx); newX = origX + (origW - newW); }
+      else if (corner === "b") { newH = Math.max(MIN, origH + dy); }
+      else if (corner === "t") { newH = Math.max(MIN, origH - dy); newY = origY + (origH - newH); }
+      // Shift = proportional on corners only
       if (e.shiftKey && ["tl", "tr", "bl", "br"].includes(corner)) {
         const ratio = origW / origH;
         newH = newW / ratio;
+        if (corner === "tl" || corner === "tr") newY = origY + origH - newH;
       }
       if (resizing.isText) {
         setTextBoxes(prev => prev.map(tb => tb.id === resizing.id ? { ...tb, x: newX, y: newY, width: newW, height: newH } : tb));
       } else {
-        onImageResize?.(resizing.id, newW, newH);
-        const img = overlayImages.find(i => i.id === resizing.id);
-        if (img && (newX !== img.x || newY !== img.y)) onImageMove?.(resizing.id, newX, newY);
+        // Atomic update: position + size in one call
+        updateOverlay(resizing.id, { x: newX, y: newY, width: newW, height: newH });
       }
     };
     const handleMouseUp = () => setResizing(null);
     window.addEventListener("mousemove", handleMouseMove);
     window.addEventListener("mouseup", handleMouseUp);
     return () => { window.removeEventListener("mousemove", handleMouseMove); window.removeEventListener("mouseup", handleMouseUp); };
-  }, [resizing, scale, onImageResize, onImageMove, overlayImages]);
+  }, [resizing, scale, overlayImages]);
 
   const handleCanvasClick = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget || (e.target as HTMLElement).closest("[data-overlay]") === null) {
@@ -306,21 +350,62 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
     );
   };
 
-  // Determine if CTA should show
   const showCta = resolvedCtaText && (isLastSlide || isCoverSlide || (layout === "split" && cta));
-
-  // Default CTA positions (when no custom position set)
   const defaultCtaPos = isCoverSlide
-    ? { x: 540, y: 540 } // won't show CTA button on cover, just decorative lines
+    ? { x: 540, y: 540 }
     : isLastSlide
     ? { x: 540, y: 780 }
     : { x: 80, y: 960 };
-
   const ctaPos = ctaPosition || defaultCtaPos;
+
+  // Render overlay text boxes (custom text boxes from overlayImages)
+  const renderOverlayTextBox = (img: OverlayImage) => {
+    const isSelected = selectedImageId === img.id;
+    return (
+      <div key={img.id} data-overlay
+        style={{
+          position: "absolute", left: img.x, top: img.y, width: img.width, minHeight: img.height,
+          cursor: "move", userSelect: "none",
+          outline: isSelected ? "2px dashed rgba(255,255,255,0.7)" : "none", outlineOffset: 2,
+          zIndex: isSelected ? 6 : 4,
+          backgroundColor: img.bgColor || "transparent",
+          opacity: img.opacity ?? 1,
+          borderRadius: 8, padding: "12px 16px", boxSizing: "border-box",
+        }}
+        onMouseDown={(e) => handleMouseDown(e, img)}
+        onClick={(e) => { e.stopPropagation(); onSelectImage?.(img.id); setSelectedTextId(null); }}
+        onDoubleClick={(e) => {
+          e.stopPropagation();
+          const target = e.currentTarget.querySelector("[contenteditable]") as HTMLElement;
+          if (target) { target.contentEditable = "true"; target.focus(); }
+        }}
+      >
+        <div
+          contentEditable={false}
+          suppressContentEditableWarning
+          onBlur={(e) => {
+            const el = e.currentTarget;
+            el.contentEditable = "false";
+            updateOverlay(img.id, { text: el.textContent || "" });
+          }}
+          style={{
+            fontFamily: img.fontFamily ? `'${img.fontFamily}', sans-serif` : `'${bodyFont}', sans-serif`,
+            fontSize: img.fontSize || 24,
+            color: img.textColor || textColor,
+            outline: "none", width: "100%", minHeight: "1em",
+            lineHeight: 1.5,
+          }}
+        >
+          {img.text || "Texto"}
+        </div>
+        {isSelected && renderResizeHandles(img, false)}
+      </div>
+    );
+  };
 
   return (
     <div ref={containerRef} className="flex items-center justify-center w-full">
-      <div style={{ width: 1080 * scale, height: 1080 * scale, overflow: "hidden", position: "relative" }}>
+      <div style={{ width: canvasWidth * scale, height: canvasHeight * scale, overflow: "hidden", position: "relative" }}>
         <div
           ref={(el) => {
             if (typeof canvasRef === "function") canvasRef(el);
@@ -328,7 +413,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
           }}
           className="absolute top-0 left-0"
           style={{
-            width: 1080, height: 1080,
+            width: canvasWidth, height: canvasHeight,
             transform: `scale(${scale})`, transformOrigin: "top left",
             background: bgGradient || bgColor, color: textColor,
             fontFamily: `'${bodyFont}', sans-serif`,
@@ -346,7 +431,6 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
             </div>
           )}
 
-          {/* Decorative lines for cover */}
           {isCoverSlide && (
             <div className="absolute" style={{ left: "50%", top: "50%", transform: "translate(-50%, -50%)", zIndex: 1, pointerEvents: "none" }}>
               <div className="flex flex-col items-center gap-8">
@@ -357,12 +441,10 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
             </div>
           )}
 
-          {/* Draggable CTA button for last slide */}
           {isLastSlide && !isCoverSlide && resolvedCtaText && (
             <div data-overlay
               style={{
-                position: "absolute",
-                left: ctaPos.x, top: ctaPos.y,
+                position: "absolute", left: ctaPos.x, top: ctaPos.y,
                 transform: "translate(-50%, -50%)",
                 cursor: "move", userSelect: "none", zIndex: 7,
               }}
@@ -370,44 +452,32 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
               onClick={(e) => e.stopPropagation()}
             >
               <div className="px-12 py-5 rounded-2xl font-bold whitespace-nowrap"
-                style={{
-                  backgroundColor: resolvedCtaBg,
-                  color: resolvedCtaText2,
-                  fontFamily: `'${displayFont}', sans-serif`,
-                  fontSize: resolvedCtaFontSize,
-                }}>
+                style={{ backgroundColor: resolvedCtaBg, color: resolvedCtaText2, fontFamily: `'${displayFont}', sans-serif`, fontSize: resolvedCtaFontSize }}>
                 {resolvedCtaText}
               </div>
             </div>
           )}
 
-          {/* CTA for split layout */}
           {!isCoverSlide && !isLastSlide && resolvedCtaText && layout === "split" && (
             <div data-overlay
               style={{
-                position: "absolute",
-                left: ctaPos.x, top: ctaPos.y,
+                position: "absolute", left: ctaPos.x, top: ctaPos.y,
                 cursor: "move", userSelect: "none", zIndex: 7,
               }}
               onMouseDown={handleCtaMouseDown}
               onClick={(e) => e.stopPropagation()}
             >
               <div className="font-semibold whitespace-nowrap"
-                style={{
-                  color: resolvedCtaBg,
-                  fontSize: Math.max(18, resolvedCtaFontSize - 6),
-                  opacity: 0.8,
-                }}>
+                style={{ color: resolvedCtaBg, fontSize: Math.max(18, resolvedCtaFontSize - 6), opacity: 0.8 }}>
                 {resolvedCtaText}
               </div>
             </div>
           )}
 
-          {/* Text boxes */}
           {textBoxes.map(renderTextBox)}
 
-          {/* Overlay images */}
           {overlayImages.map((img) => {
+            if (img.type === "textbox") return renderOverlayTextBox(img);
             const isSelected = selectedImageId === img.id;
             return (
               <div key={img.id} data-overlay
@@ -422,6 +492,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
                 onClick={(e) => { e.stopPropagation(); onSelectImage?.(img.id); setSelectedTextId(null); }}
               >
                 <img src={img.src} alt={img.type}
+                  crossOrigin="anonymous"
                   style={{ width: "100%", height: "100%", objectFit: "contain", pointerEvents: "none", opacity: img.opacity ?? 1 }}
                   draggable={false} />
                 {isSelected && renderResizeHandles(img, false)}

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Download, RotateCcw, AlignCenter, AlignLeft, AlignRight, AlignJustify, Columns, Upload, ImagePlus, Shapes, Bold, Italic, Type, Minus, MoreHorizontal, Maximize, CircleDashed, Grip } from "lucide-react";
+import { Download, RotateCcw, AlignCenter, AlignLeft, AlignRight, AlignJustify, Columns, Upload, ImagePlus, Shapes, Bold, Italic, Type, Minus, MoreHorizontal, Maximize, CircleDashed, Grip, PlusSquare, Paintbrush } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -29,8 +29,14 @@ export interface OverlayImage {
   y: number;
   width: number;
   height: number;
-  type: "logo" | "photo" | "element";
+  type: "logo" | "photo" | "element" | "textbox";
   opacity?: number;
+  // Text box fields
+  text?: string;
+  textColor?: string;
+  bgColor?: string;
+  fontSize?: number;
+  fontFamily?: string;
 }
 
 interface PostToolbarProps {
@@ -61,20 +67,19 @@ interface PostToolbarProps {
   selectedImageId?: string | null;
   overlayImages?: OverlayImage[];
   onImageOpacityChange?: (id: string, opacity: number) => void;
+  onUpdateOverlaySrc?: (id: string, updates: Partial<OverlayImage>) => void;
   useGradient?: boolean;
   onUseGradientChange?: (v: boolean) => void;
   gradientColor2Index?: number;
   onGradientColor2Change?: (index: number) => void;
   gradientDirection?: string;
   onGradientDirectionChange?: (d: string) => void;
-  // Title controls
   titleFontSize?: number;
   onTitleFontSizeChange?: (size: number) => void;
   titleColor?: string;
   onTitleColorChange?: (color: string) => void;
   titleFontFamily?: string;
   onTitleFontFamilyChange?: (f: string) => void;
-  // CTA controls
   ctaText?: string;
   onCtaTextChange?: (text: string) => void;
   ctaBgColor?: string;
@@ -83,8 +88,10 @@ interface PostToolbarProps {
   onCtaTextColorChange?: (color: string) => void;
   ctaFontSize?: number;
   onCtaFontSizeChange?: (size: number) => void;
-  // Portraits panel
   userPortraits?: string[];
+  // Canvas format
+  canvasFormat?: "square" | "reels";
+  onCanvasFormatChange?: (f: "square" | "reels") => void;
 }
 
 const LAYOUTS = [
@@ -166,6 +173,25 @@ function svgToDataUrl(svg: string, color: string): string {
   return `data:image/svg+xml;base64,${btoa(colored)}`;
 }
 
+/** Re-color an existing SVG data URL */
+function recolorSvgDataUrl(dataUrl: string, newColor: string): string | null {
+  try {
+    if (!dataUrl.startsWith("data:image/svg+xml;base64,")) return null;
+    const b64 = dataUrl.replace("data:image/svg+xml;base64,", "");
+    let svg = atob(b64);
+    // Replace color attributes: stroke="..." fill="..." color="..."
+    svg = svg.replace(/(?:stroke|fill|color)="(#[0-9a-fA-F]{3,8}|rgb[^"]*|[a-zA-Z]+)"/g, (match, _val) => {
+      // Don't replace "none"
+      if (match.includes('"none"')) return match;
+      const attr = match.split("=")[0];
+      return `${attr}="${newColor}"`;
+    });
+    return `data:image/svg+xml;base64,${btoa(svg)}`;
+  } catch {
+    return null;
+  }
+}
+
 function loadGoogleFont(fontName: string) {
   const id = `gfont-${fontName.replace(/\s+/g, "-")}`;
   if (document.getElementById(id)) return;
@@ -182,20 +208,22 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
   recommendedFonts, fontSize, onFontSizeChange, fontWeight, onFontWeightChange,
   fontStyle, onFontStyleChange, bodyFont, onBodyFontChange, displayFont, onDisplayFontChange,
   textAlign, onTextAlignChange, textColor, onTextColorChange,
-  selectedImageId, overlayImages, onImageOpacityChange,
+  selectedImageId, overlayImages, onImageOpacityChange, onUpdateOverlaySrc,
   useGradient, onUseGradientChange, gradientColor2Index, onGradientColor2Change, gradientDirection, onGradientDirectionChange,
   titleFontSize, onTitleFontSizeChange, titleColor, onTitleColorChange, titleFontFamily, onTitleFontFamilyChange,
   ctaText, onCtaTextChange, ctaBgColor, onCtaBgColorChange, ctaTextColor, onCtaTextColorChange, ctaFontSize, onCtaFontSizeChange,
   userPortraits,
+  canvasFormat, onCanvasFormatChange,
 }) => {
   const [elementsOpen, setElementsOpen] = useState(false);
   const [svgElementsOpen, setSvgElementsOpen] = useState(false);
   const [portraitsOpen, setPortraitsOpen] = useState(false);
   const [savedLogo, setSavedLogo] = useState<string | null>(null);
-  const [elementColorPickerOpen, setElementColorPickerOpen] = useState(false);
   const accentColor = palette[(selectedBgIndex + 1) % Math.max(palette.length, 1)]?.hex || "#7c3aed";
 
   const selectedOverlay = overlayImages?.find(img => img.id === selectedImageId);
+  const isSelectedElement = selectedOverlay?.type === "element";
+  const isSelectedTextBox = selectedOverlay?.type === "textbox";
 
   useEffect(() => {
     const logo = localStorage.getItem(LOGO_STORAGE_KEY);
@@ -266,18 +294,34 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
     const hMatch = el.svg.match(/height="(\d+)"/);
     const svgW = wMatch ? parseInt(wMatch[1]) : 400;
     const svgH = hMatch ? parseInt(hMatch[1]) : 400;
-    const scale = 0.8;
+    const s = 0.8;
     const img: OverlayImage = {
       id: crypto.randomUUID(), src,
-      x: 340, y: 460, width: svgW * scale, height: svgH * scale, type: "element", opacity: 1,
+      x: 340, y: 460, width: svgW * s, height: svgH * s, type: "element", opacity: 1,
     };
     onAddImage?.(img);
+  };
+
+  const handleRecolorSelected = (color: string) => {
+    if (!selectedOverlay || selectedOverlay.type !== "element" || !onUpdateOverlaySrc) return;
+    const newSrc = recolorSvgDataUrl(selectedOverlay.src, color);
+    if (newSrc) onUpdateOverlaySrc(selectedOverlay.id, { src: newSrc });
   };
 
   const handleAddPortrait = (url: string) => {
     const img: OverlayImage = {
       id: crypto.randomUUID(), src: url,
       x: 200, y: 200, width: 400, height: 400, type: "photo", opacity: 1,
+    };
+    onAddImage?.(img);
+  };
+
+  const handleAddTextBox = () => {
+    const img: OverlayImage = {
+      id: crypto.randomUUID(), src: "",
+      x: 200, y: 400, width: 600, height: 80, type: "textbox", opacity: 1,
+      text: "Novo texto", textColor: textColor || "#ffffff", bgColor: "transparent",
+      fontSize: 24, fontFamily: bodyFont,
     };
     onAddImage?.(img);
   };
@@ -290,6 +334,21 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
 
   return (
     <div className="flex flex-col gap-6 p-4 rounded-xl bg-card border overflow-y-auto max-h-[80vh]">
+      {/* Canvas Format */}
+      {onCanvasFormatChange && (
+        <div>
+          <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">Formato</h4>
+          <div className="flex gap-2">
+            <Button variant={canvasFormat === "square" ? "default" : "outline"} size="sm" onClick={() => onCanvasFormatChange("square")} className="gap-1.5 text-xs flex-1">
+              <Square className="h-3.5 w-3.5" /> Post 1:1
+            </Button>
+            <Button variant={canvasFormat === "reels" ? "default" : "outline"} size="sm" onClick={() => onCanvasFormatChange("reels")} className="gap-1.5 text-xs flex-1">
+              <Maximize className="h-3.5 w-3.5" /> Reels 9:16
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Colors */}
       <div>
         <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">Cor de fundo</h4>
@@ -530,17 +589,82 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
         </div>
       )}
 
-      {/* Opacity control for selected overlay */}
-      {selectedOverlay && onImageOpacityChange && (
+      {/* Selected element controls */}
+      {selectedOverlay && (
         <div>
           <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">Elemento selecionado</h4>
-          <div>
-            <label className="text-xs text-muted-foreground">Opacidade: {Math.round((selectedOverlay.opacity ?? 1) * 100)}%</label>
-            <Slider
-              value={[(selectedOverlay.opacity ?? 1) * 100]}
-              onValueChange={([v]) => onImageOpacityChange(selectedOverlay.id, v / 100)}
-              min={5} max={100} step={1} className="mt-1"
-            />
+          <div className="space-y-3">
+            {/* Opacity */}
+            {onImageOpacityChange && (
+              <div>
+                <label className="text-xs text-muted-foreground">Opacidade: {Math.round((selectedOverlay.opacity ?? 1) * 100)}%</label>
+                <Slider
+                  value={[(selectedOverlay.opacity ?? 1) * 100]}
+                  onValueChange={([v]) => onImageOpacityChange(selectedOverlay.id, v / 100)}
+                  min={5} max={100} step={1} className="mt-1"
+                />
+              </div>
+            )}
+            {/* Recolor for SVG elements */}
+            {isSelectedElement && onUpdateOverlaySrc && (
+              <div>
+                <label className="text-xs text-muted-foreground">Alterar cor do elemento</label>
+                <div className="flex gap-1 flex-wrap mt-1 items-center">
+                  {palette.map((color, i) => (
+                    <button key={i} onClick={() => handleRecolorSelected(color.hex)}
+                      className="w-5 h-5 rounded border transition-all hover:scale-110"
+                      style={{ backgroundColor: color.hex }} />
+                  ))}
+                  <label className="w-5 h-5 rounded border border-dashed border-muted-foreground/40 cursor-pointer flex items-center justify-center overflow-hidden">
+                    <input type="color" onChange={e => handleRecolorSelected(e.target.value)} className="opacity-0 absolute w-5 h-5 cursor-pointer" />
+                    <span className="text-muted-foreground text-[8px]">+</span>
+                  </label>
+                </div>
+              </div>
+            )}
+            {/* Text box controls */}
+            {isSelectedTextBox && onUpdateOverlaySrc && (
+              <>
+                <div>
+                  <label className="text-xs text-muted-foreground">Cor do texto</label>
+                  <div className="flex gap-1 flex-wrap mt-1 items-center">
+                    {palette.map((color, i) => (
+                      <button key={i} onClick={() => onUpdateOverlaySrc(selectedOverlay.id, { textColor: color.hex })}
+                        className="w-5 h-5 rounded border transition-all hover:scale-110"
+                        style={{ backgroundColor: color.hex }} />
+                    ))}
+                    <label className="w-5 h-5 rounded border border-dashed border-muted-foreground/40 cursor-pointer flex items-center justify-center overflow-hidden">
+                      <input type="color" value={selectedOverlay.textColor || "#ffffff"} onChange={e => onUpdateOverlaySrc(selectedOverlay.id, { textColor: e.target.value })} className="opacity-0 absolute w-5 h-5 cursor-pointer" />
+                      <span className="text-muted-foreground text-[8px]">+</span>
+                    </label>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">Fundo da caixa</label>
+                  <div className="flex gap-1 flex-wrap mt-1 items-center">
+                    <button onClick={() => onUpdateOverlaySrc(selectedOverlay.id, { bgColor: "transparent" })}
+                      className="w-5 h-5 rounded border border-dashed text-[8px] flex items-center justify-center">∅</button>
+                    {palette.map((color, i) => (
+                      <button key={i} onClick={() => onUpdateOverlaySrc(selectedOverlay.id, { bgColor: color.hex })}
+                        className="w-5 h-5 rounded border transition-all hover:scale-110"
+                        style={{ backgroundColor: color.hex }} />
+                    ))}
+                    <label className="w-5 h-5 rounded border border-dashed border-muted-foreground/40 cursor-pointer flex items-center justify-center overflow-hidden">
+                      <input type="color" value={selectedOverlay.bgColor || "#000000"} onChange={e => onUpdateOverlaySrc(selectedOverlay.id, { bgColor: e.target.value })} className="opacity-0 absolute w-5 h-5 cursor-pointer" />
+                      <span className="text-muted-foreground text-[8px]">+</span>
+                    </label>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">Tamanho: {selectedOverlay.fontSize || 24}px</label>
+                  <Slider
+                    value={[selectedOverlay.fontSize || 24]}
+                    onValueChange={([v]) => onUpdateOverlaySrc(selectedOverlay.id, { fontSize: v })}
+                    min={12} max={72} step={1} className="mt-1"
+                  />
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -565,6 +689,9 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
             <Button variant="outline" size="sm" className="gap-2 w-full" onClick={() => handleFileUpload("photo")}>
               <ImagePlus className="h-4 w-4" /> Upload Foto
             </Button>
+            <Button variant="outline" size="sm" className="gap-2 w-full" onClick={handleAddTextBox}>
+              <PlusSquare className="h-4 w-4" /> Nova caixa de texto
+            </Button>
           </div>
         </div>
       )}
@@ -582,7 +709,7 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
               {userPortraits.map((url, i) => (
                 <button key={i} onClick={() => handleAddPortrait(url)}
                   className="aspect-square rounded-lg border bg-muted/50 hover:bg-muted transition-colors overflow-hidden">
-                  <img src={url} alt={`Retrato ${i + 1}`} className="w-full h-full object-cover" />
+                  <img src={url} alt={`Retrato ${i + 1}`} className="w-full h-full object-cover" crossOrigin="anonymous" />
                 </button>
               ))}
             </div>
@@ -600,7 +727,7 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
           </CollapsibleTrigger>
           <CollapsibleContent>
             <div className="mt-2 mb-2">
-              <label className="text-xs text-muted-foreground">Cor dos elementos:</label>
+              <label className="text-xs text-muted-foreground">Cor dos novos elementos:</label>
               <div className="flex gap-1 flex-wrap mt-1 items-center">
                 {palette.map((color, i) => (
                   <button key={i} onClick={() => setElementColor(color.hex)}
@@ -639,6 +766,20 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
             </Button>
           </CollapsibleTrigger>
           <CollapsibleContent>
+            <div className="mt-2 mb-2">
+              <label className="text-xs text-muted-foreground">Cor dos novos elementos:</label>
+              <div className="flex gap-1 flex-wrap mt-1 items-center">
+                {palette.map((color, i) => (
+                  <button key={i} onClick={() => setElementColor(color.hex)}
+                    className={`w-5 h-5 rounded border transition-all ${elementColor === color.hex ? "ring-2 ring-primary ring-offset-1 scale-110" : "hover:scale-105"}`}
+                    style={{ backgroundColor: color.hex }} />
+                ))}
+                <label className="w-5 h-5 rounded border border-dashed border-muted-foreground/40 cursor-pointer flex items-center justify-center overflow-hidden">
+                  <input type="color" value={elementColor} onChange={e => setElementColor(e.target.value)} className="opacity-0 absolute w-5 h-5 cursor-pointer" />
+                  <span className="text-muted-foreground text-[8px]">+</span>
+                </label>
+              </div>
+            </div>
             <div className="grid grid-cols-2 gap-2 mt-3">
               {SVG_ELEMENTS.map((el) => (
                 <Tooltip key={el.name}>
