@@ -138,28 +138,11 @@ const Report = () => {
 
   const handleDownloadPDF = async () => {
     if (!reportRef.current) return;
-    const container = reportRef.current;
     try {
-      const html2pdf = (await import("html2pdf.js")).default;
-      // Hide interactive buttons during capture
-      container.querySelectorAll("button, [data-hide-pdf]").forEach((b) => (b as HTMLElement).style.display = "none");
-      // Add pdf-capture class for print-friendly styles
-      container.classList.add("pdf-capture");
-      const opt = {
-        margin: [8, 5, 8, 5],
-        filename: "posiciona-relatorio.pdf",
-        image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2.5, useCORS: true, logging: false, scrollY: 0, letterRendering: true, backgroundColor: "#f2eeea" },
-        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" as const },
-        pagebreak: { mode: ["css"] },
-      };
-      await html2pdf().set(opt).from(container).save();
-      container.classList.remove("pdf-capture");
-      container.querySelectorAll("button, [data-hide-pdf]").forEach((b) => (b as HTMLElement).style.display = "");
+      const { exportSectionBasedPDF } = await import("@/lib/pdfExport");
+      await exportSectionBasedPDF(reportRef.current, "posiciona-relatorio.pdf");
     } catch (error) {
       console.error("Error generating PDF:", error);
-      container.classList.remove("pdf-capture");
-      container.querySelectorAll("button, [data-hide-pdf]").forEach((b) => (b as HTMLElement).style.display = "");
       toast({ title: "Erro ao gerar PDF", description: "Tente novamente.", variant: "destructive" });
     }
   };
@@ -218,40 +201,42 @@ const Report = () => {
     <DashboardLayout>
       <div className="space-y-10" ref={reportRef}>
         {/* Header */}
-        <div className="flex items-start justify-between flex-wrap gap-4">
+        <div data-pdf-section className="flex items-start justify-between flex-wrap gap-4">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Seu Relatório</h1>
             <p className="text-sm text-muted-foreground mt-1">Gerado em {new Date(report.created_at).toLocaleDateString("pt-BR")}</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2" data-hide-pdf>
             <Button onClick={handleDownloadPDF} variant="outline" size="sm" className="gap-2"><Download className="h-4 w-4" /> Baixar PDF</Button>
           </div>
         </div>
 
         {/* Missing sections warning */}
         {hasMissingSections && (
-          <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-950/20">
-            <AlertTriangle className="h-4 w-4 text-amber-600" />
-            <AlertTitle className="text-amber-800 dark:text-amber-400">Relatório incompleto</AlertTitle>
-            <AlertDescription className="text-amber-700 dark:text-amber-300">
-              Seu relatório foi gerado em uma versão anterior e não inclui {!hasFigurino && !hasSimbolos ? "figurino e símbolos" : !hasFigurino ? "figurino" : "símbolos"}.
-              Regenere para incluir essas seções.
-              <Button
-                variant="outline"
-                size="sm"
-                className="ml-3 gap-1.5"
-                onClick={handleRegenerate}
-                disabled={regenerating}
-              >
-                {regenerating ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
-                Regenerar relatório
-              </Button>
-            </AlertDescription>
-          </Alert>
+          <div data-hide-pdf>
+            <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-950/20">
+              <AlertTriangle className="h-4 w-4 text-amber-600" />
+              <AlertTitle className="text-amber-800 dark:text-amber-400">Relatório incompleto</AlertTitle>
+              <AlertDescription className="text-amber-700 dark:text-amber-300">
+                Seu relatório foi gerado em uma versão anterior e não inclui {!hasFigurino && !hasSimbolos ? "figurino e símbolos" : !hasFigurino ? "figurino" : "símbolos"}.
+                Regenere para incluir essas seções.
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="ml-3 gap-1.5"
+                  onClick={handleRegenerate}
+                  disabled={regenerating}
+                >
+                  {regenerating ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                  Regenerar relatório
+                </Button>
+              </AlertDescription>
+            </Alert>
+          </div>
         )}
 
         {/* SECTION: Archetypes — from user_top_archetypes table */}
-        <section>
+        <section data-pdf-section>
           <div className="flex items-center gap-2 mb-4">
             <Crown className="h-5 w-5 text-primary" />
             <h2 className="text-xl font-bold font-display">Seus Arquétipos de Marca</h2>
@@ -292,7 +277,7 @@ const Report = () => {
 
         {/* SECTION: Color Palette */}
         {content.visual_identity?.palette && (
-          <section className="bg-muted/30 rounded-2xl p-6 md:p-8 break-inside-avoid">
+          <section data-pdf-section className="bg-muted/30 rounded-2xl p-6 md:p-8 break-inside-avoid">
             <div className="flex items-center gap-2 mb-6">
               <Palette className="h-5 w-5 text-primary" />
               <h2 className="text-xl font-bold font-display">Paleta de Cores</h2>
@@ -316,7 +301,7 @@ const Report = () => {
 
         {/* SECTION: Typography & Style */}
         {content.visual_identity && (
-          <section>
+          <section data-pdf-section>
             <div className="flex items-center gap-2 mb-4">
               <Type className="h-5 w-5 text-primary" />
               <h2 className="text-xl font-bold font-display">Tipografia e Estilo</h2>
@@ -346,7 +331,7 @@ const Report = () => {
 
         {/* SECTION: Tone of Voice */}
         {content.tone_of_voice && (
-          <section className="bg-muted/30 rounded-2xl p-6 md:p-8 break-inside-avoid">
+          <section data-pdf-section className="bg-muted/30 rounded-2xl p-6 md:p-8 break-inside-avoid">
             <div className="flex items-center gap-2 mb-4">
               <MessageSquare className="h-5 w-5 text-primary" />
               <h2 className="text-xl font-bold font-display">Tom de Voz</h2>
@@ -380,7 +365,7 @@ const Report = () => {
 
         {/* SECTION: Figurino Estratégico */}
         {content.figurino && (
-          <section className="bg-muted/30 rounded-2xl p-6 md:p-8 break-inside-avoid">
+          <section data-pdf-section className="bg-muted/30 rounded-2xl p-6 md:p-8 break-inside-avoid">
             <div className="flex items-center gap-2 mb-6">
               <Shirt className="h-5 w-5 text-primary" />
               <h2 className="text-xl font-bold font-display">Figurino Estratégico</h2>
@@ -472,7 +457,7 @@ const Report = () => {
 
         {/* SECTION: Símbolos dos Arquétipos */}
         {content.simbolos && (
-          <section>
+          <section data-pdf-section>
             <div className="flex items-center gap-2 mb-4">
               <Star className="h-5 w-5 text-primary" />
               <h2 className="text-xl font-bold font-display">Símbolos dos Arquétipos</h2>
@@ -501,7 +486,7 @@ const Report = () => {
 
         {/* SECTION: StoryBrand */}
         {content.storybrand && (
-          <section>
+          <section data-pdf-section>
             <div className="flex items-center gap-2 mb-4">
               <Target className="h-5 w-5 text-primary" />
               <h2 className="text-xl font-bold font-display">Estratégia StoryBrand</h2>

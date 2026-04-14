@@ -160,26 +160,30 @@ const PostEditorPage = () => {
   const handleImageOpacityChange = (id: string, opacity: number) => handleUpdateOverlay(id, { opacity });
 
   const handleRemoveBackground = useCallback(async (id: string) => {
+    if (removingBackground) return; // Prevent double-click
     const overlay = overlayImages.find((img) => img.id === id);
     if (!overlay) return;
+    const originalSrc = overlay.src; // Preserve original
     setRemovingBackground(true);
     try {
       const { data, error } = await supabase.functions.invoke("remove-background", {
         body: { imageUrl: overlay.src },
       });
       if (error) throw error;
-      if (data?.image) {
+      if (data?.image && data.image.startsWith("data:image/")) {
         handleUpdateOverlay(id, { src: data.image });
         toast({ title: "Fundo removido com sucesso!" });
       } else {
-        throw new Error(data?.error || "Erro ao processar imagem");
+        throw new Error(data?.error || "A IA não retornou uma imagem válida");
       }
     } catch (err: any) {
+      // Restore original on failure
+      handleUpdateOverlay(id, { src: originalSrc });
       toast({ title: err.message || "Erro ao remover fundo", variant: "destructive" });
     } finally {
       setRemovingBackground(false);
     }
-  }, [overlayImages, handleUpdateOverlay]);
+  }, [overlayImages, removingBackground]);
 
   const handleDownloadSlide = useCallback(async (index: number) => {
     try {

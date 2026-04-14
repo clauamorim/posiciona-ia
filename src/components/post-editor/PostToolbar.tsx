@@ -372,12 +372,12 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
           ))}
           <Tooltip>
             <TooltipTrigger asChild>
-              <label className="w-10 h-10 rounded-lg border-2 border-dashed border-muted-foreground/40 cursor-pointer flex items-center justify-center hover:bg-muted transition-colors overflow-hidden relative">
+              <div className="w-10 h-10 rounded-lg border-2 border-dashed border-muted-foreground/40 cursor-pointer flex items-center justify-center hover:bg-muted transition-colors relative">
                 <input type="color" value={palette[selectedBgIndex]?.hex || "#1a1a2e"} onChange={e => {
                   if (onCustomBgColorChange) onCustomBgColorChange(e.target.value);
-                }} className="opacity-0 absolute inset-0 w-full h-full cursor-pointer" />
-                <span className="text-muted-foreground text-lg font-bold">+</span>
-              </label>
+                }} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                <span className="text-muted-foreground text-lg font-bold pointer-events-none">+</span>
+              </div>
             </TooltipTrigger>
             <TooltipContent>Cor personalizada</TooltipContent>
           </Tooltip>
@@ -462,10 +462,10 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
                       className={`w-6 h-6 rounded-md border transition-all ${titleColor === color.hex ? "ring-2 ring-primary ring-offset-1 scale-110" : "hover:scale-105"}`}
                       style={{ backgroundColor: color.hex, borderColor: titleColor === color.hex ? color.hex : "transparent" }} />
                   ))}
-                  <label className="w-6 h-6 rounded-md border border-dashed border-muted-foreground/40 cursor-pointer flex items-center justify-center hover:bg-muted transition-colors overflow-hidden">
-                    <input type="color" value={titleColor || "#ffffff"} onChange={e => onTitleColorChange(e.target.value)} className="opacity-0 absolute w-6 h-6 cursor-pointer" />
-                    <Type className="h-3 w-3 text-muted-foreground" />
-                  </label>
+                  <div className="w-6 h-6 rounded-md border border-dashed border-muted-foreground/40 cursor-pointer flex items-center justify-center hover:bg-muted transition-colors relative">
+                    <input type="color" value={titleColor || "#ffffff"} onChange={e => onTitleColorChange(e.target.value)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                    <Type className="h-3 w-3 text-muted-foreground pointer-events-none" />
+                  </div>
                 </div>
               </div>
             )}
@@ -538,10 +538,10 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
                 ))}
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <label className="w-6 h-6 rounded-md border border-dashed border-muted-foreground/40 cursor-pointer flex items-center justify-center hover:bg-muted transition-colors overflow-hidden">
-                      <input type="color" value={textColor || "#ffffff"} onChange={e => onTextColorChange(e.target.value)} className="opacity-0 absolute w-6 h-6 cursor-pointer" />
-                      <Type className="h-3 w-3 text-muted-foreground" />
-                    </label>
+                    <div className="w-6 h-6 rounded-md border border-dashed border-muted-foreground/40 cursor-pointer flex items-center justify-center hover:bg-muted transition-colors relative">
+                      <input type="color" value={textColor || "#ffffff"} onChange={e => onTextColorChange(e.target.value)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                      <Type className="h-3 w-3 text-muted-foreground pointer-events-none" />
+                    </div>
                   </TooltipTrigger>
                   <TooltipContent>Cor personalizada</TooltipContent>
                 </Tooltip>
@@ -572,8 +572,8 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
                     className={`w-6 h-6 rounded-md border transition-all ${ctaBgColor === color.hex ? "ring-2 ring-primary ring-offset-1 scale-110" : "hover:scale-105"}`}
                     style={{ backgroundColor: color.hex, borderColor: ctaBgColor === color.hex ? color.hex : "transparent" }} />
                 ))}
-                <label className="w-6 h-6 rounded-md border border-dashed border-muted-foreground/40 cursor-pointer flex items-center justify-center hover:bg-muted transition-colors overflow-hidden">
-                  <input type="color" value={ctaBgColor || accentColor} onChange={e => onCtaBgColorChange?.(e.target.value)} className="opacity-0 absolute w-6 h-6 cursor-pointer" />
+                <label className="w-6 h-6 rounded-md border border-dashed border-muted-foreground/40 cursor-pointer flex items-center justify-center hover:bg-muted transition-colors relative">
+                  <input type="color" value={ctaBgColor || accentColor} onChange={e => onCtaBgColorChange?.(e.target.value)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
                   <span className="text-muted-foreground text-xs">+</span>
                 </label>
               </div>
@@ -586,8 +586,8 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
                     className={`w-6 h-6 rounded-md border transition-all ${ctaTextColor === color.hex ? "ring-2 ring-primary ring-offset-1 scale-110" : "hover:scale-105"}`}
                     style={{ backgroundColor: color.hex, borderColor: ctaTextColor === color.hex ? color.hex : "transparent" }} />
                 ))}
-                <label className="w-6 h-6 rounded-md border border-dashed border-muted-foreground/40 cursor-pointer flex items-center justify-center hover:bg-muted transition-colors overflow-hidden">
-                  <input type="color" value={ctaTextColor || "#ffffff"} onChange={e => onCtaTextColorChange?.(e.target.value)} className="opacity-0 absolute w-6 h-6 cursor-pointer" />
+                <label className="w-6 h-6 rounded-md border border-dashed border-muted-foreground/40 cursor-pointer flex items-center justify-center hover:bg-muted transition-colors relative">
+                  <input type="color" value={ctaTextColor || "#ffffff"} onChange={e => onCtaTextColorChange?.(e.target.value)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
                   <Type className="h-3 w-3 text-muted-foreground" />
                 </label>
               </div>
@@ -633,8 +633,8 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
                       className="w-5 h-5 rounded border transition-all hover:scale-110"
                       style={{ backgroundColor: color.hex }} />
                   ))}
-                  <label className="w-5 h-5 rounded border border-dashed border-muted-foreground/40 cursor-pointer flex items-center justify-center overflow-hidden">
-                    <input type="color" onChange={e => handleRecolorSelected(e.target.value)} className="opacity-0 absolute w-5 h-5 cursor-pointer" />
+                  <label className="w-5 h-5 rounded border border-dashed border-muted-foreground/40 cursor-pointer flex items-center justify-center relative">
+                    <input type="color" onChange={e => handleRecolorSelected(e.target.value)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
                     <span className="text-muted-foreground text-[8px]">+</span>
                   </label>
                 </div>
@@ -651,8 +651,8 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
                         className="w-5 h-5 rounded border transition-all hover:scale-110"
                         style={{ backgroundColor: color.hex }} />
                     ))}
-                    <label className="w-5 h-5 rounded border border-dashed border-muted-foreground/40 cursor-pointer flex items-center justify-center overflow-hidden">
-                      <input type="color" value={selectedOverlay.textColor || "#ffffff"} onChange={e => onUpdateOverlaySrc(selectedOverlay.id, { textColor: e.target.value })} className="opacity-0 absolute w-5 h-5 cursor-pointer" />
+                    <label className="w-5 h-5 rounded border border-dashed border-muted-foreground/40 cursor-pointer flex items-center justify-center relative">
+                      <input type="color" value={selectedOverlay.textColor || "#ffffff"} onChange={e => onUpdateOverlaySrc(selectedOverlay.id, { textColor: e.target.value })} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
                       <span className="text-muted-foreground text-[8px]">+</span>
                     </label>
                   </div>
@@ -667,8 +667,8 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
                         className="w-5 h-5 rounded border transition-all hover:scale-110"
                         style={{ backgroundColor: color.hex }} />
                     ))}
-                    <label className="w-5 h-5 rounded border border-dashed border-muted-foreground/40 cursor-pointer flex items-center justify-center overflow-hidden">
-                      <input type="color" value={selectedOverlay.bgColor || "#000000"} onChange={e => onUpdateOverlaySrc(selectedOverlay.id, { bgColor: e.target.value })} className="opacity-0 absolute w-5 h-5 cursor-pointer" />
+                    <label className="w-5 h-5 rounded border border-dashed border-muted-foreground/40 cursor-pointer flex items-center justify-center relative">
+                      <input type="color" value={selectedOverlay.bgColor || "#000000"} onChange={e => onUpdateOverlaySrc(selectedOverlay.id, { bgColor: e.target.value })} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
                       <span className="text-muted-foreground text-[8px]">+</span>
                     </label>
                   </div>
@@ -752,8 +752,8 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
                     className={`w-5 h-5 rounded border transition-all ${elementColor === color.hex ? "ring-2 ring-primary ring-offset-1 scale-110" : "hover:scale-105"}`}
                     style={{ backgroundColor: color.hex }} />
                 ))}
-                <label className="w-5 h-5 rounded border border-dashed border-muted-foreground/40 cursor-pointer flex items-center justify-center overflow-hidden">
-                  <input type="color" value={elementColor} onChange={e => setElementColor(e.target.value)} className="opacity-0 absolute w-5 h-5 cursor-pointer" />
+                <label className="w-5 h-5 rounded border border-dashed border-muted-foreground/40 cursor-pointer flex items-center justify-center relative">
+                  <input type="color" value={elementColor} onChange={e => setElementColor(e.target.value)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
                   <span className="text-muted-foreground text-[8px]">+</span>
                 </label>
               </div>
@@ -792,8 +792,8 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
                     className={`w-5 h-5 rounded border transition-all ${elementColor === color.hex ? "ring-2 ring-primary ring-offset-1 scale-110" : "hover:scale-105"}`}
                     style={{ backgroundColor: color.hex }} />
                 ))}
-                <label className="w-5 h-5 rounded border border-dashed border-muted-foreground/40 cursor-pointer flex items-center justify-center overflow-hidden">
-                  <input type="color" value={elementColor} onChange={e => setElementColor(e.target.value)} className="opacity-0 absolute w-5 h-5 cursor-pointer" />
+                <label className="w-5 h-5 rounded border border-dashed border-muted-foreground/40 cursor-pointer flex items-center justify-center relative">
+                  <input type="color" value={elementColor} onChange={e => setElementColor(e.target.value)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
                   <span className="text-muted-foreground text-[8px]">+</span>
                 </label>
               </div>

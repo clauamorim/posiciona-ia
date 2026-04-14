@@ -13,39 +13,50 @@ import { compressImage } from "@/lib/imageUtils";
 
 type AnalysisItem = { aspect: string; current: string; suggestion: string };
 
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
 const InstagramAnalysis = () => {
   const { user } = useAuth();
   const [username, setUsername] = useState("");
   const [loading, setLoading] = useState(false);
   const [analysis, setAnalysis] = useState<AnalysisItem[] | null>(null);
+  const [analysisDate, setAnalysisDate] = useState<string | null>(null);
   const [hasPrereqs, setHasPrereqs] = useState<boolean | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageBase64, setImageBase64] = useState<string | null>(null);
+  const [loadingExisting, setLoadingExisting] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!user) return;
-    const check = async () => {
-      const [arcRes, repRes] = await Promise.all([
+    const init = async () => {
+      const [arcRes, repRes, latestAnalysis] = await Promise.all([
         supabase.from("user_top_archetypes").select("id").eq("user_id", user.id).limit(1),
         supabase.from("reports").select("id").eq("user_id", user.id).eq("status", "completed").limit(1),
+        supabase.from("instagram_analyses").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(1).single(),
       ]);
       setHasPrereqs((arcRes.data?.length ?? 0) > 0 && (repRes.data?.length ?? 0) > 0);
+
+      if (latestAnalysis.data) {
+        const items = Array.isArray(latestAnalysis.data.analysis) ? latestAnalysis.data.analysis as AnalysisItem[] : null;
+        if (items && items.length > 0) {
+          setAnalysis(items);
+          setAnalysisDate(latestAnalysis.data.created_at);
+          if (latestAnalysis.data.username) setUsername(latestAnalysis.data.username);
+        }
+      }
+      setLoadingExisting(false);
     };
-    check();
+    init();
   }, [user]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     if (file.size > MAX_FILE_SIZE) {
       toast({ title: "Arquivo muito grande", description: "O tamanho máximo é 5MB.", variant: "destructive" });
       return;
     }
-
     const reader = new FileReader();
     reader.onload = async () => {
       const result = reader.result as string;
@@ -69,19 +80,16 @@ const InstagramAnalysis = () => {
   const handleAnalyze = async () => {
     if (!imageBase64) return;
     setLoading(true);
-    setAnalysis(null);
-
     try {
       const { data, error } = await supabase.functions.invoke("analyze-instagram", {
         body: { username: username.replace("@", "").trim() || undefined, screenshot: imageBase64 },
       });
-
       if (error) throw error;
       if (data.error) throw new Error(data.error);
 
       setAnalysis(data.analysis);
+      setAnalysisDate(new Date().toISOString());
 
-      // Save analysis to DB
       if (user && data.analysis) {
         await supabase.from("instagram_analyses").insert({
           user_id: user.id,
@@ -114,20 +122,18 @@ const InstagramAnalysis = () => {
       y += 8;
     }
     doc.setFontSize(10);
-    doc.text(new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" }), margin, y);
+    const dateStr = analysisDate
+      ? new Date(analysisDate).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })
+      : new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
+    doc.text(dateStr, margin, y);
     y += 12;
 
     for (const item of analysis) {
-      if (y > 260) {
-        doc.addPage();
-        y = 20;
-      }
-
+      if (y > 260) { doc.addPage(); y = 20; }
       doc.setFontSize(13);
       doc.setFont("helvetica", "bold");
       doc.text(item.aspect, margin, y);
       y += 7;
-
       doc.setFontSize(10);
       doc.setFont("helvetica", "bold");
       doc.text("Situação Atual:", margin, y);
@@ -136,12 +142,7 @@ const InstagramAnalysis = () => {
       const currentLines = doc.splitTextToSize(item.current, maxWidth);
       doc.text(currentLines, margin, y);
       y += currentLines.length * 5 + 4;
-
-      if (y > 260) {
-        doc.addPage();
-        y = 20;
-      }
-
+      if (y > 260) { doc.addPage(); y = 20; }
       doc.setFont("helvetica", "bold");
       doc.text("Sugestão:", margin, y);
       y += 5;
@@ -154,7 +155,7 @@ const InstagramAnalysis = () => {
     doc.save(`analise-instagram${username ? `-${username.replace("@", "")}` : ""}.pdf`);
   };
 
-  if (hasPrereqs === null) {
+  if (hasPrereqs === null || loadingExisting) {
     return (
       <DashboardLayout>
         <div className="flex items-center justify-center py-20">
@@ -188,7 +189,6 @@ const InstagramAnalysis = () => {
 
         <Card>
           <CardContent className="pt-6 space-y-4">
-            {/* Image upload */}
             <div>
               <Label>Screenshot do perfil *</Label>
               <p className="text-xs text-muted-foreground mb-2">Tire um print da página principal do seu perfil no Instagram e faça o upload aqui (máx. 5MB).</p>
@@ -211,21 +211,14 @@ const InstagramAnalysis = () => {
               <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
             </div>
 
-            {/* Optional username */}
             <div>
               <Label htmlFor="username">@ do Instagram (opcional)</Label>
-              <Input
-                id="username"
-                placeholder="seuperfil"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                disabled={loading}
-              />
+              <Input id="username" placeholder="seuperfil" value={username} onChange={(e) => setUsername(e.target.value)} disabled={loading} />
             </div>
 
             <Button onClick={handleAnalyze} disabled={loading || !imageBase64} className="w-full">
               {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Upload className="h-4 w-4 mr-2" />}
-              Analisar Perfil
+              {analysis ? "Nova Análise" : "Analisar Perfil"}
             </Button>
           </CardContent>
         </Card>
@@ -237,13 +230,19 @@ const InstagramAnalysis = () => {
           </div>
         )}
 
-        {analysis && (
+        {analysis && !loading && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-bold font-display">Resultados da Análise</h2>
+              <div>
+                <h2 className="text-xl font-bold font-display">Resultados da Análise</h2>
+                {analysisDate && (
+                  <p className="text-xs text-muted-foreground">
+                    {new Date(analysisDate).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })}
+                  </p>
+                )}
+              </div>
               <Button variant="outline" size="sm" onClick={downloadPDF} className="gap-2">
-                <Download className="h-4 w-4" />
-                Baixar PDF
+                <Download className="h-4 w-4" /> Baixar PDF
               </Button>
             </div>
             <div className="grid gap-4 md:grid-cols-2">
