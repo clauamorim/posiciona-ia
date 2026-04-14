@@ -138,28 +138,11 @@ const Report = () => {
 
   const handleDownloadPDF = async () => {
     if (!reportRef.current) return;
-    const container = reportRef.current;
     try {
-      const html2pdf = (await import("html2pdf.js")).default;
-      // Hide interactive buttons during capture
-      container.querySelectorAll("button, [data-hide-pdf]").forEach((b) => (b as HTMLElement).style.display = "none");
-      // Add pdf-capture class for print-friendly styles
-      container.classList.add("pdf-capture");
-      const opt = {
-        margin: [8, 5, 8, 5],
-        filename: "posiciona-relatorio.pdf",
-        image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2.5, useCORS: true, logging: false, scrollY: 0, letterRendering: true, backgroundColor: "#f2eeea" },
-        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" as const },
-        pagebreak: { mode: ["css"] },
-      };
-      await html2pdf().set(opt).from(container).save();
-      container.classList.remove("pdf-capture");
-      container.querySelectorAll("button, [data-hide-pdf]").forEach((b) => (b as HTMLElement).style.display = "");
+      const { exportSectionBasedPDF } = await import("@/lib/pdfExport");
+      await exportSectionBasedPDF(reportRef.current, "posiciona-relatorio.pdf");
     } catch (error) {
       console.error("Error generating PDF:", error);
-      container.classList.remove("pdf-capture");
-      container.querySelectorAll("button, [data-hide-pdf]").forEach((b) => (b as HTMLElement).style.display = "");
       toast({ title: "Erro ao gerar PDF", description: "Tente novamente.", variant: "destructive" });
     }
   };
