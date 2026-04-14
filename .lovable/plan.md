@@ -1,27 +1,16 @@
 
 
-# Plano: WhatsApp na Landing Page + Botão "Gerar Capa" nos Reels
+# Plano: Remover borda verde residual do Chroma Key
 
-## 1. Ícone flutuante de WhatsApp na Landing Page
+O problema é que os thresholds atuais do chroma key são conservadores demais, deixando pixels semi-verdes nas bordas do recorte.
 
-**Arquivo:** `src/pages/LandingPage.tsx`
+## Correção em `src/pages/PostEditorPage.tsx` (função `chromaKeyToTransparent`)
 
-- Adicionar um botão flutuante fixo (posição `fixed bottom-6 right-6`) com o ícone do WhatsApp (SVG inline, já que Lucide não tem ícone de WhatsApp).
-- Cor verde do WhatsApp (`#25D366`), formato circular, com sombra e animação sutil de pulse.
-- Link: `https://wa.me/5562994400707` abrindo em nova aba.
-- `z-50` para ficar acima de todo conteúdo.
+Três ajustes:
 
-## 2. Botão "Gerar Capa" nos Reels da Linha Editorial
+1. **Aumentar tolerância principal** de `80` para `120` e relaxar condição de green dominance de `+40` para `+30`
+2. **Ampliar faixa de anti-aliasing** — baixar thresholds de `g > 120, r < 120, b < 120` para `g > 80, r < 160, b < 160` e reduzir greenness mínimo de `0.3` para `0.15`
+3. **Adicionar passo extra de "despill"** — após o loop principal, fazer um segundo passo nos pixels restantes que ainda têm componente verde dominante, removendo o tint verde residual (reduzir canal G para a média de R e B)
 
-**Arquivo:** `src/pages/EditorialPage.tsx`
-
-- Hoje o botão "Criar post" só aparece para formatos `carrossel` e `post` (linha 411).
-- Adicionar condição para `reels`: quando `day.format?.toLowerCase() === "reels"`, mostrar botão "Gerar capa" que navega para o editor de posts no formato capa de reels (`/post-editor?week=${wi}&day=${di}&format=reels-cover`).
-
-## Arquivos afetados
-
-| Arquivo | Ação |
-|---------|------|
-| `src/pages/LandingPage.tsx` | Adicionar botão flutuante WhatsApp |
-| `src/pages/EditorialPage.tsx` | Adicionar botão "Gerar capa" para reels |
+Resultado: bordas mais limpas sem resíduos verdes visíveis.
 
