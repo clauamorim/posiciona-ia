@@ -96,116 +96,52 @@ const Report = () => {
     });
   };
 
-  const handleDownloadPDF = async () => {
+  const handleRegenerate = async () => {
+    if (!user) return;
+    setRegenerating(true);
     try {
-    const jsPDF = (await import("jspdf")).jsPDF;
-    const doc = new jsPDF();
-    let y = 20;
-
-    const addTitle = (text: string) => {
-      if (y > 250) { doc.addPage(); y = 20; }
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(16);
-      doc.text(text, 20, y);
-      y += 10;
-    };
-    const addSubtitle = (text: string) => {
-      if (y > 260) { doc.addPage(); y = 20; }
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(12);
-      doc.text(text, 20, y);
-      y += 7;
-    };
-    const addBody = (text: string) => {
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(10);
-      const lines = doc.splitTextToSize(text, 170);
-      for (const line of lines) {
-        if (y > 275) { doc.addPage(); y = 20; }
-        doc.text(line, 20, y);
-        y += 5;
-      }
-      y += 3;
-    };
-
-    doc.setFontSize(22);
-    doc.setFont("helvetica", "bold");
-    doc.text("Posiciona - Relatório de Posicionamento", 20, y);
-    y += 15;
-
-    if (isStructuredReport) {
-      addTitle("Arquétipos de Marca");
-      const archetypeData = getArchetypeData();
-      if (archetypeData) {
-        archetypeData.forEach(a => {
-          addSubtitle(`${a.label}: ${a.name}`);
-          if (a.description) addBody(a.description);
-          if (a.application) addBody(a.application);
-        });
-      } else {
-        ["primary", "secondary", "tertiary"].forEach(rank => {
-          const a = content.archetypes?.[rank];
-          if (a) { addSubtitle(`${rank === "primary" ? "Primário" : rank === "secondary" ? "Secundário" : "Terciário"}: ${a.name}`); addBody(a.description || ""); addBody(a.application || ""); }
-        });
-      }
-
-      addTitle("Identidade Visual");
-      content.visual_identity?.palette?.forEach((c: any) => { addBody(`${c.name}: ${c.hex} — ${c.usage}`); });
-      if (content.visual_identity?.typography) { addSubtitle("Tipografia"); addBody(`Display: ${content.visual_identity.typography.display || ""}`); addBody(`Corpo: ${content.visual_identity.typography.body || ""}`); }
-      if (content.visual_identity?.style) { addSubtitle("Estilo Visual"); addBody(content.visual_identity.style); }
-
-      addTitle("Tom de Voz");
-      if (content.tone_of_voice?.summary) addBody(content.tone_of_voice.summary);
-      if (content.tone_of_voice?.communication_style) addBody(content.tone_of_voice.communication_style);
-
-      addTitle("Estratégia StoryBrand");
-      STORYBRAND_ITEMS.forEach(item => {
-        const val = content.storybrand?.[item.key];
-        if (val) { addSubtitle(item.label); addBody(Array.isArray(val) ? val.join(", ") : val); }
+      const [{ data: bqData }, { data: profile }, { data: topArch }] = await Promise.all([
+        supabase.from("business_questionnaires").select("*").eq("user_id", user.id).eq("is_complete", true).order("version", { ascending: false }).limit(1).single(),
+        supabase.from("profiles").select("niche, gender").eq("user_id", user.id).single(),
+        supabase.from("user_top_archetypes").select("*").eq("user_id", user.id).order("rank", { ascending: true }).limit(3),
+      ]);
+      if (!bqData) { toast({ title: "Questionário de negócio não encontrado", variant: "destructive" }); return; }
+      const top3 = topArch || [];
+      const archetypes = {
+        primary: { archetype_name: top3[0]?.archetype_name, score: top3[0]?.score },
+        secondary: { archetype_name: top3[1]?.archetype_name, score: top3[1]?.score },
+        tertiary: { archetype_name: top3[2]?.archetype_name, score: top3[2]?.score },
+      };
+      await supabase.from("reports").update({ status: "generating" }).eq("user_id", user.id).eq("version", 1);
+      const { data: reportData, error } = await supabase.functions.invoke("generate-report", {
+        body: { business: bqData, niche: profile?.niche || "", archetypes, gender: profile?.gender || "Não informado" },
       });
-
-      // Figurino
-      if (content.figurino) {
-        addTitle("Figurino Estratégico");
-        if (content.figurino.resumo) addBody(content.figurino.resumo);
-        if (content.figurino.pecas_chave?.length) { addSubtitle("Peças-chave"); content.figurino.pecas_chave.forEach((p: string) => addBody(`• ${p}`)); }
-        if (content.figurino.cores_roupa?.length) { addSubtitle("Cores de Roupa"); addBody(content.figurino.cores_roupa.join(", ")); }
-        if (content.figurino.sapatos?.length) { addSubtitle("Sapatos"); content.figurino.sapatos.forEach((s: string) => addBody(`• ${s}`)); }
-        if (content.figurino.acessorios?.length) { addSubtitle("Acessórios"); content.figurino.acessorios.forEach((a: string) => addBody(`• ${a}`)); }
-        if (content.figurino.cabelo) { addSubtitle("Cabelo"); addBody(content.figurino.cabelo); }
-        if (content.figurino.maquiagem_grooming) { addSubtitle("Maquiagem / Grooming"); addBody(content.figurino.maquiagem_grooming); }
-        if (content.figurino.evitar?.length) { addSubtitle("Evitar"); content.figurino.evitar.forEach((e: string) => addBody(`• ${e}`)); }
-      }
-
-      // Símbolos
-      if (content.simbolos) {
-        addTitle("Símbolos dos Arquétipos");
-        ["primary", "secondary", "tertiary"].forEach(rank => {
-          const s = content.simbolos[rank];
-          if (s) { addSubtitle(`${s.nome} — ${s.simbolo}`); addBody(`Significado: ${s.significado}`); addBody(`Aplicação: ${s.aplicacao}`); }
-        });
-      }
-
-      allWeeks.forEach((week, wi) => {
-        addTitle(`Linha Editorial — Semana ${wi + 1}`);
-        week.forEach((day: any) => {
-          addSubtitle(`Dia ${day.day}: ${day.theme} (${day.format})`);
-          addBody(`Legenda: ${day.caption}`);
-          if (day.card_copy?.length > 0) {
-            addSubtitle(day.format?.toLowerCase() === "carrossel" ? "Conteúdo dos Slides:" : "Copy do Post:");
-            day.card_copy.forEach((copy: string, idx: number) => {
-              addBody(day.format?.toLowerCase() === "carrossel" ? `Slide ${idx + 1}: ${copy}` : copy);
-            });
-          }
-          addBody(`CTA: ${day.cta}`);
-          if (day.script) addBody(`Roteiro: ${day.script}`);
-        });
-      });
-    } else {
-      addBody(fallbackText);
+      if (error) throw error;
+      const normalizedContent = normalizeReportContent(reportData?.report) as any;
+      await supabase.from("reports").update({ content: normalizedContent, status: "completed" }).eq("user_id", user.id).eq("version", 1);
+      setReport({ ...report, content: normalizedContent, status: "completed" });
+      toast({ title: "Relatório regenerado com sucesso!" });
+    } catch (err: any) {
+      console.error("Regenerate error:", err);
+      toast({ title: "Erro ao regenerar", description: err.message, variant: "destructive" });
+    } finally {
+      setRegenerating(false);
     }
+  };
 
-    doc.save("posiciona-relatorio.pdf");
+  const handleDownloadPDF = async () => {
+    if (!reportRef.current) return;
+    try {
+      const html2pdf = (await import("html2pdf.js")).default;
+      const opt = {
+        margin: [10, 10, 10, 10],
+        filename: "posiciona-relatorio.pdf",
+        image: { type: "jpeg", quality: 0.95 },
+        html2canvas: { scale: 2, useCORS: true, logging: false },
+        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" as const },
+        pagebreak: { mode: ["avoid-all", "css", "legacy"] },
+      };
+      await html2pdf().set(opt).from(reportRef.current).save();
     } catch (error) {
       console.error("Error generating PDF:", error);
       toast({ title: "Erro ao gerar PDF", description: "Tente novamente.", variant: "destructive" });
