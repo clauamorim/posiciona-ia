@@ -359,10 +359,10 @@ const LandingPage = () => {
               return (
                 <div
                   key={i}
-                  className={`group p-5 rounded-xl border transition-colors space-y-3 ${
+                  className={`group p-5 rounded-xl border border-landing-border/40 transition-colors space-y-3 ${
                     isHighlighted
-                      ? "border-landing-purple/40 bg-landing-bg-secondary/40 ring-1 ring-landing-purple/10"
-                      : "border-landing-border/40 bg-landing-bg-secondary/20 hover:bg-landing-bg-secondary/40"
+                      ? "bg-landing-bg-secondary/40 ring-1 ring-landing-purple/10"
+                      : "bg-landing-bg-secondary/20 hover:bg-landing-bg-secondary/40"
                   }`}
                 >
                   <div className="w-10 h-10 rounded-lg bg-landing-bg-secondary flex items-center justify-center">
