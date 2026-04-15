@@ -140,7 +140,7 @@ const SobrePage = () => {
           {/* Highlighted quote block */}
           <div className="border-l-2 border-landing-gold pl-6 py-2">
             <p className="text-sm md:text-base text-landing-text/90 leading-relaxed">
-              Nos últimos 4 anos, aprofundei esse trabalho por meio do posicionamento de imagem com arquétipos de marca e do framework StoryBrand. Minha formação em Ciência da Computação e minha experiência prévia na área me deram uma base rara: transformar percepção, estratégia e linguagem em lógica aplicada e tecnologia.
+              Nos últimos 4 anos, aprofundei esse trabalho por meio do posicionamento de imagem com arquétipos de marca e do framework de narrativa de marca (StoryBrand). Minha formação em Ciência da Computação e minha experiência prévia na área me deram uma base rara: transformar percepção, estratégia e linguagem em lógica aplicada e tecnologia.
             </p>
           </div>
 
@@ -165,7 +165,7 @@ const SobrePage = () => {
                 desc: "A presença visual não é tratada como estética solta, mas como extensão do posicionamento.",
               },
               {
-                title: "Arquétipos e StoryBrand",
+                title: "Arquétipos e Narrativa de Marca",
                 desc: "A comunicação é construída com base em identidade, clareza de mensagem e percepção de autoridade.",
               },
               {

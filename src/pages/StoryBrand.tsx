@@ -6,9 +6,13 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { Loader2, FileText, Users, Target, Heart, BookOpen, Compass, Zap, Megaphone, Star, Shield, Copy, ArrowRight } from "lucide-react";
+import { Loader2, FileText, Users, Target, Heart, BookOpen, Compass, Zap, Megaphone, Star, Shield, Copy, ArrowRight, ChevronDown } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { parseReportContent } from "@/lib/reportParser";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { CleanText } from "@/components/CleanText";
+import { SectionHeader } from "@/components/ui/section-header";
+import { cn } from "@/lib/utils";
 
 const DETAIL_ITEMS = [
   { key: "hero", label: "O Personagem (Cliente)", icon: Users },
@@ -27,6 +31,7 @@ const StoryBrand = () => {
   const navigate = useNavigate();
   const [report, setReport] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [openItems, setOpenItems] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (!user) return;
@@ -39,6 +44,18 @@ const StoryBrand = () => {
       .single()
       .then(({ data }) => { setReport(data); setLoading(false); });
   }, [user]);
+
+  const toggleItem = (key: string) => {
+    setOpenItems(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const expandAll = () => {
+    const all: Record<string, boolean> = {};
+    DETAIL_ITEMS.forEach(item => { all[item.key] = true; });
+    setOpenItems(all);
+  };
+
+  const collapseAll = () => setOpenItems({});
 
   const copyText = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -64,7 +81,7 @@ const StoryBrand = () => {
       <DashboardLayout>
         <div className="flex flex-col items-center justify-center h-64 text-center gap-4">
           <FileText className="h-12 w-12 text-muted-foreground" />
-          <h2 className="text-lg font-semibold">StoryBrand não disponível</h2>
+          <h2 className="text-lg font-semibold">Narrativa da Marca não disponível</h2>
           <p className="text-muted-foreground text-sm max-w-md">
             {report?.status === "generating"
               ? "Seu relatório está sendo gerado. Aguarde..."
@@ -88,57 +105,103 @@ const StoryBrand = () => {
     storybrand.guide && `e encontra em você ${typeof storybrand.guide === 'string' ? storybrand.guide.toLowerCase() : 'um guia'}`,
   ].filter(Boolean);
 
+  const getPreviewText = (val: any): string => {
+    const text = Array.isArray(val) ? val[0] : val;
+    if (typeof text !== "string") return "";
+    const clean = text.replace(/\*\*(.+?)\*\*/g, "$1").replace(/\*(.+?)\*/g, "$1");
+    return clean.length > 120 ? clean.slice(0, 120) + "…" : clean;
+  };
+
+  const anyOpen = Object.values(openItems).some(Boolean);
+
   return (
     <DashboardLayout>
-      <div className="space-y-6">
+      <div className="space-y-5">
         {/* Header */}
         <div className="flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Narrativa de Marca</h1>
-            <p className="text-sm text-muted-foreground mt-1">Sua jornada StoryBrand aplicada ao posicionamento</p>
-          </div>
+          <SectionHeader
+            title="Narrativa da Marca"
+            subtitle="Sua jornada StoryBrand aplicada ao posicionamento"
+          />
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-xs text-muted-foreground"
+            onClick={anyOpen ? collapseAll : expandAll}
+          >
+            {anyOpen ? "Recolher tudo" : "Expandir tudo"}
+          </Button>
         </div>
 
         {/* Summary */}
         {summaryParts.length > 0 && (
-          <Card className="border-primary/15 bg-primary/[0.02]">
-            <CardContent className="py-4">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">Resumo executivo</p>
-              <p className="text-sm text-foreground/80 leading-relaxed">{summaryParts.join(", ")}.</p>
+          <Card className="border-primary/20 bg-primary/[0.04]">
+            <CardContent className="py-5">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-primary/60 mb-2">Resumo executivo</p>
+              <p className="text-sm text-foreground/85 leading-relaxed font-medium">
+                <CleanText as="span">{summaryParts.join(", ") + "."}</CleanText>
+              </p>
             </CardContent>
           </Card>
         )}
 
-        {/* Detail blocks */}
-        <div className="space-y-3">
+        {/* Detail blocks — Collapsible */}
+        <div className="space-y-2">
           {DETAIL_ITEMS.map(item => {
             const val = storybrand[item.key];
             if (!val) return null;
             const Icon = item.icon;
             const textContent = Array.isArray(val) ? val.join("\n") : val;
+            const isOpen = !!openItems[item.key];
+
             return (
-              <Card key={item.key}>
-                <CardContent className="py-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2 text-primary">
-                      <Icon className="h-4 w-4" />
-                      <h3 className="font-semibold text-sm">{item.label}</h3>
-                    </div>
-                    <button
-                      onClick={() => copyText(textContent)}
-                      className="p-1.5 rounded-md hover:bg-muted transition-colors"
-                      title="Copiar"
-                    >
-                      <Copy className="h-3.5 w-3.5 text-muted-foreground" />
-                    </button>
-                  </div>
-                  <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap">
-                    {Array.isArray(val)
-                      ? val.map((v: string, i: number) => <span key={i} className="block">{i + 1}. {v}</span>)
-                      : val}
-                  </p>
-                </CardContent>
-              </Card>
+              <Collapsible key={item.key} open={isOpen} onOpenChange={() => toggleItem(item.key)}>
+                <Card className={cn(
+                  "transition-colors",
+                  isOpen && "border-primary/15"
+                )}>
+                  <CardContent className="py-0">
+                    <CollapsibleTrigger className="w-full py-3.5 flex items-center gap-3 text-left group">
+                      <div className="flex items-center gap-2 text-primary flex-shrink-0">
+                        <Icon className="h-4 w-4" />
+                      </div>
+                      <h3 className="font-semibold text-sm flex-1">{item.label}</h3>
+                      {!isOpen && (
+                        <span className="text-xs text-muted-foreground truncate max-w-[40%] hidden sm:block">
+                          {getPreviewText(val)}
+                        </span>
+                      )}
+                      <ChevronDown className={cn(
+                        "h-4 w-4 text-muted-foreground transition-transform flex-shrink-0",
+                        isOpen && "rotate-180"
+                      )} />
+                    </CollapsibleTrigger>
+
+                    <CollapsibleContent>
+                      <div className="pb-4 pt-1 border-t border-border/50">
+                        <div className="flex justify-end mb-1.5">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); copyText(textContent); }}
+                            className="p-1 rounded-md hover:bg-muted transition-colors"
+                            title="Copiar"
+                          >
+                            <Copy className="h-3 w-3 text-muted-foreground" />
+                          </button>
+                        </div>
+                        <div className="text-sm text-foreground/80 leading-relaxed">
+                          {Array.isArray(val)
+                            ? val.map((v: string, i: number) => (
+                                <span key={i} className="block mb-1">
+                                  {i + 1}. <CleanText as="span">{v}</CleanText>
+                                </span>
+                              ))
+                            : <CleanText as="span">{val}</CleanText>}
+                        </div>
+                      </div>
+                    </CollapsibleContent>
+                  </CardContent>
+                </Card>
+              </Collapsible>
             );
           })}
         </div>

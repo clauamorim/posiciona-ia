@@ -32,7 +32,7 @@ const userGroups: NavGroup[] = [
     label: "Estratégia",
     items: [
       { label: "Arquétipos", href: "/results", icon: BarChart3 },
-      { label: "StoryBrand", href: "/storybrand", icon: Target },
+      { label: "Narrativa da Marca", href: "/storybrand", icon: Target },
       { label: "Relatório", href: "/report", icon: FileText },
       { label: "Análise do Instagram", href: "/instagram-analysis", icon: Instagram },
       { label: "Linha Editorial", href: "/editorial", icon: Calendar },

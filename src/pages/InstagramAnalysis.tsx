@@ -168,11 +168,11 @@ const InstagramAnalysis = () => {
   if (!hasPrereqs) {
     return (
       <DashboardLayout>
-        <div className="space-y-4 text-center py-20">
-          <AlertTriangle className="h-12 w-12 text-warning mx-auto" />
-          <h1 className="text-2xl font-bold font-display">Pré-requisitos Necessários</h1>
-          <p className="text-muted-foreground max-w-md mx-auto">
-            Para analisar seu Instagram, você precisa primeiro completar os questionários e gerar suas análises (Arquétipos + StoryBrand).
+        <div className="flex flex-col items-center justify-center py-16 text-center gap-4">
+          <AlertTriangle className="h-12 w-12 text-warning" />
+          <h1 className="text-xl font-semibold">Pré-requisitos Necessários</h1>
+          <p className="text-muted-foreground max-w-md text-sm">
+            Para analisar seu Instagram, complete os questionários e gere suas análises (Arquétipos + Narrativa da Marca).
           </p>
         </div>
       </DashboardLayout>
@@ -183,15 +183,15 @@ const InstagramAnalysis = () => {
     <DashboardLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold font-display">Análise do Instagram</h1>
-          <p className="text-muted-foreground">Faça upload de um print do seu perfil para análise com base no seu StoryBrand e arquétipos.</p>
+          <h1 className="text-xl font-semibold tracking-tight">Análise do Instagram</h1>
+          <p className="text-sm text-muted-foreground mt-1">Faça upload de um print do seu perfil para análise com base na sua narrativa de marca e arquétipos.</p>
         </div>
 
         <Card>
           <CardContent className="pt-6 space-y-4">
             <div>
-              <Label>Screenshot do perfil *</Label>
-              <p className="text-xs text-muted-foreground mb-2">Tire um print da página principal do seu perfil no Instagram e faça o upload aqui (máx. 5MB).</p>
+              <Label className="font-medium">Screenshot do perfil *</Label>
+              <p className="text-xs text-muted-foreground mb-3">Envie um print da página principal do seu perfil mostrando bio, foto de perfil e os 9 primeiros posts.</p>
               {imagePreview ? (
                 <div className="relative inline-block">
                   <img src={imagePreview} alt="Preview" className="rounded-lg border max-h-64 object-contain" />
@@ -201,11 +201,12 @@ const InstagramAnalysis = () => {
                 </div>
               ) : (
                 <div
-                  className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center cursor-pointer hover:border-primary/50 transition-colors"
+                  className="border-2 border-dashed border-primary/20 rounded-xl p-10 text-center cursor-pointer hover:border-primary/40 hover:bg-primary/[0.02] transition-all"
                   onClick={() => fileInputRef.current?.click()}
                 >
-                  <Image className="h-10 w-10 text-muted-foreground/50 mx-auto mb-2" />
-                  <p className="text-sm text-muted-foreground">Clique para selecionar uma imagem</p>
+                  <Upload className="h-12 w-12 text-primary/30 mx-auto mb-3" />
+                  <p className="text-sm font-medium text-foreground/70">Clique para selecionar uma imagem</p>
+                  <p className="text-xs text-muted-foreground mt-1">JPG ou PNG · Máximo 5MB</p>
                 </div>
               )}
               <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />

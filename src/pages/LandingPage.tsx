@@ -33,12 +33,12 @@ const plans = [
     badge: null,
     features: [
       "Diagnóstico inicial completo",
-      "Guia de posicionamento e StoryBrand",
+      "Guia de posicionamento e narrativa de marca",
       "3 arquétipos principais",
       "Análise inicial do Instagram",
       "1 ciclo editorial de 7 dias",
       "7 conteúdos prontos para publicar",
-      "3 créditos de regeneração",
+      "3 créditos de ajuste de conteúdo",
     ],
     notIncluded: ["Retratos não inclusos"],
     footer: "Upgrade em até 7 dias e desconte R$ 197",
@@ -55,7 +55,7 @@ const plans = [
       "Tudo do Semana de Conteúdo",
       "4 ciclos semanais por mês",
       "1 reanálise estratégica mensal",
-      "12 créditos de regeneração/mês",
+      "12 créditos de ajuste de conteúdo/mês",
       "Preço especial em extras",
     ],
     notIncluded: ["Retratos não inclusos"],
@@ -73,7 +73,7 @@ const plans = [
       "Tudo do Presença Mensal",
       "2 reanálises estratégicas/mês",
       "5 créditos de retrato inclusos/mês",
-      "20 créditos de regeneração/mês",
+      "20 créditos de ajuste de conteúdo/mês",
       "Melhor preço em extras",
     ],
     notIncluded: [],
@@ -82,17 +82,17 @@ const plans = [
 ];
 
 const faqItems = [
-  { q: "Como funciona o diagnóstico inicial?", a: "Você preenche dois questionários: um sobre o seu negócio e outro de personalidade de marca. A partir das respostas, a IA calcula seus arquétipos, gera seu StoryBrand e cria toda a estratégia de posicionamento." },
+  { q: "Como funciona o diagnóstico inicial?", a: "Você preenche dois questionários: um sobre o seu negócio e outro de personalidade de marca. A partir das respostas, a IA calcula seus arquétipos, gera sua narrativa de marca e cria toda a estratégia de posicionamento." },
   { q: "Preciso entender de marketing para usar?", a: "Não. O Posiciona faz toda a parte estratégica por você. Basta responder os questionários com honestidade sobre o seu negócio e a IA cuida do resto." },
   { q: "Os conteúdos já vêm prontos?", a: "Sim. O app gera posts, carrosséis e roteiros de reels completos, com texto, chamada para ação e sugestão visual. Basta publicar." },
   { q: "Os retratos estão inclusos em todos os planos?", a: "Apenas o plano Autoridade Total inclui créditos mensais de retrato. Nos demais, você pode comprar créditos extras separadamente." },
   { q: "Posso comprar créditos extras?", a: "Sim! Todos os planos permitem a compra de créditos extras de retrato para complementar sua estratégia visual." },
   { q: "Isso serve para o meu nicho?", a: "O Posiciona é feito para profissionais que vendem expertise: coaches, consultores, terapeutas, advogados, médicos, designers, arquitetos e qualquer profissional liberal que precisa comunicar valor com mais clareza." },
-  { q: "Em quanto tempo recebo os resultados?", a: "Os arquétipos e o StoryBrand são gerados em minutos após completar os questionários. A linha editorial e os conteúdos são criados sob demanda." },
+  { q: "Em quanto tempo recebo os resultados?", a: "Os arquétipos e a narrativa de marca são gerados em minutos após completar os questionários. A linha editorial e os conteúdos são criados sob demanda." },
 ];
 
 /* Highlighted deliverables */
-const HIGHLIGHTED_DELIVERABLES = ["Mapa de Arquétipos", "StoryBrand Aplicado", "Calendário Editorial"];
+const HIGHLIGHTED_DELIVERABLES = ["Mapa de Arquétipos", "Narrativa de Marca", "Calendário Editorial"];
 
 const LandingPage = () => {
   const { user, isLoading } = useAuth();
@@ -188,7 +188,7 @@ const LandingPage = () => {
           </h1>
 
           <p className="text-base md:text-lg text-landing-text-secondary max-w-2xl mx-auto leading-relaxed">
-            O Posiciona identifica o que diferencia sua marca, organiza sua mensagem e entrega estratégia, calendário e conteúdo pronto para publicar com mais autoridade e constância.
+            O Posiciona identifica o que diferencia sua marca, organiza sua mensagem e entrega estratégia, calendário, conteúdo pronto para publicar e retratos de marca com mais autoridade e constância.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
@@ -258,7 +258,7 @@ const LandingPage = () => {
                 step: "02",
                 icon: Target,
                 title: "Receba sua estratégia e calendário",
-                desc: "Tenha StoryBrand, análise de perfil e linha editorial conectados ao seu posicionamento.",
+                desc: "Tenha narrativa de marca, análise de perfil e linha editorial conectados ao seu posicionamento.",
               },
               {
                 step: "03",
@@ -349,7 +349,7 @@ const LandingPage = () => {
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {[
               { icon: Brain, title: "Mapa de Arquétipos", desc: "Top 3 arquétipos com pontuação, forças, tom de voz e direção visual.", color: "text-purple-400" },
-              { icon: Target, title: "StoryBrand Aplicado", desc: "Narrativa completa: personagem, problema, guia, plano e transformação.", color: "text-amber-400" },
+              { icon: Target, title: "Narrativa de Marca", desc: "Narrativa completa: personagem, problema, guia, plano e transformação.", color: "text-amber-400" },
               { icon: BarChart3, title: "Diagnóstico de Perfil", desc: "Análise estratégica da bio, conteúdo, hashtags e oportunidades.", color: "text-emerald-400" },
               { icon: Calendar, title: "Calendário Editorial", desc: "Semanas inteiras de conteúdo com temas, formatos e CTAs definidos.", color: "text-blue-400" },
               { icon: MessageSquare, title: "Conteúdos Prontos", desc: "Posts, carrosséis e roteiros de reels com legendas e chamadas para ação.", color: "text-pink-400" },
@@ -359,10 +359,10 @@ const LandingPage = () => {
               return (
                 <div
                   key={i}
-                  className={`group p-5 rounded-xl border transition-colors space-y-3 ${
+                  className={`group p-5 rounded-xl border border-landing-border/40 transition-colors space-y-3 ${
                     isHighlighted
-                      ? "border-landing-purple/40 bg-landing-bg-secondary/40 ring-1 ring-landing-purple/10"
-                      : "border-landing-border/40 bg-landing-bg-secondary/20 hover:bg-landing-bg-secondary/40"
+                      ? "bg-landing-bg-secondary/40 ring-1 ring-landing-purple/10"
+                      : "bg-landing-bg-secondary/20 hover:bg-landing-bg-secondary/40"
                   }`}
                 >
                   <div className="w-10 h-10 rounded-lg bg-landing-bg-secondary flex items-center justify-center">

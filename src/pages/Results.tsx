@@ -16,7 +16,7 @@ type Stage = "calculating" | "saving" | "generating_report" | "done" | "error";
 const STAGE_LABELS: Record<Stage, string> = {
   calculating: "Calculando arquétipos...",
   saving: "Salvando resultados...",
-  generating_report: "Gerando sua estratégia completa (StoryBrand, figurino, símbolos)...",
+  generating_report: "Gerando sua estratégia completa (narrativa de marca, figurino, símbolos)...",
   done: "Tudo pronto!",
   error: "Ocorreu um erro.",
 };
