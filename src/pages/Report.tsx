@@ -583,7 +583,7 @@ const Report = () => {
           <section data-pdf-section>
             <div className="flex items-center gap-2 mb-4">
               <Target className="h-5 w-5 text-primary" />
-              <h2 className="text-xl font-bold font-display">Estratégia StoryBrand</h2>
+              <h2 className="text-xl font-bold font-display">Narrativa da Marca</h2>
             </div>
             <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
               {STORYBRAND_ITEMS.map(item => {
