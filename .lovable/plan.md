@@ -1,82 +1,30 @@
 
 
-# Plano Atualizado: Revisão Visual e de Consistência Completa — Posiciona
+# Fix: Edge Function timeout na geração da 3a semana
 
-Única alteração em relação ao plano anterior: na Fase 13.2, a renomeação "StoryBrand" → "Narrativa da Marca" agora **preserva** a palavra "StoryBrand" na frase "Sua jornada StoryBrand aplicada ao posicionamento" na página `/storybrand` (`src/pages/StoryBrand.tsx`).
+## Diagnóstico
 
----
+A chamada da 3a semana retornou **500 após 61 segundos**. As 2 primeiras semanas funcionaram (95-97s com status 200). Causas prováveis:
 
-## Fases 1–7: Concluídas
+1. **PDFs de referência recarregados a cada chamada** — até 5 PDFs são baixados do storage, convertidos para base64, e enviados ao Gemini em cada geração. Isso consome ~20-30s do tempo da função e infla o payload.
+2. **Payload do cliente desnecessariamente grande** — `previousWeeks` envia o conteúdo completo de todas as semanas anteriores, mas a edge function só usa `theme` e `format` para o resumo.
+3. **Race condition nos créditos** — leitura e escrita não-atômica do saldo.
 
-Sem alterações.
+## Correções
 
----
+### 1. Edge Function (`generate-content-week/index.ts`)
 
-## Fase 8: Narrativa da Marca (StoryBrand)
+- **Limitar PDFs a partir da semana 2**: A marca já foi contextualizada na semana 1. Para semanas subsequentes, pular os PDFs de referência (o StoryBrand e tom de voz já fornecem o contexto necessário).
+- **Receber apenas resumo do cliente**: Aceitar `previousWeeks` mas extrair apenas `day`, `theme` e `format` no servidor (já faz isso, mas o payload de rede é grande desnecessariamente).
+- **Deduction atômica de créditos**: Usar `weekly_cycles: balanceData.weekly_cycles - 1` com uma cláusula `.gt("weekly_cycles", 0)` para evitar negativos.
+- **Adicionar console.error** antes do return 500 para facilitar debugging futuro.
+- **Aumentar tolerância**: Adicionar retry simples (1 tentativa extra) caso a API do Gemini falhe.
 
-- Collapsible por bloco (fechado: ícone + título + primeira frase truncada)
-- `<CleanText>` em todos os textos
-- Botão copiar discreto (ícone inline)
-- Resumo executivo com fundo mais marcado
+### 2. Cliente (`EditorialPage.tsx`)
 
----
+- **Enviar apenas resumos**: Em vez de enviar `allWeeks` completo (com legendas, scripts, card_copy), enviar apenas `theme` e `format` de cada dia para reduzir o payload de rede.
 
-## Fase 9: Linha Editorial
-
-- Diferenciação visual por formato (carrossel/reels/post)
-- Estados fechado/expandido
-- Borda lateral colorida por formato
-- Upsell "+7 dias" com card dourado
-- **Bug fix: corrigir erro ao clicar em "+7 dias"** — verificar `data?.error` além de `error` no retorno de `supabase.functions.invoke`, e tratar `data.editorial` undefined
-
----
-
-## Fase 10: Instagram Analysis
-
-- Estado vazio redesenhado com instruções claras
-- Upload aspiracional, botão ativo visualmente
-
----
-
-## Fase 11: Retratos de Marca
-
-- Layout mobile em coluna única, upload premium, stat-card para saldo
-
----
-
-## Fase 12: Editor de Posts
-
-- Preview protagonista e sticky, controles em grupos recolhíveis
-
----
-
-## Fase 13: Renomeação Global e Correções Transversais
-
-### 13.1 "regeneração/regenerações" → "ajustes de conteúdo"
-Arquivos: `LandingPage`, `ChoosePlan`, `EditorialPage`, `HelpPage`, `AdminUsers`, Stripe.
-
-### 13.2 "StoryBrand" → "Narrativa da Marca" (labels visíveis)
-Arquivos: `DashboardLayout`, `LandingPage`, `ChoosePlan`, `SobrePage`, `HelpPage`, `Results`, `HistoryPage`, `StoryBrand.tsx`.
-
-**Exceção:** manter "StoryBrand" na frase **"Sua jornada StoryBrand aplicada ao posicionamento"** em `StoryBrand.tsx` (subtítulo da página). Apenas o título principal da página muda para "Narrativa da Marca".
-
-Não alterar: chaves de dados, reportParser, queries, edge functions, rotas.
-
-### 13.3 Frase hero da landing — incluir retratos
-"...entrega estratégia, calendário, conteúdo pronto para publicar e retratos de marca..."
-
-### 13.4 Cards de entregáveis — bordas consistentes
-Todos com `border-landing-border/40`, destacados apenas via ring/fundo.
-
-### 13.5 Retratos no Histórico não carregam
-`loading="lazy"` + fallback `onError` em `HistoryPage.tsx`.
-
----
-
-## Ordem de execução
-
-1. Fases 1–7 — concluídas
-2. Fase 8 → 9 (com bug fix +7 dias) → 10
-3. Fase 11 → 12
-4. Fase 13 (renomeação global + correções transversais)
+### Arquivos alterados
+- `supabase/functions/generate-content-week/index.ts`
+- `src/pages/EditorialPage.tsx`
 
