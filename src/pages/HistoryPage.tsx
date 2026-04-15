@@ -219,7 +219,7 @@ const HistoryPage = () => {
                     return imgs.map((img: string, i: number) => (
                       <div key={`${p.id}-${i}`} className="space-y-2 group">
                         <div className="aspect-square rounded-lg overflow-hidden border border-border bg-muted relative">
-                          <img src={img} alt="Retrato" className="w-full h-full object-cover" />
+                          <img src={img} alt="Retrato" className="w-full h-full object-cover" loading="lazy" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                           <button
                             onClick={() => downloadPortrait(img, i)}
                             className="absolute bottom-2 right-2 bg-background/80 backdrop-blur-sm border border-border rounded-full p-2 opacity-0 group-hover:opacity-100 transition-opacity"
@@ -312,10 +312,10 @@ const HistoryPage = () => {
                     <p className="text-muted-foreground">{c.tone_of_voice.summary}</p>
                   </div>
                 )}
-                {/* StoryBrand */}
+                {/* Narrativa da Marca */}
                 {c.storybrand && (
                   <div>
-                    <h3 className="font-semibold mb-1">StoryBrand</h3>
+                    <h3 className="font-semibold mb-1">Narrativa da Marca</h3>
                     <div className="grid grid-cols-2 gap-2">
                       {Object.entries(c.storybrand).map(([k, v]) => (
                         <div key={k} className="p-2 bg-muted/30 rounded text-xs">
