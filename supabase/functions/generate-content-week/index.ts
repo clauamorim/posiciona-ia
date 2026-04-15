@@ -100,13 +100,7 @@ serve(async (req) => {
 
     const { business, niche, previousWeeks, storybrand, tone_of_voice, weekNumber } = await req.json();
 
-    // Atomic credit deduction — only succeeds if weekly_cycles > 0
-    const { data: updatedBalance, error: deductError } = await supabase
-      .from("user_balances")
-      .update({ weekly_cycles: supabase.rpc ? undefined : 0 }) // placeholder, real update below
-      .eq("user_id", user.id);
-
-    // Actually: read then conditionally update
+    // Check credits
     const { data: balanceData } = await supabase
       .from("user_balances")
       .select("weekly_cycles")
