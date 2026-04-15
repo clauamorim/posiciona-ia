@@ -18,6 +18,9 @@ import {
 import posicionaLogo from "@/assets/posiciona-logo.png";
 import { useState } from "react";
 
+/* ── Feature toggle for future demo section ── */
+const SHOW_DEMO_SECTION = false;
+
 /* ── Plan data ── */
 const plans = [
   {
@@ -27,6 +30,7 @@ const plans = [
     period: "pagamento único",
     description: "Para quem quer clareza e uma primeira semana estratégica pronta para usar.",
     highlight: false,
+    badge: null,
     features: [
       "Diagnóstico inicial completo",
       "Guia de posicionamento e StoryBrand",
@@ -46,6 +50,7 @@ const plans = [
     period: "/mês",
     description: "Para quem quer manter consistência e continuar produzindo com estratégia ao longo do mês.",
     highlight: true,
+    badge: "Mais escolhido",
     features: [
       "Tudo do Semana de Conteúdo",
       "4 ciclos semanais por mês",
@@ -63,6 +68,7 @@ const plans = [
     period: "/mês",
     description: "Para quem quer combinar posicionamento contínuo com reforço visual e presença mais premium.",
     highlight: false,
+    badge: "Mais completo",
     features: [
       "Tudo do Presença Mensal",
       "2 reanálises estratégicas/mês",
@@ -84,6 +90,9 @@ const faqItems = [
   { q: "Isso serve para o meu nicho?", a: "O Posiciona é feito para profissionais que vendem expertise: coaches, consultores, terapeutas, advogados, médicos, designers, arquitetos e qualquer profissional liberal que precisa comunicar valor com mais clareza." },
   { q: "Em quanto tempo recebo os resultados?", a: "Os arquétipos e o StoryBrand são gerados em minutos após completar os questionários. A linha editorial e os conteúdos são criados sob demanda." },
 ];
+
+/* Highlighted deliverables */
+const HIGHLIGHTED_DELIVERABLES = ["Mapa de Arquétipos", "StoryBrand Aplicado", "Calendário Editorial"];
 
 const LandingPage = () => {
   const { user, isLoading } = useAuth();
@@ -120,7 +129,6 @@ const LandingPage = () => {
             <span className="text-lg font-semibold tracking-tight">Posiciona</span>
           </Link>
 
-          {/* Desktop nav */}
           <nav className="hidden md:flex items-center gap-6 text-sm text-landing-text-secondary">
             <button onClick={() => scrollTo("como-funciona")} className="hover:text-landing-text transition-colors">Como funciona</button>
             <button onClick={() => scrollTo("resultados")} className="hover:text-landing-text transition-colors">Resultados</button>
@@ -140,13 +148,11 @@ const LandingPage = () => {
             )}
           </div>
 
-          {/* Mobile menu button */}
           <button className="md:hidden p-1" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
             {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
         </div>
 
-        {/* Mobile menu */}
         {mobileMenuOpen && (
           <div className="md:hidden border-t border-landing-border/60 bg-landing-bg px-4 py-4 space-y-3">
             <button onClick={() => scrollTo("como-funciona")} className="block text-sm text-landing-text-secondary hover:text-landing-text w-full text-left py-1">Como funciona</button>
@@ -169,7 +175,7 @@ const LandingPage = () => {
       </header>
 
       {/* ── HERO ── */}
-      <section className="pt-16 pb-20 md:pt-24 md:pb-28 px-4">
+      <section className="pt-12 pb-16 md:pt-20 md:pb-24 px-4">
         <div className="max-w-3xl mx-auto text-center space-y-6">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-landing-border bg-landing-bg-secondary/50 text-xs text-landing-text-secondary">
             <img src={posicionaLogo} alt="Posiciona" className="h-5 w-5" />
@@ -189,7 +195,12 @@ const LandingPage = () => {
             <Button size="lg" onClick={() => navigate("/signup")} className="bg-landing-purple hover:bg-landing-purple/90 text-white text-base h-12 px-8">
               Começar agora <ArrowRight className="h-4 w-4 ml-2" />
             </Button>
-            <Button size="lg" variant="outline" onClick={() => scrollTo("como-funciona")} className="border-landing-border text-landing-text-secondary hover:bg-landing-bg-secondary hover:text-landing-text text-base h-12 px-8">
+            <Button
+              size="lg"
+              variant="outline"
+              onClick={() => scrollTo("como-funciona")}
+              className="border-landing-purple/50 text-landing-purple hover:bg-landing-purple/10 hover:text-landing-text text-base h-12 px-8"
+            >
               Ver como funciona
             </Button>
           </div>
@@ -201,7 +212,7 @@ const LandingPage = () => {
       </section>
 
       {/* ── PROBLEMA ── */}
-      <section className="py-16 md:py-20 px-4 bg-landing-bg-secondary/40">
+      <section className="py-12 md:py-16 px-4 bg-landing-bg-secondary/40">
         <div className="max-w-3xl mx-auto text-center space-y-8">
           <h2 className="text-2xl md:text-3xl font-display font-semibold leading-tight">
             Quando sua presença digital não acompanha{" "}
@@ -226,7 +237,7 @@ const LandingPage = () => {
       </section>
 
       {/* ── COMO FUNCIONA ── */}
-      <section id="como-funciona" className="py-16 md:py-20 px-4">
+      <section id="como-funciona" className="py-12 md:py-16 px-4">
         <div className="max-w-4xl mx-auto space-y-10">
           <div className="text-center space-y-2">
             <h2 className="text-2xl md:text-3xl font-display font-semibold">
@@ -271,8 +282,34 @@ const LandingPage = () => {
         </div>
       </section>
 
+      {/* ── DEMONSTRAÇÃO (oculta por padrão) ── */}
+      {SHOW_DEMO_SECTION && (
+        <section className="py-12 md:py-16 px-4 bg-landing-bg-secondary/40">
+          <div className="max-w-4xl mx-auto space-y-8 text-center">
+            <div className="space-y-3">
+              <h2 className="text-2xl md:text-3xl font-display font-semibold">
+                Veja o Posiciona{" "}
+                <span className="text-landing-gold italic">em ação</span>
+              </h2>
+              <p className="text-sm md:text-base text-landing-text-secondary max-w-2xl mx-auto leading-relaxed">
+                Entenda como o diagnóstico, a estratégia e os conteúdos aparecem na prática dentro da plataforma.
+              </p>
+            </div>
+
+            {/* Video container */}
+            <div className="aspect-video rounded-xl border border-landing-border/50 bg-landing-bg/80 overflow-hidden flex items-center justify-center">
+              <p className="text-landing-text-secondary/40 text-sm">Vídeo ou prints em breve</p>
+            </div>
+
+            <Button size="lg" onClick={() => navigate("/signup")} className="bg-landing-purple hover:bg-landing-purple/90 text-white text-base h-12 px-8">
+              Começar meu posicionamento agora <ArrowRight className="h-4 w-4 ml-2" />
+            </Button>
+          </div>
+        </section>
+      )}
+
       {/* ── POR QUE USAR ── */}
-      <section className="py-16 md:py-20 px-4 bg-landing-bg-secondary/40">
+      <section className="py-12 md:py-16 px-4 bg-landing-bg-secondary/40">
         <div className="max-w-3xl mx-auto space-y-8">
           <h2 className="text-2xl md:text-3xl font-display font-semibold text-center">
             Para profissionais que{" "}
@@ -299,8 +336,8 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* ── PROVA CONCRETA ── */}
-      <section id="resultados" className="py-16 md:py-20 px-4">
+      {/* ── PROVA CONCRETA (entregáveis) ── */}
+      <section id="resultados" className="py-12 md:py-16 px-4">
         <div className="max-w-5xl mx-auto space-y-10">
           <div className="text-center space-y-2">
             <h2 className="text-2xl md:text-3xl font-display font-semibold">
@@ -311,57 +348,37 @@ const LandingPage = () => {
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {[
-              {
-                icon: Brain,
-                title: "Mapa de Arquétipos",
-                desc: "Top 3 arquétipos com pontuação, forças, tom de voz e direção visual.",
-                color: "text-purple-400",
-              },
-              {
-                icon: Target,
-                title: "StoryBrand Aplicado",
-                desc: "Narrativa completa: personagem, problema, guia, plano e transformação.",
-                color: "text-amber-400",
-              },
-              {
-                icon: BarChart3,
-                title: "Diagnóstico de Perfil",
-                desc: "Análise estratégica da bio, conteúdo, hashtags e oportunidades.",
-                color: "text-emerald-400",
-              },
-              {
-                icon: Calendar,
-                title: "Calendário Editorial",
-                desc: "Semanas inteiras de conteúdo com temas, formatos e CTAs definidos.",
-                color: "text-blue-400",
-              },
-              {
-                icon: MessageSquare,
-                title: "Conteúdos Prontos",
-                desc: "Posts, carrosséis e roteiros de reels com legendas e chamadas para ação.",
-                color: "text-pink-400",
-              },
-              {
-                icon: Camera,
-                title: "Retratos de Posicionamento",
-                desc: "Retratos profissionais gerados por IA com base nos seus arquétipos.",
-                color: "text-landing-gold",
-              },
-            ].map((item, i) => (
-              <div key={i} className="group p-5 rounded-xl border border-landing-border/40 bg-landing-bg-secondary/20 hover:bg-landing-bg-secondary/40 transition-colors space-y-3">
-                <div className="w-10 h-10 rounded-lg bg-landing-bg-secondary flex items-center justify-center">
-                  <item.icon className={`h-5 w-5 ${item.color}`} />
+              { icon: Brain, title: "Mapa de Arquétipos", desc: "Top 3 arquétipos com pontuação, forças, tom de voz e direção visual.", color: "text-purple-400" },
+              { icon: Target, title: "StoryBrand Aplicado", desc: "Narrativa completa: personagem, problema, guia, plano e transformação.", color: "text-amber-400" },
+              { icon: BarChart3, title: "Diagnóstico de Perfil", desc: "Análise estratégica da bio, conteúdo, hashtags e oportunidades.", color: "text-emerald-400" },
+              { icon: Calendar, title: "Calendário Editorial", desc: "Semanas inteiras de conteúdo com temas, formatos e CTAs definidos.", color: "text-blue-400" },
+              { icon: MessageSquare, title: "Conteúdos Prontos", desc: "Posts, carrosséis e roteiros de reels com legendas e chamadas para ação.", color: "text-pink-400" },
+              { icon: Camera, title: "Retratos de Posicionamento", desc: "Retratos profissionais gerados por IA com base nos seus arquétipos.", color: "text-landing-gold" },
+            ].map((item, i) => {
+              const isHighlighted = HIGHLIGHTED_DELIVERABLES.includes(item.title);
+              return (
+                <div
+                  key={i}
+                  className={`group p-5 rounded-xl border transition-colors space-y-3 ${
+                    isHighlighted
+                      ? "border-landing-purple/40 bg-landing-bg-secondary/40 ring-1 ring-landing-purple/10"
+                      : "border-landing-border/40 bg-landing-bg-secondary/20 hover:bg-landing-bg-secondary/40"
+                  }`}
+                >
+                  <div className="w-10 h-10 rounded-lg bg-landing-bg-secondary flex items-center justify-center">
+                    <item.icon className={`h-5 w-5 ${item.color}`} />
+                  </div>
+                  <h3 className="font-semibold text-sm">{item.title}</h3>
+                  <p className="text-xs text-landing-text-secondary leading-relaxed">{item.desc}</p>
                 </div>
-                <h3 className="font-semibold text-sm">{item.title}</h3>
-                <p className="text-xs text-landing-text-secondary leading-relaxed">{item.desc}</p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </section>
 
       {/* ── PLANOS ── */}
-      <section id="planos" className="py-16 md:py-20 px-4 bg-landing-bg-secondary/40">
+      <section id="planos" className="py-12 md:py-16 px-4 bg-landing-bg-secondary/40">
         <div className="max-w-5xl mx-auto space-y-10">
           <div className="text-center space-y-2">
             <h2 className="text-2xl md:text-3xl font-display font-semibold">Escolha seu plano</h2>
@@ -375,12 +392,16 @@ const LandingPage = () => {
                 className={`relative flex flex-col rounded-xl border p-6 transition-all ${
                   p.highlight
                     ? "border-landing-purple/60 bg-landing-bg-secondary/60 ring-1 ring-landing-purple/30"
-                    : "border-landing-border/50 bg-landing-bg/50"
+                    : p.slug === "autoridade_total"
+                      ? "border-landing-gold/30 bg-landing-bg-secondary/30"
+                      : "border-landing-border/50 bg-landing-bg/50"
                 }`}
               >
-                {p.highlight && (
-                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-landing-purple text-white text-[10px] font-semibold tracking-wide uppercase">
-                    Mais escolhido
+                {p.badge && (
+                  <span className={`absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full text-white text-[10px] font-semibold tracking-wide uppercase ${
+                    p.highlight ? "bg-landing-purple" : "bg-landing-gold"
+                  }`}>
+                    {p.badge}
                   </span>
                 )}
                 <div className="space-y-3 mb-5">
@@ -416,7 +437,9 @@ const LandingPage = () => {
                   className={`w-full ${
                     p.highlight
                       ? "bg-landing-purple hover:bg-landing-purple/90 text-white"
-                      : "bg-transparent border border-landing-border hover:bg-landing-bg-secondary text-landing-text"
+                      : p.slug === "autoridade_total"
+                        ? "bg-landing-gold/90 hover:bg-landing-gold text-white"
+                        : "bg-transparent border border-landing-border hover:bg-landing-bg-secondary text-landing-text"
                   }`}
                   onClick={() => handleCheckout(p.slug)}
                   disabled={loadingSlug === p.slug}
@@ -431,7 +454,7 @@ const LandingPage = () => {
       </section>
 
       {/* ── FAQ ── */}
-      <section id="faq" className="py-16 md:py-20 px-4">
+      <section id="faq" className="py-12 md:py-16 px-4">
         <div className="max-w-2xl mx-auto space-y-8">
           <h2 className="text-2xl md:text-3xl font-display font-semibold text-center">Perguntas frequentes</h2>
           <Accordion type="single" collapsible className="w-full space-y-2">
@@ -450,7 +473,7 @@ const LandingPage = () => {
       </section>
 
       {/* ── CTA FINAL ── */}
-      <section className="py-16 md:py-20 px-4 bg-landing-bg-secondary/40">
+      <section className="py-12 md:py-16 px-4 bg-landing-bg-secondary/40">
         <div className="max-w-2xl mx-auto text-center space-y-5">
           <h2 className="text-2xl md:text-3xl font-display font-semibold leading-tight">
             Seu próximo cliente já está no Instagram.{" "}
@@ -460,7 +483,7 @@ const LandingPage = () => {
             Comece agora e transforme posicionamento, imagem e conteúdo em uma presença mais clara, mais estratégica e mais valiosa.
           </p>
           <Button size="lg" onClick={() => navigate("/signup")} className="bg-landing-purple hover:bg-landing-purple/90 text-white text-base h-12 px-8">
-            Criar minha conta agora <ArrowRight className="h-4 w-4 ml-2" />
+            Começar meu posicionamento agora <ArrowRight className="h-4 w-4 ml-2" />
           </Button>
           <p className="text-xs text-landing-text-secondary/50">Sem fidelidade. Cancele quando quiser.</p>
         </div>
@@ -488,7 +511,7 @@ const LandingPage = () => {
         href="https://wa.me/5562994400707"
         target="_blank"
         rel="noopener noreferrer"
-        className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full shadow-lg transition-transform hover:scale-110 animate-pulse"
+        className="fixed bottom-20 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full shadow-lg transition-transform hover:scale-110 animate-pulse md:bottom-6"
         style={{ backgroundColor: "#25D366" }}
         aria-label="Fale conosco no WhatsApp"
       >
