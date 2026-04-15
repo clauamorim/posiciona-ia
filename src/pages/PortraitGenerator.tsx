@@ -248,11 +248,11 @@ const PortraitGenerator = () => {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h1 className="text-3xl font-bold font-display text-foreground">Retratos de Marca</h1>
-            <p className="text-muted-foreground mt-1">
-              Faça upload de selfies e gere retratos profissionais alinhados à sua identidade de marca.
+            <h1 className="text-xl font-semibold tracking-tight">Retratos de Marca</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Faça upload de selfies e gere retratos profissionais alinhados à sua identidade.
             </p>
           </div>
           <Dialog open={packDialogOpen} onOpenChange={setPackDialogOpen}>
@@ -359,17 +359,17 @@ const PortraitGenerator = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div
-                  className="border-2 border-dashed border-border rounded-xl p-8 text-center cursor-pointer hover:border-primary/50 hover:bg-accent/30 transition-colors"
+                  className="border-2 border-dashed border-primary/20 rounded-xl p-10 text-center cursor-pointer hover:border-primary/40 hover:bg-primary/[0.02] transition-all"
                   onClick={() => fileInputRef.current?.click()}
                   onDrop={handleDrop}
                   onDragOver={(e) => e.preventDefault()}
                 >
-                  <ImageIcon className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
-                  <p className="text-sm text-muted-foreground">
+                  <Upload className="h-12 w-12 text-primary/30 mx-auto mb-3" />
+                  <p className="text-sm font-medium text-foreground/70">
                     Arraste selfies aqui ou clique para selecionar
                   </p>
-                  <p className="text-xs text-muted-foreground/60 mt-1">
-                    1 a {MAX_FILES} imagens • Máx {MAX_SIZE_MB}MB cada
+                  <p className="text-xs text-muted-foreground mt-1.5">
+                    Selfies de rosto bem iluminadas · 1 a {MAX_FILES} imagens · Máx {MAX_SIZE_MB}MB cada
                   </p>
                   <input
                     ref={fileInputRef}
