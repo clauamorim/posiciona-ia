@@ -74,6 +74,8 @@ const EditorialPage = () => {
         },
       });
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      if (!data?.editorial) throw new Error("Nenhum conteúdo foi gerado. Tente novamente.");
 
       const updatedWeeks = [...editorialWeeks, data.editorial];
       await supabase.from("reports").update({ editorial_weeks: updatedWeeks }).eq("user_id", user.id).eq("version", report.version);
