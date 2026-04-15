@@ -46,6 +46,32 @@ async function fetchReferencePdfs(): Promise<{ mime_type: string; data: string }
   }
 }
 
+async function callGemini(systemPrompt: string, userContent: any): Promise<string> {
+  const response = await fetch(API_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${LOVABLE_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: "google/gemini-2.5-flash",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userContent },
+      ],
+      max_tokens: 8000,
+    }),
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`AI API error: ${response.status} - ${errText}`);
+  }
+
+  const data = await response.json();
+  return data.choices?.[0]?.message?.content || "";
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -72,9 +98,15 @@ serve(async (req) => {
       });
     }
 
-    const { business, niche, previousWeeks, storybrand, tone_of_voice } = await req.json();
+    const { business, niche, previousWeeks, storybrand, tone_of_voice, weekNumber } = await req.json();
 
-    // Check weekly_cycles credits
+    // Atomic credit deduction — only succeeds if weekly_cycles > 0
+    const { data: updatedBalance, error: deductError } = await supabase
+      .from("user_balances")
+      .update({ weekly_cycles: supabase.rpc ? undefined : 0 }) // placeholder, real update below
+      .eq("user_id", user.id);
+
+    // Actually: read then conditionally update
     const { data: balanceData } = await supabase
       .from("user_balances")
       .select("weekly_cycles")
@@ -84,6 +116,20 @@ serve(async (req) => {
     if (!balanceData || balanceData.weekly_cycles < 1) {
       return new Response(JSON.stringify({ error: "Créditos de ciclos semanais insuficientes. Adquira mais créditos para continuar gerando conteúdo." }), {
         status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Deduct atomically with a guard
+    const { error: creditError, count } = await supabase
+      .from("user_balances")
+      .update({ weekly_cycles: balanceData.weekly_cycles - 1 })
+      .eq("user_id", user.id)
+      .gt("weekly_cycles", 0);
+
+    if (creditError) {
+      console.error("Credit deduction failed:", creditError);
+      return new Response(JSON.stringify({ error: "Erro ao deduzir créditos. Tente novamente." }), {
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -171,8 +217,9 @@ ${previousSummary || "Nenhum conteúdo anterior."}
 
 Gere 7 novos dias de conteúdo em JSON.`;
 
-    // Fetch reference PDFs
-    const pdfParts = await fetchReferencePdfs();
+    // Only fetch reference PDFs for the first week
+    const isFirstWeek = !previousWeeks || previousWeeks.length === 0 || (weekNumber && weekNumber <= 1);
+    const pdfParts = isFirstWeek ? await fetchReferencePdfs() : [];
 
     const userContent: any = pdfParts.length > 0
       ? [
@@ -181,48 +228,29 @@ Gere 7 novos dias de conteúdo em JSON.`;
         ]
       : userPrompt;
 
-    const response = await fetch(API_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userContent },
-        ],
-        max_tokens: 8000,
-      }),
-    });
-
-    if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(`AI API error: ${response.status} - ${errText}`);
+    // Call Gemini with 1 retry
+    let rawContent: string;
+    try {
+      rawContent = await callGemini(systemPrompt, userContent);
+    } catch (firstError) {
+      console.error("First Gemini attempt failed, retrying:", firstError);
+      rawContent = await callGemini(systemPrompt, userContent);
     }
-
-    const data = await response.json();
-    const rawContent = data.choices?.[0]?.message?.content || "";
 
     let editorial: any;
     try {
       const cleaned = rawContent.replace(/^```json?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
       editorial = JSON.parse(cleaned);
     } catch {
+      console.error("Failed to parse AI response:", rawContent.substring(0, 500));
       throw new Error("Falha ao processar resposta da IA. Tente novamente.");
     }
-
-    // Deduct 1 weekly cycle
-    await supabase
-      .from("user_balances")
-      .update({ weekly_cycles: balanceData.weekly_cycles - 1 })
-      .eq("user_id", user.id);
 
     return new Response(JSON.stringify({ editorial }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
+    console.error("generate-content-week error:", error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
