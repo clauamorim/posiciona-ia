@@ -69,7 +69,7 @@ export const DashboardLayout = ({ children }: { children: React.ReactNode }) => 
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const groups = isAdmin ? [...userGroups, adminGroup] : userGroups;
+  const groups = isAdmin ? [adminGroup] : userGroups;
 
   return (
     <div className="min-h-screen flex bg-background">
