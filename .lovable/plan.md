@@ -1,30 +1,40 @@
 
 
-# Fix: Edge Function timeout na geração da 3a semana
+# Painel Admin: Menu exclusivo e dados de jornada por usuário
 
-## Diagnóstico
+## Problema atual
+- O admin vê o menu completo de usuário comum (Dashboard, Questionários, Estratégia, etc.) na sidebar, mesmo sem necessidade de usá-los.
+- A lista de usuários não mostra o último login nem quais fases da jornada cada um completou.
 
-A chamada da 3a semana retornou **500 após 61 segundos**. As 2 primeiras semanas funcionaram (95-97s com status 200). Causas prováveis:
+## Alterações
 
-1. **PDFs de referência recarregados a cada chamada** — até 5 PDFs são baixados do storage, convertidos para base64, e enviados ao Gemini em cada geração. Isso consome ~20-30s do tempo da função e infla o payload.
-2. **Payload do cliente desnecessariamente grande** — `previousWeeks` envia o conteúdo completo de todas as semanas anteriores, mas a edge function só usa `theme` e `format` para o resumo.
-3. **Race condition nos créditos** — leitura e escrita não-atômica do saldo.
+### 1. Sidebar exclusiva para admin (`DashboardLayout.tsx`)
+Quando `isAdmin === true`, exibir **apenas** o grupo "Admin" na sidebar (Painel Admin, Usuários, Documentos LLM, Galeria), removendo todos os grupos de usuário comum (Início, Diagnóstico, Estratégia, Produção, Conta).
 
-## Correções
+### 2. Edge Function: retornar `last_sign_in_at` (`admin-manage-user/index.ts`)
+Na action `list_users`, além do `emailMap`, retornar um `lastSignInMap` com `{ [userId]: last_sign_in_at }` extraído dos dados já disponíveis no `listUsers()` do Supabase Admin API.
 
-### 1. Edge Function (`generate-content-week/index.ts`)
+### 3. Fases da jornada por usuário (`AdminUsers.tsx`)
+Carregar dados adicionais para determinar quais fases cada usuário completou:
 
-- **Limitar PDFs a partir da semana 2**: A marca já foi contextualizada na semana 1. Para semanas subsequentes, pular os PDFs de referência (o StoryBrand e tom de voz já fornecem o contexto necessário).
-- **Receber apenas resumo do cliente**: Aceitar `previousWeeks` mas extrair apenas `day`, `theme` e `format` no servidor (já faz isso, mas o payload de rede é grande desnecessariamente).
-- **Deduction atômica de créditos**: Usar `weekly_cycles: balanceData.weekly_cycles - 1` com uma cláusula `.gt("weekly_cycles", 0)` para evitar negativos.
-- **Adicionar console.error** antes do return 500 para facilitar debugging futuro.
-- **Aumentar tolerância**: Adicionar retry simples (1 tentativa extra) caso a API do Gemini falhe.
+| Fase | Critério |
+|------|----------|
+| Questionário do Negócio | `business_questionnaires` com `is_complete = true` |
+| Questionário de Arquétipos | `archetype_scores` existe para o usuário |
+| Relatório Estratégico | `reports` com `status = 'completed'` |
+| Narrativa da Marca | `reports.content` contém seção StoryBrand (já carregado) |
+| Análise do Instagram | `instagram_analyses` existe |
+| Linha Editorial | `reports.editorial_weeks` com array não-vazio |
+| Retratos de Marca | `portrait_generations` existe |
 
-### 2. Cliente (`EditorialPage.tsx`)
+Exibir na tabela:
+- Nova coluna **"Último Login"** com a data formatada em pt-BR
+- Nova coluna **"Jornada"** com badges compactas indicando as fases concluídas (ex: "QN", "QA", "RE", "NM", "IG", "LE", "RT")
 
-- **Enviar apenas resumos**: Em vez de enviar `allWeeks` completo (com legendas, scripts, card_copy), enviar apenas `theme` e `format` de cada dia para reduzir o payload de rede.
+Também incluir esses dados no dialog de detalhes do usuário e no CSV exportado.
 
 ### Arquivos alterados
-- `supabase/functions/generate-content-week/index.ts`
-- `src/pages/EditorialPage.tsx`
+- `src/components/DashboardLayout.tsx` — condicional de menu admin-only
+- `supabase/functions/admin-manage-user/index.ts` — incluir `lastSignInMap`
+- `src/pages/admin/AdminUsers.tsx` — novas colunas, queries adicionais, badges de jornada
 
