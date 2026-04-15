@@ -22,12 +22,12 @@ const plans = [
     billing: "one_time",
     features: [
       "Diagnóstico inicial completo",
-      "Guia de posicionamento e StoryBrand",
+      "Guia de posicionamento e narrativa de marca",
       "3 arquétipos principais",
       "Análise inicial do Instagram",
       "1 ciclo editorial de 7 dias",
       "7 conteúdos prontos para publicar",
-      "3 créditos de regeneração",
+      "3 créditos de ajuste de conteúdo",
     ],
     notIncluded: ["Retratos não inclusos"],
     upgradeNote: "Faça upgrade em até 7 dias e desconte R$ 197",
@@ -43,7 +43,7 @@ const plans = [
       "Tudo do Semana de Conteúdo",
       "4 ciclos semanais por mês",
       "1 reanálise estratégica mensal",
-      "12 créditos de regeneração/mês",
+      "12 créditos de ajuste de conteúdo/mês",
       "Preço especial em extras",
     ],
     notIncluded: ["Retratos não inclusos"],
@@ -60,7 +60,7 @@ const plans = [
       "Tudo do Presença Mensal",
       "2 reanálises estratégicas/mês",
       "5 créditos de retrato inclusos/mês",
-      "20 créditos de regeneração/mês",
+      "20 créditos de ajuste de conteúdo/mês",
       "Melhor preço em extras",
     ],
     notIncluded: [],
@@ -163,7 +163,7 @@ const ChoosePlan = () => {
                 { icon: Calendar, value: balances.weekly_cycles, label: "Ciclos semanais" },
                 { icon: RefreshCw, value: balances.reanalysis_credits, label: "Reanálises" },
                 { icon: Camera, value: balances.portrait_credits_included + balances.portrait_credits_extra, label: "Retratos" },
-                { icon: Repeat, value: balances.regeneration_credits, label: "Regenerações" },
+                { icon: Repeat, value: balances.regeneration_credits, label: "Ajustes de conteúdo" },
               ].map((item, i) => (
                 <div key={i} className="p-2.5 rounded-lg bg-muted/40 text-center space-y-0.5">
                   <item.icon className="h-4 w-4 mx-auto text-muted-foreground" />

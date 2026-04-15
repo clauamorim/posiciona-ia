@@ -93,7 +93,7 @@ const EditorialPage = () => {
 
   const handleRegeneratePost = async (weekIndex: number, dayIndex: number) => {
     if (!user || regenerationCredits < 1) {
-      toast({ title: "Créditos insuficientes", description: "Você não tem créditos de regeneração.", variant: "destructive" });
+      toast({ title: "Créditos insuficientes", description: "Você não tem créditos de ajuste de conteúdo.", variant: "destructive" });
       return;
     }
     const key = `${weekIndex}-${dayIndex}`;
@@ -137,7 +137,7 @@ const EditorialPage = () => {
 
       await supabase.from("user_balances").update({ regeneration_credits: regenerationCredits - 1 }).eq("user_id", user.id);
       await supabase.from("credit_logs").insert({
-        user_id: user.id, credit_type: "regeneration", amount: -1, description: `Regeneração de post: ${day.theme}`,
+        user_id: user.id, credit_type: "regeneration", amount: -1, description: `Ajuste de conteúdo: ${day.theme}`,
       });
       await refreshSubscription();
       toast({ title: "Post regenerado com sucesso!" });
@@ -342,7 +342,7 @@ const EditorialPage = () => {
             <h1 className="text-2xl font-semibold tracking-tight">Linha Editorial</h1>
             <p className="text-sm text-muted-foreground mt-1">
               {allWeeks.length} semana{allWeeks.length > 1 ? "s" : ""} de conteúdo
-              {regenerationCredits > 0 && ` · ${regenerationCredits} regeneraç${regenerationCredits > 1 ? "ões" : "ão"}`}
+              {regenerationCredits > 0 && ` · ${regenerationCredits} ajuste${regenerationCredits > 1 ? "s" : ""} de conteúdo`}
             </p>
           </div>
           <Button onClick={handleDownloadPDF} variant="outline" size="sm" className="gap-2" disabled={downloadingPDF} data-hide-pdf>

@@ -13,15 +13,15 @@ const HELP_TOPICS = [
   },
   {
     id: "storybrand",
-    title: "Como funciona o StoryBrand?",
+    title: "Como funciona a Narrativa da Marca?",
     content:
-      "O framework StoryBrand, criado por Donald Miller, estrutura a comunicação da sua marca como uma narrativa. Nela, o seu CLIENTE é o herói da história, e a sua MARCA é o guia que o ajuda a superar desafios. O framework identifica: o problema externo, interno e filosófico do cliente; como sua marca o guia; qual o plano de ação; a chamada para ação; e os resultados de sucesso vs. fracasso. Isso cria uma mensagem clara e persuasiva.",
+      "O framework de Narrativa da Marca, baseado no método StoryBrand de Donald Miller, estrutura a comunicação da sua marca como uma narrativa. Nela, o seu CLIENTE é o herói da história, e a sua MARCA é o guia que o ajuda a superar desafios. O framework identifica: o problema externo, interno e filosófico do cliente; como sua marca o guia; qual o plano de ação; a chamada para ação; e os resultados de sucesso vs. fracasso. Isso cria uma mensagem clara e persuasiva.",
   },
   {
     id: "editorial",
     title: "Como usar a Linha Editorial?",
     content:
-      "A Linha Editorial é um planejamento semanal de conteúdo gerado com base nos seus arquétipos e StoryBrand. Cada semana contém 7 dias de conteúdo com formatos variados (carrossel, post, reels, stories). Você pode: gerar novas semanas usando seus ciclos semanais; regenerar posts individuais; e criar posts visuais prontos no editor integrado. Os conteúdos são sempre únicos e alinhados à sua estratégia.",
+      "A Linha Editorial é um planejamento semanal de conteúdo gerado com base nos seus arquétipos e narrativa de marca. Cada semana contém 7 dias de conteúdo com formatos variados (carrossel, post, reels, stories). Você pode: gerar novas semanas usando seus ciclos semanais; ajustar posts individuais; e criar posts visuais prontos no editor integrado. Os conteúdos são sempre únicos e alinhados à sua estratégia.",
   },
   {
     id: "editor",
@@ -33,7 +33,7 @@ const HELP_TOPICS = [
     id: "instagram",
     title: "Análise do Instagram",
     content:
-      "A análise do Instagram avalia seu perfil com base nos seus arquétipos e StoryBrand. Para usar: faça um print da tela principal do seu perfil no Instagram; faça upload da imagem; e receba uma análise detalhada com sugestões de melhoria para bio, destaques, feed, legendas e mais. Cada aspecto mostra a situação atual e uma sugestão prática de melhoria. Você pode baixar a análise em PDF.",
+      "A análise do Instagram avalia seu perfil com base nos seus arquétipos e narrativa de marca. Para usar: faça um print da tela principal do seu perfil no Instagram; faça upload da imagem; e receba uma análise detalhada com sugestões de melhoria para bio, destaques, feed, legendas e mais. Cada aspecto mostra a situação atual e uma sugestão prática de melhoria. Você pode baixar a análise em PDF.",
   },
   {
     id: "portraits",
@@ -45,13 +45,13 @@ const HELP_TOPICS = [
     id: "credits",
     title: "Créditos e Planos",
     content:
-      "O Posiciona funciona com um sistema de créditos:\n\n• Ciclos semanais: para gerar novas semanas de conteúdo na linha editorial\n• Créditos de regeneração: para substituir posts individuais na linha editorial\n• Créditos de reanálise: para refazer seus questionários e gerar nova estratégia\n• Créditos de retratos: para gerar novas sessões de retratos de marca\n\nSeu saldo aparece no Dashboard. Os créditos são renovados de acordo com seu plano.",
+      "O Posiciona funciona com um sistema de créditos:\n\n• Ciclos semanais: para gerar novas semanas de conteúdo na linha editorial\n• Créditos de ajuste de conteúdo: para substituir posts individuais na linha editorial\n• Créditos de reanálise: para refazer seus questionários e gerar nova estratégia\n• Créditos de retratos: para gerar novas sessões de retratos de marca\n\nSeu saldo aparece no Dashboard. Os créditos são renovados de acordo com seu plano.",
   },
   {
     id: "questionnaires",
     title: "Como funcionam os Questionários?",
     content:
-      "Existem dois questionários principais:\n\n1. Questionário do Negócio: coleta informações sobre sua empresa, público-alvo, serviços, problemas que resolve, provas de autoridade, etc. Essas informações alimentam o StoryBrand.\n\n2. Questionário de Arquétipos: uma série de afirmações que você avalia de 1 a 5, revelando quais arquétipos são mais fortes na sua personalidade de marca.\n\nApós completar ambos, você gera suas análises (relatório completo). Os questionários ficam bloqueados após a geração — para editá-los, use a função 'Refazer análise' (consome 1 crédito de reanálise).",
+      "Existem dois questionários principais:\n\n1. Questionário do Negócio: coleta informações sobre sua empresa, público-alvo, serviços, problemas que resolve, provas de autoridade, etc. Essas informações alimentam a narrativa de marca.\n\n2. Questionário de Arquétipos: uma série de afirmações que você avalia de 1 a 5, revelando quais arquétipos são mais fortes na sua personalidade de marca.\n\nApós completar ambos, você gera suas análises (relatório completo). Os questionários ficam bloqueados após a geração — para editá-los, use a função 'Refazer análise' (consome 1 crédito de reanálise).",
   },
 ];
 
