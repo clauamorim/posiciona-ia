@@ -16,11 +16,11 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { parseReportContent, normalizeReportContent } from "@/lib/reportParser";
 
-const FORMAT_CONFIG: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
-  reels: { label: "Reels", icon: <Video className="h-3 w-3" />, color: "bg-pink-500/10 text-pink-600 border-pink-200" },
-  carrossel: { label: "Carrossel", icon: <Image className="h-3 w-3" />, color: "bg-blue-500/10 text-blue-600 border-blue-200" },
-  stories: { label: "Stories", icon: <Smartphone className="h-3 w-3" />, color: "bg-amber-500/10 text-amber-600 border-amber-200" },
-  post: { label: "Post", icon: <ImageIcon className="h-3 w-3" />, color: "bg-emerald-500/10 text-emerald-600 border-emerald-200" },
+const FORMAT_CONFIG: Record<string, { label: string; icon: React.ReactNode; color: string; border: string }> = {
+  reels: { label: "Reels", icon: <Video className="h-3 w-3" />, color: "bg-pink-500/10 text-pink-600 border-pink-200", border: "border-l-pink-500" },
+  carrossel: { label: "Carrossel", icon: <Image className="h-3 w-3" />, color: "bg-blue-500/10 text-blue-600 border-blue-200", border: "border-l-blue-500" },
+  stories: { label: "Stories", icon: <Smartphone className="h-3 w-3" />, color: "bg-amber-500/10 text-amber-600 border-amber-200", border: "border-l-amber-500" },
+  post: { label: "Post", icon: <ImageIcon className="h-3 w-3" />, color: "bg-emerald-500/10 text-emerald-600 border-emerald-200", border: "border-l-emerald-500" },
 };
 
 const EditorialPage = () => {
@@ -301,15 +301,19 @@ const EditorialPage = () => {
   }
 
   const generateButton = (
-    <div className="flex flex-col items-center gap-2">
-      <Button onClick={handleGenerateWeek} disabled={generatingWeek || weeklyCycles < 1} className="gap-2">
-        {generatingWeek ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-        {generatingWeek ? "Gerando..." : allWeeks.length === 0 ? "Gerar primeira semana" : "Gerar +7 dias"}
-      </Button>
-      <p className="text-[11px] text-muted-foreground">
-        {weeklyCycles > 0 ? `${weeklyCycles} ciclo${weeklyCycles > 1 ? "s" : ""} disponível${weeklyCycles > 1 ? "is" : ""}` : "Sem ciclos disponíveis"}
-      </p>
-    </div>
+    <Card className="border-amber-300/40 bg-amber-50/50 dark:bg-amber-900/10">
+      <CardContent className="py-4 flex flex-col items-center gap-3">
+        <div className="text-center">
+          <p className="text-xs font-semibold text-amber-700 dark:text-amber-400">
+            {weeklyCycles > 0 ? `${weeklyCycles} ciclo${weeklyCycles > 1 ? "s" : ""} disponível${weeklyCycles > 1 ? "is" : ""}` : "Sem ciclos disponíveis"}
+          </p>
+        </div>
+        <Button onClick={handleGenerateWeek} disabled={generatingWeek || weeklyCycles < 1} className="gap-2">
+          {generatingWeek ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+          {generatingWeek ? "Gerando..." : allWeeks.length === 0 ? "Gerar primeira semana" : "Gerar +7 dias"}
+        </Button>
+      </CardContent>
+    </Card>
   );
 
   if (allWeeks.length === 0) {
@@ -363,7 +367,7 @@ const EditorialPage = () => {
                   const fmt = FORMAT_CONFIG[day.format?.toLowerCase()] || FORMAT_CONFIG.post;
                   const regenKey = `${wi}-${di}`;
                   return (
-                    <Card key={di} className="flex flex-col break-inside-avoid">
+                    <Card key={di} className={`flex flex-col break-inside-avoid border-l-[3px] ${fmt.border}`}>
                       <CardContent className="py-4 flex-1 space-y-3">
                         <div className="flex items-center justify-between">
                           <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Dia {day.day || di + 1}</span>
