@@ -67,8 +67,10 @@ const EditorialPage = () => {
 
       const reportContent = normalizeReportContent(reportData?.content) as Record<string, any> | null;
       const { data, error } = await supabase.functions.invoke("generate-content-week", {
-        body: {
-          business: bq, niche: profile?.niche || "", previousWeeks: allWeeks,
+         body: {
+          business: bq, niche: profile?.niche || "",
+          previousWeeks: allWeeks.map((week: any[]) => week.map((d: any) => ({ day: d.day, theme: d.theme, format: d.format }))),
+          weekNumber: allWeeks.length + 1,
           storybrand: reportContent?.storybrand || null,
           tone_of_voice: reportContent?.tone_of_voice || null,
         },
