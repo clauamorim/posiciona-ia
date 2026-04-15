@@ -467,8 +467,15 @@ const LandingPage = () => {
       </section>
 
       {/* ── FOOTER ── */}
-      <footer className="border-t border-landing-border/40 py-6 px-4 text-center">
-        <p className="text-xs text-landing-text-secondary/50">© {new Date().getFullYear()} Posiciona. Todos os direitos reservados.</p>
+      <footer className="border-t border-landing-border/40 py-8 px-4">
+        <div className="max-w-3xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+          <p className="text-xs text-landing-text-secondary/50">© {new Date().getFullYear()} Posiciona. Todos os direitos reservados.</p>
+          <div className="flex flex-col sm:flex-row items-center gap-3 text-xs text-landing-text-secondary/60">
+            <a href="mailto:contato@posiciona.ia.br" className="hover:text-landing-gold transition-colors">contato@posiciona.ia.br</a>
+            <span className="hidden sm:inline text-landing-border">|</span>
+            <a href="mailto:suporte@posiciona.ia.br" className="hover:text-landing-gold transition-colors">suporte@posiciona.ia.br</a>
+          </div>
+        </div>
       </footer>
 
       {/* Floating WhatsApp button */}

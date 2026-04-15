@@ -3,7 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard, Building2, Brain, BarChart3,
-  FileText, History, LogOut, Shield, Menu, X, Target, Calendar, Instagram, Camera, HelpCircle, CreditCard, FileUp, Image
+  FileText, History, LogOut, Shield, Menu, X, Target, Calendar, Instagram, Camera, HelpCircle, CreditCard, FileUp, Image, Mail, Headphones
 } from "lucide-react";
 import posicionaLogo from "@/assets/posiciona-logo.png";
 import { useState } from "react";
@@ -117,7 +117,15 @@ export const DashboardLayout = ({ children }: { children: React.ReactNode }) => 
         </nav>
 
         {/* Footer */}
-        <div className="px-4 py-3 border-t border-sidebar-border space-y-2">
+        <div className="px-4 py-3 border-t border-sidebar-border space-y-2.5">
+          <div className="space-y-1">
+            <a href="mailto:contato@posiciona.ia.br" className="flex items-center gap-2 text-[11px] text-sidebar-foreground/40 hover:text-sidebar-foreground transition-colors">
+              <Mail className="h-3 w-3 flex-shrink-0" /> contato@posiciona.ia.br
+            </a>
+            <a href="mailto:suporte@posiciona.ia.br" className="flex items-center gap-2 text-[11px] text-sidebar-foreground/40 hover:text-sidebar-foreground transition-colors">
+              <Headphones className="h-3 w-3 flex-shrink-0" /> suporte@posiciona.ia.br
+            </a>
+          </div>
           <p className="text-[11px] text-sidebar-foreground/40 truncate">{user?.email}</p>
           <button
             onClick={signOut}
