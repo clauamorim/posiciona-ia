@@ -74,10 +74,12 @@ serve(async (req) => {
       const { data: { users }, error } = await adminClient.auth.admin.listUsers({ perPage: 1000 });
       if (error) throw error;
       const emailMap: Record<string, string> = {};
+      const lastSignInMap: Record<string, string | null> = {};
       for (const u of users) {
         emailMap[u.id] = u.email || "";
+        lastSignInMap[u.id] = u.last_sign_in_at || null;
       }
-      return new Response(JSON.stringify({ emailMap }), {
+      return new Response(JSON.stringify({ emailMap, lastSignInMap }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
