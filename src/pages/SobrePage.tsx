@@ -61,14 +61,14 @@ const SobrePage = () => {
       </header>
 
       {/* ── HERO ── */}
-      <section className="pt-16 pb-14 md:pt-24 md:pb-20 px-4">
+      <section className="pt-12 pb-10 md:pt-20 md:pb-16 px-4">
         <div className="max-w-3xl mx-auto flex flex-col items-center text-center space-y-6">
-          {/* Photo */}
+          {/* Photo — larger and more prominent */}
           <div className="relative">
-            <div className="w-36 h-36 md:w-44 md:h-44 rounded-full overflow-hidden ring-2 ring-landing-border/40 ring-offset-4 ring-offset-landing-bg shadow-xl">
+            <div className="w-44 h-44 md:w-56 md:h-56 rounded-full overflow-hidden ring-2 ring-landing-border/40 ring-offset-4 ring-offset-landing-bg shadow-2xl">
               <img
                 src={claudiaPhoto}
-                alt="Cláudia Amorim — Fundadora do Posiciona"
+                alt="Cláudia Amorim — Criadora do Posiciona"
                 className="w-full h-full object-cover"
                 onError={(e) => {
                   const target = e.currentTarget;
@@ -105,8 +105,20 @@ const SobrePage = () => {
         </div>
       </section>
 
+      {/* ── DIFERENCIAL TÉCNICO (early mention) ── */}
+      <section className="py-10 md:py-14 px-4">
+        <div className="max-w-2xl mx-auto">
+          <div className="p-6 rounded-xl border border-landing-purple/20 bg-landing-bg-secondary/30 text-center space-y-3">
+            <p className="text-xs font-bold uppercase tracking-widest text-landing-purple/80">A base que sustenta o Posiciona</p>
+            <p className="text-base md:text-lg text-landing-text/90 font-display italic leading-relaxed">
+              "20 anos de fotografia, 4 anos de posicionamento de imagem e uma formação em Ciência da Computação. A união entre percepção visual, estratégia e tecnologia."
+            </p>
+          </div>
+        </div>
+      </section>
+
       {/* ── TESE ── */}
-      <section className="py-14 md:py-20 px-4 bg-landing-bg-secondary/40">
+      <section className="py-10 md:py-14 px-4 bg-landing-bg-secondary/40">
         <div className="max-w-2xl mx-auto space-y-5 text-center">
           <h2 className="text-2xl md:text-3xl font-display font-semibold leading-tight">
             Competência não é o problema.{" "}
@@ -119,8 +131,8 @@ const SobrePage = () => {
       </section>
 
       {/* ── ORIGEM E AUTORIDADE ── */}
-      <section className="py-14 md:py-20 px-4">
-        <div className="max-w-2xl mx-auto space-y-8">
+      <section className="py-10 md:py-14 px-4">
+        <div className="max-w-2xl mx-auto space-y-6">
           <p className="text-sm md:text-base text-landing-text/90 leading-relaxed">
             Entendo esse problema de dentro. Depois de duas décadas na fotografia, aprendi a perceber o que faz uma presença transmitir força, confiança e distinção antes mesmo de qualquer palavra ser lida.
           </p>
@@ -139,7 +151,7 @@ const SobrePage = () => {
       </section>
 
       {/* ── O QUE TORNA DIFERENTE ── */}
-      <section className="py-14 md:py-20 px-4 bg-landing-bg-secondary/40">
+      <section className="py-10 md:py-14 px-4 bg-landing-bg-secondary/40">
         <div className="max-w-4xl mx-auto space-y-10">
           <h2 className="text-2xl md:text-3xl font-display font-semibold text-center">
             O que torna o Posiciona{" "}
@@ -173,9 +185,6 @@ const SobrePage = () => {
         </div>
       </section>
 
-
-
-
       {/* ── CTA FINAL ── */}
       <section className="px-4">
         <div className="max-w-3xl mx-auto">
@@ -183,7 +192,7 @@ const SobrePage = () => {
         </div>
       </section>
 
-      <section className="py-14 md:py-20 px-4">
+      <section className="py-10 md:py-14 px-4">
         <div className="max-w-2xl mx-auto text-center space-y-6">
           <h2 className="text-2xl md:text-3xl font-display font-semibold leading-tight">
             Pronto para construir uma presença que reflita{" "}
@@ -220,7 +229,7 @@ const SobrePage = () => {
         href="https://wa.me/5562994400707"
         target="_blank"
         rel="noopener noreferrer"
-        className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full shadow-lg transition-transform hover:scale-110 animate-pulse"
+        className="fixed bottom-20 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full shadow-lg transition-transform hover:scale-110 animate-pulse md:bottom-6"
         style={{ backgroundColor: "#25D366" }}
         aria-label="Fale conosco no WhatsApp"
       >
