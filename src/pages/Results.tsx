@@ -21,6 +21,12 @@ const STAGE_LABELS: Record<Stage, string> = {
   error: "Ocorreu um erro.",
 };
 
+const RANK_LABELS: Record<string, { subtitle: string; size: string }> = {
+  "Primário": { subtitle: "Arquétipo dominante — define o tom central da sua marca", size: "md:col-span-1" },
+  "Secundário": { subtitle: "Complemento estratégico — enriquece sua comunicação", size: "md:col-span-1" },
+  "Terciário": { subtitle: "Apoio sutil — adiciona profundidade e nuance", size: "md:col-span-1" },
+};
+
 const Results = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -33,13 +39,11 @@ const Results = () => {
     if (!user) return;
     const run = async () => {
       try {
-        // Fetch the LATEST report regardless of status
         const { data: latestReport } = await supabase
           .from("reports").select("status, version, content")
           .eq("user_id", user.id)
           .order("version", { ascending: false }).limit(1).single();
 
-        // Load scores to display
         const [{ data: questions }, { data: answersData }] = await Promise.all([
           supabase.from("archetype_questions").select("id, question_number"),
           supabase.from("archetype_answers").select("question_id, score").eq("user_id", user.id),
@@ -51,15 +55,11 @@ const Results = () => {
         const calc = calculateScores(questions, answerMap);
         setScores(calc);
 
-        // Extract archetype details from report content
         if (latestReport?.content) {
           const normalized = normalizeReportContent(latestReport.content) as any;
-          if (normalized?.archetypes) {
-            setArchetypeDetails(normalized.archetypes);
-          }
+          if (normalized?.archetypes) setArchetypeDetails(normalized.archetypes);
         }
 
-        // Only skip regeneration if the LATEST report is completed with valid content
         if (latestReport?.status === "completed" && latestReport?.content) {
           setStage("done");
           return;
@@ -92,15 +92,12 @@ const Results = () => {
           tertiary: { archetype_name: top3[2]?.name, score: top3[2]?.score },
         };
 
-        // Use existing pending report or create a new version
         let reportVersion: number;
         if (latestReport && (latestReport.status === "pending" || latestReport.status === "generating")) {
-          // Reuse the pending/generating report
           reportVersion = latestReport.version;
           await supabase.from("reports").update({ status: "generating" })
             .eq("user_id", user.id).eq("version", reportVersion);
         } else {
-          // No report exists, create version 1
           reportVersion = 1;
           await supabase.from("reports").insert({
             user_id: user.id, version: reportVersion, status: "generating",
@@ -113,11 +110,7 @@ const Results = () => {
         if (reportError) throw reportError;
 
         const normalizedReportContent = normalizeReportContent(reportData?.report) as any;
-
-        // Extract archetype details from newly generated report
-        if (normalizedReportContent?.archetypes) {
-          setArchetypeDetails(normalizedReportContent.archetypes);
-        }
+        if (normalizedReportContent?.archetypes) setArchetypeDetails(normalizedReportContent.archetypes);
 
         await supabase.from("reports").update({ content: normalizedReportContent, status: "completed" })
           .eq("user_id", user.id).eq("version", reportVersion);
@@ -139,13 +132,6 @@ const Results = () => {
   const maxScore = 30;
   const isProcessing = stage !== "done" && stage !== "error";
 
-  const classificationLabels: Record<string, string> = {
-    "Primário": "Arquétipo dominante — define o tom central da sua marca",
-    "Secundário": "Complemento estratégico — enriquece sua comunicação",
-    "Terciário": "Apoio sutil — adiciona profundidade e nuance",
-  };
-
-  // Match top3 archetypes with LLM details
   const getArchetypeLlmData = (archName: string) => {
     const rankKeys = ["primary", "secondary", "tertiary"];
     for (const key of rankKeys) {
@@ -159,8 +145,8 @@ const Results = () => {
     <DashboardLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Seus Arquétipos</h1>
-          <p className="text-muted-foreground text-sm mt-1">Mapa completo da personalidade da sua marca</p>
+          <h1 className="text-xl md:text-2xl font-display font-semibold tracking-tight">Seus Arquétipos</h1>
+          <p className="text-muted-foreground text-sm mt-0.5">Mapa completo da personalidade da sua marca</p>
         </div>
 
         {/* Status */}
@@ -173,19 +159,19 @@ const Results = () => {
             ) : (
               <Sparkles className="h-5 w-5 text-destructive shrink-0" />
             )}
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <p className="font-medium text-sm">{STAGE_LABELS[stage]}</p>
               {stage === "error" && errorMsg && (
-                <p className="text-xs text-muted-foreground mt-0.5">{errorMsg}</p>
+                <p className="text-xs text-muted-foreground mt-0.5 truncate">{errorMsg}</p>
               )}
             </div>
             {stage === "done" && (
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-shrink-0">
                 <Button size="sm" onClick={() => navigate("/report")} className="gap-1.5">
-                  Acessar relatório <ArrowRight className="h-3.5 w-3.5" />
+                  Relatório <ArrowRight className="h-3.5 w-3.5" />
                 </Button>
                 <Button size="sm" variant="outline" onClick={() => navigate("/storybrand")}>
-                  Ver narrativa
+                  Narrativa
                 </Button>
               </div>
             )}
@@ -195,23 +181,24 @@ const Results = () => {
         {/* Top 3 */}
         {top3.length > 0 && (
           <div className="grid gap-4 md:grid-cols-3">
-            {top3.map(t => {
+            {top3.map((t, idx) => {
               const llm = getArchetypeLlmData(t.name);
+              const color = ARCHETYPE_COLORS[t.name];
               return (
-                <Card key={t.name} className="relative overflow-hidden border" style={{ borderColor: ARCHETYPE_COLORS[t.name] + "40" }}>
-                  <div className="absolute top-0 left-0 right-0 h-1" style={{ background: ARCHETYPE_COLORS[t.name] }} />
-                  <CardContent className="pt-5 pb-4 space-y-2">
-                    <Badge variant="outline" className="text-[10px]">{t.classification}</Badge>
-                    <h3 className="text-lg font-semibold">{t.name}</h3>
-                    <p className="text-2xl font-bold" style={{ color: ARCHETYPE_COLORS[t.name] }}>
-                      {t.score}<span className="text-sm text-muted-foreground font-normal">/{maxScore}</span>
-                    </p>
+                <Card key={t.name} className="relative overflow-hidden" style={{ borderColor: color + "30" }}>
+                  <div className="absolute top-0 left-0 w-1 h-full" style={{ background: color }} />
+                  <CardContent className="pt-4 pb-4 pl-5 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-[10px]">{t.classification}</Badge>
+                      <span className="text-xl font-bold" style={{ color }}>{t.score}<span className="text-xs text-muted-foreground font-normal">/{maxScore}</span></span>
+                    </div>
+                    <h3 className="text-lg font-display font-semibold">{t.name}</h3>
                     <p className="text-xs text-muted-foreground leading-relaxed">
-                      {classificationLabels[t.classification] || ""}
+                      {RANK_LABELS[t.classification]?.subtitle || ""}
                     </p>
                     {llm?.characteristics?.length > 0 && (
                       <div className="flex flex-wrap gap-1 pt-1">
-                        {llm.characteristics.map((c: string, i: number) => (
+                        {llm.characteristics.slice(0, 4).map((c: string, i: number) => (
                           <Badge key={i} variant="secondary" className="text-[10px]">{c}</Badge>
                         ))}
                       </div>
@@ -235,23 +222,26 @@ const Results = () => {
           </div>
         )}
 
-        {/* Ranking */}
+        {/* Full ranking */}
         {scores.length > 0 && (
-          <Card>
-            <CardContent className="py-5 space-y-2.5">
+          <Card className="border-border/60">
+            <CardContent className="py-5 space-y-2">
               <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Ranking completo</p>
-              {scores.map(s => (
-                <div key={s.name} className="flex items-center gap-3">
-                  <span className="text-xs w-24 font-medium truncate">{s.name}</span>
-                  <div className="flex-1 bg-muted rounded-full h-2 overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all duration-500"
-                      style={{ width: `${(s.score / maxScore) * 100}%`, background: ARCHETYPE_COLORS[s.name] }}
-                    />
+              {scores.map((s, i) => {
+                const isTop = i < 3;
+                return (
+                  <div key={s.name} className={`flex items-center gap-3 py-1 ${isTop ? "" : "opacity-70"}`}>
+                    <span className={`text-xs w-24 font-medium truncate ${isTop ? "text-foreground" : "text-muted-foreground"}`}>{s.name}</span>
+                    <div className="flex-1 bg-muted rounded-full h-2 overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all duration-500"
+                        style={{ width: `${(s.score / maxScore) * 100}%`, background: ARCHETYPE_COLORS[s.name] }}
+                      />
+                    </div>
+                    <span className={`text-xs font-semibold w-6 text-right ${isTop ? "" : "text-muted-foreground"}`}>{s.score}</span>
                   </div>
-                  <span className="text-xs font-semibold w-6 text-right">{s.score}</span>
-                </div>
-              ))}
+                );
+              })}
             </CardContent>
           </Card>
         )}
