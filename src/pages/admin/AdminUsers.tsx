@@ -362,7 +362,7 @@ const AdminUsers = () => {
                     <span>Reanálises: <strong>{viewingUser.balances.reanalysis_credits}</strong></span>
                     <span>Retratos (inclusos): <strong>{viewingUser.balances.portrait_credits_included}</strong></span>
                     <span>Retratos (extras): <strong>{viewingUser.balances.portrait_credits_extra}</strong></span>
-                    <span>Regenerações: <strong>{viewingUser.balances.regeneration_credits}</strong></span>
+                    <span>Ajustes de conteúdo: <strong>{viewingUser.balances.regeneration_credits}</strong></span>
                   </div>
                 </div>
               )}
@@ -406,7 +406,7 @@ const AdminUsers = () => {
                   <p>Ciclos semanais: {p.weekly_cycles * m}</p>
                   <p>Reanálises: {p.reanalysis_credits * m}</p>
                   <p>Retratos: {p.portrait_credits * m}</p>
-                  <p>Regenerações: {p.regeneration_credits * m}</p>
+                  <p>Ajustes de conteúdo: {p.regeneration_credits * m}</p>
                 </div>
               );
             })()}
@@ -430,7 +430,7 @@ const AdminUsers = () => {
               { key: "reanalysis_credits", label: "Reanálises" },
               { key: "portrait_credits_included", label: "Retratos (inclusos)" },
               { key: "portrait_credits_extra", label: "Retratos (extras)" },
-              { key: "regeneration_credits", label: "Regenerações" },
+              { key: "regeneration_credits", label: "Ajustes de conteúdo" },
             ].map(({ key, label }) => (
               <div key={key}>
                 <Label>{label}</Label>
