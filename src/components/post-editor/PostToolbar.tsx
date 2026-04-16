@@ -238,6 +238,7 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
   slideNumberSize, onSlideNumberSizeChange,
   isCarousel,
   uploadedImages = [],
+  selectedTextId,
 }) => {
   const [elementsOpen, setElementsOpen] = useState(false);
   const [svgElementsOpen, setSvgElementsOpen] = useState(false);
