@@ -174,6 +174,7 @@ const PostEditorPage = () => {
   const [customGradientColor2, setCustomGradientColor2] = useState<string | null>(draft?.customGradientColor2 ?? null);
   const [gradientDirection, setGradientDirection] = useState(draft?.gradientDirection ?? "to right");
   const [textAlign, setTextAlign] = useState<"left" | "center" | "right" | "justify">((draft?.textAlign as any) ?? "center");
+  const [titleTextAlign, setTitleTextAlign] = useState<"left" | "center" | "right" | "justify">(((draft as any)?.titleTextAlign as any) ?? "center");
   const [customTextColor, setCustomTextColor] = useState<string | null>(draft?.customTextColor ?? null);
   const [customBgColor, setCustomBgColor] = useState<string | null>(draft?.customBgColor ?? null);
   const [copied, setCopied] = useState(false);
@@ -506,9 +507,15 @@ const PostEditorPage = () => {
       const base64 = overlay.src.split("base64,")[1];
       if (!base64) return;
       const decoded = atob(base64);
-      let recolored = decoded.replace(/(fill|stroke)="(?!none)[^"]*"/g, (_m, attr) => `${attr}="${color}"`);
-      // If no fill attribute exists on root <svg>, inject it
-      if (!/fill=/.test(recolored.split(">")[0])) {
+      // Replace fill / stroke / color attrs (skip "none")
+      let recolored = decoded.replace(/(fill|stroke|color)="(?!none)[^"]*"/g, (_m, attr) => `${attr}="${color}"`);
+      // Ensure root <svg> carries a color attribute (drives currentColor on children)
+      const svgOpen = recolored.match(/<svg[^>]*>/);
+      if (svgOpen && !/\bcolor=/.test(svgOpen[0])) {
+        recolored = recolored.replace(/<svg([^>]*)>/, `<svg$1 color="${color}">`);
+      }
+      // If no fill on root <svg>, inject it as well
+      if (svgOpen && !/\bfill=/.test(svgOpen[0])) {
         recolored = recolored.replace(/<svg([^>]*)>/, `<svg$1 fill="${color}">`);
       }
       const encoded = btoa(recolored);
@@ -738,7 +745,7 @@ const PostEditorPage = () => {
                 onImageMove={handleImageMove} onImageResize={handleImageResize}
                 selectedImageId={selectedImageId} onSelectImage={setSelectedImageId}
                 fontSize={fontSize} fontWeight={fontWeight} fontStyle={fontStyle}
-                textAlign={textAlign} bgGradient={bgGradient}
+                textAlign={textAlign} titleTextAlign={titleTextAlign} bgGradient={bgGradient}
                 titleFontSize={titleFontSize} titleColor={titleColor} titleFontFamily={titleFontFamily}
                 ctaText={ctaText} ctaBgColor={ctaBgColor} ctaTextColor={ctaTextColor}
                 ctaFontSize={ctaFontSize} ctaPosition={ctaPosition} onCtaMove={handleCtaMove}
@@ -759,7 +766,7 @@ const PostEditorPage = () => {
                 bgColor={bgColor} textColor={textColor} accentColor={accentColor}
                 displayFont={displayFont} bodyFont={bodyFont} layout={layout}
                 fontSize={fontSize} fontWeight={fontWeight} fontStyle={fontStyle}
-                textAlign={textAlign}
+                textAlign={textAlign} titleTextAlign={titleTextAlign}
                 onTextChange={(t) => setEditedTexts([t])} onTitleChange={setEditedTitle}
                 canvasRef={singleCanvasRef}
                 overlayImages={overlayImages} onUpdateOverlay={handleUpdateOverlay}
@@ -795,7 +802,6 @@ const PostEditorPage = () => {
                 bgHex={bgColor}
                 onBgChange={(i) => { setCustomBgColor(null); setBgIndex(i); }}
                 onCustomBgColorChange={setCustomBgColor}
-                layout={layout as any} onLayoutChange={setLayout as any}
                 onDownload={() => handleDownloadSlide(isCarousel ? currentSlide : 0)}
                 onReset={handleReset} onAddImage={handleAddImage}
                 recommendedFonts={{ display: typography.display, body: typography.body }}
@@ -816,6 +822,7 @@ const PostEditorPage = () => {
                 titleFontSize={titleFontSize} onTitleFontSizeChange={setTitleFontSize}
                 titleColor={titleColor} onTitleColorChange={setTitleColor}
                 titleFontFamily={titleFontFamily} onTitleFontFamilyChange={setTitleFontFamily}
+                titleTextAlign={titleTextAlign} onTitleTextAlignChange={setTitleTextAlign}
                 ctaText={ctaText} onCtaTextChange={setCtaText}
                 ctaBgColor={ctaBgColor} onCtaBgColorChange={setCtaBgColor}
                 ctaTextColor={ctaTextColor} onCtaTextColorChange={setCtaTextColor}
