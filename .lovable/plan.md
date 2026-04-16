@@ -1,44 +1,34 @@
 
+Objetivo: corrigir 3 problemas restantes no editor: reset ao alternar janela/aba, botões de camada sem efeito visual real, e imagens enviadas não aparecendo na galeria como esperado.
 
-# Correções e Melhorias no Editor e Questionário (atualizado)
+1. Corrigir o reset ao alternar app/aba
+- O `AuthContext` ainda pode recolocar a app em loading quando ocorre `SIGNED_IN` para o mesmo usuário já autenticado, o que desmonta páginas protegidas e reinicia o editor.
+- Vou ajustar a lógica para que refresh/reativação da sessão do mesmo usuário apenas atualize `session`, sem reentrar em `isLoading`.
+- No `PostEditorPage`, vou adicionar persistência de rascunho por usuário + conteúdo atual, salvando estado do editor em armazenamento temporário e restaurando antes da inicialização padrão.
+- O rascunho vai incluir: textos, título, overlays, slide atual, layout, cores, gradiente, CTA, numeração, formato e demais controles visuais.
+- O botão de reset também limpará esse rascunho.
 
-O pedido contém 10 problemas distintos. Segue o plano consolidado.
+2. Fazer “Para frente” e “Para trás” funcionarem de verdade no canvas
+- Hoje a reordenação altera o array, mas o canvas ainda mistura z-index fixo por tipo/seleção, então a mudança nem sempre aparece visualmente.
+- Vou unificar a pilha visual dos overlays: a ordem renderizada passará a seguir uma única hierarquia consistente para foto, elemento e caixa de texto.
+- Vou remover overrides de z-index baseados em seleção e manter o destaque visual só com outline/handles.
+- Os botões passarão a mover o item selecionado na pilha real do canvas, não apenas na listagem derivada.
 
----
+3. Fazer upload aparecer na galeria
+- Hoje a imagem enviada entra no canvas, e a “galeria” visível fica separada entre ativos administrativos e uma lista temporária derivada do estado atual.
+- Vou transformar as imagens enviadas pelo usuário em uma fonte explícita de galeria do editor, persistida junto com o rascunho.
+- Essas imagens aparecerão na própria área de galeria como “Minhas imagens”/“Imagens enviadas”, para poder reutilizar sem novo upload.
+- Assim, mesmo após alternar aba/janela, as imagens continuarão disponíveis na galeria enquanto o rascunho existir.
 
-## 1–9: Mantidos conforme plano anterior
+Arquivos previstos
+- `src/contexts/AuthContext.tsx`
+- `src/pages/PostEditorPage.tsx`
+- `src/components/post-editor/PostCanvas.tsx`
+- `src/components/post-editor/PostToolbar.tsx`
 
-Os itens 1 a 9 permanecem inalterados (questionário sem valor default, anti-reload Alt+Tab no questionário/editor/retratos, barras hardcoded, upload de imagens com galeria, cor customizada no gradiente, remoção de fundo, camadas, markdown na editorial e copy no editor).
-
----
-
-## 10. Botões de numeração do carrossel (ex: 1/6) editáveis e removíveis
-
-**Problema:** O canvas renderiza um badge circular fixo no canto superior direito mostrando `slideNumber/totalSlides` (ex: "1/6"). Esse elemento não é editável nem removível pelo usuário.
-
-**Solução:**
-- Adicionar um toggle no toolbar (seção de carrossel ou seção geral) para exibir/ocultar o badge de numeração dos slides.
-- Tornar o badge arrastável no canvas, similar ao CTA — o usuário pode reposicionar livremente.
-- Permitir editar cor de fundo, cor do texto e tamanho do badge via controles no toolbar.
-- Nova prop `showSlideNumber` (boolean, default true) e `slideNumberPosition` (x, y) no `PostCanvas` e `CarouselEditor`.
-- State gerenciado em `PostEditorPage.tsx`.
-
-**Arquivos:** `src/components/post-editor/PostCanvas.tsx`, `src/components/post-editor/PostToolbar.tsx`, `src/components/post-editor/CarouselEditor.tsx`, `src/pages/PostEditorPage.tsx`
-
----
-
-## Resumo de arquivos alterados
-
-| Arquivo | Mudanças |
-|---------|----------|
-| `src/pages/ArchetypeQuestionnaire.tsx` | Sem valor default 3, flag anti-reload |
-| `src/pages/PostEditorPage.tsx` | Flag anti-reload, compressão antes do remove-bg, copy limpo, cor gradiente customizada, funções de camada, estado do badge de numeração |
-| `src/pages/PortraitGenerator.tsx` | Persistência de estado contra Alt+Tab |
-| `src/contexts/AuthContext.tsx` | Evitar loading state em refresh de sessão |
-| `src/components/post-editor/PostCanvas.tsx` | Remover barras hardcoded, z-index por posição no array, badge de numeração editável/arrastável/removível |
-| `src/components/post-editor/PostToolbar.tsx` | Remover upload logo, galeria de imagens, cor customizada no gradiente, botões de camada, toggle e controles do badge de numeração |
-| `src/components/post-editor/CarouselEditor.tsx` | Passar novas props do badge de numeração |
-| `src/pages/EditorialPage.tsx` | Voltar asteriscos na exibição, copy dos cards usa texto pós-`**` |
-| `src/lib/textCleanup.ts` | Helper para extrair texto após bloco bold |
-| `supabase/functions/remove-background/index.ts` | Melhorar tratamento de erros e prompt para fundos claros |
-
+Detalhes técnicos
+- `textsInitializedRef` sozinho não resolve, porque ele só protege dentro do mesmo mount.
+- A correção precisa combinar:
+  1) não desmontar a rota desnecessariamente;
+  2) restaurar estado do editor se houver remount.
+- A galeria de uploads do usuário ficará separada da galeria administrativa, mas dentro da mesma experiência visual do editor.
