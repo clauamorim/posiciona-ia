@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,13 +12,6 @@ import { toast } from "@/hooks/use-toast";
 import { ChevronLeft, ChevronRight, Lock, RefreshCw, Pencil, Trash2 } from "lucide-react";
 
 const QUESTIONS_PER_PAGE = 12;
-const scoreLabels: Record<number, string> = {
-  1: "Discordo totalmente",
-  2: "Discordo",
-  3: "Neutro",
-  4: "Concordo",
-  5: "Concordo totalmente",
-};
 
 type QStatus = "draft" | "submitted" | "locked";
 
@@ -26,23 +19,26 @@ const ArchetypeQuestionnaire = () => {
   const { user, balances, refreshSubscription } = useAuth();
   const navigate = useNavigate();
   const [questions, setQuestions] = useState<any[]>([]);
-  const [answers, setAnswers] = useState<Record<string, number>>({});
+  const [answers, setAnswers] = useState<Record<string, number | undefined>>({});
   const [touchedIds, setTouchedIds] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(0);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<QStatus>("draft");
   const [showReanalysisDialog, setShowReanalysisDialog] = useState(false);
+  const loadedRef = useRef(false);
 
   const isLocked = status === "locked";
   const reanalysisCredits = balances?.reanalysis_credits ?? 0;
 
   useEffect(() => {
+    if (loadedRef.current) return;
     const load = async () => {
       const { data: qs } = await supabase.from("archetype_questions").select("*").order("question_number");
       if (qs) {
         setQuestions(qs);
-        const defaults: Record<string, number> = {};
-        qs.forEach(q => { defaults[q.id] = 3; });
+        // Start with undefined — no option visually selected
+        const defaults: Record<string, number | undefined> = {};
+        qs.forEach(q => { defaults[q.id] = undefined; });
         if (user) {
           const { data: ans } = await supabase.from("archetype_answers").select("question_id, score").eq("user_id", user.id);
           if (ans && ans.length > 0) {
@@ -52,6 +48,7 @@ const ArchetypeQuestionnaire = () => {
           }
         }
         setAnswers(defaults);
+        loadedRef.current = true;
       }
       if (user) {
         const { data: latestReport } = await supabase
@@ -73,16 +70,21 @@ const ArchetypeQuestionnaire = () => {
   const saveAnswers = useCallback(async () => {
     if (!user || isLocked) return;
     setSaving(true);
-    const upserts = Object.entries(answers).map(([question_id, score]) => ({
-      user_id: user.id,
-      version: 1,
-      question_id,
-      score,
-    }));
-    await supabase.from("archetype_answers").upsert(upserts, { onConflict: "user_id,version,question_id" });
+    // Only save touched answers (with actual values)
+    const upserts = Array.from(touchedIds)
+      .filter(qid => answers[qid] !== undefined)
+      .map(qid => ({
+        user_id: user.id,
+        version: 1,
+        question_id: qid,
+        score: answers[qid]!,
+      }));
+    if (upserts.length > 0) {
+      await supabase.from("archetype_answers").upsert(upserts, { onConflict: "user_id,version,question_id" });
+    }
     setSaving(false);
     toast({ title: "Respostas salvas!" });
-  }, [user, answers, isLocked]);
+  }, [user, answers, isLocked, touchedIds]);
 
   const handleFinish = async () => {
     await saveAnswers();
@@ -99,9 +101,10 @@ const ArchetypeQuestionnaire = () => {
       description: `Reanálise: ${mode === "edit" ? "editar questionário de arquétipos" : "refazer do zero"}`,
     });
     if (mode === "reset") {
-      const defaults: Record<string, number> = {};
-      questions.forEach(q => { defaults[q.id] = 3; });
+      const defaults: Record<string, number | undefined> = {};
+      questions.forEach(q => { defaults[q.id] = undefined; });
       setAnswers(defaults);
+      setTouchedIds(new Set());
       await supabase.from("archetype_answers").delete().eq("user_id", user.id);
     }
     const { data: latestReport } = await supabase.from("reports").select("version")
@@ -113,6 +116,7 @@ const ArchetypeQuestionnaire = () => {
     setStatus("draft");
     setShowReanalysisDialog(false);
     setPage(0);
+    loadedRef.current = false; // allow reload
     await refreshSubscription();
     toast({ title: mode === "edit" ? "Questionário desbloqueado para edição" : "Questionário reiniciado" });
   };
@@ -165,7 +169,7 @@ const ArchetypeQuestionnaire = () => {
           <p className="text-[11px] text-muted-foreground text-right">{progress}%</p>
         </div>
 
-        {/* Questions — buttons instead of sliders */}
+        {/* Questions */}
         <div className="space-y-3">
           {pageQuestions.map(q => (
             <Card key={q.id} className="border-border/60">
