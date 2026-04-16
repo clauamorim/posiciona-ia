@@ -440,6 +440,12 @@ const PostEditorPage = () => {
                 ctaText={ctaText} ctaBgColor={ctaBgColor} ctaTextColor={ctaTextColor}
                 ctaFontSize={ctaFontSize} ctaPosition={ctaPosition} onCtaMove={handleCtaMove}
                 canvasWidth={cW} canvasHeight={cH}
+                showSlideNumber={showSlideNumber}
+                slideNumberPosition={slideNumberPosition}
+                onSlideNumberMove={(x, y) => setSlideNumberPosition({ x, y })}
+                slideNumberBgColor={slideNumberBgColor}
+                slideNumberTextColor={slideNumberTextColor}
+                slideNumberSize={slideNumberSize}
               />
             ) : (
               <PostCanvas
@@ -496,6 +502,11 @@ const PostEditorPage = () => {
             canvasFormat={canvasFormat} onCanvasFormatChange={setCanvasFormat}
             onRemoveBackground={handleRemoveBackground} removingBackground={removingBackground}
             onBringForward={handleBringForward} onSendBackward={handleSendBackward}
+            showSlideNumber={showSlideNumber} onShowSlideNumberChange={setShowSlideNumber}
+            slideNumberBgColor={slideNumberBgColor} onSlideNumberBgColorChange={setSlideNumberBgColor}
+            slideNumberTextColor={slideNumberTextColor} onSlideNumberTextColorChange={setSlideNumberTextColor}
+            slideNumberSize={slideNumberSize} onSlideNumberSizeChange={setSlideNumberSize}
+            isCarousel={isCarousel}
           />
         </div>
 
