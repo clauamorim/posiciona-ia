@@ -528,21 +528,29 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
                   fontFamily: `'${displayFont}', sans-serif`,
                   fontSize: snSize, fontWeight: "bold",
                   cursor: "move", userSelect: "none", zIndex: topZ + 2,
+                  touchAction: "none",
                 }}
-                onMouseDown={(e) => {
+                onPointerDown={(e) => {
                   e.preventDefault(); e.stopPropagation();
+                  try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch {}
                   onSelectImage?.(null);
                   setSelectedTextId(null);
                   const startX = e.clientX, startY = e.clientY;
                   const origX = snPos.x, origY = snPos.y;
-                  const handleMove = (ev: MouseEvent) => {
+                  const handleMove = (ev: PointerEvent) => {
+                    if (ev.cancelable) ev.preventDefault();
                     const dx = (ev.clientX - startX) / scale;
                     const dy = (ev.clientY - startY) / scale;
                     onSlideNumberMove?.(origX + dx, origY + dy);
                   };
-                  const handleUp = () => { window.removeEventListener("mousemove", handleMove); window.removeEventListener("mouseup", handleUp); };
-                  window.addEventListener("mousemove", handleMove);
-                  window.addEventListener("mouseup", handleUp);
+                  const handleUp = () => {
+                    window.removeEventListener("pointermove", handleMove);
+                    window.removeEventListener("pointerup", handleUp);
+                    window.removeEventListener("pointercancel", handleUp);
+                  };
+                  window.addEventListener("pointermove", handleMove, { passive: false });
+                  window.addEventListener("pointerup", handleUp);
+                  window.addEventListener("pointercancel", handleUp);
                 }}
                 onClick={(e) => e.stopPropagation()}
               >
