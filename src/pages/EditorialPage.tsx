@@ -303,10 +303,10 @@ const EditorialPage = () => {
   }
 
   const generateButton = (
-    <Card className="border-amber-300/40 bg-amber-50/50 dark:bg-amber-900/10">
+    <Card className="border-border bg-card">
       <CardContent className="py-4 flex flex-col items-center gap-3">
         <div className="text-center">
-          <p className="text-xs font-semibold text-amber-700 dark:text-amber-400">
+          <p className="text-xs font-semibold text-gold">
             {weeklyCycles > 0 ? `${weeklyCycles} ciclo${weeklyCycles > 1 ? "s" : ""} disponível${weeklyCycles > 1 ? "is" : ""}` : "Sem ciclos disponíveis"}
           </p>
         </div>
