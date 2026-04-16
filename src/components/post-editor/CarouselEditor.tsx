@@ -42,6 +42,12 @@ interface CarouselEditorProps {
   onCtaMove?: (x: number, y: number) => void;
   canvasWidth?: number;
   canvasHeight?: number;
+  showSlideNumber?: boolean;
+  slideNumberPosition?: { x: number; y: number } | null;
+  onSlideNumberMove?: (x: number, y: number) => void;
+  slideNumberBgColor?: string | null;
+  slideNumberTextColor?: string | null;
+  slideNumberSize?: number;
 }
 
 const CarouselEditor: React.FC<CarouselEditorProps> = ({
@@ -52,6 +58,8 @@ const CarouselEditor: React.FC<CarouselEditorProps> = ({
   titleFontSize, titleColor, titleFontFamily,
   ctaText, ctaBgColor, ctaTextColor, ctaFontSize, ctaPosition, onCtaMove,
   canvasWidth, canvasHeight,
+  showSlideNumber, slideNumberPosition, onSlideNumberMove,
+  slideNumberBgColor, slideNumberTextColor, slideNumberSize,
 }) => {
   const total = slides.length;
   const isCover = currentSlide === 0;
@@ -79,6 +87,12 @@ const CarouselEditor: React.FC<CarouselEditorProps> = ({
         ctaText={ctaText} ctaBgColor={ctaBgColor} ctaTextColor={ctaTextColor}
         ctaFontSize={ctaFontSize} ctaPosition={ctaPosition} onCtaMove={onCtaMove}
         canvasWidth={canvasWidth} canvasHeight={canvasHeight}
+        showSlideNumber={showSlideNumber}
+        slideNumberPosition={slideNumberPosition}
+        onSlideNumberMove={onSlideNumberMove}
+        slideNumberBgColor={slideNumberBgColor}
+        slideNumberTextColor={slideNumberTextColor}
+        slideNumberSize={slideNumberSize}
       />
 
       <div className="flex items-center gap-4">

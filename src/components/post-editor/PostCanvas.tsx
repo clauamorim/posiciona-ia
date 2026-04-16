@@ -424,12 +424,45 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
         >
           {/* Removed hardcoded decorative bars — use Barras e molduras from toolbar instead */}
 
-          {slideNumber !== undefined && totalSlides !== undefined && (
-            <div className="absolute top-6 right-6 w-14 h-14 rounded-full flex items-center justify-center text-lg font-bold"
-              style={{ backgroundColor: accentColor, color: bgColor, fontFamily: `'${displayFont}', sans-serif`, zIndex: 3 }}>
-              {slideNumber}/{totalSlides}
-            </div>
-          )}
+          {showSlideNumber && slideNumber !== undefined && totalSlides !== undefined && (() => {
+            const snPos = slideNumberPosition || { x: canvasWidth - 60, y: 50 };
+            const snBg = slideNumberBgColor || accentColor;
+            const snText = slideNumberTextColor || bgColor;
+            const snSize = slideNumberSize || 14;
+            const badgeW = snSize * 4;
+            const badgeH = snSize * 4;
+            return (
+              <div data-overlay
+                style={{
+                  position: "absolute", left: snPos.x - badgeW / 2, top: snPos.y - badgeH / 2,
+                  width: badgeW, height: badgeH, borderRadius: "50%",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  backgroundColor: snBg, color: snText,
+                  fontFamily: `'${displayFont}', sans-serif`,
+                  fontSize: snSize, fontWeight: "bold",
+                  cursor: "move", userSelect: "none", zIndex: 8,
+                }}
+                onMouseDown={(e) => {
+                  e.preventDefault(); e.stopPropagation();
+                  onSelectImage?.(null);
+                  setSelectedTextId(null);
+                  const startX = e.clientX, startY = e.clientY;
+                  const origX = snPos.x, origY = snPos.y;
+                  const handleMove = (ev: MouseEvent) => {
+                    const dx = (ev.clientX - startX) / scale;
+                    const dy = (ev.clientY - startY) / scale;
+                    onSlideNumberMove?.(origX + dx, origY + dy);
+                  };
+                  const handleUp = () => { window.removeEventListener("mousemove", handleMove); window.removeEventListener("mouseup", handleUp); };
+                  window.addEventListener("mousemove", handleMove);
+                  window.addEventListener("mouseup", handleUp);
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {slideNumber}/{totalSlides}
+              </div>
+            );
+          })()}
 
           {isLastSlide && !isCoverSlide && resolvedCtaText && (
             <div data-overlay
@@ -476,7 +509,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
                   width: img.width, height: img.height,
                   cursor: "move", userSelect: "none",
                   outline: isSelected ? "2px dashed rgba(255,255,255,0.7)" : "none",
-                  outlineOffset: 2, zIndex: isSelected ? 6 : 3 + arrayIndex,
+                  outlineOffset: 2, zIndex: 3 + arrayIndex,
                 }}
                 onMouseDown={(e) => handleMouseDown(e, img)}
                 onClick={(e) => { e.stopPropagation(); onSelectImage?.(img.id); setSelectedTextId(null); }}
