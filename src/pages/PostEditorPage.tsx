@@ -78,7 +78,7 @@ function loadDraft(weekIdx: number, dayIdx: number): EditorDraft | null {
     const raw = sessionStorage.getItem(DRAFT_KEY);
     if (!raw) return null;
     const draft: EditorDraft = JSON.parse(raw);
-    if (draft.weekIndex === weekIdx && draft.dayIndex === dayIdx) return draft;
+    if (draft.weekIndex === weekIdx && draft.dayIndex === dayIdx) return restoreDraftImages(draft);
     return null;
   } catch { return null; }
 }
