@@ -200,6 +200,18 @@ const ChoosePlan = () => {
         </div>
       )}
 
+      {/* Legal consent for new subscribers */}
+      {!currentSlug && (
+        <div className="max-w-sm mx-auto">
+          <LegalConsentCheckbox
+            checked={checkoutConsent}
+            onCheckedChange={(v) => { setCheckoutConsent(v); if (v) setCheckoutConsentError(""); }}
+            variant="checkout"
+            error={checkoutConsentError}
+          />
+        </div>
+      )}
+
       {/* Plan cards */}
       <div className="grid md:grid-cols-3 gap-6">
         {plans.map((p) => {

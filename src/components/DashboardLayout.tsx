@@ -197,6 +197,12 @@ export const DashboardLayout = ({ children }: { children: React.ReactNode }) => 
               </Link>
             );
           })}
+          {!isAdmin && (
+            <div className="flex items-center gap-3 px-3 pt-2 text-[11px] text-muted-foreground/50">
+              <Link to="/termos-de-servico" className="hover:text-muted-foreground transition-colors">Termos</Link>
+              <Link to="/politica-de-privacidade" className="hover:text-muted-foreground transition-colors">Privacidade</Link>
+            </div>
+          )}
           <div className="pt-2 pb-1 px-3">
             <p className="text-[11px] text-muted-foreground/50 truncate mb-2">{user?.email}</p>
             <button
