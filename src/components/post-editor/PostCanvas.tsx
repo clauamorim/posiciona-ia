@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState } from "react";
 import type { OverlayImage } from "./PostToolbar";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface PostCanvasProps {
   text: string;
@@ -84,6 +85,9 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   slideNumberBgColor, slideNumberTextColor, slideNumberSize,
   onSelectedTextChange, renderOrder: externalRenderOrder, onRenderOrderChange,
 }) => {
+  const isMobile = useIsMobile();
+  const handleVisualSize = isMobile ? 22 : RESIZE_HANDLE_SIZE;
+  const handleHitSize = isMobile ? 36 : 20;
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0.4);
   const [dragging, setDragging] = useState<{ id: string; startX: number; startY: number; origX: number; origY: number; isText?: boolean; isCta?: boolean } | null>(null);
@@ -309,33 +313,45 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   const resolvedCtaFontSize = ctaFontSize || 27;
 
   const renderResizeHandles = (item: { id: string; x: number; y: number; width: number; height: number }, isText: boolean) => {
-    const hs = RESIZE_HANDLE_SIZE;
-    const half = hs / 2;
-    const handles: { corner: Corner; style: React.CSSProperties }[] = [
-      { corner: "tl", style: { left: -half, top: -half } },
-      { corner: "tr", style: { right: -half, top: -half } },
-      { corner: "bl", style: { left: -half, bottom: -half } },
-      { corner: "br", style: { right: -half, bottom: -half } },
-      { corner: "t", style: { left: "50%", top: -half, transform: "translateX(-50%)" } },
-      { corner: "b", style: { left: "50%", bottom: -half, transform: "translateX(-50%)" } },
-      { corner: "l", style: { left: -half, top: "50%", transform: "translateY(-50%)" } },
-      { corner: "r", style: { right: -half, top: "50%", transform: "translateY(-50%)" } },
+    const visual = handleVisualSize;
+    const hit = handleHitSize;
+    const halfHit = hit / 2;
+    const handles: { corner: Corner; wrapStyle: React.CSSProperties }[] = [
+      { corner: "tl", wrapStyle: { left: -halfHit, top: -halfHit } },
+      { corner: "tr", wrapStyle: { right: -halfHit, top: -halfHit } },
+      { corner: "bl", wrapStyle: { left: -halfHit, bottom: -halfHit } },
+      { corner: "br", wrapStyle: { right: -halfHit, bottom: -halfHit } },
+      { corner: "t", wrapStyle: { left: "50%", top: -halfHit, transform: "translateX(-50%)" } },
+      { corner: "b", wrapStyle: { left: "50%", bottom: -halfHit, transform: "translateX(-50%)" } },
+      { corner: "l", wrapStyle: { left: -halfHit, top: "50%", transform: "translateY(-50%)" } },
+      { corner: "r", wrapStyle: { right: -halfHit, top: "50%", transform: "translateY(-50%)" } },
     ];
     return handles.map(h => (
-      <div key={h.corner} style={{
-        position: "absolute", ...h.style,
-        width: hs, height: hs,
-        backgroundColor: "white", border: "2px solid rgba(0,0,0,0.5)",
-        borderRadius: 3, cursor: CURSORS[h.corner], zIndex: 9999,
-        touchAction: "none",
-      }} onPointerDown={(e) => {
-        if (isText) {
-          const tb = textBoxes.find(t => t.id === item.id);
-          if (tb) handleTextResizeDown(e, tb, h.corner);
-        } else {
-          handleResizeDown(e, item as OverlayImage, h.corner);
-        }
-      }} />
+      <div
+        key={h.corner}
+        style={{
+          position: "absolute", ...h.wrapStyle,
+          width: hit, height: hit,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          cursor: CURSORS[h.corner], zIndex: 10000,
+          touchAction: "none",
+          backgroundColor: "transparent",
+        }}
+        onPointerDown={(e) => {
+          if (isText) {
+            const tb = textBoxes.find(t => t.id === item.id);
+            if (tb) handleTextResizeDown(e, tb, h.corner);
+          } else {
+            handleResizeDown(e, item as OverlayImage, h.corner);
+          }
+        }}
+      >
+        <div style={{
+          width: visual, height: visual,
+          backgroundColor: "white", border: "2px solid rgba(0,0,0,0.5)",
+          borderRadius: 3, pointerEvents: "none",
+        }} />
+      </div>
     ));
   };
 
