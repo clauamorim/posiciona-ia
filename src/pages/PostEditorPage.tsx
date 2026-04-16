@@ -498,6 +498,139 @@ const PostEditorPage = () => {
 
   const handleCtaMove = (x: number, y: number) => setCtaPosition({ x, y });
 
+  const handleRecolorElement = (color: string) => {
+    if (!selectedImageId) return;
+    const overlay = overlayImages.find(o => o.id === selectedImageId);
+    if (!overlay || overlay.type !== "element") return;
+    try {
+      const base64 = overlay.src.split("base64,")[1];
+      if (!base64) return;
+      const decoded = atob(base64);
+      let recolored = decoded.replace(/(fill|stroke)="(?!none)[^"]*"/g, (_m, attr) => `${attr}="${color}"`);
+      // If no fill attribute exists on root <svg>, inject it
+      if (!/fill=/.test(recolored.split(">")[0])) {
+        recolored = recolored.replace(/<svg([^>]*)>/, `<svg$1 fill="${color}">`);
+      }
+      const encoded = btoa(recolored);
+      handleUpdateOverlay(overlay.id, { src: `data:image/svg+xml;base64,${encoded}` });
+    } catch (e) {
+      console.error("Recolor failed", e);
+    }
+  };
+
+  const designIdParam = searchParams.get("design");
+  const [currentDesignId, setCurrentDesignId] = useState<string | null>(designIdParam);
+  const [savingDesign, setSavingDesign] = useState(false);
+  const designLoadedRef = useRef(false);
+
+  // Load existing design from ?design=ID
+  useEffect(() => {
+    if (!user || !designIdParam || designLoadedRef.current) return;
+    designLoadedRef.current = true;
+    supabase.from("user_designs").select("*").eq("id", designIdParam).eq("user_id", user.id).maybeSingle()
+      .then(({ data }) => {
+        if (!data || !data.state) return;
+        const s: any = data.state;
+        if (s.editedTexts) setEditedTexts(s.editedTexts);
+        if (s.editedTitle) setEditedTitle(s.editedTitle);
+        if (s.overlayImages) setOverlayImages(s.overlayImages);
+        if (s.uploadedImages) setUploadedImages(s.uploadedImages);
+        if (typeof s.bgIndex === "number") setBgIndex(s.bgIndex);
+        if (s.layout) setLayout(s.layout);
+        if (typeof s.currentSlide === "number") setCurrentSlide(s.currentSlide);
+        if (typeof s.fontSize === "number") setFontSize(s.fontSize);
+        if (s.fontWeight) setFontWeight(s.fontWeight);
+        if (s.fontStyle) setFontStyle(s.fontStyle);
+        if (typeof s.useGradient === "boolean") setUseGradient(s.useGradient);
+        if (typeof s.gradientColor2Index === "number") setGradientColor2Index(s.gradientColor2Index);
+        if (s.customGradientColor2 !== undefined) setCustomGradientColor2(s.customGradientColor2);
+        if (s.gradientDirection) setGradientDirection(s.gradientDirection);
+        if (s.textAlign) setTextAlign(s.textAlign);
+        if (s.customTextColor !== undefined) setCustomTextColor(s.customTextColor);
+        if (s.customBgColor !== undefined) setCustomBgColor(s.customBgColor);
+        if (typeof s.titleFontSize === "number") setTitleFontSize(s.titleFontSize);
+        if (s.titleColor !== undefined) setTitleColor(s.titleColor);
+        if (s.titleFontFamily !== undefined) setTitleFontFamily(s.titleFontFamily);
+        if (s.ctaText !== undefined) setCtaText(s.ctaText);
+        if (s.ctaBgColor !== undefined) setCtaBgColor(s.ctaBgColor);
+        if (s.ctaTextColor !== undefined) setCtaTextColor(s.ctaTextColor);
+        if (typeof s.ctaFontSize === "number") setCtaFontSize(s.ctaFontSize);
+        if (s.ctaPosition !== undefined) setCtaPosition(s.ctaPosition);
+        if (s.canvasFormat) setCanvasFormat(s.canvasFormat);
+        if (typeof s.showSlideNumber === "boolean") setShowSlideNumber(s.showSlideNumber);
+        if (s.slideNumberPosition !== undefined) setSlideNumberPosition(s.slideNumberPosition);
+        if (s.slideNumberBgColor !== undefined) setSlideNumberBgColor(s.slideNumberBgColor);
+        if (s.slideNumberTextColor !== undefined) setSlideNumberTextColor(s.slideNumberTextColor);
+        if (typeof s.slideNumberSize === "number") setSlideNumberSize(s.slideNumberSize);
+        if (s.displayFont) { loadGoogleFont(s.displayFont); setDisplayFont(s.displayFont); }
+        if (s.bodyFont) { loadGoogleFont(s.bodyFont); setBodyFont(s.bodyFont); }
+        textsInitializedRef.current = true;
+        bgInitializedRef.current = true;
+      });
+  }, [user, designIdParam]);
+
+  const handleSaveDesign = useCallback(async () => {
+    if (!user || savingDesign) return;
+    setSavingDesign(true);
+    try {
+      // Capture thumbnail
+      const html2canvas = (await import("html2canvas")).default;
+      const el = isCarousel ? slideRefs.current[currentSlide] : singleCanvasRef.current;
+      let thumbnail: string | null = null;
+      if (el) {
+        const origTransform = el.style.transform;
+        const origOrigin = el.style.transformOrigin;
+        el.style.transform = "scale(1)";
+        el.style.transformOrigin = "top left";
+        try {
+          const c = await html2canvas(el, { scale: 0.3, width: cW, height: cH, useCORS: true });
+          thumbnail = c.toDataURL("image/jpeg", 0.7);
+        } catch {}
+        el.style.transform = origTransform;
+        el.style.transformOrigin = origOrigin;
+      }
+
+      const state: any = {
+        editedTexts, editedTitle, overlayImages, uploadedImages,
+        bgIndex, layout, currentSlide, fontSize, fontWeight, fontStyle,
+        useGradient, gradientColor2Index, customGradientColor2, gradientDirection,
+        textAlign, customTextColor, customBgColor,
+        titleFontSize, titleColor, titleFontFamily,
+        ctaText, ctaBgColor, ctaTextColor, ctaFontSize, ctaPosition,
+        canvasFormat, showSlideNumber, slideNumberPosition,
+        slideNumberBgColor, slideNumberTextColor, slideNumberSize,
+        displayFont, bodyFont,
+      };
+      const title = `Dia ${day?.day || dayIndex + 1} — ${cleanMarkdown(editedTitle || day?.theme || "Sem título").slice(0, 60)}`;
+
+      if (currentDesignId) {
+        const { error } = await supabase.from("user_designs")
+          .update({ title, state, thumbnail, week_index: weekIndex, day_index: dayIndex, updated_at: new Date().toISOString() })
+          .eq("id", currentDesignId).eq("user_id", user.id);
+        if (error) throw error;
+        toast({ title: "Design atualizado" });
+      } else {
+        const { data, error } = await supabase.from("user_designs")
+          .insert({ user_id: user.id, title, state, thumbnail, week_index: weekIndex, day_index: dayIndex })
+          .select("id").single();
+        if (error) throw error;
+        if (data) setCurrentDesignId(data.id);
+        toast({ title: "Design salvo" });
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast({ title: "Erro ao salvar design", description: err?.message, variant: "destructive" });
+    } finally {
+      setSavingDesign(false);
+    }
+  }, [user, savingDesign, currentDesignId, isCarousel, currentSlide, cW, cH, day, dayIndex, weekIndex,
+      editedTexts, editedTitle, overlayImages, uploadedImages, bgIndex, layout, fontSize, fontWeight, fontStyle,
+      useGradient, gradientColor2Index, customGradientColor2, gradientDirection, textAlign, customTextColor, customBgColor,
+      titleFontSize, titleColor, titleFontFamily, ctaText, ctaBgColor, ctaTextColor, ctaFontSize, ctaPosition,
+      canvasFormat, showSlideNumber, slideNumberPosition, slideNumberBgColor, slideNumberTextColor, slideNumberSize,
+      displayFont, bodyFont]);
+
+
   const handleReset = () => {
     if (!day) return;
     const copies = (day.card_copy || [day.caption || ""]).map((t: string) => extractAfterBold(t));
