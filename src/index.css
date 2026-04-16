@@ -6,92 +6,100 @@
 
 @layer base {
   :root {
-    /* ── App Light Premium Workspace (tonalized, not pure white) ── */
-    --background: 252 12% 96%;
-    --foreground: 250 20% 12%;
+    /* ── Unified Dark Premium (matches landing page) ── */
+    --background: 252 60% 5%;       /* #0D0B1A */
+    --foreground: 0 0% 100%;        /* #FFFFFF */
 
-    --card: 252 10% 98%;
-    --card-foreground: 250 20% 12%;
+    --card: 252 52% 11%;            /* #13102A */
+    --card-foreground: 0 0% 100%;
 
-    --popover: 252 10% 98%;
-    --popover-foreground: 250 20% 12%;
+    --popover: 252 52% 11%;
+    --popover-foreground: 0 0% 100%;
 
-    --primary: 258 76% 57%;
+    --primary: 263 84% 58%;         /* #7C3AED */
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 252 10% 91%;
-    --secondary-foreground: 250 20% 12%;
+    --secondary: 252 35% 15%;       /* #1C1836 */
+    --secondary-foreground: 252 28% 76%;  /* #A09CC0 */
 
-    --muted: 252 10% 91%;
-    --muted-foreground: 260 8% 46%;
+    --muted: 252 35% 15%;
+    --muted-foreground: 252 28% 76%; /* #A09CC0 */
 
-    --accent: 258 76% 57%;
+    --accent: 263 84% 58%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    --success: 152 56% 40%;
-    --success-foreground: 0 0% 100%;
+    --success: 160 60% 67%;         /* #6EE7B7 */
+    --success-foreground: 252 60% 5%;
 
-    --warning: 38 92% 50%;
-    --warning-foreground: 0 0% 100%;
+    --warning: 42 52% 53%;          /* #C9A84C */
+    --warning-foreground: 252 60% 5%;
 
-    --border: 252 12% 88%;
-    --input: 252 12% 88%;
-    --ring: 258 76% 57%;
+    --border: 256 30% 23%;          /* #2E2A4A */
+    --input: 252 35% 15%;           /* #1C1836 */
+    --ring: 263 84% 58%;
 
     --radius: 0.75rem;
 
-    /* ── Sidebar (dark premium) ── */
-    --sidebar-background: 250 35% 10%;
-    --sidebar-foreground: 252 10% 92%;
-    --sidebar-primary: 258 76% 60%;
+    /* ── Sidebar ── */
+    --sidebar-background: 252 60% 5%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 263 84% 58%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 250 28% 16%;
-    --sidebar-accent-foreground: 252 10% 92%;
-    --sidebar-border: 250 22% 18%;
-    --sidebar-ring: 258 76% 57%;
-    --sidebar-muted: 250 18% 22%;
+    --sidebar-accent: 252 52% 11%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 256 30% 23%;
+    --sidebar-ring: 263 84% 58%;
+    --sidebar-muted: 252 35% 15%;
 
-    /* ── Landing Dark Premium ── */
-    --landing-bg: 250 60% 8%;
-    --landing-bg-secondary: 252 52% 13%;
-    --landing-text: 35 33% 94%;
-    --landing-text-secondary: 254 28% 76%;
-    --landing-purple: 258 76% 57%;
+    /* ── Landing reuses same tokens ── */
+    --landing-bg: 252 60% 5%;
+    --landing-bg-secondary: 252 52% 11%;
+    --landing-text: 0 0% 100%;
+    --landing-text-secondary: 252 28% 76%;
+    --landing-purple: 263 84% 58%;
     --landing-gold: 42 52% 53%;
-    --landing-border: 255 30% 21%;
+    --landing-border: 256 30% 23%;
+
+    /* ── Disabled / pending text ── */
+    --text-disabled: 256 20% 42%;   /* #5C5880 */
+
+    /* ── Gold accent ── */
+    --gold: 42 52% 53%;             /* #C9A84C */
+    --gold-hover: 42 58% 63%;       /* #E2C06A */
   }
 
+  /* Dark class = same as root (app is always dark) */
   .dark {
-    --background: 250 25% 8%;
-    --foreground: 252 12% 93%;
-    --card: 250 25% 12%;
-    --card-foreground: 252 12% 93%;
-    --popover: 250 25% 12%;
-    --popover-foreground: 252 12% 93%;
-    --primary: 258 76% 60%;
+    --background: 252 60% 5%;
+    --foreground: 0 0% 100%;
+    --card: 252 52% 11%;
+    --card-foreground: 0 0% 100%;
+    --popover: 252 52% 11%;
+    --popover-foreground: 0 0% 100%;
+    --primary: 263 84% 58%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 250 20% 18%;
-    --secondary-foreground: 252 12% 93%;
-    --muted: 250 20% 18%;
-    --muted-foreground: 252 10% 55%;
-    --accent: 258 76% 57%;
+    --secondary: 252 35% 15%;
+    --secondary-foreground: 252 28% 76%;
+    --muted: 252 35% 15%;
+    --muted-foreground: 252 28% 76%;
+    --accent: 263 84% 58%;
     --accent-foreground: 0 0% 100%;
-    --destructive: 0 62% 30%;
+    --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-    --border: 250 20% 20%;
-    --input: 250 20% 20%;
-    --ring: 258 76% 60%;
-    --sidebar-background: 250 35% 6%;
-    --sidebar-foreground: 252 12% 93%;
-    --sidebar-primary: 258 76% 60%;
+    --border: 256 30% 23%;
+    --input: 252 35% 15%;
+    --ring: 263 84% 58%;
+    --sidebar-background: 252 60% 5%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 263 84% 58%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 250 25% 12%;
-    --sidebar-accent-foreground: 252 12% 93%;
-    --sidebar-border: 250 25% 12%;
-    --sidebar-ring: 258 76% 60%;
+    --sidebar-accent: 252 52% 11%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 256 30% 23%;
+    --sidebar-ring: 263 84% 58%;
   }
 }
 
@@ -102,14 +110,43 @@
   body {
     @apply bg-background text-foreground;
     font-family: 'Inter', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Inter', sans-serif;
+    font-family: 'Cormorant Garamond', serif;
     font-weight: 600;
   }
+
+  /* Safari safe area */
+  html {
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: hsl(252 60% 5%);
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(256 30% 23%);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(263 84% 58% / 0.5);
 }
 
 /* PDF capture helpers — minimal overrides */
 .pdf-capture [data-hide-pdf] {
   display: none !important;
+}
+
+/* Prevent horizontal overflow globally */
+html, body, #root {
+  overflow-x: hidden;
+  max-width: 100vw;
 }
