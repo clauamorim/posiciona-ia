@@ -15,6 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { PortraitPreviewDialog } from "@/components/PortraitPreviewDialog";
 import jsPDF from "jspdf";
 
 type AnalysisItem = { aspect: string; current: string; suggestion: string };
@@ -30,6 +31,13 @@ const HistoryPage = () => {
   const [selectedReport, setSelectedReport] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [progress, setProgress] = useState(0);
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
+
+  // Flatten portraits across generations for linear preview navigation
+  const flatPortraits = portraits.flatMap((p: any) => {
+    const imgs = Array.isArray(p.portraits) ? p.portraits : [];
+    return imgs.map((url: string) => ({ url, createdAt: p.created_at, parentId: p.id }));
+  });
 
   const fetchData = useCallback(async () => {
     if (!user) return;
@@ -214,23 +222,28 @@ const HistoryPage = () => {
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                  {portraits.map((p: any) => {
-                    const imgs = Array.isArray(p.portraits) ? p.portraits : [];
-                    return imgs.map((img: string, i: number) => (
-                      <div key={`${p.id}-${i}`} className="space-y-2 group">
-                        <div className="aspect-square rounded-lg overflow-hidden border border-border bg-muted relative">
-                          <img src={img} alt="Retrato" className="w-full h-full object-cover" loading="lazy" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                          <button
-                            onClick={() => downloadPortrait(img, i)}
-                            className="absolute bottom-2 right-2 bg-background/80 backdrop-blur-sm border border-border rounded-full p-2 opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            <Download className="h-4 w-4" />
-                          </button>
-                        </div>
-                        <p className="text-xs text-center text-muted-foreground">{formatDate(p.created_at)}</p>
-                      </div>
-                    ));
-                  })}
+                  {flatPortraits.map((fp, idx) => (
+                    <div key={`${fp.parentId}-${idx}`} className="space-y-2 group">
+                      <button
+                        type="button"
+                        onClick={() => setPreviewIndex(idx)}
+                        className="aspect-square w-full rounded-lg overflow-hidden border border-border bg-muted relative cursor-zoom-in"
+                        aria-label="Pré-visualizar retrato"
+                      >
+                        <img src={fp.url} alt="Retrato" className="w-full h-full object-cover" loading="lazy" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          onClick={(e) => { e.stopPropagation(); downloadPortrait(fp.url, idx); }}
+                          onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); downloadPortrait(fp.url, idx); } }}
+                          className="absolute bottom-2 right-2 bg-background/80 backdrop-blur-sm border border-border rounded-full p-2 opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center justify-center"
+                        >
+                          <Download className="h-4 w-4" />
+                        </span>
+                      </button>
+                      <p className="text-xs text-center text-muted-foreground">{formatDate(fp.createdAt)}</p>
+                    </div>
+                  ))}
                 </div>
               )}
             </TabsContent>
@@ -336,6 +349,16 @@ const HistoryPage = () => {
           })()}
         </DialogContent>
       </Dialog>
+
+      <PortraitPreviewDialog
+        open={previewIndex !== null}
+        onOpenChange={(o) => !o && setPreviewIndex(null)}
+        portraits={flatPortraits.map(fp => fp.url)}
+        index={previewIndex ?? 0}
+        onIndexChange={(i) => setPreviewIndex(i)}
+        onDownload={(url, i) => downloadPortrait(url, i)}
+        downloadLabel="Baixar"
+      />
     </DashboardLayout>
   );
 };
