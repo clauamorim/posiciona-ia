@@ -107,6 +107,7 @@ interface PostToolbarProps {
   onSlideNumberSizeChange?: (size: number) => void;
   isCarousel?: boolean;
   uploadedImages?: string[];
+  selectedTextId?: string | null;
 }
 
 const LAYOUTS = [
