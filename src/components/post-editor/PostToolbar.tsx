@@ -30,8 +30,6 @@ interface PostToolbarProps {
   bgHex: string;
   onBgChange: (i: number) => void;
   onCustomBgColorChange: (c: string) => void;
-  layout: "centered" | "top" | "split";
-  onLayoutChange: (l: "centered" | "top" | "split") => void;
   canvasFormat?: "square" | "reels";
   onCanvasFormatChange?: (f: "square" | "reels") => void;
   useGradient?: boolean;
@@ -63,6 +61,8 @@ interface PostToolbarProps {
   titleFontFamily?: string | null;
   displayFont: string;
   onTitleFontFamilyChange?: (f: string) => void;
+  titleTextAlign?: "left" | "center" | "right" | "justify";
+  onTitleTextAlignChange?: (a: "left" | "center" | "right" | "justify") => void;
   // body
   fontSize: number;
   onFontSizeChange: (s: number) => void;
@@ -119,8 +119,6 @@ const PostToolbar: React.FC<PostToolbarProps> = (props) => {
           bgHex={props.bgHex}
           onBgChange={props.onBgChange}
           onCustomBgColorChange={props.onCustomBgColorChange}
-          layout={props.layout}
-          onLayoutChange={props.onLayoutChange}
           canvasFormat={props.canvasFormat}
           onCanvasFormatChange={props.onCanvasFormatChange}
           useGradient={props.useGradient}
@@ -160,6 +158,8 @@ const PostToolbar: React.FC<PostToolbarProps> = (props) => {
           titleFontFamily={props.titleFontFamily}
           displayFont={props.displayFont}
           onTitleFontFamilyChange={props.onTitleFontFamilyChange}
+          titleTextAlign={props.titleTextAlign}
+          onTitleTextAlignChange={props.onTitleTextAlignChange}
           fontSize={props.fontSize}
           onFontSizeChange={props.onFontSizeChange}
           fontWeight={props.fontWeight}
