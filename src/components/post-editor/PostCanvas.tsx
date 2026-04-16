@@ -434,8 +434,9 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
             backgroundColor: img.bgColor || "transparent",
             opacity: img.opacity ?? 1,
             borderRadius: 8, padding: "12px 16px", boxSizing: "border-box",
+            touchAction: "none",
           }}
-          onMouseDown={(e) => handleMouseDown(e, img)}
+          onPointerDown={(e) => handlePointerDown(e, img)}
           onClick={(e) => { e.stopPropagation(); onSelectImage?.(img.id); setSelectedTextId(null); }}
           onDoubleClick={(e) => {
             e.stopPropagation();
