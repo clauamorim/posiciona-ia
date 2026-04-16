@@ -1,40 +1,59 @@
 
 
-# Painel Admin: Menu exclusivo e dados de jornada por usuário
+# Pre-Checkout Flow and Legal Alignment
 
-## Problema atual
-- O admin vê o menu completo de usuário comum (Dashboard, Questionários, Estratégia, etc.) na sidebar, mesmo sem necessidade de usá-los.
-- A lista de usuários não mostra o último login nem quais fases da jornada cada um completou.
+## Current State
+- `ChoosePlan.tsx` has plan cards with a global `LegalConsentCheckbox` and coupon input at the top, but clicking a plan button immediately redirects to Stripe -- there is no intermediary summary/confirmation step.
+- `ExtrasSection.tsx` (semana extra, portrait packs) also redirects directly to Stripe with no confirmation.
+- The `LegalConsentCheckbox` component already exists and is reusable.
+- Three edge functions handle Stripe checkout: `stripe-checkout`, `extras-checkout`, `portrait-pack-checkout`.
 
-## Alterações
+## Plan
 
-### 1. Sidebar exclusiva para admin (`DashboardLayout.tsx`)
-Quando `isAdmin === true`, exibir **apenas** o grupo "Admin" na sidebar (Painel Admin, Usuários, Documentos LLM, Galeria), removendo todos os grupos de usuário comum (Início, Diagnóstico, Estratégia, Produção, Conta).
+### 1. Create `PreCheckoutModal` component
+A new reusable dialog/drawer component (`src/components/PreCheckoutModal.tsx`) that opens **before** any Stripe redirect. It receives:
+- `productName`, `price`, `description`, `billingType` ("one_time" | "recurring"), `period` (e.g. "/mes"), `onConfirm`, `onCancel`, `loading`
 
-### 2. Edge Function: retornar `last_sign_in_at` (`admin-manage-user/index.ts`)
-Na action `list_users`, além do `emailMap`, retornar um `lastSignInMap` com `{ [userId]: last_sign_in_at }` extraído dos dados já disponíveis no `listUsers()` do Supabase Admin API.
+The modal displays:
+- **"Resumo da contratacao"** heading (serif font)
+- Product name, value (R$), billing type label, renewal info, cancellation info
+- Institutional text block: "Plano recorrente com renovacao automatica ate cancelamento, quando aplicavel. Ao prosseguir, voce concorda com os Termos de Servico e a Politica de Privacidade do Posiciona." (with links opening in new tab)
+- For one-time products: adjusted text without renewal mention
+- `LegalConsentCheckbox` with validation (reuse existing component)
+- Subtle trust line: "Pagamento processado com seguranca pela Stripe." in `#A09CC0`
+- CTA button: "Continuar para pagamento"
+- Dark theme styling consistent with the app
 
-### 3. Fases da jornada por usuário (`AdminUsers.tsx`)
-Carregar dados adicionais para determinar quais fases cada usuário completou:
+### 2. Integrate in `ChoosePlan.tsx`
+- Remove the global `LegalConsentCheckbox` and `checkoutConsent` state from the page level
+- When user clicks a plan button, instead of calling `handleCheckout` directly, open `PreCheckoutModal` with the selected plan's details
+- The modal's `onConfirm` triggers the existing `handleCheckout`/`handleUpgrade` logic
+- Same for upgrade flow
 
-| Fase | Critério |
-|------|----------|
-| Questionário do Negócio | `business_questionnaires` com `is_complete = true` |
-| Questionário de Arquétipos | `archetype_scores` existe para o usuário |
-| Relatório Estratégico | `reports` com `status = 'completed'` |
-| Narrativa da Marca | `reports.content` contém seção StoryBrand (já carregado) |
-| Análise do Instagram | `instagram_analyses` existe |
-| Linha Editorial | `reports.editorial_weeks` com array não-vazio |
-| Retratos de Marca | `portrait_generations` existe |
+### 3. Integrate in `ExtrasSection.tsx`
+- When user clicks "Comprar" on Semana Extra or Portrait Pack, open `PreCheckoutModal` with the product details (one-time billing)
+- The modal's `onConfirm` triggers the existing checkout functions
 
-Exibir na tabela:
-- Nova coluna **"Último Login"** com a data formatada em pt-BR
-- Nova coluna **"Jornada"** com badges compactas indicando as fases concluídas (ex: "QN", "QA", "RE", "NM", "IG", "LE", "RT")
+### 4. Edge Function: Add `custom_text` to Stripe sessions
+In `stripe-checkout/index.ts`, `extras-checkout/index.ts`, and `portrait-pack-checkout/index.ts`, add a short `custom_text.terms_of_service_acceptance` or `custom_text.submit` message to the Stripe Checkout session params. Keep it minimal, e.g.:
+```
+custom_text: {
+  submit: { message: "Pagamento processado pela Stripe. Termos e privacidade em posiciona.ia.br" }
+}
+```
+Also add `consent_collection.terms_of_service: "required"` with the Stripe session pointing to the Posiciona URLs. This requires setting the URLs in Stripe's account settings (documented via code comments).
 
-Também incluir esses dados no dialog de detalhes do usuário e no CSV exportado.
+### 5. Code comments for Stripe Dashboard config
+Add clear comments in the edge functions noting that the following must be configured in Stripe Dashboard (Settings > Public details):
+- Terms of Service URL: `https://posiciona.ia.br/termos-de-servico`
+- Privacy Policy URL: `https://posiciona.ia.br/politica-de-privacidade`
+- Support email: `contato@posiciona.ia.br`
 
-### Arquivos alterados
-- `src/components/DashboardLayout.tsx` — condicional de menu admin-only
-- `supabase/functions/admin-manage-user/index.ts` — incluir `lastSignInMap`
-- `src/pages/admin/AdminUsers.tsx` — novas colunas, queries adicionais, badges de jornada
+### Files changed
+- **New**: `src/components/PreCheckoutModal.tsx`
+- **Edit**: `src/pages/ChoosePlan.tsx` -- integrate modal, remove page-level consent
+- **Edit**: `src/components/ExtrasSection.tsx` -- integrate modal
+- **Edit**: `supabase/functions/stripe-checkout/index.ts` -- add `custom_text`
+- **Edit**: `supabase/functions/extras-checkout/index.ts` -- add `custom_text`
+- **Edit**: `supabase/functions/portrait-pack-checkout/index.ts` -- add `custom_text`
 
