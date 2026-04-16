@@ -1,37 +1,28 @@
 
 
-# Fix: Mostrar valor correto no modal de upgrade
+# Fix: Barra de progresso no Questionário de Arquétipos
 
 ## Problema
-O `PreCheckoutModal` de upgrade mostra o preço cheio do plano (ex: R$ 497 para Autoridade Total), mas o valor real cobrado é complementar/proporcional. O Stripe calcula corretamente, mas o modal induz erro.
-
-## Cenários de upgrade
-
-| De → Para | Dentro de 7 dias | Após 7 dias |
-|-----------|------------------|-------------|
-| Semana (R$197) → Presença (R$297) | R$ 100 (único) | R$ 297/mês (assinatura normal) |
-| Semana (R$197) → Autoridade (R$497) | R$ 300 (único) | R$ 497/mês (assinatura normal) |
-| Presença (R$297) → Autoridade (R$497) | Proporcional via Stripe (sem checkout page) | — |
+Todas as 72 questões recebem valor padrão `3` no carregamento, então `Object.keys(answers).length === questions.length` sempre — progresso mostra 100% mesmo sem interação.
 
 ## Solução
 
-### 1. Ajustar o modal de upgrade em `ChoosePlan.tsx`
+Separar o estado de "respostas do usuário" do "valor visual pré-selecionado":
 
-Para upgrades a partir do Semana de Conteúdo, calcular o preço exibido:
-- **Dentro de 7 dias**: mostrar o valor com desconto (preço do plano destino - 197). Ex: "R$ 100" ou "R$ 300", com descrição "Valor complementar (R$ 197 já descontados)" e billing "one_time"
-- **Após 7 dias**: mostrar o preço cheio como assinatura recorrente normal
+1. **Manter um Set de questões efetivamente respondidas** (`touchedIds`) — começa vazio, adiciona o `question_id` quando o usuário clica em um botão de score, ou carrega do banco (respostas salvas previamente).
 
-Para isso, usar a data de criação da subscription (já disponível no contexto via `subscription`) para determinar se está dentro dos 7 dias.
+2. **Calcular progresso com base no Set** em vez de `Object.keys(answers).length`:
+   ```
+   answeredCount = touchedIds.size
+   progress = Math.round((touchedIds.size / questions.length) * 100)
+   ```
 
-### 2. Upgrade Presença → Autoridade
+3. **No `useEffect` de carregamento**: popular `touchedIds` apenas com as questões que têm respostas salvas no banco (`archetype_answers`).
 
-Este caso usa `proration_behavior: "always_invoice"` diretamente no Stripe (sem redirect para checkout page). O modal deve informar: "A diferença será cobrada proporcionalmente na sua próxima fatura" em vez de mostrar um preço fixo.
+4. **No handler de clique**: adicionar `q.id` ao `touchedIds` ao selecionar um score.
 
-### 3. Ajustar `PreCheckoutModal`
+5. **Botão "Calcular arquétipos"**: manter a validação `answeredCount < questions.length` usando `touchedIds.size`.
 
-Adicionar prop opcional `description` para exibir texto contextual como "Valor complementar (R$ 197 já descontados)" ou "Cobrado proporcionalmente".
-
-### Arquivos alterados
-- `src/pages/ChoosePlan.tsx` — lógica de cálculo do preço de upgrade e descrição contextual
-- `src/components/PreCheckoutModal.tsx` — já suporta `description`, apenas garantir que está sendo usado
+### Arquivo alterado
+- `src/pages/ArchetypeQuestionnaire.tsx`
 
