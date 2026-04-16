@@ -380,8 +380,9 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
           cursor: isEditing ? "text" : "move", userSelect: isEditing ? "text" : "none",
           outline: isSelected ? "2px dashed rgba(255,255,255,0.7)" : "none", outlineOffset: 2,
           zIndex: getZIndex(tb.id), padding: "8px 16px", boxSizing: "border-box", overflow: "hidden",
+          touchAction: isEditing ? "auto" : "none",
         }}
-        onMouseDown={(e) => handleTextMouseDown(e, tb)}
+        onPointerDown={(e) => handleTextPointerDown(e, tb)}
         onClick={(e) => { e.stopPropagation(); setSelectedTextId(tb.id); onSelectImage?.(null); }}
         onDoubleClick={(e) => { e.stopPropagation(); setEditingTextId(tb.id); }}
       >
