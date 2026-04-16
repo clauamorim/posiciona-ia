@@ -317,10 +317,33 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
     ));
   };
 
-  // Build a unified render order: text boxes first (low z), then overlayImages in array order
-  // This way "bring forward / send backward" on overlayImages works visually.
-  const BASE_TEXT_Z = 2;
-  const BASE_OVERLAY_Z = 10;
+  // Unified render order: all items (text boxes + overlays) share one z-index stack
+  // externalRenderOrder controls the order; if not provided, default: textBoxes first, then overlays
+  const allIds = [...textBoxes.map(tb => tb.id), ...overlayImages.map(img => img.id)];
+  const effectiveRenderOrder = (() => {
+    if (externalRenderOrder && externalRenderOrder.length > 0) {
+      // Keep only IDs that still exist, append any new ones at the end
+      const existing = externalRenderOrder.filter(id => allIds.includes(id));
+      const newIds = allIds.filter(id => !existing.includes(id));
+      return [...existing, ...newIds];
+    }
+    return allIds;
+  })();
+
+  // Sync render order to parent when it changes
+  const lastSyncedOrder = useRef<string>("");
+  useEffect(() => {
+    const key = effectiveRenderOrder.join(",");
+    if (key !== lastSyncedOrder.current && onRenderOrderChange) {
+      lastSyncedOrder.current = key;
+      onRenderOrderChange(effectiveRenderOrder);
+    }
+  }, [effectiveRenderOrder.join(",")]);
+
+  const getZIndex = (id: string) => {
+    const idx = effectiveRenderOrder.indexOf(id);
+    return 10 + (idx >= 0 ? idx : 0);
+  };
 
   const renderTextBox = (tb: TextBox) => {
     const isSelected = selectedTextId === tb.id;
@@ -334,7 +357,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
           position: "absolute", left: tb.x, top: tb.y, width: tb.width, minHeight: tb.height,
           cursor: isEditing ? "text" : "move", userSelect: isEditing ? "text" : "none",
           outline: isSelected ? "2px dashed rgba(255,255,255,0.7)" : "none", outlineOffset: 2,
-          zIndex: BASE_TEXT_Z, padding: "8px 16px", boxSizing: "border-box", overflow: "hidden",
+          zIndex: getZIndex(tb.id), padding: "8px 16px", boxSizing: "border-box", overflow: "hidden",
         }}
         onMouseDown={(e) => handleTextMouseDown(e, tb)}
         onClick={(e) => { e.stopPropagation(); setSelectedTextId(tb.id); onSelectImage?.(null); }}
@@ -374,7 +397,8 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
     : { x: 80, y: 960 };
   const ctaPos = ctaPosition || defaultCtaPos;
 
-  const renderOverlayItem = (img: OverlayImage, arrayIndex: number) => {
+  const renderOverlayItem = (img: OverlayImage) => {
+    const itemZ = getZIndex(img.id);
     if (img.type === "textbox") {
       const isSelected = selectedImageId === img.id;
       return (
@@ -383,7 +407,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
             position: "absolute", left: img.x, top: img.y, width: img.width, minHeight: img.height,
             cursor: "move", userSelect: "none",
             outline: isSelected ? "2px dashed rgba(255,255,255,0.7)" : "none", outlineOffset: 2,
-            zIndex: BASE_OVERLAY_Z + arrayIndex,
+            zIndex: itemZ,
             backgroundColor: img.bgColor || "transparent",
             opacity: img.opacity ?? 1,
             borderRadius: 8, padding: "12px 16px", boxSizing: "border-box",
@@ -428,7 +452,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
           width: img.width, height: img.height,
           cursor: "move", userSelect: "none",
           outline: isSelected ? "2px dashed rgba(255,255,255,0.7)" : "none",
-          outlineOffset: 2, zIndex: BASE_OVERLAY_Z + arrayIndex,
+          outlineOffset: 2, zIndex: itemZ,
         }}
         onMouseDown={(e) => handleMouseDown(e, img)}
         onClick={(e) => { e.stopPropagation(); onSelectImage?.(img.id); setSelectedTextId(null); }}
@@ -441,6 +465,8 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
       </div>
     );
   };
+
+  const topZ = 10 + effectiveRenderOrder.length;
 
   return (
     <div ref={containerRef} className="flex items-center justify-center w-full">
@@ -476,7 +502,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
                   backgroundColor: snBg, color: snText,
                   fontFamily: `'${displayFont}', sans-serif`,
                   fontSize: snSize, fontWeight: "bold",
-                  cursor: "move", userSelect: "none", zIndex: BASE_OVERLAY_Z + overlayImages.length + 2,
+                  cursor: "move", userSelect: "none", zIndex: topZ + 2,
                 }}
                 onMouseDown={(e) => {
                   e.preventDefault(); e.stopPropagation();
@@ -505,7 +531,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
               style={{
                 position: "absolute", left: ctaPos.x, top: ctaPos.y,
                 transform: "translate(-50%, -50%)",
-                cursor: "move", userSelect: "none", zIndex: BASE_OVERLAY_Z + overlayImages.length + 1,
+                cursor: "move", userSelect: "none", zIndex: topZ + 1,
               }}
               onMouseDown={handleCtaMouseDown}
               onClick={(e) => e.stopPropagation()}
@@ -521,7 +547,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
             <div data-overlay
               style={{
                 position: "absolute", left: ctaPos.x, top: ctaPos.y,
-                cursor: "move", userSelect: "none", zIndex: BASE_OVERLAY_Z + overlayImages.length + 1,
+                cursor: "move", userSelect: "none", zIndex: topZ + 1,
               }}
               onMouseDown={handleCtaMouseDown}
               onClick={(e) => e.stopPropagation()}
@@ -533,9 +559,14 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
             </div>
           )}
 
-          {textBoxes.map(renderTextBox)}
-
-          {overlayImages.map((img, idx) => renderOverlayItem(img, idx))}
+          {/* Render all items in unified order */}
+          {effectiveRenderOrder.map(id => {
+            const tb = textBoxes.find(t => t.id === id);
+            if (tb) return renderTextBox(tb);
+            const img = overlayImages.find(i => i.id === id);
+            if (img) return renderOverlayItem(img);
+            return null;
+          })}
         </div>
       </div>
     </div>
