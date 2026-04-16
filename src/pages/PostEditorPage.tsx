@@ -72,6 +72,11 @@ const PostEditorPage = () => {
   const [ctaPosition, setCtaPosition] = useState<{ x: number; y: number } | null>(null);
   const [userPortraits, setUserPortraits] = useState<string[]>([]);
   const [canvasFormat, setCanvasFormat] = useState<"square" | "reels">("square");
+  const [showSlideNumber, setShowSlideNumber] = useState(true);
+  const [slideNumberPosition, setSlideNumberPosition] = useState<{ x: number; y: number } | null>(null);
+  const [slideNumberBgColor, setSlideNumberBgColor] = useState<string | null>(null);
+  const [slideNumberTextColor, setSlideNumberTextColor] = useState<string | null>(null);
+  const [slideNumberSize, setSlideNumberSize] = useState(14);
   const singleCanvasRef = useRef<HTMLDivElement>(null);
   const slideRefs = useRef<(HTMLDivElement | null)[]>([]);
   const textsInitializedRef = useRef(false);
