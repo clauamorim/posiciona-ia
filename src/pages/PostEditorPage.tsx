@@ -12,6 +12,8 @@ import CarouselEditor from "@/components/post-editor/CarouselEditor";
 import PostToolbar from "@/components/post-editor/PostToolbar";
 import type { OverlayImage } from "@/components/post-editor/PostToolbar";
 import { parseReportContent } from "@/lib/reportParser";
+import { cleanMarkdown } from "@/lib/textCleanup";
+import { compressImage } from "@/lib/imageUtils";
 
 function getContrastColor(hex: string): string {
   const r = parseInt(hex.slice(1, 3), 16);
@@ -53,6 +55,7 @@ const PostEditorPage = () => {
   const [fontStyle, setFontStyle] = useState("normal");
   const [useGradient, setUseGradient] = useState(false);
   const [gradientColor2Index, setGradientColor2Index] = useState(1);
+  const [customGradientColor2, setCustomGradientColor2] = useState<string | null>(null);
   const [gradientDirection, setGradientDirection] = useState("to right");
   const [textAlign, setTextAlign] = useState<"left" | "center" | "right" | "justify">("center");
   const [customTextColor, setCustomTextColor] = useState<string | null>(null);
@@ -71,6 +74,7 @@ const PostEditorPage = () => {
   const [canvasFormat, setCanvasFormat] = useState<"square" | "reels">("square");
   const singleCanvasRef = useRef<HTMLDivElement>(null);
   const slideRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const textsInitializedRef = useRef(false);
 
   const cW = canvasFormat === "reels" ? 1080 : 1080;
   const cH = canvasFormat === "reels" ? 1920 : 1080;
@@ -115,12 +119,15 @@ const PostEditorPage = () => {
     if (typography.body) { setBodyFont(typography.body); loadGoogleFont(typography.body); }
   }, [typography.display, typography.body]);
 
+  // Initialize texts only once per day, prevent alt+tab reset
   useEffect(() => {
     if (!day) return;
-    const copies = day.card_copy || [day.caption || ""];
+    if (textsInitializedRef.current) return;
+    const copies = (day.card_copy || [day.caption || ""]).map((t: string) => cleanMarkdown(t));
     setEditedTexts(copies);
-    setEditedTitle(day.theme || "");
-    setCtaText(day.cta || "");
+    setEditedTitle(cleanMarkdown(day.theme || ""));
+    setCtaText(cleanMarkdown(day.cta || ""));
+    textsInitializedRef.current = true;
   }, [day]);
 
   useEffect(() => {
@@ -141,23 +148,43 @@ const PostEditorPage = () => {
   const textColor = customTextColor || getContrastColor(bgColor);
   const accentColor = palette[(bgIndex + 1) % Math.max(palette.length, 1)]?.hex || "#7c3aed";
 
+  const gradientColor2 = customGradientColor2 || palette[gradientColor2Index]?.hex || accentColor;
   const bgGradient = useGradient && palette.length >= 2
-    ? `linear-gradient(${gradientDirection}, ${bgColor}, ${palette[gradientColor2Index]?.hex || accentColor})`
+    ? `linear-gradient(${gradientDirection}, ${bgColor}, ${gradientColor2})`
     : null;
 
   const isCarousel = day?.format?.toLowerCase() === "carrossel";
 
   const handleAddImage = (image: OverlayImage) => setOverlayImages((prev) => [...prev, image]);
 
-  // Unified overlay update
   const handleUpdateOverlay = (id: string, updates: Partial<OverlayImage>) => {
     setOverlayImages((prev) => prev.map((img) => (img.id === id ? { ...img, ...updates } : img)));
   };
 
-  // Legacy compat
   const handleImageMove = (id: string, x: number, y: number) => handleUpdateOverlay(id, { x, y });
   const handleImageResize = (id: string, width: number, height: number) => handleUpdateOverlay(id, { width, height });
   const handleImageOpacityChange = (id: string, opacity: number) => handleUpdateOverlay(id, { opacity });
+
+  // Layer ordering
+  const handleBringForward = (id: string) => {
+    setOverlayImages(prev => {
+      const idx = prev.findIndex(img => img.id === id);
+      if (idx < 0 || idx >= prev.length - 1) return prev;
+      const next = [...prev];
+      [next[idx], next[idx + 1]] = [next[idx + 1], next[idx]];
+      return next;
+    });
+  };
+
+  const handleSendBackward = (id: string) => {
+    setOverlayImages(prev => {
+      const idx = prev.findIndex(img => img.id === id);
+      if (idx <= 0) return prev;
+      const next = [...prev];
+      [next[idx], next[idx - 1]] = [next[idx - 1], next[idx]];
+      return next;
+    });
+  };
 
   const chromaKeyToTransparent = useCallback((dataUrl: string): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -171,8 +198,6 @@ const PostEditorPage = () => {
         ctx.drawImage(img, 0, 0);
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         const d = imageData.data;
-        // Remove pixels that are close to pure green (#00FF00)
-        // Use a tolerance to handle compression artifacts
         const tolerance = 120;
         for (let i = 0; i < d.length; i += 4) {
           const r = d[i], g = d[i + 1], b = d[i + 2];
@@ -188,7 +213,6 @@ const PostEditorPage = () => {
             }
           }
         }
-        // Despill pass: neutralize remaining green tint
         for (let i = 0; i < d.length; i += 4) {
           if (d[i + 3] === 0) continue;
           const r = d[i], g = d[i + 1], b = d[i + 2];
@@ -211,24 +235,46 @@ const PostEditorPage = () => {
     if (!overlay) return;
     const originalSrc = overlay.src;
     setRemovingBackground(true);
-    try {
+
+    const tryRemove = async (imageUrl: string) => {
       const { data, error } = await supabase.functions.invoke("remove-background", {
-        body: { imageUrl: overlay.src },
+        body: { imageUrl },
       });
       if (error) throw error;
       if (data?.image && data.image.startsWith("data:image/")) {
-        // Apply chroma key processing to convert green background to transparency
         const transparentImage = data.chromaKey
           ? await chromaKeyToTransparent(data.image)
           : data.image;
-        handleUpdateOverlay(id, { src: transparentImage });
-        toast({ title: "Fundo removido com sucesso!" });
-      } else {
-        throw new Error(data?.error || "A IA não retornou uma imagem válida");
+        return transparentImage;
       }
+      throw new Error(data?.error || "A IA não retornou uma imagem válida");
+    };
+
+    try {
+      // Compress image before sending to reduce payload
+      let imageToSend = overlay.src;
+      if (overlay.src.startsWith("data:")) {
+        try { imageToSend = await compressImage(overlay.src, 1024, 0.8); } catch {}
+      }
+
+      let result: string;
+      try {
+        result = await tryRemove(imageToSend);
+      } catch (firstErr: any) {
+        // Retry once
+        try {
+          result = await tryRemove(imageToSend);
+        } catch (retryErr: any) {
+          throw retryErr;
+        }
+      }
+
+      handleUpdateOverlay(id, { src: result });
+      toast({ title: "Fundo removido com sucesso!" });
     } catch (err: any) {
       handleUpdateOverlay(id, { src: originalSrc });
-      toast({ title: err.message || "Erro ao remover fundo", variant: "destructive" });
+      const msg = err.message || "Erro ao remover fundo";
+      toast({ title: msg, description: "Tente com uma imagem menor ou diferente.", variant: "destructive" });
     } finally {
       setRemovingBackground(false);
     }
@@ -287,8 +333,9 @@ const PostEditorPage = () => {
 
   const handleReset = () => {
     if (!day) return;
-    setEditedTexts(day.card_copy || [day.caption || ""]);
-    setEditedTitle(day.theme || "");
+    const copies = (day.card_copy || [day.caption || ""]).map((t: string) => cleanMarkdown(t));
+    setEditedTexts(copies);
+    setEditedTitle(cleanMarkdown(day.theme || ""));
     setOverlayImages([]);
     setSelectedImageId(null);
     setFontSize(28);
@@ -298,10 +345,11 @@ const PostEditorPage = () => {
     setTextAlign("center");
     setCustomTextColor(null);
     setCustomBgColor(null);
+    setCustomGradientColor2(null);
     setTitleFontSize(44);
     setTitleColor(null);
     setTitleFontFamily(null);
-    setCtaText(day.cta || "");
+    setCtaText(cleanMarkdown(day.cta || ""));
     setCtaBgColor(null);
     setCtaTextColor(null);
     setCtaFontSize(28);
@@ -314,7 +362,7 @@ const PostEditorPage = () => {
   const handleCopyCaption = async () => {
     if (!day?.caption) return;
     try {
-      await navigator.clipboard.writeText(day.caption);
+      await navigator.clipboard.writeText(cleanMarkdown(day.caption));
       setCopied(true);
       toast({ title: "Legenda copiada!" });
       setTimeout(() => setCopied(false), 2000);
@@ -352,7 +400,7 @@ const PostEditorPage = () => {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
-            <h1 className="text-xl font-bold font-display">Dia {day.day || dayIndex + 1}: {day.theme}</h1>
+            <h1 className="text-xl font-bold font-display">Dia {day.day || dayIndex + 1}: {cleanMarkdown(day.theme)}</h1>
             <p className="text-sm text-muted-foreground">
               Semana {weekIndex + 1} · {day.format}
               {isCarousel && ` · ${editedTexts.length} slides`}
@@ -424,7 +472,8 @@ const PostEditorPage = () => {
             onImageOpacityChange={handleImageOpacityChange}
             onUpdateOverlaySrc={handleUpdateOverlay}
             useGradient={useGradient} onUseGradientChange={setUseGradient}
-            gradientColor2Index={gradientColor2Index} onGradientColor2Change={setGradientColor2Index}
+            gradientColor2Index={gradientColor2Index} onGradientColor2Change={(i) => { setCustomGradientColor2(null); setGradientColor2Index(i); }}
+            customGradientColor2={customGradientColor2} onCustomGradientColor2Change={setCustomGradientColor2}
             gradientDirection={gradientDirection} onGradientDirectionChange={setGradientDirection}
             titleFontSize={titleFontSize} onTitleFontSizeChange={setTitleFontSize}
             titleColor={titleColor} onTitleColorChange={setTitleColor}
@@ -436,6 +485,7 @@ const PostEditorPage = () => {
             userPortraits={userPortraits}
             canvasFormat={canvasFormat} onCanvasFormatChange={setCanvasFormat}
             onRemoveBackground={handleRemoveBackground} removingBackground={removingBackground}
+            onBringForward={handleBringForward} onSendBackward={handleSendBackward}
           />
         </div>
 
@@ -447,7 +497,7 @@ const PostEditorPage = () => {
               {copied ? "Copiado!" : "Copiar"}
             </Button>
           </div>
-          <p className="text-sm text-foreground/80 whitespace-pre-wrap">{day.caption}</p>
+          <p className="text-sm text-foreground/80 whitespace-pre-wrap">{cleanMarkdown(day.caption || "")}</p>
         </div>
       </div>
     </DashboardLayout>

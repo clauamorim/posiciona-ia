@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { Download, RotateCcw, AlignCenter, AlignLeft, AlignRight, AlignJustify, Columns, Upload, ImagePlus, Shapes, Bold, Italic, Type, Minus, MoreHorizontal, Maximize, CircleDashed, Grip, PlusSquare, Paintbrush } from "lucide-react";
+import { Download, RotateCcw, AlignCenter, AlignLeft, AlignRight, AlignJustify, Columns, Upload, ImagePlus, Shapes, Bold, Italic, Type, Minus, MoreHorizontal, Maximize, CircleDashed, Grip, PlusSquare, Paintbrush, ArrowUp, ArrowDown } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -10,7 +10,7 @@ import { Toggle } from "@/components/ui/toggle";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import {
-  Star, Heart, CheckCircle, Quote, ArrowRight, ArrowUp, Zap, Award,
+  Star, Heart, CheckCircle, Quote, ArrowRight, ArrowUp as ArrowUpIcon, Zap, Award,
   Circle, Square, Triangle, Hexagon, Diamond, Flame, Target, Crown,
   ThumbsUp, Bookmark, Send, AtSign, Hash, MapPin, Clock, Eye,
   Lightbulb, Gift, Camera, Coffee, Smile, Bell, Flag, Shield, Layers,
@@ -32,7 +32,6 @@ export interface OverlayImage {
   height: number;
   type: "logo" | "photo" | "element" | "textbox";
   opacity?: number;
-  // Text box fields
   text?: string;
   textColor?: string;
   bgColor?: string;
@@ -73,6 +72,8 @@ interface PostToolbarProps {
   onUseGradientChange?: (v: boolean) => void;
   gradientColor2Index?: number;
   onGradientColor2Change?: (index: number) => void;
+  customGradientColor2?: string | null;
+  onCustomGradientColor2Change?: (color: string) => void;
   gradientDirection?: string;
   onGradientDirectionChange?: (d: string) => void;
   titleFontSize?: number;
@@ -90,12 +91,12 @@ interface PostToolbarProps {
   ctaFontSize?: number;
   onCtaFontSizeChange?: (size: number) => void;
   userPortraits?: string[];
-  // Canvas format
   canvasFormat?: "square" | "reels";
   onCanvasFormatChange?: (f: "square" | "reels") => void;
-  // Remove background
   onRemoveBackground?: (id: string) => void;
   removingBackground?: boolean;
+  onBringForward?: (id: string) => void;
+  onSendBackward?: (id: string) => void;
 }
 
 const LAYOUTS = [
@@ -107,7 +108,7 @@ const LAYOUTS = [
 const GRAPHIC_ELEMENTS = [
   { icon: Star, name: "Estrela" }, { icon: Heart, name: "Coração" },
   { icon: CheckCircle, name: "Check" }, { icon: Quote, name: "Aspas" },
-  { icon: ArrowRight, name: "Seta direita" }, { icon: ArrowUp, name: "Seta cima" },
+  { icon: ArrowRight, name: "Seta direita" }, { icon: ArrowUpIcon, name: "Seta cima" },
   { icon: Zap, name: "Raio" }, { icon: Award, name: "Prêmio" },
   { icon: Circle, name: "Círculo" }, { icon: Square, name: "Quadrado" },
   { icon: Triangle, name: "Triângulo" }, { icon: Hexagon, name: "Hexágono" },
@@ -163,8 +164,6 @@ const GRADIENT_DIRECTIONS = [
   { value: "to bottom left", label: "↙ Diagonal inv." },
 ];
 
-const LOGO_STORAGE_KEY = "posiciona_user_logo";
-
 function iconToDataUrl(IconComponent: React.FC<any>, color: string): string {
   const svgMarkup = renderToStaticMarkup(
     <IconComponent size={120} color={color} strokeWidth={2} />
@@ -177,18 +176,15 @@ function svgToDataUrl(svg: string, color: string): string {
   return `data:image/svg+xml;base64,${btoa(colored)}`;
 }
 
-/** Re-color an existing SVG data URL */
 function recolorSvgDataUrl(dataUrl: string, newColor: string): string | null {
   try {
     if (!dataUrl.startsWith("data:image/svg+xml;base64,")) return null;
     const b64 = dataUrl.replace("data:image/svg+xml;base64,", "");
     let svg = atob(b64);
-    // Only target fill="..." and stroke="..." attributes on SVG elements
     svg = svg.replace(
       /\b(fill|stroke)\s*=\s*"([^"]*)"/g,
       (match, attr, val) => {
         const lower = val.trim().toLowerCase();
-        // Preserve "none", "transparent", and URL references
         if (lower === "none" || lower === "transparent" || lower.startsWith("url(")) return match;
         return `${attr}="${newColor}"`;
       }
@@ -216,12 +212,15 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
   fontStyle, onFontStyleChange, bodyFont, onBodyFontChange, displayFont, onDisplayFontChange,
   textAlign, onTextAlignChange, textColor, onTextColorChange,
   selectedImageId, overlayImages, onImageOpacityChange, onUpdateOverlaySrc,
-  useGradient, onUseGradientChange, gradientColor2Index, onGradientColor2Change, gradientDirection, onGradientDirectionChange,
+  useGradient, onUseGradientChange, gradientColor2Index, onGradientColor2Change,
+  customGradientColor2, onCustomGradientColor2Change,
+  gradientDirection, onGradientDirectionChange,
   titleFontSize, onTitleFontSizeChange, titleColor, onTitleColorChange, titleFontFamily, onTitleFontFamilyChange,
   ctaText, onCtaTextChange, ctaBgColor, onCtaBgColorChange, ctaTextColor, onCtaTextColorChange, ctaFontSize, onCtaFontSizeChange,
   userPortraits,
   canvasFormat, onCanvasFormatChange,
   onRemoveBackground, removingBackground,
+  onBringForward, onSendBackward,
 }) => {
   const [elementsOpen, setElementsOpen] = useState(false);
   const [svgElementsOpen, setSvgElementsOpen] = useState(false);
@@ -229,17 +228,20 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [galleryAssets, setGalleryAssets] = useState<{ id: string; name: string; category: string; file_path: string }[]>([]);
   const [galleryLoaded, setGalleryLoaded] = useState(false);
-  const [savedLogo, setSavedLogo] = useState<string | null>(null);
   const accentColor = palette[(selectedBgIndex + 1) % Math.max(palette.length, 1)]?.hex || "#7c3aed";
 
   const selectedOverlay = overlayImages?.find(img => img.id === selectedImageId);
   const isSelectedElement = selectedOverlay?.type === "element";
   const isSelectedTextBox = selectedOverlay?.type === "textbox";
 
-  useEffect(() => {
-    const logo = localStorage.getItem(LOGO_STORAGE_KEY);
-    if (logo) setSavedLogo(logo);
-  }, []);
+  // Session image gallery: collect unique photo/logo images from overlays
+  const sessionImages = React.useMemo(() => {
+    if (!overlayImages) return [];
+    const seen = new Set<string>();
+    return overlayImages
+      .filter(img => (img.type === "photo" || img.type === "logo") && img.src && !seen.has(img.src) && (seen.add(img.src), true))
+      .map(img => ({ id: img.id, src: img.src }));
+  }, [overlayImages]);
 
   useEffect(() => {
     if (galleryOpen && !galleryLoaded) {
@@ -261,7 +263,7 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
     })).sort((a, b) => (a.isRecommended ? -1 : b.isRecommended ? 1 : 0));
   };
 
-  const handleFileUpload = (type: "logo" | "photo") => {
+  const handleFileUpload = () => {
     const input = document.createElement("input");
     input.type = "file";
     input.accept = "image/*";
@@ -271,30 +273,17 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
       const reader = new FileReader();
       reader.onload = () => {
         const src = reader.result as string;
-        if (type === "logo") {
-          localStorage.setItem(LOGO_STORAGE_KEY, src);
-          setSavedLogo(src);
-        }
         const img: OverlayImage = {
           id: crypto.randomUUID(), src,
-          x: type === "logo" ? 40 : 200, y: type === "logo" ? 40 : 200,
-          width: type === "logo" ? 150 : 400, height: type === "logo" ? 150 : 400,
-          type, opacity: 1,
+          x: 200, y: 200,
+          width: 400, height: 400,
+          type: "photo", opacity: 1,
         };
         onAddImage?.(img);
       };
       reader.readAsDataURL(file);
     };
     input.click();
-  };
-
-  const handleAddSavedLogo = () => {
-    if (!savedLogo) return;
-    const img: OverlayImage = {
-      id: crypto.randomUUID(), src: savedLogo,
-      x: 40, y: 40, width: 150, height: 150, type: "logo", opacity: 1,
-    };
-    onAddImage?.(img);
   };
 
   const [elementColor, setElementColor] = useState(accentColor);
@@ -342,6 +331,14 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
       x: 200, y: 400, width: 600, height: 80, type: "textbox", opacity: 1,
       text: "Novo texto", textColor: textColor || "#ffffff", bgColor: "transparent",
       fontSize: 24, fontFamily: bodyFont,
+    };
+    onAddImage?.(img);
+  };
+
+  const handleAddSessionImage = (src: string) => {
+    const img: OverlayImage = {
+      id: crypto.randomUUID(), src,
+      x: 200, y: 200, width: 400, height: 400, type: "photo", opacity: 1,
     };
     onAddImage?.(img);
   };
@@ -405,12 +402,21 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
               <div className="space-y-2">
                 <div>
                   <span className="text-xs text-muted-foreground">2ª cor:</span>
-                  <div className="flex gap-1 flex-wrap mt-1">
+                  <div className="flex gap-1 flex-wrap mt-1 items-center">
                     {palette.map((color, i) => (
                       <button key={i} onClick={() => onGradientColor2Change?.(i)}
-                        className={`w-7 h-7 rounded-md border-2 transition-all ${i === gradientColor2Index ? "ring-2 ring-primary ring-offset-1 scale-110" : "hover:scale-105"}`}
-                        style={{ backgroundColor: color.hex, borderColor: i === gradientColor2Index ? color.hex : "transparent" }} />
+                        className={`w-7 h-7 rounded-md border-2 transition-all ${!customGradientColor2 && i === gradientColor2Index ? "ring-2 ring-primary ring-offset-1 scale-110" : "hover:scale-105"}`}
+                        style={{ backgroundColor: color.hex, borderColor: !customGradientColor2 && i === gradientColor2Index ? color.hex : "transparent" }} />
                     ))}
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="w-7 h-7 rounded-md border-2 border-dashed border-muted-foreground/40 cursor-pointer flex items-center justify-center hover:bg-muted transition-colors relative">
+                          <input type="color" value={customGradientColor2 || palette[gradientColor2Index]?.hex || "#7c3aed"} onChange={e => onCustomGradientColor2Change?.(e.target.value)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                          <span className="text-muted-foreground text-xs font-bold pointer-events-none">+</span>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>Cor personalizada</TooltipContent>
+                    </Tooltip>
                   </div>
                 </div>
                 <Select value={gradientDirection || "to right"} onValueChange={v => onGradientDirectionChange?.(v)}>
@@ -614,6 +620,17 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
         <div>
           <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">Elemento selecionado</h4>
           <div className="space-y-3">
+            {/* Layer ordering */}
+            {(onBringForward || onSendBackward) && (
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" className="flex-1 gap-1.5 text-xs" onClick={() => onBringForward?.(selectedOverlay.id)}>
+                  <ArrowUp className="h-3.5 w-3.5" /> Para frente
+                </Button>
+                <Button variant="outline" size="sm" className="flex-1 gap-1.5 text-xs" onClick={() => onSendBackward?.(selectedOverlay.id)}>
+                  <ArrowDown className="h-3.5 w-3.5" /> Para trás
+                </Button>
+              </div>
+            )}
             {/* Opacity */}
             {onImageOpacityChange && (
               <div>
@@ -705,25 +722,27 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
         <div>
           <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">Imagens</h4>
           <div className="flex flex-col gap-2">
-            {savedLogo && (
-              <div className="flex gap-2 items-center">
-                <button onClick={handleAddSavedLogo}
-                  className="w-12 h-12 rounded-lg border bg-muted/50 hover:bg-muted transition-colors overflow-hidden flex-shrink-0">
-                  <img src={savedLogo} alt="Logo salva" className="w-full h-full object-contain" />
-                </button>
-                <span className="text-xs text-muted-foreground">Sua logo</span>
-              </div>
-            )}
-            <Button variant="outline" size="sm" className="gap-2 w-full" onClick={() => handleFileUpload("logo")}>
-              <Upload className="h-4 w-4" /> {savedLogo ? "Trocar Logo" : "Upload Logo"}
-            </Button>
-            <Button variant="outline" size="sm" className="gap-2 w-full" onClick={() => handleFileUpload("photo")}>
-              <ImagePlus className="h-4 w-4" /> Upload Foto
+            <Button variant="outline" size="sm" className="gap-2 w-full" onClick={handleFileUpload}>
+              <ImagePlus className="h-4 w-4" /> Upload Imagem
             </Button>
             <Button variant="outline" size="sm" className="gap-2 w-full" onClick={handleAddTextBox}>
               <PlusSquare className="h-4 w-4" /> Nova caixa de texto
             </Button>
           </div>
+          {/* Session image gallery */}
+          {sessionImages.length > 0 && (
+            <div className="mt-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Imagens adicionadas</p>
+              <div className="grid grid-cols-4 gap-1.5">
+                {sessionImages.map(img => (
+                  <button key={img.id} onClick={() => handleAddSessionImage(img.src)}
+                    className="aspect-square rounded-md border bg-muted/50 hover:bg-muted transition-colors overflow-hidden">
+                    <img src={img.src} alt="Imagem" className="w-full h-full object-cover" />
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -748,8 +767,8 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
         </Collapsible>
       )}
 
-      {/* Gallery Assets — hidden temporarily until more images are added */}
-      {false && onAddImage && (
+      {/* Gallery Assets */}
+      {onAddImage && (
         <Collapsible open={galleryOpen} onOpenChange={setGalleryOpen}>
           <CollapsibleTrigger asChild>
             <Button variant="outline" size="sm" className="gap-2 w-full">

@@ -83,7 +83,6 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   const textBoxesInitialized = useRef(false);
   const lastLayout = useRef(layout);
 
-  // Helper to update overlay (use unified or legacy)
   const updateOverlay = (id: string, updates: Partial<OverlayImage>) => {
     if (onUpdateOverlay) {
       onUpdateOverlay(id, updates);
@@ -99,7 +98,6 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
     }
   };
 
-  // Compute default text box positions for a given layout
   const computeTextBoxPositions = (lyt: string, hasTitle: boolean, isCover: boolean) => {
     const boxes: TextBox[] = [];
     if (hasTitle) {
@@ -121,7 +119,6 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
     return boxes;
   };
 
-  // Initialize text boxes
   useEffect(() => {
     if (textBoxesInitialized.current) return;
     const boxes = computeTextBoxPositions(layout, !!title, !!isCoverSlide);
@@ -131,7 +128,6 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
     }
   }, [title, text, isCoverSlide, layout]);
 
-  // Re-position when layout changes
   useEffect(() => {
     if (!textBoxesInitialized.current) return;
     if (lastLayout.current === layout) return;
@@ -235,7 +231,6 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
       else if (corner === "l") { newW = Math.max(MIN, origW - dx); newX = origX + (origW - newW); }
       else if (corner === "b") { newH = Math.max(MIN, origH + dy); }
       else if (corner === "t") { newH = Math.max(MIN, origH - dy); newY = origY + (origH - newH); }
-      // Shift = proportional on corners only
       if (e.shiftKey && ["tl", "tr", "bl", "br"].includes(corner)) {
         const ratio = origW / origH;
         newH = newW / ratio;
@@ -244,7 +239,6 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
       if (resizing.isText) {
         setTextBoxes(prev => prev.map(tb => tb.id === resizing.id ? { ...tb, x: newX, y: newY, width: newW, height: newH } : tb));
       } else {
-        // Atomic update: position + size in one call
         updateOverlay(resizing.id, { x: newX, y: newY, width: newW, height: newH });
       }
     };
@@ -274,7 +268,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   const resolvedCtaText = ctaText || cta || "";
   const resolvedCtaBg = ctaBgColor || accentColor;
   const resolvedCtaText2 = ctaTextColor || bgColor;
-  const resolvedCtaFontSize = ctaFontSize || 28;
+  const resolvedCtaFontSize = ctaFontSize || 27;
 
   const renderResizeHandles = (item: { id: string; x: number; y: number; width: number; height: number }, isText: boolean) => {
     const hs = RESIZE_HANDLE_SIZE;
@@ -358,7 +352,6 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
     : { x: 80, y: 960 };
   const ctaPos = ctaPosition || defaultCtaPos;
 
-  // Render overlay text boxes (custom text boxes from overlayImages)
   const renderOverlayTextBox = (img: OverlayImage) => {
     const isSelected = selectedImageId === img.id;
     return (
@@ -421,23 +414,12 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
           }}
           onClick={handleCanvasClick}
         >
-          <div className="absolute top-0 left-0 w-full h-2" style={{ backgroundColor: accentColor }} />
-          <div className="absolute bottom-0 left-0 w-full h-2" style={{ backgroundColor: accentColor }} />
+          {/* Removed hardcoded decorative bars — use Barras e molduras from toolbar instead */}
 
           {slideNumber !== undefined && totalSlides !== undefined && (
             <div className="absolute top-6 right-6 w-14 h-14 rounded-full flex items-center justify-center text-lg font-bold"
               style={{ backgroundColor: accentColor, color: bgColor, fontFamily: `'${displayFont}', sans-serif`, zIndex: 3 }}>
               {slideNumber}/{totalSlides}
-            </div>
-          )}
-
-          {isCoverSlide && (
-            <div className="absolute" style={{ left: "50%", top: "50%", transform: "translate(-50%, -50%)", zIndex: 1, pointerEvents: "none" }}>
-              <div className="flex flex-col items-center gap-8">
-                <div className="w-20 h-1 rounded-full" style={{ backgroundColor: accentColor }} />
-                <div style={{ height: 300 }} />
-                <div className="w-20 h-1 rounded-full" style={{ backgroundColor: accentColor }} />
-              </div>
             </div>
           )}
 
@@ -476,7 +458,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
 
           {textBoxes.map(renderTextBox)}
 
-          {overlayImages.map((img) => {
+          {overlayImages.map((img, arrayIndex) => {
             if (img.type === "textbox") return renderOverlayTextBox(img);
             const isSelected = selectedImageId === img.id;
             return (
@@ -486,7 +468,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
                   width: img.width, height: img.height,
                   cursor: "move", userSelect: "none",
                   outline: isSelected ? "2px dashed rgba(255,255,255,0.7)" : "none",
-                  outlineOffset: 2, zIndex: isSelected ? 6 : 4,
+                  outlineOffset: 2, zIndex: isSelected ? 6 : 3 + arrayIndex,
                 }}
                 onMouseDown={(e) => handleMouseDown(e, img)}
                 onClick={(e) => { e.stopPropagation(); onSelectImage?.(img.id); setSelectedTextId(null); }}
