@@ -468,6 +468,8 @@ const PostEditorPage = () => {
     setSlideNumberSize(14);
     if (typography.display) setDisplayFont(typography.display);
     if (typography.body) setBodyFont(typography.body);
+    setUploadedImages([]);
+    sessionStorage.removeItem(DRAFT_KEY);
   };
 
   const handleCopyCaption = async () => {
