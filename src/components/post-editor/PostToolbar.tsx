@@ -97,6 +97,15 @@ interface PostToolbarProps {
   removingBackground?: boolean;
   onBringForward?: (id: string) => void;
   onSendBackward?: (id: string) => void;
+  showSlideNumber?: boolean;
+  onShowSlideNumberChange?: (v: boolean) => void;
+  slideNumberBgColor?: string | null;
+  onSlideNumberBgColorChange?: (color: string) => void;
+  slideNumberTextColor?: string | null;
+  onSlideNumberTextColorChange?: (color: string) => void;
+  slideNumberSize?: number;
+  onSlideNumberSizeChange?: (size: number) => void;
+  isCarousel?: boolean;
 }
 
 const LAYOUTS = [
@@ -221,6 +230,11 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
   canvasFormat, onCanvasFormatChange,
   onRemoveBackground, removingBackground,
   onBringForward, onSendBackward,
+  showSlideNumber, onShowSlideNumberChange,
+  slideNumberBgColor, onSlideNumberBgColorChange,
+  slideNumberTextColor, onSlideNumberTextColorChange,
+  slideNumberSize, onSlideNumberSizeChange,
+  isCarousel,
 }) => {
   const [elementsOpen, setElementsOpen] = useState(false);
   const [svgElementsOpen, setSvgElementsOpen] = useState(false);
