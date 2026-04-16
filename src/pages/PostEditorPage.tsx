@@ -184,6 +184,8 @@ const PostEditorPage = () => {
   const [slideNumberBgColor, setSlideNumberBgColor] = useState<string | null>(draft?.slideNumberBgColor ?? null);
   const [slideNumberTextColor, setSlideNumberTextColor] = useState<string | null>(draft?.slideNumberTextColor ?? null);
   const [slideNumberSize, setSlideNumberSize] = useState(draft?.slideNumberSize ?? 14);
+  const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
+  const [renderOrder, setRenderOrder] = useState<string[]>([]);
   const singleCanvasRef = useRef<HTMLDivElement>(null);
   const slideRefs = useRef<(HTMLDivElement | null)[]>([]);
   const textsInitializedRef = useRef(!!draft);
