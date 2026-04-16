@@ -644,48 +644,63 @@ const PostEditorPage = () => {
             )}
           </div>
 
-          <PostToolbar
-            palette={palette.map((c: any) => ({ hex: c.hex, name: c.name }))}
-            selectedBgIndex={bgIndex} onBgChange={(i) => { setCustomBgColor(null); setBgIndex(i); }}
-            onCustomBgColorChange={setCustomBgColor}
-            layout={layout} onLayoutChange={setLayout}
-            onDownload={() => handleDownloadSlide(isCarousel ? currentSlide : 0)}
-            onReset={handleReset} onAddImage={handleAddImage}
-            recommendedFonts={{ display: typography.display, body: typography.body }}
-            fontSize={fontSize} onFontSizeChange={setFontSize}
-            fontWeight={fontWeight} onFontWeightChange={setFontWeight}
-            fontStyle={fontStyle} onFontStyleChange={setFontStyle}
-            bodyFont={bodyFont} onBodyFontChange={(f) => { loadGoogleFont(f); setBodyFont(f); }}
-            displayFont={displayFont} onDisplayFontChange={(f) => { loadGoogleFont(f); setDisplayFont(f); }}
-            textAlign={textAlign} onTextAlignChange={setTextAlign}
-            textColor={textColor} onTextColorChange={setCustomTextColor}
-            selectedImageId={selectedImageId}
-            selectedTextId={selectedTextId}
-            overlayImages={overlayImages}
-            onImageOpacityChange={handleImageOpacityChange}
-            onUpdateOverlaySrc={handleUpdateOverlay}
-            useGradient={useGradient} onUseGradientChange={setUseGradient}
-            gradientColor2Index={gradientColor2Index} onGradientColor2Change={(i) => { setCustomGradientColor2(null); setGradientColor2Index(i); }}
-            customGradientColor2={customGradientColor2} onCustomGradientColor2Change={setCustomGradientColor2}
-            gradientDirection={gradientDirection} onGradientDirectionChange={setGradientDirection}
-            titleFontSize={titleFontSize} onTitleFontSizeChange={setTitleFontSize}
-            titleColor={titleColor} onTitleColorChange={setTitleColor}
-            titleFontFamily={titleFontFamily} onTitleFontFamilyChange={setTitleFontFamily}
-            ctaText={ctaText} onCtaTextChange={setCtaText}
-            ctaBgColor={ctaBgColor} onCtaBgColorChange={setCtaBgColor}
-            ctaTextColor={ctaTextColor} onCtaTextColorChange={setCtaTextColor}
-            ctaFontSize={ctaFontSize} onCtaFontSizeChange={setCtaFontSize}
-            userPortraits={userPortraits}
-            canvasFormat={canvasFormat} onCanvasFormatChange={setCanvasFormat}
-            onRemoveBackground={handleRemoveBackground} removingBackground={removingBackground}
-            onBringForward={handleBringForward} onSendBackward={handleSendBackward}
-            showSlideNumber={showSlideNumber} onShowSlideNumberChange={setShowSlideNumber}
-            slideNumberBgColor={slideNumberBgColor} onSlideNumberBgColorChange={setSlideNumberBgColor}
-            slideNumberTextColor={slideNumberTextColor} onSlideNumberTextColorChange={setSlideNumberTextColor}
-            slideNumberSize={slideNumberSize} onSlideNumberSizeChange={setSlideNumberSize}
-            isCarousel={isCarousel}
-            uploadedImages={uploadedImages}
-          />
+          {(() => {
+            const selectedOverlay = selectedImageId ? overlayImages.find((o) => o.id === selectedImageId) ?? null : null;
+            let selectedKind: import("@/components/post-editor/inspector/SelectionPanel").SelectedKind = "none";
+            if (selectedOverlay) {
+              if (selectedOverlay.type === "textbox") selectedKind = "textbox";
+              else if (selectedOverlay.type === "element") selectedKind = "element";
+              else selectedKind = "image";
+            } else if (selectedTextId === "title") selectedKind = "title";
+            else if (selectedTextId === "body") selectedKind = "body";
+            else if (selectedTextId === "cta") selectedKind = "cta";
+            else if (selectedTextId === "slideNumber") selectedKind = "slideNumber";
+            return (
+              <PostToolbar
+                palette={palette.map((c: any) => ({ hex: c.hex, name: c.name }))}
+                selectedBgIndex={bgIndex}
+                bgHex={bgColor}
+                onBgChange={(i) => { setCustomBgColor(null); setBgIndex(i); }}
+                onCustomBgColorChange={setCustomBgColor}
+                layout={layout as any} onLayoutChange={setLayout as any}
+                onDownload={() => handleDownloadSlide(isCarousel ? currentSlide : 0)}
+                onReset={handleReset} onAddImage={handleAddImage}
+                recommendedFonts={{ display: typography.display, body: typography.body }}
+                selectedKind={selectedKind}
+                fontSize={fontSize} onFontSizeChange={setFontSize}
+                fontWeight={fontWeight} onFontWeightChange={setFontWeight}
+                fontStyle={fontStyle} onFontStyleChange={setFontStyle}
+                bodyFont={bodyFont} onBodyFontChange={(f) => { loadGoogleFont(f); setBodyFont(f); }}
+                displayFont={displayFont}
+                textAlign={textAlign as any} onTextAlignChange={setTextAlign as any}
+                textColor={textColor} onTextColorChange={setCustomTextColor}
+                onImageOpacityChange={handleImageOpacityChange}
+                onUpdateOverlaySrc={handleUpdateOverlay}
+                useGradient={useGradient} onUseGradientChange={setUseGradient}
+                gradientColor2Index={gradientColor2Index} onGradientColor2Change={(i) => { setCustomGradientColor2(null); setGradientColor2Index(i); }}
+                customGradientColor2={customGradientColor2} onCustomGradientColor2Change={setCustomGradientColor2}
+                gradientDirection={gradientDirection} onGradientDirectionChange={setGradientDirection}
+                titleFontSize={titleFontSize} onTitleFontSizeChange={setTitleFontSize}
+                titleColor={titleColor} onTitleColorChange={setTitleColor}
+                titleFontFamily={titleFontFamily} onTitleFontFamilyChange={setTitleFontFamily}
+                ctaText={ctaText} onCtaTextChange={setCtaText}
+                ctaBgColor={ctaBgColor} onCtaBgColorChange={setCtaBgColor}
+                ctaTextColor={ctaTextColor} onCtaTextColorChange={setCtaTextColor}
+                ctaFontSize={ctaFontSize} onCtaFontSizeChange={setCtaFontSize}
+                userPortraits={userPortraits}
+                canvasFormat={canvasFormat as any} onCanvasFormatChange={setCanvasFormat as any}
+                onRemoveBackground={(id) => handleRemoveBackground(id)} removingBackground={removingBackground}
+                selectedOverlay={selectedOverlay}
+                selectedLayerId={selectedImageId}
+                onBringForward={handleBringForward} onSendBackward={handleSendBackward}
+                showSlideNumber={showSlideNumber} onShowSlideNumberChange={setShowSlideNumber}
+                slideNumberBgColor={slideNumberBgColor} onSlideNumberBgColorChange={setSlideNumberBgColor}
+                slideNumberTextColor={slideNumberTextColor} onSlideNumberTextColorChange={setSlideNumberTextColor}
+                slideNumberSize={slideNumberSize} onSlideNumberSizeChange={setSlideNumberSize}
+                isCarousel={isCarousel}
+              />
+            );
+          })()}
         </div>
 
         <div className="bg-card rounded-xl border p-4">
