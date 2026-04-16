@@ -312,10 +312,10 @@ const PostEditorPage = () => {
   const handleImageResize = (id: string, width: number, height: number) => handleUpdateOverlay(id, { width, height });
   const handleImageOpacityChange = (id: string, opacity: number) => handleUpdateOverlay(id, { opacity });
 
-  // Layer ordering
+  // Layer ordering — works on unified render order (text boxes + overlays)
   const handleBringForward = (id: string) => {
-    setOverlayImages(prev => {
-      const idx = prev.findIndex(img => img.id === id);
+    setRenderOrder(prev => {
+      const idx = prev.indexOf(id);
       if (idx < 0 || idx >= prev.length - 1) return prev;
       const next = [...prev];
       [next[idx], next[idx + 1]] = [next[idx + 1], next[idx]];
@@ -324,8 +324,8 @@ const PostEditorPage = () => {
   };
 
   const handleSendBackward = (id: string) => {
-    setOverlayImages(prev => {
-      const idx = prev.findIndex(img => img.id === id);
+    setRenderOrder(prev => {
+      const idx = prev.indexOf(id);
       if (idx <= 0) return prev;
       const next = [...prev];
       [next[idx], next[idx - 1]] = [next[idx - 1], next[idx]];
