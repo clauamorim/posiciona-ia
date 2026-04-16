@@ -8,9 +8,10 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
-import { Upload, X, Download, Loader2, ImageIcon, PackageOpen, ShoppingCart, Camera } from "lucide-react";
+import { Upload, X, Download, Loader2, ImageIcon, PackageOpen, ShoppingCart, Camera, Maximize2 } from "lucide-react";
 import JSZip from "jszip";
 import { compressImage } from "@/lib/imageUtils";
+import { PortraitPreviewDialog } from "@/components/PortraitPreviewDialog";
 import {
   Dialog,
   DialogContent,
