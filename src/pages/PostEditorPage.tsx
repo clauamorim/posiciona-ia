@@ -651,8 +651,8 @@ const PostEditorPage = () => {
               if (selectedOverlay.type === "textbox") selectedKind = "textbox";
               else if (selectedOverlay.type === "element") selectedKind = "icon";
               else selectedKind = "image";
-            } else if (selectedTextId === "title") selectedKind = "title";
-            else if (selectedTextId === "body") selectedKind = "body";
+            } else if (selectedTextId === "text-title") selectedKind = "title";
+            else if (selectedTextId === "text-body") selectedKind = "body";
             else if (selectedTextId === "cta") selectedKind = "cta";
             else if (selectedTextId === "slideNumber") selectedKind = "slideNumber";
             return (
