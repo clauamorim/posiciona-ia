@@ -244,6 +244,16 @@ const PostEditorPage = () => {
     if (typography.body) { setBodyFont(typography.body); loadGoogleFont(typography.body); }
   }, [typography.display, typography.body]);
 
+  // Initialize bgIndex from palette usage ("fundo"/"background") once on first load
+  useEffect(() => {
+    if (bgInitializedRef.current) return;
+    if (!Array.isArray(palette) || palette.length === 0) return;
+    if (customBgColor) { bgInitializedRef.current = true; return; }
+    const idx = findBackgroundIndex(palette);
+    setBgIndex(idx);
+    bgInitializedRef.current = true;
+  }, [palette, customBgColor]);
+
   // Initialize texts only once per day, prevent alt+tab reset
   useEffect(() => {
     if (!day) return;
