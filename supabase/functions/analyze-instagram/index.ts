@@ -1,5 +1,9 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
+const BIO_MIN = 130;
+const BIO_MAX = 145;
+const BIO_HARD_LIMIT = 150;
+
 async function fetchReferencePdfs(): Promise<{ mime_type: string; data: string }[]> {
   try {
     const supabaseAdmin = createClient(
@@ -42,6 +46,87 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+type BioOption = { text: string; char_count: number; rationale?: string };
+
+function smartTruncate(text: string, max: number): string {
+  if (text.length <= max) return text;
+  const cut = text.slice(0, max - 1);
+  const lastSpace = cut.lastIndexOf(" ");
+  const base = (lastSpace > max * 0.6 ? cut.slice(0, lastSpace) : cut).replace(/[\s.,;:!?-]+$/, "");
+  return base + "…";
+}
+
+function normalizeBios(bios: any[]): BioOption[] {
+  if (!Array.isArray(bios)) return [];
+  return bios
+    .filter((b) => b && typeof b.text === "string")
+    .map((b) => ({
+      text: b.text.trim(),
+      char_count: b.text.trim().length,
+      rationale: typeof b.rationale === "string" ? b.rationale : undefined,
+    }));
+}
+
+function bioPolicyText(): string {
+  return `Para o aspecto Bio do Instagram, gere EXATAMENTE 3 opções no campo bio_options. CADA bio DEVE ter entre ${BIO_MIN} e ${BIO_MAX} caracteres (incluindo espaços, emojis e pontuação). NUNCA ultrapasse ${BIO_HARD_LIMIT} caracteres — o Instagram corta em 150. Conte os caracteres antes de retornar e preencha char_count exato. Bios concisas, claras, com posicionamento forte. Nada de frases vagas ou enchimento.`;
+}
+
+async function callAi(messages: any[], LOVABLE_API_KEY: string) {
+  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${LOVABLE_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "google/gemini-2.5-flash",
+      messages,
+      tools: [{
+        type: "function",
+        function: {
+          name: "instagram_analysis",
+          description: "Retorna a análise do perfil do Instagram",
+          parameters: {
+            type: "object",
+            properties: {
+              analysis: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    aspect: { type: "string", description: "Nome do aspecto analisado" },
+                    current: { type: "string", description: "Situação atual detectada" },
+                    suggestion: { type: "string", description: "Sugestão de melhoria baseada em StoryBrand e arquétipos" },
+                  },
+                  required: ["aspect", "current", "suggestion"],
+                },
+              },
+              bio_options: {
+                type: "array",
+                minItems: 3,
+                maxItems: 3,
+                description: `3 opções de bio. Cada uma entre ${BIO_MIN} e ${BIO_MAX} chars, máx ${BIO_HARD_LIMIT}.`,
+                items: {
+                  type: "object",
+                  properties: {
+                    text: { type: "string", description: `Bio entre ${BIO_MIN}-${BIO_MAX} chars, NUNCA mais de ${BIO_HARD_LIMIT}` },
+                    char_count: { type: "integer", description: "Contagem exata de caracteres do campo text" },
+                    rationale: { type: "string", description: "Por que essa bio funciona (curto)" },
+                  },
+                  required: ["text", "char_count"],
+                },
+              },
+            },
+            required: ["analysis", "bio_options"],
+          },
+        },
+      }],
+      tool_choice: { type: "function", function: { name: "instagram_analysis" } },
+    }),
+  });
+  return res;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -70,7 +155,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Fetch user's StoryBrand + archetypes
     const [reportRes, archRes] = await Promise.all([
       supabase.from("reports").select("content").eq("user_id", userId).eq("status", "completed").order("created_at", { ascending: false }).limit(1).single(),
       supabase.from("user_top_archetypes").select("*").eq("user_id", userId).order("rank").limit(3),
@@ -80,8 +164,7 @@ Deno.serve(async (req) => {
     const visualIdentity = (reportRes.data?.content as any)?.visual_identity || null;
     const archetypes = archRes.data || [];
 
-    // Build AI prompt
-    const systemPrompt = `Você é um especialista em branding e marketing digital. Analise o perfil do Instagram com base na screenshot fornecida e nos dados do StoryBrand e arquétipos do usuário. Retorne análise prática e acionável.`;
+    const systemPrompt = `Você é um especialista em branding e marketing digital. Analise o perfil do Instagram com base na screenshot fornecida e nos dados do StoryBrand e arquétipos do usuário. Retorne análise prática e acionável.\n\n${bioPolicyText()}`;
 
     const userPrompt = `
 ## Screenshot do Perfil do Instagram${username ? ` (@${username})` : ""}
@@ -98,14 +181,17 @@ ${visualIdentity ? JSON.stringify(visualIdentity, null, 2) : "Não disponível"}
 
 Analise os seguintes aspectos e forneça sugestões baseadas no StoryBrand e arquétipos:
 1. Nome do Perfil
-2. Bio
+2. Bio (em "suggestion" dê uma orientação geral; as 3 opções concretas vão em bio_options)
 3. CTA (Call to Action)
 4. Destaques
 5. Posts Fixados
 6. Aparência do Feed
 7. Foto de Perfil
-8. Estilo e Figurino – Analise as roupas, acessórios, maquiagem e estilo pessoal visíveis nas fotos do perfil e do feed. Avalie se o estilo visual pessoal está coerente com os arquétipos de marca. Sugira ajustes de figurino, paleta de cores das roupas, tipo de acessórios e maquiagem que reforcem o posicionamento.
-9. Cenário e Ambientação – Analise os cenários e backgrounds das fotos. Avalie se comunicam a mensagem certa e sugira ambientações mais alinhadas à identidade de marca.
+8. Estilo e Figurino – roupas, acessórios, maquiagem, estilo pessoal
+9. Cenário e Ambientação – backgrounds das fotos
+
+REGRA CRÍTICA SOBRE BIO:
+${bioPolicyText()}
     `.trim();
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -115,7 +201,6 @@ Analise os seguintes aspectos e forneça sugestões baseadas no StoryBrand e arq
       });
     }
 
-    // Fetch reference PDFs
     const pdfParts = await fetchReferencePdfs();
 
     const userContentParts: any[] = [
@@ -129,43 +214,7 @@ Analise os seguintes aspectos e forneça sugestões baseadas no StoryBrand e arq
       { role: "user", content: userContentParts },
     ];
 
-    const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages,
-        tools: [{
-          type: "function",
-          function: {
-            name: "instagram_analysis",
-            description: "Retorna a análise do perfil do Instagram",
-            parameters: {
-              type: "object",
-              properties: {
-                analysis: {
-                  type: "array",
-                  items: {
-                    type: "object",
-                    properties: {
-                      aspect: { type: "string", description: "Nome do aspecto analisado" },
-                      current: { type: "string", description: "Situação atual detectada" },
-                      suggestion: { type: "string", description: "Sugestão de melhoria baseada em StoryBrand e arquétipos" },
-                    },
-                    required: ["aspect", "current", "suggestion"],
-                  },
-                },
-              },
-              required: ["analysis"],
-            },
-          },
-        }],
-        tool_choice: { type: "function", function: { name: "instagram_analysis" } },
-      }),
-    });
+    const aiRes = await callAi(messages, LOVABLE_API_KEY);
 
     if (!aiRes.ok) {
       const errText = await aiRes.text();
@@ -190,7 +239,48 @@ Analise os seguintes aspectos e forneça sugestões baseadas no StoryBrand e arq
     }
 
     const parsed = JSON.parse(toolCall.function.arguments);
-    return new Response(JSON.stringify({ analysis: parsed.analysis }), {
+    let bios: BioOption[] = normalizeBios(parsed.bio_options || []);
+
+    // Retry up to 2x if any bio exceeds the hard limit
+    let attempts = 0;
+    while (attempts < 2 && (bios.length < 3 || bios.some((b) => b.text.length > BIO_HARD_LIMIT))) {
+      attempts++;
+      const tooLong = bios.filter((b) => b.text.length > BIO_HARD_LIMIT).map((b) => `- "${b.text}" (${b.text.length} chars)`).join("\n");
+      const retryMessages = [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userContentParts },
+        { role: "assistant", content: JSON.stringify({ bio_options: bios }) },
+        { role: "user", content: `As bios abaixo ESTOURARAM o limite de ${BIO_HARD_LIMIT} caracteres:\n${tooLong}\n\nReescreva as 3 bios garantindo que cada uma tenha entre ${BIO_MIN}-${BIO_MAX} caracteres (NUNCA mais de ${BIO_HARD_LIMIT}). Conte caractere por caractere antes de responder. Mantenha o resto da análise igual.` },
+      ];
+      const retryRes = await callAi(retryMessages, LOVABLE_API_KEY);
+      if (!retryRes.ok) break;
+      const retryData = await retryRes.json();
+      const retryTool = retryData.choices?.[0]?.message?.tool_calls?.[0];
+      if (!retryTool?.function?.arguments) break;
+      try {
+        const retryParsed = JSON.parse(retryTool.function.arguments);
+        const newBios = normalizeBios(retryParsed.bio_options || []);
+        if (newBios.length >= 3) bios = newBios;
+      } catch {
+        break;
+      }
+    }
+
+    // Final fallback: smart-truncate any remaining over-limit bios
+    bios = bios.slice(0, 3).map((b) => {
+      if (b.text.length > BIO_HARD_LIMIT) {
+        const truncated = smartTruncate(b.text, BIO_HARD_LIMIT);
+        return { text: truncated, char_count: truncated.length, rationale: b.rationale };
+      }
+      return { ...b, char_count: b.text.length };
+    });
+
+    // Pad to 3 if AI returned fewer
+    while (bios.length < 3) {
+      bios.push({ text: "", char_count: 0 });
+    }
+
+    return new Response(JSON.stringify({ analysis: parsed.analysis, bio_options: bios }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {

@@ -14,7 +14,7 @@ const SECTION_GAP_MM = 4;
 export async function exportSectionBasedPDF(
   container: HTMLElement,
   filename: string,
-  bgColor = "#f2eeea"
+  bgColor = "#FAF8F5"
 ): Promise<void> {
   const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   let currentY = MARGIN_MM;
