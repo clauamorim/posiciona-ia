@@ -1,122 +1,90 @@
 
 
-# Plano: Refatoração do editor de posts + persistência de mídia e designs
+# Plano: Correções no editor de posts
 
-## Parte 1 — Refatoração do sidebar (Inspector contextual)
+## Causas raiz
 
-**Problema:** `PostToolbar.tsx` (1002 linhas) repete controles de cor para título, corpo, CTA, número do slide, ícones, molduras e textbox. O usuário rola muito e há paletas duplicadas.
+**1. Seleção de texto não mostra opções (fonte/cor/parágrafo)**
+- `PostCanvas` cria text boxes com IDs `"text-title"` e `"text-body"`, mas `PostEditorPage` testa `selectedTextId === "title"` / `"body"` (sem prefixo). Resultado: `selectedKind` é sempre `null` → painel "Elemento selecionado" mostra apenas a dica vazia.
+- CTA: handler `handleCtaPointerDown` faz `setSelectedTextId(null)` em vez de `"cta"`. CTA nunca é selecionável no inspector.
+- Numeração de slide: idem — emite `null`, nunca `"slideNumber"`.
 
-**Solução — 3 zonas fixas:**
+**2. Cor de ícones/molduras não muda**
+- `SelectionPanel` chama `props.onRecolorElement(c)` quando o usuário escolhe cor de um ícone selecionado, mas `PostEditorPage` **nunca passa** `onRecolorElement` para o `PostToolbar`. Prop fica `undefined`, controle some.
 
-1. **Documento** (sempre visível, compacto): Formato (1:1/Reels), Cor de fundo + gradiente, Layout, Numeração de slides (carrossel), botão "Resetar".
-2. **Elemento selecionado** (aparece só quando algo está selecionado):
-   - **Título principal**: fonte, tamanho, cor — controles atuais migrados pra cá quando `selectedTextId === "title"`.
-   - **Corpo de texto**: fonte, tamanho, peso, itálico, alinhamento, cor — quando body está selecionado.
-   - **CTA**: texto, tamanho, cor de fundo, cor do texto, ordem de camada.
-   - **Número do slide**: tamanho, cor de fundo, cor do texto.
-   - **Imagem/foto**: opacidade, remover fundo, ordem de camada.
-   - **Ícone/SVG**: cor, opacidade, ordem de camada.
-   - **Caixa de texto livre**: cor texto, cor fundo, tamanho, ordem de camada.
-   - **Sem seleção**: dica curta "Selecione um elemento para editar".
-3. **Adicionar elemento** (em tabs compactas para reduzir altura):
-   - Tabs: `Texto | Upload | Galeria | Retratos | Ícones | Molduras`
-   - "Cor de novos elementos" aparece **uma vez só** dentro das tabs Ícones/Molduras (como default global).
+**3. Botão "Salvar" não aparece e designs não persistem**
+- `PostToolbar` só renderiza o botão Salvar se receber `onSaveDesign`. `PostEditorPage` nunca passa essa prop. Não existe nenhuma lógica que insira em `user_designs`.
 
-**Implementação:** refatorar `PostToolbar.tsx` em 3 sub-componentes em `src/components/post-editor/inspector/`:
-- `DocumentPanel.tsx`
-- `SelectionPanel.tsx` (com switch interno por tipo de seleção)
-- `AddElementPanel.tsx` (com `Tabs` do shadcn)
+**4. Botão Layout aparenta não funcionar**
+- O wiring está correto (`onLayoutChange={setLayout}`), mas o `PostCanvas` só recalcula posições uma única vez por mudança de layout via `lastLayout.current`, e como os text boxes preservam posição editada, o efeito visual fica imperceptível em alguns casos. Vou garantir que o reset de layout sempre reposicione, e que o botão visual tenha estado ativo claro.
 
-`PostEditorPage.tsx` precisa expor `selectedTextId` mais granularmente (já tem `selectedTextId` para títulos, falta diferenciar "title" vs "body"). Adicionar estado `selectedElementKind: "title" | "body" | "cta" | "slideNumber" | null` derivado das seleções existentes.
-
-**Resultado:** sidebar ~50% menor, sem paletas repetidas, edição contextual.
+**5. Ordem do menu lateral**
+- `footerItems` em `DashboardLayout` está: Meus Designs → Plano e Créditos → Histórico → Ajuda. Usuário quer Histórico logo abaixo de Meus Designs.
 
 ---
 
-## Parte 2 — Persistir uploads do usuário na Galeria
+## Mudanças
 
-**Problema:** uploads vão para `uploadedImages` (sessionStorage). Some entre sessões e entre dias diferentes.
+### A) Corrigir seleção contextual (`PostEditorPage.tsx`)
+Mapear os IDs reais que o canvas emite:
+```ts
+if (selectedTextId === "text-title") selectedKind = "title";
+else if (selectedTextId === "text-body") selectedKind = "body";
+else if (selectedTextId === "cta") selectedKind = "cta";
+else if (selectedTextId === "slideNumber") selectedKind = "slideNumber";
+```
 
-**Solução:**
-- Criar bucket `user-uploads` (privado, leitura/escrita só para o owner).
-- Criar tabela `user_gallery_assets` (user_id, name, file_path, created_at) com RLS por owner.
-- Quando usuário faz upload via "Upload Imagem":
-  1. Comprimir (já existe `compressImage`)
-  2. Upload pro bucket `user-uploads/{user_id}/{uuid}.{ext}`
-  3. Insert em `user_gallery_assets`
-  4. Adicionar como overlay no canvas (comportamento atual)
-- Tab "Galeria" do inspector mostra **duas seções**: "Minhas imagens" (do usuário) + "Galeria Posiciona" (admin, atual).
+### B) CTA e numeração selecionáveis (`PostCanvas.tsx`)
+- `handleCtaPointerDown`: trocar `setSelectedTextId(null)` por `setSelectedTextId("cta")`.
+- Drag do número do slide: idem, emitir `"slideNumber"` em vez de `null`.
+- Adicionar `onClick` no nó do CTA e do número que emita o ID correspondente.
 
-**Migration necessária:** nova tabela + bucket + policies.
+### C) Recolor de ícones/molduras (`PostEditorPage.tsx`)
+Implementar e passar `onRecolorElement`:
+```ts
+const handleRecolorElement = (color: string) => {
+  if (!selectedImageId) return;
+  const overlay = overlayImages.find(o => o.id === selectedImageId);
+  if (!overlay || overlay.type !== "element") return;
+  // Re-decode SVG, swap currentColor/fill, re-encode
+  const decoded = atob(overlay.src.split("base64,")[1] || "");
+  const recolored = decoded.replace(/(fill|stroke)="[^"]*"/g, (m, attr) =>
+    m.includes('"none"') ? m : `${attr}="${color}"`
+  );
+  handleUpdateOverlay(overlay.id, { src: `data:image/svg+xml;base64,${btoa(recolored)}` });
+};
+```
+Passar `onRecolorElement={handleRecolorElement}` ao `PostToolbar`.
 
----
+### D) Salvar designs em `user_designs` (`PostEditorPage.tsx` + `PostToolbar`)
+- Adicionar botão "Salvar design" (já existe no `PostToolbar` se `onSaveDesign` for passado).
+- `handleSaveDesign`: capturar thumbnail (html2canvas do canvas atual @ scale 0.3) + serializar todo o estado num objeto `state` e fazer upsert em `user_designs` por `(user_id, week_index, day_index)` se não houver `?design=ID`, ou update se houver.
+- Na carga inicial (`useEffect`), se `searchParams.get("design")` existir, fazer SELECT da row e hidratar todos os states a partir de `state` JSONB.
+- Toast de sucesso. Sem auto-save por enquanto (MVP — manual save evita complicação).
 
-## Parte 3 — Deletar imagens da Galeria pessoal
+### E) Layout button: garantir efeito visível (`PostCanvas.tsx`)
+- No `useEffect` que escuta mudança de `layout`, sempre reposicionar todos os text boxes (remover o `lastLayout.current` short-circuit e em vez disso resetar para as novas posições calculadas).
+- Mantém edição de posição manual depois — só reposiciona quando layout muda explicitamente.
 
-- Ícone trash no hover de cada miniatura em "Minhas imagens".
-- Confirm dialog ("Excluir esta imagem?").
-- Ao confirmar: `DELETE` em `user_gallery_assets` + `storage.remove()`.
-- Refresh da lista local.
-- **Não remove instâncias já colocadas** no canvas (overlays já usam o data URL/URL pública carregada — continuam funcionando até o usuário sair).
-
----
-
-## Parte 4 — Deletar retratos do histórico
-
-**Problema:** RLS atual de `portrait_generations` não permite DELETE para o usuário (só admin).
-
-**Solução:**
-- Migration: adicionar policy `Users can delete own portraits` em `portrait_generations`.
-- Em `HistoryPage.tsx` aba Retratos: trash icon no hover de cada miniatura.
-- Confirm dialog. Ao confirmar:
-  - Se a row tem só esse retrato no array `portraits`: delete row inteira.
-  - Se tem múltiplos: update removendo só aquele índice do JSONB.
-- Refresh lista.
-- "Meus Retratos" no editor recarrega da tabela quando aberto.
-
----
-
-## Parte 5 — Salvar e listar designs criados
-
-**Solução MVP:**
-
-**Nova tabela** `user_designs`:
-- `id`, `user_id`, `title` (auto: "Dia X — Tema"), `week_index`, `day_index`
-- `thumbnail` (text — data URL PNG ~300px gerado via html2canvas no save)
-- `state` (jsonb — payload completo do `EditorDraft` atual)
-- `created_at`, `updated_at`
-- RLS: owner-only CRUD.
-
-**Comportamento:**
-- Botão "Salvar design" no editor (ao lado de Baixar PNG): captura thumbnail + serializa estado completo → upsert por `(user_id, week_index, day_index)` ou cria novo se usuário clicar "Salvar como novo".
-- Auto-save silencioso a cada mudança (debounced 5s) atualizando `updated_at` se já existe um design para aquele dia.
-
-**Nova página** `/my-designs` (link no sidebar inferior, perto de "Histórico"):
-- Grid de cards: thumbnail + título + "editado há X" (ordenado por `updated_at` desc).
-- Agrupamento leve: "Hoje", "Esta semana", "Mais antigos".
-- Ações por card: **Abrir** (navega `/post-editor?week=X&day=Y&design=ID` — carrega state da row), **Duplicar** (insert nova row com copy do state), **Excluir** (delete + confirm).
-
-**Em `PostEditorPage.tsx`:** se `?design=ID` presente, hidrata estado a partir da row; senão usa fluxo atual (sessionStorage draft).
-
-**Imagens grandes:** o `state` contém data URLs base64. Para evitar rows muito grandes, fazer upload de `overlayImages` que sejam data URLs > 100KB para `user-uploads/designs/{design_id}/{overlay_id}.png` e guardar URL no JSONB. Reutiliza bucket da Parte 2.
+### F) Reordenar footer (`DashboardLayout.tsx`)
+```ts
+const footerItems = [
+  { label: "Meus Designs", href: "/my-designs", icon: Layers },
+  { label: "Histórico", href: "/history", icon: History },
+  { label: "Plano e Créditos", href: "/choose-plan", icon: CreditCard },
+  { label: "Ajuda", href: "/help", icon: HelpCircle },
+];
+```
 
 ---
 
 ## Arquivos
 
-**Novos:**
-- `src/components/post-editor/inspector/DocumentPanel.tsx`
-- `src/components/post-editor/inspector/SelectionPanel.tsx`
-- `src/components/post-editor/inspector/AddElementPanel.tsx`
-- `src/pages/MyDesignsPage.tsx`
-- 1 migration (tabela `user_gallery_assets`, tabela `user_designs`, bucket `user-uploads`, RLS, policy de delete em `portrait_generations`)
+| Arquivo | Mudança |
+|---------|---------|
+| `src/pages/PostEditorPage.tsx` | Corrigir mapping de `selectedKind` para IDs reais (`text-title`, `text-body`); adicionar `handleRecolorElement` + passar prop; adicionar `handleSaveDesign` + passar `onSaveDesign`; carregar design por `?design=ID` |
+| `src/components/post-editor/PostCanvas.tsx` | Emitir `"cta"` e `"slideNumber"` no pointer down; sempre reposicionar text boxes ao mudar layout |
+| `src/components/DashboardLayout.tsx` | Reordenar `footerItems` (Histórico após Meus Designs) |
 
-**Modificados:**
-- `src/components/post-editor/PostToolbar.tsx` → vira shell que monta os 3 painéis
-- `src/pages/PostEditorPage.tsx` → load/save de design via query param, integração com `user_gallery_assets`, controle `selectedElementKind`
-- `src/pages/HistoryPage.tsx` → botão excluir retrato
-- `src/components/DashboardLayout.tsx` → item "Meus Designs" no footer
-- `src/App.tsx` → rota `/my-designs`
-
-Sem mudanças em geração de relatório, créditos ou Stripe.
+Sem mudanças de schema (tabelas `user_designs` e `user_gallery_assets` já existem). Sem mudanças em geração de relatório, créditos ou Stripe.
 
