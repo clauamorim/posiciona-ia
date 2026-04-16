@@ -1,79 +1,48 @@
 
 
-# Ajustes na Landing Page e Aplicação do Posiciona
+# Fix: Drag de elementos no editor mobile (sem scroll)
 
-## Escopo
+## Causa raiz
 
-6 mudanças: seção de demonstração com screenshots, bloco futuro de comparação de retratos, botão WhatsApp dourado, e-mail de suporte nas áreas de ajuda, títulos/legendas, responsividade.
+`PostCanvas.tsx` usa exclusivamente `onMouseDown` + listeners `mousemove`/`mouseup` no `window`. No mobile (iOS Safari, Chrome Android), eventos de toque não disparam handlers de mouse de forma confiável quando há intenção de scroll — o navegador interpreta o gesto como rolagem da página antes que o React entregue um `mousedown` sintético. Resultado: a página rola, o elemento não move.
 
----
+## Solução (lightweight, MVP-friendly)
 
-## 1. Copiar screenshots para o projeto
+Migrar os handlers de drag/resize para **Pointer Events**, que unificam mouse + touch + caneta em um único pipeline confiável. Combinar com `touch-action: none` nos elementos arrastáveis para impedir o scroll nativo apenas onde há drag, preservando scroll normal no resto da página.
 
-Copiar os 5 screenshots selecionados para `src/assets/demo/`:
-- `DashBoard.png`
-- `Questionario_arquetipos.png`
-- `Arquétipos.png`
-- `Narrativa_Marca.png`
-- `Linha_Editorial.png`
+### Mudanças em `src/components/post-editor/PostCanvas.tsx`
 
-## 2. Ativar e popular a seção de demonstração (linhas 285-309)
+1. **Renomear handlers** `handleMouseDown` → `handlePointerDown` (idem para text/CTA/resize/slide-number). Trocar `React.MouseEvent` por `React.PointerEvent`. Trocar atributos JSX `onMouseDown` → `onPointerDown`.
 
-- Mudar `SHOW_DEMO_SECTION` para `true` (linha 22)
-- Substituir o conteúdo da seção de demonstração por:
-  - Titulo: "Veja o Posiciona por dentro"
-  - Subtítulo: "Do diagnóstico à estratégia, da narrativa ao conteúdo: veja como a plataforma organiza seu posicionamento na prática."
-  - Carrossel horizontal premium com os 5 screenshots importados via ES6, cada um com legenda:
-    1. "Dashboard estratégico"
-    2. "Diagnóstico guiado"
-    3. "Resultado de posicionamento"
-    4. "Narrativa da marca"
-    5. "Linha editorial pronta"
-  - Implementar carrossel com navegação por setas e indicadores de dots
-  - Imagem principal com borda sutil, rounded-xl, sombra
-  - Responsivo: no mobile, imagem ocupa largura total com scroll horizontal ou swipe
-  - CTA "Começar meu posicionamento agora" mantido abaixo
+2. **Listeners globais**: nos dois `useEffect` de drag/resize (linhas 216-233 e 235-266) e no inline do slide-number (linhas 513-520):
+   - `window.addEventListener("mousemove", ...)` → `window.addEventListener("pointermove", ..., { passive: false })`
+   - `window.addEventListener("mouseup", ...)` → `window.addEventListener("pointerup", ...)` + `pointercancel`
+   - Chamar `e.preventDefault()` dentro do `pointermove` ativo para travar scroll durante o gesto.
 
-## 3. Bloco futuro de comparação de retratos
+3. **Capturar o pointer** no `pointerdown`: `(e.target as HTMLElement).setPointerCapture(e.pointerId)` para garantir que o move continue chegando mesmo se o dedo sair do elemento.
 
-Inserir logo após a seção de demonstração, uma nova section com:
-- Título: "Da foto base ao retrato de marca"
-- Subtítulo: "Compare a imagem original com versões geradas pelo Posiciona para o seu posicionamento."
-- Layout de comparador slider com divisor arrastável (placeholder com gradiente e ícone, sem imagens reais)
-- Microcopy: "Deslize para comparar"
-- Sem imagens — apenas a estrutura pronta, com estado visual elegante (não vazio/quebrado)
-- Usar placeholders com ícones (Camera/Image) e texto discreto indicando "Foto original" e "Retrato Posiciona"
+4. **CSS `touch-action: none`** nos elementos arrastáveis (text boxes, overlays de imagem, CTA, slide number, handles de resize). Adicionar como propriedade inline `touchAction: "none"` nos `style` desses divs. Isso impede que o navegador roube o gesto para scroll antes do JS reagir.
 
-## 4. Botão flutuante WhatsApp (linhas 511-523)
+5. **Não aplicar** `touch-action: none` no container externo do canvas — assim o usuário ainda pode rolar a página tocando fora dos elementos arrastáveis.
 
-Substituir o botão atual por:
-- Fundo `#C9A84C`, hover `#E2C06A`
-- Ícone WhatsApp cor `#0D0B1A`
-- Mobile: 56x56px, desktop: 60x60px, ícone 24/26px
-- `bottom: calc(20px + env(safe-area-inset-bottom))`, `right: 20px`
-- Remover `animate-pulse` e verde padrão
-- Sombra sutil, transição 0.2s ease, active scale(0.97)
-- aria-label mantido
-- Tooltip discreto no desktop ("Fale no WhatsApp")
+6. **Edição de texto preservada**: quando `editingTextId === tb.id`, o `pointerdown` retorna cedo (já existe esse early return), e `touch-action` permanece `auto` nesse caso para permitir seleção de texto / scroll dentro do contenteditable.
 
-## 5. E-mail de suporte nas áreas de ajuda
+### Por que isso funciona no iPhone Safari
 
-Substituir `contato@posiciona.ia.br` por `suporte@posiciona.ia.br` em contextos de ajuda/suporte:
-- `src/pages/HelpPage.tsx` — adicionar rodapé com link para suporte@posiciona.ia.br
-- `src/components/LegalPageLayout.tsx` — trocar para suporte@ no texto de suporte
-- `src/pages/TermosDeServico.tsx` — trocar "Contato geral e suporte" para suporte@
-- `src/pages/PoliticaDePrivacidade.tsx` — trocar a linha de "Contato geral e suporte" para suporte@
+- Pointer Events são suportados nativamente desde iOS 13.
+- `touch-action: none` é a forma oficial de impedir scroll/zoom em elementos interativos.
+- `setPointerCapture` resolve o problema de "dedo escapou do elemento".
+- Não muda nada no desktop: PointerEvents incluem mouse, com mesmas coordenadas (`clientX/Y`).
 
-Manter `contato@` no footer da landing (é contato geral, não suporte) e nos edge functions (Stripe).
+### Sem fallback necessário
 
-## 6. Arquivos a alterar
+Pointer Events + `touch-action: none` é robusto o suficiente para o MVP. Se algo falhar em algum device exótico, o desktop continua funcionando normalmente.
+
+## Arquivos
 
 | Arquivo | Mudança |
 |---------|---------|
-| `src/pages/LandingPage.tsx` | Ativar demo, carrossel de screenshots, bloco comparador, botão WhatsApp |
-| `src/pages/HelpPage.tsx` | Adicionar rodapé com suporte@posiciona.ia.br |
-| `src/components/LegalPageLayout.tsx` | Trocar contato@ por suporte@ |
-| `src/pages/TermosDeServico.tsx` | Trocar contato@ por suporte@ |
-| `src/pages/PoliticaDePrivacidade.tsx` | Trocar contato@ por suporte@ |
-| `src/assets/demo/` | 5 screenshots copiados |
+| `src/components/post-editor/PostCanvas.tsx` | Migrar mouse → pointer events, adicionar `touch-action: none` nos arrastáveis, `setPointerCapture` no down, `preventDefault` no move ativo |
+
+Sem mudanças de schema, sem mudanças em lógica de geração, sem novas dependências.
 
