@@ -21,6 +21,7 @@ import HistoryPage from "./pages/HistoryPage";
 import PostEditorPage from "./pages/PostEditorPage";
 import InstagramAnalysis from "./pages/InstagramAnalysis";
 import PortraitGenerator from "./pages/PortraitGenerator";
+import MyDesignsPage from "./pages/MyDesignsPage";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminUsers from "./pages/admin/AdminUsers";
 import AdminDocuments from "./pages/admin/AdminDocuments";
@@ -62,6 +63,7 @@ const App = () => (
             <Route path="/editorial" element={<ProtectedRoute requirePlan><EditorialPage /></ProtectedRoute>} />
             <Route path="/instagram-analysis" element={<ProtectedRoute requirePlan><InstagramAnalysis /></ProtectedRoute>} />
             <Route path="/portraits" element={<ProtectedRoute requirePlan><PortraitGenerator /></ProtectedRoute>} />
+            <Route path="/my-designs" element={<ProtectedRoute requirePlan><MyDesignsPage /></ProtectedRoute>} />
             <Route path="/help" element={<ProtectedRoute requirePlan><HelpPage /></ProtectedRoute>} />
             <Route path="/admin" element={<ProtectedRoute requireAdmin><AdminDashboard /></ProtectedRoute>} />
             <Route path="/admin/users" element={<ProtectedRoute requireAdmin><AdminUsers /></ProtectedRoute>} />

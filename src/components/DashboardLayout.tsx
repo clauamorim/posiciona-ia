@@ -3,7 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard, Building2, Brain, BarChart3,
-  FileText, History, LogOut, Shield, Menu, X, Target, Calendar, Instagram, Camera, HelpCircle, CreditCard, FileUp, Image, User, ChevronRight
+  FileText, History, LogOut, Shield, Menu, X, Target, Calendar, Instagram, Camera, HelpCircle, CreditCard, FileUp, Image, User, ChevronRight, Layers
 } from "lucide-react";
 import posicionaLogo from "@/assets/posiciona-logo.png";
 import { useState, useEffect } from "react";
@@ -111,6 +111,7 @@ export const DashboardLayout = ({ children }: { children: React.ReactNode }) => 
   };
 
   const footerItems: NavItem[] = isAdmin ? [] : [
+    { label: "Meus Designs", href: "/my-designs", icon: Layers },
     { label: "Plano e Créditos", href: "/choose-plan", icon: CreditCard },
     { label: "Histórico", href: "/history", icon: History },
     { label: "Ajuda", href: "/help", icon: HelpCircle },
