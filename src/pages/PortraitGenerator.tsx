@@ -66,6 +66,7 @@ const PortraitGenerator = () => {
   const [packDialogOpen, setPackDialogOpen] = useState(false);
   const [loadingPack, setLoadingPack] = useState<string | null>(null);
   const [selectedWardrobe, setSelectedWardrobe] = useState(savedDraft.current?.selectedWardrobe ?? 0);
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
 
   // Persist draft on changes
   useEffect(() => {
