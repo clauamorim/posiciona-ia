@@ -582,8 +582,9 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
               style={{
                 position: "absolute", left: ctaPos.x, top: ctaPos.y,
                 cursor: "move", userSelect: "none", zIndex: topZ + 1,
+                touchAction: "none",
               }}
-              onMouseDown={handleCtaMouseDown}
+              onPointerDown={handleCtaPointerDown}
               onClick={(e) => e.stopPropagation()}
             >
               <div className="font-semibold whitespace-nowrap"
