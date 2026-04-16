@@ -154,11 +154,8 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
     if (lastLayout.current === layout) return;
     lastLayout.current = layout;
     const newPositions = computeTextBoxPositions(layout, !!title, !!isCoverSlide);
-    setTextBoxes(prev => prev.map(tb => {
-      const match = newPositions.find(n => n.id === tb.id);
-      if (match) return { ...tb, x: match.x, y: match.y, width: match.width, height: match.height };
-      return tb;
-    }));
+    // Always force-reset positions/sizes when layout changes
+    setTextBoxes(newPositions);
   }, [layout, title, isCoverSlide]);
 
   useEffect(() => {
