@@ -1,52 +1,41 @@
 
 
-## Plano: Unificar paleta de cores para ícones/formas/molduras
+## Plano: Corrigir status amarelo da Linha Editorial no menu lateral
 
 ### Causa
-Existem 2 paletas separadas no editor:
-1. **`AddElementPanel.tsx`** (abas Ícones/Molduras): paleta "Cor de novos elementos" via prop `elementColor` + `onElementColorChange`.
-2. **`SelectionPanel.tsx`** (quando `kind === "icon"`): paleta "Cor" via prop `onRecolorElement`.
+Em `DashboardLayout.tsx` (linha 61), `hasEditorial` verifica apenas `reportData.editorial_weeks`. Já em `Dashboard.tsx` (linhas 53-64), a lógica é mais completa: verifica `editorial_weeks` **OU** `content.editorial` (array dentro do JSON `content` do report).
 
-Ambas existem simultaneamente no sidebar quando um ícone está selecionado, gerando confusão.
+Quando a linha editorial foi gerada e armazenada apenas em `content.editorial` (e não em `editorial_weeks`), o Dashboard mostra "Concluído" (verde) mas o sidebar mostra ponto amarelo (`in_progress`).
 
 ### Solução
-Uma única paleta contextual no topo de cada aba (Ícones / Molduras), cujo comportamento muda conforme há ou não seleção:
-- **Sem seleção** → define `elementColor` (cor padrão para novos elementos). Label: "Cor padrão para novos elementos".
-- **Com ícone/moldura selecionado** → recolore o elemento selecionado em tempo real. Label: "Cor do elemento selecionado".
+Replicar no `DashboardLayout.tsx` a mesma lógica do `Dashboard.tsx`: considerar a linha editorial como concluída se houver `editorial_weeks` **ou** `content.editorial` com itens.
 
-Remover a paleta duplicada do `SelectionPanel` (quando `kind === "icon"`).
+### Mudança
 
----
+**`src/components/DashboardLayout.tsx`** (dentro do `useEffect` de carregamento):
 
-### Mudanças
+```ts
+const hasEditorialWeeks = !!(reportData?.editorial_weeks && (reportData.editorial_weeks as any[]).length > 0);
+let hasContentEditorial = false;
+if (reportData) {
+  try {
+    let c: any = reportData.content;
+    if (typeof c === "string") c = JSON.parse(c);
+    if (c && Array.isArray(c.editorial) && c.editorial.length > 0) {
+      hasContentEditorial = true;
+    }
+  } catch {}
+}
+const hasEditorial = hasEditorialWeeks || hasContentEditorial;
+```
 
-**A) `AddElementPanel.tsx`**
-- Receber novas props: `hasSelectedElement: boolean` + `onRecolorSelected?: (color: string) => void`.
-- No topo das abas Ícones e Molduras, renderizar uma paleta única:
-  - Label dinâmico baseado em `hasSelectedElement`.
-  - Handler unificado: se `hasSelectedElement` → chama `onRecolorSelected(c)`; senão → chama `onElementColorChange(c)`.
-  - Mostrar `value` = `elementColor` quando sem seleção (sem highlight quando há seleção, pois a cor do elemento já foi aplicada).
-
-**B) `SelectionPanel.tsx`**
-- Remover o bloco de `ColorPicker` quando `kind === "icon"` (linhas que renderizam "Cor" + `onRecolorElement`). Manter apenas opacidade + ordem de camada.
-- Manter a prop `onRecolorElement` no tipo (ainda usada via AddElementPanel, mas não renderizada aqui).
-
-**C) `PostToolbar.tsx`**
-- Calcular `hasSelectedIconOrFrame` = `selectedKind === "icon"`.
-- Passar `hasSelectedElement` + `onRecolorSelected={onRecolorElement}` ao `AddElementPanel`.
-
-**D) `PostEditorPage.tsx`**
-- Sem mudanças funcionais. `handleRecolorElement` já existe e funciona para ícones e molduras (ambos são `type: "element"`).
-
----
+E usar `hasEditorial` no setter de `journeyStatus["/editorial"]`.
 
 ### Arquivos
 
 | Arquivo | Mudança |
 |---------|---------|
-| `src/components/post-editor/inspector/AddElementPanel.tsx` | Paleta única contextual no topo de Ícones/Molduras |
-| `src/components/post-editor/inspector/SelectionPanel.tsx` | Remover ColorPicker do bloco `kind === "icon"` |
-| `src/components/post-editor/PostToolbar.tsx` | Passar `hasSelectedElement` + `onRecolorSelected` ao AddElementPanel |
+| `src/components/DashboardLayout.tsx` | Considerar `content.editorial` além de `editorial_weeks` ao calcular status da Linha Editorial |
 
-Sem mudanças de schema. Sem mudanças em geração, créditos ou Stripe.
+Sem mudanças de schema, geração, créditos ou Stripe.
 
