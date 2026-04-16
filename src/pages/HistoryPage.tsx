@@ -31,6 +31,13 @@ const HistoryPage = () => {
   const [selectedReport, setSelectedReport] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [progress, setProgress] = useState(0);
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
+
+  // Flatten portraits across generations for linear preview navigation
+  const flatPortraits = portraits.flatMap((p: any) => {
+    const imgs = Array.isArray(p.portraits) ? p.portraits : [];
+    return imgs.map((url: string) => ({ url, createdAt: p.created_at, parentId: p.id }));
+  });
 
   const fetchData = useCallback(async () => {
     if (!user) return;
