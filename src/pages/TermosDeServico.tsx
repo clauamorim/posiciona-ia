@@ -172,9 +172,9 @@ const TermosDeServico = () => {
       <H2>15. Contato</H2>
       <P>Em caso de dúvidas, solicitações ou suporte:</P>
       <ul className="list-disc pl-6 space-y-1.5 mb-3">
-        <li>
+         <li>
           <strong className="text-white">Contato geral e suporte:</strong>{" "}
-          <a href="mailto:contato@posiciona.ia.br" className="text-[#C9A84C] hover:text-[#E2C06A] transition-colors">contato@posiciona.ia.br</a>
+          <a href="mailto:suporte@posiciona.ia.br" className="text-[#C9A84C] hover:text-[#E2C06A] transition-colors">suporte@posiciona.ia.br</a>
         </li>
       </ul>
     </LegalPageLayout>
