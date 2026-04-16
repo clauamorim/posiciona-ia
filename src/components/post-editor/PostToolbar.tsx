@@ -107,6 +107,7 @@ interface PostToolbarProps {
   onSlideNumberSizeChange?: (size: number) => void;
   isCarousel?: boolean;
   uploadedImages?: string[];
+  selectedTextId?: string | null;
 }
 
 const LAYOUTS = [
@@ -237,6 +238,7 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
   slideNumberSize, onSlideNumberSizeChange,
   isCarousel,
   uploadedImages = [],
+  selectedTextId,
 }) => {
   const [elementsOpen, setElementsOpen] = useState(false);
   const [svgElementsOpen, setSvgElementsOpen] = useState(false);
@@ -777,6 +779,21 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
                 </div>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Text box layer controls (when a built-in text is selected, not an overlay) */}
+      {!selectedOverlay && selectedTextId && (onBringForward || onSendBackward) && (
+        <div>
+          <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">Texto selecionado</h4>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" className="flex-1 gap-1.5 text-xs" onClick={() => onBringForward?.(selectedTextId)}>
+              <ArrowUp className="h-3.5 w-3.5" /> Para frente
+            </Button>
+            <Button variant="outline" size="sm" className="flex-1 gap-1.5 text-xs" onClick={() => onSendBackward?.(selectedTextId)}>
+              <ArrowDown className="h-3.5 w-3.5" /> Para trás
+            </Button>
           </div>
         </div>
       )}

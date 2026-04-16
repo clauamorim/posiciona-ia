@@ -184,6 +184,8 @@ const PostEditorPage = () => {
   const [slideNumberBgColor, setSlideNumberBgColor] = useState<string | null>(draft?.slideNumberBgColor ?? null);
   const [slideNumberTextColor, setSlideNumberTextColor] = useState<string | null>(draft?.slideNumberTextColor ?? null);
   const [slideNumberSize, setSlideNumberSize] = useState(draft?.slideNumberSize ?? 14);
+  const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
+  const [renderOrder, setRenderOrder] = useState<string[]>([]);
   const singleCanvasRef = useRef<HTMLDivElement>(null);
   const slideRefs = useRef<(HTMLDivElement | null)[]>([]);
   const textsInitializedRef = useRef(!!draft);
@@ -310,10 +312,10 @@ const PostEditorPage = () => {
   const handleImageResize = (id: string, width: number, height: number) => handleUpdateOverlay(id, { width, height });
   const handleImageOpacityChange = (id: string, opacity: number) => handleUpdateOverlay(id, { opacity });
 
-  // Layer ordering
+  // Layer ordering — works on unified render order (text boxes + overlays)
   const handleBringForward = (id: string) => {
-    setOverlayImages(prev => {
-      const idx = prev.findIndex(img => img.id === id);
+    setRenderOrder(prev => {
+      const idx = prev.indexOf(id);
       if (idx < 0 || idx >= prev.length - 1) return prev;
       const next = [...prev];
       [next[idx], next[idx + 1]] = [next[idx + 1], next[idx]];
@@ -322,8 +324,8 @@ const PostEditorPage = () => {
   };
 
   const handleSendBackward = (id: string) => {
-    setOverlayImages(prev => {
-      const idx = prev.findIndex(img => img.id === id);
+    setRenderOrder(prev => {
+      const idx = prev.indexOf(id);
       if (idx <= 0) return prev;
       const next = [...prev];
       [next[idx], next[idx - 1]] = [next[idx - 1], next[idx]];
@@ -612,6 +614,9 @@ const PostEditorPage = () => {
                 ctaText={ctaText} ctaBgColor={ctaBgColor} ctaTextColor={ctaTextColor}
                 ctaFontSize={ctaFontSize} ctaPosition={ctaPosition} onCtaMove={handleCtaMove}
                 canvasWidth={cW} canvasHeight={cH}
+                onSelectedTextChange={setSelectedTextId}
+                renderOrder={renderOrder}
+                onRenderOrderChange={setRenderOrder}
               />
             )}
           </div>
@@ -632,6 +637,7 @@ const PostEditorPage = () => {
             textAlign={textAlign} onTextAlignChange={setTextAlign}
             textColor={textColor} onTextColorChange={setCustomTextColor}
             selectedImageId={selectedImageId}
+            selectedTextId={selectedTextId}
             overlayImages={overlayImages}
             onImageOpacityChange={handleImageOpacityChange}
             onUpdateOverlaySrc={handleUpdateOverlay}
