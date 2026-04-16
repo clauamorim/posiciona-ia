@@ -58,7 +58,18 @@ export const DashboardLayout = ({ children }: { children: React.ReactNode }) => 
       const reportData = reportRes.data?.[0];
       const rDone = reportData?.status === "completed";
       const hasIg = (igRes.data?.length ?? 0) > 0;
-      const hasEditorial = !!(reportData?.editorial_weeks && (reportData.editorial_weeks as any[]).length > 0);
+      const hasEditorialWeeks = !!(reportData?.editorial_weeks && (reportData.editorial_weeks as any[]).length > 0);
+      let hasContentEditorial = false;
+      if (reportData) {
+        try {
+          let c: any = reportData.content;
+          if (typeof c === "string") c = JSON.parse(c);
+          if (c && Array.isArray(c.editorial) && c.editorial.length > 0) {
+            hasContentEditorial = true;
+          }
+        } catch {}
+      }
+      const hasEditorial = hasEditorialWeeks || hasContentEditorial;
       const hasPortraits = (portraitRes.data?.length ?? 0) > 0;
 
       setJourneyStatus({
