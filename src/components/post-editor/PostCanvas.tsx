@@ -581,7 +581,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
                 touchAction: "none",
               }}
               onPointerDown={handleCtaPointerDown}
-              onClick={(e) => e.stopPropagation()}
+              onClick={(e) => { e.stopPropagation(); setSelectedTextId("cta"); onSelectImage?.(null); }}
             >
               <div className="px-12 py-5 rounded-2xl font-bold whitespace-nowrap"
                 style={{ backgroundColor: resolvedCtaBg, color: resolvedCtaText2, fontFamily: `'${displayFont}', sans-serif`, fontSize: resolvedCtaFontSize }}>
@@ -598,7 +598,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
                 touchAction: "none",
               }}
               onPointerDown={handleCtaPointerDown}
-              onClick={(e) => e.stopPropagation()}
+              onClick={(e) => { e.stopPropagation(); setSelectedTextId("cta"); onSelectImage?.(null); }}
             >
               <div className="font-semibold whitespace-nowrap"
                 style={{ color: resolvedCtaBg, fontSize: Math.max(18, resolvedCtaFontSize - 6), opacity: 0.8 }}>
