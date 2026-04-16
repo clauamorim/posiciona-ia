@@ -44,6 +44,9 @@ interface PostCanvasProps {
   slideNumberBgColor?: string | null;
   slideNumberTextColor?: string | null;
   slideNumberSize?: number;
+  onSelectedTextChange?: (id: string | null) => void;
+  renderOrder?: string[];
+  onRenderOrderChange?: (order: string[]) => void;
   // Legacy compat
   onImageMove?: (id: string, x: number, y: number) => void;
   onImageResize?: (id: string, width: number, height: number) => void;
