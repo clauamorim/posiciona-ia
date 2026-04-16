@@ -192,9 +192,20 @@ const DemoCarousel = ({ navigate }: { navigate: ReturnType<typeof useNavigate> }
   );
 };
 
-/* ── Portrait Comparison Placeholder ── */
-const PortraitComparisonPlaceholder = () => {
+/* ── Portrait Comparison Images ── */
+import comparisonBase from "@/assets/comparison/foto-base.jpeg";
+import comparisonRetrato1 from "@/assets/comparison/retrato-1.png";
+import comparisonRetrato2 from "@/assets/comparison/retrato-2.png";
+
+const PORTRAIT_OPTIONS = [
+  { src: comparisonRetrato1, label: "Estilo 1" },
+  { src: comparisonRetrato2, label: "Estilo 2" },
+];
+
+/* ── Portrait Comparison Component ── */
+const PortraitComparison = () => {
   const [sliderPos, setSliderPos] = useState(50);
+  const [activePortrait, setActivePortrait] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
 
@@ -234,45 +245,76 @@ const PortraitComparisonPlaceholder = () => {
           </p>
         </div>
 
-        {/* Comparison slider with placeholders */}
+        {/* Comparison slider */}
         <div
           ref={containerRef}
-          className="relative aspect-[16/9] max-w-2xl mx-auto rounded-xl border border-landing-border/50 overflow-hidden select-none cursor-col-resize"
+          className="relative aspect-[3/4] max-w-md mx-auto rounded-xl border border-landing-border/50 overflow-hidden select-none cursor-col-resize shadow-[0_8px_40px_rgba(0,0,0,0.4)]"
           onMouseDown={() => { isDragging.current = true; }}
           onTouchStart={() => { isDragging.current = true; }}
         >
-          {/* Left side — "Foto original" */}
-          <div className="absolute inset-0 bg-gradient-to-br from-[#1C1836] to-[#13102A] flex flex-col items-center justify-center">
-            <Camera className="h-10 w-10 text-landing-text-secondary/30 mb-2" />
-            <span className="text-xs text-landing-text-secondary/40">Foto original</span>
-          </div>
+          {/* Left side — Foto base (full) */}
+          <img
+            src={comparisonBase}
+            alt="Foto base original"
+            className="absolute inset-0 w-full h-full object-cover object-top"
+            draggable={false}
+          />
 
-          {/* Right side — "Retrato Posiciona" clipped */}
+          {/* Right side — Retrato Posiciona (clipped from right) */}
           <div
-            className="absolute inset-0 bg-gradient-to-br from-[#1A0F30] to-[#2A1850] flex flex-col items-center justify-center"
+            className="absolute inset-0"
             style={{ clipPath: `inset(0 0 0 ${sliderPos}%)` }}
           >
-            <Image className="h-10 w-10 text-landing-purple/40 mb-2" />
-            <span className="text-xs text-landing-purple/50">Retrato Posiciona</span>
+            <img
+              src={PORTRAIT_OPTIONS[activePortrait].src}
+              alt="Retrato gerado pelo Posiciona"
+              className="absolute inset-0 w-full h-full object-cover object-top"
+              draggable={false}
+            />
+          </div>
+
+          {/* Labels */}
+          <div className="absolute top-3 left-3 z-20 px-2.5 py-1 rounded-md bg-[#0D0B1A]/70 backdrop-blur-sm text-[10px] font-medium text-landing-text-secondary tracking-wide uppercase">
+            Foto original
+          </div>
+          <div className="absolute top-3 right-3 z-20 px-2.5 py-1 rounded-md bg-[#0D0B1A]/70 backdrop-blur-sm text-[10px] font-medium text-landing-purple tracking-wide uppercase">
+            Retrato Posiciona
           </div>
 
           {/* Divider */}
           <div
-            className="absolute top-0 bottom-0 w-0.5 bg-landing-gold/60 z-10"
+            className="absolute top-0 bottom-0 w-0.5 bg-white/80 z-10"
             style={{ left: `${sliderPos}%` }}
           >
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-landing-gold/90 flex items-center justify-center shadow-lg">
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-landing-gold flex items-center justify-center shadow-[0_2px_12px_rgba(201,168,76,0.5)]">
               <GripVertical className="h-4 w-4 text-[#0D0B1A]" />
             </div>
           </div>
         </div>
 
         <p className="text-xs text-landing-text-secondary/50 italic">Deslize para comparar</p>
+
+        {/* Portrait thumbnails */}
+        <div className="flex items-center justify-center gap-3">
+          {PORTRAIT_OPTIONS.map((p, i) => (
+            <button
+              key={i}
+              onClick={() => setActivePortrait(i)}
+              className={`relative w-14 h-14 md:w-16 md:h-16 rounded-lg overflow-hidden border-2 transition-all duration-200 ${
+                i === activePortrait
+                  ? "border-landing-gold shadow-[0_0_12px_rgba(201,168,76,0.3)]"
+                  : "border-landing-border/40 opacity-60 hover:opacity-90"
+              }`}
+              aria-label={p.label}
+            >
+              <img src={p.src} alt={p.label} className="w-full h-full object-cover object-top" />
+            </button>
+          ))}
+        </div>
       </div>
     </section>
   );
 };
-
 const LandingPage = () => {
 
   const { user, isLoading } = useAuth();
