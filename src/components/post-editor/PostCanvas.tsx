@@ -38,6 +38,12 @@ interface PostCanvasProps {
   onCtaMove?: (x: number, y: number) => void;
   canvasWidth?: number;
   canvasHeight?: number;
+  showSlideNumber?: boolean;
+  slideNumberPosition?: { x: number; y: number } | null;
+  onSlideNumberMove?: (x: number, y: number) => void;
+  slideNumberBgColor?: string | null;
+  slideNumberTextColor?: string | null;
+  slideNumberSize?: number;
   // Legacy compat
   onImageMove?: (id: string, x: number, y: number) => void;
   onImageResize?: (id: string, width: number, height: number) => void;
@@ -71,6 +77,8 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   titleFontSize, titleColor, titleFontFamily,
   ctaText, ctaBgColor, ctaTextColor, ctaFontSize, ctaPosition, onCtaMove,
   canvasWidth = 1080, canvasHeight = 1080,
+  showSlideNumber = true, slideNumberPosition, onSlideNumberMove,
+  slideNumberBgColor, slideNumberTextColor, slideNumberSize,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0.4);
