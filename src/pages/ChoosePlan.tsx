@@ -123,6 +123,8 @@ const ChoosePlan = () => {
     setLoadingUpgrade(null);
   };
 
+  const [upgradeTarget, setUpgradeTarget] = useState<typeof plans[0] | null>(null);
+
   const getButtonAction = (p: typeof plans[0]) => {
     if (!currentSlug) {
       return {
@@ -138,10 +140,10 @@ const ChoosePlan = () => {
       return { label: "—", action: () => {}, loading: false, disabled: true };
     }
     if (currentSlug === "semana_conteudo" && (p.slug === "presenca_mensal" || p.slug === "autoridade_total")) {
-      return { label: "Upgrade", action: () => handleUpgrade(p.slug), loading: loadingUpgrade === p.slug, isUpgrade: true };
+      return { label: "Upgrade", action: () => setUpgradeTarget(p), loading: loadingUpgrade === p.slug, isUpgrade: true };
     }
     if (currentSlug === "presenca_mensal" && p.slug === "autoridade_total") {
-      return { label: "Upgrade", action: () => handleUpgrade(p.slug), loading: loadingUpgrade === p.slug, isUpgrade: true };
+      return { label: "Upgrade", action: () => setUpgradeTarget(p), loading: loadingUpgrade === p.slug, isUpgrade: true };
     }
     return { label: "—", action: () => {}, loading: false, disabled: true };
   };
@@ -286,6 +288,19 @@ const ChoosePlan = () => {
           period={preCheckoutPlan.billing === "recurring" ? "mensal" : undefined}
           onConfirm={() => handleCheckout(preCheckoutPlan.slug)}
           loading={loadingSlug === preCheckoutPlan.slug}
+        />
+      )}
+
+      {upgradeTarget && (
+        <PreCheckoutModal
+          open={!!upgradeTarget}
+          onOpenChange={(v) => { if (!v) setUpgradeTarget(null); }}
+          productName={`Upgrade para ${upgradeTarget.name}`}
+          price={upgradeTarget.price}
+          billingType={upgradeTarget.billing}
+          period={upgradeTarget.billing === "recurring" ? "mensal" : undefined}
+          onConfirm={() => handleUpgrade(upgradeTarget.slug)}
+          loading={loadingUpgrade === upgradeTarget.slug}
         />
       )}
     </div>
