@@ -49,9 +49,9 @@ const LegalPageLayout = ({ title, metaTitle, metaDescription, lastUpdated, bread
             {/* Contact block */}
             <div className="mt-14 pt-8 border-t border-[#2E2A4A]">
               <p className="text-sm text-[#5C5880]">
-                Contato, suporte e privacidade:{" "}
-                <a href="mailto:contato@posiciona.ia.br" className="text-[#C9A84C] hover:text-[#E2C06A] transition-colors">
-                  contato@posiciona.ia.br
+                Suporte e privacidade:{" "}
+                <a href="mailto:suporte@posiciona.ia.br" className="text-[#C9A84C] hover:text-[#E2C06A] transition-colors">
+                  suporte@posiciona.ia.br
                 </a>
               </p>
             </div>

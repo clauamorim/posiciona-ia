@@ -105,6 +105,16 @@ const HelpPage = () => {
             ))}
           </Accordion>
         )}
+
+        {/* Rodapé de suporte */}
+        <div className="mt-10 pt-6 border-t border-border">
+          <p className="text-sm text-muted-foreground">
+            Precisa de ajuda adicional? Entre em contato:{" "}
+            <a href="mailto:suporte@posiciona.ia.br" className="text-primary hover:underline">
+              suporte@posiciona.ia.br
+            </a>
+          </p>
+        </div>
       </div>
     </DashboardLayout>
   );

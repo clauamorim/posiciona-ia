@@ -13,13 +13,25 @@ import { toast } from "@/hooks/use-toast";
 import {
   Target, Brain, BarChart3, Calendar, FileText, Camera,
   Check, ArrowRight, Loader2, Menu, X, Search, Palette, MessageSquare,
-  Image, TrendingUp, Zap
+  Image, TrendingUp, Zap, ChevronLeft, ChevronRight, GripVertical
 } from "lucide-react";
 import posicionaLogo from "@/assets/posiciona-logo.png";
-import { useState } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 
-/* ── Feature toggle for future demo section ── */
-const SHOW_DEMO_SECTION = false;
+/* ── Demo screenshots ── */
+import demoDashboard from "@/assets/demo/dashboard.png";
+import demoQuestionario from "@/assets/demo/questionario-arquetipos.png";
+import demoArquetipos from "@/assets/demo/arquetipos.png";
+import demoNarrativa from "@/assets/demo/narrativa-marca.png";
+import demoEditorial from "@/assets/demo/linha-editorial.png";
+
+const DEMO_SLIDES = [
+  { src: demoDashboard, label: "Dashboard estratégico" },
+  { src: demoQuestionario, label: "Diagnóstico guiado" },
+  { src: demoArquetipos, label: "Resultado de posicionamento" },
+  { src: demoNarrativa, label: "Narrativa da marca" },
+  { src: demoEditorial, label: "Linha editorial pronta" },
+];
 
 /* ── Plan data ── */
 const plans = [
@@ -282,31 +294,11 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* ── DEMONSTRAÇÃO (oculta por padrão) ── */}
-      {SHOW_DEMO_SECTION && (
-        <section className="py-12 md:py-16 px-4 bg-landing-bg-secondary/40">
-          <div className="max-w-4xl mx-auto space-y-8 text-center">
-            <div className="space-y-3">
-              <h2 className="text-2xl md:text-3xl font-display font-semibold">
-                Veja o Posiciona{" "}
-                <span className="text-landing-gold italic">em ação</span>
-              </h2>
-              <p className="text-sm md:text-base text-landing-text-secondary max-w-2xl mx-auto leading-relaxed">
-                Entenda como o diagnóstico, a estratégia e os conteúdos aparecem na prática dentro da plataforma.
-              </p>
-            </div>
+      {/* ── DEMONSTRAÇÃO ── */}
+      <DemoCarousel navigate={navigate} />
 
-            {/* Video container */}
-            <div className="aspect-video rounded-xl border border-landing-border/50 bg-landing-bg/80 overflow-hidden flex items-center justify-center">
-              <p className="text-landing-text-secondary/40 text-sm">Vídeo ou prints em breve</p>
-            </div>
-
-            <Button size="lg" onClick={() => navigate("/signup")} className="bg-landing-purple hover:bg-landing-purple/90 text-white text-base h-12 px-8">
-              Começar meu posicionamento agora <ArrowRight className="h-4 w-4 ml-2" />
-            </Button>
-          </div>
-        </section>
-      )}
+      {/* ── COMPARADOR DE RETRATOS (placeholder) ── */}
+      <PortraitComparisonPlaceholder />
 
       {/* ── POR QUE USAR ── */}
       <section className="py-12 md:py-16 px-4 bg-landing-bg-secondary/40">
@@ -509,18 +501,25 @@ const LandingPage = () => {
       </footer>
 
       {/* Floating WhatsApp button */}
-      <a
-        href="https://wa.me/5562994400707"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="fixed bottom-20 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full shadow-lg transition-transform hover:scale-110 animate-pulse md:bottom-6"
-        style={{ backgroundColor: "#25D366" }}
-        aria-label="Fale conosco no WhatsApp"
-      >
-        <svg viewBox="0 0 32 32" className="h-7 w-7 fill-white">
-          <path d="M16.004 0h-.008C7.174 0 0 7.176 0 16.004c0 3.5 1.132 6.744 3.056 9.38L1.058 31.2l6.06-1.94A15.92 15.92 0 0016.004 32C24.826 32 32 24.826 32 16.004 32 7.176 24.826 0 16.004 0zm9.316 22.594c-.39 1.1-1.932 2.014-3.164 2.282-.844.18-1.946.324-5.66-1.216-4.752-1.97-7.81-6.79-8.046-7.104-.228-.314-1.87-2.49-1.87-4.748s1.184-3.37 1.604-3.832c.42-.462.918-.578 1.224-.578.306 0 .612.002.878.016.282.014.66-.108.934.712.306.876 1.044 3.022 1.134 3.242.092.22.154.478.032.77-.122.292-.184.474-.368.734-.184.26-.386.58-.552.778-.184.214-.376.446-.162.876.214.43.952 1.568 2.044 2.54 1.404 1.252 2.588 1.64 2.954 1.822.368.184.582.154.796-.092.214-.246.918-1.07 1.162-1.438.246-.368.49-.306.828-.184.336.122 2.138 1.008 2.504 1.192.368.184.612.276.702.43.092.154.092.878-.298 1.978z"/>
-        </svg>
-      </a>
+      <div className="fixed z-50 group" style={{ right: 20, bottom: "calc(20px + env(safe-area-inset-bottom, 0px))" }}>
+        <span className="hidden md:block absolute -top-9 right-0 whitespace-nowrap rounded-lg bg-[#13102A] border border-landing-border px-3 py-1.5 text-xs text-landing-text-secondary opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none shadow-lg">
+          Fale no WhatsApp
+        </span>
+        <a
+          href="https://wa.me/5562994400707"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-center rounded-full shadow-[0_4px_20px_rgba(201,168,76,0.3)] transition-all duration-200 hover:shadow-[0_6px_24px_rgba(201,168,76,0.45)] active:scale-[0.97] h-14 w-14 md:h-[60px] md:w-[60px]"
+          style={{ backgroundColor: "#C9A84C" }}
+          aria-label="Fale conosco no WhatsApp"
+          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#E2C06A")}
+          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#C9A84C")}
+        >
+          <svg viewBox="0 0 32 32" className="h-6 w-6 md:h-[26px] md:w-[26px]" fill="#0D0B1A">
+            <path d="M16.004 0h-.008C7.174 0 0 7.176 0 16.004c0 3.5 1.132 6.744 3.056 9.38L1.058 31.2l6.06-1.94A15.92 15.92 0 0016.004 32C24.826 32 32 24.826 32 16.004 32 7.176 24.826 0 16.004 0zm9.316 22.594c-.39 1.1-1.932 2.014-3.164 2.282-.844.18-1.946.324-5.66-1.216-4.752-1.97-7.81-6.79-8.046-7.104-.228-.314-1.87-2.49-1.87-4.748s1.184-3.37 1.604-3.832c.42-.462.918-.578 1.224-.578.306 0 .612.002.878.016.282.014.66-.108.934.712.306.876 1.044 3.022 1.134 3.242.092.22.154.478.032.77-.122.292-.184.474-.368.734-.184.26-.386.58-.552.778-.184.214-.376.446-.162.876.214.43.952 1.568 2.044 2.54 1.404 1.252 2.588 1.64 2.954 1.822.368.184.582.154.796-.092.214-.246.918-1.07 1.162-1.438.246-.368.49-.306.828-.184.336.122 2.138 1.008 2.504 1.192.368.184.612.276.702.43.092.154.092.878-.298 1.978z"/>
+          </svg>
+        </a>
+      </div>
     </div>
   );
 };
