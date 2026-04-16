@@ -62,6 +62,7 @@ interface EditorDraft {
   customGradientColor2: string | null;
   gradientDirection: string;
   textAlign: string;
+  titleTextAlign?: string;
   customTextColor: string | null;
   customBgColor: string | null;
   titleFontSize: number;
