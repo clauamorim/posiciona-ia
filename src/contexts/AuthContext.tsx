@@ -52,12 +52,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [subscription, setSubscription] = useState<UserSubscription | null>(null);
   const [balances, setBalances] = useState<UserBalances | null>(null);
   const authRequestRef = useRef(0);
+  // Track the current user ID via ref so the onAuthStateChange closure always
+  // has access to the latest value (avoids the stale-closure problem).
+  const sessionUserIdRef = useRef<string | null>(null);
+  const hydrationDoneRef = useRef(false);
 
   const resetAuthState = () => {
     setSession(null);
     setIsAdmin(false);
     setSubscription(null);
     setBalances(null);
+    sessionUserIdRef.current = null;
+    hydrationDoneRef.current = false;
   };
 
   const checkAdmin = async (userId: string): Promise<boolean> => {
@@ -121,11 +127,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  /**
-   * Hydrates all user data atomically. isLoading is set to true BEFORE calling
-   * this, and only set to false AFTER all data is resolved — so ProtectedRoute
-   * never sees a partially-loaded state.
-   */
   const hydrateUser = async (newSession: Session, requestId: number) => {
     const userId = newSession.user.id;
 
@@ -135,18 +136,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       loadBalances(userId),
     ]);
 
-    // Bail if a newer auth event has arrived while we were loading
     if (authRequestRef.current !== requestId) return;
 
     setSession(newSession);
+    sessionUserIdRef.current = userId;
     setIsAdmin(adminResult);
     setSubscription(subResult);
     setBalances(balResult);
+    hydrationDoneRef.current = true;
     setIsLoading(false);
   };
 
   const refreshSubscription = async () => {
-    const userId = session?.user?.id;
+    const userId = sessionUserIdRef.current;
     if (!userId) return;
     const [subResult, balResult] = await Promise.all([
       loadSubscription(userId),
@@ -158,7 +160,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     let mounted = true;
-    let initialHydrationDone = false;
 
     const { data: { subscription: authSub } } = supabase.auth.onAuthStateChange(
       (event, newSession) => {
@@ -168,34 +169,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           authRequestRef.current += 1;
           resetAuthState();
           setIsLoading(false);
-          initialHydrationDone = false;
           return;
         }
 
         if (event === "TOKEN_REFRESHED") {
-          // Just update the session object — do NOT trigger isLoading
-          // This prevents ProtectedRoute from unmounting pages on alt+tab
           if (newSession) setSession(newSession);
           return;
         }
 
         // INITIAL_SESSION, SIGNED_IN, USER_UPDATED
         if (newSession?.user) {
-          // If same user and already hydrated, skip full reload for ANY event
-          // This prevents alt-tab / focus regain from resetting protected pages
-          if (initialHydrationDone && session?.user?.id === newSession.user.id) {
+          // If same user and already hydrated, just update session token — no loading
+          if (hydrationDoneRef.current && sessionUserIdRef.current === newSession.user.id) {
             setSession(newSession);
             return;
           }
           const requestId = ++authRequestRef.current;
           setIsLoading(true);
-          hydrateUser(newSession, requestId).then(() => {
-            initialHydrationDone = true;
-          });
+          hydrateUser(newSession, requestId);
           return;
         }
 
-        // INITIAL_SESSION with no session (user not logged in)
+        // INITIAL_SESSION with no session
         if (event === "INITIAL_SESSION") {
           authRequestRef.current += 1;
           resetAuthState();

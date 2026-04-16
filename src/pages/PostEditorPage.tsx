@@ -78,24 +78,63 @@ function loadDraft(weekIdx: number, dayIdx: number): EditorDraft | null {
     const raw = sessionStorage.getItem(DRAFT_KEY);
     if (!raw) return null;
     const draft: EditorDraft = JSON.parse(raw);
-    if (draft.weekIndex === weekIdx && draft.dayIndex === dayIdx) return draft;
+    if (draft.weekIndex === weekIdx && draft.dayIndex === dayIdx) return restoreDraftImages(draft);
     return null;
   } catch { return null; }
 }
 
 function saveDraft(draft: EditorDraft) {
   try {
-    // Don't save huge base64 overlay images - strip src for large items
-    const lightweight = {
-      ...draft,
-      overlayImages: draft.overlayImages.map(img => ({
-        ...img,
-        src: img.src.length > 50000 ? "__large__" : img.src,
-      })),
-      uploadedImages: draft.uploadedImages.map(src => src.length > 50000 ? "" : src).filter(Boolean),
-    };
+    // Store large base64 images separately to avoid losing them
+    const imageStore: Record<string, string> = {};
+    const overlaysLite = draft.overlayImages.map(img => {
+      if (img.src.length > 50000) {
+        const key = `img_${img.id}`;
+        imageStore[key] = img.src;
+        return { ...img, src: `__ref__:${key}` };
+      }
+      return img;
+    });
+    const uploadedLite: string[] = [];
+    draft.uploadedImages.forEach((src, i) => {
+      if (src.length > 50000) {
+        const key = `upl_${i}`;
+        imageStore[key] = src;
+        uploadedLite.push(`__ref__:${key}`);
+      } else if (src) {
+        uploadedLite.push(src);
+      }
+    });
+
+    const lightweight = { ...draft, overlayImages: overlaysLite, uploadedImages: uploadedLite };
     sessionStorage.setItem(DRAFT_KEY, JSON.stringify(lightweight));
+    // Save images separately (each up to ~5MB in sessionStorage)
+    Object.entries(imageStore).forEach(([k, v]) => {
+      try { sessionStorage.setItem(`${DRAFT_KEY}_${k}`, v); } catch {}
+    });
   } catch {}
+}
+
+function restoreDraftImages(draft: EditorDraft): EditorDraft {
+  // Restore large images from separate sessionStorage keys
+  const overlays = draft.overlayImages.map(img => {
+    if (img.src.startsWith("__ref__:")) {
+      const key = img.src.replace("__ref__:", "");
+      const real = sessionStorage.getItem(`${DRAFT_KEY}_${key}`);
+      return real ? { ...img, src: real } : img;
+    }
+    return img;
+  }).filter(img => !img.src.startsWith("__ref__:"));
+
+  const uploaded = draft.uploadedImages.map(src => {
+    if (src.startsWith("__ref__:")) {
+      const key = src.replace("__ref__:", "");
+      return sessionStorage.getItem(`${DRAFT_KEY}_${key}`) || "";
+    }
+    return src;
+  }).filter(Boolean);
+
+  return { ...draft, overlayImages: overlays, uploadedImages: uploaded };
 }
 
 const PostEditorPage = () => {
@@ -469,7 +508,13 @@ const PostEditorPage = () => {
     if (typography.display) setDisplayFont(typography.display);
     if (typography.body) setBodyFont(typography.body);
     setUploadedImages([]);
-    sessionStorage.removeItem(DRAFT_KEY);
+    // Clear all draft keys including image refs
+    const keysToRemove = [DRAFT_KEY];
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const key = sessionStorage.key(i);
+      if (key && key.startsWith(`${DRAFT_KEY}_`)) keysToRemove.push(key);
+    }
+    keysToRemove.forEach(k => sessionStorage.removeItem(k));
   };
 
   const handleCopyCaption = async () => {

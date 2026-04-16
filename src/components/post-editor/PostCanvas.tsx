@@ -296,7 +296,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
         position: "absolute", ...h.style,
         width: hs, height: hs,
         backgroundColor: "white", border: "2px solid rgba(0,0,0,0.5)",
-        borderRadius: 3, cursor: CURSORS[h.corner], zIndex: 10,
+        borderRadius: 3, cursor: CURSORS[h.corner], zIndex: 9999,
       }} onMouseDown={(e) => {
         if (isText) {
           const tb = textBoxes.find(t => t.id === item.id);
@@ -307,6 +307,11 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
       }} />
     ));
   };
+
+  // Build a unified render order: text boxes first (low z), then overlayImages in array order
+  // This way "bring forward / send backward" on overlayImages works visually.
+  const BASE_TEXT_Z = 2;
+  const BASE_OVERLAY_Z = 10;
 
   const renderTextBox = (tb: TextBox) => {
     const isSelected = selectedTextId === tb.id;
@@ -320,7 +325,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
           position: "absolute", left: tb.x, top: tb.y, width: tb.width, minHeight: tb.height,
           cursor: isEditing ? "text" : "move", userSelect: isEditing ? "text" : "none",
           outline: isSelected ? "2px dashed rgba(255,255,255,0.7)" : "none", outlineOffset: 2,
-          zIndex: 2, padding: "8px 16px", boxSizing: "border-box", overflow: "hidden",
+          zIndex: BASE_TEXT_Z, padding: "8px 16px", boxSizing: "border-box", overflow: "hidden",
         }}
         onMouseDown={(e) => handleTextMouseDown(e, tb)}
         onClick={(e) => { e.stopPropagation(); setSelectedTextId(tb.id); onSelectImage?.(null); }}
@@ -360,45 +365,69 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
     : { x: 80, y: 960 };
   const ctaPos = ctaPosition || defaultCtaPos;
 
-  const renderOverlayTextBox = (img: OverlayImage) => {
+  const renderOverlayItem = (img: OverlayImage, arrayIndex: number) => {
+    if (img.type === "textbox") {
+      const isSelected = selectedImageId === img.id;
+      return (
+        <div key={img.id} data-overlay
+          style={{
+            position: "absolute", left: img.x, top: img.y, width: img.width, minHeight: img.height,
+            cursor: "move", userSelect: "none",
+            outline: isSelected ? "2px dashed rgba(255,255,255,0.7)" : "none", outlineOffset: 2,
+            zIndex: BASE_OVERLAY_Z + arrayIndex,
+            backgroundColor: img.bgColor || "transparent",
+            opacity: img.opacity ?? 1,
+            borderRadius: 8, padding: "12px 16px", boxSizing: "border-box",
+          }}
+          onMouseDown={(e) => handleMouseDown(e, img)}
+          onClick={(e) => { e.stopPropagation(); onSelectImage?.(img.id); setSelectedTextId(null); }}
+          onDoubleClick={(e) => {
+            e.stopPropagation();
+            const target = e.currentTarget.querySelector("[contenteditable]") as HTMLElement;
+            if (target) { target.contentEditable = "true"; target.focus(); }
+          }}
+        >
+          <div
+            contentEditable={false}
+            suppressContentEditableWarning
+            onBlur={(e) => {
+              const el = e.currentTarget;
+              el.contentEditable = "false";
+              updateOverlay(img.id, { text: el.textContent || "" });
+            }}
+            style={{
+              fontFamily: img.fontFamily ? `'${img.fontFamily}', sans-serif` : `'${bodyFont}', sans-serif`,
+              fontSize: img.fontSize || 24,
+              color: img.textColor || textColor,
+              outline: "none", width: "100%", minHeight: "1em",
+              lineHeight: 1.5,
+            }}
+          >
+            {img.text || "Texto"}
+          </div>
+          {isSelected && renderResizeHandles(img, false)}
+        </div>
+      );
+    }
+
+    // photo / element / logo
     const isSelected = selectedImageId === img.id;
     return (
       <div key={img.id} data-overlay
         style={{
-          position: "absolute", left: img.x, top: img.y, width: img.width, minHeight: img.height,
+          position: "absolute", left: img.x, top: img.y,
+          width: img.width, height: img.height,
           cursor: "move", userSelect: "none",
-          outline: isSelected ? "2px dashed rgba(255,255,255,0.7)" : "none", outlineOffset: 2,
-          zIndex: 4,
-          backgroundColor: img.bgColor || "transparent",
-          opacity: img.opacity ?? 1,
-          borderRadius: 8, padding: "12px 16px", boxSizing: "border-box",
+          outline: isSelected ? "2px dashed rgba(255,255,255,0.7)" : "none",
+          outlineOffset: 2, zIndex: BASE_OVERLAY_Z + arrayIndex,
         }}
         onMouseDown={(e) => handleMouseDown(e, img)}
         onClick={(e) => { e.stopPropagation(); onSelectImage?.(img.id); setSelectedTextId(null); }}
-        onDoubleClick={(e) => {
-          e.stopPropagation();
-          const target = e.currentTarget.querySelector("[contenteditable]") as HTMLElement;
-          if (target) { target.contentEditable = "true"; target.focus(); }
-        }}
       >
-        <div
-          contentEditable={false}
-          suppressContentEditableWarning
-          onBlur={(e) => {
-            const el = e.currentTarget;
-            el.contentEditable = "false";
-            updateOverlay(img.id, { text: el.textContent || "" });
-          }}
-          style={{
-            fontFamily: img.fontFamily ? `'${img.fontFamily}', sans-serif` : `'${bodyFont}', sans-serif`,
-            fontSize: img.fontSize || 24,
-            color: img.textColor || textColor,
-            outline: "none", width: "100%", minHeight: "1em",
-            lineHeight: 1.5,
-          }}
-        >
-          {img.text || "Texto"}
-        </div>
+        <img src={img.src} alt={img.type}
+          crossOrigin="anonymous"
+          style={{ width: "100%", height: "100%", objectFit: "contain", pointerEvents: "none", opacity: img.opacity ?? 1 }}
+          draggable={false} />
         {isSelected && renderResizeHandles(img, false)}
       </div>
     );
@@ -422,8 +451,6 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
           }}
           onClick={handleCanvasClick}
         >
-          {/* Removed hardcoded decorative bars — use Barras e molduras from toolbar instead */}
-
           {showSlideNumber && slideNumber !== undefined && totalSlides !== undefined && (() => {
             const snPos = slideNumberPosition || { x: canvasWidth - 60, y: 50 };
             const snBg = slideNumberBgColor || accentColor;
@@ -440,7 +467,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
                   backgroundColor: snBg, color: snText,
                   fontFamily: `'${displayFont}', sans-serif`,
                   fontSize: snSize, fontWeight: "bold",
-                  cursor: "move", userSelect: "none", zIndex: 8,
+                  cursor: "move", userSelect: "none", zIndex: BASE_OVERLAY_Z + overlayImages.length + 2,
                 }}
                 onMouseDown={(e) => {
                   e.preventDefault(); e.stopPropagation();
@@ -469,7 +496,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
               style={{
                 position: "absolute", left: ctaPos.x, top: ctaPos.y,
                 transform: "translate(-50%, -50%)",
-                cursor: "move", userSelect: "none", zIndex: 7,
+                cursor: "move", userSelect: "none", zIndex: BASE_OVERLAY_Z + overlayImages.length + 1,
               }}
               onMouseDown={handleCtaMouseDown}
               onClick={(e) => e.stopPropagation()}
@@ -485,7 +512,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
             <div data-overlay
               style={{
                 position: "absolute", left: ctaPos.x, top: ctaPos.y,
-                cursor: "move", userSelect: "none", zIndex: 7,
+                cursor: "move", userSelect: "none", zIndex: BASE_OVERLAY_Z + overlayImages.length + 1,
               }}
               onMouseDown={handleCtaMouseDown}
               onClick={(e) => e.stopPropagation()}
@@ -499,29 +526,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
 
           {textBoxes.map(renderTextBox)}
 
-          {overlayImages.map((img, arrayIndex) => {
-            if (img.type === "textbox") return renderOverlayTextBox(img);
-            const isSelected = selectedImageId === img.id;
-            return (
-              <div key={img.id} data-overlay
-                style={{
-                  position: "absolute", left: img.x, top: img.y,
-                  width: img.width, height: img.height,
-                  cursor: "move", userSelect: "none",
-                  outline: isSelected ? "2px dashed rgba(255,255,255,0.7)" : "none",
-                  outlineOffset: 2, zIndex: 10 + arrayIndex,
-                }}
-                onMouseDown={(e) => handleMouseDown(e, img)}
-                onClick={(e) => { e.stopPropagation(); onSelectImage?.(img.id); setSelectedTextId(null); }}
-              >
-                <img src={img.src} alt={img.type}
-                  crossOrigin="anonymous"
-                  style={{ width: "100%", height: "100%", objectFit: "contain", pointerEvents: "none", opacity: img.opacity ?? 1 }}
-                  draggable={false} />
-                {isSelected && renderResizeHandles(img, false)}
-              </div>
-            );
-          })}
+          {overlayImages.map((img, idx) => renderOverlayItem(img, idx))}
         </div>
       </div>
     </div>
