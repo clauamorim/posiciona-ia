@@ -1,16 +1,9 @@
 import React from "react";
-import { Square, Maximize, AlignCenter, AlignLeft, Columns, RotateCcw } from "lucide-react";
+import { Square, Maximize, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import ColorPicker, { PaletteColor } from "./ColorPicker";
-
-const LAYOUTS = [
-  { value: "centered" as const, icon: AlignCenter, label: "Centralizado" },
-  { value: "top" as const, icon: AlignLeft, label: "Topo" },
-  { value: "split" as const, icon: Columns, label: "Dividido" },
-];
 
 const GRADIENT_DIRECTIONS = [
   { value: "to right", label: "→ Horizontal" },
@@ -25,8 +18,6 @@ interface DocumentPanelProps {
   bgHex: string;
   onBgChange: (i: number) => void;
   onCustomBgColorChange: (color: string) => void;
-  layout: "centered" | "top" | "split";
-  onLayoutChange: (l: "centered" | "top" | "split") => void;
   canvasFormat?: "square" | "reels";
   onCanvasFormatChange?: (f: "square" | "reels") => void;
   useGradient?: boolean;
@@ -51,7 +42,7 @@ interface DocumentPanelProps {
 
 const DocumentPanel: React.FC<DocumentPanelProps> = ({
   palette, selectedBgIndex, bgHex, onBgChange, onCustomBgColorChange,
-  layout, onLayoutChange, canvasFormat, onCanvasFormatChange,
+  canvasFormat, onCanvasFormatChange,
   useGradient, onUseGradientChange,
   gradientColor2Index, onGradientColor2Change,
   customGradientColor2, onCustomGradientColor2Change,
@@ -126,23 +117,6 @@ const DocumentPanel: React.FC<DocumentPanelProps> = ({
             )}
           </div>
         )}
-      </div>
-
-      {/* Layout */}
-      <div>
-        <h4 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-2">Layout</h4>
-        <div className="flex gap-1.5">
-          {LAYOUTS.map(({ value, icon: Icon, label }) => (
-            <Tooltip key={value}>
-              <TooltipTrigger asChild>
-                <Button variant={layout === value ? "default" : "outline"} size="icon" className="h-8 w-8" onClick={() => onLayoutChange(value)}>
-                  <Icon className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>{label}</TooltipContent>
-            </Tooltip>
-          ))}
-        </div>
       </div>
 
       {/* Slide numbering (carousel only) */}

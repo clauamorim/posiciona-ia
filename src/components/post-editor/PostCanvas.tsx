@@ -20,6 +20,7 @@ interface PostCanvasProps {
   fontWeight?: string;
   fontStyle?: string;
   textAlign?: "left" | "center" | "right" | "justify";
+  titleTextAlign?: "left" | "center" | "right" | "justify";
   onTextChange?: (newText: string) => void;
   onTitleChange?: (newTitle: string) => void;
   canvasRef?: React.RefObject<HTMLDivElement> | ((el: HTMLDivElement | null) => void);
@@ -74,7 +75,7 @@ interface TextBox {
 const PostCanvas: React.FC<PostCanvasProps> = ({
   text, title, slideNumber, totalSlides, cta, isLastSlide, isCoverSlide,
   bgColor, textColor, accentColor, displayFont, bodyFont, layout,
-  fontSize, fontWeight, fontStyle, textAlign,
+  fontSize, fontWeight, fontStyle, textAlign, titleTextAlign,
   onTextChange, onTitleChange, canvasRef,
   overlayImages = [], onUpdateOverlay, onImageMove, onImageResize,
   selectedImageId, onSelectImage, bgGradient,
@@ -411,7 +412,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
             fontSize: isTitle ? resolvedTitleFontSize : bodyFontSize,
             fontWeight: isTitle ? "bold" : bodyFontWeight,
             fontStyle: isTitle ? "normal" : bodyFontStyle2,
-            textAlign: bodyTextAlign,
+            textAlign: isTitle ? (titleTextAlign || "center") : bodyTextAlign,
             lineHeight: isTitle ? 1.15 : 1.6,
             color: isTitle ? resolvedTitleColor : textColor,
             outline: "none", width: "100%", minHeight: "1em",

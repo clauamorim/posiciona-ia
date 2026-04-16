@@ -30,6 +30,7 @@ interface CarouselEditorProps {
   fontWeight?: string;
   fontStyle?: string;
   textAlign?: "left" | "center" | "right" | "justify";
+  titleTextAlign?: "left" | "center" | "right" | "justify";
   bgGradient?: string | null;
   titleFontSize?: number;
   titleColor?: string | null;
@@ -57,7 +58,7 @@ const CarouselEditor: React.FC<CarouselEditorProps> = ({
   slides, theme, cta, bgColor, textColor, accentColor, displayFont, bodyFont, layout,
   currentSlide, onSlideChange, onSlideTextChange, onDownloadSlide, onDownloadAll, slideRefs,
   overlayImages = [], onUpdateOverlay, onImageMove, onImageResize, selectedImageId, onSelectImage,
-  fontSize, fontWeight, fontStyle, textAlign, bgGradient,
+  fontSize, fontWeight, fontStyle, textAlign, titleTextAlign, bgGradient,
   titleFontSize, titleColor, titleFontFamily,
   ctaText, ctaBgColor, ctaTextColor, ctaFontSize, ctaPosition, onCtaMove,
   canvasWidth, canvasHeight,
@@ -86,7 +87,7 @@ const CarouselEditor: React.FC<CarouselEditorProps> = ({
         overlayImages={overlayImages} onUpdateOverlay={onUpdateOverlay} onImageMove={onImageMove} onImageResize={onImageResize}
         selectedImageId={selectedImageId} onSelectImage={onSelectImage}
         fontSize={fontSize} fontWeight={fontWeight} fontStyle={fontStyle}
-        textAlign={textAlign} bgGradient={bgGradient}
+        textAlign={textAlign} titleTextAlign={titleTextAlign} bgGradient={bgGradient}
         titleFontSize={titleFontSize} titleColor={titleColor} titleFontFamily={titleFontFamily}
         ctaText={ctaText} ctaBgColor={ctaBgColor} ctaTextColor={ctaTextColor}
         ctaFontSize={ctaFontSize} ctaPosition={ctaPosition} onCtaMove={onCtaMove}

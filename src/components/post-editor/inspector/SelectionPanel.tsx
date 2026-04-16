@@ -34,6 +34,8 @@ interface SelectionPanelProps {
   titleFontFamily?: string | null;
   displayFont: string;
   onTitleFontFamilyChange?: (f: string) => void;
+  titleTextAlign?: "left" | "center" | "right" | "justify";
+  onTitleTextAlignChange?: (a: "left" | "center" | "right" | "justify") => void;
 
   // Body
   fontSize: number;
@@ -162,6 +164,23 @@ const SelectionPanel: React.FC<SelectionPanelProps> = (props) => {
             <div>
               <label className="text-[11px] text-muted-foreground">Cor</label>
               <ColorPicker palette={palette} value={props.titleColor || undefined} onChange={(c) => props.onTitleColorChange!(c)} />
+            </div>
+          )}
+          {props.onTitleTextAlignChange && (
+            <div>
+              <label className="text-[11px] text-muted-foreground">Alinhamento</label>
+              <div className="flex gap-1.5 mt-1">
+                {([
+                  { value: "left" as const, icon: AlignLeft },
+                  { value: "center" as const, icon: AlignCenter },
+                  { value: "right" as const, icon: AlignRight },
+                  { value: "justify" as const, icon: AlignJustify },
+                ]).map(({ value, icon: Icon }) => (
+                  <Button key={value} variant={(props.titleTextAlign || "center") === value ? "default" : "outline"} size="icon" className="h-7 w-7" onClick={() => props.onTitleTextAlignChange!(value)}>
+                    <Icon className="h-3.5 w-3.5" />
+                  </Button>
+                ))}
+              </div>
             </div>
           )}
           {selectedLayerId && <LayerControls id={selectedLayerId} onBringForward={props.onBringForward} onSendBackward={props.onSendBackward} />}
