@@ -508,7 +508,13 @@ const PostEditorPage = () => {
     if (typography.display) setDisplayFont(typography.display);
     if (typography.body) setBodyFont(typography.body);
     setUploadedImages([]);
-    sessionStorage.removeItem(DRAFT_KEY);
+    // Clear all draft keys including image refs
+    const keysToRemove = [DRAFT_KEY];
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const key = sessionStorage.key(i);
+      if (key && key.startsWith(`${DRAFT_KEY}_`)) keysToRemove.push(key);
+    }
+    keysToRemove.forEach(k => sessionStorage.removeItem(k));
   };
 
   const handleCopyCaption = async () => {
