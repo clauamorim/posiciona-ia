@@ -151,7 +151,7 @@ const EditorialPage = () => {
   };
 
   const copyCaption = (caption: string) => {
-    navigator.clipboard.writeText(cleanMarkdown(caption));
+    navigator.clipboard.writeText(caption);
     toast({ title: "Legenda copiada!" });
   };
 
@@ -379,18 +379,18 @@ const EditorialPage = () => {
                           </Badge>
                         </div>
 
-                        <h3 className="text-sm font-semibold leading-tight">{cleanMarkdown(day.theme || "")}</h3>
+                        <h3 className="text-sm font-semibold leading-tight">{day.theme || ""}</h3>
 
                         {/* Caption preview */}
                         <div>
                           <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Legenda</p>
-                          <p className="text-xs text-foreground/70 leading-relaxed line-clamp-3">{cleanMarkdown(day.caption || "")}</p>
+                          <p className="text-xs text-foreground/70 leading-relaxed line-clamp-3">{day.caption || ""}</p>
                         </div>
 
                         {day.cta && (
                           <div>
                             <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-0.5">CTA</p>
-                            <p className="text-xs font-medium text-primary">{cleanMarkdown(day.cta)}</p>
+                            <p className="text-xs font-medium text-primary">{day.cta}</p>
                           </div>
                         )}
 
@@ -403,7 +403,7 @@ const EditorialPage = () => {
                             <CollapsibleContent>
                               <div className="mt-2 space-y-1.5 p-3 rounded-lg bg-muted/30 border">
                                 {day.card_copy.map((copy: string, idx: number) => (
-                                  <p key={idx} className="text-xs text-foreground/70 leading-relaxed">{cleanMarkdown(copy)}</p>
+                                  <p key={idx} className="text-xs text-foreground/70 leading-relaxed">{copy}</p>
                                 ))}
                               </div>
                             </CollapsibleContent>
@@ -417,7 +417,7 @@ const EditorialPage = () => {
                             </CollapsibleTrigger>
                             <CollapsibleContent>
                               <div className="mt-2 p-3 rounded-lg bg-muted/30 border text-xs leading-relaxed whitespace-pre-wrap">
-                                {cleanMarkdown(day.script)}
+                                {day.script}
                               </div>
                             </CollapsibleContent>
                           </Collapsible>
