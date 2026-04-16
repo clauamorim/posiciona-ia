@@ -561,6 +561,66 @@ export type Database = {
         }
         Relationships: []
       }
+      user_designs: {
+        Row: {
+          created_at: string
+          day_index: number | null
+          id: string
+          state: Json
+          thumbnail: string | null
+          title: string
+          updated_at: string
+          user_id: string
+          week_index: number | null
+        }
+        Insert: {
+          created_at?: string
+          day_index?: number | null
+          id?: string
+          state?: Json
+          thumbnail?: string | null
+          title?: string
+          updated_at?: string
+          user_id: string
+          week_index?: number | null
+        }
+        Update: {
+          created_at?: string
+          day_index?: number | null
+          id?: string
+          state?: Json
+          thumbnail?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+          week_index?: number | null
+        }
+        Relationships: []
+      }
+      user_gallery_assets: {
+        Row: {
+          created_at: string
+          file_path: string
+          id: string
+          name: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          file_path: string
+          id?: string
+          name: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          file_path?: string
+          id?: string
+          name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
