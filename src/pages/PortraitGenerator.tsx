@@ -66,6 +66,19 @@ const PortraitGenerator = () => {
   const [loadingPack, setLoadingPack] = useState<string | null>(null);
   const [selectedWardrobe, setSelectedWardrobe] = useState(savedDraft.current?.selectedWardrobe ?? 0);
 
+  // Persist draft on changes
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      savePortraitDraft({
+        selfieBase64s: selfies.map(s => s.base64),
+        portraits,
+        portraitStyleIndex,
+        selectedWardrobe,
+      });
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [selfies, portraits, portraitStyleIndex, selectedWardrobe]);
+
   const totalCredits = (balances?.portrait_credits_included ?? 0) + (balances?.portrait_credits_extra ?? 0);
 
   // Check prerequisites
