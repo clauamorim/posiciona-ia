@@ -16,6 +16,7 @@ interface UserSubscription {
   plan_name: string;
   status: string;
   current_period_end: string | null;
+  created_at: string;
 }
 
 interface AuthContextType {
@@ -76,7 +77,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const { data: sub } = await supabase
         .from("subscriptions")
-        .select("plan_id, status, current_period_end")
+        .select("plan_id, status, current_period_end, created_at")
         .eq("user_id", userId)
         .eq("status", "active")
         .order("created_at", { ascending: false })
@@ -96,6 +97,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           plan_name: plan?.name || "",
           status: sub.status,
           current_period_end: sub.current_period_end,
+          created_at: sub.created_at,
         };
       }
       return null;
