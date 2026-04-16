@@ -12,7 +12,7 @@ import CarouselEditor from "@/components/post-editor/CarouselEditor";
 import PostToolbar from "@/components/post-editor/PostToolbar";
 import type { OverlayImage } from "@/components/post-editor/PostToolbar";
 import { parseReportContent } from "@/lib/reportParser";
-import { cleanMarkdown } from "@/lib/textCleanup";
+import { cleanMarkdown, extractAfterBold } from "@/lib/textCleanup";
 import { compressImage } from "@/lib/imageUtils";
 
 function getContrastColor(hex: string): string {
@@ -123,7 +123,7 @@ const PostEditorPage = () => {
   useEffect(() => {
     if (!day) return;
     if (textsInitializedRef.current) return;
-    const copies = (day.card_copy || [day.caption || ""]).map((t: string) => cleanMarkdown(t));
+    const copies = (day.card_copy || [day.caption || ""]).map((t: string) => extractAfterBold(t));
     setEditedTexts(copies);
     setEditedTitle(cleanMarkdown(day.theme || ""));
     setCtaText(cleanMarkdown(day.cta || ""));
@@ -333,7 +333,7 @@ const PostEditorPage = () => {
 
   const handleReset = () => {
     if (!day) return;
-    const copies = (day.card_copy || [day.caption || ""]).map((t: string) => cleanMarkdown(t));
+    const copies = (day.card_copy || [day.caption || ""]).map((t: string) => extractAfterBold(t));
     setEditedTexts(copies);
     setEditedTitle(cleanMarkdown(day.theme || ""));
     setOverlayImages([]);
@@ -355,6 +355,11 @@ const PostEditorPage = () => {
     setCtaFontSize(28);
     setCtaPosition(null);
     setCanvasFormat("square");
+    setShowSlideNumber(true);
+    setSlideNumberPosition(null);
+    setSlideNumberBgColor(null);
+    setSlideNumberTextColor(null);
+    setSlideNumberSize(14);
     if (typography.display) setDisplayFont(typography.display);
     if (typography.body) setBodyFont(typography.body);
   };
