@@ -35,6 +35,15 @@ function loadGoogleFont(fontName: string) {
 
 const DRAFT_KEY = "posiciona-editor-draft";
 
+function findBackgroundIndex(palette: any[]): number {
+  if (!Array.isArray(palette) || palette.length === 0) return 0;
+  const idx = palette.findIndex((c) => {
+    const usage = typeof c?.usage === "string" ? c.usage.toLowerCase() : "";
+    return usage.includes("fundo") || usage.includes("background");
+  });
+  return idx >= 0 ? idx : 0;
+}
+
 interface EditorDraft {
   weekIndex: number;
   dayIndex: number;
@@ -189,6 +198,7 @@ const PostEditorPage = () => {
   const singleCanvasRef = useRef<HTMLDivElement>(null);
   const slideRefs = useRef<(HTMLDivElement | null)[]>([]);
   const textsInitializedRef = useRef(!!draft);
+  const bgInitializedRef = useRef(!!draft);
 
   const cW = canvasFormat === "reels" ? 1080 : 1080;
   const cH = canvasFormat === "reels" ? 1920 : 1080;
@@ -233,6 +243,16 @@ const PostEditorPage = () => {
     if (typography.display) { setDisplayFont(typography.display); loadGoogleFont(typography.display); }
     if (typography.body) { setBodyFont(typography.body); loadGoogleFont(typography.body); }
   }, [typography.display, typography.body]);
+
+  // Initialize bgIndex from palette usage ("fundo"/"background") once on first load
+  useEffect(() => {
+    if (bgInitializedRef.current) return;
+    if (!Array.isArray(palette) || palette.length === 0) return;
+    if (customBgColor) { bgInitializedRef.current = true; return; }
+    const idx = findBackgroundIndex(palette);
+    setBgIndex(idx);
+    bgInitializedRef.current = true;
+  }, [palette, customBgColor]);
 
   // Initialize texts only once per day, prevent alt+tab reset
   useEffect(() => {
