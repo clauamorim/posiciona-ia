@@ -327,7 +327,8 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
         width: hs, height: hs,
         backgroundColor: "white", border: "2px solid rgba(0,0,0,0.5)",
         borderRadius: 3, cursor: CURSORS[h.corner], zIndex: 9999,
-      }} onMouseDown={(e) => {
+        touchAction: "none",
+      }} onPointerDown={(e) => {
         if (isText) {
           const tb = textBoxes.find(t => t.id === item.id);
           if (tb) handleTextResizeDown(e, tb, h.corner);
