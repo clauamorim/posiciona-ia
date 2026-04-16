@@ -614,6 +614,9 @@ const PostEditorPage = () => {
                 ctaText={ctaText} ctaBgColor={ctaBgColor} ctaTextColor={ctaTextColor}
                 ctaFontSize={ctaFontSize} ctaPosition={ctaPosition} onCtaMove={handleCtaMove}
                 canvasWidth={cW} canvasHeight={cH}
+                onSelectedTextChange={setSelectedTextId}
+                renderOrder={renderOrder}
+                onRenderOrderChange={setRenderOrder}
               />
             )}
           </div>
