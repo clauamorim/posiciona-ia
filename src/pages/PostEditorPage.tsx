@@ -831,6 +831,9 @@ const PostEditorPage = () => {
                 slideNumberTextColor={slideNumberTextColor} onSlideNumberTextColorChange={setSlideNumberTextColor}
                 slideNumberSize={slideNumberSize} onSlideNumberSizeChange={setSlideNumberSize}
                 isCarousel={isCarousel}
+                onRecolorElement={handleRecolorElement}
+                onSaveDesign={handleSaveDesign}
+                saving={savingDesign}
               />
             );
           })()}
