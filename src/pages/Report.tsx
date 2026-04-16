@@ -16,6 +16,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { getReportFallbackText, parseReportContent } from "@/lib/reportParser";
 import { normalizeReportContent } from "@/lib/reportParser";
+import { ReportPdfDocument } from "@/components/report/ReportPdfDocument";
 
 const STORYBRAND_ITEMS = [
   { key: "hero", label: "O Herói (Cliente)", icon: <Users className="h-5 w-5" /> },
@@ -42,17 +43,20 @@ const Report = () => {
   const [report, setReport] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [topArchetypes, setTopArchetypes] = useState<any[]>([]);
+  const [userName, setUserName] = useState<string | null>(null);
   const [regenerating, setRegenerating] = useState(false);
   const reportRef = useRef<HTMLDivElement>(null);
+  const pdfRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!user) return;
-    // Fetch report and top archetypes in parallel
     Promise.all([
       supabase.from("reports").select("*").eq("user_id", user.id).order("version", { ascending: false }).limit(1).single(),
       supabase.from("user_top_archetypes").select("*").eq("user_id", user.id).order("rank", { ascending: true }).limit(3),
-    ]).then(([reportRes, archRes]) => {
+      supabase.from("profiles").select("full_name").eq("user_id", user.id).maybeSingle(),
+    ]).then(([reportRes, archRes, profRes]) => {
       setReport(reportRes.data);
       setTopArchetypes(archRes.data || []);
+      setUserName(profRes.data?.full_name || null);
       setLoading(false);
     });
   }, [user]);
@@ -154,10 +158,11 @@ const Report = () => {
   };
 
   const handleDownloadPDF = async () => {
-    if (!reportRef.current) return;
+    const target = pdfRef.current || reportRef.current;
+    if (!target) return;
     try {
       const { exportSectionBasedPDF } = await import("@/lib/pdfExport");
-      await exportSectionBasedPDF(reportRef.current, "posiciona-relatorio.pdf");
+      await exportSectionBasedPDF(target, "posiciona-relatorio.pdf", "#FAF8F5");
     } catch (error) {
       console.error("Error generating PDF:", error);
       toast({ title: "Erro ao gerar PDF", description: "Tente novamente.", variant: "destructive" });
