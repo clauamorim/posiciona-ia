@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { parseReportContent, normalizeReportContent } from "@/lib/reportParser";
+import { cleanMarkdown } from "@/lib/textCleanup";
 
 const FORMAT_CONFIG: Record<string, { label: string; icon: React.ReactNode; color: string; border: string }> = {
   reels: { label: "Reels", icon: <Video className="h-3 w-3" />, color: "bg-pink-500/10 text-pink-600 border-pink-200", border: "border-l-pink-500" },
@@ -150,7 +151,7 @@ const EditorialPage = () => {
   };
 
   const copyCaption = (caption: string) => {
-    navigator.clipboard.writeText(caption);
+    navigator.clipboard.writeText(cleanMarkdown(caption));
     toast({ title: "Legenda copiada!" });
   };
 
@@ -402,7 +403,7 @@ const EditorialPage = () => {
                             <CollapsibleContent>
                               <div className="mt-2 space-y-1.5 p-3 rounded-lg bg-muted/30 border">
                                 {day.card_copy.map((copy: string, idx: number) => (
-                                  <p key={idx} className="text-xs text-foreground/70 leading-relaxed">{copy}</p>
+                                  <p key={idx} className="text-xs text-foreground/70 leading-relaxed">{cleanMarkdown(copy)}</p>
                                 ))}
                               </div>
                             </CollapsibleContent>
@@ -416,7 +417,7 @@ const EditorialPage = () => {
                             </CollapsibleTrigger>
                             <CollapsibleContent>
                               <div className="mt-2 p-3 rounded-lg bg-muted/30 border text-xs leading-relaxed whitespace-pre-wrap">
-                                {day.script}
+                                {cleanMarkdown(day.script)}
                               </div>
                             </CollapsibleContent>
                           </Collapsible>
