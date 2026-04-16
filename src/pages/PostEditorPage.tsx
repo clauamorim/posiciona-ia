@@ -255,7 +255,13 @@ const PostEditorPage = () => {
 
   const isCarousel = day?.format?.toLowerCase() === "carrossel";
 
-  const handleAddImage = (image: OverlayImage) => setOverlayImages((prev) => [...prev, image]);
+  const handleAddImage = (image: OverlayImage) => {
+    setOverlayImages((prev) => [...prev, image]);
+    // Track uploaded photos in gallery
+    if ((image.type === "photo" || image.type === "logo") && image.src) {
+      setUploadedImages(prev => prev.includes(image.src) ? prev : [...prev, image.src]);
+    }
+  };
 
   const handleUpdateOverlay = (id: string, updates: Partial<OverlayImage>) => {
     setOverlayImages((prev) => prev.map((img) => (img.id === id ? { ...img, ...updates } : img)));
