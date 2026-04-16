@@ -507,8 +507,8 @@ const LandingPage = () => {
       {/* ── DEMONSTRAÇÃO ── */}
       <DemoCarousel navigate={navigate} />
 
-      {/* ── COMPARADOR DE RETRATOS (placeholder) ── */}
-      <PortraitComparisonPlaceholder />
+      {/* ── COMPARADOR DE RETRATOS ── */}
+      <PortraitComparison />
 
       {/* ── POR QUE USAR ── */}
       <section className="py-12 md:py-16 px-4 bg-landing-bg-secondary/40">
