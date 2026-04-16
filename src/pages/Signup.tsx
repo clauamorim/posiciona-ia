@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "@/hooks/use-toast";
 import { ArrowLeft } from "lucide-react";
 import posicionaLogo from "@/assets/posiciona-logo.png";
+import LegalConsentCheckbox from "@/components/LegalConsentCheckbox";
 
 const GOALS = [
   "Atrair novos clientes/pacientes",
@@ -29,10 +30,17 @@ const Signup = () => {
   const [whatsapp, setWhatsapp] = useState("");
   const [mainGoal, setMainGoal] = useState("");
   const [gender, setGender] = useState("");
+  const [legalConsent, setLegalConsent] = useState(false);
+  const [legalConsentError, setLegalConsentError] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!legalConsent) {
+      setLegalConsentError("Você precisa concordar com os Termos de Serviço e a Política de Privacidade para criar sua conta.");
+      return;
+    }
+    setLegalConsentError("");
     setLoading(true);
     const { error } = await supabase.auth.signUp({
       email,
@@ -126,6 +134,12 @@ const Signup = () => {
                 </SelectContent>
               </Select>
             </div>
+            <LegalConsentCheckbox
+              checked={legalConsent}
+              onCheckedChange={(v) => { setLegalConsent(v); if (v) setLegalConsentError(""); }}
+              variant="signup"
+              error={legalConsentError}
+            />
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "Criando..." : "Criar conta"}
             </Button>
