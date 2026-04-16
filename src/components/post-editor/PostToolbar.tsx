@@ -106,6 +106,7 @@ interface PostToolbarProps {
   slideNumberSize?: number;
   onSlideNumberSizeChange?: (size: number) => void;
   isCarousel?: boolean;
+  uploadedImages?: string[];
 }
 
 const LAYOUTS = [
@@ -235,6 +236,7 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
   slideNumberTextColor, onSlideNumberTextColorChange,
   slideNumberSize, onSlideNumberSizeChange,
   isCarousel,
+  uploadedImages = [],
 }) => {
   const [elementsOpen, setElementsOpen] = useState(false);
   const [svgElementsOpen, setSvgElementsOpen] = useState(false);
