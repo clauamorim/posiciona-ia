@@ -7,24 +7,28 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
-import { Instagram, Loader2, AlertTriangle, CheckCircle2, ArrowRight, Upload, X, Image, Download } from "lucide-react";
+import { Instagram, Loader2, AlertTriangle, CheckCircle2, ArrowRight, Upload, X, Image, Download, Copy, Check } from "lucide-react";
 import jsPDF from "jspdf";
 import { compressImage } from "@/lib/imageUtils";
 
 type AnalysisItem = { aspect: string; current: string; suggestion: string };
+type BioOption = { text: string; char_count: number; rationale?: string };
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
+const BIO_HARD_LIMIT = 150;
 
 const InstagramAnalysis = () => {
   const { user } = useAuth();
   const [username, setUsername] = useState("");
   const [loading, setLoading] = useState(false);
   const [analysis, setAnalysis] = useState<AnalysisItem[] | null>(null);
+  const [bioOptions, setBioOptions] = useState<BioOption[]>([]);
   const [analysisDate, setAnalysisDate] = useState<string | null>(null);
   const [hasPrereqs, setHasPrereqs] = useState<boolean | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageBase64, setImageBase64] = useState<string | null>(null);
   const [loadingExisting, setLoadingExisting] = useState(true);
+  const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -38,9 +42,15 @@ const InstagramAnalysis = () => {
       setHasPrereqs((arcRes.data?.length ?? 0) > 0 && (repRes.data?.length ?? 0) > 0);
 
       if (latestAnalysis.data) {
-        const items = Array.isArray(latestAnalysis.data.analysis) ? latestAnalysis.data.analysis as AnalysisItem[] : null;
-        if (items && items.length > 0) {
+        const raw = latestAnalysis.data.analysis as any;
+        // Backwards-compatible: old rows are arrays; new rows are { items, bio_options }
+        const items: AnalysisItem[] = Array.isArray(raw)
+          ? raw
+          : Array.isArray(raw?.items) ? raw.items : [];
+        const bios: BioOption[] = Array.isArray(raw?.bio_options) ? raw.bio_options : [];
+        if (items.length > 0 || bios.length > 0) {
           setAnalysis(items);
+          setBioOptions(bios);
           setAnalysisDate(latestAnalysis.data.created_at);
           if (latestAnalysis.data.username) setUsername(latestAnalysis.data.username);
         }
@@ -87,14 +97,18 @@ const InstagramAnalysis = () => {
       if (error) throw error;
       if (data.error) throw new Error(data.error);
 
-      setAnalysis(data.analysis);
+      const items: AnalysisItem[] = Array.isArray(data.analysis) ? data.analysis : [];
+      const bios: BioOption[] = Array.isArray(data.bio_options) ? data.bio_options : [];
+
+      setAnalysis(items);
+      setBioOptions(bios);
       setAnalysisDate(new Date().toISOString());
 
-      if (user && data.analysis) {
+      if (user) {
         await supabase.from("instagram_analyses").insert({
           user_id: user.id,
           username: username.replace("@", "").trim() || null,
-          analysis: data.analysis,
+          analysis: { items, bio_options: bios } as any,
         });
       }
     } catch (e: any) {
@@ -105,8 +119,18 @@ const InstagramAnalysis = () => {
     }
   };
 
+  const copyBio = async (text: string, idx: number) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedIdx(idx);
+      setTimeout(() => setCopiedIdx(null), 1500);
+    } catch {
+      toast({ title: "Não foi possível copiar", variant: "destructive" });
+    }
+  };
+
   const downloadPDF = () => {
-    if (!analysis) return;
+    if (!analysis && bioOptions.length === 0) return;
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
     const margin = 20;
@@ -128,7 +152,33 @@ const InstagramAnalysis = () => {
     doc.text(dateStr, margin, y);
     y += 12;
 
-    for (const item of analysis) {
+    // Bio options first
+    if (bioOptions.length > 0) {
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text("Sugestões de Bio (≤150 caracteres)", margin, y);
+      y += 8;
+      bioOptions.forEach((bio, i) => {
+        if (!bio.text) return;
+        if (y > 260) { doc.addPage(); y = 20; }
+        doc.setFontSize(11);
+        doc.setFont("helvetica", "bold");
+        doc.text(`Opção ${i + 1} (${bio.text.length}/150)`, margin, y);
+        y += 5;
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        const lines = doc.splitTextToSize(bio.text, maxWidth);
+        doc.text(lines, margin, y);
+        y += lines.length * 5 + 6;
+      });
+      y += 4;
+    }
+
+    const filtered = (analysis || []).filter(
+      (item) => !/^bio$/i.test(item.aspect.trim())
+    );
+
+    for (const item of filtered) {
       if (y > 260) { doc.addPage(); y = 20; }
       doc.setFontSize(13);
       doc.setFont("helvetica", "bold");
@@ -178,6 +228,11 @@ const InstagramAnalysis = () => {
       </DashboardLayout>
     );
   }
+
+  // Hide raw "Bio" item from the analysis grid since we render the dedicated bio block
+  const displayedAnalysis = (analysis || []).filter(
+    (item) => !/^bio$/i.test(item.aspect.trim())
+  );
 
   return (
     <DashboardLayout>
@@ -231,8 +286,8 @@ const InstagramAnalysis = () => {
           </div>
         )}
 
-        {analysis && !loading && (
-          <div className="space-y-4">
+        {(analysis || bioOptions.length > 0) && !loading && (
+          <div className="space-y-6">
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-xl font-bold font-display">Resultados da Análise</h2>
@@ -246,30 +301,74 @@ const InstagramAnalysis = () => {
                 <Download className="h-4 w-4" /> Baixar PDF
               </Button>
             </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              {analysis.map((item, i) => (
-                <Card key={i}>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base">{item.aspect}</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="bg-muted/50 rounded-lg p-3">
-                      <p className="text-xs font-semibold text-muted-foreground mb-1">Situação Atual</p>
-                      <p className="text-sm">{item.current}</p>
-                    </div>
-                    <div className="flex justify-center">
-                      <ArrowRight className="h-4 w-4 text-primary" />
-                    </div>
-                    <div className="bg-primary/5 border border-primary/20 rounded-lg p-3">
-                      <p className="text-xs font-semibold text-primary mb-1 flex items-center gap-1">
-                        <CheckCircle2 className="h-3 w-3" /> Sugestão
-                      </p>
-                      <p className="text-sm">{item.suggestion}</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+
+            {/* Dedicated Bio block */}
+            {bioOptions.filter((b) => b.text).length > 0 && (
+              <div className="space-y-3">
+                <div>
+                  <h3 className="text-base font-semibold">Sugestões de Bio</h3>
+                  <p className="text-xs text-muted-foreground">3 opções otimizadas para o limite de 150 caracteres do Instagram.</p>
+                </div>
+                <div className="grid gap-3 md:grid-cols-3">
+                  {bioOptions.filter((b) => b.text).map((bio, i) => {
+                    const count = bio.text.length;
+                    const within = count <= BIO_HARD_LIMIT;
+                    return (
+                      <Card key={i} className="border-primary/20">
+                        <CardContent className="pt-5 pb-4 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Opção {i + 1}</span>
+                            <span className={`text-xs font-mono ${within ? "text-emerald-600" : "text-destructive"}`}>
+                              {count}/150
+                            </span>
+                          </div>
+                          <p className="text-sm leading-relaxed whitespace-pre-wrap">{bio.text}</p>
+                          {bio.rationale && (
+                            <p className="text-xs text-muted-foreground italic">{bio.rationale}</p>
+                          )}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full gap-2"
+                            onClick={() => copyBio(bio.text, i)}
+                          >
+                            {copiedIdx === i ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                            {copiedIdx === i ? "Copiado" : "Copiar bio"}
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {displayedAnalysis.length > 0 && (
+              <div className="grid gap-4 md:grid-cols-2">
+                {displayedAnalysis.map((item, i) => (
+                  <Card key={i}>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base">{item.aspect}</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="bg-muted/50 rounded-lg p-3">
+                        <p className="text-xs font-semibold text-muted-foreground mb-1">Situação Atual</p>
+                        <p className="text-sm">{item.current}</p>
+                      </div>
+                      <div className="flex justify-center">
+                        <ArrowRight className="h-4 w-4 text-primary" />
+                      </div>
+                      <div className="bg-primary/5 border border-primary/20 rounded-lg p-3">
+                        <p className="text-xs font-semibold text-primary mb-1 flex items-center gap-1">
+                          <CheckCircle2 className="h-3 w-3" /> Sugestão
+                        </p>
+                        <p className="text-sm">{item.suggestion}</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
