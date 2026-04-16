@@ -203,7 +203,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   const handleCtaPointerDown = (e: React.PointerEvent) => {
     e.preventDefault(); e.stopPropagation();
     capturePointer(e);
-    setSelectedTextId(null);
+    setSelectedTextId("cta");
     onSelectImage?.(null);
     const pos = ctaPosition || { x: 0, y: 0 };
     setDragging({ id: "cta-button", startX: e.clientX, startY: e.clientY, origX: pos.x, origY: pos.y, isCta: true });
