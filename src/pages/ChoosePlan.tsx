@@ -338,18 +338,22 @@ const ChoosePlan = () => {
         />
       )}
 
-      {upgradeTarget && (
-        <PreCheckoutModal
-          open={!!upgradeTarget}
-          onOpenChange={(v) => { if (!v) setUpgradeTarget(null); }}
-          productName={`Upgrade para ${upgradeTarget.name}`}
-          price={upgradeTarget.price}
-          billingType={upgradeTarget.billing}
-          period={upgradeTarget.billing === "recurring" ? "mensal" : undefined}
-          onConfirm={() => handleUpgrade(upgradeTarget.slug)}
-          loading={loadingUpgrade === upgradeTarget.slug}
-        />
-      )}
+      {upgradeTarget && (() => {
+        const upgradeProps = getUpgradeModalProps(upgradeTarget);
+        return (
+          <PreCheckoutModal
+            open={!!upgradeTarget}
+            onOpenChange={(v) => { if (!v) setUpgradeTarget(null); }}
+            productName={`Upgrade para ${upgradeTarget.name}`}
+            price={upgradeProps.price}
+            description={upgradeProps.description}
+            billingType={upgradeProps.billingType}
+            period={upgradeProps.period}
+            onConfirm={() => handleUpgrade(upgradeTarget.slug)}
+            loading={loadingUpgrade === upgradeTarget.slug}
+          />
+        );
+      })()}
     </div>
   );
 
