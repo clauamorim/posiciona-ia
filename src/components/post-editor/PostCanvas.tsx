@@ -82,12 +82,18 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   canvasWidth = 1080, canvasHeight = 1080,
   showSlideNumber = true, slideNumberPosition, onSlideNumberMove,
   slideNumberBgColor, slideNumberTextColor, slideNumberSize,
+  onSelectedTextChange, renderOrder: externalRenderOrder, onRenderOrderChange,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0.4);
   const [dragging, setDragging] = useState<{ id: string; startX: number; startY: number; origX: number; origY: number; isText?: boolean; isCta?: boolean } | null>(null);
   const [resizing, setResizing] = useState<{ id: string; startX: number; startY: number; origX: number; origY: number; origW: number; origH: number; corner: Corner; isText?: boolean } | null>(null);
-  const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
+  const [selectedTextIdLocal, setSelectedTextIdLocal] = useState<string | null>(null);
+  const selectedTextId = selectedTextIdLocal;
+  const setSelectedTextId = (id: string | null) => {
+    setSelectedTextIdLocal(id);
+    onSelectedTextChange?.(id);
+  };
   const [editingTextId, setEditingTextId] = useState<string | null>(null);
 
   const [textBoxes, setTextBoxes] = useState<TextBox[]>([]);
