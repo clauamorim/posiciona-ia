@@ -178,44 +178,54 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
     return () => window.removeEventListener("resize", updateScale);
   }, [canvasWidth, canvasHeight]);
 
-  const handleMouseDown = (e: React.MouseEvent, img: OverlayImage) => {
+  const capturePointer = (e: React.PointerEvent) => {
+    try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch {}
+  };
+
+  const handlePointerDown = (e: React.PointerEvent, img: OverlayImage) => {
     e.preventDefault(); e.stopPropagation();
+    capturePointer(e);
     onSelectImage?.(img.id);
     setSelectedTextId(null);
     setDragging({ id: img.id, startX: e.clientX, startY: e.clientY, origX: img.x, origY: img.y });
   };
 
-  const handleTextMouseDown = (e: React.MouseEvent, tb: TextBox) => {
+  const handleTextPointerDown = (e: React.PointerEvent, tb: TextBox) => {
     if (editingTextId === tb.id) return;
     e.preventDefault(); e.stopPropagation();
+    capturePointer(e);
     setSelectedTextId(tb.id);
     onSelectImage?.(null);
     setDragging({ id: tb.id, startX: e.clientX, startY: e.clientY, origX: tb.x, origY: tb.y, isText: true });
   };
 
-  const handleCtaMouseDown = (e: React.MouseEvent) => {
+  const handleCtaPointerDown = (e: React.PointerEvent) => {
     e.preventDefault(); e.stopPropagation();
+    capturePointer(e);
     setSelectedTextId(null);
     onSelectImage?.(null);
     const pos = ctaPosition || { x: 0, y: 0 };
     setDragging({ id: "cta-button", startX: e.clientX, startY: e.clientY, origX: pos.x, origY: pos.y, isCta: true });
   };
 
-  const handleResizeDown = (e: React.MouseEvent, img: OverlayImage, corner: Corner) => {
+  const handleResizeDown = (e: React.PointerEvent, img: OverlayImage, corner: Corner) => {
     e.preventDefault(); e.stopPropagation();
+    capturePointer(e);
     onSelectImage?.(img.id);
     setResizing({ id: img.id, startX: e.clientX, startY: e.clientY, origX: img.x, origY: img.y, origW: img.width, origH: img.height, corner });
   };
 
-  const handleTextResizeDown = (e: React.MouseEvent, tb: TextBox, corner: Corner) => {
+  const handleTextResizeDown = (e: React.PointerEvent, tb: TextBox, corner: Corner) => {
     e.preventDefault(); e.stopPropagation();
+    capturePointer(e);
     setSelectedTextId(tb.id);
     setResizing({ id: tb.id, startX: e.clientX, startY: e.clientY, origX: tb.x, origY: tb.y, origW: tb.width, origH: tb.height, corner, isText: true });
   };
 
   useEffect(() => {
     if (!dragging) return;
-    const handleMouseMove = (e: MouseEvent) => {
+    const handlePointerMove = (e: PointerEvent) => {
+      if (e.cancelable) e.preventDefault();
       const dx = (e.clientX - dragging.startX) / scale;
       const dy = (e.clientY - dragging.startY) / scale;
       if (dragging.isCta) {
@@ -226,15 +236,21 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
         updateOverlay(dragging.id, { x: dragging.origX + dx, y: dragging.origY + dy });
       }
     };
-    const handleMouseUp = () => setDragging(null);
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mouseup", handleMouseUp);
-    return () => { window.removeEventListener("mousemove", handleMouseMove); window.removeEventListener("mouseup", handleMouseUp); };
+    const handlePointerUp = () => setDragging(null);
+    window.addEventListener("pointermove", handlePointerMove, { passive: false });
+    window.addEventListener("pointerup", handlePointerUp);
+    window.addEventListener("pointercancel", handlePointerUp);
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("pointercancel", handlePointerUp);
+    };
   }, [dragging, scale]);
 
   useEffect(() => {
     if (!resizing) return;
-    const handleMouseMove = (e: MouseEvent) => {
+    const handlePointerMove = (e: PointerEvent) => {
+      if (e.cancelable) e.preventDefault();
       const dx = (e.clientX - resizing.startX) / scale;
       const dy = (e.clientY - resizing.startY) / scale;
       const { corner, origW, origH, origX, origY } = resizing;
@@ -259,10 +275,15 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
         updateOverlay(resizing.id, { x: newX, y: newY, width: newW, height: newH });
       }
     };
-    const handleMouseUp = () => setResizing(null);
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mouseup", handleMouseUp);
-    return () => { window.removeEventListener("mousemove", handleMouseMove); window.removeEventListener("mouseup", handleMouseUp); };
+    const handlePointerUp = () => setResizing(null);
+    window.addEventListener("pointermove", handlePointerMove, { passive: false });
+    window.addEventListener("pointerup", handlePointerUp);
+    window.addEventListener("pointercancel", handlePointerUp);
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("pointercancel", handlePointerUp);
+    };
   }, [resizing, scale, overlayImages]);
 
   const handleCanvasClick = (e: React.MouseEvent) => {
@@ -306,7 +327,8 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
         width: hs, height: hs,
         backgroundColor: "white", border: "2px solid rgba(0,0,0,0.5)",
         borderRadius: 3, cursor: CURSORS[h.corner], zIndex: 9999,
-      }} onMouseDown={(e) => {
+        touchAction: "none",
+      }} onPointerDown={(e) => {
         if (isText) {
           const tb = textBoxes.find(t => t.id === item.id);
           if (tb) handleTextResizeDown(e, tb, h.corner);
@@ -358,8 +380,9 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
           cursor: isEditing ? "text" : "move", userSelect: isEditing ? "text" : "none",
           outline: isSelected ? "2px dashed rgba(255,255,255,0.7)" : "none", outlineOffset: 2,
           zIndex: getZIndex(tb.id), padding: "8px 16px", boxSizing: "border-box", overflow: "hidden",
+          touchAction: isEditing ? "auto" : "none",
         }}
-        onMouseDown={(e) => handleTextMouseDown(e, tb)}
+        onPointerDown={(e) => handleTextPointerDown(e, tb)}
         onClick={(e) => { e.stopPropagation(); setSelectedTextId(tb.id); onSelectImage?.(null); }}
         onDoubleClick={(e) => { e.stopPropagation(); setEditingTextId(tb.id); }}
       >
@@ -411,8 +434,9 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
             backgroundColor: img.bgColor || "transparent",
             opacity: img.opacity ?? 1,
             borderRadius: 8, padding: "12px 16px", boxSizing: "border-box",
+            touchAction: "none",
           }}
-          onMouseDown={(e) => handleMouseDown(e, img)}
+          onPointerDown={(e) => handlePointerDown(e, img)}
           onClick={(e) => { e.stopPropagation(); onSelectImage?.(img.id); setSelectedTextId(null); }}
           onDoubleClick={(e) => {
             e.stopPropagation();
@@ -453,8 +477,9 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
           cursor: "move", userSelect: "none",
           outline: isSelected ? "2px dashed rgba(255,255,255,0.7)" : "none",
           outlineOffset: 2, zIndex: itemZ,
+          touchAction: "none",
         }}
-        onMouseDown={(e) => handleMouseDown(e, img)}
+        onPointerDown={(e) => handlePointerDown(e, img)}
         onClick={(e) => { e.stopPropagation(); onSelectImage?.(img.id); setSelectedTextId(null); }}
       >
         <img src={img.src} alt={img.type}
@@ -503,21 +528,29 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
                   fontFamily: `'${displayFont}', sans-serif`,
                   fontSize: snSize, fontWeight: "bold",
                   cursor: "move", userSelect: "none", zIndex: topZ + 2,
+                  touchAction: "none",
                 }}
-                onMouseDown={(e) => {
+                onPointerDown={(e) => {
                   e.preventDefault(); e.stopPropagation();
+                  try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch {}
                   onSelectImage?.(null);
                   setSelectedTextId(null);
                   const startX = e.clientX, startY = e.clientY;
                   const origX = snPos.x, origY = snPos.y;
-                  const handleMove = (ev: MouseEvent) => {
+                  const handleMove = (ev: PointerEvent) => {
+                    if (ev.cancelable) ev.preventDefault();
                     const dx = (ev.clientX - startX) / scale;
                     const dy = (ev.clientY - startY) / scale;
                     onSlideNumberMove?.(origX + dx, origY + dy);
                   };
-                  const handleUp = () => { window.removeEventListener("mousemove", handleMove); window.removeEventListener("mouseup", handleUp); };
-                  window.addEventListener("mousemove", handleMove);
-                  window.addEventListener("mouseup", handleUp);
+                  const handleUp = () => {
+                    window.removeEventListener("pointermove", handleMove);
+                    window.removeEventListener("pointerup", handleUp);
+                    window.removeEventListener("pointercancel", handleUp);
+                  };
+                  window.addEventListener("pointermove", handleMove, { passive: false });
+                  window.addEventListener("pointerup", handleUp);
+                  window.addEventListener("pointercancel", handleUp);
                 }}
                 onClick={(e) => e.stopPropagation()}
               >
@@ -532,8 +565,9 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
                 position: "absolute", left: ctaPos.x, top: ctaPos.y,
                 transform: "translate(-50%, -50%)",
                 cursor: "move", userSelect: "none", zIndex: topZ + 1,
+                touchAction: "none",
               }}
-              onMouseDown={handleCtaMouseDown}
+              onPointerDown={handleCtaPointerDown}
               onClick={(e) => e.stopPropagation()}
             >
               <div className="px-12 py-5 rounded-2xl font-bold whitespace-nowrap"
@@ -548,8 +582,9 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
               style={{
                 position: "absolute", left: ctaPos.x, top: ctaPos.y,
                 cursor: "move", userSelect: "none", zIndex: topZ + 1,
+                touchAction: "none",
               }}
-              onMouseDown={handleCtaMouseDown}
+              onPointerDown={handleCtaPointerDown}
               onClick={(e) => e.stopPropagation()}
             >
               <div className="font-semibold whitespace-nowrap"
