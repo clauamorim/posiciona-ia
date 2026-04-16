@@ -11,16 +11,16 @@ interface StatCardProps {
 
 export const StatCard = ({ icon: Icon, value, label, description, className }: StatCardProps) => (
   <div className={cn(
-    "p-3 rounded-xl bg-muted/30 border border-border/50 space-y-1",
+    "flex items-center gap-2.5 p-3 rounded-lg bg-card border border-border",
     className
   )}>
-    <div className="flex items-center gap-2">
-      <Icon className="h-3.5 w-3.5 text-muted-foreground" />
-      <span className="text-xl font-bold text-foreground">{value}</span>
+    <Icon className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+    <span className="text-base font-bold text-foreground">{value}</span>
+    <div className="min-w-0">
+      <p className="text-[11px] font-sans font-medium text-muted-foreground leading-tight truncate">{label}</p>
+      {description && (
+        <p className="text-[10px] text-disabled leading-tight truncate">{description}</p>
+      )}
     </div>
-    <p className="text-[11px] font-semibold text-foreground/80 leading-tight">{label}</p>
-    {description && (
-      <p className="text-[10px] text-muted-foreground leading-tight">{description}</p>
-    )}
   </div>
 );
