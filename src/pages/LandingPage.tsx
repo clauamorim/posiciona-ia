@@ -241,7 +241,7 @@ const PortraitComparison = () => {
             <span className="text-landing-gold italic">retrato de marca</span>
           </h2>
           <p className="text-sm md:text-base text-landing-text-secondary max-w-2xl mx-auto leading-relaxed">
-            Compare a imagem original com versões geradas pelo Posiciona para o seu posicionamento.
+            Compare um retrato feito em estúdio com as versões geradas pelo Posiciona.
           </p>
         </div>
 
@@ -275,10 +275,10 @@ const PortraitComparison = () => {
 
           {/* Labels */}
           <div className="absolute top-3 left-3 z-20 px-2.5 py-1 rounded-md bg-[#0D0B1A]/70 backdrop-blur-sm text-[10px] font-medium text-landing-text-secondary tracking-wide uppercase">
-            Foto original
+            Retrato de estúdio
           </div>
           <div className="absolute top-3 right-3 z-20 px-2.5 py-1 rounded-md bg-[#0D0B1A]/70 backdrop-blur-sm text-[10px] font-medium text-landing-purple tracking-wide uppercase">
-            Retrato Posiciona
+            Retrato do Posiciona
           </div>
 
           {/* Divider */}
