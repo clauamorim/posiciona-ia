@@ -125,6 +125,53 @@ const ChoosePlan = () => {
 
   const [upgradeTarget, setUpgradeTarget] = useState<typeof plans[0] | null>(null);
 
+  // Check if current subscription is within 7-day upgrade window
+  const isWithin7Days = (() => {
+    if (!subscription?.created_at) return false;
+    const created = new Date(subscription.created_at);
+    const now = new Date();
+    const diffMs = now.getTime() - created.getTime();
+    return diffMs <= 7 * 24 * 60 * 60 * 1000;
+  })();
+
+  const getUpgradeModalProps = (target: typeof plans[0]) => {
+    // Presença → Autoridade: pro-rata via Stripe (no checkout page)
+    if (currentSlug === "presenca_mensal" && target.slug === "autoridade_total") {
+      return {
+        price: "200",
+        description: "A diferença será cobrada proporcionalmente na sua fatura atual.",
+        billingType: "recurring" as const,
+        period: "mensal",
+      };
+    }
+
+    // Semana → Presença/Autoridade
+    if (currentSlug === "semana_conteudo") {
+      if (isWithin7Days) {
+        const discountedPrice = parseInt(target.price) - 197;
+        return {
+          price: String(discountedPrice),
+          description: "Valor complementar (R$ 197 do Semana de Conteúdo já descontados).",
+          billingType: "one_time" as const,
+          period: undefined,
+        };
+      }
+      // After 7 days: full price recurring
+      return {
+        price: target.price,
+        description: undefined,
+        billingType: target.billing,
+        period: "mensal",
+      };
+    }
+
+    return {
+      price: target.price,
+      description: undefined,
+      billingType: target.billing,
+      period: target.billing === "recurring" ? "mensal" : undefined,
+    };
+  };
   const getButtonAction = (p: typeof plans[0]) => {
     if (!currentSlug) {
       return {
