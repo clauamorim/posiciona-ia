@@ -285,20 +285,35 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
     input.type = "file";
     input.accept = "image/*";
     input.onchange = (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = () => {
-        const src = reader.result as string;
-        const img: OverlayImage = {
-          id: crypto.randomUUID(), src,
-          x: 200, y: 200,
-          width: 400, height: 400,
-          type: "photo", opacity: 1,
+      try {
+        const file = (e.target as HTMLInputElement).files?.[0];
+        if (!file) return;
+        if (file.size > 10 * 1024 * 1024) {
+          console.warn("File too large:", file.size);
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = () => {
+          try {
+            const src = reader.result as string;
+            if (!src) { console.error("FileReader returned empty result"); return; }
+            const img: OverlayImage = {
+              id: crypto.randomUUID(), src,
+              x: 200, y: 200,
+              width: 400, height: 400,
+              type: "photo", opacity: 1,
+            };
+            console.log("[PostToolbar] Adding image, size:", src.length);
+            onAddImage?.(img);
+          } catch (err) {
+            console.error("[PostToolbar] Error processing image:", err);
+          }
         };
-        onAddImage?.(img);
-      };
-      reader.readAsDataURL(file);
+        reader.onerror = () => console.error("[PostToolbar] FileReader error:", reader.error);
+        reader.readAsDataURL(file);
+      } catch (err) {
+        console.error("[PostToolbar] Upload error:", err);
+      }
     };
     input.click();
   };

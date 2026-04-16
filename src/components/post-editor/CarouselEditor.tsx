@@ -48,6 +48,9 @@ interface CarouselEditorProps {
   slideNumberBgColor?: string | null;
   slideNumberTextColor?: string | null;
   slideNumberSize?: number;
+  onSelectedTextChange?: (id: string | null) => void;
+  renderOrder?: string[];
+  onRenderOrderChange?: (order: string[]) => void;
 }
 
 const CarouselEditor: React.FC<CarouselEditorProps> = ({
@@ -60,6 +63,7 @@ const CarouselEditor: React.FC<CarouselEditorProps> = ({
   canvasWidth, canvasHeight,
   showSlideNumber, slideNumberPosition, onSlideNumberMove,
   slideNumberBgColor, slideNumberTextColor, slideNumberSize,
+  onSelectedTextChange, renderOrder, onRenderOrderChange,
 }) => {
   const total = slides.length;
   const isCover = currentSlide === 0;
@@ -93,6 +97,9 @@ const CarouselEditor: React.FC<CarouselEditorProps> = ({
         slideNumberBgColor={slideNumberBgColor}
         slideNumberTextColor={slideNumberTextColor}
         slideNumberSize={slideNumberSize}
+        onSelectedTextChange={onSelectedTextChange}
+        renderOrder={renderOrder}
+        onRenderOrderChange={onRenderOrderChange}
       />
 
       <div className="flex items-center gap-4">

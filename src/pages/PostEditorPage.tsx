@@ -596,6 +596,9 @@ const PostEditorPage = () => {
                 slideNumberBgColor={slideNumberBgColor}
                 slideNumberTextColor={slideNumberTextColor}
                 slideNumberSize={slideNumberSize}
+                onSelectedTextChange={setSelectedTextId}
+                renderOrder={renderOrder}
+                onRenderOrderChange={setRenderOrder}
               />
             ) : (
               <PostCanvas
