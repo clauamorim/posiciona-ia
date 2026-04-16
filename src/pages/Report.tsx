@@ -613,6 +613,21 @@ const Report = () => {
         )}
 
       </div>
+
+      {/* Hidden PDF-export-only document — text-first layout */}
+      <div
+        aria-hidden="true"
+        style={{ position: "absolute", left: -9999, top: 0, width: 900, pointerEvents: "none" }}
+      >
+        <div ref={pdfRef}>
+          <ReportPdfDocument
+            content={content}
+            archetypes={archetypeData}
+            createdAt={report?.created_at}
+            userName={userName}
+          />
+        </div>
+      </div>
     </DashboardLayout>
   );
 };
