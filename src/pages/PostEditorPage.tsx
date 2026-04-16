@@ -637,6 +637,7 @@ const PostEditorPage = () => {
             textAlign={textAlign} onTextAlignChange={setTextAlign}
             textColor={textColor} onTextColorChange={setCustomTextColor}
             selectedImageId={selectedImageId}
+            selectedTextId={selectedTextId}
             overlayImages={overlayImages}
             onImageOpacityChange={handleImageOpacityChange}
             onUpdateOverlaySrc={handleUpdateOverlay}
