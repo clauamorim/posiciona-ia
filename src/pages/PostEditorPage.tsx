@@ -646,10 +646,10 @@ const PostEditorPage = () => {
 
           {(() => {
             const selectedOverlay = selectedImageId ? overlayImages.find((o) => o.id === selectedImageId) ?? null : null;
-            let selectedKind: import("@/components/post-editor/inspector/SelectionPanel").SelectedKind = "none";
+            let selectedKind: import("@/components/post-editor/inspector/SelectionPanel").SelectedKind = null;
             if (selectedOverlay) {
               if (selectedOverlay.type === "textbox") selectedKind = "textbox";
-              else if (selectedOverlay.type === "element") selectedKind = "element";
+              else if (selectedOverlay.type === "element") selectedKind = "icon";
               else selectedKind = "image";
             } else if (selectedTextId === "title") selectedKind = "title";
             else if (selectedTextId === "body") selectedKind = "body";
