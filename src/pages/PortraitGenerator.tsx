@@ -23,20 +23,48 @@ const MAX_FILES = 5;
 const MAX_SIZE_MB = 5;
 const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
 
+const PORTRAIT_DRAFT_KEY = "posiciona-portrait-draft";
+
+interface PortraitDraft {
+  selfieBase64s: string[];
+  portraits: string[];
+  portraitStyleIndex: number | null;
+  selectedWardrobe: number;
+}
+
+function loadPortraitDraft(): PortraitDraft | null {
+  try {
+    const raw = sessionStorage.getItem(PORTRAIT_DRAFT_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch { return null; }
+}
+
+function savePortraitDraft(draft: PortraitDraft) {
+  try { sessionStorage.setItem(PORTRAIT_DRAFT_KEY, JSON.stringify(draft)); } catch {}
+}
+
 const PortraitGenerator = () => {
   const { user, balances, subscription, refreshSubscription } = useAuth();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [selfies, setSelfies] = useState<{ file: File; preview: string; base64: string }[]>([]);
-  const [portraits, setPortraits] = useState<string[]>([]);
-  const [portraitStyleIndex, setPortraitStyleIndex] = useState<number | null>(null);
+  const savedDraft = useRef(loadPortraitDraft());
+
+  const [selfies, setSelfies] = useState<{ file: File | null; preview: string; base64: string }[]>(() => {
+    if (savedDraft.current?.selfieBase64s?.length) {
+      return savedDraft.current.selfieBase64s.map((b64, i) => ({ file: null, preview: b64, base64: b64 }));
+    }
+    return [];
+  });
+  const [portraits, setPortraits] = useState<string[]>(savedDraft.current?.portraits || []);
+  const [portraitStyleIndex, setPortraitStyleIndex] = useState<number | null>(savedDraft.current?.portraitStyleIndex ?? null);
   const [generating, setGenerating] = useState(false);
   const [confirmingDownload, setConfirmingDownload] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 1 });
   const [packDialogOpen, setPackDialogOpen] = useState(false);
   const [loadingPack, setLoadingPack] = useState<string | null>(null);
-  const [selectedWardrobe, setSelectedWardrobe] = useState(0);
+  const [selectedWardrobe, setSelectedWardrobe] = useState(savedDraft.current?.selectedWardrobe ?? 0);
 
   const totalCredits = (balances?.portrait_credits_included ?? 0) + (balances?.portrait_credits_extra ?? 0);
 
