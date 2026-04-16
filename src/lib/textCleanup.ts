@@ -26,6 +26,24 @@ export function cleanMarkdown(text: string): string {
   return cleaned;
 }
 
+/**
+ * Extract text AFTER the first closing bold block.
+ * e.g. "**Título do slide** Conteúdo do slide" → "Conteúdo do slide"
+ * If no bold block found, returns the text cleaned of markdown.
+ */
+export function extractAfterBold(text: string): string {
+  if (!text || typeof text !== "string") return text || "";
+  
+  // Match **...** at the start (with optional whitespace before)
+  const match = text.match(/^\s*\*\*[^*]+\*\*\s*(.*)/s);
+  if (match && match[1] && match[1].trim().length > 0) {
+    return cleanMarkdown(match[1].trim());
+  }
+  
+  // No initial bold block — return cleaned text
+  return cleanMarkdown(text);
+}
+
 /** Fix common punctuation issues in generated text */
 export function fixPunctuation(text: string): string {
   if (!text || typeof text !== "string") return text || "";

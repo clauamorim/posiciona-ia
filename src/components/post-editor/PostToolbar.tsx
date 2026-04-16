@@ -97,6 +97,15 @@ interface PostToolbarProps {
   removingBackground?: boolean;
   onBringForward?: (id: string) => void;
   onSendBackward?: (id: string) => void;
+  showSlideNumber?: boolean;
+  onShowSlideNumberChange?: (v: boolean) => void;
+  slideNumberBgColor?: string | null;
+  onSlideNumberBgColorChange?: (color: string) => void;
+  slideNumberTextColor?: string | null;
+  onSlideNumberTextColorChange?: (color: string) => void;
+  slideNumberSize?: number;
+  onSlideNumberSizeChange?: (size: number) => void;
+  isCarousel?: boolean;
 }
 
 const LAYOUTS = [
@@ -221,6 +230,11 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
   canvasFormat, onCanvasFormatChange,
   onRemoveBackground, removingBackground,
   onBringForward, onSendBackward,
+  showSlideNumber, onShowSlideNumberChange,
+  slideNumberBgColor, onSlideNumberBgColorChange,
+  slideNumberTextColor, onSlideNumberTextColorChange,
+  slideNumberSize, onSlideNumberSizeChange,
+  isCarousel,
 }) => {
   const [elementsOpen, setElementsOpen] = useState(false);
   const [svgElementsOpen, setSvgElementsOpen] = useState(false);
@@ -611,6 +625,55 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
                 </label>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Slide Number Controls (carousel only) */}
+      {isCarousel && onShowSlideNumberChange && (
+        <div>
+          <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">Numeração dos slides</h4>
+          <div className="space-y-3">
+            <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+              <input type="checkbox" checked={showSlideNumber ?? true} onChange={e => onShowSlideNumberChange(e.target.checked)} className="rounded" />
+              Exibir numeração
+            </label>
+            {showSlideNumber && (
+              <>
+                <div>
+                  <label className="text-xs text-muted-foreground">Tamanho: {slideNumberSize || 14}px</label>
+                  <Slider value={[slideNumberSize || 14]} onValueChange={([v]) => onSlideNumberSizeChange?.(v)} min={8} max={28} step={1} className="mt-1" />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">Cor de fundo</label>
+                  <div className="flex gap-1 flex-wrap mt-1 items-center">
+                    {palette.map((color, i) => (
+                      <button key={i} onClick={() => onSlideNumberBgColorChange?.(color.hex)}
+                        className={`w-5 h-5 rounded border transition-all ${slideNumberBgColor === color.hex ? "ring-2 ring-primary ring-offset-1 scale-110" : "hover:scale-105"}`}
+                        style={{ backgroundColor: color.hex }} />
+                    ))}
+                    <label className="w-5 h-5 rounded border border-dashed border-muted-foreground/40 cursor-pointer flex items-center justify-center relative">
+                      <input type="color" value={slideNumberBgColor || accentColor} onChange={e => onSlideNumberBgColorChange?.(e.target.value)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                      <span className="text-muted-foreground text-[8px]">+</span>
+                    </label>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">Cor do texto</label>
+                  <div className="flex gap-1 flex-wrap mt-1 items-center">
+                    {palette.map((color, i) => (
+                      <button key={i} onClick={() => onSlideNumberTextColorChange?.(color.hex)}
+                        className={`w-5 h-5 rounded border transition-all ${slideNumberTextColor === color.hex ? "ring-2 ring-primary ring-offset-1 scale-110" : "hover:scale-105"}`}
+                        style={{ backgroundColor: color.hex }} />
+                    ))}
+                    <label className="w-5 h-5 rounded border border-dashed border-muted-foreground/40 cursor-pointer flex items-center justify-center relative">
+                      <input type="color" value={slideNumberTextColor || "#ffffff"} onChange={e => onSlideNumberTextColorChange?.(e.target.value)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                      <Type className="h-3 w-3 text-muted-foreground" />
+                    </label>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

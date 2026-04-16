@@ -12,7 +12,7 @@ import CarouselEditor from "@/components/post-editor/CarouselEditor";
 import PostToolbar from "@/components/post-editor/PostToolbar";
 import type { OverlayImage } from "@/components/post-editor/PostToolbar";
 import { parseReportContent } from "@/lib/reportParser";
-import { cleanMarkdown } from "@/lib/textCleanup";
+import { cleanMarkdown, extractAfterBold } from "@/lib/textCleanup";
 import { compressImage } from "@/lib/imageUtils";
 
 function getContrastColor(hex: string): string {
@@ -72,6 +72,11 @@ const PostEditorPage = () => {
   const [ctaPosition, setCtaPosition] = useState<{ x: number; y: number } | null>(null);
   const [userPortraits, setUserPortraits] = useState<string[]>([]);
   const [canvasFormat, setCanvasFormat] = useState<"square" | "reels">("square");
+  const [showSlideNumber, setShowSlideNumber] = useState(true);
+  const [slideNumberPosition, setSlideNumberPosition] = useState<{ x: number; y: number } | null>(null);
+  const [slideNumberBgColor, setSlideNumberBgColor] = useState<string | null>(null);
+  const [slideNumberTextColor, setSlideNumberTextColor] = useState<string | null>(null);
+  const [slideNumberSize, setSlideNumberSize] = useState(14);
   const singleCanvasRef = useRef<HTMLDivElement>(null);
   const slideRefs = useRef<(HTMLDivElement | null)[]>([]);
   const textsInitializedRef = useRef(false);
@@ -123,7 +128,7 @@ const PostEditorPage = () => {
   useEffect(() => {
     if (!day) return;
     if (textsInitializedRef.current) return;
-    const copies = (day.card_copy || [day.caption || ""]).map((t: string) => cleanMarkdown(t));
+    const copies = (day.card_copy || [day.caption || ""]).map((t: string) => extractAfterBold(t));
     setEditedTexts(copies);
     setEditedTitle(cleanMarkdown(day.theme || ""));
     setCtaText(cleanMarkdown(day.cta || ""));
@@ -333,7 +338,7 @@ const PostEditorPage = () => {
 
   const handleReset = () => {
     if (!day) return;
-    const copies = (day.card_copy || [day.caption || ""]).map((t: string) => cleanMarkdown(t));
+    const copies = (day.card_copy || [day.caption || ""]).map((t: string) => extractAfterBold(t));
     setEditedTexts(copies);
     setEditedTitle(cleanMarkdown(day.theme || ""));
     setOverlayImages([]);
@@ -355,6 +360,11 @@ const PostEditorPage = () => {
     setCtaFontSize(28);
     setCtaPosition(null);
     setCanvasFormat("square");
+    setShowSlideNumber(true);
+    setSlideNumberPosition(null);
+    setSlideNumberBgColor(null);
+    setSlideNumberTextColor(null);
+    setSlideNumberSize(14);
     if (typography.display) setDisplayFont(typography.display);
     if (typography.body) setBodyFont(typography.body);
   };
@@ -430,6 +440,12 @@ const PostEditorPage = () => {
                 ctaText={ctaText} ctaBgColor={ctaBgColor} ctaTextColor={ctaTextColor}
                 ctaFontSize={ctaFontSize} ctaPosition={ctaPosition} onCtaMove={handleCtaMove}
                 canvasWidth={cW} canvasHeight={cH}
+                showSlideNumber={showSlideNumber}
+                slideNumberPosition={slideNumberPosition}
+                onSlideNumberMove={(x, y) => setSlideNumberPosition({ x, y })}
+                slideNumberBgColor={slideNumberBgColor}
+                slideNumberTextColor={slideNumberTextColor}
+                slideNumberSize={slideNumberSize}
               />
             ) : (
               <PostCanvas
@@ -486,6 +502,11 @@ const PostEditorPage = () => {
             canvasFormat={canvasFormat} onCanvasFormatChange={setCanvasFormat}
             onRemoveBackground={handleRemoveBackground} removingBackground={removingBackground}
             onBringForward={handleBringForward} onSendBackward={handleSendBackward}
+            showSlideNumber={showSlideNumber} onShowSlideNumberChange={setShowSlideNumber}
+            slideNumberBgColor={slideNumberBgColor} onSlideNumberBgColorChange={setSlideNumberBgColor}
+            slideNumberTextColor={slideNumberTextColor} onSlideNumberTextColorChange={setSlideNumberTextColor}
+            slideNumberSize={slideNumberSize} onSlideNumberSizeChange={setSlideNumberSize}
+            isCarousel={isCarousel}
           />
         </div>
 

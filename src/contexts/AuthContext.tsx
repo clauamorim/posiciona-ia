@@ -158,6 +158,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     let mounted = true;
+    let initialHydrationDone = false;
 
     const { data: { subscription: authSub } } = supabase.auth.onAuthStateChange(
       (event, newSession) => {
@@ -167,21 +168,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           authRequestRef.current += 1;
           resetAuthState();
           setIsLoading(false);
+          initialHydrationDone = false;
           return;
         }
 
         if (event === "TOKEN_REFRESHED") {
+          // Just update the session object — do NOT trigger isLoading
+          // This prevents ProtectedRoute from unmounting pages on alt+tab
           if (newSession) setSession(newSession);
           return;
         }
 
         // INITIAL_SESSION, SIGNED_IN, USER_UPDATED
         if (newSession?.user) {
+          // If same user and already hydrated, don't re-enter loading
+          if (initialHydrationDone && session?.user?.id === newSession.user.id && event !== "SIGNED_IN") {
+            setSession(newSession);
+            return;
+          }
           const requestId = ++authRequestRef.current;
-          // Keep isLoading=true (or set it back to true) so ProtectedRoute
-          // shows the skeleton until ALL user data is ready.
           setIsLoading(true);
-          hydrateUser(newSession, requestId);
+          hydrateUser(newSession, requestId).then(() => {
+            initialHydrationDone = true;
+          });
           return;
         }
 

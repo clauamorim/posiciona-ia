@@ -85,7 +85,7 @@ serve(async (req) => {
             content: [
               {
                 type: "text",
-                text: "Remove the background from this image. Replace the background with a SOLID BRIGHT GREEN color (#00FF00, pure green). Keep ONLY the main subject/person with clean, precise edges. The entire background area must be filled with exactly #00FF00 pure green color. Do NOT use any other background color. Do NOT add checkerboard. Do NOT add gradients. Do NOT add any text or watermark. Output a PNG image.",
+                text: "Remove the background from this image completely. The background may be white, light-colored, dark, or any other color. Replace the ENTIRE background with a SOLID BRIGHT GREEN color (#00FF00, pure green). Keep ONLY the main subject/person/object with clean, precise edges. The entire background area must be filled with exactly #00FF00 pure green color. Do NOT use any other background color. Do NOT add checkerboard. Do NOT add gradients. Do NOT add any text or watermark. Output a PNG image.",
               },
               {
                 type: "image_url",
