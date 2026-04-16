@@ -1,48 +1,49 @@
 
 
-# Fix: Drag de elementos no editor mobile (sem scroll)
+# Plano: redimensionamento mobile + cor de fundo correta no editor
 
-## Causa raiz
+## Problema 1 — Redimensionar imagens no mobile
 
-`PostCanvas.tsx` usa exclusivamente `onMouseDown` + listeners `mousemove`/`mouseup` no `window`. No mobile (iOS Safari, Chrome Android), eventos de toque não disparam handlers de mouse de forma confiável quando há intenção de scroll — o navegador interpreta o gesto como rolagem da página antes que o React entregue um `mousedown` sintético. Resultado: a página rola, o elemento não move.
+### Causa
+Os handles de resize (`RESIZE_HANDLE_SIZE = 14px` em `PostCanvas.tsx`) são pequenos demais para o dedo. A lógica de pointer events já está correta (`setPointerCapture`, `touch-action: none`, `preventDefault`), mas o alvo de toque é muito pequeno — em iOS o mínimo recomendado é 44px. Por isso o usuário "erra" o handle e acaba arrastando o canvas ou rolando.
 
-## Solução (lightweight, MVP-friendly)
+### Solução (sem aviso de fallback)
+Manter o visual delicado no desktop e ampliar a área de toque no mobile, sem mudar o tamanho aparente do handle.
 
-Migrar os handlers de drag/resize para **Pointer Events**, que unificam mouse + touch + caneta em um único pipeline confiável. Combinar com `touch-action: none` nos elementos arrastáveis para impedir o scroll nativo apenas onde há drag, preservando scroll normal no resto da página.
+**Em `src/components/post-editor/PostCanvas.tsx`:**
 
-### Mudanças em `src/components/post-editor/PostCanvas.tsx`
+1. Detectar mobile via `useIsMobile()` (hook já existe em `src/hooks/use-mobile.tsx`).
+2. Ajustar `RESIZE_HANDLE_SIZE` dinamicamente: 14px no desktop, 22px no mobile.
+3. Em `renderResizeHandles`, envolver cada handle visual em um wrapper transparente maior (ex: 36×36px no mobile, 20×20px no desktop) que captura o `onPointerDown`. O quadrado branco visível continua pequeno e centralizado dentro do wrapper.
+4. Aumentar o `zIndex` do wrapper para garantir que ele fique acima da própria imagem.
+5. Ajustar `touch-action: none` no wrapper (já existe).
 
-1. **Renomear handlers** `handleMouseDown` → `handlePointerDown` (idem para text/CTA/resize/slide-number). Trocar `React.MouseEvent` por `React.PointerEvent`. Trocar atributos JSX `onMouseDown` → `onPointerDown`.
+Resultado: no mobile o usuário tem ~36×36px de área tocável para cada handle, mantendo a estética premium no desktop.
 
-2. **Listeners globais**: nos dois `useEffect` de drag/resize (linhas 216-233 e 235-266) e no inline do slide-number (linhas 513-520):
-   - `window.addEventListener("mousemove", ...)` → `window.addEventListener("pointermove", ..., { passive: false })`
-   - `window.addEventListener("mouseup", ...)` → `window.addEventListener("pointerup", ...)` + `pointercancel`
-   - Chamar `e.preventDefault()` dentro do `pointermove` ativo para travar scroll durante o gesto.
+## Problema 2 — Cor de fundo correta ao abrir o editor
 
-3. **Capturar o pointer** no `pointerdown`: `(e.target as HTMLElement).setPointerCapture(e.pointerId)` para garantir que o move continue chegando mesmo se o dedo sair do elemento.
+### Causa
+Em `PostEditorPage.tsx`, `bgIndex` inicia em `0` e o `bgColor` vira `palette[0].hex`. Mas a primeira cor da paleta nem sempre é a "Cor de fundo principal" — frequentemente é a cor dominante/de poder do arquétipo (ex: Herói começa com `#C0392B` Vermelho Poder).
 
-4. **CSS `touch-action: none`** nos elementos arrastáveis (text boxes, overlays de imagem, CTA, slide number, handles de resize). Adicionar como propriedade inline `touchAction: "none"` nos `style` desses divs. Isso impede que o navegador roube o gesto para scroll antes do JS reagir.
+Cada cor da paleta tem o campo `usage` (ex: `"Cor de fundo principal"`, `"Cor de destaque para CTAs"`).
 
-5. **Não aplicar** `touch-action: none` no container externo do canvas — assim o usuário ainda pode rolar a página tocando fora dos elementos arrastáveis.
+### Solução
 
-6. **Edição de texto preservada**: quando `editingTextId === tb.id`, o `pointerdown` retorna cedo (já existe esse early return), e `touch-action` permanece `auto` nesse caso para permitir seleção de texto / scroll dentro do contenteditable.
+**Em `src/pages/PostEditorPage.tsx`:**
 
-### Por que isso funciona no iPhone Safari
+1. Criar helper `findBackgroundIndex(palette)` que procura a primeira cor cujo `usage` (case-insensitive) contenha `"fundo"` ou `"background"`.
+2. Se encontrar, usar esse índice como default. Se não encontrar, manter `0` (fallback atual).
+3. Aplicar esse default apenas quando `draft?.bgIndex` for `undefined` (preservar escolha do usuário em sessões salvas).
+4. Como `palette` é derivado do `report` carregado de forma assíncrona, mover a inicialização para um `useEffect` que dispara quando `palette` chega — só atualiza `bgIndex` se ainda não houver `customBgColor` e se o usuário ainda não trocou (controlar com um ref `bgInitializedRef`).
 
-- Pointer Events são suportados nativamente desde iOS 13.
-- `touch-action: none` é a forma oficial de impedir scroll/zoom em elementos interativos.
-- `setPointerCapture` resolve o problema de "dedo escapou do elemento".
-- Não muda nada no desktop: PointerEvents incluem mouse, com mesmas coordenadas (`clientX/Y`).
-
-### Sem fallback necessário
-
-Pointer Events + `touch-action: none` é robusto o suficiente para o MVP. Se algo falhar em algum device exótico, o desktop continua funcionando normalmente.
+Resultado: ao abrir o editor pela primeira vez para um relatório, a cor de fundo padrão é a marcada como "fundo" pelo relatório, não a primeira aleatória da paleta.
 
 ## Arquivos
 
 | Arquivo | Mudança |
 |---------|---------|
-| `src/components/post-editor/PostCanvas.tsx` | Migrar mouse → pointer events, adicionar `touch-action: none` nos arrastáveis, `setPointerCapture` no down, `preventDefault` no move ativo |
+| `src/components/post-editor/PostCanvas.tsx` | Importar `useIsMobile`, ampliar área de toque dos handles de resize no mobile via wrapper transparente |
+| `src/pages/PostEditorPage.tsx` | Helper `findBackgroundIndex(palette)`, inicialização do `bgIndex` baseada em `usage` da paleta |
 
-Sem mudanças de schema, sem mudanças em lógica de geração, sem novas dependências.
+Sem mudanças no schema, sem alterações na lógica de geração do relatório, sem nova dependência.
 
