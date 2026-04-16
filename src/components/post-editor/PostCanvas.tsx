@@ -565,8 +565,9 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
                 position: "absolute", left: ctaPos.x, top: ctaPos.y,
                 transform: "translate(-50%, -50%)",
                 cursor: "move", userSelect: "none", zIndex: topZ + 1,
+                touchAction: "none",
               }}
-              onMouseDown={handleCtaMouseDown}
+              onPointerDown={handleCtaPointerDown}
               onClick={(e) => e.stopPropagation()}
             >
               <div className="px-12 py-5 rounded-2xl font-bold whitespace-nowrap"
