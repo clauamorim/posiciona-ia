@@ -274,7 +274,7 @@ const PostEditorPage = () => {
         weekIndex, dayIndex, editedTexts, editedTitle, overlayImages, uploadedImages,
         bgIndex, layout, currentSlide, fontSize, fontWeight, fontStyle,
         useGradient, gradientColor2Index, customGradientColor2, gradientDirection,
-        textAlign, customTextColor, customBgColor,
+        textAlign, customTextColor, customBgColor, titleTextAlign,
         titleFontSize, titleColor, titleFontFamily,
         ctaText, ctaBgColor, ctaTextColor, ctaFontSize, ctaPosition,
         canvasFormat, showSlideNumber, slideNumberPosition,
@@ -285,7 +285,7 @@ const PostEditorPage = () => {
     return () => clearTimeout(timer);
   }, [editedTexts, editedTitle, overlayImages, uploadedImages, bgIndex, layout, currentSlide,
       fontSize, fontWeight, fontStyle, useGradient, gradientColor2Index, customGradientColor2,
-      gradientDirection, textAlign, customTextColor, customBgColor,
+      gradientDirection, textAlign, customTextColor, customBgColor, titleTextAlign,
       titleFontSize, titleColor, titleFontFamily,
       ctaText, ctaBgColor, ctaTextColor, ctaFontSize, ctaPosition,
       canvasFormat, showSlideNumber, slideNumberPosition,
@@ -553,6 +553,7 @@ const PostEditorPage = () => {
         if (s.customGradientColor2 !== undefined) setCustomGradientColor2(s.customGradientColor2);
         if (s.gradientDirection) setGradientDirection(s.gradientDirection);
         if (s.textAlign) setTextAlign(s.textAlign);
+        if (s.titleTextAlign) setTitleTextAlign(s.titleTextAlign);
         if (s.customTextColor !== undefined) setCustomTextColor(s.customTextColor);
         if (s.customBgColor !== undefined) setCustomBgColor(s.customBgColor);
         if (typeof s.titleFontSize === "number") setTitleFontSize(s.titleFontSize);
@@ -601,7 +602,7 @@ const PostEditorPage = () => {
         editedTexts, editedTitle, overlayImages, uploadedImages,
         bgIndex, layout, currentSlide, fontSize, fontWeight, fontStyle,
         useGradient, gradientColor2Index, customGradientColor2, gradientDirection,
-        textAlign, customTextColor, customBgColor,
+        textAlign, customTextColor, customBgColor, titleTextAlign,
         titleFontSize, titleColor, titleFontFamily,
         ctaText, ctaBgColor, ctaTextColor, ctaFontSize, ctaPosition,
         canvasFormat, showSlideNumber, slideNumberPosition,
@@ -650,6 +651,7 @@ const PostEditorPage = () => {
     setFontStyle("normal");
     setUseGradient(false);
     setTextAlign("center");
+    setTitleTextAlign("center");
     setCustomTextColor(null);
     setCustomBgColor(null);
     setCustomGradientColor2(null);
