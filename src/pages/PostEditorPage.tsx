@@ -35,6 +35,15 @@ function loadGoogleFont(fontName: string) {
 
 const DRAFT_KEY = "posiciona-editor-draft";
 
+function findBackgroundIndex(palette: any[]): number {
+  if (!Array.isArray(palette) || palette.length === 0) return 0;
+  const idx = palette.findIndex((c) => {
+    const usage = typeof c?.usage === "string" ? c.usage.toLowerCase() : "";
+    return usage.includes("fundo") || usage.includes("background");
+  });
+  return idx >= 0 ? idx : 0;
+}
+
 interface EditorDraft {
   weekIndex: number;
   dayIndex: number;
