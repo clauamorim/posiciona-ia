@@ -1,26 +1,37 @@
 
 
-# Fix: Erro 500 no stripe-checkout
+# Fix: Mostrar valor correto no modal de upgrade
 
-## Causa raiz
-O parâmetro `consent_collection: { terms_of_service: "required" }` exige que a URL dos Termos de Serviço esteja configurada no Dashboard da Stripe (Settings > Public details). Como isso ainda não foi feito, a Stripe rejeita a criação da sessão.
+## Problema
+O `PreCheckoutModal` de upgrade mostra o preço cheio do plano (ex: R$ 497 para Autoridade Total), mas o valor real cobrado é complementar/proporcional. O Stripe calcula corretamente, mas o modal induz erro.
+
+## Cenários de upgrade
+
+| De → Para | Dentro de 7 dias | Após 7 dias |
+|-----------|------------------|-------------|
+| Semana (R$197) → Presença (R$297) | R$ 100 (único) | R$ 297/mês (assinatura normal) |
+| Semana (R$197) → Autoridade (R$497) | R$ 300 (único) | R$ 497/mês (assinatura normal) |
+| Presença (R$297) → Autoridade (R$497) | Proporcional via Stripe (sem checkout page) | — |
 
 ## Solução
 
-### 1. Remover `consent_collection` das edge functions
-Remover o bloco `consent_collection: { terms_of_service: "required" }` de `stripe-checkout`, `extras-checkout` e `portrait-pack-checkout`. O aceite legal já é coletado no `PreCheckoutModal` antes do redirecionamento — não é necessário duplicar na Stripe.
+### 1. Ajustar o modal de upgrade em `ChoosePlan.tsx`
 
-Manter o `custom_text.submit` (mensagem curta informativa), pois esse campo funciona sem configuração extra no Dashboard.
+Para upgrades a partir do Semana de Conteúdo, calcular o preço exibido:
+- **Dentro de 7 dias**: mostrar o valor com desconto (preço do plano destino - 197). Ex: "R$ 100" ou "R$ 300", com descrição "Valor complementar (R$ 197 já descontados)" e billing "one_time"
+- **Após 7 dias**: mostrar o preço cheio como assinatura recorrente normal
 
-### 2. Adicionar logging de erro
-Adicionar `console.error` no catch das edge functions para facilitar debugging futuro nos logs.
+Para isso, usar a data de criação da subscription (já disponível no contexto via `subscription`) para determinar se está dentro dos 7 dias.
 
-### 3. Integrar PreCheckoutModal no upgrade
-Atualmente o upgrade não passa pelo `PreCheckoutModal`. Integrar o modal também no fluxo de upgrade para consistência jurídica.
+### 2. Upgrade Presença → Autoridade
+
+Este caso usa `proration_behavior: "always_invoice"` diretamente no Stripe (sem redirect para checkout page). O modal deve informar: "A diferença será cobrada proporcionalmente na sua próxima fatura" em vez de mostrar um preço fixo.
+
+### 3. Ajustar `PreCheckoutModal`
+
+Adicionar prop opcional `description` para exibir texto contextual como "Valor complementar (R$ 197 já descontados)" ou "Cobrado proporcionalmente".
 
 ### Arquivos alterados
-- `supabase/functions/stripe-checkout/index.ts` — remover `consent_collection`, adicionar logging
-- `supabase/functions/extras-checkout/index.ts` — idem
-- `supabase/functions/portrait-pack-checkout/index.ts` — idem
-- `src/pages/ChoosePlan.tsx` — integrar PreCheckoutModal no fluxo de upgrade
+- `src/pages/ChoosePlan.tsx` — lógica de cálculo do preço de upgrade e descrição contextual
+- `src/components/PreCheckoutModal.tsx` — já suporta `description`, apenas garantir que está sendo usado
 
