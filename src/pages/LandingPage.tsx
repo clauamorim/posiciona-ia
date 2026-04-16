@@ -106,7 +106,174 @@ const faqItems = [
 /* Highlighted deliverables */
 const HIGHLIGHTED_DELIVERABLES = ["Mapa de Arquétipos", "Narrativa de Marca", "Calendário Editorial"];
 
-const LandingPage = () => {
+/* ── Demo Carousel Component ── */
+const DemoCarousel = ({ navigate }: { navigate: ReturnType<typeof useNavigate> }) => {
+  const [current, setCurrent] = useState(0);
+  const touchStartX = useRef(0);
+
+  const prev = () => setCurrent((c) => (c === 0 ? DEMO_SLIDES.length - 1 : c - 1));
+  const next = () => setCurrent((c) => (c === DEMO_SLIDES.length - 1 ? 0 : c + 1));
+
+  return (
+    <section className="py-12 md:py-16 px-4 bg-landing-bg-secondary/40">
+      <div className="max-w-5xl mx-auto space-y-8 text-center">
+        <div className="space-y-3">
+          <h2 className="text-2xl md:text-3xl font-display font-semibold">
+            Veja o Posiciona{" "}
+            <span className="text-landing-gold italic">por dentro</span>
+          </h2>
+          <p className="text-sm md:text-base text-landing-text-secondary max-w-2xl mx-auto leading-relaxed">
+            Do diagnóstico à estratégia, da narrativa ao conteúdo: veja como a plataforma organiza seu posicionamento na prática.
+          </p>
+        </div>
+
+        {/* Carousel */}
+        <div className="relative">
+          {/* Arrows */}
+          <button
+            onClick={prev}
+            className="absolute left-0 md:-left-5 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-landing-bg/80 border border-landing-border/50 flex items-center justify-center text-landing-text-secondary hover:text-landing-text hover:border-landing-purple/40 transition-all"
+            aria-label="Anterior"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+          <button
+            onClick={next}
+            className="absolute right-0 md:-right-5 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-landing-bg/80 border border-landing-border/50 flex items-center justify-center text-landing-text-secondary hover:text-landing-text hover:border-landing-purple/40 transition-all"
+            aria-label="Próximo"
+          >
+            <ChevronRight className="h-5 w-5" />
+          </button>
+
+          {/* Image */}
+          <div
+            className="overflow-hidden rounded-xl border border-landing-border/50 bg-landing-bg/80 shadow-[0_8px_40px_rgba(0,0,0,0.4)] mx-8 md:mx-0"
+            onTouchStart={(e) => (touchStartX.current = e.touches[0].clientX)}
+            onTouchEnd={(e) => {
+              const diff = touchStartX.current - e.changedTouches[0].clientX;
+              if (Math.abs(diff) > 50) diff > 0 ? next() : prev();
+            }}
+          >
+            <img
+              src={DEMO_SLIDES[current].src}
+              alt={DEMO_SLIDES[current].label}
+              className="w-full h-auto object-contain transition-opacity duration-300"
+              loading="lazy"
+            />
+          </div>
+
+          {/* Caption */}
+          <p className="mt-4 text-sm font-medium text-landing-text-secondary">
+            {DEMO_SLIDES[current].label}
+          </p>
+
+          {/* Dots */}
+          <div className="flex items-center justify-center gap-2 mt-3">
+            {DEMO_SLIDES.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setCurrent(i)}
+                className={`w-2 h-2 rounded-full transition-all duration-200 ${
+                  i === current
+                    ? "bg-landing-purple w-6"
+                    : "bg-landing-border hover:bg-landing-text-secondary/50"
+                }`}
+                aria-label={`Slide ${i + 1}`}
+              />
+            ))}
+          </div>
+        </div>
+
+        <Button size="lg" onClick={() => navigate("/signup")} className="bg-landing-purple hover:bg-landing-purple/90 text-white text-base h-12 px-8">
+          Começar meu posicionamento agora <ArrowRight className="h-4 w-4 ml-2" />
+        </Button>
+      </div>
+    </section>
+  );
+};
+
+/* ── Portrait Comparison Placeholder ── */
+const PortraitComparisonPlaceholder = () => {
+  const [sliderPos, setSliderPos] = useState(50);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const isDragging = useRef(false);
+
+  const handleMove = useCallback((clientX: number) => {
+    if (!isDragging.current || !containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const pct = Math.max(5, Math.min(95, ((clientX - rect.left) / rect.width) * 100));
+    setSliderPos(pct);
+  }, []);
+
+  useEffect(() => {
+    const onUp = () => { isDragging.current = false; };
+    const onMove = (e: MouseEvent) => handleMove(e.clientX);
+    const onTouch = (e: TouchEvent) => handleMove(e.touches[0].clientX);
+    window.addEventListener("mouseup", onUp);
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("touchend", onUp);
+    window.addEventListener("touchmove", onTouch, { passive: true });
+    return () => {
+      window.removeEventListener("mouseup", onUp);
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("touchend", onUp);
+      window.removeEventListener("touchmove", onTouch);
+    };
+  }, [handleMove]);
+
+  return (
+    <section className="py-12 md:py-16 px-4">
+      <div className="max-w-4xl mx-auto space-y-8 text-center">
+        <div className="space-y-3">
+          <h2 className="text-2xl md:text-3xl font-display font-semibold">
+            Da foto base ao{" "}
+            <span className="text-landing-gold italic">retrato de marca</span>
+          </h2>
+          <p className="text-sm md:text-base text-landing-text-secondary max-w-2xl mx-auto leading-relaxed">
+            Compare a imagem original com versões geradas pelo Posiciona para o seu posicionamento.
+          </p>
+        </div>
+
+        {/* Comparison slider with placeholders */}
+        <div
+          ref={containerRef}
+          className="relative aspect-[16/9] max-w-2xl mx-auto rounded-xl border border-landing-border/50 overflow-hidden select-none cursor-col-resize"
+          onMouseDown={() => { isDragging.current = true; }}
+          onTouchStart={() => { isDragging.current = true; }}
+        >
+          {/* Left side — "Foto original" */}
+          <div className="absolute inset-0 bg-gradient-to-br from-[#1C1836] to-[#13102A] flex flex-col items-center justify-center">
+            <Camera className="h-10 w-10 text-landing-text-secondary/30 mb-2" />
+            <span className="text-xs text-landing-text-secondary/40">Foto original</span>
+          </div>
+
+          {/* Right side — "Retrato Posiciona" clipped */}
+          <div
+            className="absolute inset-0 bg-gradient-to-br from-[#1A0F30] to-[#2A1850] flex flex-col items-center justify-center"
+            style={{ clipPath: `inset(0 0 0 ${sliderPos}%)` }}
+          >
+            <Image className="h-10 w-10 text-landing-purple/40 mb-2" />
+            <span className="text-xs text-landing-purple/50">Retrato Posiciona</span>
+          </div>
+
+          {/* Divider */}
+          <div
+            className="absolute top-0 bottom-0 w-0.5 bg-landing-gold/60 z-10"
+            style={{ left: `${sliderPos}%` }}
+          >
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-landing-gold/90 flex items-center justify-center shadow-lg">
+              <GripVertical className="h-4 w-4 text-[#0D0B1A]" />
+            </div>
+          </div>
+        </div>
+
+        <p className="text-xs text-landing-text-secondary/50 italic">Deslize para comparar</p>
+      </div>
+    </section>
+  );
+};
+
+
   const { user, isLoading } = useAuth();
   const navigate = useNavigate();
   const [loadingSlug, setLoadingSlug] = useState<string | null>(null);
