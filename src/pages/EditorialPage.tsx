@@ -15,7 +15,6 @@ import {
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { parseReportContent, normalizeReportContent } from "@/lib/reportParser";
-import { cleanMarkdown } from "@/lib/textCleanup";
 
 const FORMAT_CONFIG: Record<string, { label: string; icon: React.ReactNode; color: string; border: string }> = {
   reels: { label: "Reels", icon: <Video className="h-3 w-3" />, color: "bg-pink-500/10 text-pink-600 border-pink-200", border: "border-l-pink-500" },
