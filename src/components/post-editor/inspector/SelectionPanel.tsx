@@ -288,12 +288,6 @@ const SelectionPanel: React.FC<SelectionPanelProps> = (props) => {
               )}
             </Button>
           )}
-          {kind === "icon" && props.onRecolorElement && (
-            <div>
-              <label className="text-[11px] text-muted-foreground">Cor</label>
-              <ColorPicker palette={palette} onChange={(c) => props.onRecolorElement!(c)} />
-            </div>
-          )}
           {kind === "textbox" && props.onUpdateOverlaySrc && (
             <>
               <div>
