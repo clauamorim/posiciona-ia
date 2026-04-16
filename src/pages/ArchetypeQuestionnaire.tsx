@@ -27,6 +27,7 @@ const ArchetypeQuestionnaire = () => {
   const navigate = useNavigate();
   const [questions, setQuestions] = useState<any[]>([]);
   const [answers, setAnswers] = useState<Record<string, number>>({});
+  const [touchedIds, setTouchedIds] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(0);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<QStatus>("draft");
@@ -44,8 +45,10 @@ const ArchetypeQuestionnaire = () => {
         qs.forEach(q => { defaults[q.id] = 3; });
         if (user) {
           const { data: ans } = await supabase.from("archetype_answers").select("question_id, score").eq("user_id", user.id);
-          if (ans) {
-            ans.forEach(a => { defaults[a.question_id] = a.score; });
+          if (ans && ans.length > 0) {
+            const saved = new Set<string>();
+            ans.forEach(a => { defaults[a.question_id] = a.score; saved.add(a.question_id); });
+            setTouchedIds(saved);
           }
         }
         setAnswers(defaults);
@@ -64,7 +67,7 @@ const ArchetypeQuestionnaire = () => {
 
   const totalPages = Math.ceil(questions.length / QUESTIONS_PER_PAGE);
   const pageQuestions = questions.slice(page * QUESTIONS_PER_PAGE, (page + 1) * QUESTIONS_PER_PAGE);
-  const answeredCount = questions.length > 0 ? Object.keys(answers).length : 0;
+  const answeredCount = touchedIds.size;
   const progress = questions.length > 0 ? Math.round((answeredCount / questions.length) * 100) : 0;
 
   const saveAnswers = useCallback(async () => {
@@ -176,7 +179,10 @@ const ArchetypeQuestionnaire = () => {
                     <button
                       key={n}
                       onClick={() => {
-                        if (!isLocked) setAnswers(prev => ({ ...prev, [q.id]: n }));
+                        if (!isLocked) {
+                          setAnswers(prev => ({ ...prev, [q.id]: n }));
+                          setTouchedIds(prev => new Set(prev).add(q.id));
+                        }
                       }}
                       disabled={isLocked}
                       className={`flex-1 h-10 rounded-lg text-sm font-semibold transition-all ${
