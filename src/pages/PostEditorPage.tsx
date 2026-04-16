@@ -610,6 +610,7 @@ const PostEditorPage = () => {
             slideNumberTextColor={slideNumberTextColor} onSlideNumberTextColorChange={setSlideNumberTextColor}
             slideNumberSize={slideNumberSize} onSlideNumberSizeChange={setSlideNumberSize}
             isCarousel={isCarousel}
+            uploadedImages={uploadedImages}
           />
         </div>
 
