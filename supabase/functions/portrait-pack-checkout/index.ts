@@ -109,9 +109,6 @@ serve(async (req) => {
           message: "Pagamento processado pela Stripe. Termos e privacidade em posiciona.ia.br",
         },
       },
-      consent_collection: {
-        terms_of_service: "required",
-      },
     });
 
     return new Response(JSON.stringify({ url: session.url }), {
@@ -119,6 +116,7 @@ serve(async (req) => {
       status: 200,
     });
   } catch (error) {
+    console.error("portrait-pack-checkout error:", error);
     const msg = error instanceof Error ? error.message : String(error);
     return new Response(JSON.stringify({ error: msg }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
