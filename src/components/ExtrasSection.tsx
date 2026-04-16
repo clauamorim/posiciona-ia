@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Calendar, Camera, Loader2, ShoppingCart } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import PreCheckoutModal from "@/components/PreCheckoutModal";
 
 const SEMANA_EXTRA_LABELS: Record<string, string> = {
   semana_conteudo: "R$ 87",
@@ -14,10 +15,24 @@ const SEMANA_EXTRA_LABELS: Record<string, string> = {
   autoridade_total: "R$ 67",
 };
 
+const SEMANA_EXTRA_PRICES: Record<string, string> = {
+  semana_conteudo: "87",
+  presenca_mensal: "77",
+  autoridade_total: "67",
+};
+
+interface PreCheckoutState {
+  type: "semana_extra" | "portrait_pack";
+  name: string;
+  price: string;
+  packId?: string;
+}
+
 const ExtrasSection = () => {
   const { user, subscription } = useAuth();
   const [loadingSemana, setLoadingSemana] = useState(false);
   const [loadingPack, setLoadingPack] = useState<string | null>(null);
+  const [preCheckout, setPreCheckout] = useState<PreCheckoutState | null>(null);
 
   const planSlug = subscription?.plan_slug || "semana_conteudo";
   const hasDiscount = planSlug !== "semana_conteudo";
@@ -64,12 +79,20 @@ const ExtrasSection = () => {
     setLoadingPack(null);
   };
 
+  const handlePreCheckoutConfirm = () => {
+    if (!preCheckout) return;
+    if (preCheckout.type === "semana_extra") {
+      handleBuySemanaExtra();
+    } else if (preCheckout.type === "portrait_pack" && preCheckout.packId) {
+      handleBuyPack(preCheckout.packId);
+    }
+  };
+
   const getPackPrice = (pack: any) => {
     if (pack.stripe_price_ids && typeof pack.stripe_price_ids === "object") {
       const tierPrices: Record<string, number> = {
         semana_conteudo: pack.price_cents,
       };
-      // Derive from known pricing tiers
       if (pack.credits === 5) {
         tierPrices.presenca_mensal = 6400;
         tierPrices.autoridade_total = 5900;
@@ -108,7 +131,17 @@ const ExtrasSection = () => {
                 <Badge variant="secondary" className="ml-2 text-[10px]">Preço especial</Badge>
               )}
             </div>
-            <Button size="sm" onClick={handleBuySemanaExtra} disabled={loadingSemana}>
+            <Button
+              size="sm"
+              onClick={() =>
+                setPreCheckout({
+                  type: "semana_extra",
+                  name: "Semana Extra de Conteúdo",
+                  price: SEMANA_EXTRA_PRICES[planSlug] || "87",
+                })
+              }
+              disabled={loadingSemana}
+            >
               {loadingSemana ? <Loader2 className="h-4 w-4 animate-spin" /> : "Comprar"}
             </Button>
           </div>
@@ -120,6 +153,7 @@ const ExtrasSection = () => {
         {(packs || []).map((pack: any) => {
           const priceCents = getPackPrice(pack);
           const showDiscount = hasDiscount && priceCents < pack.price_cents;
+          const priceStr = (priceCents / 100).toFixed(0);
           return (
             <Card key={pack.id}>
               <CardContent className="py-4 space-y-3">
@@ -129,7 +163,7 @@ const ExtrasSection = () => {
                 </div>
                 <p className="text-xs text-muted-foreground">{pack.credits} retratos</p>
                 <div className="flex items-center gap-2">
-                  <span className="font-bold">R$ {(priceCents / 100).toFixed(0)}</span>
+                  <span className="font-bold">R$ {priceStr}</span>
                   {showDiscount && (
                     <>
                       <span className="text-xs text-muted-foreground line-through">R$ {(pack.price_cents / 100).toFixed(0)}</span>
@@ -141,7 +175,14 @@ const ExtrasSection = () => {
                   size="sm"
                   variant="outline"
                   className="w-full"
-                  onClick={() => handleBuyPack(pack.id)}
+                  onClick={() =>
+                    setPreCheckout({
+                      type: "portrait_pack",
+                      name: pack.name,
+                      price: priceStr,
+                      packId: pack.id,
+                    })
+                  }
                   disabled={loadingPack === pack.id}
                 >
                   {loadingPack === pack.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <><ShoppingCart className="h-3.5 w-3.5 mr-1.5" /> Comprar</>}
@@ -151,6 +192,24 @@ const ExtrasSection = () => {
           );
         })}
       </div>
+
+      {/* Pre-checkout modal for extras */}
+      {preCheckout && (
+        <PreCheckoutModal
+          open={!!preCheckout}
+          onOpenChange={(v) => { if (!v) setPreCheckout(null); }}
+          productName={preCheckout.name}
+          price={preCheckout.price}
+          billingType="one_time"
+          description={
+            preCheckout.type === "semana_extra"
+              ? "+1 ciclo editorial de 7 dias"
+              : undefined
+          }
+          onConfirm={handlePreCheckoutConfirm}
+          loading={loadingSemana || !!loadingPack}
+        />
+      )}
     </div>
   );
 };
