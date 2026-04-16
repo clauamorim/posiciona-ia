@@ -112,8 +112,8 @@ export const DashboardLayout = ({ children }: { children: React.ReactNode }) => 
 
   const footerItems: NavItem[] = isAdmin ? [] : [
     { label: "Meus Designs", href: "/my-designs", icon: Layers },
-    { label: "Plano e Créditos", href: "/choose-plan", icon: CreditCard },
     { label: "Histórico", href: "/history", icon: History },
+    { label: "Plano e Créditos", href: "/choose-plan", icon: CreditCard },
     { label: "Ajuda", href: "/help", icon: HelpCircle },
   ];
 

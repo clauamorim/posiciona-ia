@@ -154,11 +154,8 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
     if (lastLayout.current === layout) return;
     lastLayout.current = layout;
     const newPositions = computeTextBoxPositions(layout, !!title, !!isCoverSlide);
-    setTextBoxes(prev => prev.map(tb => {
-      const match = newPositions.find(n => n.id === tb.id);
-      if (match) return { ...tb, x: match.x, y: match.y, width: match.width, height: match.height };
-      return tb;
-    }));
+    // Always force-reset positions/sizes when layout changes
+    setTextBoxes(newPositions);
   }, [layout, title, isCoverSlide]);
 
   useEffect(() => {
@@ -206,7 +203,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   const handleCtaPointerDown = (e: React.PointerEvent) => {
     e.preventDefault(); e.stopPropagation();
     capturePointer(e);
-    setSelectedTextId(null);
+    setSelectedTextId("cta");
     onSelectImage?.(null);
     const pos = ctaPosition || { x: 0, y: 0 };
     setDragging({ id: "cta-button", startX: e.clientX, startY: e.clientY, origX: pos.x, origY: pos.y, isCta: true });
@@ -550,7 +547,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
                   e.preventDefault(); e.stopPropagation();
                   try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch {}
                   onSelectImage?.(null);
-                  setSelectedTextId(null);
+                  setSelectedTextId("slideNumber");
                   const startX = e.clientX, startY = e.clientY;
                   const origX = snPos.x, origY = snPos.y;
                   const handleMove = (ev: PointerEvent) => {
@@ -568,7 +565,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
                   window.addEventListener("pointerup", handleUp);
                   window.addEventListener("pointercancel", handleUp);
                 }}
-                onClick={(e) => e.stopPropagation()}
+                onClick={(e) => { e.stopPropagation(); setSelectedTextId("slideNumber"); onSelectImage?.(null); }}
               >
                 {slideNumber}/{totalSlides}
               </div>
@@ -584,7 +581,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
                 touchAction: "none",
               }}
               onPointerDown={handleCtaPointerDown}
-              onClick={(e) => e.stopPropagation()}
+              onClick={(e) => { e.stopPropagation(); setSelectedTextId("cta"); onSelectImage?.(null); }}
             >
               <div className="px-12 py-5 rounded-2xl font-bold whitespace-nowrap"
                 style={{ backgroundColor: resolvedCtaBg, color: resolvedCtaText2, fontFamily: `'${displayFont}', sans-serif`, fontSize: resolvedCtaFontSize }}>
@@ -601,7 +598,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
                 touchAction: "none",
               }}
               onPointerDown={handleCtaPointerDown}
-              onClick={(e) => e.stopPropagation()}
+              onClick={(e) => { e.stopPropagation(); setSelectedTextId("cta"); onSelectImage?.(null); }}
             >
               <div className="font-semibold whitespace-nowrap"
                 style={{ color: resolvedCtaBg, fontSize: Math.max(18, resolvedCtaFontSize - 6), opacity: 0.8 }}>
