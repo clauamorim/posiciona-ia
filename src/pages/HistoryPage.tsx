@@ -349,6 +349,16 @@ const HistoryPage = () => {
           })()}
         </DialogContent>
       </Dialog>
+
+      <PortraitPreviewDialog
+        open={previewIndex !== null}
+        onOpenChange={(o) => !o && setPreviewIndex(null)}
+        portraits={flatPortraits.map(fp => fp.url)}
+        index={previewIndex ?? 0}
+        onIndexChange={(i) => setPreviewIndex(i)}
+        onDownload={(url, i) => downloadPortrait(url, i)}
+        downloadLabel="Baixar"
+      />
     </DashboardLayout>
   );
 };
