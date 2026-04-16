@@ -547,7 +547,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
                   e.preventDefault(); e.stopPropagation();
                   try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch {}
                   onSelectImage?.(null);
-                  setSelectedTextId(null);
+                  setSelectedTextId("slideNumber");
                   const startX = e.clientX, startY = e.clientY;
                   const origX = snPos.x, origY = snPos.y;
                   const handleMove = (ev: PointerEvent) => {
@@ -565,7 +565,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
                   window.addEventListener("pointerup", handleUp);
                   window.addEventListener("pointercancel", handleUp);
                 }}
-                onClick={(e) => e.stopPropagation()}
+                onClick={(e) => { e.stopPropagation(); setSelectedTextId("slideNumber"); onSelectImage?.(null); }}
               >
                 {slideNumber}/{totalSlides}
               </div>
