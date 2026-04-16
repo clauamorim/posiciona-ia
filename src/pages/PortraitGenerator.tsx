@@ -520,13 +520,23 @@ const PortraitGenerator = () => {
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                     {portraits.map((portrait, i) => (
                       <div key={i} className="space-y-2">
-                        <div className="aspect-square rounded-lg overflow-hidden border border-border bg-muted">
+                        <button
+                          type="button"
+                          onClick={() => setPreviewIndex(i)}
+                          className="group relative aspect-square w-full rounded-lg overflow-hidden border border-border bg-muted cursor-zoom-in"
+                          aria-label={`Pré-visualizar retrato ${i + 1}`}
+                        >
                           <img
                             src={portrait}
                             alt={`Retrato ${i + 1}`}
                             className="w-full h-full object-cover"
                           />
-                        </div>
+                          <div className="absolute inset-0 bg-background/0 group-hover:bg-background/30 transition-colors flex items-center justify-center">
+                            <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-background/80 backdrop-blur-sm border border-border rounded-full p-2">
+                              <Maximize2 className="h-4 w-4" />
+                            </div>
+                          </div>
+                        </button>
                         <Button
                           variant="outline"
                           size="sm"
@@ -547,6 +557,18 @@ const PortraitGenerator = () => {
           </>
         )}
       </div>
+
+      <PortraitPreviewDialog
+        open={previewIndex !== null}
+        onOpenChange={(o) => !o && setPreviewIndex(null)}
+        portraits={portraits}
+        index={previewIndex ?? 0}
+        onIndexChange={(i) => setPreviewIndex(i)}
+        onDownload={(url, i) => downloadPortrait(url, i)}
+        downloading={confirmingDownload}
+        downloadHint="1 crédito será debitado ao baixar"
+        downloadLabel="Baixar"
+      />
     </DashboardLayout>
   );
 };
