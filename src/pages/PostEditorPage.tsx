@@ -33,6 +33,71 @@ function loadGoogleFont(fontName: string) {
   document.head.appendChild(link);
 }
 
+const DRAFT_KEY = "posiciona-editor-draft";
+
+interface EditorDraft {
+  weekIndex: number;
+  dayIndex: number;
+  editedTexts: string[];
+  editedTitle: string;
+  overlayImages: OverlayImage[];
+  uploadedImages: string[];
+  bgIndex: number;
+  layout: string;
+  currentSlide: number;
+  fontSize: number;
+  fontWeight: string;
+  fontStyle: string;
+  useGradient: boolean;
+  gradientColor2Index: number;
+  customGradientColor2: string | null;
+  gradientDirection: string;
+  textAlign: string;
+  customTextColor: string | null;
+  customBgColor: string | null;
+  titleFontSize: number;
+  titleColor: string | null;
+  titleFontFamily: string | null;
+  ctaText: string;
+  ctaBgColor: string | null;
+  ctaTextColor: string | null;
+  ctaFontSize: number;
+  ctaPosition: { x: number; y: number } | null;
+  canvasFormat: string;
+  showSlideNumber: boolean;
+  slideNumberPosition: { x: number; y: number } | null;
+  slideNumberBgColor: string | null;
+  slideNumberTextColor: string | null;
+  slideNumberSize: number;
+  displayFont: string;
+  bodyFont: string;
+}
+
+function loadDraft(weekIdx: number, dayIdx: number): EditorDraft | null {
+  try {
+    const raw = sessionStorage.getItem(DRAFT_KEY);
+    if (!raw) return null;
+    const draft: EditorDraft = JSON.parse(raw);
+    if (draft.weekIndex === weekIdx && draft.dayIndex === dayIdx) return draft;
+    return null;
+  } catch { return null; }
+}
+
+function saveDraft(draft: EditorDraft) {
+  try {
+    // Don't save huge base64 overlay images - strip src for large items
+    const lightweight = {
+      ...draft,
+      overlayImages: draft.overlayImages.map(img => ({
+        ...img,
+        src: img.src.length > 50000 ? "__large__" : img.src,
+      })),
+      uploadedImages: draft.uploadedImages.map(src => src.length > 50000 ? "" : src).filter(Boolean),
+    };
+    sessionStorage.setItem(DRAFT_KEY, JSON.stringify(lightweight));
+  } catch {}
+}
+
 const PostEditorPage = () => {
   const { user } = useAuth();
   const [searchParams] = useSearchParams();
@@ -41,45 +106,48 @@ const PostEditorPage = () => {
   const weekIndex = parseInt(searchParams.get("week") || "0", 10);
   const dayIndex = parseInt(searchParams.get("day") || "0", 10);
 
+  const draft = loadDraft(weekIndex, dayIndex);
+
   const [report, setReport] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [bgIndex, setBgIndex] = useState(0);
-  const [layout, setLayout] = useState<"centered" | "top" | "split">("centered");
-  const [currentSlide, setCurrentSlide] = useState(0);
-  const [editedTexts, setEditedTexts] = useState<string[]>([]);
-  const [editedTitle, setEditedTitle] = useState("");
-  const [overlayImages, setOverlayImages] = useState<OverlayImage[]>([]);
+  const [bgIndex, setBgIndex] = useState(draft?.bgIndex ?? 0);
+  const [layout, setLayout] = useState<"centered" | "top" | "split">((draft?.layout as any) ?? "centered");
+  const [currentSlide, setCurrentSlide] = useState(draft?.currentSlide ?? 0);
+  const [editedTexts, setEditedTexts] = useState<string[]>(draft?.editedTexts ?? []);
+  const [editedTitle, setEditedTitle] = useState(draft?.editedTitle ?? "");
+  const [overlayImages, setOverlayImages] = useState<OverlayImage[]>(draft?.overlayImages ?? []);
+  const [uploadedImages, setUploadedImages] = useState<string[]>(draft?.uploadedImages ?? []);
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
-  const [fontSize, setFontSize] = useState(28);
-  const [fontWeight, setFontWeight] = useState("normal");
-  const [fontStyle, setFontStyle] = useState("normal");
-  const [useGradient, setUseGradient] = useState(false);
-  const [gradientColor2Index, setGradientColor2Index] = useState(1);
-  const [customGradientColor2, setCustomGradientColor2] = useState<string | null>(null);
-  const [gradientDirection, setGradientDirection] = useState("to right");
-  const [textAlign, setTextAlign] = useState<"left" | "center" | "right" | "justify">("center");
-  const [customTextColor, setCustomTextColor] = useState<string | null>(null);
-  const [customBgColor, setCustomBgColor] = useState<string | null>(null);
+  const [fontSize, setFontSize] = useState(draft?.fontSize ?? 28);
+  const [fontWeight, setFontWeight] = useState(draft?.fontWeight ?? "normal");
+  const [fontStyle, setFontStyle] = useState(draft?.fontStyle ?? "normal");
+  const [useGradient, setUseGradient] = useState(draft?.useGradient ?? false);
+  const [gradientColor2Index, setGradientColor2Index] = useState(draft?.gradientColor2Index ?? 1);
+  const [customGradientColor2, setCustomGradientColor2] = useState<string | null>(draft?.customGradientColor2 ?? null);
+  const [gradientDirection, setGradientDirection] = useState(draft?.gradientDirection ?? "to right");
+  const [textAlign, setTextAlign] = useState<"left" | "center" | "right" | "justify">((draft?.textAlign as any) ?? "center");
+  const [customTextColor, setCustomTextColor] = useState<string | null>(draft?.customTextColor ?? null);
+  const [customBgColor, setCustomBgColor] = useState<string | null>(draft?.customBgColor ?? null);
   const [copied, setCopied] = useState(false);
   const [removingBackground, setRemovingBackground] = useState(false);
-  const [titleFontSize, setTitleFontSize] = useState(44);
-  const [titleColor, setTitleColor] = useState<string | null>(null);
-  const [titleFontFamily, setTitleFontFamily] = useState<string | null>(null);
-  const [ctaText, setCtaText] = useState("");
-  const [ctaBgColor, setCtaBgColor] = useState<string | null>(null);
-  const [ctaTextColor, setCtaTextColor] = useState<string | null>(null);
-  const [ctaFontSize, setCtaFontSize] = useState(28);
-  const [ctaPosition, setCtaPosition] = useState<{ x: number; y: number } | null>(null);
+  const [titleFontSize, setTitleFontSize] = useState(draft?.titleFontSize ?? 44);
+  const [titleColor, setTitleColor] = useState<string | null>(draft?.titleColor ?? null);
+  const [titleFontFamily, setTitleFontFamily] = useState<string | null>(draft?.titleFontFamily ?? null);
+  const [ctaText, setCtaText] = useState(draft?.ctaText ?? "");
+  const [ctaBgColor, setCtaBgColor] = useState<string | null>(draft?.ctaBgColor ?? null);
+  const [ctaTextColor, setCtaTextColor] = useState<string | null>(draft?.ctaTextColor ?? null);
+  const [ctaFontSize, setCtaFontSize] = useState(draft?.ctaFontSize ?? 28);
+  const [ctaPosition, setCtaPosition] = useState<{ x: number; y: number } | null>(draft?.ctaPosition ?? null);
   const [userPortraits, setUserPortraits] = useState<string[]>([]);
-  const [canvasFormat, setCanvasFormat] = useState<"square" | "reels">("square");
-  const [showSlideNumber, setShowSlideNumber] = useState(true);
-  const [slideNumberPosition, setSlideNumberPosition] = useState<{ x: number; y: number } | null>(null);
-  const [slideNumberBgColor, setSlideNumberBgColor] = useState<string | null>(null);
-  const [slideNumberTextColor, setSlideNumberTextColor] = useState<string | null>(null);
-  const [slideNumberSize, setSlideNumberSize] = useState(14);
+  const [canvasFormat, setCanvasFormat] = useState<"square" | "reels">((draft?.canvasFormat as any) ?? "square");
+  const [showSlideNumber, setShowSlideNumber] = useState(draft?.showSlideNumber ?? true);
+  const [slideNumberPosition, setSlideNumberPosition] = useState<{ x: number; y: number } | null>(draft?.slideNumberPosition ?? null);
+  const [slideNumberBgColor, setSlideNumberBgColor] = useState<string | null>(draft?.slideNumberBgColor ?? null);
+  const [slideNumberTextColor, setSlideNumberTextColor] = useState<string | null>(draft?.slideNumberTextColor ?? null);
+  const [slideNumberSize, setSlideNumberSize] = useState(draft?.slideNumberSize ?? 14);
   const singleCanvasRef = useRef<HTMLDivElement>(null);
   const slideRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const textsInitializedRef = useRef(false);
+  const textsInitializedRef = useRef(!!draft);
 
   const cW = canvasFormat === "reels" ? 1080 : 1080;
   const cH = canvasFormat === "reels" ? 1920 : 1080;
@@ -116,10 +184,11 @@ const PostEditorPage = () => {
     ? content.visual_identity.typography
     : {};
 
-  const [displayFont, setDisplayFont] = useState(typography.display || "Space Grotesk");
-  const [bodyFont, setBodyFont] = useState(typography.body || "Inter");
+  const [displayFont, setDisplayFont] = useState(draft?.displayFont || typography.display || "Space Grotesk");
+  const [bodyFont, setBodyFont] = useState(draft?.bodyFont || typography.body || "Inter");
 
   useEffect(() => {
+    if (draft) return; // Don't overwrite draft fonts
     if (typography.display) { setDisplayFont(typography.display); loadGoogleFont(typography.display); }
     if (typography.body) { setBodyFont(typography.body); loadGoogleFont(typography.body); }
   }, [typography.display, typography.body]);
@@ -134,6 +203,32 @@ const PostEditorPage = () => {
     setCtaText(cleanMarkdown(day.cta || ""));
     textsInitializedRef.current = true;
   }, [day]);
+
+  // Save draft on changes (debounced via effect dependencies)
+  useEffect(() => {
+    if (!textsInitializedRef.current) return;
+    const timer = setTimeout(() => {
+      saveDraft({
+        weekIndex, dayIndex, editedTexts, editedTitle, overlayImages, uploadedImages,
+        bgIndex, layout, currentSlide, fontSize, fontWeight, fontStyle,
+        useGradient, gradientColor2Index, customGradientColor2, gradientDirection,
+        textAlign, customTextColor, customBgColor,
+        titleFontSize, titleColor, titleFontFamily,
+        ctaText, ctaBgColor, ctaTextColor, ctaFontSize, ctaPosition,
+        canvasFormat, showSlideNumber, slideNumberPosition,
+        slideNumberBgColor, slideNumberTextColor, slideNumberSize,
+        displayFont, bodyFont,
+      });
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [editedTexts, editedTitle, overlayImages, uploadedImages, bgIndex, layout, currentSlide,
+      fontSize, fontWeight, fontStyle, useGradient, gradientColor2Index, customGradientColor2,
+      gradientDirection, textAlign, customTextColor, customBgColor,
+      titleFontSize, titleColor, titleFontFamily,
+      ctaText, ctaBgColor, ctaTextColor, ctaFontSize, ctaPosition,
+      canvasFormat, showSlideNumber, slideNumberPosition,
+      slideNumberBgColor, slideNumberTextColor, slideNumberSize,
+      displayFont, bodyFont, weekIndex, dayIndex]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -160,7 +255,13 @@ const PostEditorPage = () => {
 
   const isCarousel = day?.format?.toLowerCase() === "carrossel";
 
-  const handleAddImage = (image: OverlayImage) => setOverlayImages((prev) => [...prev, image]);
+  const handleAddImage = (image: OverlayImage) => {
+    setOverlayImages((prev) => [...prev, image]);
+    // Track uploaded photos in gallery
+    if ((image.type === "photo" || image.type === "logo") && image.src) {
+      setUploadedImages(prev => prev.includes(image.src) ? prev : [...prev, image.src]);
+    }
+  };
 
   const handleUpdateOverlay = (id: string, updates: Partial<OverlayImage>) => {
     setOverlayImages((prev) => prev.map((img) => (img.id === id ? { ...img, ...updates } : img)));
@@ -367,6 +468,8 @@ const PostEditorPage = () => {
     setSlideNumberSize(14);
     if (typography.display) setDisplayFont(typography.display);
     if (typography.body) setBodyFont(typography.body);
+    setUploadedImages([]);
+    sessionStorage.removeItem(DRAFT_KEY);
   };
 
   const handleCopyCaption = async () => {
@@ -507,6 +610,7 @@ const PostEditorPage = () => {
             slideNumberTextColor={slideNumberTextColor} onSlideNumberTextColorChange={setSlideNumberTextColor}
             slideNumberSize={slideNumberSize} onSlideNumberSizeChange={setSlideNumberSize}
             isCarousel={isCarousel}
+            uploadedImages={uploadedImages}
           />
         </div>
 

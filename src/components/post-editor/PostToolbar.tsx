@@ -106,6 +106,7 @@ interface PostToolbarProps {
   slideNumberSize?: number;
   onSlideNumberSizeChange?: (size: number) => void;
   isCarousel?: boolean;
+  uploadedImages?: string[];
 }
 
 const LAYOUTS = [
@@ -235,6 +236,7 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
   slideNumberTextColor, onSlideNumberTextColorChange,
   slideNumberSize, onSlideNumberSizeChange,
   isCarousel,
+  uploadedImages = [],
 }) => {
   const [elementsOpen, setElementsOpen] = useState(false);
   const [svgElementsOpen, setSvgElementsOpen] = useState(false);
@@ -248,14 +250,13 @@ const PostToolbar: React.FC<PostToolbarProps> = ({
   const isSelectedElement = selectedOverlay?.type === "element";
   const isSelectedTextBox = selectedOverlay?.type === "textbox";
 
-  // Session image gallery: collect unique photo/logo images from overlays
+  // Use uploadedImages prop for persistent gallery
   const sessionImages = React.useMemo(() => {
-    if (!overlayImages) return [];
     const seen = new Set<string>();
-    return overlayImages
-      .filter(img => (img.type === "photo" || img.type === "logo") && img.src && !seen.has(img.src) && (seen.add(img.src), true))
-      .map(img => ({ id: img.id, src: img.src }));
-  }, [overlayImages]);
+    return uploadedImages
+      .filter(src => src && !seen.has(src) && (seen.add(src), true))
+      .map((src, i) => ({ id: `upload-${i}`, src }));
+  }, [uploadedImages]);
 
   useEffect(() => {
     if (galleryOpen && !galleryLoaded) {

@@ -181,8 +181,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         // INITIAL_SESSION, SIGNED_IN, USER_UPDATED
         if (newSession?.user) {
-          // If same user and already hydrated, don't re-enter loading
-          if (initialHydrationDone && session?.user?.id === newSession.user.id && event !== "SIGNED_IN") {
+          // If same user and already hydrated, skip full reload for ANY event
+          // This prevents alt-tab / focus regain from resetting protected pages
+          if (initialHydrationDone && session?.user?.id === newSession.user.id) {
             setSession(newSession);
             return;
           }

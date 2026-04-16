@@ -320,7 +320,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
           position: "absolute", left: tb.x, top: tb.y, width: tb.width, minHeight: tb.height,
           cursor: isEditing ? "text" : "move", userSelect: isEditing ? "text" : "none",
           outline: isSelected ? "2px dashed rgba(255,255,255,0.7)" : "none", outlineOffset: 2,
-          zIndex: isSelected ? 5 : 2, padding: "8px 16px", boxSizing: "border-box", overflow: "hidden",
+          zIndex: 2, padding: "8px 16px", boxSizing: "border-box", overflow: "hidden",
         }}
         onMouseDown={(e) => handleTextMouseDown(e, tb)}
         onClick={(e) => { e.stopPropagation(); setSelectedTextId(tb.id); onSelectImage?.(null); }}
@@ -368,7 +368,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
           position: "absolute", left: img.x, top: img.y, width: img.width, minHeight: img.height,
           cursor: "move", userSelect: "none",
           outline: isSelected ? "2px dashed rgba(255,255,255,0.7)" : "none", outlineOffset: 2,
-          zIndex: isSelected ? 6 : 4,
+          zIndex: 4,
           backgroundColor: img.bgColor || "transparent",
           opacity: img.opacity ?? 1,
           borderRadius: 8, padding: "12px 16px", boxSizing: "border-box",
@@ -509,7 +509,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
                   width: img.width, height: img.height,
                   cursor: "move", userSelect: "none",
                   outline: isSelected ? "2px dashed rgba(255,255,255,0.7)" : "none",
-                  outlineOffset: 2, zIndex: 3 + arrayIndex,
+                  outlineOffset: 2, zIndex: 10 + arrayIndex,
                 }}
                 onMouseDown={(e) => handleMouseDown(e, img)}
                 onClick={(e) => { e.stopPropagation(); onSelectImage?.(img.id); setSelectedTextId(null); }}
