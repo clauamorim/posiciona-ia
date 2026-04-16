@@ -178,44 +178,54 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
     return () => window.removeEventListener("resize", updateScale);
   }, [canvasWidth, canvasHeight]);
 
-  const handleMouseDown = (e: React.MouseEvent, img: OverlayImage) => {
+  const capturePointer = (e: React.PointerEvent) => {
+    try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch {}
+  };
+
+  const handlePointerDown = (e: React.PointerEvent, img: OverlayImage) => {
     e.preventDefault(); e.stopPropagation();
+    capturePointer(e);
     onSelectImage?.(img.id);
     setSelectedTextId(null);
     setDragging({ id: img.id, startX: e.clientX, startY: e.clientY, origX: img.x, origY: img.y });
   };
 
-  const handleTextMouseDown = (e: React.MouseEvent, tb: TextBox) => {
+  const handleTextPointerDown = (e: React.PointerEvent, tb: TextBox) => {
     if (editingTextId === tb.id) return;
     e.preventDefault(); e.stopPropagation();
+    capturePointer(e);
     setSelectedTextId(tb.id);
     onSelectImage?.(null);
     setDragging({ id: tb.id, startX: e.clientX, startY: e.clientY, origX: tb.x, origY: tb.y, isText: true });
   };
 
-  const handleCtaMouseDown = (e: React.MouseEvent) => {
+  const handleCtaPointerDown = (e: React.PointerEvent) => {
     e.preventDefault(); e.stopPropagation();
+    capturePointer(e);
     setSelectedTextId(null);
     onSelectImage?.(null);
     const pos = ctaPosition || { x: 0, y: 0 };
     setDragging({ id: "cta-button", startX: e.clientX, startY: e.clientY, origX: pos.x, origY: pos.y, isCta: true });
   };
 
-  const handleResizeDown = (e: React.MouseEvent, img: OverlayImage, corner: Corner) => {
+  const handleResizeDown = (e: React.PointerEvent, img: OverlayImage, corner: Corner) => {
     e.preventDefault(); e.stopPropagation();
+    capturePointer(e);
     onSelectImage?.(img.id);
     setResizing({ id: img.id, startX: e.clientX, startY: e.clientY, origX: img.x, origY: img.y, origW: img.width, origH: img.height, corner });
   };
 
-  const handleTextResizeDown = (e: React.MouseEvent, tb: TextBox, corner: Corner) => {
+  const handleTextResizeDown = (e: React.PointerEvent, tb: TextBox, corner: Corner) => {
     e.preventDefault(); e.stopPropagation();
+    capturePointer(e);
     setSelectedTextId(tb.id);
     setResizing({ id: tb.id, startX: e.clientX, startY: e.clientY, origX: tb.x, origY: tb.y, origW: tb.width, origH: tb.height, corner, isText: true });
   };
 
   useEffect(() => {
     if (!dragging) return;
-    const handleMouseMove = (e: MouseEvent) => {
+    const handlePointerMove = (e: PointerEvent) => {
+      if (e.cancelable) e.preventDefault();
       const dx = (e.clientX - dragging.startX) / scale;
       const dy = (e.clientY - dragging.startY) / scale;
       if (dragging.isCta) {
@@ -226,15 +236,21 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
         updateOverlay(dragging.id, { x: dragging.origX + dx, y: dragging.origY + dy });
       }
     };
-    const handleMouseUp = () => setDragging(null);
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mouseup", handleMouseUp);
-    return () => { window.removeEventListener("mousemove", handleMouseMove); window.removeEventListener("mouseup", handleMouseUp); };
+    const handlePointerUp = () => setDragging(null);
+    window.addEventListener("pointermove", handlePointerMove, { passive: false });
+    window.addEventListener("pointerup", handlePointerUp);
+    window.addEventListener("pointercancel", handlePointerUp);
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("pointercancel", handlePointerUp);
+    };
   }, [dragging, scale]);
 
   useEffect(() => {
     if (!resizing) return;
-    const handleMouseMove = (e: MouseEvent) => {
+    const handlePointerMove = (e: PointerEvent) => {
+      if (e.cancelable) e.preventDefault();
       const dx = (e.clientX - resizing.startX) / scale;
       const dy = (e.clientY - resizing.startY) / scale;
       const { corner, origW, origH, origX, origY } = resizing;
@@ -259,10 +275,15 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
         updateOverlay(resizing.id, { x: newX, y: newY, width: newW, height: newH });
       }
     };
-    const handleMouseUp = () => setResizing(null);
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mouseup", handleMouseUp);
-    return () => { window.removeEventListener("mousemove", handleMouseMove); window.removeEventListener("mouseup", handleMouseUp); };
+    const handlePointerUp = () => setResizing(null);
+    window.addEventListener("pointermove", handlePointerMove, { passive: false });
+    window.addEventListener("pointerup", handlePointerUp);
+    window.addEventListener("pointercancel", handlePointerUp);
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("pointercancel", handlePointerUp);
+    };
   }, [resizing, scale, overlayImages]);
 
   const handleCanvasClick = (e: React.MouseEvent) => {
