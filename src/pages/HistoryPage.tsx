@@ -15,6 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { PortraitPreviewDialog } from "@/components/PortraitPreviewDialog";
 import jsPDF from "jspdf";
 
 type AnalysisItem = { aspect: string; current: string; suggestion: string };
