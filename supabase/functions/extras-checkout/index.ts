@@ -1,3 +1,11 @@
+// ============================================================
+// STRIPE DASHBOARD CONFIGURATION REQUIRED:
+// Settings > Public details:
+//   - Terms of Service URL: https://posiciona.ia.br/termos-de-servico
+//   - Privacy Policy URL: https://posiciona.ia.br/politica-de-privacidade
+//   - Support email: contato@posiciona.ia.br
+// ============================================================
+
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
@@ -86,6 +94,14 @@ serve(async (req) => {
         user_id: user.id,
         type: "semana_extra",
         plan_slug: plan.slug,
+      },
+      custom_text: {
+        submit: {
+          message: "Pagamento processado pela Stripe. Termos e privacidade em posiciona.ia.br",
+        },
+      },
+      consent_collection: {
+        terms_of_service: "required",
       },
     });
 

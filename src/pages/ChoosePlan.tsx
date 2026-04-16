@@ -11,7 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Check, Loader2, ArrowUp, Tag, Calendar, RefreshCw, Camera, Repeat } from "lucide-react";
 import ExtrasSection from "@/components/ExtrasSection";
-import LegalConsentCheckbox from "@/components/LegalConsentCheckbox";
+import PreCheckoutModal from "@/components/PreCheckoutModal";
 
 const plans = [
   {
@@ -20,7 +20,7 @@ const plans = [
     price: "197",
     period: "pagamento único",
     highlight: false,
-    billing: "one_time",
+    billing: "one_time" as const,
     features: [
       "Diagnóstico inicial completo",
       "Guia de posicionamento e narrativa de marca",
@@ -39,7 +39,7 @@ const plans = [
     price: "297",
     period: "/mês",
     highlight: true,
-    billing: "recurring",
+    billing: "recurring" as const,
     features: [
       "Tudo do Semana de Conteúdo",
       "4 ciclos semanais por mês",
@@ -56,7 +56,7 @@ const plans = [
     price: "497",
     period: "/mês",
     highlight: false,
-    billing: "recurring",
+    billing: "recurring" as const,
     features: [
       "Tudo do Presença Mensal",
       "2 reanálises estratégicas/mês",
@@ -75,18 +75,12 @@ const ChoosePlan = () => {
   const [loadingSlug, setLoadingSlug] = useState<string | null>(null);
   const [couponCode, setCouponCode] = useState("");
   const [loadingUpgrade, setLoadingUpgrade] = useState<string | null>(null);
-  const [checkoutConsent, setCheckoutConsent] = useState(false);
-  const [checkoutConsentError, setCheckoutConsentError] = useState("");
+  const [preCheckoutPlan, setPreCheckoutPlan] = useState<typeof plans[0] | null>(null);
 
   const currentSlug = subscription?.plan_slug;
 
   const handleCheckout = async (slug: string) => {
     if (!user) return;
-    if (!currentSlug && !checkoutConsent) {
-      setCheckoutConsentError("Você precisa concordar com os Termos de Serviço, a Política de Privacidade e as condições do plano para finalizar a assinatura.");
-      return;
-    }
-    setCheckoutConsentError("");
     setLoadingSlug(slug);
     try {
       const plan = plans.find(p => p.slug === slug);
@@ -131,7 +125,11 @@ const ChoosePlan = () => {
 
   const getButtonAction = (p: typeof plans[0]) => {
     if (!currentSlug) {
-      return { label: p.slug === "semana_conteudo" ? "Começar agora" : "Assinar", action: () => handleCheckout(p.slug), loading: loadingSlug === p.slug };
+      return {
+        label: p.slug === "semana_conteudo" ? "Começar agora" : "Assinar",
+        action: () => setPreCheckoutPlan(p),
+        loading: loadingSlug === p.slug,
+      };
     }
     if (currentSlug === p.slug) {
       return { label: "Plano atual", action: () => {}, loading: false, disabled: true };
@@ -197,18 +195,6 @@ const ChoosePlan = () => {
             />
           </div>
           <p className="text-[10px] text-muted-foreground mt-1 ml-6">Válido apenas para Presença Mensal e Autoridade Total</p>
-        </div>
-      )}
-
-      {/* Legal consent for new subscribers */}
-      {!currentSlug && (
-        <div className="max-w-sm mx-auto">
-          <LegalConsentCheckbox
-            checked={checkoutConsent}
-            onCheckedChange={(v) => { setCheckoutConsent(v); if (v) setCheckoutConsentError(""); }}
-            variant="checkout"
-            error={checkoutConsentError}
-          />
         </div>
       )}
 
@@ -288,10 +274,23 @@ const ChoosePlan = () => {
           <ExtrasSection />
         </div>
       )}
+
+      {/* Pre-checkout modal */}
+      {preCheckoutPlan && (
+        <PreCheckoutModal
+          open={!!preCheckoutPlan}
+          onOpenChange={(v) => { if (!v) setPreCheckoutPlan(null); }}
+          productName={preCheckoutPlan.name}
+          price={preCheckoutPlan.price}
+          billingType={preCheckoutPlan.billing}
+          period={preCheckoutPlan.billing === "recurring" ? "mensal" : undefined}
+          onConfirm={() => handleCheckout(preCheckoutPlan.slug)}
+          loading={loadingSlug === preCheckoutPlan.slug}
+        />
+      )}
     </div>
   );
 
-  // Wrap in DashboardLayout if user has active plan (sidebar navigation)
   if (currentSlug) {
     return (
       <DashboardLayout>
@@ -300,7 +299,6 @@ const ChoosePlan = () => {
     );
   }
 
-  // No plan yet — standalone centered page
   return (
     <div className="min-h-screen bg-background flex flex-col px-4 py-12">
       <div className="flex justify-end max-w-4xl w-full mx-auto mb-4">
