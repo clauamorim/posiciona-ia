@@ -273,8 +273,8 @@ const PortraitComparisonPlaceholder = () => {
   );
 };
 
+const LandingPage = () => {
 
-  const { user, isLoading } = useAuth();
   const navigate = useNavigate();
   const [loadingSlug, setLoadingSlug] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
