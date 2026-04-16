@@ -90,10 +90,13 @@ interface AddElementPanelProps {
   userPortraits?: string[];
   onAddImage: (image: OverlayImage) => void;
   onPortraitsChanged?: () => void;
+  hasSelectedElement?: boolean;
+  onRecolorSelected?: (color: string) => void;
 }
 
 const AddElementPanel: React.FC<AddElementPanelProps> = ({
   palette, defaultElementColor, bodyFont, textColor, userPortraits = [], onAddImage, onPortraitsChanged,
+  hasSelectedElement, onRecolorSelected,
 }) => {
   const { user } = useAuth();
   const [elementColor, setElementColor] = useState(defaultElementColor || palette[0]?.hex || "#7c3aed");
@@ -342,8 +345,20 @@ const AddElementPanel: React.FC<AddElementPanelProps> = ({
       {/* Icons */}
       <TabsContent value="icons" className="mt-3 space-y-2">
         <div>
-          <label className="text-[11px] text-muted-foreground">Cor padrão</label>
-          <ColorPicker palette={palette} value={elementColor} onChange={setElementColor} />
+          <label className="text-[11px] text-muted-foreground">
+            {hasSelectedElement ? "Cor do elemento selecionado" : "Cor padrão para novos elementos"}
+          </label>
+          <ColorPicker
+            palette={palette}
+            value={hasSelectedElement ? undefined : elementColor}
+            onChange={(c) => {
+              if (hasSelectedElement && onRecolorSelected) {
+                onRecolorSelected(c);
+              } else {
+                setElementColor(c);
+              }
+            }}
+          />
         </div>
         <div className="grid grid-cols-6 gap-1">
           {GRAPHIC_ELEMENTS.map((el) => (
@@ -362,8 +377,20 @@ const AddElementPanel: React.FC<AddElementPanelProps> = ({
       {/* Frames / dividers */}
       <TabsContent value="frames" className="mt-3 space-y-2">
         <div>
-          <label className="text-[11px] text-muted-foreground">Cor padrão</label>
-          <ColorPicker palette={palette} value={elementColor} onChange={setElementColor} />
+          <label className="text-[11px] text-muted-foreground">
+            {hasSelectedElement ? "Cor do elemento selecionado" : "Cor padrão para novos elementos"}
+          </label>
+          <ColorPicker
+            palette={palette}
+            value={hasSelectedElement ? undefined : elementColor}
+            onChange={(c) => {
+              if (hasSelectedElement && onRecolorSelected) {
+                onRecolorSelected(c);
+              } else {
+                setElementColor(c);
+              }
+            }}
+          />
         </div>
         <div className="grid grid-cols-2 gap-1.5">
           {SVG_ELEMENTS.map((el) => (

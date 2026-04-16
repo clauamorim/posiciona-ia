@@ -210,6 +210,8 @@ const PostToolbar: React.FC<PostToolbarProps> = (props) => {
           textColor={props.textColor}
           userPortraits={props.userPortraits}
           onAddImage={props.onAddImage}
+          hasSelectedElement={props.selectedKind === "icon"}
+          onRecolorSelected={props.onRecolorElement}
         />
       </section>
 
