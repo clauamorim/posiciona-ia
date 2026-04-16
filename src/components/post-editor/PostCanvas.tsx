@@ -509,7 +509,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
                   width: img.width, height: img.height,
                   cursor: "move", userSelect: "none",
                   outline: isSelected ? "2px dashed rgba(255,255,255,0.7)" : "none",
-                  outlineOffset: 2, zIndex: 3 + arrayIndex,
+                  outlineOffset: 2, zIndex: 10 + arrayIndex,
                 }}
                 onMouseDown={(e) => handleMouseDown(e, img)}
                 onClick={(e) => { e.stopPropagation(); onSelectImage?.(img.id); setSelectedTextId(null); }}
