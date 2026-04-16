@@ -29,6 +29,8 @@ import ChoosePlan from "./pages/ChoosePlan";
 import HelpPage from "./pages/HelpPage";
 import NotFound from "./pages/NotFound";
 import SobrePage from "./pages/SobrePage";
+import TermosDeServico from "./pages/TermosDeServico";
+import PoliticaDePrivacidade from "./pages/PoliticaDePrivacidade";
 
 const queryClient = new QueryClient();
 
@@ -42,6 +44,8 @@ const App = () => (
           <Routes>
             <Route path="/" element={<LandingPage />} />
             <Route path="/sobre" element={<SobrePage />} />
+            <Route path="/termos-de-servico" element={<TermosDeServico />} />
+            <Route path="/politica-de-privacidade" element={<PoliticaDePrivacidade />} />
             <Route path="/checkout-success" element={<CheckoutSuccess />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />

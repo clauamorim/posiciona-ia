@@ -220,8 +220,14 @@ const SobrePage = () => {
       </section>
 
       {/* ── FOOTER ── */}
-      <footer className="border-t border-landing-border/40 py-6 px-4 text-center">
-        <p className="text-xs text-landing-text-secondary/50">© {new Date().getFullYear()} Posiciona. Todos os direitos reservados.</p>
+      <footer className="border-t border-landing-border/40 py-6 px-4">
+        <div className="max-w-3xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-landing-text-secondary/50">
+          <p>© {new Date().getFullYear()} Posiciona. Todos os direitos reservados.</p>
+          <div className="flex items-center gap-4">
+            <Link to="/termos-de-servico" className="hover:text-landing-gold transition-colors">Termos de Serviço</Link>
+            <Link to="/politica-de-privacidade" className="hover:text-landing-gold transition-colors">Política de Privacidade</Link>
+          </div>
+        </div>
       </footer>
 
       {/* Floating WhatsApp */}

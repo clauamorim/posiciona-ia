@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Check, Loader2, ArrowUp, Tag, Calendar, RefreshCw, Camera, Repeat } from "lucide-react";
 import ExtrasSection from "@/components/ExtrasSection";
+import LegalConsentCheckbox from "@/components/LegalConsentCheckbox";
 
 const plans = [
   {
@@ -74,11 +75,18 @@ const ChoosePlan = () => {
   const [loadingSlug, setLoadingSlug] = useState<string | null>(null);
   const [couponCode, setCouponCode] = useState("");
   const [loadingUpgrade, setLoadingUpgrade] = useState<string | null>(null);
+  const [checkoutConsent, setCheckoutConsent] = useState(false);
+  const [checkoutConsentError, setCheckoutConsentError] = useState("");
 
   const currentSlug = subscription?.plan_slug;
 
   const handleCheckout = async (slug: string) => {
     if (!user) return;
+    if (!currentSlug && !checkoutConsent) {
+      setCheckoutConsentError("Você precisa concordar com os Termos de Serviço, a Política de Privacidade e as condições do plano para finalizar a assinatura.");
+      return;
+    }
+    setCheckoutConsentError("");
     setLoadingSlug(slug);
     try {
       const plan = plans.find(p => p.slug === slug);
@@ -189,6 +197,18 @@ const ChoosePlan = () => {
             />
           </div>
           <p className="text-[10px] text-muted-foreground mt-1 ml-6">Válido apenas para Presença Mensal e Autoridade Total</p>
+        </div>
+      )}
+
+      {/* Legal consent for new subscribers */}
+      {!currentSlug && (
+        <div className="max-w-sm mx-auto">
+          <LegalConsentCheckbox
+            checked={checkoutConsent}
+            onCheckedChange={(v) => { setCheckoutConsent(v); if (v) setCheckoutConsentError(""); }}
+            variant="checkout"
+            error={checkoutConsentError}
+          />
         </div>
       )}
 
