@@ -1,41 +1,56 @@
 
 
-## Plano: Corrigir status amarelo da Linha Editorial no menu lateral
+## Plano: Modal de pré-visualização para retratos gerados
 
 ### Causa
-Em `DashboardLayout.tsx` (linha 61), `hasEditorial` verifica apenas `reportData.editorial_weeks`. Já em `Dashboard.tsx` (linhas 53-64), a lógica é mais completa: verifica `editorial_weeks` **OU** `content.editorial` (array dentro do JSON `content` do report).
-
-Quando a linha editorial foi gerada e armazenada apenas em `content.editorial` (e não em `editorial_weeks`), o Dashboard mostra "Concluído" (verde) mas o sidebar mostra ponto amarelo (`in_progress`).
+Atualmente os retratos são exibidos apenas como thumbnails pequenos no `aspect-square` dos cards (PortraitGenerator e Histórico → Retratos), com botão de download abaixo. Não há como inspecionar o retrato em tamanho grande antes de baixar.
 
 ### Solução
-Replicar no `DashboardLayout.tsx` a mesma lógica do `Dashboard.tsx`: considerar a linha editorial como concluída se houver `editorial_weeks` **ou** `content.editorial` com itens.
+Criar um componente reutilizável `PortraitPreviewDialog` (modal/lightbox) que:
+- Abre ao clicar em qualquer thumbnail de retrato.
+- Mostra a imagem em tamanho grande, centralizada, com fundo escuro semi-transparente.
+- Oferece ações no rodapé do modal: **Baixar** e **Fechar**.
+- Suporta navegação entre múltiplos retratos quando aplicável (setas ‹ ›, teclas ←/→, contador "1 de N").
+- Visual premium: bordas suaves, sem distração, imagem com `object-contain` e altura máxima ~80vh.
 
-### Mudança
+Não incluir "Usar no editor" agora — não há fluxo existente de portrait→editor (seria nova feature). Anotar como próximo passo sugerido.
 
-**`src/components/DashboardLayout.tsx`** (dentro do `useEffect` de carregamento):
+---
 
-```ts
-const hasEditorialWeeks = !!(reportData?.editorial_weeks && (reportData.editorial_weeks as any[]).length > 0);
-let hasContentEditorial = false;
-if (reportData) {
-  try {
-    let c: any = reportData.content;
-    if (typeof c === "string") c = JSON.parse(c);
-    if (c && Array.isArray(c.editorial) && c.editorial.length > 0) {
-      hasContentEditorial = true;
-    }
-  } catch {}
-}
-const hasEditorial = hasEditorialWeeks || hasContentEditorial;
-```
+### Componente novo
 
-E usar `hasEditorial` no setter de `journeyStatus["/editorial"]`.
+**`src/components/PortraitPreviewDialog.tsx`** (novo)
+- Props: `open`, `onOpenChange`, `portraits: string[]`, `initialIndex`, `onDownload?: (url: string, index: number) => void`, `downloading?: boolean`, `downloadHint?: string` (ex: "1 crédito será debitado").
+- Usa `Dialog` do shadcn com `DialogContent` em `max-w-4xl` e fundo `bg-card`.
+- Imagem em `<img className="max-h-[75vh] w-auto mx-auto object-contain rounded-lg" />`.
+- Setas laterais quando `portraits.length > 1` (ChevronLeft / ChevronRight).
+- Listener de teclado (←, →, Esc) via `useEffect`.
+- Rodapé: contador centralizado + botão "Baixar" à direita (ícone Download).
+
+### Integrações
+
+**`src/pages/PortraitGenerator.tsx`**
+- Adicionar state `previewIndex: number | null`.
+- Tornar a imagem do thumbnail clicável (`cursor-zoom-in`, `onClick={() => setPreviewIndex(i)}`).
+- Adicionar overlay sutil com ícone de "Expandir" no hover.
+- Renderizar `<PortraitPreviewDialog>` no fim, ligando `onDownload` ao `downloadPortrait` existente (mantém débito de crédito).
+- Manter botão "Baixar" abaixo do card (não remover — apenas tornar a preview o caminho natural).
+
+**`src/pages/HistoryPage.tsx`** (aba Retratos)
+- Achatar a lista de portraits em `flatPortraits: { url, createdAt, key }[]` para permitir navegação linear no preview.
+- Tornar thumbnail clicável → abre preview no índice correto.
+- Manter botão de download existente no hover.
+- `onDownload` no preview chama o `downloadPortrait` local (sem cobrança — já foi pago na geração).
+
+---
 
 ### Arquivos
 
 | Arquivo | Mudança |
 |---------|---------|
-| `src/components/DashboardLayout.tsx` | Considerar `content.editorial` além de `editorial_weeks` ao calcular status da Linha Editorial |
+| `src/components/PortraitPreviewDialog.tsx` | Novo componente lightbox reutilizável |
+| `src/pages/PortraitGenerator.tsx` | Thumbnail clicável + integrar preview; passa `downloadPortrait` |
+| `src/pages/HistoryPage.tsx` | Thumbnail clicável + integrar preview na aba Retratos |
 
-Sem mudanças de schema, geração, créditos ou Stripe.
+Sem mudanças de schema, edge functions, créditos ou Stripe. A lógica de débito de crédito permanece em `downloadPortrait` (PortraitGenerator), apenas reaproveitada pelo botão dentro do modal.
 
