@@ -720,7 +720,7 @@ const PostEditorPage = () => {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
+      <div className="space-y-6 pb-24 md:pb-6">
         <div className="flex items-center gap-4 flex-wrap">
           <Button variant="ghost" size="icon" onClick={() => navigate("/editorial")}>
             <ArrowLeft className="h-5 w-5" />
