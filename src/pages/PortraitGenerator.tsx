@@ -570,10 +570,27 @@ const PortraitGenerator = () => {
         index={previewIndex ?? 0}
         onIndexChange={(i) => setPreviewIndex(i)}
         onDownload={(url, i) => downloadPortrait(url, i)}
-        downloading={confirmingDownload}
-        downloadHint="1 crédito será debitado ao baixar"
+        downloadHint="Salvo no histórico · Download gratuito"
         downloadLabel="Baixar"
       />
+
+      <AlertDialog open={confirmGenerateOpen} onOpenChange={setConfirmGenerateOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Gerar retrato — 1 crédito</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação consome <strong>1 crédito de retrato</strong> imediatamente após a geração, independentemente do download.
+              O retrato ficará salvo no seu histórico e poderá ser baixado quantas vezes quiser, sem custo adicional.
+              <br /><br />
+              Saldo atual: <strong>{totalCredits} crédito{totalCredits !== 1 ? "s" : ""}</strong>.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleGenerate}>Gerar agora</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   );
 };
