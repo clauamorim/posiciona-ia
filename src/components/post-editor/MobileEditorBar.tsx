@@ -103,13 +103,8 @@ const KIND_LABEL: Record<NonNullable<SelectedKind>, string> = {
 const MobileEditorBar: React.FC<MobileEditorBarProps> = (props) => {
   const [tab, setTab] = useState<Tab>(null);
 
-  // Auto-open Selection drawer on mobile when an element gets selected
-  useEffect(() => {
-    if (props.selectedKind && tab === null) {
-      setTab("selection");
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.selectedKind]);
+  // Note: drawer NEVER auto-opens — only when user explicitly taps a tab.
+  // This keeps the canvas fully visible while editing on mobile.
 
   const close = () => setTab(null);
 
