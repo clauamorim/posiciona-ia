@@ -332,17 +332,13 @@ const SelectionPanel: React.FC<SelectionPanelProps> = (props) => {
               </div>
             </>
           )}
-          <LayerControls id={selectedOverlay.id} onBringForward={props.onBringForward} onSendBackward={props.onSendBackward} />
-          {props.onDeleteOverlay && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full gap-2 h-8 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 hover:border-destructive/40"
-              onClick={() => props.onDeleteOverlay!(selectedOverlay.id)}
-            >
-              <Trash2 className="h-3.5 w-3.5" /> Excluir elemento
-            </Button>
-          )}
+          <LayerControls
+            id={selectedOverlay.id}
+            onBringForward={props.onBringForward}
+            onSendBackward={props.onSendBackward}
+            onDelete={props.onDeleteOverlay}
+          />
+
         </>
       )}
     </div>
