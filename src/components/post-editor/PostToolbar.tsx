@@ -95,6 +95,7 @@ interface PostToolbarProps {
   selectedLayerId?: string | null;
   onBringForward?: (id: string) => void;
   onSendBackward?: (id: string) => void;
+  onDeleteOverlay?: (id: string) => void;
 
   // Add element
   userPortraits?: string[];
@@ -195,6 +196,7 @@ const PostToolbar: React.FC<PostToolbarProps> = (props) => {
           selectedLayerId={props.selectedLayerId}
           onBringForward={props.onBringForward}
           onSendBackward={props.onSendBackward}
+          onDeleteOverlay={props.onDeleteOverlay}
         />
       </section>
 
