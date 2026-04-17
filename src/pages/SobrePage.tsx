@@ -231,18 +231,25 @@ const SobrePage = () => {
       </footer>
 
       {/* Floating WhatsApp */}
-      <a
-        href="https://wa.me/5562994400707"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="fixed bottom-20 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full shadow-lg transition-transform hover:scale-110 animate-pulse md:bottom-6"
-        style={{ backgroundColor: "#25D366" }}
-        aria-label="Fale conosco no WhatsApp"
-      >
-        <svg viewBox="0 0 32 32" className="h-7 w-7 fill-white">
-          <path d="M16.004 0h-.008C7.174 0 0 7.176 0 16.004c0 3.5 1.132 6.744 3.056 9.38L1.058 31.2l6.06-1.94A15.92 15.92 0 0016.004 32C24.826 32 32 24.826 32 16.004 32 7.176 24.826 0 16.004 0zm9.316 22.594c-.39 1.1-1.932 2.014-3.164 2.282-.844.18-1.946.324-5.66-1.216-4.752-1.97-7.81-6.79-8.046-7.104-.228-.314-1.87-2.49-1.87-4.748s1.184-3.37 1.604-3.832c.42-.462.918-.578 1.224-.578.306 0 .612.002.878.016.282.014.66-.108.934.712.306.876 1.044 3.022 1.134 3.242.092.22.154.478.032.77-.122.292-.184.474-.368.734-.184.26-.386.58-.552.778-.184.214-.376.446-.162.876.214.43.952 1.568 2.044 2.54 1.404 1.252 2.588 1.64 2.954 1.822.368.184.582.154.796-.092.214-.246.918-1.07 1.162-1.438.246-.368.49-.306.828-.184.336.122 2.138 1.008 2.504 1.192.368.184.612.276.702.43.092.154.092.878-.298 1.978z" />
-        </svg>
-      </a>
+      <div className="fixed z-50 group" style={{ right: 20, bottom: "calc(20px + env(safe-area-inset-bottom, 0px))" }}>
+        <span className="hidden md:block absolute -top-9 right-0 whitespace-nowrap rounded-lg bg-[#13102A] border border-landing-border px-3 py-1.5 text-xs text-landing-text-secondary opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none shadow-lg">
+          Fale no WhatsApp
+        </span>
+        <a
+          href="https://wa.me/5562994400707"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-center rounded-full shadow-[0_4px_20px_rgba(201,168,76,0.3)] transition-all duration-200 hover:shadow-[0_6px_24px_rgba(201,168,76,0.45)] active:scale-[0.97] h-14 w-14 md:h-[60px] md:w-[60px]"
+          style={{ backgroundColor: "#C9A84C" }}
+          aria-label="Fale conosco no WhatsApp"
+          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#E2C06A")}
+          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#C9A84C")}
+        >
+          <svg viewBox="0 0 32 32" className="h-7 w-7 md:h-8 md:w-8 fill-white">
+            <path d="M16.004 0h-.008C7.174 0 0 7.176 0 16.004c0 3.5 1.132 6.744 3.056 9.38L1.058 31.2l6.06-1.94A15.92 15.92 0 0016.004 32C24.826 32 32 24.826 32 16.004 32 7.176 24.826 0 16.004 0zm9.316 22.594c-.39 1.1-1.932 2.014-3.164 2.282-.844.18-1.946.324-5.66-1.216-4.752-1.97-7.81-6.79-8.046-7.104-.228-.314-1.87-2.49-1.87-4.748s1.184-3.37 1.604-3.832c.42-.462.918-.578 1.224-.578.306 0 .612.002.878.016.282.014.66-.108.934.712.306.876 1.044 3.022 1.134 3.242.092.22.154.478.032.77-.122.292-.184.474-.368.734-.184.26-.386.58-.552.778-.184.214-.376.446-.162.876.214.43.952 1.568 2.044 2.54 1.404 1.252 2.588 1.64 2.954 1.822.368.184.582.154.796-.092.214-.246.918-1.07 1.162-1.438.246-.368.49-.306.828-.184.336.122 2.138 1.008 2.504 1.192.368.184.612.276.702.43.092.154.092.878-.298 1.978z" />
+          </svg>
+        </a>
+      </div>
     </div>
   );
 };
