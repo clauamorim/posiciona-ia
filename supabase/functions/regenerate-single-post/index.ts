@@ -87,6 +87,20 @@ serve(async (req) => {
 
 IMPORTANTE: Responda APENAS com um JSON válido, sem markdown, sem backticks.
 
+REGRA DE LINGUAGEM (CRÍTICA):
+O StoryBrand é uma camada ESTRATÉGICA INTERNA. NUNCA escreva os rótulos do framework dentro de "theme", "caption", "card_copy", "cta" ou "script". Os campos visíveis devem soar como copy de marketing real, não como template.
+
+PROIBIDO escrever literalmente (em qualquer campo visível):
+"Problema Externo", "Problema Interno", "Problema Filosófico", "O Plano", "Chamada à Ação", "Chamada para Ação", "O Sucesso", "O Fracasso", "O Guia", "O Herói", "Sucesso vs Fracasso", "StoryBrand", "Framework", "Etapa do Framework".
+
+Não use prefixos como "Problema Externo: ...", "Plano: ...", "CTA: ...". Apenas escreva o conteúdo direto, em linguagem natural.
+
+Exemplos:
+- ERRADO: "Problema Externo: Desvendando o Emaranhado do Conflito"
+- CERTO:  "Desvendando o Emaranhado do Conflito"
+- ERRADO em cta: "Chamada à Ação: Agende sua sessão hoje"
+- CERTO em cta: "Agende sua sessão hoje"
+
 O JSON deve seguir EXATAMENTE esta estrutura:
 {
   "day": ${dayNumber || 1},
