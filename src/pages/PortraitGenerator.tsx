@@ -71,12 +71,12 @@ const PortraitGenerator = () => {
   const [portraits, setPortraits] = useState<string[]>(savedDraft.current?.portraits || []);
   const [portraitStyleIndex, setPortraitStyleIndex] = useState<number | null>(savedDraft.current?.portraitStyleIndex ?? null);
   const [generating, setGenerating] = useState(false);
-  const [confirmingDownload, setConfirmingDownload] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 1 });
   const [packDialogOpen, setPackDialogOpen] = useState(false);
   const [loadingPack, setLoadingPack] = useState<string | null>(null);
   const [selectedWardrobe, setSelectedWardrobe] = useState(savedDraft.current?.selectedWardrobe ?? 0);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
+  const [confirmGenerateOpen, setConfirmGenerateOpen] = useState(false);
 
   // Persist draft on changes
   useEffect(() => {
