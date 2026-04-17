@@ -81,20 +81,32 @@ const ChoosePlan = () => {
 
   const handleCheckout = async (slug: string) => {
     if (!user) return;
+
     setLoadingSlug(slug);
+    let checkoutWindow: Window | null = null;
+
     try {
+      checkoutWindow = window.open("", "_blank");
+      if (checkoutWindow) {
+        checkoutWindow.opener = null;
+      }
+
       const plan = plans.find(p => p.slug === slug);
       const body: any = { plan_slug: slug };
       if (plan?.billing === "recurring" && couponCode.trim()) {
         body.coupon_code = couponCode.trim();
       }
+
       const { data, error } = await supabase.functions.invoke("stripe-checkout", { body });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
+
       if (data?.url) {
-        const win = window.open(data.url, "_blank", "noopener,noreferrer");
-        if (!win) {
-          // Pop-up blocked — fallback to same-tab navigation
+        if (checkoutWindow) {
+          checkoutWindow.location.href = data.url;
+        } else if (window.self !== window.top) {
+          throw new Error("O navegador bloqueou a nova aba do checkout no preview. Libere pop-ups e tente novamente.");
+        } else {
           window.location.href = data.url;
         }
         setLoadingSlug(null);
@@ -102,6 +114,7 @@ const ChoosePlan = () => {
         throw new Error("URL de pagamento não retornada");
       }
     } catch (err: any) {
+      checkoutWindow?.close();
       toast({ title: "Erro ao iniciar pagamento", description: err.message, variant: "destructive" });
       setLoadingSlug(null);
     }
