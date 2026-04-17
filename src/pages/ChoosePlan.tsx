@@ -92,7 +92,12 @@ const ChoosePlan = () => {
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       if (data?.url) {
-        window.location.href = data.url;
+        const win = window.open(data.url, "_blank", "noopener,noreferrer");
+        if (!win) {
+          // Pop-up blocked — fallback to same-tab navigation
+          window.location.href = data.url;
+        }
+        setLoadingSlug(null);
       } else {
         throw new Error("URL de pagamento não retornada");
       }
