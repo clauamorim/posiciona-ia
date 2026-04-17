@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { MousePointer2, Type, Plus, Sliders, Download } from "lucide-react";
-import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
+import { Drawer as DrawerPrimitive } from "vaul";
+import { Drawer, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import DocumentPanel from "./inspector/DocumentPanel";
@@ -103,13 +104,8 @@ const KIND_LABEL: Record<NonNullable<SelectedKind>, string> = {
 const MobileEditorBar: React.FC<MobileEditorBarProps> = (props) => {
   const [tab, setTab] = useState<Tab>(null);
 
-  // Auto-open Selection drawer on mobile when an element gets selected
-  useEffect(() => {
-    if (props.selectedKind && tab === null) {
-      setTab("selection");
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.selectedKind]);
+  // Note: drawer NEVER auto-opens — only when user explicitly taps a tab.
+  // This keeps the canvas fully visible while editing on mobile.
 
   const close = () => setTab(null);
 
@@ -158,17 +154,21 @@ const MobileEditorBar: React.FC<MobileEditorBarProps> = (props) => {
         </div>
       </div>
 
-      {/* Contextual bottom sheet */}
-      <Drawer open={tab !== null} onOpenChange={(o) => !o && close()}>
-        <DrawerContent className="md:hidden">
-          <DrawerHeader className="text-left pb-2">
+      {/* Contextual bottom sheet — non-modal + capped height so canvas stays visible/interactive above */}
+      <Drawer open={tab !== null} onOpenChange={(o) => !o && close()} shouldScaleBackground={false} modal={false}>
+        <DrawerPrimitive.Portal>
+          <DrawerPrimitive.Content
+            className="md:hidden fixed inset-x-0 bottom-0 z-50 mt-24 flex h-auto flex-col rounded-t-xl border border-border bg-card max-h-[55vh] shadow-2xl"
+          >
+            <div className="mx-auto mt-3 h-1.5 w-[60px] rounded-full bg-border" />
+          <DrawerHeader className="text-left pb-2 pt-2">
             <DrawerTitle className="text-base">
               {tab === "selection" && `Editar: ${selectionLabel}`}
               {tab === "add" && "Adicionar elemento"}
               {tab === "document" && "Documento"}
             </DrawerTitle>
           </DrawerHeader>
-          <div className="px-4 pb-6 overflow-y-auto max-h-[70vh]">
+          <div className="px-4 pb-4 overflow-y-auto" style={{ maxHeight: "calc(55vh - 110px)" }}>
             {tab === "selection" && (
               <SelectionPanel
                 kind={props.selectedKind}
@@ -267,7 +267,8 @@ const MobileEditorBar: React.FC<MobileEditorBarProps> = (props) => {
               Fechar
             </Button>
           </div>
-        </DrawerContent>
+          </DrawerPrimitive.Content>
+        </DrawerPrimitive.Portal>
       </Drawer>
     </>
   );
