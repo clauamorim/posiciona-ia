@@ -194,7 +194,18 @@ const PortraitGenerator = () => {
     });
   };
 
+  const requestGenerate = () => {
+    if (selfies.length === 0) return;
+    if (totalCredits <= 0) {
+      toast({ title: "Sem créditos de retrato", description: "Compre um pacote de retratos para continuar.", variant: "destructive" });
+      setPackDialogOpen(true);
+      return;
+    }
+    setConfirmGenerateOpen(true);
+  };
+
   const handleGenerate = async () => {
+    setConfirmGenerateOpen(false);
     if (selfies.length === 0) return;
 
     if (totalCredits <= 0) {
@@ -223,13 +234,12 @@ const PortraitGenerator = () => {
         if (portrait) {
           setPortraits([portrait]);
           setPortraitStyleIndex(data.style_index ?? null);
-          toast({ title: "Retrato gerado! Baixe para salvar e debitar o crédito." });
+          await refreshSubscription();
+          toast({ title: "Retrato gerado!", description: "1 crédito debitado. O retrato já foi salvo no seu histórico." });
         } else {
           toast({ title: "Nenhum retrato foi gerado", variant: "destructive" });
         }
       }
-
-      // Do NOT refresh balances here — credits are only deducted on download
     } catch (err: any) {
       console.error("Generate error:", err);
       toast({ title: "Erro ao gerar retrato", description: err.message, variant: "destructive" });
@@ -239,26 +249,12 @@ const PortraitGenerator = () => {
     }
   };
 
-  const downloadPortrait = async (base64Url: string, index: number) => {
-    setConfirmingDownload(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("confirm-portrait", {
-        body: { portrait: base64Url, style_index: portraitStyleIndex },
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-
-      const link = document.createElement("a");
-      link.href = base64Url;
-      link.download = `retrato-marca-${index + 1}.png`;
-      link.click();
-
-      await refreshSubscription();
-      toast({ title: "Retrato salvo e crédito debitado!" });
-    } catch (err: any) {
-      toast({ title: "Erro ao confirmar retrato", description: err.message, variant: "destructive" });
-    }
-    setConfirmingDownload(false);
+  const downloadPortrait = (base64Url: string, index: number) => {
+    const link = document.createElement("a");
+    link.href = base64Url;
+    link.download = `retrato-marca-${index + 1}.png`;
+    link.click();
+    toast({ title: "Download iniciado" });
   };
 
   const downloadAll = async () => {
