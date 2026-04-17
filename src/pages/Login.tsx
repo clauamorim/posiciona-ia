@@ -17,34 +17,6 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [loginTriggered, setLoginTriggered] = useState(false);
-  const [debugInfo, setDebugInfo] = useState<string | null>(null);
-
-  const runConnectivityTest = async () => {
-    setDebugInfo("Testando conexão...");
-    const supabaseUrl = (import.meta as any).env?.VITE_SUPABASE_URL || "https://opmheegtmdjqwrfkdboq.supabase.co";
-    const lines: string[] = [];
-    lines.push(`URL: ${supabaseUrl}`);
-    lines.push(`Online: ${navigator.onLine}`);
-    lines.push(`UA: ${navigator.userAgent.slice(0, 80)}`);
-    try {
-      const t0 = Date.now();
-      const r = await fetch(`${supabaseUrl}/auth/v1/health`, { method: "GET" });
-      lines.push(`Health: HTTP ${r.status} em ${Date.now() - t0}ms`);
-    } catch (err: any) {
-      lines.push(`Health ERRO: ${err?.name || ""} ${err?.message || String(err)}`);
-    }
-    try {
-      const t0 = Date.now();
-      const r = await fetch(`${supabaseUrl}/auth/v1/settings`, {
-        method: "GET",
-        headers: { apikey: (import.meta as any).env?.VITE_SUPABASE_PUBLISHABLE_KEY || "" },
-      });
-      lines.push(`Settings: HTTP ${r.status} em ${Date.now() - t0}ms`);
-    } catch (err: any) {
-      lines.push(`Settings ERRO: ${err?.name || ""} ${err?.message || String(err)}`);
-    }
-    setDebugInfo(lines.join("\n"));
-  };
 
   useEffect(() => {
     if (!loginTriggered || authLoading) return;
@@ -121,11 +93,10 @@ const Login = () => {
       }
     } catch (err: any) {
       setLoading(false);
-      const detail = `${err?.name || "Error"}: ${err?.message || String(err)}`;
-      setDebugInfo(`Falha no signInWithPassword:\n${detail}`);
       toast({
         title: "Falha de conexão",
-        description: detail,
+        description:
+          "Não conseguimos conectar ao servidor. Tente alternar entre Wi-Fi e 4G/5G ou em outro navegador.",
         variant: "destructive",
       });
     }
@@ -168,22 +139,6 @@ const Login = () => {
             Não tem uma conta?{" "}
             <Link to="/signup" className="text-primary hover:underline font-medium">Criar conta</Link>
           </p>
-          <div className="mt-4 border-t border-border/50 pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="w-full"
-              onClick={runConnectivityTest}
-            >
-              Testar conexão (diagnóstico)
-            </Button>
-            {debugInfo && (
-              <pre className="mt-3 whitespace-pre-wrap break-all text-xs bg-muted/40 border border-border/50 rounded-md p-3 text-muted-foreground max-h-60 overflow-auto">
-                {debugInfo}
-              </pre>
-            )}
-          </div>
         </CardContent>
       </Card>
     </div>
