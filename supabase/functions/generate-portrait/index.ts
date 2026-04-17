@@ -200,7 +200,31 @@ No text, no watermarks, no overlays. Professional branding photo indistinguishab
       });
     }
 
-    // Do NOT deduct credits here — credits are deducted on download via confirm-portrait
+    // Deduct 1 credit on successful generation (included first, then extra)
+    if (included > 0) {
+      await supabaseAdmin.from("user_balances").update({
+        portrait_credits_included: included - 1,
+      }).eq("user_id", user.id);
+    } else {
+      await supabaseAdmin.from("user_balances").update({
+        portrait_credits_extra: extra - 1,
+      }).eq("user_id", user.id);
+    }
+
+    // Log credit usage
+    await supabaseAdmin.from("credit_logs").insert({
+      user_id: user.id,
+      credit_type: "portrait",
+      amount: -1,
+      description: `Retrato gerado (estilo ${styleIndex + 1})`,
+    });
+
+    // Save to portrait history immediately
+    await supabaseAdmin.from("portrait_generations").insert({
+      user_id: user.id,
+      portraits: [generatedImage],
+      style_index: styleIndex,
+    });
 
     return new Response(JSON.stringify({ portrait: generatedImage, style_index: styleIndex }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

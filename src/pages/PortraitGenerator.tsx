@@ -19,6 +19,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const MAX_FILES = 5;
 const MAX_SIZE_MB = 5;
@@ -61,12 +71,12 @@ const PortraitGenerator = () => {
   const [portraits, setPortraits] = useState<string[]>(savedDraft.current?.portraits || []);
   const [portraitStyleIndex, setPortraitStyleIndex] = useState<number | null>(savedDraft.current?.portraitStyleIndex ?? null);
   const [generating, setGenerating] = useState(false);
-  const [confirmingDownload, setConfirmingDownload] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 1 });
   const [packDialogOpen, setPackDialogOpen] = useState(false);
   const [loadingPack, setLoadingPack] = useState<string | null>(null);
   const [selectedWardrobe, setSelectedWardrobe] = useState(savedDraft.current?.selectedWardrobe ?? 0);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
+  const [confirmGenerateOpen, setConfirmGenerateOpen] = useState(false);
 
   // Persist draft on changes
   useEffect(() => {
@@ -184,7 +194,18 @@ const PortraitGenerator = () => {
     });
   };
 
+  const requestGenerate = () => {
+    if (selfies.length === 0) return;
+    if (totalCredits <= 0) {
+      toast({ title: "Sem créditos de retrato", description: "Compre um pacote de retratos para continuar.", variant: "destructive" });
+      setPackDialogOpen(true);
+      return;
+    }
+    setConfirmGenerateOpen(true);
+  };
+
   const handleGenerate = async () => {
+    setConfirmGenerateOpen(false);
     if (selfies.length === 0) return;
 
     if (totalCredits <= 0) {
@@ -213,13 +234,12 @@ const PortraitGenerator = () => {
         if (portrait) {
           setPortraits([portrait]);
           setPortraitStyleIndex(data.style_index ?? null);
-          toast({ title: "Retrato gerado! Baixe para salvar e debitar o crédito." });
+          await refreshSubscription();
+          toast({ title: "Retrato gerado!", description: "1 crédito debitado. O retrato já foi salvo no seu histórico." });
         } else {
           toast({ title: "Nenhum retrato foi gerado", variant: "destructive" });
         }
       }
-
-      // Do NOT refresh balances here — credits are only deducted on download
     } catch (err: any) {
       console.error("Generate error:", err);
       toast({ title: "Erro ao gerar retrato", description: err.message, variant: "destructive" });
@@ -229,26 +249,12 @@ const PortraitGenerator = () => {
     }
   };
 
-  const downloadPortrait = async (base64Url: string, index: number) => {
-    setConfirmingDownload(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("confirm-portrait", {
-        body: { portrait: base64Url, style_index: portraitStyleIndex },
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-
-      const link = document.createElement("a");
-      link.href = base64Url;
-      link.download = `retrato-marca-${index + 1}.png`;
-      link.click();
-
-      await refreshSubscription();
-      toast({ title: "Retrato salvo e crédito debitado!" });
-    } catch (err: any) {
-      toast({ title: "Erro ao confirmar retrato", description: err.message, variant: "destructive" });
-    }
-    setConfirmingDownload(false);
+  const downloadPortrait = (base64Url: string, index: number) => {
+    const link = document.createElement("a");
+    link.href = base64Url;
+    link.download = `retrato-marca-${index + 1}.png`;
+    link.click();
+    toast({ title: "Download iniciado" });
   };
 
   const downloadAll = async () => {
@@ -463,7 +469,7 @@ const PortraitGenerator = () => {
                 )}
 
                 <Button
-                  onClick={handleGenerate}
+                  onClick={requestGenerate}
                   disabled={selfies.length === 0 || generating || totalCredits <= 0}
                   className="w-full"
                   size="lg"
@@ -542,12 +548,11 @@ const PortraitGenerator = () => {
                           size="sm"
                           className="w-full"
                           onClick={() => downloadPortrait(portrait, i)}
-                          disabled={confirmingDownload}
                         >
-                          {confirmingDownload ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Download className="h-4 w-4 mr-1" />}
-                          {confirmingDownload ? "Salvando..." : `Baixar Retrato ${i + 1}`}
+                          <Download className="h-4 w-4 mr-1" />
+                          Baixar Retrato {i + 1}
                         </Button>
-                        <p className="text-[10px] text-muted-foreground text-center">1 crédito será debitado ao baixar</p>
+                        <p className="text-[10px] text-muted-foreground text-center">Salvo no histórico · Download gratuito</p>
                       </div>
                     ))}
                   </div>
@@ -565,10 +570,27 @@ const PortraitGenerator = () => {
         index={previewIndex ?? 0}
         onIndexChange={(i) => setPreviewIndex(i)}
         onDownload={(url, i) => downloadPortrait(url, i)}
-        downloading={confirmingDownload}
-        downloadHint="1 crédito será debitado ao baixar"
+        downloadHint="Salvo no histórico · Download gratuito"
         downloadLabel="Baixar"
       />
+
+      <AlertDialog open={confirmGenerateOpen} onOpenChange={setConfirmGenerateOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Gerar retrato — 1 crédito</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação consome <strong>1 crédito de retrato</strong> imediatamente após a geração, independentemente do download.
+              O retrato ficará salvo no seu histórico e poderá ser baixado quantas vezes quiser, sem custo adicional.
+              <br /><br />
+              Saldo atual: <strong>{totalCredits} crédito{totalCredits !== 1 ? "s" : ""}</strong>.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleGenerate}>Gerar agora</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   );
 };
