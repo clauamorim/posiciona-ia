@@ -1,56 +1,50 @@
 
 
-## Plano: Modal de pré-visualização para retratos gerados
+## Plano: remover rótulos StoryBrand do conteúdo visível
 
 ### Causa
-Atualmente os retratos são exibidos apenas como thumbnails pequenos no `aspect-square` dos cards (PortraitGenerator e Histórico → Retratos), com botão de download abaixo. Não há como inspecionar o retrato em tamanho grande antes de baixar.
+Os prompts de `generate-content-week` e `regenerate-single-post` instruem o Gemini a usar StoryBrand como base, mas não proíbem que rótulos do framework (ex.: "Problema Externo:", "O Plano:", "Chamada à Ação:") apareçam dentro de `theme`, `caption`, `card_copy`, `cta` e `script`. Resultado: posts saem com cara de template ("Problema Externo: Desvendando o Emaranhado…").
 
 ### Solução
-Criar um componente reutilizável `PortraitPreviewDialog` (modal/lightbox) que:
-- Abre ao clicar em qualquer thumbnail de retrato.
-- Mostra a imagem em tamanho grande, centralizada, com fundo escuro semi-transparente.
-- Oferece ações no rodapé do modal: **Baixar** e **Fechar**.
-- Suporta navegação entre múltiplos retratos quando aplicável (setas ‹ ›, teclas ←/→, contador "1 de N").
-- Visual premium: bordas suaves, sem distração, imagem com `object-contain` e altura máxima ~80vh.
+Reforçar o system prompt das duas edge functions com uma seção explícita de "REGRA DE LINGUAGEM" proibindo qualquer rótulo do framework no output visível, mantendo o StoryBrand apenas como camada estratégica interna. Também acrescentar exemplo curto do que NÃO fazer e do que fazer.
 
-Não incluir "Usar no editor" agora — não há fluxo existente de portrait→editor (seria nova feature). Anotar como próximo passo sugerido.
+Sem mudanças em UI, schema, créditos ou Stripe. O painel da Linha Editorial continua mostrando o conteúdo cru retornado pela IA — o ganho vem do prompt produzir copy limpa.
 
----
+### Mudança nos prompts (ambas as functions)
 
-### Componente novo
+Adicionar bloco no `systemPrompt`:
 
-**`src/components/PortraitPreviewDialog.tsx`** (novo)
-- Props: `open`, `onOpenChange`, `portraits: string[]`, `initialIndex`, `onDownload?: (url: string, index: number) => void`, `downloading?: boolean`, `downloadHint?: string` (ex: "1 crédito será debitado").
-- Usa `Dialog` do shadcn com `DialogContent` em `max-w-4xl` e fundo `bg-card`.
-- Imagem em `<img className="max-h-[75vh] w-auto mx-auto object-contain rounded-lg" />`.
-- Setas laterais quando `portraits.length > 1` (ChevronLeft / ChevronRight).
-- Listener de teclado (←, →, Esc) via `useEffect`.
-- Rodapé: contador centralizado + botão "Baixar" à direita (ícone Download).
+```
+REGRA DE LINGUAGEM (CRÍTICA):
+O StoryBrand é uma camada ESTRATÉGICA INTERNA. NUNCA escreva os rótulos do framework dentro de "theme", "caption", "card_copy", "cta" ou "script". Os campos visíveis devem soar como copy de marketing real, não como template.
 
-### Integrações
+PROIBIDO escrever literalmente (em qualquer campo visível):
+"Problema Externo", "Problema Interno", "Problema Filosófico", "O Plano", "Chamada à Ação", "Chamada para Ação", "O Sucesso", "O Fracasso", "O Guia", "O Herói", "Sucesso vs Fracasso", "StoryBrand", "Framework", "Etapa do Framework".
 
-**`src/pages/PortraitGenerator.tsx`**
-- Adicionar state `previewIndex: number | null`.
-- Tornar a imagem do thumbnail clicável (`cursor-zoom-in`, `onClick={() => setPreviewIndex(i)}`).
-- Adicionar overlay sutil com ícone de "Expandir" no hover.
-- Renderizar `<PortraitPreviewDialog>` no fim, ligando `onDownload` ao `downloadPortrait` existente (mantém débito de crédito).
-- Manter botão "Baixar" abaixo do card (não remover — apenas tornar a preview o caminho natural).
+Não use prefixos como "Problema Externo: ...", "Plano: ...", "CTA: ...". Apenas escreva o conteúdo direto, em linguagem natural.
 
-**`src/pages/HistoryPage.tsx`** (aba Retratos)
-- Achatar a lista de portraits em `flatPortraits: { url, createdAt, key }[]` para permitir navegação linear no preview.
-- Tornar thumbnail clicável → abre preview no índice correto.
-- Manter botão de download existente no hover.
-- `onDownload` no preview chama o `downloadPortrait` local (sem cobrança — já foi pago na geração).
+Exemplos:
+- ERRADO: "Problema Externo: Desvendando o Emaranhado do Conflito"
+- CERTO:  "Desvendando o Emaranhado do Conflito"
+- ERRADO em cta: "Chamada à Ação: Agende sua sessão hoje"
+- CERTO em cta: "Agende sua sessão hoje"
+```
 
----
+E no `generate-content-week`, ajustar a seção "ESTRATÉGIA DE CONTEÚDO" para deixar claro que o foco do dia é orientação interna:
+
+```
+Cada dia explora INTERNAMENTE uma faceta do StoryBrand (não cite a faceta no texto visível):
+- Dia 1: foco interno = HERÓI
+- Dia 2: foco interno = PROBLEMA EXTERNO
+... etc.
+```
 
 ### Arquivos
 
 | Arquivo | Mudança |
 |---------|---------|
-| `src/components/PortraitPreviewDialog.tsx` | Novo componente lightbox reutilizável |
-| `src/pages/PortraitGenerator.tsx` | Thumbnail clicável + integrar preview; passa `downloadPortrait` |
-| `src/pages/HistoryPage.tsx` | Thumbnail clicável + integrar preview na aba Retratos |
+| `supabase/functions/generate-content-week/index.ts` | Adicionar bloco "REGRA DE LINGUAGEM" no systemPrompt; reescrever a lista de dias para deixar a faceta como orientação interna |
+| `supabase/functions/regenerate-single-post/index.ts` | Adicionar o mesmo bloco "REGRA DE LINGUAGEM" no systemPrompt |
 
-Sem mudanças de schema, edge functions, créditos ou Stripe. A lógica de débito de crédito permanece em `downloadPortrait` (PortraitGenerator), apenas reaproveitada pelo botão dentro do modal.
+Conteúdos já gerados antes da mudança permanecem como estão. Para limpá-los, o usuário pode usar o botão "Ajustar conteúdo" (regeneração de post individual) — agora ele virá sem os rótulos.
 
