@@ -118,16 +118,41 @@ const FontSelect: React.FC<{
   );
 };
 
-const LayerControls: React.FC<{ id: string; onBringForward?: (id: string) => void; onSendBackward?: (id: string) => void }> = ({ id, onBringForward, onSendBackward }) => {
-  if (!onBringForward && !onSendBackward) return null;
+const LayerControls: React.FC<{
+  id: string;
+  onBringForward?: (id: string) => void;
+  onSendBackward?: (id: string) => void;
+  onDelete?: (id: string) => void;
+}> = ({ id, onBringForward, onSendBackward, onDelete }) => {
+  if (!onBringForward && !onSendBackward && !onDelete) return null;
   return (
     <div className="flex gap-1.5">
-      <Button variant="outline" size="sm" className="flex-1 gap-1 text-[11px] h-7" onClick={() => onBringForward?.(id)}>
-        <ArrowUp className="h-3 w-3" /> Frente
-      </Button>
-      <Button variant="outline" size="sm" className="flex-1 gap-1 text-[11px] h-7" onClick={() => onSendBackward?.(id)}>
-        <ArrowDown className="h-3 w-3" /> Trás
-      </Button>
+      {onBringForward && (
+        <Button variant="outline" size="sm" className="flex-1 gap-1 text-[11px] h-7" onClick={() => onBringForward(id)}>
+          <ArrowUp className="h-3 w-3" /> Frente
+        </Button>
+      )}
+      {onSendBackward && (
+        <Button variant="outline" size="sm" className="flex-1 gap-1 text-[11px] h-7" onClick={() => onSendBackward(id)}>
+          <ArrowDown className="h-3 w-3" /> Trás
+        </Button>
+      )}
+      {onDelete && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-7 w-7 shrink-0 text-destructive hover:text-destructive hover:bg-destructive/10 hover:border-destructive/40"
+              onClick={() => onDelete(id)}
+              aria-label="Excluir elemento"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Excluir elemento</TooltipContent>
+        </Tooltip>
+      )}
     </div>
   );
 };
