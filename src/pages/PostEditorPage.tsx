@@ -801,53 +801,65 @@ const PostEditorPage = () => {
             else if (selectedTextId === "text-body") selectedKind = "body";
             else if (selectedTextId === "cta") selectedKind = "cta";
             else if (selectedTextId === "slideNumber") selectedKind = "slideNumber";
+            const sharedToolbarProps = {
+              palette: palette.map((c: any) => ({ hex: c.hex, name: c.name })),
+              selectedBgIndex: bgIndex,
+              bgHex: bgColor,
+              onBgChange: (i: number) => { setCustomBgColor(null); setBgIndex(i); },
+              onCustomBgColorChange: setCustomBgColor,
+              onDownload: () => handleDownloadSlide(isCarousel ? currentSlide : 0),
+              onReset: handleReset,
+              onAddImage: handleAddImage,
+              recommendedFonts: { display: typography.display, body: typography.body },
+              selectedKind,
+              fontSize, onFontSizeChange: setFontSize,
+              fontWeight, onFontWeightChange: setFontWeight,
+              fontStyle, onFontStyleChange: setFontStyle,
+              bodyFont, onBodyFontChange: (f: string) => { loadGoogleFont(f); setBodyFont(f); },
+              displayFont,
+              textAlign: textAlign as any, onTextAlignChange: setTextAlign as any,
+              textColor, onTextColorChange: setCustomTextColor,
+              onImageOpacityChange: handleImageOpacityChange,
+              onUpdateOverlaySrc: handleUpdateOverlay,
+              useGradient, onUseGradientChange: setUseGradient,
+              gradientColor2Index,
+              onGradientColor2Change: (i: number) => { setCustomGradientColor2(null); setGradientColor2Index(i); },
+              customGradientColor2, onCustomGradientColor2Change: setCustomGradientColor2,
+              gradientDirection, onGradientDirectionChange: setGradientDirection,
+              titleFontSize, onTitleFontSizeChange: setTitleFontSize,
+              titleColor, onTitleColorChange: setTitleColor,
+              titleFontFamily, onTitleFontFamilyChange: setTitleFontFamily,
+              titleTextAlign, onTitleTextAlignChange: setTitleTextAlign,
+              ctaText, onCtaTextChange: setCtaText,
+              ctaBgColor, onCtaBgColorChange: setCtaBgColor,
+              ctaTextColor, onCtaTextColorChange: setCtaTextColor,
+              ctaFontSize, onCtaFontSizeChange: setCtaFontSize,
+              userPortraits,
+              canvasFormat: canvasFormat as any, onCanvasFormatChange: setCanvasFormat as any,
+              onRemoveBackground: (id: string) => handleRemoveBackground(id),
+              removingBackground,
+              selectedOverlay,
+              selectedLayerId: selectedImageId,
+              onBringForward: handleBringForward, onSendBackward: handleSendBackward,
+              showSlideNumber, onShowSlideNumberChange: setShowSlideNumber,
+              slideNumberBgColor, onSlideNumberBgColorChange: setSlideNumberBgColor,
+              slideNumberTextColor, onSlideNumberTextColorChange: setSlideNumberTextColor,
+              slideNumberSize, onSlideNumberSizeChange: setSlideNumberSize,
+              isCarousel,
+              onRecolorElement: handleRecolorElement,
+            };
+
             return (
-              <PostToolbar
-                palette={palette.map((c: any) => ({ hex: c.hex, name: c.name }))}
-                selectedBgIndex={bgIndex}
-                bgHex={bgColor}
-                onBgChange={(i) => { setCustomBgColor(null); setBgIndex(i); }}
-                onCustomBgColorChange={setCustomBgColor}
-                onDownload={() => handleDownloadSlide(isCarousel ? currentSlide : 0)}
-                onReset={handleReset} onAddImage={handleAddImage}
-                recommendedFonts={{ display: typography.display, body: typography.body }}
-                selectedKind={selectedKind}
-                fontSize={fontSize} onFontSizeChange={setFontSize}
-                fontWeight={fontWeight} onFontWeightChange={setFontWeight}
-                fontStyle={fontStyle} onFontStyleChange={setFontStyle}
-                bodyFont={bodyFont} onBodyFontChange={(f) => { loadGoogleFont(f); setBodyFont(f); }}
-                displayFont={displayFont}
-                textAlign={textAlign as any} onTextAlignChange={setTextAlign as any}
-                textColor={textColor} onTextColorChange={setCustomTextColor}
-                onImageOpacityChange={handleImageOpacityChange}
-                onUpdateOverlaySrc={handleUpdateOverlay}
-                useGradient={useGradient} onUseGradientChange={setUseGradient}
-                gradientColor2Index={gradientColor2Index} onGradientColor2Change={(i) => { setCustomGradientColor2(null); setGradientColor2Index(i); }}
-                customGradientColor2={customGradientColor2} onCustomGradientColor2Change={setCustomGradientColor2}
-                gradientDirection={gradientDirection} onGradientDirectionChange={setGradientDirection}
-                titleFontSize={titleFontSize} onTitleFontSizeChange={setTitleFontSize}
-                titleColor={titleColor} onTitleColorChange={setTitleColor}
-                titleFontFamily={titleFontFamily} onTitleFontFamilyChange={setTitleFontFamily}
-                titleTextAlign={titleTextAlign} onTitleTextAlignChange={setTitleTextAlign}
-                ctaText={ctaText} onCtaTextChange={setCtaText}
-                ctaBgColor={ctaBgColor} onCtaBgColorChange={setCtaBgColor}
-                ctaTextColor={ctaTextColor} onCtaTextColorChange={setCtaTextColor}
-                ctaFontSize={ctaFontSize} onCtaFontSizeChange={setCtaFontSize}
-                userPortraits={userPortraits}
-                canvasFormat={canvasFormat as any} onCanvasFormatChange={setCanvasFormat as any}
-                onRemoveBackground={(id) => handleRemoveBackground(id)} removingBackground={removingBackground}
-                selectedOverlay={selectedOverlay}
-                selectedLayerId={selectedImageId}
-                onBringForward={handleBringForward} onSendBackward={handleSendBackward}
-                showSlideNumber={showSlideNumber} onShowSlideNumberChange={setShowSlideNumber}
-                slideNumberBgColor={slideNumberBgColor} onSlideNumberBgColorChange={setSlideNumberBgColor}
-                slideNumberTextColor={slideNumberTextColor} onSlideNumberTextColorChange={setSlideNumberTextColor}
-                slideNumberSize={slideNumberSize} onSlideNumberSizeChange={setSlideNumberSize}
-                isCarousel={isCarousel}
-                onRecolorElement={handleRecolorElement}
-                onSaveDesign={handleSaveDesign}
-                saving={savingDesign}
-              />
+              <>
+                <div className="hidden md:block">
+                  <PostToolbar
+                    {...sharedToolbarProps}
+                    onSaveDesign={handleSaveDesign}
+                    saving={savingDesign}
+                  />
+                </div>
+                {isMobile && <MobileEditorBar {...sharedToolbarProps} />}
+              </>
             );
           })()}
         </div>
