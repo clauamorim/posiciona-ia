@@ -1,5 +1,5 @@
 import React from "react";
-import { Bold, Italic, AlignLeft, AlignCenter, AlignRight, AlignJustify, ArrowUp, ArrowDown, Paintbrush, MousePointerClick } from "lucide-react";
+import { Bold, Italic, AlignLeft, AlignCenter, AlignRight, AlignJustify, ArrowUp, ArrowDown, Paintbrush, MousePointerClick, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -81,6 +81,9 @@ interface SelectionPanelProps {
   selectedLayerId?: string | null;
   onBringForward?: (id: string) => void;
   onSendBackward?: (id: string) => void;
+
+  // Delete (overlays only: image / icon / textbox)
+  onDeleteOverlay?: (id: string) => void;
 }
 
 function loadGoogleFont(fontName: string) {
@@ -305,6 +308,16 @@ const SelectionPanel: React.FC<SelectionPanelProps> = (props) => {
             </>
           )}
           <LayerControls id={selectedOverlay.id} onBringForward={props.onBringForward} onSendBackward={props.onSendBackward} />
+          {props.onDeleteOverlay && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full gap-2 h-8 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 hover:border-destructive/40"
+              onClick={() => props.onDeleteOverlay!(selectedOverlay.id)}
+            >
+              <Trash2 className="h-3.5 w-3.5" /> Excluir elemento
+            </Button>
+          )}
         </>
       )}
     </div>
