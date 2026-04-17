@@ -81,6 +81,7 @@ export interface MobileEditorBarProps {
   selectedLayerId?: string | null;
   onBringForward?: (id: string) => void;
   onSendBackward?: (id: string) => void;
+  onDeleteOverlay?: (id: string) => void;
 
   // Add
   userPortraits?: string[];
@@ -218,6 +219,7 @@ const MobileEditorBar: React.FC<MobileEditorBarProps> = (props) => {
                 selectedLayerId={props.selectedLayerId}
                 onBringForward={props.onBringForward}
                 onSendBackward={props.onSendBackward}
+                onDeleteOverlay={(id) => { props.onDeleteOverlay?.(id); close(); }}
               />
             )}
             {tab === "add" && (
