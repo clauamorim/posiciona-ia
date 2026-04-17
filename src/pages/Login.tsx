@@ -28,12 +28,31 @@ const Login = () => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
-    if (error) {
-      toast({ title: "Erro ao entrar", description: error.message, variant: "destructive" });
-    } else {
-      setLoginTriggered(true);
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      setLoading(false);
+      if (error) {
+        const raw = (error.message || "").toLowerCase();
+        let description = error.message;
+        if (raw.includes("invalid login") || raw.includes("invalid_credentials")) {
+          description = "E-mail ou senha incorretos. Verifique e tente novamente.";
+        } else if (raw.includes("email not confirmed")) {
+          description = "Você ainda não confirmou seu e-mail. Verifique sua caixa de entrada.";
+        } else if (raw.includes("load failed") || raw.includes("failed to fetch") || raw.includes("network")) {
+          description = "Não foi possível conectar ao servidor. Verifique sua internet e tente novamente. No Safari, desative 'Evitar rastreamento entre sites' em Ajustes > Safari.";
+        }
+        toast({ title: "Erro ao entrar", description, variant: "destructive" });
+      } else {
+        setLoginTriggered(true);
+      }
+    } catch (err) {
+      setLoading(false);
+      toast({
+        title: "Falha de conexão",
+        description:
+          "Não foi possível conectar ao servidor. Verifique sua internet e tente novamente. No Safari, desative 'Evitar rastreamento entre sites' em Ajustes > Safari.",
+        variant: "destructive",
+      });
     }
   };
 
