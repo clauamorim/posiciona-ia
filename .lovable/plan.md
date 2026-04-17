@@ -1,27 +1,34 @@
 
+## Análise
+
+Olhando o `DashboardLayout.tsx` (linhas 220-228): o header mobile JÁ é sticky (`sticky top-0 z-30`). Então o problema real não é falta de sticky — é que talvez ele esteja sendo coberto, ou que falta o botão "voltar ao topo". Vou confirmar com a EditorialPage.
+
+Pontos a verificar:
+- O header mobile sticky já existe e funciona — confirmar que não há `overflow` em algum container pai que quebre o `position: sticky`
+- A `EditorialPage` é a mais longa — verificar se tem wrappers que impedem o sticky
+
 ## Plano
 
-**Contexto:** Usuário está em produção, com Price IDs `live` restaurados, mas `STRIPE_SECRET_KEY` ainda é `sk_test_...` — por isso o checkout falha. Precisa atualizar o secret para a versão `sk_live_...`.
+**1. Confirmar/reforçar o header sticky mobile no `DashboardLayout`**
+   - O header já é sticky, mas vou garantir que o container pai (`main`) não tenha `overflow-x-hidden` quebrando o sticky scroll vertical no mobile. Solução: trocar para `overflow-x-clip` (mantém clip horizontal sem afetar sticky).
+   - Aumentar levemente o backdrop blur para sensação premium quando rola conteúdo embaixo.
 
-**Bloqueio atual:** A chave secreta live não está visível no dashboard porque o Stripe só mostra uma vez na criação. Usuário precisa criar uma nova ou revelar a existente.
+**2. Criar componente `BackToTopButton`** (`src/components/BackToTopButton.tsx`)
+   - Visível só em mobile (`lg:hidden`)
+   - Aparece após scroll > 600px (com fade-in suave via `transition-opacity`)
+   - Position: `fixed bottom-6 right-4 z-40`, respeitando `env(safe-area-inset-bottom)`
+   - Visual: botão circular 44x44px (toque acessível), `bg-card/90 backdrop-blur border border-border`, ícone `ChevronUp` em `text-muted-foreground`
+   - Ação: `window.scrollTo({ top: 0, behavior: 'smooth' })`
+   - Discreto, sem texto, integrado ao tema dark premium
 
-**Passos:**
+**3. Integrar globalmente**
+   - Adicionar `<BackToTopButton />` dentro do `<main>` no `DashboardLayout`, antes do conteúdo final
+   - Assim TODAS as páginas autenticadas (incluindo Linha Editorial, Relatório, Histórico, etc.) ganham o botão automaticamente, sem precisar editar página por página
 
-1. **Usuário obtém a chave `sk_live_...` no Stripe Dashboard:**
-   - Modo Live ativado (toggle "Test mode" desligado)
-   - Developers → API keys → "Create secret key" (ou revelar a existente se possível)
-   - Copiar imediatamente o valor `sk_live_...`
+**Não faz sentido:** bottom action bar fixo (já temos sidebar acessível via hamburger no header sticky — adicionar barra inferior duplicaria navegação e poluiria).
 
-2. **Atualizar o secret no Lovable Cloud:**
-   - Usar a ferramenta `stripe--update_stripe_secret_key` para abrir um modal seguro
-   - Usuário cola a chave `sk_live_...` no modal
-   - O secret `STRIPE_SECRET_KEY` é atualizado automaticamente nas Edge Functions
+## Arquivos afetados
+- `src/components/DashboardLayout.tsx` — ajuste sutil no header mobile + integração do botão
+- `src/components/BackToTopButton.tsx` — novo componente
 
-3. **Validar com compra real de teste:**
-   - Tentar comprar um pacote de retratos ou plano
-   - Verificar logs da edge function `extras-checkout` ou `stripe-checkout` para confirmar sucesso
-
-4. **(Opcional) Adicionar validação defensiva:**
-   - Edge functions podem detectar mismatch (chave `sk_test_` com Price `live`) e retornar erro claro em português, em vez do erro genérico do Stripe
-
-**Sem mudanças de código necessárias** — só atualização do secret. Passo 4 é opcional e pode ficar para depois.
+Solução leve (~40 linhas de código novo), zero dependências, aplicada uma vez e funciona em todas as páginas longas.
