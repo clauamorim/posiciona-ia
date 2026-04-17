@@ -153,6 +153,7 @@ const PostEditorPage = () => {
   const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
 
   const weekIndex = parseInt(searchParams.get("week") || "0", 10);
   const dayIndex = parseInt(searchParams.get("day") || "0", 10);
