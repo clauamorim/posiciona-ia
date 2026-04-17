@@ -9,6 +9,7 @@ import posicionaLogo from "@/assets/posiciona-logo.png";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
+import { BackToTopButton } from "@/components/BackToTopButton";
 
 interface NavItem {
   label: string;
@@ -238,9 +239,9 @@ export const DashboardLayout = ({ children }: { children: React.ReactNode }) => 
       )}
 
       {/* Main */}
-      <main className="flex-1 min-h-screen flex flex-col w-full max-w-full overflow-x-hidden">
+      <main className="flex-1 min-h-screen flex flex-col w-full max-w-full [overflow-x:clip]">
         {/* Mobile header */}
-        <header className="sticky top-0 z-30 bg-background/95 backdrop-blur-sm border-b border-border h-12 flex items-center px-4 lg:hidden">
+        <header className="sticky top-0 z-30 bg-background/85 backdrop-blur-md border-b border-border h-12 flex items-center px-4 lg:hidden">
           <button onClick={() => setMobileOpen(true)} className="p-2 -ml-2 min-h-[44px] min-w-[44px] flex items-center justify-center">
             <Menu className="h-5 w-5 text-muted-foreground" />
           </button>
@@ -252,6 +253,7 @@ export const DashboardLayout = ({ children }: { children: React.ReactNode }) => 
         <div className="flex-1 px-4 py-5 lg:px-8 lg:py-8 max-w-4xl mx-auto w-full pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
           {children}
         </div>
+        <BackToTopButton />
       </main>
     </div>
   );
