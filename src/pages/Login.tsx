@@ -25,32 +25,78 @@ const Login = () => {
     }
   }, [loginTriggered, authLoading, user, navigate]);
 
+  const attemptLogin = async (cleanEmail: string, cleanPassword: string, retries = 2): Promise<{ error: any }> => {
+    let lastError: any = null;
+    for (let i = 0; i <= retries; i++) {
+      try {
+        const result = await supabase.auth.signInWithPassword({ email: cleanEmail, password: cleanPassword });
+        return result;
+      } catch (err) {
+        lastError = err;
+        // Wait briefly before retry (network may be momentarily unstable)
+        if (i < retries) await new Promise(r => setTimeout(r, 800));
+      }
+    }
+    return { error: lastError ?? new Error("Falha de conexão após múltiplas tentativas") };
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+
+    // Sanitize inputs (mobile keyboards often add trailing spaces or invisible chars)
+    const cleanEmail = email.trim().toLowerCase().replace(/\s+/g, "");
+    const cleanPassword = password.trim();
+
+    if (!cleanEmail || !cleanPassword) {
+      setLoading(false);
+      toast({
+        title: "Dados incompletos",
+        description: "Preencha e-mail e senha para continuar.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!navigator.onLine) {
+      setLoading(false);
+      toast({
+        title: "Sem conexão",
+        description: "Você parece estar offline. Conecte-se à internet e tente novamente.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { error } = await attemptLogin(cleanEmail, cleanPassword);
       setLoading(false);
       if (error) {
         const raw = (error.message || "").toLowerCase();
-        let description = error.message;
+        let description = error.message || "Erro desconhecido.";
         if (raw.includes("invalid login") || raw.includes("invalid_credentials")) {
           description = "E-mail ou senha incorretos. Verifique e tente novamente.";
         } else if (raw.includes("email not confirmed")) {
           description = "Você ainda não confirmou seu e-mail. Verifique sua caixa de entrada.";
-        } else if (raw.includes("load failed") || raw.includes("failed to fetch") || raw.includes("network")) {
-          description = "Não foi possível conectar ao servidor. Verifique sua internet e tente novamente. No Safari, desative 'Evitar rastreamento entre sites' em Ajustes > Safari.";
+        } else if (
+          raw.includes("load failed") ||
+          raw.includes("failed to fetch") ||
+          raw.includes("network") ||
+          raw.includes("fetch")
+        ) {
+          description =
+            "Não conseguimos conectar ao servidor. Tente alternar entre Wi-Fi e 4G/5G. Algumas redes corporativas ou de operadoras bloqueiam o acesso. Se persistir, tente em outro navegador ou rede.";
         }
         toast({ title: "Erro ao entrar", description, variant: "destructive" });
       } else {
         setLoginTriggered(true);
       }
-    } catch (err) {
+    } catch (err: any) {
       setLoading(false);
       toast({
         title: "Falha de conexão",
         description:
-          "Não foi possível conectar ao servidor. Verifique sua internet e tente novamente. No Safari, desative 'Evitar rastreamento entre sites' em Ajustes > Safari.",
+          "Não conseguimos conectar ao servidor. Tente alternar entre Wi-Fi e 4G/5G. Algumas redes (Wi-Fi corporativo, VPN, ou filtros de operadora) podem bloquear o acesso.",
         variant: "destructive",
       });
     }
