@@ -156,7 +156,11 @@ const MobileEditorBar: React.FC<MobileEditorBarProps> = (props) => {
 
       {/* Contextual bottom sheet — non-modal + capped height so canvas stays visible/interactive above */}
       <Drawer open={tab !== null} onOpenChange={(o) => !o && close()} shouldScaleBackground={false} modal={false}>
-        <DrawerContent className="md:hidden max-h-[55vh] shadow-2xl">
+        <DrawerPrimitive.Portal>
+          <DrawerPrimitive.Content
+            className="md:hidden fixed inset-x-0 bottom-0 z-50 mt-24 flex h-auto flex-col rounded-t-xl border border-border bg-card max-h-[55vh] shadow-2xl"
+          >
+            <div className="mx-auto mt-3 h-1.5 w-[60px] rounded-full bg-border" />
           <DrawerHeader className="text-left pb-2 pt-2">
             <DrawerTitle className="text-base">
               {tab === "selection" && `Editar: ${selectionLabel}`}
