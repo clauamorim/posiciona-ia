@@ -153,17 +153,17 @@ const MobileEditorBar: React.FC<MobileEditorBarProps> = (props) => {
         </div>
       </div>
 
-      {/* Contextual bottom sheet */}
-      <Drawer open={tab !== null} onOpenChange={(o) => !o && close()}>
-        <DrawerContent className="md:hidden">
-          <DrawerHeader className="text-left pb-2">
+      {/* Contextual bottom sheet — non-modal + capped height so canvas stays visible/interactive above */}
+      <Drawer open={tab !== null} onOpenChange={(o) => !o && close()} shouldScaleBackground={false} modal={false}>
+        <DrawerContent className="md:hidden max-h-[55vh] shadow-2xl">
+          <DrawerHeader className="text-left pb-2 pt-2">
             <DrawerTitle className="text-base">
               {tab === "selection" && `Editar: ${selectionLabel}`}
               {tab === "add" && "Adicionar elemento"}
               {tab === "document" && "Documento"}
             </DrawerTitle>
           </DrawerHeader>
-          <div className="px-4 pb-6 overflow-y-auto max-h-[70vh]">
+          <div className="px-4 pb-4 overflow-y-auto" style={{ maxHeight: "calc(55vh - 110px)" }}>
             {tab === "selection" && (
               <SelectionPanel
                 kind={props.selectedKind}
