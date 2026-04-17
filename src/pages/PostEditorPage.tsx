@@ -736,8 +736,8 @@ const PostEditorPage = () => {
           </div>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
-          <div className="flex items-center justify-center min-h-[400px] bg-muted/30 rounded-2xl p-4 overflow-hidden lg:sticky lg:top-4 lg:self-start">
+        <div className="grid gap-6 md:grid-cols-[1fr_280px]">
+          <div className="flex items-center justify-center min-h-[400px] bg-muted/30 rounded-2xl p-4 overflow-hidden md:sticky md:top-4 md:self-start">
             {isCarousel ? (
               <CarouselEditor
                 slides={editedTexts} theme={editedTitle} cta={ctaText || day.cta || ""}
