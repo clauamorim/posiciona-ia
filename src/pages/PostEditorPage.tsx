@@ -10,10 +10,12 @@ import { ArrowLeft, Copy, Check } from "lucide-react";
 import PostCanvas from "@/components/post-editor/PostCanvas";
 import CarouselEditor from "@/components/post-editor/CarouselEditor";
 import PostToolbar from "@/components/post-editor/PostToolbar";
+import MobileEditorBar from "@/components/post-editor/MobileEditorBar";
 import type { OverlayImage } from "@/components/post-editor/PostToolbar";
 import { parseReportContent } from "@/lib/reportParser";
 import { cleanMarkdown, extractAfterBold } from "@/lib/textCleanup";
 import { compressImage } from "@/lib/imageUtils";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 function getContrastColor(hex: string): string {
   const r = parseInt(hex.slice(1, 3), 16);
