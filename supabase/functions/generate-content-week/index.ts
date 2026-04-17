@@ -165,15 +165,29 @@ Gere EXATAMENTE 7 novos dias de conteúdo editorial, SEM REPETIR temas, abordage
 
 IMPORTANTE: Responda APENAS com um JSON válido, sem markdown, sem backticks.
 
+REGRA DE LINGUAGEM (CRÍTICA):
+O StoryBrand é uma camada ESTRATÉGICA INTERNA. NUNCA escreva os rótulos do framework dentro de "theme", "caption", "card_copy", "cta" ou "script". Os campos visíveis devem soar como copy de marketing real, não como template.
+
+PROIBIDO escrever literalmente (em qualquer campo visível):
+"Problema Externo", "Problema Interno", "Problema Filosófico", "O Plano", "Chamada à Ação", "Chamada para Ação", "O Sucesso", "O Fracasso", "O Guia", "O Herói", "Sucesso vs Fracasso", "StoryBrand", "Framework", "Etapa do Framework".
+
+Não use prefixos como "Problema Externo: ...", "Plano: ...", "CTA: ...". Apenas escreva o conteúdo direto, em linguagem natural.
+
+Exemplos:
+- ERRADO: "Problema Externo: Desvendando o Emaranhado do Conflito"
+- CERTO:  "Desvendando o Emaranhado do Conflito"
+- ERRADO em cta: "Chamada à Ação: Agende sua sessão hoje"
+- CERTO em cta: "Agende sua sessão hoje"
+
 ESTRATÉGIA DE CONTEÚDO — BASEADA EXCLUSIVAMENTE NO STORYBRAND:
-Cada dia da semana deve explorar uma faceta diferente do framework StoryBrand:
-- Dia 1: Foque no HERÓI (cliente) — mostre que você entende quem ele é, seus desejos e aspirações
-- Dia 2: Explore o PROBLEMA EXTERNO — o obstáculo visível que o cliente enfrenta
-- Dia 3: Aprofunde o PROBLEMA INTERNO — a frustração emocional, a dúvida, o medo
-- Dia 4: Posicione a marca como GUIA — demonstre empatia e autoridade
-- Dia 5: Apresente o PLANO — mostre os passos claros que o cliente deve seguir
-- Dia 6: Faça o CTA com clareza — convoque à ação com urgência e propósito
-- Dia 7: Contraste SUCESSO vs FRACASSO — pinte o futuro positivo e o custo de não agir
+Cada dia explora INTERNAMENTE uma faceta do StoryBrand (use como guia mental, NÃO cite a faceta no texto visível):
+- Dia 1: foco interno = HERÓI (cliente) — mostre que você entende quem ele é, seus desejos e aspirações
+- Dia 2: foco interno = PROBLEMA EXTERNO — o obstáculo visível que o cliente enfrenta
+- Dia 3: foco interno = PROBLEMA INTERNO — a frustração emocional, a dúvida, o medo
+- Dia 4: foco interno = MARCA COMO GUIA — demonstre empatia e autoridade
+- Dia 5: foco interno = PLANO — mostre os passos claros que o cliente deve seguir
+- Dia 6: foco interno = CTA — convoque à ação com clareza e propósito
+- Dia 7: foco interno = SUCESSO vs FRACASSO — pinte o futuro positivo e o custo de não agir
 
 O JSON deve ser um array com 7 objetos:
 [
