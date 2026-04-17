@@ -841,6 +841,10 @@ const PostEditorPage = () => {
               selectedOverlay,
               selectedLayerId: selectedImageId,
               onBringForward: handleBringForward, onSendBackward: handleSendBackward,
+              onDeleteOverlay: (id: string) => {
+                setOverlayImages((prev) => prev.filter((img) => img.id !== id));
+                setSelectedImageId(null);
+              },
               showSlideNumber, onShowSlideNumberChange: setShowSlideNumber,
               slideNumberBgColor, onSlideNumberBgColorChange: setSlideNumberBgColor,
               slideNumberTextColor, onSlideNumberTextColorChange: setSlideNumberTextColor,
