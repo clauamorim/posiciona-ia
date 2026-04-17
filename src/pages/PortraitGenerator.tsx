@@ -548,12 +548,11 @@ const PortraitGenerator = () => {
                           size="sm"
                           className="w-full"
                           onClick={() => downloadPortrait(portrait, i)}
-                          disabled={confirmingDownload}
                         >
-                          {confirmingDownload ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Download className="h-4 w-4 mr-1" />}
-                          {confirmingDownload ? "Salvando..." : `Baixar Retrato ${i + 1}`}
+                          <Download className="h-4 w-4 mr-1" />
+                          Baixar Retrato {i + 1}
                         </Button>
-                        <p className="text-[10px] text-muted-foreground text-center">1 crédito será debitado ao baixar</p>
+                        <p className="text-[10px] text-muted-foreground text-center">Salvo no histórico · Download gratuito</p>
                       </div>
                     ))}
                   </div>
