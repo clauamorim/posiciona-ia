@@ -267,7 +267,8 @@ const MobileEditorBar: React.FC<MobileEditorBarProps> = (props) => {
               Fechar
             </Button>
           </div>
-        </DrawerContent>
+          </DrawerPrimitive.Content>
+        </DrawerPrimitive.Portal>
       </Drawer>
     </>
   );
