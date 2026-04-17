@@ -469,7 +469,7 @@ const PortraitGenerator = () => {
                 )}
 
                 <Button
-                  onClick={handleGenerate}
+                  onClick={requestGenerate}
                   disabled={selfies.length === 0 || generating || totalCredits <= 0}
                   className="w-full"
                   size="lg"
