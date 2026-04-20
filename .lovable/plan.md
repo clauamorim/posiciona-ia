@@ -1,40 +1,62 @@
 
-## Análise
 
-Olhando o print mobile: drawer "Editar: Título" mostra Fonte/Tamanho/Cor/Alinhamento + Fechar — SEM botão excluir. Print desktop: "Elemento Selecionado" mostra Corpo do texto (kind="body"), também sem excluir.
+## Fluxo de senha completo
 
-**Causa:** O botão "Excluir elemento" no `SelectionPanel.tsx` está dentro do bloco `(kind === "image" || kind === "icon" || kind === "textbox")`. Quando o usuário seleciona um TÍTULO ou CORPO DO TEXTO nativo do template (kind="title" ou "body"), eles NÃO são overlays — são parte fixa do template, então não há `selectedOverlay` pra excluir.
+Vou adicionar dois fluxos: **recuperação pública** ("Esqueci minha senha") e **alteração na área logada** ("Alterar senha").
 
-No print mobile, o usuário selecionou o **título do template** ("Dia 1: O Herói..."), que é `kind="title"` — não dá pra excluir porque é estrutural do template.
+## 1. Recuperação pública (esqueceu a senha)
 
-No print desktop, o que está selecionado é "Corpo do texto" do template (kind="body") — também estrutural.
+### Página `/forgot-password` (nova)
+- Campo de e-mail + botão "Enviar link de recuperação".
+- Chama `supabase.auth.resetPasswordForEmail(email, { redirectTo: ${origin}/reset-password })`.
+- Após envio: tela de confirmação ("Verifique seu e-mail") com instruções e link para voltar ao login.
+- Tom premium, mesmo layout visual do `/login`.
 
-**Mas:** caixas de texto adicionadas pelo usuário (kind="textbox", overlay) JÁ têm o botão. O usuário provavelmente não testou com uma caixa de texto adicionada, mas com o texto nativo do template.
+### Página `/reset-password` (nova, pública)
+- Detecta `type=recovery` no hash da URL (Supabase já cria sessão temporária via link do e-mail).
+- Dois campos: nova senha + confirmação.
+- Validação: mínimo 8 caracteres, senhas iguais.
+- Chama `supabase.auth.updateUser({ password })`.
+- Em sucesso: toast + redireciona para `/dashboard`.
+- Se acessar sem token válido: mensagem de "Link expirado" + botão para `/forgot-password`.
 
-## Verificações pendentes
-- Confirmar que delete via teclado já funciona (procurar listener no `PostEditorPage` ou `PostCanvas`)
-- Confirmar que o ícone de lixeira flutuante seria melhor que botão largo no mobile
+### Link em `/login`
+- Adicionar "Esqueci minha senha" abaixo do campo de senha, alinhado à direita, tom discreto.
 
-## Plano
+## 2. Alteração na área logada
 
-**1. Atalho Delete/Backspace no desktop** (`src/pages/PostEditorPage.tsx`)
-- Adicionar `useEffect` global com listener `keydown`
-- Se `e.key === "Delete" || e.key === "Backspace"` E há `selectedImageId` E foco NÃO está em input/textarea/contenteditable → chama `handleDeleteOverlay(selectedImageId)`
-- Aplica a imagens, ícones E caixas de texto (overlays)
+### Nova seção em `HelpPage` (ou nova rota `/account`)
+Proposta: criar um **card "Segurança"** dentro de `HelpPage.tsx` (já é a área de configurações do usuário) com:
+- Campo "Nova senha" + "Confirmar nova senha".
+- Botão "Atualizar senha".
+- Chama `supabase.auth.updateUser({ password })`.
+- Toast de sucesso/erro.
 
-**2. Compactar botão excluir no mobile** (`src/components/post-editor/inspector/SelectionPanel.tsx`)
-- Trocar o botão largo "Excluir elemento" por um ícone-only de lixeira alinhado à direita
-- Posicioná-lo na mesma linha do `LayerControls` (Frente/Trás): vira `[Frente] [Trás] [🗑]` ocupando uma única linha
-- Mantém destaque destrutivo (vermelho on hover), mas ocupa ~40px ao invés de linha cheia
-- Tooltip "Excluir elemento" pra clareza
+Não exigirei a senha atual porque o Supabase Auth não valida a senha antiga em `updateUser` — a sessão já está autenticada. Se quiser camada extra de segurança (re-autenticação antes de trocar), posso adicionar depois.
 
-**3. Esclarecer no UX que título/corpo do template não são excluíveis**
-- Esses elementos são estruturais (parte do layout do post) — excluí-los quebraria o template
-- NÃO adicionar botão excluir pra `kind="title"` / `"body"` / `"cta"` / `"slideNumber"` (mantém comportamento atual correto)
-- Apenas overlays adicionados pelo usuário (image/icon/textbox) podem ser excluídos — que é o comportamento correto
+## 3. Roteamento
+
+Em `src/App.tsx`:
+- `/forgot-password` → pública
+- `/reset-password` → pública (não pode estar atrás de `ProtectedRoute`, senão usuários não logados vindos do e-mail não conseguem acessar)
+
+## 4. E-mail de recuperação
+
+Hoje o Supabase envia o e-mail de recuperação com template padrão (em inglês, marca Supabase). Para manter o padrão premium da marca, **recomendo** customizar o template de auth e-mails (vai exigir configurar domínio de e-mail próprio em Cloud → Emails). 
+
+**Não vou fazer isso nesse plano** — fica como passo opcional separado depois que confirmar que o fluxo funcional está OK.
 
 ## Arquivos afetados
-- `src/pages/PostEditorPage.tsx` — adicionar listener de teclado Delete/Backspace
-- `src/components/post-editor/inspector/SelectionPanel.tsx` — compactar botão excluir em ícone na linha do LayerControls
 
-**Observação importante pro usuário:** O botão excluir só aparece pra elementos que VOCÊ adicionou (imagens, ícones, caixas de texto novas). O título e o corpo do template não podem ser excluídos porque fazem parte da estrutura do post — se você quer um post sem título, ajusta o conteúdo, não exclui o slot.
+- `src/pages/ForgotPassword.tsx` (novo)
+- `src/pages/ResetPassword.tsx` (novo)
+- `src/pages/Login.tsx` (adicionar link "Esqueci minha senha")
+- `src/pages/HelpPage.tsx` (adicionar card "Segurança" com troca de senha)
+- `src/App.tsx` (registrar duas rotas novas)
+
+## Fora do escopo
+
+- Customização visual do e-mail de recuperação (Lovable Auth Email Templates).
+- Re-autenticação com senha atual antes de trocar.
+- 2FA / autenticação em dois fatores.
+
