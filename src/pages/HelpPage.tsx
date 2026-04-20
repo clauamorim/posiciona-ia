@@ -1,8 +1,13 @@
 import { useState } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { HelpCircle, Search } from "lucide-react";
+import { HelpCircle, Search, Shield } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
 
 const HELP_TOPICS = [
   {
@@ -57,6 +62,31 @@ const HELP_TOPICS = [
 
 const HelpPage = () => {
   const [search, setSearch] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [updatingPassword, setUpdatingPassword] = useState(false);
+
+  const handlePasswordUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword.length < 8) {
+      toast({ title: "Senha muito curta", description: "Use ao menos 8 caracteres.", variant: "destructive" });
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast({ title: "Senhas não coincidem", description: "Confirme a nova senha corretamente.", variant: "destructive" });
+      return;
+    }
+    setUpdatingPassword(true);
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    setUpdatingPassword(false);
+    if (error) {
+      toast({ title: "Não foi possível atualizar", description: error.message || "Tente novamente.", variant: "destructive" });
+      return;
+    }
+    toast({ title: "Senha atualizada", description: "Sua nova senha já está ativa." });
+    setNewPassword("");
+    setConfirmPassword("");
+  };
 
   const filtered = HELP_TOPICS.filter(
     (t) =>
@@ -105,6 +135,46 @@ const HelpPage = () => {
             ))}
           </Accordion>
         )}
+
+        {/* Card de Segurança */}
+        <Card className="border-border/60">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Shield className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-base">Segurança</CardTitle>
+            </div>
+            <CardDescription>Atualize a senha da sua conta</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handlePasswordUpdate} className="space-y-4 max-w-sm">
+              <div className="space-y-2">
+                <Label htmlFor="new-password">Nova senha</Label>
+                <Input
+                  id="new-password"
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Mínimo de 8 caracteres"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="confirm-password">Confirmar nova senha</Label>
+                <Input
+                  id="confirm-password"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Repita a nova senha"
+                  required
+                />
+              </div>
+              <Button type="submit" disabled={updatingPassword}>
+                {updatingPassword ? "Atualizando..." : "Atualizar senha"}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
 
         {/* Rodapé de suporte */}
         <div className="mt-10 pt-6 border-t border-border">
