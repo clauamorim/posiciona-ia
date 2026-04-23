@@ -37,11 +37,11 @@ export function extractAfterBold(text: string): string {
   // Match **...** at the start (with optional whitespace before)
   const match = text.match(/^\s*\*\*[^*]+\*\*\s*(.*)/s);
   if (match && match[1] && match[1].trim().length > 0) {
-    return cleanMarkdown(match[1].trim());
+    return stripFrameworkLabels(cleanMarkdown(match[1].trim()));
   }
   
-  // No initial bold block — return cleaned text
-  return cleanMarkdown(text);
+  // No initial bold block — return cleaned text + strip labels
+  return stripFrameworkLabels(cleanMarkdown(text));
 }
 
 /** Fix common punctuation issues in generated text */
