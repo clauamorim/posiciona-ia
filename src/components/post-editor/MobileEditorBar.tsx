@@ -236,6 +236,8 @@ const MobileEditorBar: React.FC<MobileEditorBarProps> = (props) => {
                 canvasFormat={props.canvasFormat}
                 onUnsplashPick={(props as any).onUnsplashPick}
                 onSwapBackground={(props as any).onSwapBackgroundUrl}
+                onAIGenerated={(props as any).onAIGenerated}
+                regenerationCredits={(props as any).regenerationCredits}
               />
             )}
             {tab === "document" && (
