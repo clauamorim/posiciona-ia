@@ -211,6 +211,7 @@ const PostEditorPage = () => {
   const [enableSnap, setEnableSnap] = useState(true);
   const [autoLayoutBanner, setAutoLayoutBanner] = useState(false);
   const [swappingBackground, setSwappingBackground] = useState(false);
+  const [activePhotographer, setActivePhotographer] = useState<PhotographerInfo | null>(null);
   const singleCanvasRef = useRef<HTMLDivElement>(null);
   const slideRefs = useRef<(HTMLDivElement | null)[]>([]);
   const textsInitializedRef = useRef(!!draft);
