@@ -238,6 +238,8 @@ const MobileEditorBar: React.FC<MobileEditorBarProps> = (props) => {
                 onSwapBackground={(props as any).onSwapBackgroundUrl}
                 onAIGenerated={(props as any).onAIGenerated}
                 regenerationCredits={(props as any).regenerationCredits}
+                niche={(props as any).niche}
+                businessContext={(props as any).businessContext}
               />
             )}
             {tab === "document" && (
