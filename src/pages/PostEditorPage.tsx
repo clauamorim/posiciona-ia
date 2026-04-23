@@ -826,6 +826,18 @@ const PostEditorPage = () => {
           </div>
         </div>
 
+        {autoLayoutBanner && (
+          <div className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-lg border border-primary/30 bg-primary/5">
+            <div className="flex items-center gap-2 text-sm">
+              <Sparkles className="h-4 w-4 text-primary" />
+              <span className="text-foreground/80">Montagem inicial gerada. Personalize como quiser.</span>
+            </div>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setAutoLayoutBanner(false)}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
+
         <div className="grid gap-6 md:grid-cols-[1fr_280px]">
           <div className="flex items-center justify-center min-h-[400px] bg-muted/30 rounded-2xl p-4 overflow-hidden md:sticky md:top-4 md:self-start">
             {isCarousel ? (
