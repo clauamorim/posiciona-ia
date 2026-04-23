@@ -57,6 +57,13 @@ interface PostCanvasProps {
   showCoordinates?: boolean;
   /** Habilita snap-guides ao centro/bordas durante o drag. */
   enableSnap?: boolean;
+  /** Posições iniciais de título/corpo definidas pelo template (sobrescrevem os cálculos genéricos). */
+  initialTextBoxes?: {
+    title?: { x: number; y: number; width: number; height: number };
+    body?: { x: number; y: number; width: number; height: number };
+  };
+  /** Chave que dispara reset de posições do canvas (style/format/slide). */
+  resetKey?: string;
   // Legacy compat
   onImageMove?: (id: string, x: number, y: number) => void;
   onImageResize?: (id: string, width: number, height: number) => void;
