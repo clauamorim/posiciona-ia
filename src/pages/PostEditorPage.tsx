@@ -167,6 +167,8 @@ const PostEditorPage = () => {
 
   const [report, setReport] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [userNiche, setUserNiche] = useState<string>("");
+  const [businessContext, setBusinessContext] = useState<string>("");
   const [bgIndex, setBgIndex] = useState(draft?.bgIndex ?? 0);
   const [layout, setLayout] = useState<"centered" | "top" | "split">((draft?.layout as any) ?? "centered");
   const [currentSlide, setCurrentSlide] = useState(draft?.currentSlide ?? 0);
@@ -225,6 +227,16 @@ const PostEditorPage = () => {
     if (!user) return;
     supabase.from("reports").select("*").eq("user_id", user.id).order("version", { ascending: false }).limit(1).single()
       .then(({ data }) => { setReport(data); setLoading(false); });
+    supabase.from("profiles").select("niche").eq("user_id", user.id).maybeSingle()
+      .then(({ data }) => { if (data?.niche) setUserNiche(data.niche); });
+    supabase.from("business_questionnaires").select("services,target_audience,company_name")
+      .eq("user_id", user.id).order("version", { ascending: false }).limit(1).maybeSingle()
+      .then(({ data }) => {
+        if (data) {
+          const ctx = [data.company_name, data.services, data.target_audience].filter(Boolean).join(" ");
+          setBusinessContext(ctx);
+        }
+      });
     supabase.from("portrait_generations").select("portraits").eq("user_id", user.id).order("created_at", { ascending: false })
       .then(({ data }) => {
         if (data) {
