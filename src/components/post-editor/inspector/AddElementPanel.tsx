@@ -27,6 +27,7 @@ import {
 import ColorPicker, { PaletteColor } from "./ColorPicker";
 import ImageGalleryPanel from "./ImageGalleryPanel";
 import type { PhotographerInfo } from "@/lib/postAutoLayout";
+import { clearLogoCache, chromaKeyAndValidate } from "@/lib/postAutoLayout";
 import type { OverlayImage } from "../PostToolbar";
 
 const GRAPHIC_ELEMENTS = [
