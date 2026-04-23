@@ -768,10 +768,10 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
                 aria-hidden
                 style={{
                   position: "absolute", left: 0, right: 0, bottom: 0,
-                  height: "55%",
+                  height: "40%",
                   pointerEvents: "none",
                   background:
-                    "linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.65) 40%, rgba(0,0,0,0) 100%)",
+                    "linear-gradient(to top, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.25) 60%, rgba(0,0,0,0) 100%)",
                   zIndex: overlayZ,
                 }}
               />
