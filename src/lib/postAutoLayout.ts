@@ -74,7 +74,11 @@ export interface AutoLayoutResult {
   styleFailedReason?: string;
 }
 
-/** Verifica se uma imagem (URL) tem transparência real — carrega em canvas e checa alpha. */
+/**
+ * Verifica se uma imagem (URL) tem transparência real — carrega em canvas
+ * e checa alpha. Também processa green-screen (#00FF00) como transparência
+ * caso a imagem venha do remove-background sem chroma key aplicado.
+ */
 async function imageHasTransparency(url: string): Promise<boolean> {
   return new Promise((resolve) => {
     try {
@@ -82,7 +86,6 @@ async function imageHasTransparency(url: string): Promise<boolean> {
       img.crossOrigin = "anonymous";
       img.onload = () => {
         try {
-          // Amostra reduzida para performance
           const sampleSize = 200;
           const ratio = Math.min(1, sampleSize / Math.max(img.width, img.height));
           const w = Math.max(1, Math.round(img.width * ratio));
@@ -98,13 +101,59 @@ async function imageHasTransparency(url: string): Promise<boolean> {
           for (let i = 3; i < data.length; i += 4) {
             if (data[i] < 250) transparentPixels++;
           }
-          // Se >2% dos pixels têm alpha < 250, considera transparente de verdade
           resolve(transparentPixels / (data.length / 4) > 0.02);
         } catch { resolve(false); }
       };
       img.onerror = () => resolve(false);
       img.src = url;
     } catch { resolve(false); }
+  });
+}
+
+/** Aplica chroma-key (verde #00FF00) sobre uma data-URL e devolve PNG transparente. */
+async function chromaKeyGreenToTransparent(dataUrl: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    try {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        try {
+          const canvas = document.createElement("canvas");
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) return resolve(null);
+          ctx.drawImage(img, 0, 0);
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const d = imageData.data;
+          for (let i = 0; i < d.length; i += 4) {
+            const r = d[i], g = d[i + 1], b = d[i + 2];
+            // Verde puro / quase puro → transparente
+            if (g > 150 && r < 120 && b < 120 && g > r + 30 && g > b + 30) {
+              d[i + 3] = 0;
+            } else if (g > 80 && r < 160 && b < 160 && g > r && g > b) {
+              const greenness = (g - Math.max(r, b)) / g;
+              if (greenness > 0.15) {
+                d[i + 3] = Math.round(255 * (1 - greenness));
+                d[i] = Math.min(255, Math.round(r * 1.3));
+                d[i + 2] = Math.min(255, Math.round(b * 1.3));
+              }
+            }
+          }
+          // Despill: remove halo verde dos pixels restantes
+          for (let i = 0; i < d.length; i += 4) {
+            if (d[i + 3] === 0) continue;
+            const r = d[i], g = d[i + 1], b = d[i + 2];
+            const avg = (r + b) / 2;
+            if (g > avg + 10) d[i + 1] = Math.round(avg);
+          }
+          ctx.putImageData(imageData, 0, 0);
+          resolve(canvas.toDataURL("image/png"));
+        } catch { resolve(null); }
+      };
+      img.onerror = () => resolve(null);
+      img.src = dataUrl;
+    } catch { resolve(null); }
   });
 }
 
