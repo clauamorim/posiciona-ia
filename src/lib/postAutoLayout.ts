@@ -191,7 +191,9 @@ async function fetchUserLogo(userId: string): Promise<string | null> {
     const hasReal = await imageHasTransparency(finalUrl);
 
     if (!hasReal) {
-      // Reprocessa via remove-background
+      // Reprocessa via remove-background. A edge function devolve um PNG com
+      // fundo VERDE (#00FF00) e o flag chromaKey=true; precisamos converter
+      // o verde em alpha aqui no cliente, senão a logo continua com fundo.
       try {
         const resp = await fetch(finalUrl);
         const blob = await resp.blob();
@@ -205,20 +207,30 @@ async function fetchUserLogo(userId: string): Promise<string | null> {
           body: { imageUrl: dataUrl },
         });
         if (!rbErr && rb?.image && typeof rb.image === "string" && rb.image.startsWith("data:image/")) {
-          const newBlob = await (await fetch(rb.image)).blob();
-          const newPath = filePath.replace(/\.[^.]+$/, "") + ".png";
-          const { error: upErr } = await supabase.storage
-            .from("user-uploads")
-            .upload(newPath, newBlob, { contentType: "image/png", upsert: true });
-          if (!upErr) {
-            await supabase
-              .from("user_gallery_assets")
-              .update({ file_path: newPath, bg_removed: true })
-              .eq("id", (data as any).id);
-            const { data: signed2 } = await supabase.storage
+          // Sempre passa pelo chroma-key — independente da flag, garante alpha real.
+          const transparent = await chromaKeyGreenToTransparent(rb.image);
+          const finalImage = transparent || rb.image;
+          // Confirma que de fato gerou alpha; se não, não persiste para evitar
+          // continuar reusando uma logo "falsamente" sem fundo.
+          const stillHasBg = !(await imageHasTransparency(finalImage));
+          if (!stillHasBg) {
+            const newBlob = await (await fetch(finalImage)).blob();
+            const newPath = filePath.replace(/\.[^.]+$/, "") + ".png";
+            const { error: upErr } = await supabase.storage
               .from("user-uploads")
-              .createSignedUrl(newPath, 60 * 60);
-            if (signed2?.signedUrl) finalUrl = signed2.signedUrl;
+              .upload(newPath, newBlob, { contentType: "image/png", upsert: true });
+            if (!upErr) {
+              await supabase
+                .from("user_gallery_assets")
+                .update({ file_path: newPath, bg_removed: true })
+                .eq("id", (data as any).id);
+              const { data: signed2 } = await supabase.storage
+                .from("user-uploads")
+                .createSignedUrl(newPath, 60 * 60);
+              if (signed2?.signedUrl) finalUrl = signed2.signedUrl;
+            }
+          } else {
+            console.warn("Logo still has background after chroma-key, keeping original");
           }
         } else {
           console.warn("remove-background returned no image, using original logo");
