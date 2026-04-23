@@ -1,5 +1,5 @@
 import React from "react";
-import { Square, Maximize, RotateCcw } from "lucide-react";
+import { Square, Maximize, RotateCcw, Grid3x3, Ruler, Crosshair, Magnet, ImageDown, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
