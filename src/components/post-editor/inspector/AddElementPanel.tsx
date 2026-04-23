@@ -4,6 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ImagePlus, PlusSquare, Type as TypeIcon, Shapes, Minus, Camera, Image as ImageIcon, Trash2, Loader2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import {
   Star, Heart, CheckCircle, Quote, ArrowRight, ArrowUp as ArrowUpIcon, Zap, Award,
   Circle, Square as SquareIcon, Triangle, Hexagon, Diamond, Flame, Target, Crown,
@@ -80,6 +84,7 @@ interface UserAsset {
   name: string;
   file_path: string;
   url: string;
+  is_logo?: boolean;
 }
 
 interface AddElementPanelProps {
@@ -126,13 +131,13 @@ const AddElementPanel: React.FC<AddElementPanelProps> = ({
     if (!user) return;
     const { data } = await supabase
       .from("user_gallery_assets")
-      .select("id, name, file_path")
+      .select("id, name, file_path, is_logo")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
     if (!data) { setUserAssets([]); setUserAssetsLoaded(true); return; }
     const assets = await Promise.all(data.map(async (a: any) => {
       const { data: signed } = await supabase.storage.from("user-uploads").createSignedUrl(a.file_path, 60 * 60);
-      return { id: a.id, name: a.name, file_path: a.file_path, url: signed?.signedUrl || "" };
+      return { id: a.id, name: a.name, file_path: a.file_path, url: signed?.signedUrl || "", is_logo: !!a.is_logo };
     }));
     setUserAssets(assets.filter(a => a.url));
     setUserAssetsLoaded(true);
@@ -140,6 +145,26 @@ const AddElementPanel: React.FC<AddElementPanelProps> = ({
 
   useEffect(() => { if (user && !userAssetsLoaded) loadUserAssets(); }, [user, userAssetsLoaded]);
 
+  // Modal state for "is this a logo?" prompt
+  const [pendingUpload, setPendingUpload] = useState<{
+    blob: Blob; name: string; isLogo: boolean;
+  } | null>(null);
+
+  const toggleLogo = async (asset: UserAsset) => {
+    const next = !asset.is_logo;
+    const { error } = await supabase
+      .from("user_gallery_assets")
+      .update({ is_logo: next })
+      .eq("id", asset.id);
+    if (error) {
+      toast({ title: "Erro ao atualizar logo", variant: "destructive" });
+      return;
+    }
+    setUserAssets(prev => prev.map(a => a.id === asset.id ? { ...a, is_logo: next } : a));
+    toast({ title: next ? "Marcada como logo" : "Não é mais logo" });
+  };
+
+  // Step 1: pick file → open modal asking if it's a logo
   const handleFileUpload = () => {
     const input = document.createElement("input");
     input.type = "file";
@@ -151,9 +176,7 @@ const AddElementPanel: React.FC<AddElementPanelProps> = ({
         toast({ title: "Imagem muito grande (máx 10MB)", variant: "destructive" });
         return;
       }
-      setUploading(true);
       try {
-        // Read file → compress → upload
         const reader = new FileReader();
         const dataUrl: string = await new Promise((res, rej) => {
           reader.onload = () => res(reader.result as string);
@@ -161,38 +184,50 @@ const AddElementPanel: React.FC<AddElementPanelProps> = ({
           reader.readAsDataURL(file);
         });
         const compressed = await compressImage(dataUrl, 1600, 0.85);
-        // Convert to blob
         const blob = await (await fetch(compressed)).blob();
-        const ext = "jpg";
-        const id = crypto.randomUUID();
-        const path = `${user.id}/${id}.${ext}`;
-        const { error: upErr } = await supabase.storage.from("user-uploads").upload(path, blob, { contentType: "image/jpeg", upsert: false });
-        if (upErr) throw upErr;
-        const { error: insErr } = await supabase.from("user_gallery_assets").insert({
-          user_id: user.id,
-          name: file.name,
-          file_path: path,
-        });
-        if (insErr) throw insErr;
-        const { data: signed } = await supabase.storage.from("user-uploads").createSignedUrl(path, 60 * 60);
-        const url = signed?.signedUrl || compressed;
-        // Add to canvas
-        const img: OverlayImage = {
-          id: crypto.randomUUID(), src: url,
-          x: 200, y: 200, width: 400, height: 400, type: "photo", opacity: 1,
-        };
-        onAddImage(img);
-        // Refresh gallery
-        loadUserAssets();
-        toast({ title: "Imagem salva na sua galeria" });
+        setPendingUpload({ blob, name: file.name, isLogo: false });
       } catch (err: any) {
-        console.error("Upload error:", err);
-        toast({ title: "Erro ao enviar imagem", description: err.message, variant: "destructive" });
-      } finally {
-        setUploading(false);
+        toast({ title: "Erro ao processar imagem", description: err.message, variant: "destructive" });
       }
     };
     input.click();
+  };
+
+  // Step 2: confirm upload (with isLogo decision)
+  const confirmUpload = async () => {
+    if (!pendingUpload || !user) return;
+    setUploading(true);
+    const { blob, name, isLogo } = pendingUpload;
+    try {
+      const id = crypto.randomUUID();
+      const path = `${user.id}/${id}.jpg`;
+      const { error: upErr } = await supabase.storage.from("user-uploads").upload(path, blob, { contentType: "image/jpeg", upsert: false });
+      if (upErr) throw upErr;
+      const { error: insErr } = await supabase.from("user_gallery_assets").insert({
+        user_id: user.id,
+        name,
+        file_path: path,
+        is_logo: isLogo,
+      });
+      if (insErr) throw insErr;
+      const { data: signed } = await supabase.storage.from("user-uploads").createSignedUrl(path, 60 * 60);
+      const url = signed?.signedUrl || "";
+      const img: OverlayImage = {
+        id: crypto.randomUUID(), src: url,
+        x: 200, y: 200, width: 400, height: 400,
+        type: isLogo ? "logo" : "photo",
+        opacity: 1,
+      };
+      onAddImage(img);
+      loadUserAssets();
+      toast({ title: isLogo ? "Logo salva na sua galeria" : "Imagem salva na sua galeria" });
+      setPendingUpload(null);
+    } catch (err: any) {
+      console.error("Upload error:", err);
+      toast({ title: "Erro ao enviar imagem", description: err.message, variant: "destructive" });
+    } finally {
+      setUploading(false);
+    }
   };
 
   const handleAddTextBox = () => {
@@ -276,6 +311,16 @@ const AddElementPanel: React.FC<AddElementPanelProps> = ({
                 <div key={a.id} className="relative group aspect-square rounded-md border overflow-hidden bg-muted/40">
                   <button onClick={() => handleAddImageFromUrl(a.url)} className="absolute inset-0">
                     <img src={a.url} alt={a.name} className="w-full h-full object-cover" loading="lazy" />
+                  </button>
+                  {a.is_logo && (
+                    <Badge className="absolute top-1 left-1 px-1.5 py-0 text-[9px] h-4 leading-none">Logo</Badge>
+                  )}
+                  <button
+                    onClick={(e) => { e.stopPropagation(); toggleLogo(a); }}
+                    className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded bg-background/80 backdrop-blur-sm border border-border text-[9px] opacity-0 group-hover:opacity-100 transition-opacity hover:bg-primary hover:text-primary-foreground"
+                    title={a.is_logo ? "Desmarcar como logo" : "Marcar como logo"}
+                  >
+                    {a.is_logo ? "✓ Logo" : "Marcar logo"}
                   </button>
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
@@ -400,6 +445,36 @@ const AddElementPanel: React.FC<AddElementPanelProps> = ({
           ))}
         </div>
       </TabsContent>
+
+      {/* Modal: confirmar se a imagem é uma logo */}
+      <Dialog open={!!pendingUpload} onOpenChange={(open) => { if (!open) setPendingUpload(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Antes de enviar</DialogTitle>
+          </DialogHeader>
+          <div className="flex items-center gap-3 py-2">
+            <Checkbox
+              id="is-logo-checkbox"
+              checked={pendingUpload?.isLogo ?? false}
+              onCheckedChange={(v) => setPendingUpload(prev => prev ? { ...prev, isLogo: !!v } : prev)}
+            />
+            <Label htmlFor="is-logo-checkbox" className="text-sm cursor-pointer">
+              Esta imagem é minha logo
+            </Label>
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            Logos ficam disponíveis para serem inseridas automaticamente nos templates de posts.
+          </p>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" size="sm" onClick={() => setPendingUpload(null)} disabled={uploading}>
+              Cancelar
+            </Button>
+            <Button size="sm" onClick={confirmUpload} disabled={uploading}>
+              {uploading ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Enviando…</> : "Enviar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Tabs>
   );
 };
