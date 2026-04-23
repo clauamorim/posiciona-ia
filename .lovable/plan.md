@@ -1,49 +1,85 @@
 
 
-## Regeneração após atualizações da plataforma
+## Editor que entrega posts prontos — confirmado para implementação
 
-A ideia é marcar o conteúdo antigo como "desatualizado" sempre que houver uma melhoria relevante no gerador, e permitir que o usuário regenere **sem custo** as semanas/posts afetados.
+Vou prosseguir com o plano apresentado. Resumo abrangendo todos os pontos confirmados:
 
-## Como vai funcionar
+### 1. Templates fixos (8 no total)
+- 4 templates para formato quadrado (1080×1080) e 4 para reels (1080×1920).
+- Tipos: **Capa**, **Conteúdo**, **Visual minimalista**, **CTA final**.
+- Escolha determinística por `(weekIndex + dayIndex + slideIndex)` — reabrir o mesmo post sempre dá o mesmo layout.
+- Definidos em código (`src/lib/postTemplates.ts`) — sem necessidade de cadastro manual.
 
-### 1. Versão do gerador (constante de código)
-Crio uma constante `EDITORIAL_GENERATOR_VERSION` no código (ex: `"2026-04-23-v3"`). Toda vez que eu fizer correções relevantes nas edge functions de geração (prompt, parser, sanitização), incremento essa versão.
+### 2. Imagens de fundo: Unsplash + IA fallback
+- Edge function `fetch-post-image` busca no Unsplash usando palavras-chave do tema.
+- Se Unsplash não tiver resultado relevante, usa Gemini Nano Banana para gerar.
+- Cache em tabela `post_background_cache` para evitar repagar IA pelo mesmo tema.
+- **Custos**: Unsplash = grátis; IA = 1 crédito de regeneração com aviso prévio.
+- Requer secret `UNSPLASH_ACCESS_KEY` (chave gratuita em https://unsplash.com/developers).
 
-### 2. Marcar a versão usada em cada semana/post
-- Ao gerar uma semana, salvo `generator_version` dentro de cada dia do array `editorial_weeks` e `content.editorial`.
-- Conteúdos antigos (sem essa marca) são considerados desatualizados.
+### 3. Logos com checkbox no upload
+- Coluna nova `is_logo BOOLEAN` em `user_gallery_assets`.
+- Modal de upload com checkbox "Esta imagem é minha logo".
+- Sistema escolhe automaticamente a logo de melhor contraste com o fundo do template.
+- Suporte a múltiplas logos (versão clara/escura).
 
-### 3. UI de aviso na Linha Editorial
-Quando a aba/semana exibida tem conteúdo desatualizado:
-- **Banner discreto no topo da semana**: "Esta semana foi gerada antes de melhorias na plataforma. Regenere sem custo para aplicar as correções (rótulos de framework removidos, textos mais limpos)."
-- **Botão "Regenerar semana (grátis)"** ao lado do banner.
-- **Em cada card de post desatualizado**: badge sutil "Desatualizado" + botão "Atualizar post (grátis)" — diferente do botão "Gerar novo" que cobra crédito.
+### 4. Montagem inicial automática
+- Ao abrir `/post-editor?week=X&day=Y` sem draft salvo, o editor já carrega:
+  - Template apropriado.
+  - Fundo do Unsplash (sem custo).
+  - Logo do usuário (se houver).
+  - Paleta da marca, tipografia, posições do template.
+- Banner sutil: "Montagem inicial gerada. Personalize como quiser."
+- Tudo permanece 100% editável (arrastar, trocar texto, redimensionar, recolorir, excluir).
 
-### 4. Lógica de regeneração gratuita
-- `regenerate-single-post` e `generate-content-week` recebem flag opcional `freeRegeneration: true`.
-- Quando true, a edge function **pula a dedução de créditos** e exige que o post/semana original tenha `generator_version` ausente ou inferior à atual (verificação no backend pra evitar abuso).
-- Substitui o conteúdo antigo no mesmo slot (mesma semana/dia) em vez de adicionar novo.
+### 5. Guias de edição no canvas
+- Snap-guides dinâmicos ao arrastar (centro horizontal/vertical, alinhamento com outros elementos).
+- Réguas opcionais nas bordas (toggle).
+- Coordenadas X,Y e tamanho W×H exibidos no elemento selecionado.
+- Grade de fundo opcional (toggle).
+- Atalhos: setas movem 1px, Shift+setas movem 10px.
 
-### 5. Aplicar também aos posts personalizados (Meus Designs)
-Designs salvos em `user_designs` apontam para `week_index`/`day_index`. Quando o post-base é regenerado, o design fica defasado — vou exibir um aviso na página `/my-designs`: "O conteúdo-base deste design foi atualizado. [Recriar do zero]" (não sobrescrevo automaticamente o trabalho visual do usuário).
+## Arquivos a serem afetados
 
-## Arquivos afetados
+**Frontend (novos)**
+- `src/lib/postTemplates.ts` — definição dos 8 templates.
+- `src/lib/postAutoLayout.ts` — orquestra template + imagem + logo.
 
-- `src/lib/generatorVersion.ts` (novo) — constante única de versão + helper `isOutdated(day)`.
-- `supabase/functions/generate-content-week/index.ts` — injeta `generator_version` em cada dia gerado; aceita `freeRegeneration` + `replaceWeekIndex` para sobrescrever em vez de adicionar.
-- `supabase/functions/regenerate-single-post/index.ts` — injeta `generator_version`; aceita `freeRegeneration` (pula dedução se versão antiga).
-- `src/pages/EditorialPage.tsx` — banner por semana, badge por post, botões "Regenerar grátis", chamadas com flag.
-- `src/pages/MyDesignsPage.tsx` — aviso quando o conteúdo-base foi atualizado depois do design.
+**Frontend (editados)**
+- `src/pages/PostEditorPage.tsx` — chama auto-layout na primeira abertura, banner, botão "Trocar imagem".
+- `src/components/post-editor/PostCanvas.tsx` — snap-guides, réguas, coordenadas, grid, atalhos.
+- `src/components/post-editor/inspector/AddElementPanel.tsx` — checkbox "É minha logo" no upload + badge Logo na galeria.
+- `src/components/post-editor/PostToolbar.tsx` — toggles para guias/grade/réguas e botão "Trocar imagem de fundo".
 
-## Detalhes técnicos (para referência)
+**Backend (novos)**
+- `supabase/functions/fetch-post-image/index.ts` — Unsplash + fallback IA + cache.
 
-- A versão do gerador fica **só no código**, não no banco. Isso permite incrementar sem migração — basta deploy.
-- A edge function valida server-side: `if (freeRegeneration && oldDay.generator_version === CURRENT_VERSION) return 400`. Evita usuário burlar e regenerar grátis sem motivo.
-- Conteúdo gerado antes desse sistema (sem `generator_version`) conta como desatualizado uma vez. Após a primeira regeneração gratuita, passa a contar como atualizado.
+**Banco**
+- Migração: `is_logo BOOLEAN DEFAULT false` em `user_gallery_assets`.
+- Migração: tabela `post_background_cache (theme_hash TEXT PK, image_url TEXT, source TEXT, created_at TIMESTAMPTZ)`.
+
+**Secret novo**
+- `UNSPLASH_ACCESS_KEY` (será solicitado via tool antes do uso).
+
+## Custos resumidos para o usuário
+
+| Ação | Custo |
+|---|---|
+| Abrir post montado pronto | Grátis |
+| Trocar imagem por outra do Unsplash | Grátis |
+| Gerar imagem por IA | 1 crédito de regeneração |
+| Editar texto, mover, recolorir, etc. | Grátis |
 
 ## Fora do escopo
 
-- Notificação por e-mail informando que há regeneração disponível.
-- Histórico de versões anteriores (substituição é destrutiva — usuário regenera, perde o anterior).
-- Regenerar automaticamente todos os usuários em massa (deixo na mão do usuário pra não consumir recursos do Lovable AI sem necessidade).
+- Galeria de templates customizáveis pelo admin (fase 2).
+- Geração automática de carrossel inteiro com layouts variados via IA.
+- Seleção manual de qual logo usar (sistema escolhe pela melhor combinação).
+
+## Próximos passos quando aprovar default mode
+
+1. Solicitar `UNSPLASH_ACCESS_KEY` via tool de secret (necessário antes de implementar a edge function).
+2. Criar migração SQL (`is_logo` + `post_background_cache`).
+3. Implementar templates, auto-layout e edge function.
+4. Atualizar UI (canvas, toolbar, painel de upload).
 
