@@ -267,14 +267,18 @@ Deno.serve(async (req) => {
 
     const unsplashKey = Deno.env.get("UNSPLASH_ACCESS_KEY");
 
+    // Validação explícita: se não há chave configurada, log + 503 (em vez de cair silenciosamente para o gradiente)
+    if (!unsplashKey && (mode === "gallery" || (!allowAI && mode !== "single"))) {
+      console.error("UNSPLASH_ACCESS_KEY missing — image search unavailable");
+      return new Response(JSON.stringify({
+        error: "Banco de imagens indisponível. Tente novamente mais tarde.",
+        results: [],
+      }), { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     // ===== GALLERY MODE =====
     if (mode === "gallery") {
-      if (!unsplashKey) {
-        return new Response(JSON.stringify({ error: "Unsplash not configured", results: [] }), {
-          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      const results = await searchUnsplashList(keywords, format, unsplashKey, 12, page);
+      const results = await searchUnsplashList(keywords, format, unsplashKey!, 12, page);
       return new Response(JSON.stringify({ results, keywords, page }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

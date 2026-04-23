@@ -340,13 +340,24 @@ const PostEditorPage = () => {
         if (s.bodyTextAlign) setTextAlign(s.bodyTextAlign);
         if (typeof s.showSlideNumber === "boolean") setShowSlideNumber(s.showSlideNumber);
         if (s.slideNumberSize) setSlideNumberSize(s.slideNumberSize);
-        // Aplicar sugestões de gradiente (estilo minimalista)
+        // Aplicar sugestões de gradiente (estilo minimalista OU fallback de erro)
         if (s.useGradient) {
           setUseGradient(true);
           if (typeof s.gradientColor2Index === "number") setGradientColor2Index(s.gradientColor2Index);
           if (s.gradientDirection) setGradientDirection(s.gradientDirection);
         }
         if (result.photographer) setActivePhotographer(result.photographer);
+        // Toast claro quando o estilo escolhido falhou (evita confusão com minimal)
+        if (result.styleFailed && initialStyle && initialStyle !== "minimal") {
+          const styleName = initialStyle === "ai" ? "Geração por IA" : "Banco de imagens";
+          toast({
+            title: `${styleName} indisponível`,
+            description: result.styleFailedReason
+              ? `${result.styleFailedReason} Aplicamos um fundo gradiente — você pode trocar a imagem no editor.`
+              : "Aplicamos um fundo gradiente — você pode trocar a imagem no editor.",
+            variant: "destructive",
+          });
+        }
       } catch (err) {
         console.warn("Auto-layout failed", err);
       }

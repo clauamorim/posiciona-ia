@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   pickTemplate, pickSingleTemplate,
   buildBackgroundImageOverlay, buildDecorativeBlockOverlay, buildLogoOverlay,
+  buildMinimalDecorativeOverlays,
   type CanvasFormat, type TemplateLayout,
 } from "./postTemplates";
 import type { OverlayImage } from "@/components/post-editor/PostToolbar";
@@ -63,23 +64,73 @@ export interface AutoLayoutResult {
   };
   /** Metadados do fotógrafo (Unsplash) — usado para atribuição obrigatória. */
   photographer?: PhotographerInfo;
+  /** Quando true, o estilo escolhido (unsplash/ai) falhou e usamos fallback de cor sólida. */
+  styleFailed?: boolean;
+  styleFailedReason?: string;
 }
 
-/** Busca a primeira logo do usuário marcada com is_logo=true. */
+/** Busca a primeira logo do usuário marcada com is_logo=true. Reprocessa fundo se ainda for JPG. */
 async function fetchUserLogo(userId: string): Promise<string | null> {
   try {
     const { data } = await supabase
       .from("user_gallery_assets")
-      .select("file_path")
+      .select("id, file_path, bg_removed")
       .eq("user_id", userId)
       .eq("is_logo", true)
       .order("created_at", { ascending: true })
       .limit(1)
       .maybeSingle();
     if (!data?.file_path) return null;
+
+    let filePath = data.file_path as string;
+    const isPng = filePath.toLowerCase().endsWith(".png");
+    const alreadyProcessed = !!(data as any).bg_removed;
+
+    // Reprocessamento sob demanda: se logo é JPG e ainda não passou por remove-background, processa agora
+    if (!isPng && !alreadyProcessed) {
+      try {
+        // Lê signed URL do arquivo atual e envia para edge function
+        const { data: srcSigned } = await supabase.storage
+          .from("user-uploads")
+          .createSignedUrl(filePath, 60 * 5);
+        if (srcSigned?.signedUrl) {
+          // Baixa, converte para data URL e envia
+          const resp = await fetch(srcSigned.signedUrl);
+          const blob = await resp.blob();
+          const dataUrl: string = await new Promise((res, rej) => {
+            const r = new FileReader();
+            r.onload = () => res(r.result as string);
+            r.onerror = () => rej(r.error);
+            r.readAsDataURL(blob);
+          });
+          const { data: rb, error: rbErr } = await supabase.functions.invoke("remove-background", {
+            body: { imageUrl: dataUrl },
+          });
+          if (!rbErr && rb?.image && typeof rb.image === "string" && rb.image.startsWith("data:image/")) {
+            const newBlob = await (await fetch(rb.image)).blob();
+            const newPath = filePath.replace(/\.[^.]+$/, "") + ".png";
+            const { error: upErr } = await supabase.storage
+              .from("user-uploads")
+              .upload(newPath, newBlob, { contentType: "image/png", upsert: true });
+            if (!upErr) {
+              await supabase
+                .from("user_gallery_assets")
+                .update({ file_path: newPath, bg_removed: true })
+                .eq("id", (data as any).id);
+              filePath = newPath;
+            }
+          } else {
+            console.warn("remove-background returned no image, using original logo");
+          }
+        }
+      } catch (rbErr) {
+        console.warn("On-demand bg removal failed for logo, using original", rbErr);
+      }
+    }
+
     const { data: signed } = await supabase.storage
       .from("user-uploads")
-      .createSignedUrl(data.file_path, 60 * 60);
+      .createSignedUrl(filePath, 60 * 60);
     return signed?.signedUrl || null;
   } catch (err) {
     console.warn("fetchUserLogo failed", err);
@@ -182,6 +233,8 @@ export async function buildAutoLayout(input: AutoLayoutInput): Promise<AutoLayou
 
   // Resolve estilo: respeitar escolha explícita, ou padrão "unsplash"
   const style: PostStyle = input.style ?? "unsplash";
+  let styleFailed = false;
+  let styleFailedReason: string | undefined;
 
   // 1) Imagem de fundo segundo o estilo
   if (style === "unsplash") {
@@ -195,6 +248,9 @@ export async function buildAutoLayout(input: AutoLayoutInput): Promise<AutoLayou
     });
     if (bgInfo) {
       overlays.push(buildBackgroundImageOverlay(bgInfo.url, input.format, true));
+    } else {
+      styleFailed = true;
+      styleFailedReason = "Banco de imagens indisponível no momento.";
     }
   } else if (style === "ai") {
     const ai = await generateAIImage({
@@ -205,17 +261,28 @@ export async function buildAutoLayout(input: AutoLayoutInput): Promise<AutoLayou
     if (ai) {
       bgInfo = { url: ai.url, source: "ai" };
       overlays.push(buildBackgroundImageOverlay(ai.url, input.format, true));
+    } else {
+      styleFailed = true;
+      styleFailedReason = "A geração por IA falhou. Tente novamente em instantes.";
     }
   }
-  // style === "minimal" → sem imagem; gradient é aplicado via suggestions
+  // style === "minimal" → sem imagem; usamos overlays decorativos próprios + gradient
 
-  // 2) Bloco decorativo (cor da paleta)
-  const blockColor = template.decorativeBlock
-    ? input.paletteHex[template.decorativeBlock.paletteIndex] || input.paletteHex[0] || "#7c3aed"
-    : null;
-  if (blockColor && template.decorativeBlock) {
-    const block = buildDecorativeBlockOverlay(template, blockColor);
-    if (block) overlays.push(block);
+  // 2) Bloco / overlays decorativos
+  if (style === "minimal") {
+    // Para minimal, usar conjunto rico (moldura + linha + ornamento)
+    const primary = input.paletteHex[0] || "#7c3aed";
+    const accent = input.paletteHex[1] || input.paletteHex[0] || "#7c3aed";
+    overlays.push(...buildMinimalDecorativeOverlays(template, primary, accent));
+  } else {
+    // Para outros estilos, usar bloco padrão do template
+    const blockColor = template.decorativeBlock
+      ? input.paletteHex[template.decorativeBlock.paletteIndex] || input.paletteHex[0] || "#7c3aed"
+      : null;
+    if (blockColor && template.decorativeBlock) {
+      const block = buildDecorativeBlockOverlay(template, blockColor);
+      if (block) overlays.push(block);
+    }
   }
 
   // 3) Logo do usuário (se houver)
@@ -233,6 +300,10 @@ export async function buildAutoLayout(input: AutoLayoutInput): Promise<AutoLayou
     dynTitleFontSize = Math.round(dynTitleFontSize * reductionFactor);
   }
 
+  // Se o estilo foi unsplash/ai mas falhou, ativa gradiente de cor sólida da paleta
+  // (em vez de cair sem aviso no fundo padrão, que se confundia com minimal)
+  const useGradientFallback = (style === "unsplash" || style === "ai") && styleFailed && input.paletteHex.length >= 2;
+
   return {
     template,
     overlays,
@@ -245,11 +316,13 @@ export async function buildAutoLayout(input: AutoLayoutInput): Promise<AutoLayou
       slideNumberSize: template.slideNumberSlot?.size,
       backgroundImageUrl: bgInfo?.url,
       backgroundSource: bgInfo?.source ?? "none",
-      // Gradient padrão para estilo minimalista
-      useGradient: style === "minimal" && input.paletteHex.length >= 2,
+      // Gradient para minimalista OU para fallback de erro de estilo
+      useGradient: (style === "minimal" && input.paletteHex.length >= 2) || useGradientFallback,
       gradientColor2Index: 1,
       gradientDirection: "to bottom right",
     },
     photographer: bgInfo?.photographer,
+    styleFailed,
+    styleFailedReason,
   };
 }
