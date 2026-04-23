@@ -109,6 +109,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
     onSelectedTextChange?.(id);
   };
   const [editingTextId, setEditingTextId] = useState<string | null>(null);
+  const [activeGuides, setActiveGuides] = useState<{ v: number[]; h: number[] }>({ v: [], h: [] });
 
   const [textBoxes, setTextBoxes] = useState<TextBox[]>([]);
   const textBoxesInitialized = useRef(false);
