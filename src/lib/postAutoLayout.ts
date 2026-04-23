@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   pickTemplate, pickSingleTemplate,
   buildBackgroundImageOverlay, buildDecorativeBlockOverlay, buildLogoOverlay,
+  buildMinimalDecorativeOverlays,
   type CanvasFormat, type TemplateLayout,
 } from "./postTemplates";
 import type { OverlayImage } from "@/components/post-editor/PostToolbar";
