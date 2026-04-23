@@ -100,6 +100,9 @@ interface PostToolbarProps {
   // Add element
   userPortraits?: string[];
   onAddImage: (img: OverlayImage) => void;
+  imageSearchQuery?: string;
+  onUnsplashPick?: (photographer: { name: string; profileUrl: string; unsplashUrl: string }) => void;
+  onSwapBackgroundUrl?: (url: string) => void;
 
   // Guides
   showGrid?: boolean;
