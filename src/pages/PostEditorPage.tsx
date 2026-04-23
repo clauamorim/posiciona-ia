@@ -320,6 +320,8 @@ const PostEditorPage = () => {
           bgPaletteHex: palette[bgIndex]?.hex || "#1a1a2e",
           userId: user.id,
           style: initialStyle,
+          niche: userNiche,
+          businessContext,
         });
         if (result.overlays.length > 0) {
           setOverlayImages(prev => {
@@ -349,7 +351,7 @@ const PostEditorPage = () => {
         console.warn("Auto-layout failed", err);
       }
     })();
-  }, [user, day, palette, weekIndex, dayIndex, canvasFormat, bgIndex, initialStyle]);
+  }, [user, day, palette, weekIndex, dayIndex, canvasFormat, bgIndex, initialStyle, userNiche, businessContext]);
 
   // Trocar imagem de fundo (busca nova do Unsplash)
   const handleSwapBackground = useCallback(async () => {
@@ -362,6 +364,8 @@ const PostEditorPage = () => {
         caption: day.caption,
         format: canvasFormat === "reels" ? "portrait" : "square",
         allowAI: false,
+        niche: userNiche,
+        businessContext,
       });
       if (!result) {
         toast({ title: "Nenhuma imagem encontrada", description: "Tente outro tema ou suba sua própria foto.", variant: "destructive" });
@@ -390,7 +394,7 @@ const PostEditorPage = () => {
     } finally {
       setSwappingBackground(false);
     }
-  }, [day, canvasFormat, swappingBackground]);
+  }, [day, canvasFormat, swappingBackground, userNiche, businessContext]);
 
 
   // Save draft on changes (debounced via effect dependencies)
