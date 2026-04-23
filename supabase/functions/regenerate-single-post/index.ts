@@ -193,7 +193,10 @@ Gere 1 novo post no formato "${format}" agora.`;
       );
     }
 
-    return new Response(JSON.stringify({ post }), {
+    // Stamp post with current generator version
+    const stampedPost = { ...(post as Record<string, unknown>), generator_version: EDITORIAL_GENERATOR_VERSION };
+
+    return new Response(JSON.stringify({ post: stampedPost, free: !!freeRegeneration }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
