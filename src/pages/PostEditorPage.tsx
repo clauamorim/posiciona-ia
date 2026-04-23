@@ -162,7 +162,7 @@ function restoreDraftImages(draft: EditorDraft): EditorDraft {
 }
 
 const PostEditorPage = () => {
-  const { user } = useAuth();
+  const { user, balances, refreshSubscription } = useAuth();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
@@ -226,6 +226,9 @@ const PostEditorPage = () => {
   const [swappingBackground, setSwappingBackground] = useState(false);
   const [activePhotographer, setActivePhotographer] = useState<PhotographerInfo | null>(null);
   const [initialTextBoxes, setInitialTextBoxes] = useState<{ title?: { x: number; y: number; width: number; height: number }; body?: { x: number; y: number; width: number; height: number } } | undefined>(undefined);
+  const [initializingLayout, setInitializingLayout] = useState<string | null>(
+    !!draft || hasDesignParam ? null : (initialStyle === "ai" ? "Gerando imagem com IA…" : initialStyle === "unsplash" ? "Buscando foto editorial…" : "Preparando layout…")
+  );
   const singleCanvasRef = useRef<HTMLDivElement>(null);
   const slideRefs = useRef<(HTMLDivElement | null)[]>([]);
   const textsInitializedRef = useRef(!!draft);
