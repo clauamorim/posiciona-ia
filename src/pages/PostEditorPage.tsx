@@ -16,6 +16,8 @@ import { parseReportContent } from "@/lib/reportParser";
 import { cleanMarkdown, extractAfterBold, cleanText, stripFrameworkLabels } from "@/lib/textCleanup";
 import { compressImage } from "@/lib/imageUtils";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { buildAutoLayout, fetchBackgroundImage } from "@/lib/postAutoLayout";
+import { Sparkles, X, Image as ImageIcon } from "lucide-react";
 
 function getContrastColor(hex: string): string {
   const r = parseInt(hex.slice(1, 3), 16);
