@@ -105,20 +105,8 @@ interface PostToolbarProps {
   onSwapBackgroundUrl?: (url: string) => void;
   onAIGenerated?: () => Promise<void> | void;
   regenerationCredits?: number;
-
-  // Guides
-  showGrid?: boolean;
-  onShowGridChange?: (v: boolean) => void;
-  showRulers?: boolean;
-  onShowRulersChange?: (v: boolean) => void;
-  showCoordinates?: boolean;
-  onShowCoordinatesChange?: (v: boolean) => void;
-  enableSnap?: boolean;
-  onEnableSnapChange?: (v: boolean) => void;
-
-  // Background swap
-  onSwapBackgroundImage?: () => void;
-  swappingBackground?: boolean;
+  niche?: string;
+  businessContext?: string;
 
   // Actions
   onDownload: () => void;
