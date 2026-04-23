@@ -855,6 +855,8 @@ const PostEditorPage = () => {
                 onSelectedTextChange={setSelectedTextId}
                 renderOrder={renderOrder}
                 onRenderOrderChange={setRenderOrder}
+                showGrid={showGrid} showRulers={showRulers}
+                showCoordinates={showCoordinates} enableSnap={enableSnap}
               />
             ) : (
               <PostCanvas
@@ -876,6 +878,8 @@ const PostEditorPage = () => {
                 onSelectedTextChange={setSelectedTextId}
                 renderOrder={renderOrder}
                 onRenderOrderChange={setRenderOrder}
+                showGrid={showGrid} showRulers={showRulers}
+                showCoordinates={showCoordinates} enableSnap={enableSnap}
               />
             )}
           </div>
