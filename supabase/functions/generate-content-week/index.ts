@@ -292,7 +292,14 @@ Gere 7 novos dias de conteúdo em JSON.`;
       );
     }
 
-    return new Response(JSON.stringify({ editorial }), {
+    // Stamp every day with the current generator version so we can later
+    // detect outdated content and offer free regeneration.
+    const stamped = (editorial as any[]).map((d) => ({
+      ...d,
+      generator_version: EDITORIAL_GENERATOR_VERSION,
+    }));
+
+    return new Response(JSON.stringify({ editorial: stamped, generator_version: EDITORIAL_GENERATOR_VERSION }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
