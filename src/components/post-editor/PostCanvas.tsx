@@ -808,6 +808,47 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
             return null;
           })}
         </div>
+
+        {/* Snap-guides (rendered in scaled overlay, outside the captured canvas) */}
+        {(activeGuides.v.length > 0 || activeGuides.h.length > 0) && (
+          <div aria-hidden style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 99999 }}>
+            {activeGuides.v.map((x, i) => (
+              <div key={`v${i}`} style={{
+                position: "absolute", left: x * scale, top: 0,
+                width: 1, height: "100%", background: "hsl(var(--primary))",
+                boxShadow: "0 0 0 1px hsl(var(--primary) / 0.3)",
+              }} />
+            ))}
+            {activeGuides.h.map((y, i) => (
+              <div key={`h${i}`} style={{
+                position: "absolute", top: y * scale, left: 0,
+                height: 1, width: "100%", background: "hsl(var(--primary))",
+                boxShadow: "0 0 0 1px hsl(var(--primary) / 0.3)",
+              }} />
+            ))}
+          </div>
+        )}
+
+        {/* Coordinates badge for selected element */}
+        {showCoordinates && selectedBounds && (
+          <div
+            aria-hidden
+            style={{
+              position: "absolute",
+              left: Math.min(selectedBounds.x * scale, canvasWidth * scale - 130),
+              top: Math.max(0, (selectedBounds.y - 28 / scale) * scale),
+              padding: "2px 6px",
+              background: "hsl(var(--primary))",
+              color: "hsl(var(--primary-foreground))",
+              fontSize: 10, fontFamily: "monospace",
+              borderRadius: 4, pointerEvents: "none", zIndex: 100000,
+              whiteSpace: "nowrap",
+            }}
+          >
+            {Math.round(selectedBounds.x)}, {Math.round(selectedBounds.y)} · {Math.round(selectedBounds.w)}×{Math.round(selectedBounds.h)}
+          </div>
+        )}
+        </div>
       </div>
     </div>
   );
