@@ -54,10 +54,19 @@ serve(async (req) => {
   }
 
   try {
-    const { format, theme, dayNumber, business, niche, existingPosts, storybrand, tone_of_voice } = await req.json();
+    const { format, theme, dayNumber, business, niche, existingPosts, storybrand, tone_of_voice, freeRegeneration, currentVersion } = await req.json();
 
     if (!format || !business) {
       return new Response(JSON.stringify({ error: "Missing required fields" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // When the client asks for a free regeneration, validate server-side
+    // that the targeted post was generated with an outdated version.
+    if (freeRegeneration && !isOutdatedVersion(currentVersion)) {
+      return new Response(JSON.stringify({ error: "Este post já está atualizado." }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
