@@ -309,10 +309,16 @@ const AddElementPanel: React.FC<AddElementPanelProps> = ({
             body: { imageUrl: compressedForRB },
           });
           if (!rbErr && rbData?.image && typeof rbData.image === "string" && rbData.image.startsWith("data:image/")) {
-            const resp = await fetch(rbData.image);
-            finalBlob = await resp.blob();
-            finalContentType = "image/png";
-            finalExt = "png";
+            // SEMPRE passa pelo chroma key — sem isso, fundo verde seria salvo no storage.
+            const transparent = await chromaKeyAndValidate(rbData.image);
+            if (transparent) {
+              const resp = await fetch(transparent);
+              finalBlob = await resp.blob();
+              finalContentType = "image/png";
+              finalExt = "png";
+            } else {
+              console.warn("chroma key não produziu transparência válida; salvando logo original");
+            }
           } else {
             console.warn("remove-background indisponível, salvando logo com fundo original");
           }
@@ -349,6 +355,8 @@ const AddElementPanel: React.FC<AddElementPanelProps> = ({
         opacity: 1,
       };
       onAddImage(img);
+      // Sempre que uma logo é criada/atualizada, invalida o cache de sessão
+      if (isLogo && user) clearLogoCache(user.id);
       loadUserAssets();
       toast({ title: isLogo ? "Logo salva (fundo removido)" : "Imagem salva na sua galeria" });
       setPendingUpload(null);
