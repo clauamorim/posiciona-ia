@@ -64,6 +64,9 @@ export interface AutoLayoutResult {
   };
   /** Metadados do fotógrafo (Unsplash) — usado para atribuição obrigatória. */
   photographer?: PhotographerInfo;
+  /** Quando true, o estilo escolhido (unsplash/ai) falhou e usamos fallback de cor sólida. */
+  styleFailed?: boolean;
+  styleFailedReason?: string;
 }
 
 /** Busca a primeira logo do usuário marcada com is_logo=true. */
