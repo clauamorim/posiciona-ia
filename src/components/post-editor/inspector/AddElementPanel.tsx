@@ -84,6 +84,7 @@ interface UserAsset {
   name: string;
   file_path: string;
   url: string;
+  is_logo?: boolean;
 }
 
 interface AddElementPanelProps {
@@ -130,19 +131,38 @@ const AddElementPanel: React.FC<AddElementPanelProps> = ({
     if (!user) return;
     const { data } = await supabase
       .from("user_gallery_assets")
-      .select("id, name, file_path")
+      .select("id, name, file_path, is_logo")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
     if (!data) { setUserAssets([]); setUserAssetsLoaded(true); return; }
     const assets = await Promise.all(data.map(async (a: any) => {
       const { data: signed } = await supabase.storage.from("user-uploads").createSignedUrl(a.file_path, 60 * 60);
-      return { id: a.id, name: a.name, file_path: a.file_path, url: signed?.signedUrl || "" };
+      return { id: a.id, name: a.name, file_path: a.file_path, url: signed?.signedUrl || "", is_logo: !!a.is_logo };
     }));
     setUserAssets(assets.filter(a => a.url));
     setUserAssetsLoaded(true);
   };
 
   useEffect(() => { if (user && !userAssetsLoaded) loadUserAssets(); }, [user, userAssetsLoaded]);
+
+  // Modal state for "is this a logo?" prompt
+  const [pendingUpload, setPendingUpload] = useState<{
+    blob: Blob; name: string; isLogo: boolean;
+  } | null>(null);
+
+  const toggleLogo = async (asset: UserAsset) => {
+    const next = !asset.is_logo;
+    const { error } = await supabase
+      .from("user_gallery_assets")
+      .update({ is_logo: next })
+      .eq("id", asset.id);
+    if (error) {
+      toast({ title: "Erro ao atualizar logo", variant: "destructive" });
+      return;
+    }
+    setUserAssets(prev => prev.map(a => a.id === asset.id ? { ...a, is_logo: next } : a));
+    toast({ title: next ? "Marcada como logo" : "Não é mais logo" });
+  };
 
   const handleFileUpload = () => {
     const input = document.createElement("input");
