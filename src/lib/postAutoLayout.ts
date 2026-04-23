@@ -48,6 +48,11 @@ export interface AutoLayoutInput {
 export interface AutoLayoutResult {
   template: TemplateLayout;
   overlays: OverlayImage[];
+  /** Posições iniciais dos blocos de texto (título e corpo) — usadas pelo PostCanvas. */
+  slots?: {
+    title?: { x: number; y: number; width: number; height: number };
+    body?: { x: number; y: number; width: number; height: number };
+  };
   suggestions: {
     titleFontSize?: number;
     titleTextAlign?: "left" | "center" | "right";
@@ -69,7 +74,7 @@ export interface AutoLayoutResult {
   styleFailedReason?: string;
 }
 
-/** Busca a primeira logo do usuário marcada com is_logo=true. Reprocessa fundo se ainda for JPG. */
+/** Busca a logo mais recente do usuário marcada com is_logo=true. Reprocessa fundo se ainda não foi tratado. */
 async function fetchUserLogo(userId: string): Promise<string | null> {
   try {
     const { data } = await supabase
@@ -77,24 +82,22 @@ async function fetchUserLogo(userId: string): Promise<string | null> {
       .select("id, file_path, bg_removed")
       .eq("user_id", userId)
       .eq("is_logo", true)
-      .order("created_at", { ascending: true })
+      .order("created_at", { ascending: false }) // logo mais recente
       .limit(1)
       .maybeSingle();
     if (!data?.file_path) return null;
 
     let filePath = data.file_path as string;
-    const isPng = filePath.toLowerCase().endsWith(".png");
     const alreadyProcessed = !!(data as any).bg_removed;
 
-    // Reprocessamento sob demanda: se logo é JPG e ainda não passou por remove-background, processa agora
-    if (!isPng && !alreadyProcessed) {
+    // Reprocessamento sob demanda: se a logo nunca passou por remove-background,
+    // processa agora — independente da extensão do arquivo (PNG branco também precisa).
+    if (!alreadyProcessed) {
       try {
-        // Lê signed URL do arquivo atual e envia para edge function
         const { data: srcSigned } = await supabase.storage
           .from("user-uploads")
           .createSignedUrl(filePath, 60 * 5);
         if (srcSigned?.signedUrl) {
-          // Baixa, converte para data URL e envia
           const resp = await fetch(srcSigned.signedUrl);
           const blob = await resp.blob();
           const dataUrl: string = await new Promise((res, rej) => {
@@ -304,9 +307,29 @@ export async function buildAutoLayout(input: AutoLayoutInput): Promise<AutoLayou
   // (em vez de cair sem aviso no fundo padrão, que se confundia com minimal)
   const useGradientFallback = (style === "unsplash" || style === "ai") && styleFailed && input.paletteHex.length >= 2;
 
+  // Slots iniciais (posição/largura/altura) para os blocos de texto do canvas
+  // Altura é estimada com base em fontSize * 1.6 (line-height) * 3 linhas
+  const titleSlot = template.titleSlot
+    ? {
+        x: template.titleSlot.x,
+        y: template.titleSlot.y,
+        width: template.titleSlot.width,
+        height: Math.max(120, Math.round((dynTitleFontSize || template.titleSlot.fontSize) * 1.6 * 2)),
+      }
+    : undefined;
+  const bodySlot = template.bodySlot
+    ? {
+        x: template.bodySlot.x,
+        y: template.bodySlot.y,
+        width: template.bodySlot.width,
+        height: Math.max(160, Math.round(template.bodySlot.fontSize * 1.6 * 4)),
+      }
+    : undefined;
+
   return {
     template,
     overlays,
+    slots: { title: titleSlot, body: bodySlot },
     suggestions: {
       titleFontSize: dynTitleFontSize,
       titleTextAlign: template.titleSlot?.align,

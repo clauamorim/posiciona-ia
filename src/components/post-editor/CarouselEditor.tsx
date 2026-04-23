@@ -56,6 +56,11 @@ interface CarouselEditorProps {
   showRulers?: boolean;
   showCoordinates?: boolean;
   enableSnap?: boolean;
+  initialTextBoxes?: {
+    title?: { x: number; y: number; width: number; height: number };
+    body?: { x: number; y: number; width: number; height: number };
+  };
+  resetKey?: string;
 }
 
 const CarouselEditor: React.FC<CarouselEditorProps> = ({
@@ -70,6 +75,7 @@ const CarouselEditor: React.FC<CarouselEditorProps> = ({
   slideNumberBgColor, slideNumberTextColor, slideNumberSize,
   onSelectedTextChange, renderOrder, onRenderOrderChange,
   showGrid, showRulers, showCoordinates, enableSnap,
+  initialTextBoxes, resetKey,
 }) => {
   const total = slides.length;
   const isCover = currentSlide === 0;
@@ -110,6 +116,8 @@ const CarouselEditor: React.FC<CarouselEditorProps> = ({
         showRulers={showRulers}
         showCoordinates={showCoordinates}
         enableSnap={enableSnap}
+        initialTextBoxes={initialTextBoxes}
+        resetKey={resetKey ? `${resetKey}-${currentSlide}` : undefined}
       />
 
       <div className="flex items-center gap-4">

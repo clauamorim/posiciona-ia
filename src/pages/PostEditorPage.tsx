@@ -88,19 +88,23 @@ interface EditorDraft {
   bodyFont: string;
 }
 
-function loadDraft(weekIdx: number, dayIdx: number): EditorDraft | null {
+function loadDraft(weekIdx: number, dayIdx: number, style: string | undefined, format: string): EditorDraft | null {
   try {
     const raw = sessionStorage.getItem(DRAFT_KEY);
     if (!raw) return null;
-    const draft: EditorDraft = JSON.parse(raw);
-    if (draft.weekIndex === weekIdx && draft.dayIndex === dayIdx) return restoreDraftImages(draft);
-    return null;
+    const draft: EditorDraft & { __style?: string; __format?: string } = JSON.parse(raw);
+    if (draft.weekIndex !== weekIdx || draft.dayIndex !== dayIdx) return null;
+    // Só reaproveitar quando estilo e formato batem (evita Unsplash herdar layout minimal)
+    const draftStyle = draft.__style || "minimal";
+    const draftFormat = draft.__format || "square";
+    const targetStyle = style || "minimal";
+    if (draftStyle !== targetStyle || draftFormat !== format) return null;
+    return restoreDraftImages(draft);
   } catch { return null; }
 }
 
-function saveDraft(draft: EditorDraft) {
+function saveDraft(draft: EditorDraft, style: string | undefined, format: string) {
   try {
-    // Store large base64 images separately to avoid losing them
     const imageStore: Record<string, string> = {};
     const overlaysLite = draft.overlayImages.map(img => {
       if (img.src.length > 50000) {
@@ -121,9 +125,14 @@ function saveDraft(draft: EditorDraft) {
       }
     });
 
-    const lightweight = { ...draft, overlayImages: overlaysLite, uploadedImages: uploadedLite };
+    const lightweight = {
+      ...draft,
+      overlayImages: overlaysLite,
+      uploadedImages: uploadedLite,
+      __style: style || "minimal",
+      __format: format,
+    };
     sessionStorage.setItem(DRAFT_KEY, JSON.stringify(lightweight));
-    // Save images separately (each up to ~5MB in sessionStorage)
     Object.entries(imageStore).forEach(([k, v]) => {
       try { sessionStorage.setItem(`${DRAFT_KEY}_${k}`, v); } catch {}
     });
@@ -163,7 +172,9 @@ const PostEditorPage = () => {
   const initialStyle = (searchParams.get("style") as PostStyle | null) || undefined;
   const initialFormatParam = searchParams.get("format");
 
-  const draft = loadDraft(weekIndex, dayIndex);
+  const targetFormat: "square" | "reels" = initialFormatParam === "reels" ? "reels" : "square";
+  const hasDesignParam = !!searchParams.get("design");
+  const draft = hasDesignParam ? null : loadDraft(weekIndex, dayIndex, initialStyle, targetFormat);
 
   const [report, setReport] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -214,11 +225,12 @@ const PostEditorPage = () => {
   const [autoLayoutBanner, setAutoLayoutBanner] = useState(false);
   const [swappingBackground, setSwappingBackground] = useState(false);
   const [activePhotographer, setActivePhotographer] = useState<PhotographerInfo | null>(null);
+  const [initialTextBoxes, setInitialTextBoxes] = useState<{ title?: { x: number; y: number; width: number; height: number }; body?: { x: number; y: number; width: number; height: number } } | undefined>(undefined);
   const singleCanvasRef = useRef<HTMLDivElement>(null);
   const slideRefs = useRef<(HTMLDivElement | null)[]>([]);
   const textsInitializedRef = useRef(!!draft);
   const bgInitializedRef = useRef(!!draft);
-  const autoLayoutRanRef = useRef(!!draft || !!searchParams.get("design"));
+  const autoLayoutRanRef = useRef(!!draft || hasDesignParam);
 
   const cW = canvasFormat === "reels" ? 1080 : 1080;
   const cH = canvasFormat === "reels" ? 1920 : 1080;
@@ -325,14 +337,16 @@ const PostEditorPage = () => {
         });
         if (result.overlays.length > 0) {
           setOverlayImages(prev => {
-            // Garante que overlays de fundo (tpl-bg-) fiquem no início (atrás de tudo)
-            const next = [...result.overlays, ...prev];
+            // Limpa overlays automáticos anteriores (tpl-*) antes de aplicar os novos
+            const cleaned = prev.filter(o => !o.id.startsWith("tpl-"));
+            const next = [...result.overlays, ...cleaned];
             const bgs = next.filter(o => o.id.startsWith("tpl-bg-"));
             const others = next.filter(o => !o.id.startsWith("tpl-bg-"));
             return [...bgs, ...others];
           });
           setAutoLayoutBanner(true);
         }
+        if (result.slots) setInitialTextBoxes(result.slots);
         const s = result.suggestions;
         if (s.titleFontSize) setTitleFontSize(s.titleFontSize);
         if (s.titleTextAlign) setTitleTextAlign(s.titleTextAlign);
@@ -422,7 +436,7 @@ const PostEditorPage = () => {
         canvasFormat, showSlideNumber, slideNumberPosition,
         slideNumberBgColor, slideNumberTextColor, slideNumberSize,
         displayFont, bodyFont,
-      });
+      }, initialStyle, canvasFormat);
     }, 300);
     return () => clearTimeout(timer);
   }, [editedTexts, editedTitle, overlayImages, uploadedImages, bgIndex, layout, currentSlide,
