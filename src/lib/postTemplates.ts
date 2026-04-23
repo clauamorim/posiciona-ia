@@ -174,9 +174,16 @@ export function pickSingleTemplate(opts: {
   dayIndex: number;
   format: CanvasFormat;
   hasCta?: boolean;
+  /** Se for "minimal", força template minimal para garantir slots e moldura coerentes. */
+  style?: "minimal" | "unsplash" | "ai";
 }): TemplateLayout {
   const set = opts.format === "reels" ? REELS_TEMPLATES : SQUARE_TEMPLATES;
-  // Single posts: alternar entre minimal e content baseado em hash
+  // Quando o usuário escolheu minimal, sempre usar slots minimais
+  if (opts.style === "minimal") return set.minimal;
+  // Estilos com foto (unsplash/ai) usam o template "cover" — slots otimizados
+  // para sobreposição de gradiente preto translúcido na base.
+  if (opts.style === "unsplash" || opts.style === "ai") return set.cover;
+  // Sem estilo definido: alterna por hash (comportamento legado)
   const hash = opts.weekIndex * 31 + opts.dayIndex * 7;
   return hash % 2 === 0 ? set.minimal : set.content;
 }
