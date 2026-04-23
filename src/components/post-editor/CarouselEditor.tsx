@@ -73,7 +73,7 @@ const CarouselEditor: React.FC<CarouselEditorProps> = ({
   showSlideNumber, slideNumberPosition, onSlideNumberMove,
   slideNumberBgColor, slideNumberTextColor, slideNumberSize,
   onSelectedTextChange, renderOrder, onRenderOrderChange,
-  showGrid, showRulers, showCoordinates, enableSnap,
+  showRulers, showCoordinates, postStyle,
   initialTextBoxes, resetKey,
 }) => {
   const total = slides.length;
