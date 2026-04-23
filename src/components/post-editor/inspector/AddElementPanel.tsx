@@ -164,7 +164,20 @@ const AddElementPanel: React.FC<AddElementPanelProps> = ({
   const [removingBgId, setRemovingBgId] = useState<string | null>(null);
 
   const toggleLogo = async (asset: UserAsset) => {
+    if (!user) return;
     const next = !asset.is_logo;
+    // Ao marcar como logo, desmarca todas as outras do usuário (única logo ativa)
+    if (next) {
+      const { error: clearErr } = await supabase
+        .from("user_gallery_assets")
+        .update({ is_logo: false })
+        .eq("user_id", user.id)
+        .neq("id", asset.id);
+      if (clearErr) {
+        toast({ title: "Erro ao atualizar logo", variant: "destructive" });
+        return;
+      }
+    }
     const { error } = await supabase
       .from("user_gallery_assets")
       .update({ is_logo: next })
@@ -173,8 +186,12 @@ const AddElementPanel: React.FC<AddElementPanelProps> = ({
       toast({ title: "Erro ao atualizar logo", variant: "destructive" });
       return;
     }
-    setUserAssets(prev => prev.map(a => a.id === asset.id ? { ...a, is_logo: next } : a));
-    toast({ title: next ? "Marcada como logo" : "Não é mais logo" });
+    setUserAssets(prev => prev.map(a =>
+      a.id === asset.id
+        ? { ...a, is_logo: next }
+        : (next ? { ...a, is_logo: false } : a)
+    ));
+    toast({ title: next ? "Marcada como logo ativa" : "Não é mais logo" });
   };
 
   // Remove fundo de uma imagem da galeria do usuário (útil para logos antigas)
@@ -290,11 +307,19 @@ const AddElementPanel: React.FC<AddElementPanelProps> = ({
       const path = `${user.id}/${id}.${finalExt}`;
       const { error: upErr } = await supabase.storage.from("user-uploads").upload(path, finalBlob, { contentType: finalContentType, upsert: false });
       if (upErr) throw upErr;
+      // Se for logo, desmarca outras logos antes de inserir esta como ativa
+      if (isLogo) {
+        await supabase
+          .from("user_gallery_assets")
+          .update({ is_logo: false })
+          .eq("user_id", user.id);
+      }
       const { error: insErr } = await supabase.from("user_gallery_assets").insert({
         user_id: user.id,
         name,
         file_path: path,
         is_logo: isLogo,
+        bg_removed: isLogo && finalContentType === "image/png",
       });
       if (insErr) throw insErr;
       const { data: signed } = await supabase.storage.from("user-uploads").createSignedUrl(path, 60 * 60);
