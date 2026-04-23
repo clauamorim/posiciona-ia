@@ -93,6 +93,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   showSlideNumber = true, slideNumberPosition, onSlideNumberMove,
   slideNumberBgColor, slideNumberTextColor, slideNumberSize,
   onSelectedTextChange, renderOrder: externalRenderOrder, onRenderOrderChange,
+  showGrid = false, showRulers = false, showCoordinates = true, enableSnap = true,
 }) => {
   const isMobile = useIsMobile();
   const handleVisualSize = isMobile ? 22 : RESIZE_HANDLE_SIZE;
