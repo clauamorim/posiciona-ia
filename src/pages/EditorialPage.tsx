@@ -15,6 +15,14 @@ import {
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { parseReportContent, normalizeReportContent } from "@/lib/reportParser";
+import { cleanText } from "@/lib/textCleanup";
+
+// Escape HTML to prevent injection in raw innerHTML strings used for PDF
+function esc(s: string): string {
+  return (s || "").replace(/[&<>"']/g, (c) => (
+    c === "&" ? "&amp;" : c === "<" ? "&lt;" : c === ">" ? "&gt;" : c === '"' ? "&quot;" : "&#39;"
+  ));
+}
 
 const FORMAT_CONFIG: Record<string, { label: string; icon: React.ReactNode; color: string; border: string }> = {
   reels: { label: "Reels", icon: <Video className="h-3 w-3" />, color: "bg-pink-500/10 text-pink-600 border-pink-200", border: "border-l-pink-500" },
@@ -150,7 +158,7 @@ const EditorialPage = () => {
   };
 
   const copyCaption = (caption: string) => {
-    navigator.clipboard.writeText(caption);
+    navigator.clipboard.writeText(cleanText(caption));
     toast({ title: "Legenda copiada!" });
   };
 
@@ -186,33 +194,33 @@ const EditorialPage = () => {
             <span style="font-size:10px;font-weight:700;text-transform:uppercase;color:#6b7280;">Dia ${day.day || di + 1}</span>
             <span style="font-size:10px;font-weight:600;color:#6b7280;">${fmt.label}</span>
           </div>
-          <h3 style="font-size:13px;font-weight:600;margin-bottom:8px;color:#1a1a2e;">${day.theme || ""}</h3>`;
+          <h3 style="font-size:13px;font-weight:600;margin-bottom:8px;color:#1a1a2e;">${esc(cleanText(day.theme || ""))}</h3>`;
 
           if (day.caption) {
             html += `<div style="margin-bottom:6px;">
               <p style="font-size:10px;font-weight:700;text-transform:uppercase;color:#9ca3af;margin-bottom:2px;">Legenda</p>
-              <p style="font-size:11px;color:#374151;line-height:1.5;">${day.caption}</p>
+              <p style="font-size:11px;color:#374151;line-height:1.5;">${esc(cleanText(day.caption))}</p>
             </div>`;
           }
 
           if (day.cta) {
             html += `<div style="margin-bottom:6px;">
               <p style="font-size:10px;font-weight:700;text-transform:uppercase;color:#9ca3af;margin-bottom:2px;">CTA</p>
-              <p style="font-size:11px;font-weight:600;color:#7c3aed;">${day.cta}</p>
+              <p style="font-size:11px;font-weight:600;color:#7c3aed;">${esc(cleanText(day.cta))}</p>
             </div>`;
           }
 
           if (day.card_copy?.length > 0) {
             html += `<div style="margin-top:6px;padding:8px;background:#f9fafb;border-radius:8px;border:1px solid #e5e7eb;">
               <p style="font-size:10px;font-weight:700;text-transform:uppercase;color:#9ca3af;margin-bottom:4px;">Conteúdo</p>
-              ${day.card_copy.map((c: string) => `<p style="font-size:11px;color:#374151;line-height:1.4;margin-bottom:4px;">${c}</p>`).join("")}
+              ${day.card_copy.map((c: string) => `<p style="font-size:11px;color:#374151;line-height:1.4;margin-bottom:4px;">${esc(cleanText(c))}</p>`).join("")}
             </div>`;
           }
 
           if (day.script && (day.format?.toLowerCase() === "reels" || day.format?.toLowerCase() === "stories")) {
             html += `<div style="margin-top:6px;padding:8px;background:#f9fafb;border-radius:8px;border:1px solid #e5e7eb;">
               <p style="font-size:10px;font-weight:700;text-transform:uppercase;color:#9ca3af;margin-bottom:4px;">Roteiro</p>
-              <p style="font-size:11px;color:#374151;line-height:1.4;white-space:pre-wrap;">${day.script}</p>
+              <p style="font-size:11px;color:#374151;line-height:1.4;white-space:pre-wrap;">${esc(day.script)}</p>
             </div>`;
           }
 
@@ -378,18 +386,18 @@ const EditorialPage = () => {
                           </Badge>
                         </div>
 
-                        <h3 className="text-sm font-semibold leading-tight">{day.theme || ""}</h3>
+                        <h3 className="text-sm font-semibold leading-tight">{cleanText(day.theme || "")}</h3>
 
                         {/* Caption preview */}
                         <div>
                           <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Legenda</p>
-                          <p className="text-xs text-foreground/70 leading-relaxed line-clamp-3">{day.caption || ""}</p>
+                          <p className="text-xs text-foreground/70 leading-relaxed line-clamp-3">{cleanText(day.caption || "")}</p>
                         </div>
 
                         {day.cta && (
                           <div>
                             <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-0.5">CTA</p>
-                            <p className="text-xs font-medium text-primary">{day.cta}</p>
+                            <p className="text-xs font-medium text-primary">{cleanText(day.cta)}</p>
                           </div>
                         )}
 
@@ -402,7 +410,7 @@ const EditorialPage = () => {
                             <CollapsibleContent>
                               <div className="mt-2 space-y-1.5 p-3 rounded-lg bg-muted/30 border">
                                 {day.card_copy.map((copy: string, idx: number) => (
-                                  <p key={idx} className="text-xs text-foreground/70 leading-relaxed">{copy}</p>
+                                  <p key={idx} className="text-xs text-foreground/70 leading-relaxed">{cleanText(copy)}</p>
                                 ))}
                               </div>
                             </CollapsibleContent>

@@ -69,6 +69,26 @@ Gere um relatório estratégico completo e personalizado para posicionamento de 
 
 IMPORTANTE: Responda APENAS com um JSON válido, sem markdown, sem backticks, sem texto antes ou depois do JSON.
 
+REGRA DE LINGUAGEM (CRÍTICA) — VÁLIDA APENAS PARA O ARRAY "editorial":
+O StoryBrand é uma camada ESTRATÉGICA INTERNA. Dentro de "editorial", NUNCA escreva os rótulos do framework dentro de "theme", "caption", "card_copy", "cta" ou "script". Esses campos visíveis devem soar como copy de marketing real, não como template.
+
+PROIBIDO escrever literalmente nos campos visíveis do "editorial":
+"Problema Externo", "Problema Interno", "Problema Filosófico", "O Plano", "Chamada à Ação", "Chamada para Ação", "O Sucesso", "O Fracasso", "O Guia", "O Herói", "Sucesso vs Fracasso", "StoryBrand", "Framework", "Etapa do Framework".
+
+Não use prefixos como "Problema Externo: ...", "Plano: ...", "CTA: ...". Apenas escreva o conteúdo direto, em linguagem natural.
+
+NUNCA prefixe os itens de "card_copy" com "Slide 1:", "Slide 2:", "Card 1:", "Página 1:", etc. Cada item do array JÁ É um slide; escreva apenas o conteúdo do slide, sem rótulo posicional.
+ERRADO: ["Slide 1: Você também sente que o tempo voa?", "Slide 2: A solução está aqui"]
+CERTO:  ["Você também sente que o tempo voa?", "A solução está aqui"]
+
+Exemplos:
+- ERRADO em theme: "Problema Externo: Desvendando o Emaranhado do Conflito"
+- CERTO  em theme: "Desvendando o Emaranhado do Conflito"
+- ERRADO em cta:   "Chamada à Ação: Agende sua sessão hoje"
+- CERTO  em cta:   "Agende sua sessão hoje"
+
+OBSERVAÇÃO: Os rótulos "Problema Externo", "O Herói", etc. PODEM e DEVEM ser usados normalmente dentro do objeto "storybrand" (que é a definição estratégica em si). A regra acima vale APENAS para o array "editorial".
+
 O JSON deve seguir EXATAMENTE esta estrutura:
 
 {
