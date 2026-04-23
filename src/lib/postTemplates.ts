@@ -59,7 +59,7 @@ const SQUARE_TEMPLATES: Record<TemplateKind, TemplateLayout> = {
     portraitSlot: null,
     // Slots subidos para deixar respiro no rodapé (antes y=800/940)
     titleSlot: { x: 80, y: 620, width: 920, fontSize: 60, align: "left" },
-    bodySlot: { x: 80, y: 820, width: 920, fontSize: 26, align: "left" },
+    bodySlot: { x: 80, y: 820, width: 920, fontSize: 36, align: "left" },
     slideNumberSlot: { x: SQUARE_W - 80, y: 80, size: 14, show: false },
   },
   content: {
@@ -69,7 +69,7 @@ const SQUARE_TEMPLATES: Record<TemplateKind, TemplateLayout> = {
     logoSlot: { x: SQUARE_W - 200, y: 60, width: 140, height: 140 },
     portraitSlot: null,
     titleSlot: { x: 100, y: 240, width: 880, fontSize: 54, align: "left" },
-    bodySlot: { x: 100, y: 540, width: 880, fontSize: 30, align: "left" },
+    bodySlot: { x: 100, y: 540, width: 880, fontSize: 38, align: "left" },
     slideNumberSlot: { x: SQUARE_W - 90, y: 980, size: 16, show: true },
   },
   minimal: {
@@ -80,7 +80,7 @@ const SQUARE_TEMPLATES: Record<TemplateKind, TemplateLayout> = {
     logoSlot: { x: SQUARE_W / 2 - 80, y: 100, width: 160, height: 160 },
     portraitSlot: null,
     titleSlot: { x: 120, y: 340, width: 840, fontSize: 60, align: "center" },
-    bodySlot: { x: 140, y: 660, width: 800, fontSize: 28, align: "center" },
+    bodySlot: { x: 140, y: 660, width: 800, fontSize: 38, align: "center" },
     slideNumberSlot: { x: SQUARE_W / 2, y: 990, size: 14, show: true },
   },
   cta: {
@@ -90,7 +90,7 @@ const SQUARE_TEMPLATES: Record<TemplateKind, TemplateLayout> = {
     logoSlot: { x: SQUARE_W / 2 - 90, y: 100, width: 180, height: 180 },
     portraitSlot: null,
     titleSlot: { x: 80, y: 380, width: 920, fontSize: 64, align: "center" },
-    bodySlot: { x: 80, y: 560, width: 920, fontSize: 28, align: "center" },
+    bodySlot: { x: 80, y: 560, width: 920, fontSize: 36, align: "center" },
     ctaSlot: { x: SQUARE_W / 2, y: 820, fontSize: 32 },
     slideNumberSlot: { x: 0, y: 0, size: 14, show: false },
   },
@@ -110,7 +110,7 @@ const REELS_TEMPLATES: Record<TemplateKind, TemplateLayout> = {
     portraitSlot: null,
     // Slots subidos para deixar respiro no rodapé (antes y=1440/1660)
     titleSlot: { x: 80, y: 1180, width: 920, fontSize: 76, align: "left" },
-    bodySlot: { x: 80, y: 1480, width: 920, fontSize: 32, align: "left" },
+    bodySlot: { x: 80, y: 1480, width: 920, fontSize: 44, align: "left" },
     slideNumberSlot: { x: 0, y: 0, size: 14, show: false },
   },
   content: {
@@ -120,7 +120,7 @@ const REELS_TEMPLATES: Record<TemplateKind, TemplateLayout> = {
     logoSlot: { x: REELS_W - 220, y: 80, width: 160, height: 160 },
     portraitSlot: null,
     titleSlot: { x: 100, y: 380, width: 880, fontSize: 72, align: "left" },
-    bodySlot: { x: 100, y: 660, width: 880, fontSize: 38, align: "left" },
+    bodySlot: { x: 100, y: 660, width: 880, fontSize: 48, align: "left" },
     slideNumberSlot: { x: REELS_W - 100, y: 1820, size: 18, show: true },
   },
   minimal: {
@@ -130,7 +130,7 @@ const REELS_TEMPLATES: Record<TemplateKind, TemplateLayout> = {
     logoSlot: { x: REELS_W / 2 - 90, y: 160, width: 180, height: 180 },
     portraitSlot: null,
     titleSlot: { x: 120, y: 540, width: 840, fontSize: 78, align: "center" },
-    bodySlot: { x: 140, y: 1100, width: 800, fontSize: 34, align: "center" },
+    bodySlot: { x: 140, y: 1100, width: 800, fontSize: 46, align: "center" },
     slideNumberSlot: { x: REELS_W / 2, y: 1820, size: 16, show: true },
   },
   cta: {
@@ -140,7 +140,7 @@ const REELS_TEMPLATES: Record<TemplateKind, TemplateLayout> = {
     logoSlot: { x: REELS_W / 2 - 100, y: 200, width: 200, height: 200 },
     portraitSlot: null,
     titleSlot: { x: 80, y: 720, width: 920, fontSize: 80, align: "center" },
-    bodySlot: { x: 80, y: 1000, width: 920, fontSize: 34, align: "center" },
+    bodySlot: { x: 80, y: 1000, width: 920, fontSize: 46, align: "center" },
     ctaSlot: { x: REELS_W / 2, y: 1380, fontSize: 38 },
     slideNumberSlot: { x: 0, y: 0, size: 14, show: false },
   },

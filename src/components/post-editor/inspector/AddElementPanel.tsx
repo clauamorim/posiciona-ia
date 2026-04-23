@@ -27,6 +27,7 @@ import {
 import ColorPicker, { PaletteColor } from "./ColorPicker";
 import ImageGalleryPanel from "./ImageGalleryPanel";
 import type { PhotographerInfo } from "@/lib/postAutoLayout";
+import { clearLogoCache, chromaKeyAndValidate } from "@/lib/postAutoLayout";
 import type { OverlayImage } from "../PostToolbar";
 
 const GRAPHIC_ELEMENTS = [
@@ -200,6 +201,8 @@ const AddElementPanel: React.FC<AddElementPanelProps> = ({
         ? { ...a, is_logo: next }
         : (next ? { ...a, is_logo: false } : a)
     ));
+    // Marcar/desmarcar como logo invalida o cache de sessão
+    if (user) clearLogoCache(user.id);
     toast({ title: next ? "Marcada como logo ativa" : "Não é mais logo" });
   };
 
@@ -223,7 +226,13 @@ const AddElementPanel: React.FC<AddElementPanelProps> = ({
       if (error || !data?.image || !data.image.startsWith("data:image/")) {
         throw new Error("Não foi possível remover o fundo desta imagem.");
       }
-      const newBlob = await (await fetch(data.image)).blob();
+      // SEMPRE passa pelo chroma key — a edge function devolve PNG com fundo verde puro.
+      // Sem essa etapa, o "fundo verde" persistia até no storage.
+      const transparentImage = await chromaKeyAndValidate(data.image);
+      if (!transparentImage) {
+        throw new Error("Não foi possível obter transparência real. Tente uma imagem com fundo mais uniforme.");
+      }
+      const newBlob = await (await fetch(transparentImage)).blob();
       const newPath = asset.file_path.replace(/\.[^.]+$/, "") + ".png";
       const { error: upErr } = await supabase.storage
         .from("user-uploads")
@@ -239,6 +248,8 @@ const AddElementPanel: React.FC<AddElementPanelProps> = ({
       }
       const { data: signed } = await supabase.storage.from("user-uploads").createSignedUrl(newPath, 60 * 60);
       setUserAssets(prev => prev.map(a => a.id === asset.id ? { ...a, file_path: newPath, url: signed?.signedUrl || a.url } : a));
+      // Invalida cache da logo para forçar recarga em próxima montagem automática
+      if (user) clearLogoCache(user.id);
       toast({ title: "Fundo removido com sucesso" });
     } catch (err: any) {
       toast({ title: "Erro ao remover fundo", description: err?.message, variant: "destructive" });
@@ -300,10 +311,16 @@ const AddElementPanel: React.FC<AddElementPanelProps> = ({
             body: { imageUrl: compressedForRB },
           });
           if (!rbErr && rbData?.image && typeof rbData.image === "string" && rbData.image.startsWith("data:image/")) {
-            const resp = await fetch(rbData.image);
-            finalBlob = await resp.blob();
-            finalContentType = "image/png";
-            finalExt = "png";
+            // SEMPRE passa pelo chroma key — sem isso, fundo verde seria salvo no storage.
+            const transparent = await chromaKeyAndValidate(rbData.image);
+            if (transparent) {
+              const resp = await fetch(transparent);
+              finalBlob = await resp.blob();
+              finalContentType = "image/png";
+              finalExt = "png";
+            } else {
+              console.warn("chroma key não produziu transparência válida; salvando logo original");
+            }
           } else {
             console.warn("remove-background indisponível, salvando logo com fundo original");
           }
@@ -340,6 +357,8 @@ const AddElementPanel: React.FC<AddElementPanelProps> = ({
         opacity: 1,
       };
       onAddImage(img);
+      // Sempre que uma logo é criada/atualizada, invalida o cache de sessão
+      if (isLogo && user) clearLogoCache(user.id);
       loadUserAssets();
       toast({ title: isLogo ? "Logo salva (fundo removido)" : "Imagem salva na sua galeria" });
       setPendingUpload(null);

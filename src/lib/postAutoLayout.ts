@@ -115,6 +115,7 @@ async function analyzeLogoBackground(url: string): Promise<"transparent" | "soli
           let borderSamples = 0;
           let whiteish = 0;       // perto do branco
           let opaqueBorder = 0;   // alpha = 255
+          let greenish = 0;       // chroma key residual
           let rSum = 0, gSum = 0, bSum = 0;
           const isBorder = (x: number, y: number) =>
             x < borderThickness || x >= w - borderThickness ||
@@ -128,17 +129,29 @@ async function analyzeLogoBackground(url: string): Promise<"transparent" | "soli
               if (a >= 250) opaqueBorder++;
               rSum += r; gSum += g; bSum += b;
               if (r > 240 && g > 240 && b > 240 && a >= 250) whiteish++;
+              // Detecta chroma key verde residual
+              if (a >= 250 && g > 140 && r < 180 && b < 180 && g > r + 25 && g > b + 25) {
+                greenish++;
+              }
             }
           }
 
           // Se >2% dos pixels têm alpha parcial, considera transparente real.
-          if (transparentRatio > 0.02) return resolve("transparent");
+          if (transparentRatio > 0.02) {
+            // Mas ainda podem haver áreas verdes residuais — verifica
+            if (borderSamples > 0 && greenish / borderSamples > 0.15) {
+              return resolve("solid-bg");
+            }
+            return resolve("transparent");
+          }
 
           // Se a borda é majoritariamente opaca E majoritariamente branca, tem fundo branco.
           if (borderSamples > 0) {
             const opaqueRatio = opaqueBorder / borderSamples;
             const whiteRatio = whiteish / borderSamples;
+            const greenRatio = greenish / borderSamples;
             if (opaqueRatio > 0.85 && whiteRatio > 0.6) return resolve("solid-bg");
+            if (greenRatio > 0.15) return resolve("solid-bg");
 
             // Detecta também fundo de cor uniforme (variância baixa nas bordas)
             const rAvg = rSum / borderSamples;
@@ -218,6 +231,20 @@ const LOGO_CACHE_PREFIX = "posiciona-logo-cache-";
 /** Invalida o cache de sessão da logo (chamar após upload de nova logo). */
 export function clearLogoCache(userId: string) {
   try { sessionStorage.removeItem(`${LOGO_CACHE_PREFIX}${userId}`); } catch {}
+}
+
+/**
+ * Recebe uma data-URL (PNG vindo de remove-background com chroma key verde)
+ * e devolve uma data-URL PNG com transparência real validada.
+ * Retorna `null` se a conversão não produziu transparência adequada
+ * (ex.: a logo continua com grandes áreas verdes/sólidas nas bordas).
+ */
+export async function chromaKeyAndValidate(dataUrl: string): Promise<string | null> {
+  const transparent = await chromaKeyGreenToTransparent(dataUrl);
+  if (!transparent) return null;
+  const status = await analyzeLogoBackground(transparent);
+  if (status !== "transparent") return null;
+  return transparent;
 }
 
 /** Busca a logo mais recente do usuário marcada com is_logo=true. Garante transparência real. */

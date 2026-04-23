@@ -407,7 +407,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
     return null;
   })();
 
-  const bodyFontSize = fontSize || 28;
+  const bodyFontSize = fontSize || 38;
   const bodyFontWeight = fontWeight || "normal";
   const bodyFontStyle2 = fontStyle || "normal";
   const bodyTextAlign = textAlign || "center";
@@ -523,20 +523,45 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
     const isTitle = tb.type === "title";
     const content = isTitle ? title : text;
 
-    // Caixa de texto sem fundo sólido — a legibilidade vem do degradê global do canvas
+    // Halo localizado atrás do texto quando há foto de fundo (referência: blur amplo, suave)
+    // Renderizado como pseudo-camada via box-shadow inset/blur SVG-like usando radial-gradient.
+    const haloStyle: React.CSSProperties | undefined = hasPhotoBackground
+      ? {
+          position: "absolute",
+          // Expande o halo bem além da caixa para suavizar bordas
+          left: -tb.width * 0.15,
+          top: -tb.height * 0.35,
+          width: tb.width * 1.3,
+          height: tb.height * 1.7,
+          background:
+            "radial-gradient(ellipse at center, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.6) 35%, rgba(0,0,0,0.25) 70%, rgba(0,0,0,0) 100%)",
+          filter: "blur(28px)",
+          pointerEvents: "none",
+          zIndex: 0,
+          borderRadius: "50%",
+        }
+      : undefined;
+
+    // Text-shadow mais amplo e suave (em camadas) para reforçar legibilidade do próprio texto
+    const titleShadow =
+      "0 2px 6px rgba(0,0,0,0.65), 0 6px 24px rgba(0,0,0,0.55), 0 0 60px rgba(0,0,0,0.45)";
+    const bodyShadow =
+      "0 1px 4px rgba(0,0,0,0.6), 0 4px 18px rgba(0,0,0,0.5), 0 0 48px rgba(0,0,0,0.4)";
+
     return (
       <div key={tb.id} data-overlay
         style={{
           position: "absolute", left: tb.x, top: tb.y, width: tb.width, minHeight: tb.height,
           cursor: isEditing ? "text" : "move", userSelect: isEditing ? "text" : "none",
           outline: isSelected ? "2px dashed rgba(255,255,255,0.7)" : "none", outlineOffset: 2,
-          zIndex: getZIndex(tb.id), padding: "8px 16px", boxSizing: "border-box", overflow: "hidden",
+          zIndex: getZIndex(tb.id), padding: "8px 16px", boxSizing: "border-box",
           touchAction: isEditing ? "auto" : "none",
         }}
         onPointerDown={(e) => handleTextPointerDown(e, tb)}
         onClick={(e) => { e.stopPropagation(); setSelectedTextId(tb.id); onSelectImage?.(null); }}
         onDoubleClick={(e) => { e.stopPropagation(); setEditingTextId(tb.id); }}
       >
+        {haloStyle && <div aria-hidden style={haloStyle} />}
         <div contentEditable={isEditing} suppressContentEditableWarning
           onBlur={(e) => {
             const newText = e.currentTarget.textContent || "";
@@ -550,13 +575,13 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
             fontWeight: isTitle ? "bold" : bodyFontWeight,
             fontStyle: isTitle ? "normal" : bodyFontStyle2,
             textAlign: isTitle ? (titleTextAlign || "center") : bodyTextAlign,
-            lineHeight: isTitle ? 1.15 : 1.6,
+            lineHeight: isTitle ? 1.15 : 1.55,
             color: hasPhotoBackground ? "#ffffff" : (isTitle ? resolvedTitleColor : textColor),
             outline: "none", width: "100%", minHeight: "1em",
-            opacity: isTitle ? 1 : 0.95,
-            textShadow: hasPhotoBackground
-              ? (isTitle ? "0 2px 12px rgba(0,0,0,0.55), 0 1px 3px rgba(0,0,0,0.45)" : "0 1px 4px rgba(0,0,0,0.45)")
-              : undefined,
+            opacity: 1,
+            position: "relative",
+            zIndex: 1,
+            textShadow: hasPhotoBackground ? (isTitle ? titleShadow : bodyShadow) : undefined,
           }}
         >
           {content}
@@ -743,10 +768,10 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
                 aria-hidden
                 style={{
                   position: "absolute", left: 0, right: 0, bottom: 0,
-                  height: "55%",
+                  height: "40%",
                   pointerEvents: "none",
                   background:
-                    "linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.65) 40%, rgba(0,0,0,0) 100%)",
+                    "linear-gradient(to top, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.25) 60%, rgba(0,0,0,0) 100%)",
                   zIndex: overlayZ,
                 }}
               />
