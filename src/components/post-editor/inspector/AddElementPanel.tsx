@@ -111,13 +111,17 @@ interface AddElementPanelProps {
   onAIGenerated?: () => Promise<void> | void;
   /** Saldo atual de créditos de regeneração (para validação). */
   regenerationCredits?: number;
+  /** Nicho do usuário, usado para refinar busca/IA. */
+  niche?: string;
+  /** Contexto de negócio (empresa + serviços + público) para IA. */
+  businessContext?: string;
 }
 
 const AddElementPanel: React.FC<AddElementPanelProps> = ({
   palette, defaultElementColor, bodyFont, textColor, userPortraits = [], onAddImage, onPortraitsChanged,
   hasSelectedElement, onRecolorSelected,
   imageSearchQuery = "", canvasFormat = "square", onUnsplashPick, onSwapBackground,
-  onAIGenerated, regenerationCredits,
+  onAIGenerated, regenerationCredits, niche, businessContext,
 }) => {
   const { user } = useAuth();
   const [elementColor, setElementColor] = useState(defaultElementColor || palette[0]?.hex || "#7c3aed");
