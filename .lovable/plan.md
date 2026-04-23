@@ -1,62 +1,55 @@
 
 
-## Fluxo de senha completo
+## Limpeza de rótulos do framework nos posts
 
-Vou adicionar dois fluxos: **recuperação pública** ("Esqueci minha senha") e **alteração na área logada** ("Alterar senha").
+Os textos "Problema Externo:" no tema e "Slide 1: '...'" no conteúdo vêm direto do que a IA gera. Vou atacar em duas camadas: prompts mais rígidos (corrige o futuro) e sanitização no cliente (corrige o passado e protege contra reincidência).
 
-## 1. Recuperação pública (esqueceu a senha)
+## 1. Prompts mais rígidos nas edge functions
 
-### Página `/forgot-password` (nova)
-- Campo de e-mail + botão "Enviar link de recuperação".
-- Chama `supabase.auth.resetPasswordForEmail(email, { redirectTo: ${origin}/reset-password })`.
-- Após envio: tela de confirmação ("Verifique seu e-mail") com instruções e link para voltar ao login.
-- Tom premium, mesmo layout visual do `/login`.
+### `supabase/functions/generate-report/index.ts`
+Hoje esse prompt **não tem** a regra anti-rótulo (só `generate-content-week` e `regenerate-single-post` têm). Vou adicionar o mesmo bloco "REGRA DE LINGUAGEM CRÍTICA" + lista de termos proibidos + exemplos ERRADO/CERTO antes da seção `editorial`.
 
-### Página `/reset-password` (nova, pública)
-- Detecta `type=recovery` no hash da URL (Supabase já cria sessão temporária via link do e-mail).
-- Dois campos: nova senha + confirmação.
-- Validação: mínimo 8 caracteres, senhas iguais.
-- Chama `supabase.auth.updateUser({ password })`.
-- Em sucesso: toast + redireciona para `/dashboard`.
-- Se acessar sem token válido: mensagem de "Link expirado" + botão para `/forgot-password`.
+### Os 3 prompts (`generate-report`, `generate-content-week`, `regenerate-single-post`)
+Adicionar regra explícita sobre `card_copy`:
+> NUNCA prefixe os itens de `card_copy` com "Slide 1:", "Slide 2:", "Card 1:", "Página 1:", etc. Cada item do array JÁ É um slide; escreva apenas o conteúdo em si, sem rótulo posicional.
+> ERRADO: `["Slide 1: Você também sente que o tempo voa?", "Slide 2: A solução está aqui"]`
+> CERTO:  `["Você também sente que o tempo voa?", "A solução está aqui"]`
 
-### Link em `/login`
-- Adicionar "Esqueci minha senha" abaixo do campo de senha, alinhado à direita, tom discreto.
+## 2. Sanitização defensiva no cliente
 
-## 2. Alteração na área logada
+### `src/lib/textCleanup.ts`
+Adicionar nova função `stripFrameworkLabels(text)` que remove no início da string (case-insensitive):
+- `Slide \d+\s*[:\-–]\s*`
+- `Card \d+\s*[:\-–]\s*`
+- `Página \d+\s*[:\-–]\s*`
+- `Problema Externo\s*[:\-–]\s*`
+- `Problema Interno\s*[:\-–]\s*`
+- `Problema Filosófico\s*[:\-–]\s*`
+- `O Plano\s*[:\-–]\s*` / `Plano\s*[:\-–]\s*`
+- `CTA\s*[:\-–]\s*` / `Chamada à Ação\s*[:\-–]\s*` / `Chamada para Ação\s*[:\-–]\s*`
+- `O Sucesso\s*[:\-–]\s*` / `Sucesso\s*[:\-–]\s*`
+- `O Fracasso\s*[:\-–]\s*` / `Fracasso\s*[:\-–]\s*`
+- `O Herói\s*[:\-–]\s*` / `Herói\s*[:\-–]\s*`
+- `O Guia\s*[:\-–]\s*` / `Guia\s*[:\-–]\s*`
 
-### Nova seção em `HelpPage` (ou nova rota `/account`)
-Proposta: criar um **card "Segurança"** dentro de `HelpPage.tsx` (já é a área de configurações do usuário) com:
-- Campo "Nova senha" + "Confirmar nova senha".
-- Botão "Atualizar senha".
-- Chama `supabase.auth.updateUser({ password })`.
-- Toast de sucesso/erro.
+Também remover aspas envolventes residuais (a IA às vezes gera `"Você também sente..."` com aspas literais incluídas).
 
-Não exigirei a senha atual porque o Supabase Auth não valida a senha antiga em `updateUser` — a sessão já está autenticada. Se quiser camada extra de segurança (re-autenticação antes de trocar), posso adicionar depois.
+Atualizar `cleanText()` para encadear `stripFrameworkLabels` no pipeline.
 
-## 3. Roteamento
+### Pontos onde aplicar a limpeza (já usam `cleanMarkdown` / `extractAfterBold`)
 
-Em `src/App.tsx`:
-- `/forgot-password` → pública
-- `/reset-password` → pública (não pode estar atrás de `ProtectedRoute`, senão usuários não logados vindos do e-mail não conseguem acessar)
+- **`src/pages/PostEditorPage.tsx`** (linhas 266-269 e 648-650): aplicar `stripFrameworkLabels` em cada item de `card_copy`, no `theme` e no `cta` ao inicializar e ao resetar; também no título exibido (linha 729) e na legenda copiada (linha 691).
+- **`src/pages/EditorialPage.tsx`**: aplicar nos previews de `day.theme`, `day.caption`, `day.card_copy[]`, `day.cta` (renderização nos cards e no PDF de exportação).
+- **`src/pages/Report.tsx`**: aplicar na exibição da semana 1 do editorial.
 
-## 4. E-mail de recuperação
+## Resultado esperado
 
-Hoje o Supabase envia o e-mail de recuperação com template padrão (em inglês, marca Supabase). Para manter o padrão premium da marca, **recomendo** customizar o template de auth e-mails (vai exigir configurar domínio de e-mail próprio em Cloud → Emails). 
-
-**Não vou fazer isso nesse plano** — fica como passo opcional separado depois que confirmar que o fluxo funcional está OK.
-
-## Arquivos afetados
-
-- `src/pages/ForgotPassword.tsx` (novo)
-- `src/pages/ResetPassword.tsx` (novo)
-- `src/pages/Login.tsx` (adicionar link "Esqueci minha senha")
-- `src/pages/HelpPage.tsx` (adicionar card "Segurança" com troca de senha)
-- `src/App.tsx` (registrar duas rotas novas)
+- "Problema Externo: A Correria Vazia" → "A Correria Vazia"
+- "Slide 1: 'Você também sente...'" → "Você também sente..."
+- Conteúdos novos já saem limpos via prompt; conteúdos antigos já gravados no banco aparecem limpos via sanitização ao renderizar.
 
 ## Fora do escopo
 
-- Customização visual do e-mail de recuperação (Lovable Auth Email Templates).
-- Re-autenticação com senha atual antes de trocar.
-- 2FA / autenticação em dois fatores.
+- Reescrever em massa os `card_copy` antigos no banco (não é necessário — a sanitização no cliente cobre exibição e edição).
+- Mexer em outros campos do relatório (StoryBrand, arquétipos) que usam esses rótulos legitimamente.
 
