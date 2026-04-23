@@ -945,8 +945,8 @@ const PostEditorPage = () => {
               <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-background/80 backdrop-blur-sm rounded-2xl">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 <p className="text-sm font-medium text-foreground/90 text-center px-4">{initializingLayout}</p>
-                <div className="w-48">
-                  <Progress value={undefined as any} className="h-1.5 [&>*]:animate-pulse" />
+                <div className="w-48 h-1.5 bg-muted rounded-full overflow-hidden">
+                  <div className="h-full w-1/3 bg-primary rounded-full animate-[loading-bar_1.4s_ease-in-out_infinite]" />
                 </div>
               </div>
             )}
