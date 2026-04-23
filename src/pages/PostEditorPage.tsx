@@ -307,9 +307,16 @@ const PostEditorPage = () => {
           paletteHex: palette.map((c: any) => c.hex),
           bgPaletteHex: palette[bgIndex]?.hex || "#1a1a2e",
           userId: user.id,
+          style: initialStyle,
         });
         if (result.overlays.length > 0) {
-          setOverlayImages(prev => [...result.overlays, ...prev]);
+          setOverlayImages(prev => {
+            // Garante que overlays de fundo (tpl-bg-) fiquem no início (atrás de tudo)
+            const next = [...result.overlays, ...prev];
+            const bgs = next.filter(o => o.id.startsWith("tpl-bg-"));
+            const others = next.filter(o => !o.id.startsWith("tpl-bg-"));
+            return [...bgs, ...others];
+          });
           setAutoLayoutBanner(true);
         }
         const s = result.suggestions;
@@ -319,11 +326,18 @@ const PostEditorPage = () => {
         if (s.bodyTextAlign) setTextAlign(s.bodyTextAlign);
         if (typeof s.showSlideNumber === "boolean") setShowSlideNumber(s.showSlideNumber);
         if (s.slideNumberSize) setSlideNumberSize(s.slideNumberSize);
+        // Aplicar sugestões de gradiente (estilo minimalista)
+        if (s.useGradient) {
+          setUseGradient(true);
+          if (typeof s.gradientColor2Index === "number") setGradientColor2Index(s.gradientColor2Index);
+          if (s.gradientDirection) setGradientDirection(s.gradientDirection);
+        }
+        if (result.photographer) setActivePhotographer(result.photographer);
       } catch (err) {
         console.warn("Auto-layout failed", err);
       }
     })();
-  }, [user, day, palette, weekIndex, dayIndex, canvasFormat, bgIndex]);
+  }, [user, day, palette, weekIndex, dayIndex, canvasFormat, bgIndex, initialStyle]);
 
   // Trocar imagem de fundo (busca nova do Unsplash)
   const handleSwapBackground = useCallback(async () => {
