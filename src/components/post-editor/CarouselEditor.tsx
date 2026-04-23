@@ -106,6 +106,10 @@ const CarouselEditor: React.FC<CarouselEditorProps> = ({
         onSelectedTextChange={onSelectedTextChange}
         renderOrder={renderOrder}
         onRenderOrderChange={onRenderOrderChange}
+        showGrid={showGrid}
+        showRulers={showRulers}
+        showCoordinates={showCoordinates}
+        enableSnap={enableSnap}
       />
 
       <div className="flex items-center gap-4">
