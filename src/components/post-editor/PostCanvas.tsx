@@ -703,19 +703,27 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
           }}
           onClick={handleCanvasClick}
         >
-          {/* Background grid (decorative; not exported because it's drawn inside the canvas via overlay) */}
-          {showGrid && (
-            <div
-              aria-hidden
-              style={{
-                position: "absolute", inset: 0, pointerEvents: "none",
-                backgroundImage:
-                  "linear-gradient(to right, rgba(255,255,255,0.08) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.08) 1px, transparent 1px)",
-                backgroundSize: `${canvasWidth / 8}px ${canvasHeight / 8}px`,
-                zIndex: 9999,
-              }}
-            />
-          )}
+          {/* Background grid (cor adaptativa: clara em fundos escuros, escura em fundos claros) */}
+          {showGrid && (() => {
+            const hex = (bgColor || "#000000").replace("#", "");
+            const r = parseInt(hex.slice(0, 2), 16) || 0;
+            const g = parseInt(hex.slice(2, 4), 16) || 0;
+            const b = parseInt(hex.slice(4, 6), 16) || 0;
+            const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+            const lineColor = luminance > 0.5 ? "rgba(0,0,0,0.22)" : "rgba(255,255,255,0.22)";
+            return (
+              <div
+                aria-hidden
+                style={{
+                  position: "absolute", inset: 0, pointerEvents: "none",
+                  backgroundImage:
+                    `linear-gradient(to right, ${lineColor} 1px, transparent 1px), linear-gradient(to bottom, ${lineColor} 1px, transparent 1px)`,
+                  backgroundSize: `${canvasWidth / 8}px ${canvasHeight / 8}px`,
+                  zIndex: 1,
+                }}
+              />
+            );
+          })()}
           {showSlideNumber && slideNumber !== undefined && totalSlides !== undefined && (() => {
             const snPos = slideNumberPosition || { x: canvasWidth - 60, y: 50 };
             const snBg = slideNumberBgColor || accentColor;

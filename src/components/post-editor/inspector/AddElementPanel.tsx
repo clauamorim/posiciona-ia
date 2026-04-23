@@ -318,13 +318,30 @@ const AddElementPanel: React.FC<AddElementPanelProps> = ({
 
   return (
     <Tabs defaultValue="upload" className="w-full">
-      <TabsList className="grid grid-cols-5 h-8 p-0.5">
-        <TabsTrigger value="upload" className="text-[10px] h-7 px-1"><ImagePlus className="h-3.5 w-3.5" /></TabsTrigger>
-        <TabsTrigger value="gallery" className="text-[10px] h-7 px-1"><ImageIcon className="h-3.5 w-3.5" /></TabsTrigger>
-        <TabsTrigger value="portraits" className="text-[10px] h-7 px-1"><Camera className="h-3.5 w-3.5" /></TabsTrigger>
-        <TabsTrigger value="icons" className="text-[10px] h-7 px-1"><Shapes className="h-3.5 w-3.5" /></TabsTrigger>
-        <TabsTrigger value="frames" className="text-[10px] h-7 px-1"><Minus className="h-3.5 w-3.5" /></TabsTrigger>
+      <TabsList className="grid grid-cols-6 h-8 p-0.5">
+        <TabsTrigger value="upload" className="text-[10px] h-7 px-1" title="Upload"><ImagePlus className="h-3.5 w-3.5" /></TabsTrigger>
+        <TabsTrigger value="bgimages" className="text-[10px] h-7 px-1" title="Banco de imagens"><Search className="h-3.5 w-3.5" /></TabsTrigger>
+        <TabsTrigger value="gallery" className="text-[10px] h-7 px-1" title="Minha galeria"><ImageIcon className="h-3.5 w-3.5" /></TabsTrigger>
+        <TabsTrigger value="portraits" className="text-[10px] h-7 px-1" title="Retratos"><Camera className="h-3.5 w-3.5" /></TabsTrigger>
+        <TabsTrigger value="icons" className="text-[10px] h-7 px-1" title="Ícones"><Shapes className="h-3.5 w-3.5" /></TabsTrigger>
+        <TabsTrigger value="frames" className="text-[10px] h-7 px-1" title="Molduras"><Minus className="h-3.5 w-3.5" /></TabsTrigger>
       </TabsList>
+
+      {/* Banco de imagens (Unsplash + IA) */}
+      <TabsContent value="bgimages" className="mt-3">
+        <ImageGalleryPanel
+          defaultQuery={imageSearchQuery}
+          format={canvasFormat === "reels" ? "portrait" : "square"}
+          onPickImage={(url, photographer) => {
+            if (photographer) onUnsplashPick?.(photographer);
+            if (onSwapBackground) {
+              onSwapBackground(url);
+            } else {
+              handleAddImageFromUrl(url);
+            }
+          }}
+        />
+      </TabsContent>
 
       {/* Upload + text box */}
       <TabsContent value="upload" className="mt-3 space-y-2">
