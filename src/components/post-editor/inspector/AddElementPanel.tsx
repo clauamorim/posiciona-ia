@@ -107,12 +107,17 @@ interface AddElementPanelProps {
   onUnsplashPick?: (photographer: PhotographerInfo) => void;
   /** Chamado quando uma imagem precisa virar fundo (substitui bg atual). */
   onSwapBackground?: (url: string) => void;
+  /** Chamado após geração IA bem-sucedida — deve fazer débito de 1 crédito. */
+  onAIGenerated?: () => Promise<void> | void;
+  /** Saldo atual de créditos de regeneração (para validação). */
+  regenerationCredits?: number;
 }
 
 const AddElementPanel: React.FC<AddElementPanelProps> = ({
   palette, defaultElementColor, bodyFont, textColor, userPortraits = [], onAddImage, onPortraitsChanged,
   hasSelectedElement, onRecolorSelected,
   imageSearchQuery = "", canvasFormat = "square", onUnsplashPick, onSwapBackground,
+  onAIGenerated, regenerationCredits,
 }) => {
   const { user } = useAuth();
   const [elementColor, setElementColor] = useState(defaultElementColor || palette[0]?.hex || "#7c3aed");
@@ -403,6 +408,8 @@ const AddElementPanel: React.FC<AddElementPanelProps> = ({
         <ImageGalleryPanel
           defaultQuery={imageSearchQuery}
           format={canvasFormat === "reels" ? "portrait" : "square"}
+          onAIGenerated={onAIGenerated}
+          regenerationCredits={regenerationCredits}
           onPickImage={(url, photographer) => {
             if (photographer) onUnsplashPick?.(photographer);
             if (onSwapBackground) {

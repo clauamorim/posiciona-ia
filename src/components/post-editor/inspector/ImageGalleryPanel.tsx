@@ -160,12 +160,16 @@ const ImageGalleryPanel: React.FC<ImageGalleryPanelProps> = ({
         <Button
           variant="outline" size="sm"
           onClick={() => setAiPromptOpen(true)}
+          disabled={typeof regenerationCredits === "number" && regenerationCredits <= 0}
           className="gap-2 w-full h-8 text-xs"
         >
           <Sparkles className="h-3.5 w-3.5" />
           Gerar imagem por IA
         </Button>
-        <p className="text-[10px] text-muted-foreground/70 mt-1">Custo: 1 crédito de regeneração.</p>
+        <p className="text-[10px] text-muted-foreground/70 mt-1">
+          Custo: 1 crédito de regeneração
+          {typeof regenerationCredits === "number" && ` · saldo: ${regenerationCredits}`}
+        </p>
       </div>
 
       <AlertDialog open={aiPromptOpen} onOpenChange={setAiPromptOpen}>
