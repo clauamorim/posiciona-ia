@@ -69,6 +69,7 @@ const CarouselEditor: React.FC<CarouselEditorProps> = ({
   showSlideNumber, slideNumberPosition, onSlideNumberMove,
   slideNumberBgColor, slideNumberTextColor, slideNumberSize,
   onSelectedTextChange, renderOrder, onRenderOrderChange,
+  showGrid, showRulers, showCoordinates, enableSnap,
 }) => {
   const total = slides.length;
   const isCover = currentSlide === 0;
