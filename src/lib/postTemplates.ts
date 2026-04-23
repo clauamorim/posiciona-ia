@@ -52,12 +52,14 @@ const SQUARE_TEMPLATES: Record<TemplateKind, TemplateLayout> = {
     kind: "cover",
     format: "square",
     backgroundOverlay: true,
-    // paletteIndex 2 (geralmente cor escura/contraste) ao invés de 0 (primária) para destacar do gradiente
-    decorativeBlock: { x: 0, y: 760, width: SQUARE_W, height: 320, paletteIndex: 2, opacity: 0.85 },
+    // No solid decorative block — readability comes from the gradient overlay
+    // rendered by PostCanvas itself when there is a photo background.
+    decorativeBlock: null,
     logoSlot: { x: 60, y: 60, width: 160, height: 160 },
     portraitSlot: null,
-    titleSlot: { x: 80, y: 800, width: 920, fontSize: 64, align: "left" },
-    bodySlot: { x: 80, y: 940, width: 920, fontSize: 26, align: "left" },
+    // Slots subidos para deixar respiro no rodapé (antes y=800/940)
+    titleSlot: { x: 80, y: 620, width: 920, fontSize: 60, align: "left" },
+    bodySlot: { x: 80, y: 820, width: 920, fontSize: 26, align: "left" },
     slideNumberSlot: { x: SQUARE_W - 80, y: 80, size: 14, show: false },
   },
   content: {
