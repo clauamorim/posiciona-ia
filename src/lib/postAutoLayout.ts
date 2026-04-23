@@ -74,7 +74,11 @@ export interface AutoLayoutResult {
   styleFailedReason?: string;
 }
 
-/** Verifica se uma imagem (URL) tem transparência real — carrega em canvas e checa alpha. */
+/**
+ * Verifica se uma imagem (URL) tem transparência real — carrega em canvas
+ * e checa alpha. Também processa green-screen (#00FF00) como transparência
+ * caso a imagem venha do remove-background sem chroma key aplicado.
+ */
 async function imageHasTransparency(url: string): Promise<boolean> {
   return new Promise((resolve) => {
     try {
@@ -82,7 +86,6 @@ async function imageHasTransparency(url: string): Promise<boolean> {
       img.crossOrigin = "anonymous";
       img.onload = () => {
         try {
-          // Amostra reduzida para performance
           const sampleSize = 200;
           const ratio = Math.min(1, sampleSize / Math.max(img.width, img.height));
           const w = Math.max(1, Math.round(img.width * ratio));
@@ -98,13 +101,59 @@ async function imageHasTransparency(url: string): Promise<boolean> {
           for (let i = 3; i < data.length; i += 4) {
             if (data[i] < 250) transparentPixels++;
           }
-          // Se >2% dos pixels têm alpha < 250, considera transparente de verdade
           resolve(transparentPixels / (data.length / 4) > 0.02);
         } catch { resolve(false); }
       };
       img.onerror = () => resolve(false);
       img.src = url;
     } catch { resolve(false); }
+  });
+}
+
+/** Aplica chroma-key (verde #00FF00) sobre uma data-URL e devolve PNG transparente. */
+async function chromaKeyGreenToTransparent(dataUrl: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    try {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        try {
+          const canvas = document.createElement("canvas");
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) return resolve(null);
+          ctx.drawImage(img, 0, 0);
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const d = imageData.data;
+          for (let i = 0; i < d.length; i += 4) {
+            const r = d[i], g = d[i + 1], b = d[i + 2];
+            // Verde puro / quase puro → transparente
+            if (g > 150 && r < 120 && b < 120 && g > r + 30 && g > b + 30) {
+              d[i + 3] = 0;
+            } else if (g > 80 && r < 160 && b < 160 && g > r && g > b) {
+              const greenness = (g - Math.max(r, b)) / g;
+              if (greenness > 0.15) {
+                d[i + 3] = Math.round(255 * (1 - greenness));
+                d[i] = Math.min(255, Math.round(r * 1.3));
+                d[i + 2] = Math.min(255, Math.round(b * 1.3));
+              }
+            }
+          }
+          // Despill: remove halo verde dos pixels restantes
+          for (let i = 0; i < d.length; i += 4) {
+            if (d[i + 3] === 0) continue;
+            const r = d[i], g = d[i + 1], b = d[i + 2];
+            const avg = (r + b) / 2;
+            if (g > avg + 10) d[i + 1] = Math.round(avg);
+          }
+          ctx.putImageData(imageData, 0, 0);
+          resolve(canvas.toDataURL("image/png"));
+        } catch { resolve(null); }
+      };
+      img.onerror = () => resolve(null);
+      img.src = dataUrl;
+    } catch { resolve(null); }
   });
 }
 
@@ -142,7 +191,9 @@ async function fetchUserLogo(userId: string): Promise<string | null> {
     const hasReal = await imageHasTransparency(finalUrl);
 
     if (!hasReal) {
-      // Reprocessa via remove-background
+      // Reprocessa via remove-background. A edge function devolve um PNG com
+      // fundo VERDE (#00FF00) e o flag chromaKey=true; precisamos converter
+      // o verde em alpha aqui no cliente, senão a logo continua com fundo.
       try {
         const resp = await fetch(finalUrl);
         const blob = await resp.blob();
@@ -156,20 +207,30 @@ async function fetchUserLogo(userId: string): Promise<string | null> {
           body: { imageUrl: dataUrl },
         });
         if (!rbErr && rb?.image && typeof rb.image === "string" && rb.image.startsWith("data:image/")) {
-          const newBlob = await (await fetch(rb.image)).blob();
-          const newPath = filePath.replace(/\.[^.]+$/, "") + ".png";
-          const { error: upErr } = await supabase.storage
-            .from("user-uploads")
-            .upload(newPath, newBlob, { contentType: "image/png", upsert: true });
-          if (!upErr) {
-            await supabase
-              .from("user_gallery_assets")
-              .update({ file_path: newPath, bg_removed: true })
-              .eq("id", (data as any).id);
-            const { data: signed2 } = await supabase.storage
+          // Sempre passa pelo chroma-key — independente da flag, garante alpha real.
+          const transparent = await chromaKeyGreenToTransparent(rb.image);
+          const finalImage = transparent || rb.image;
+          // Confirma que de fato gerou alpha; se não, não persiste para evitar
+          // continuar reusando uma logo "falsamente" sem fundo.
+          const stillHasBg = !(await imageHasTransparency(finalImage));
+          if (!stillHasBg) {
+            const newBlob = await (await fetch(finalImage)).blob();
+            const newPath = filePath.replace(/\.[^.]+$/, "") + ".png";
+            const { error: upErr } = await supabase.storage
               .from("user-uploads")
-              .createSignedUrl(newPath, 60 * 60);
-            if (signed2?.signedUrl) finalUrl = signed2.signedUrl;
+              .upload(newPath, newBlob, { contentType: "image/png", upsert: true });
+            if (!upErr) {
+              await supabase
+                .from("user_gallery_assets")
+                .update({ file_path: newPath, bg_removed: true })
+                .eq("id", (data as any).id);
+              const { data: signed2 } = await supabase.storage
+                .from("user-uploads")
+                .createSignedUrl(newPath, 60 * 60);
+              if (signed2?.signedUrl) finalUrl = signed2.signedUrl;
+            }
+          } else {
+            console.warn("Logo still has background after chroma-key, keeping original");
           }
         } else {
           console.warn("remove-background returned no image, using original logo");
@@ -239,18 +300,28 @@ export async function fetchImageGallery(opts: {
   }
 }
 
-/** Gera imagem por IA. */
+/**
+ * Gera imagem por IA. Retorna a URL e a fonte real ("ai" ou "cache" quando
+ * vier de cache de IA prévio). NUNCA retorna foto do Unsplash — a edge
+ * function isola a cache por modo.
+ */
 export async function generateAIImage(opts: {
   query: string;
   format: "square" | "portrait";
   niche?: string;
-}): Promise<{ url: string } | null> {
+}): Promise<{ url: string; source: "ai" | "cache" } | null> {
   try {
     const { data, error } = await supabase.functions.invoke("fetch-post-image", {
       body: { theme: opts.query, query: opts.query, format: opts.format, allowAI: true, mode: "single", niche: opts.niche },
     });
     if (error || !data?.url) return null;
-    return { url: data.url };
+    // Aceita apenas respostas que confirmam origem de IA (incluindo cache de IA).
+    const src = data.source === "ai" ? "ai" : null;
+    if (!src) {
+      console.warn("generateAIImage: response source is not 'ai':", data.source);
+      return null;
+    }
+    return { url: data.url, source: data.cached ? "cache" : "ai" };
   } catch (err) {
     console.warn("generateAIImage failed", err);
     return null;
@@ -259,6 +330,7 @@ export async function generateAIImage(opts: {
 
 /** Monta a composição inicial completa para um slide. */
 export async function buildAutoLayout(input: AutoLayoutInput): Promise<AutoLayoutResult> {
+  const style: PostStyle = input.style ?? "unsplash";
   const template = input.isCarousel
     ? pickTemplate({
         weekIndex: input.weekIndex,
@@ -275,13 +347,12 @@ export async function buildAutoLayout(input: AutoLayoutInput): Promise<AutoLayou
         dayIndex: input.dayIndex,
         format: input.format,
         hasCta: input.hasCta,
+        style,
       });
 
   const overlays: OverlayImage[] = [];
   let bgInfo: { url: string; source: "unsplash" | "ai" | "cache"; photographer?: PhotographerInfo } | null = null;
 
-  // Resolve estilo: respeitar escolha explícita, ou padrão "unsplash"
-  const style: PostStyle = input.style ?? "unsplash";
   let styleFailed = false;
   let styleFailedReason: string | undefined;
 
@@ -308,7 +379,7 @@ export async function buildAutoLayout(input: AutoLayoutInput): Promise<AutoLayou
       niche: input.niche,
     });
     if (ai) {
-      bgInfo = { url: ai.url, source: "ai" };
+      bgInfo = { url: ai.url, source: ai.source };
       overlays.push(buildBackgroundImageOverlay(ai.url, input.format, true));
     } else {
       styleFailed = true;
@@ -323,16 +394,10 @@ export async function buildAutoLayout(input: AutoLayoutInput): Promise<AutoLayou
     const primary = input.paletteHex[0] || "#7c3aed";
     const accent = input.paletteHex[1] || input.paletteHex[0] || "#7c3aed";
     overlays.push(...buildMinimalDecorativeOverlays(template, primary, accent));
-  } else {
-    // Para outros estilos, usar bloco padrão do template
-    const blockColor = template.decorativeBlock
-      ? input.paletteHex[template.decorativeBlock.paletteIndex] || input.paletteHex[0] || "#7c3aed"
-      : null;
-    if (blockColor && template.decorativeBlock) {
-      const block = buildDecorativeBlockOverlay(template, blockColor);
-      if (block) overlays.push(block);
-    }
   }
+  // IMPORTANTE: para estilos com foto (unsplash/ai) NÃO adicionamos
+  // decorativeBlock sólido — a legibilidade do texto vem do gradiente preto
+  // translúcido do PostCanvas (hasPhotoBackground), não de uma caixa branca.
 
   // 3) Logo do usuário (se houver)
   const logoUrl = await fetchUserLogo(input.userId);

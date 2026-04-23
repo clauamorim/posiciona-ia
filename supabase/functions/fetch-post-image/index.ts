@@ -285,38 +285,33 @@ Deno.serve(async (req) => {
     }
 
     // ===== SINGLE MODE =====
-    const cacheKey = await hashString(`${keywords}::${format}`);
+    // IMPORTANTE: cache é segmentado por modo (ai vs unsplash) para que IA
+    // não devolva uma foto do Unsplash cacheada como se fosse gerada por IA.
+    const modeTag = allowAI ? "ai" : "unsplash";
+    const cacheKey = await hashString(`${keywords}::${format}::${modeTag}`);
 
-    // 1) Cache lookup
+    // 1) Cache lookup — só aceita itens da MESMA fonte que o usuário pediu.
     const { data: cached } = await supabase
       .from("post_background_cache")
       .select("image_url, source")
       .eq("theme_hash", cacheKey)
       .maybeSingle();
-    if (cached?.image_url) {
-      return new Response(JSON.stringify({ url: cached.image_url, source: "cache", keywords }), {
+    if (cached?.image_url && cached.source === modeTag) {
+      return new Response(JSON.stringify({
+        url: cached.image_url,
+        // Reporta a fonte real (ai/unsplash) — "cache" não é usado pelo cliente
+        // para validar débito de crédito.
+        source: cached.source,
+        cached: true,
+        keywords,
+      }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // 2) Unsplash — busca lista de 10 e escolhe a 1ª que passa nos filtros
-    if (unsplashKey) {
-      const list = await searchUnsplashList(keywords, format, unsplashKey, 10, 1);
-      if (list.length > 0) {
-        const first = list[0];
-        await supabase.from("post_background_cache").insert({
-          theme_hash: cacheKey, image_url: first.url, source: "unsplash", keywords,
-        });
-        return new Response(JSON.stringify({
-          url: first.url, source: "unsplash", keywords,
-          photographer: first.photographer, unsplashUrl: first.unsplashUrl,
-        }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-    }
-
-    // 3) AI fallback (only if allowed)
+    // 2) Estratégia conforme o modo:
+    //    - allowAI=true → SEMPRE tenta IA. Não cai para Unsplash.
+    //    - allowAI=false → tenta Unsplash; se falhar, devolve erro.
     if (allowAI) {
       const themeEN = translateThemeForAI(theme, niche);
       console.log("AI prompt subject:", themeEN);
@@ -333,6 +328,22 @@ Deno.serve(async (req) => {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    if (unsplashKey) {
+      const list = await searchUnsplashList(keywords, format, unsplashKey, 10, 1);
+      if (list.length > 0) {
+        const first = list[0];
+        await supabase.from("post_background_cache").insert({
+          theme_hash: cacheKey, image_url: first.url, source: "unsplash", keywords,
+        });
+        return new Response(JSON.stringify({
+          url: first.url, source: "unsplash", keywords,
+          photographer: first.photographer, unsplashUrl: first.unsplashUrl,
+        }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     return new Response(JSON.stringify({ error: "no image found", keywords, allowAI }), {
