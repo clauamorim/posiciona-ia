@@ -33,28 +33,45 @@ const isReportLikeObject = (value: unknown) => (
   isRecord(value) && REPORT_SECTION_KEYS.some((key) => hasValue(value[key]))
 );
 
+const stripTrailingCommas = (text: string) => text.replace(/,(\s*[}\]])/g, "$1");
+
+const tryJsonParse = (text: string): { ok: true; value: unknown } | { ok: false } => {
+  if (!text) return { ok: false };
+  try {
+    return { ok: true, value: JSON.parse(text) };
+  } catch {
+    try {
+      return { ok: true, value: JSON.parse(stripTrailingCommas(text)) };
+    } catch {
+      return { ok: false };
+    }
+  }
+};
+
 const extractJsonCandidates = (input: string) => {
   const trimmed = input.trim();
-  const candidates = new Set<string>();
+  const candidates: string[] = [];
+  const seen = new Set<string>();
+  const push = (c: string) => { if (c && !seen.has(c)) { seen.add(c); candidates.push(c); } };
 
-  if (trimmed) candidates.add(trimmed);
+  if (trimmed) push(trimmed);
 
   const fenced = trimmed.match(/```(?:json|javascript|js|typescript|ts)?\s*([\s\S]*?)\s*```/i);
-  if (fenced?.[1]?.trim()) candidates.add(fenced[1].trim());
+  if (fenced?.[1]?.trim()) push(fenced[1].trim());
 
   const firstBrace = trimmed.indexOf("{");
   const lastBrace = trimmed.lastIndexOf("}");
   if (firstBrace !== -1 && lastBrace > firstBrace) {
-    candidates.add(trimmed.slice(firstBrace, lastBrace + 1));
+    push(trimmed.slice(firstBrace, lastBrace + 1));
   }
 
   const firstBracket = trimmed.indexOf("[");
   const lastBracket = trimmed.lastIndexOf("]");
   if (firstBracket !== -1 && lastBracket > firstBracket) {
-    candidates.add(trimmed.slice(firstBracket, lastBracket + 1));
+    push(trimmed.slice(firstBracket, lastBracket + 1));
   }
 
-  return [...candidates];
+  return candidates;
 };
 
 const unwrapReportLikeValue = (value: unknown, depth: number): unknown => {
@@ -78,10 +95,9 @@ const parseUnknown = (rawValue: unknown, depth = 0): unknown => {
 
   if (typeof rawValue === "string") {
     for (const candidate of extractJsonCandidates(rawValue)) {
-      try {
-        return parseUnknown(JSON.parse(candidate), depth + 1);
-      } catch {
-        continue;
+      const result = tryJsonParse(candidate);
+      if (result.ok) {
+        return parseUnknown(result.value, depth + 1);
       }
     }
 
