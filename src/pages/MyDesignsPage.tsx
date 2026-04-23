@@ -226,7 +226,8 @@ const MyDesignsPage = () => {
                           </div>
                         </CardContent>
                       </Card>
-                    ))}
+                      );
+                    })}
                   </div>
                 </section>
               );
