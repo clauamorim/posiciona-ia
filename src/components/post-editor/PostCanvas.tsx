@@ -592,14 +592,17 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   };
 
   const showCta = resolvedCtaText && (isLastSlide || isCoverSlide || (layout === "split" && cta));
-  // CTA dinâmico: sempre abaixo do bloco de texto (body), com folga de 60px
+  // CTA dinâmico: sempre abaixo do bloco de texto (body), com folga de 60px,
+  // e SEMPRE acima do canto inferior direito (onde fica a logo) — pelo menos 200px de margem inferior.
   const bodyBox = textBoxes.find(t => t.type === "body");
   const titleBox = textBoxes.find(t => t.type === "title");
   const referenceBox = bodyBox || titleBox;
+  // Limite máximo do CTA para evitar a área da logo (canto inf. direito)
+  const ctaMaxY = canvasHeight - 200;
   const computedCtaY = referenceBox
-    ? Math.min(canvasHeight - 120, referenceBox.y + referenceBox.height + 60)
-    : (isCoverSlide ? 540 : isLastSlide ? 780 : 960);
-  const computedCtaX = referenceBox ? referenceBox.x + referenceBox.width / 2 : 540;
+    ? Math.min(ctaMaxY, Math.max(referenceBox.y + referenceBox.height + 60, referenceBox.y + referenceBox.height + 60))
+    : (isCoverSlide ? Math.round(canvasHeight * 0.5) : isLastSlide ? Math.round(canvasHeight * 0.72) : Math.round(canvasHeight * 0.88));
+  const computedCtaX = referenceBox ? referenceBox.x + referenceBox.width / 2 : canvasWidth / 2;
   const defaultCtaPos = { x: computedCtaX, y: computedCtaY };
   const ctaPos = ctaPosition || defaultCtaPos;
 
@@ -870,26 +873,6 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
           })}
         </div>
 
-
-        {/* Coordinates badge for selected element */}
-        {showCoordinates && selectedBounds && (
-          <div
-            aria-hidden
-            style={{
-              position: "absolute",
-              left: Math.min(selectedBounds.x * scale, canvasWidth * scale - 130),
-              top: Math.max(0, (selectedBounds.y - 28 / scale) * scale),
-              padding: "2px 6px",
-              background: "hsl(var(--primary))",
-              color: "hsl(var(--primary-foreground))",
-              fontSize: 10, fontFamily: "monospace",
-              borderRadius: 4, pointerEvents: "none", zIndex: 100000,
-              whiteSpace: "nowrap",
-            }}
-          >
-            {Math.round(selectedBounds.x)}, {Math.round(selectedBounds.y)} · {Math.round(selectedBounds.w)}×{Math.round(selectedBounds.h)}
-          </div>
-        )}
         </div>
       </div>
     </div>
