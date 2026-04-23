@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { extractJsonFromLLM } from "../_shared/jsonExtract.ts";
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 const API_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
@@ -163,6 +164,8 @@ serve(async (req) => {
 
 Gere EXATAMENTE 7 novos dias de conteúdo editorial, SEM REPETIR temas, abordagens ou formatos dos conteúdos anteriores.
 
+⚠️ CRÍTICO — FORMATO DE SAÍDA: Sua resposta DEVE começar com "[" e terminar com "]". NÃO use \`\`\` em hipótese alguma. NÃO escreva texto, comentário ou explicação antes ou depois do JSON. Não use vírgula final antes de "}" ou "]". Se você adicionar markdown fences ou texto fora do JSON, o sistema REJEITA a resposta.
+
 IMPORTANTE: Responda APENAS com um JSON válido, sem markdown, sem backticks.
 
 REGRA DE LINGUAGEM (CRÍTICA):
@@ -249,13 +252,13 @@ Gere 7 novos dias de conteúdo em JSON.`;
       rawContent = await callGemini(systemPrompt, userContent);
     }
 
-    let editorial: any;
-    try {
-      const cleaned = rawContent.replace(/^```json?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
-      editorial = JSON.parse(cleaned);
-    } catch {
-      console.error("Failed to parse AI response:", rawContent.substring(0, 500));
-      throw new Error("Falha ao processar resposta da IA. Tente novamente.");
+    const editorial = extractJsonFromLLM(rawContent);
+    if (!Array.isArray(editorial) || editorial.length === 0) {
+      console.error("Failed to parse AI response:", String(rawContent).substring(0, 500));
+      return new Response(
+        JSON.stringify({ error: "A IA retornou uma resposta inválida. Tente gerar novamente." }),
+        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     return new Response(JSON.stringify({ editorial }), {

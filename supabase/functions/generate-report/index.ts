@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { extractJsonFromLLM, isValidReport } from "../_shared/jsonExtract.ts";
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 const API_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
@@ -66,6 +67,8 @@ serve(async (req) => {
 
     const systemPrompt = `Você é um especialista em branding, arquétipos de marca e metodologia StoryBrand.
 Gere um relatório estratégico completo e personalizado para posicionamento de marca no Instagram.
+
+⚠️ CRÍTICO — FORMATO DE SAÍDA: Sua resposta DEVE começar com "{" e terminar com "}". NÃO use \`\`\` em hipótese alguma. NÃO escreva texto, comentário ou explicação antes ou depois do JSON. Não use vírgula final antes de "}" ou "]". Se você adicionar markdown fences ou qualquer texto fora do JSON, o sistema irá REJEITAR a resposta e o usuário receberá erro.
 
 IMPORTANTE: Responda APENAS com um JSON válido, sem markdown, sem backticks, sem texto antes ou depois do JSON.
 
@@ -324,12 +327,14 @@ Gere o relatório completo em JSON agora.`;
     const data = await response.json();
     const rawContent = data.choices?.[0]?.message?.content || "";
 
-    let reportContent: any;
-    try {
-      const cleaned = rawContent.replace(/^```json?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
-      reportContent = JSON.parse(cleaned);
-    } catch {
-      reportContent = rawContent;
+    const reportContent = extractJsonFromLLM(rawContent);
+
+    if (!isValidReport(reportContent)) {
+      console.error("AI returned malformed JSON. First 500 chars:", String(rawContent).substring(0, 500));
+      return new Response(
+        JSON.stringify({ error: "A IA retornou uma resposta inválida. Tente gerar novamente." }),
+        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     return new Response(JSON.stringify({ report: reportContent }), {
