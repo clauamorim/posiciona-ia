@@ -300,18 +300,28 @@ export async function fetchImageGallery(opts: {
   }
 }
 
-/** Gera imagem por IA. */
+/**
+ * Gera imagem por IA. Retorna a URL e a fonte real ("ai" ou "cache" quando
+ * vier de cache de IA prévio). NUNCA retorna foto do Unsplash — a edge
+ * function isola a cache por modo.
+ */
 export async function generateAIImage(opts: {
   query: string;
   format: "square" | "portrait";
   niche?: string;
-}): Promise<{ url: string } | null> {
+}): Promise<{ url: string; source: "ai" | "cache" } | null> {
   try {
     const { data, error } = await supabase.functions.invoke("fetch-post-image", {
       body: { theme: opts.query, query: opts.query, format: opts.format, allowAI: true, mode: "single", niche: opts.niche },
     });
     if (error || !data?.url) return null;
-    return { url: data.url };
+    // Aceita apenas respostas que confirmam origem de IA (incluindo cache de IA).
+    const src = data.source === "ai" ? "ai" : null;
+    if (!src) {
+      console.warn("generateAIImage: response source is not 'ai':", data.source);
+      return null;
+    }
+    return { url: data.url, source: data.cached ? "cache" : "ai" };
   } catch (err) {
     console.warn("generateAIImage failed", err);
     return null;
