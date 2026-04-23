@@ -1000,8 +1000,9 @@ const PostEditorPage = () => {
                 onSelectedTextChange={setSelectedTextId}
                 renderOrder={renderOrder}
                 onRenderOrderChange={setRenderOrder}
-                showGrid={showGrid} showRulers={showRulers}
-                showCoordinates={showCoordinates} enableSnap={enableSnap}
+                showRulers={showRulers}
+                showCoordinates={showCoordinates}
+                postStyle={initialStyle || undefined}
                 initialTextBoxes={initialTextBoxes}
                 resetKey={`${initialStyle || "minimal"}-${canvasFormat}`}
               />
