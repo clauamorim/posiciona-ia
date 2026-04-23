@@ -103,9 +103,8 @@ function loadDraft(weekIdx: number, dayIdx: number, style: string | undefined, f
   } catch { return null; }
 }
 
-function saveDraft(draft: EditorDraft) {
+function saveDraft(draft: EditorDraft, style: string | undefined, format: string) {
   try {
-    // Store large base64 images separately to avoid losing them
     const imageStore: Record<string, string> = {};
     const overlaysLite = draft.overlayImages.map(img => {
       if (img.src.length > 50000) {
@@ -126,9 +125,14 @@ function saveDraft(draft: EditorDraft) {
       }
     });
 
-    const lightweight = { ...draft, overlayImages: overlaysLite, uploadedImages: uploadedLite };
+    const lightweight = {
+      ...draft,
+      overlayImages: overlaysLite,
+      uploadedImages: uploadedLite,
+      __style: style || "minimal",
+      __format: format,
+    };
     sessionStorage.setItem(DRAFT_KEY, JSON.stringify(lightweight));
-    // Save images separately (each up to ~5MB in sessionStorage)
     Object.entries(imageStore).forEach(([k, v]) => {
       try { sessionStorage.setItem(`${DRAFT_KEY}_${k}`, v); } catch {}
     });
