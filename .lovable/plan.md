@@ -1,73 +1,62 @@
 
 
-## Editor de posts: seleção de estilo antes de abrir + galeria Unsplash
+## Correções para a montagem inicial dos posts
 
-Adiciono ao plano de correções já aprovado um novo fluxo de **seleção de estilo inicial** e uma **galeria de imagens** dentro do editor.
+Identifiquei 3 problemas distintos pelos seus prints, e cada um tem uma causa diferente. Plano enxuto:
 
-## 1. Modal "Escolha o estilo do post" (antes de abrir o editor)
+## 1. Unsplash retornando fotos irrelevantes (foto de criança chorando)
 
-Ao clicar em qualquer post na Linha Editorial, antes de abrir `/post-editor`, aparece um modal com 3 opções visuais (cards grandes com preview):
+**Causa**: `extractKeywords` na edge function pega palavras soltas do tema em **português** ("Superando", "cansaço", "pequenos", "descuidos", "diários") e manda direto para a Unsplash API — que tem catálogo majoritariamente em **inglês**. Resultado: a busca casa com "tired" → fotos genéricas de pessoas exaustas, incluindo crianças. Pior, usa o **tema do dia** que é sempre emocional/abstrato (StoryBrand), em vez do **nicho do negócio**.
 
-| Opção | O que entrega | Custo |
-|---|---|---|
-| **Minimalista** | Fundo degradê da paleta da marca, sem foto. Logo + tipografia + bloco decorativo. | Grátis |
-| **Com foto (Unsplash)** | Fundo com foto do Unsplash relacionada ao tema. Logo + tipografia sobreposta. | Grátis |
-| **Com foto IA** | Fundo gerado por IA Gemini, personalizado ao tema. Logo + tipografia sobreposta. | 1 crédito de regeneração |
+**Correção**:
+- Expandir `extractKeywords` para receber também `niche` e `business_context` (nicho do negócio + 2-3 palavras-chave da empresa).
+- Compor a query como: `"<nicho em inglês> <2 substantivos do tema>"` com tradução simples via dicionário interno (ex: `advogado→lawyer`, `psicólogo→therapy`, `marketing→marketing`).
+- Filtrar termos sensíveis ("criança", "child", "kid", "baby") quando o nicho não for infantil — prevenção contra fotos inadequadas.
+- Usar parâmetro `content_filter=high` (já está) + adicionar `order_by=relevant` (não `latest`).
+- Buscar uma **lista de 10** e escolher uma com filtros de qualidade (largura mínima, sem rosto dominante via análise simples do `urls.thumb`).
 
-- Cada card mostra um **preview real** (thumb do Unsplash já buscada via `fetch-post-image` em background quando o modal abre, e um placeholder estilizado para IA até o usuário confirmar).
-- Botão "Pular e abrir editor vazio" no rodapé.
-- A escolha é salva no draft (`initial_style: "minimal" | "unsplash" | "ai"`) para que ao reabrir o post, o estilo seja respeitado.
+No `PostEditorPage.tsx` e `EditorialPage.tsx` (modal) passar o nicho/contexto da empresa quando chamar `fetchBackgroundImage` e `fetchImageGallery`.
 
-## 2. Galeria Unsplash dentro do editor
+## 2. IA gerando imagens com texto sem sentido ("ME AJUDE A SEGURAR ESSA BARRA")
 
-Adiciono uma nova aba no painel "Adicionar elementos" chamada **"Banco de imagens"**:
+**Causa**: o prompt atual diz `"no text"` mas o Gemini Flash Image (e similares) **frequentemente ignora isso quando o tema do post é em português e tem frase emocional**. O modelo interpreta a frase como conteúdo a ser ilustrado literalmente, inserindo letreiros, neon, placas, etc.
 
-- Campo de busca livre (palavra-chave personalizável; default = tema do post).
-- Grid com 12 thumbnails do Unsplash (carrega 12 por página, botão "Ver mais").
-- Clique em uma thumb → substitui o fundo atual do canvas.
-- Botão **"Gerar com IA"** abaixo da grade — abre prompt customizável (default = tema do post) e cobra 1 crédito ao confirmar.
-- Atribuição automática do fotógrafo aparece no banner Unsplash (já planejado).
+**Correção** no `generateWithAI` da edge function:
+- Reescrever prompt para **inglês puro**, com tema traduzido (não passar o tema português literal).
+- Prompt fixo: `"Editorial photograph, premium magazine quality, soft natural lighting, shallow depth of field. Subject: <tema traduzido>. ABSOLUTELY NO TEXT, NO LETTERS, NO SIGNS, NO NEON, NO TYPOGRAPHY, NO WORDS anywhere in the image. Composition: centered subject with negative space on edges for text overlay. Style: minimal, calm, professional."`.
+- Adicionar instrução negativa redundante (3x "no text" funciona melhor empiricamente).
+- Trocar para o modelo `google/gemini-3-pro-image-preview` (qualidade superior, vale o custo já que o usuário paga 1 crédito).
+- Validação pós-geração: se a edge function detectar falha, retornar erro claro em vez de imagem ruim.
 
-A edge function `fetch-post-image` recebe um novo modo:
-- `mode: "single"` (atual) → retorna 1 imagem.
-- `mode: "gallery"` (novo) → retorna até 12 imagens do Unsplash com metadata de cada fotógrafo.
+## 3. Texto título sobreposto ao corpo no template minimalista (degradê)
 
-## 3. Tudo continua editável
+**Causa**: no template `minimal` do square (linha 78-79 em `postTemplates.ts`), o título começa em `y=320` com `fontSize=70` e o corpo começa em `y=600`. Quando o título tem 2-3 linhas (caso de "Combatendo a sensação de desvalorização e o esgotamento emocional"), passa de 320 px → ~600px e colide com o corpo. O bloco decorativo (faixa) fica em y=540 e também é invadido.
 
-Independente do estilo escolhido (minimal, Unsplash ou IA), o canvas vem com:
-- Logo posicionada (com fundo removido automaticamente — já planejado).
-- Tipografia + bloco decorativo do template.
-- Texto do dia (título, corpo, CTA).
-- Paleta de cores aplicada.
+**Correção** em `postTemplates.ts`:
+- **Square minimal**: título y=200, fontSize=60 (não 70), corpo y=720, decorativo y=680, slideNumber mantém.
+- **Reels minimal**: título y=480, corpo y=1180 (espaço vertical sobra).
+- **Square content**: título y=200, corpo y=520 (estava 380, muito próximo).
+- Adicionar **sistema de fallback**: quando o título é maior que 50 caracteres, o `buildAutoLayout` reduz `titleFontSize` em 20% e empurra `bodySlot.y` para baixo proporcionalmente (sugestão dinâmica via `suggestions`).
 
-E o usuário pode arrastar, trocar texto, redimensionar, mudar fonte, recolorir, etc.
+## 4. Bonus: opacidade do fundo nas fotos
 
-## Arquivos afetados (somando ao plano anterior)
+Pelos prints, a foto fica com `opacity: 0.75` mas o **texto não tem sombra/peso** suficiente para se destacar. 
 
-**Novos**:
-- `src/components/post-editor/StyleSelectionModal.tsx` — modal com 3 opções.
-- `src/components/post-editor/inspector/ImageGalleryPanel.tsx` — galeria Unsplash + botão IA.
+**Correção**: adicionar `text-shadow: 0 2px 8px rgba(0,0,0,0.6)` automaticamente nos textos quando há overlay de fundo de foto (template cover/Unsplash/AI). Aplicado via `PostCanvas.tsx` condicionalmente.
 
-**Editar**:
-- `src/pages/EditorialPage.tsx` — abrir modal de estilo antes de navegar para o editor.
-- `src/pages/PostEditorPage.tsx` — receber `initial_style` via query/state e aplicar no `buildAutoLayout`.
-- `src/lib/postAutoLayout.ts` — aceitar parâmetro `style: "minimal" | "unsplash" | "ai"` e retornar layout correspondente.
-- `src/components/post-editor/inspector/AddElementPanel.tsx` — adicionar nova aba "Banco de imagens".
-- `supabase/functions/fetch-post-image/index.ts` — suportar `mode: "gallery"` retornando até 12 imagens.
+## Arquivos a editar
 
-## Mantém todas as correções já aprovadas
-
-Todos os 6 fixes anteriores continuam:
-1. Logo sempre com fundo removido.
-2. Bloco decorativo com tamanho mínimo visível.
-3. Banner de atribuição Unsplash (auto-dismiss 5s).
-4. "Trocar imagem" funcional (bg vai para o início do renderOrder).
-5. Grade com cor adaptativa.
-6. Cobrança de IA só quando o usuário confirmar.
+- `supabase/functions/fetch-post-image/index.ts` — keyword extraction com nicho, prompt IA reforçado em inglês, modelo pro.
+- `src/lib/postAutoLayout.ts` — aceitar `niche` e `businessContext` no input; ajuste dinâmico de fonte conforme tamanho do título.
+- `src/lib/postTemplates.ts` — ajustar coordenadas y de minimal e content.
+- `src/pages/PostEditorPage.tsx` — passar nicho/contexto do report ao chamar buildAutoLayout/fetchBackgroundImage; aplicar text-shadow condicional.
+- `src/pages/EditorialPage.tsx` — passar nicho/contexto ao modal de seleção.
+- `src/components/post-editor/StyleSelectionModal.tsx` — receber e usar nicho na pré-busca de preview.
+- `src/components/post-editor/inspector/ImageGalleryPanel.tsx` — buscar com nicho como contexto.
 
 ## Fora do escopo
 
-- Salvar imagens favoritas do Unsplash em uma galeria pessoal.
-- Filtros avançados (cor dominante, orientação) na galeria.
-- Histórico de prompts de IA usados.
+- Mudar para outra API de imagens (mantemos Unsplash + IA).
+- Implementar moderação automática de conteúdo (filtro simples de keywords basta).
+- Re-treinar modelo de IA (impossível, mudança de prompt resolve).
 
