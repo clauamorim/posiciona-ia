@@ -11,11 +11,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import {
   Loader2, Sparkles, ChevronDown, Calendar, Video, Image, Smartphone,
-  ImageIcon, PenTool, FileText, RefreshCw, Copy, Download
+  ImageIcon, PenTool, FileText, RefreshCw, Copy, Download, AlertTriangle, Wand2
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { parseReportContent, normalizeReportContent } from "@/lib/reportParser";
 import { cleanText } from "@/lib/textCleanup";
+import { isOutdated, isWeekOutdated, EDITORIAL_GENERATOR_VERSION } from "@/lib/generatorVersion";
 
 // Escape HTML to prevent injection in raw innerHTML strings used for PDF
 function esc(s: string): string {
@@ -38,6 +39,7 @@ const EditorialPage = () => {
   const [loading, setLoading] = useState(true);
   const [generatingWeek, setGeneratingWeek] = useState(false);
   const [regeneratingPost, setRegeneratingPost] = useState<string | null>(null);
+  const [regeneratingFreeWeek, setRegeneratingFreeWeek] = useState<number | null>(null);
   const [downloadingPDF, setDownloadingPDF] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
 
@@ -101,8 +103,9 @@ const EditorialPage = () => {
     setGeneratingWeek(false);
   };
 
-  const handleRegeneratePost = async (weekIndex: number, dayIndex: number) => {
-    if (!user || regenerationCredits < 1) {
+  const handleRegeneratePost = async (weekIndex: number, dayIndex: number, freeMode = false) => {
+    if (!user) return;
+    if (!freeMode && regenerationCredits < 1) {
       toast({ title: "Créditos insuficientes", description: "Você não tem créditos de ajuste de conteúdo.", variant: "destructive" });
       return;
     }
@@ -125,9 +128,12 @@ const EditorialPage = () => {
           existingPosts,
           storybrand: reportContent?.storybrand || null,
           tone_of_voice: reportContent?.tone_of_voice || null,
+          freeRegeneration: freeMode,
+          currentVersion: day.generator_version || null,
         },
       });
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
 
       const isFirstWeek = structuredEditorial.length > 0 && weekIndex === 0;
       if (isFirstWeek) {
@@ -145,16 +151,65 @@ const EditorialPage = () => {
         setReport({ ...report, editorial_weeks: newWeeks });
       }
 
-      await supabase.from("user_balances").update({ regeneration_credits: regenerationCredits - 1 }).eq("user_id", user.id);
-      await supabase.from("credit_logs").insert({
-        user_id: user.id, credit_type: "regeneration", amount: -1, description: `Ajuste de conteúdo: ${day.theme}`,
-      });
-      await refreshSubscription();
-      toast({ title: "Post regenerado com sucesso!" });
+      if (!freeMode) {
+        await supabase.from("user_balances").update({ regeneration_credits: regenerationCredits - 1 }).eq("user_id", user.id);
+        await supabase.from("credit_logs").insert({
+          user_id: user.id, credit_type: "regeneration", amount: -1, description: `Ajuste de conteúdo: ${day.theme}`,
+        });
+        await refreshSubscription();
+      }
+      toast({ title: freeMode ? "Post atualizado sem custo" : "Post regenerado com sucesso!" });
     } catch (err: any) {
       toast({ title: "Erro ao regenerar post", description: err.message, variant: "destructive" });
     }
     setRegeneratingPost(null);
+  };
+
+  const handleRegenerateWeekFree = async (weekIndex: number) => {
+    if (!user) return;
+    setRegeneratingFreeWeek(weekIndex);
+    try {
+      const [{ data: bq }, { data: profile }, { data: reportData }] = await Promise.all([
+        supabase.from("business_questionnaires").select("*").eq("user_id", user.id).order("version", { ascending: false }).limit(1).single(),
+        supabase.from("profiles").select("niche").eq("user_id", user.id).single(),
+        supabase.from("reports").select("content").eq("user_id", user.id).eq("status", "completed").order("version", { ascending: false }).limit(1).single(),
+      ]);
+      const reportContent = normalizeReportContent(reportData?.content) as Record<string, any> | null;
+      const { data, error } = await supabase.functions.invoke("generate-content-week", {
+        body: {
+          business: bq, niche: profile?.niche || "",
+          previousWeeks: allWeeks
+            .filter((_, i) => i !== weekIndex)
+            .map((w: any[]) => w.map((d: any) => ({ day: d.day, theme: d.theme, format: d.format }))),
+          weekNumber: weekIndex + 1,
+          storybrand: reportContent?.storybrand || null,
+          tone_of_voice: reportContent?.tone_of_voice || null,
+          freeRegeneration: true,
+          replaceWeekIndex: weekIndex,
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      if (!data?.editorial) throw new Error("Resposta vazia da IA.");
+
+      // Replace in the correct slot
+      const isFirstWeek = structuredEditorial.length > 0 && weekIndex === 0;
+      if (isFirstWeek) {
+        const newContent = { ...content, editorial: data.editorial };
+        await supabase.from("reports").update({ content: newContent }).eq("user_id", user.id).eq("version", report.version);
+        setReport({ ...report, content: newContent });
+      } else {
+        const adjustedIndex = structuredEditorial.length > 0 ? weekIndex - 1 : weekIndex;
+        const newWeeks = [...editorialWeeks];
+        newWeeks[adjustedIndex] = data.editorial;
+        await supabase.from("reports").update({ editorial_weeks: newWeeks }).eq("user_id", user.id).eq("version", report.version);
+        setReport({ ...report, editorial_weeks: newWeeks });
+      }
+      toast({ title: "Semana atualizada sem custo" });
+    } catch (err: any) {
+      toast({ title: "Erro ao atualizar semana", description: err.message, variant: "destructive" });
+    }
+    setRegeneratingFreeWeek(null);
   };
 
   const copyCaption = (caption: string) => {
@@ -370,20 +425,50 @@ const EditorialPage = () => {
             </TabsList>
           )}
 
-          {allWeeks.map((week, wi) => (
+          {allWeeks.map((week, wi) => {
+            const weekOutdated = isWeekOutdated(week);
+            const isRegenWeek = regeneratingFreeWeek === wi;
+            return (
             <TabsContent key={wi} value={`week-${wi}`}>
+              {weekOutdated && (
+                <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-900/50 p-3 flex flex-col sm:flex-row sm:items-center gap-3">
+                  <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
+                  <div className="flex-1 text-xs text-amber-900 dark:text-amber-200 leading-relaxed">
+                    <strong className="font-semibold">Esta semana foi gerada antes de melhorias na plataforma.</strong>{" "}
+                    Atualize sem custo para aplicar as correções (rótulos do framework removidos, textos mais limpos).
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 gap-1.5 border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-900/30"
+                    onClick={() => handleRegenerateWeekFree(wi)}
+                    disabled={isRegenWeek}
+                  >
+                    {isRegenWeek ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
+                    {isRegenWeek ? "Atualizando..." : "Atualizar semana (grátis)"}
+                  </Button>
+                </div>
+              )}
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {(week || []).map((day: any, di: number) => {
                   const fmt = FORMAT_CONFIG[day.format?.toLowerCase()] || FORMAT_CONFIG.post;
                   const regenKey = `${wi}-${di}`;
+                  const dayOutdated = isOutdated(day);
                   return (
                     <Card key={di} className={`flex flex-col break-inside-avoid border-l-[3px] ${fmt.border}`}>
                       <CardContent className="py-4 flex-1 space-y-3">
                         <div className="flex items-center justify-between">
                           <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Dia {day.day || di + 1}</span>
-                          <Badge variant="outline" className={`text-[10px] gap-1 ${fmt.color}`}>
-                            {fmt.icon} {fmt.label}
-                          </Badge>
+                          <div className="flex items-center gap-1.5">
+                            {dayOutdated && (
+                              <Badge variant="outline" className="text-[10px] gap-1 bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-900">
+                                <AlertTriangle className="h-2.5 w-2.5" /> Desatualizado
+                              </Badge>
+                            )}
+                            <Badge variant="outline" className={`text-[10px] gap-1 ${fmt.color}`}>
+                              {fmt.icon} {fmt.label}
+                            </Badge>
+                          </div>
                         </div>
 
                         <h3 className="text-sm font-semibold leading-tight">{cleanText(day.theme || "")}</h3>
@@ -447,6 +532,17 @@ const EditorialPage = () => {
                               <Image className="h-3 w-3" /> Gerar capa
                             </Button>
                           )}
+                          {dayOutdated && (
+                            <Button
+                              variant="outline" size="sm"
+                              className="h-7 text-[11px] gap-1 px-2 border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200 hover:bg-amber-50 dark:hover:bg-amber-950/30"
+                              onClick={() => handleRegeneratePost(wi, di, true)}
+                              disabled={regeneratingPost === regenKey}
+                            >
+                              {regeneratingPost === regenKey ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />}
+                              Atualizar (grátis)
+                            </Button>
+                          )}
                           <Button
                             variant="ghost" size="sm" className="h-7 text-[11px] gap-1 px-2"
                             onClick={() => handleRegeneratePost(wi, di)}
@@ -462,7 +558,7 @@ const EditorialPage = () => {
                 })}
               </div>
             </TabsContent>
-          ))}
+          );})}
         </Tabs>
 
         <div className="flex justify-center pt-2" data-hide-pdf>

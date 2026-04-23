@@ -6,13 +6,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Layers, Trash2, Copy, Pencil } from "lucide-react";
+import { Layers, Trash2, Copy, Pencil, AlertTriangle } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { isOutdated } from "@/lib/generatorVersion";
 
 interface UserDesign {
   id: string;
@@ -52,24 +53,57 @@ const MyDesignsPage = () => {
   const navigate = useNavigate();
   const [designs, setDesigns] = useState<UserDesign[]>([]);
   const [loading, setLoading] = useState(true);
+  const [allWeeks, setAllWeeks] = useState<any[][]>([]);
 
   const fetchDesigns = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-    const { data, error } = await supabase
-      .from("user_designs")
-      .select("id, title, thumbnail, week_index, day_index, state, updated_at, created_at")
-      .eq("user_id", user.id)
-      .order("updated_at", { ascending: false });
+    const [{ data: designsData, error }, { data: reportData }] = await Promise.all([
+      supabase
+        .from("user_designs")
+        .select("id, title, thumbnail, week_index, day_index, state, updated_at, created_at")
+        .eq("user_id", user.id)
+        .order("updated_at", { ascending: false }),
+      supabase.from("reports").select("content, editorial_weeks")
+        .eq("user_id", user.id).eq("status", "completed")
+        .order("version", { ascending: false }).limit(1).maybeSingle(),
+    ]);
     if (error) {
       toast({ title: "Erro ao carregar designs", description: error.message, variant: "destructive" });
     } else {
-      setDesigns((data as UserDesign[]) || []);
+      setDesigns((designsData as UserDesign[]) || []);
     }
+    const structured = (reportData?.content as any)?.editorial;
+    const structuredArr = Array.isArray(structured) ? structured : [];
+    const weeks: any[][] = Array.isArray(reportData?.editorial_weeks) ? reportData!.editorial_weeks as any[][] : [];
+    setAllWeeks([...(structuredArr.length > 0 ? [structuredArr] : []), ...weeks]);
     setLoading(false);
   }, [user]);
 
   useEffect(() => { fetchDesigns(); }, [fetchDesigns]);
+
+  /**
+   * A design is "stale" when the editorial post it was based on has been
+   * regenerated AFTER the design was created. We can't track post update
+   * timestamps directly, so we use this heuristic: if the base post carries
+   * the current generator_version AND the design predates the introduction
+   * of versioning (no version field), the design is likely based on
+   * outdated copy.
+   */
+  const isDesignStale = (d: UserDesign): boolean => {
+    if (d.week_index == null || d.day_index == null) return false;
+    const week = allWeeks[d.week_index];
+    if (!week) return false;
+    const day = week[d.day_index];
+    if (!day) return false;
+    if (isOutdated(day)) return false; // base also outdated, no mismatch
+    // Base is up-to-date; flag designs created before the base was stamped.
+    // We don't have the exact stamp time, so use a conservative check:
+    // designs created before today's generator version threshold (any pre-2026-04-23 design).
+    const designCreated = new Date(d.created_at).getTime();
+    const versionEpoch = new Date("2026-04-23T00:00:00Z").getTime();
+    return designCreated < versionEpoch;
+  };
 
   const handleOpen = (d: UserDesign) => {
     const w = d.week_index ?? 0;
@@ -139,7 +173,9 @@ const MyDesignsPage = () => {
                 <section key={label}>
                   <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground/70 mb-3">{label}</h2>
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                    {items.map((d) => (
+                    {items.map((d) => {
+                      const stale = isDesignStale(d);
+                      return (
                       <Card key={d.id} className="overflow-hidden group">
                         <button onClick={() => handleOpen(d)} className="block w-full aspect-square bg-muted relative">
                           {d.thumbnail ? (
@@ -155,6 +191,14 @@ const MyDesignsPage = () => {
                             <p className="text-sm font-medium truncate">{d.title}</p>
                             <p className="text-[11px] text-muted-foreground">{relTime(d.updated_at)}</p>
                           </div>
+                          {stale && (
+                            <div className="flex items-start gap-1.5 rounded-md border border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/20 px-2 py-1.5">
+                              <AlertTriangle className="h-3 w-3 text-amber-600 mt-0.5 shrink-0" />
+                              <p className="text-[10px] text-amber-900 dark:text-amber-200 leading-snug">
+                                O conteúdo-base foi atualizado. Reabra para ver as melhorias na cópia.
+                              </p>
+                            </div>
+                          )}
                           <div className="flex gap-1">
                             <Button variant="outline" size="sm" className="flex-1 h-7 text-[11px] gap-1" onClick={() => handleOpen(d)}>
                               <Pencil className="h-3 w-3" /> Abrir
@@ -182,7 +226,8 @@ const MyDesignsPage = () => {
                           </div>
                         </CardContent>
                       </Card>
-                    ))}
+                      );
+                    })}
                   </div>
                 </section>
               );

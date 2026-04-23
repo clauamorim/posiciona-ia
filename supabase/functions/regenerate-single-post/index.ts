@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { extractJsonFromLLM } from "../_shared/jsonExtract.ts";
+import { EDITORIAL_GENERATOR_VERSION, isOutdatedVersion } from "../_shared/generatorVersion.ts";
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 const API_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
@@ -53,10 +54,19 @@ serve(async (req) => {
   }
 
   try {
-    const { format, theme, dayNumber, business, niche, existingPosts, storybrand, tone_of_voice } = await req.json();
+    const { format, theme, dayNumber, business, niche, existingPosts, storybrand, tone_of_voice, freeRegeneration, currentVersion } = await req.json();
 
     if (!format || !business) {
       return new Response(JSON.stringify({ error: "Missing required fields" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // When the client asks for a free regeneration, validate server-side
+    // that the targeted post was generated with an outdated version.
+    if (freeRegeneration && !isOutdatedVersion(currentVersion)) {
+      return new Response(JSON.stringify({ error: "Este post já está atualizado." }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -183,7 +193,10 @@ Gere 1 novo post no formato "${format}" agora.`;
       );
     }
 
-    return new Response(JSON.stringify({ post }), {
+    // Stamp post with current generator version
+    const stampedPost = { ...(post as Record<string, unknown>), generator_version: EDITORIAL_GENERATOR_VERSION };
+
+    return new Response(JSON.stringify({ post: stampedPost, free: !!freeRegeneration }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
