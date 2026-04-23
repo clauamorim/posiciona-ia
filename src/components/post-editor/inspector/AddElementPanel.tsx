@@ -426,6 +426,14 @@ const AddElementPanel: React.FC<AddElementPanelProps> = ({
                   >
                     {a.is_logo ? "✓ Logo" : "Marcar logo"}
                   </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleRemoveBgFromAsset(a); }}
+                    disabled={removingBgId === a.id}
+                    className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-background/80 backdrop-blur-sm border border-border text-[9px] opacity-0 group-hover:opacity-100 transition-opacity hover:bg-primary hover:text-primary-foreground disabled:opacity-50"
+                    title="Remover fundo (útil para logos antigas)"
+                  >
+                    {removingBgId === a.id ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : "Sem fundo"}
+                  </button>
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <button
