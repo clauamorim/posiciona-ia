@@ -138,38 +138,44 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
 
   const computeTextBoxPositions = (lyt: string, hasTitle: boolean, isCover: boolean) => {
     const boxes: TextBox[] = [];
+    const isMinimal = postStyle === "minimal";
+    const centerX = (w: number) => Math.round((canvasWidth - w) / 2);
     // Se há slots vindos do template, usá-los direto
     if (initialTextBoxes?.title && hasTitle) {
+      const w = initialTextBoxes.title.width;
       boxes.push({
         id: "text-title", type: "title",
-        x: initialTextBoxes.title.x,
+        x: isMinimal ? centerX(w) : initialTextBoxes.title.x,
         y: initialTextBoxes.title.y,
-        width: initialTextBoxes.title.width,
+        width: w,
         height: initialTextBoxes.title.height,
       });
     } else if (hasTitle) {
+      const w = isCover ? 880 : 920;
       boxes.push({
         id: "text-title", type: "title",
-        x: isCover ? 100 : 80,
+        x: isMinimal ? centerX(w) : (isCover ? 100 : 80),
         y: isCover ? 300 : (lyt === "top" ? 120 : 250),
-        width: isCover ? 880 : 920,
+        width: w,
         height: isCover ? 140 : 100,
       });
     }
     if (initialTextBoxes?.body) {
+      const w = initialTextBoxes.body.width;
       boxes.push({
         id: "text-body", type: "body",
-        x: initialTextBoxes.body.x,
+        x: isMinimal ? centerX(w) : initialTextBoxes.body.x,
         y: initialTextBoxes.body.y,
-        width: initialTextBoxes.body.width,
+        width: w,
         height: initialTextBoxes.body.height,
       });
     } else {
+      const w = isCover ? 800 : 920;
       boxes.push({
         id: "text-body", type: "body",
-        x: isCover ? 140 : 80,
+        x: isMinimal ? centerX(w) : (isCover ? 140 : 80),
         y: hasTitle ? (isCover ? 480 : (lyt === "top" ? 250 : 400)) : (lyt === "top" ? 120 : 300),
-        width: isCover ? 800 : 920,
+        width: w,
         height: isCover ? 160 : 250,
       });
     }
