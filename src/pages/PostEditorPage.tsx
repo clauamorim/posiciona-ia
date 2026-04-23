@@ -358,9 +358,11 @@ const PostEditorPage = () => {
       setOverlayImages(prev => {
         const idx = prev.findIndex(o => o.id.startsWith("tpl-bg-"));
         if (idx >= 0) {
+          // Atualiza o src e move o overlay de fundo para o início (atrás de tudo)
           const next = [...prev];
-          next[idx] = { ...next[idx], src: result.url };
-          return next;
+          const updated = { ...next[idx], src: result.url };
+          next.splice(idx, 1);
+          return [updated, ...next];
         }
         const w = canvasFormat === "reels" ? 1080 : 1080;
         const h = canvasFormat === "reels" ? 1920 : 1080;
@@ -369,6 +371,7 @@ const PostEditorPage = () => {
           ...prev,
         ];
       });
+      if (result.photographer) setActivePhotographer(result.photographer);
       toast({ title: "Imagem atualizada", description: "Fonte: Unsplash (gratuita)." });
     } catch (err: any) {
       toast({ title: "Erro ao buscar imagem", description: err?.message, variant: "destructive" });
