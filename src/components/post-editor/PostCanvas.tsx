@@ -101,6 +101,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   slideNumberBgColor, slideNumberTextColor, slideNumberSize,
   onSelectedTextChange, renderOrder: externalRenderOrder, onRenderOrderChange,
   showGrid = false, showRulers = false, showCoordinates = true, enableSnap = true,
+  initialTextBoxes, resetKey,
 }) => {
   const isMobile = useIsMobile();
   const handleVisualSize = isMobile ? 22 : RESIZE_HANDLE_SIZE;
@@ -139,7 +140,16 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
 
   const computeTextBoxPositions = (lyt: string, hasTitle: boolean, isCover: boolean) => {
     const boxes: TextBox[] = [];
-    if (hasTitle) {
+    // Se há slots vindos do template, usá-los direto
+    if (initialTextBoxes?.title && hasTitle) {
+      boxes.push({
+        id: "text-title", type: "title",
+        x: initialTextBoxes.title.x,
+        y: initialTextBoxes.title.y,
+        width: initialTextBoxes.title.width,
+        height: initialTextBoxes.title.height,
+      });
+    } else if (hasTitle) {
       boxes.push({
         id: "text-title", type: "title",
         x: isCover ? 100 : 80,
@@ -148,13 +158,23 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
         height: isCover ? 140 : 100,
       });
     }
-    boxes.push({
-      id: "text-body", type: "body",
-      x: isCover ? 140 : 80,
-      y: hasTitle ? (isCover ? 480 : (lyt === "top" ? 250 : 400)) : (lyt === "top" ? 120 : 300),
-      width: isCover ? 800 : 920,
-      height: isCover ? 160 : 250,
-    });
+    if (initialTextBoxes?.body) {
+      boxes.push({
+        id: "text-body", type: "body",
+        x: initialTextBoxes.body.x,
+        y: initialTextBoxes.body.y,
+        width: initialTextBoxes.body.width,
+        height: initialTextBoxes.body.height,
+      });
+    } else {
+      boxes.push({
+        id: "text-body", type: "body",
+        x: isCover ? 140 : 80,
+        y: hasTitle ? (isCover ? 480 : (lyt === "top" ? 250 : 400)) : (lyt === "top" ? 120 : 300),
+        width: isCover ? 800 : 920,
+        height: isCover ? 160 : 250,
+      });
+    }
     return boxes;
   };
 
@@ -179,6 +199,33 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   useEffect(() => {
     textBoxesInitialized.current = false;
   }, [isCoverSlide, isLastSlide]);
+
+  // Reset quando muda formato/estilo: força recálculo a partir dos novos slots do template
+  const lastResetKey = useRef<string | undefined>(resetKey);
+  useEffect(() => {
+    if (resetKey === undefined) return;
+    if (lastResetKey.current === resetKey) return;
+    lastResetKey.current = resetKey;
+    const boxes = computeTextBoxPositions(layout, !!title, !!isCoverSlide);
+    if (boxes.length > 0) {
+      setTextBoxes(boxes);
+      textBoxesInitialized.current = true;
+    }
+  }, [resetKey, layout, title, isCoverSlide]);
+
+  // Quando initialTextBoxes muda (novo layout do template), aplica imediatamente
+  const lastInitialKey = useRef<string>("");
+  useEffect(() => {
+    const key = JSON.stringify(initialTextBoxes || {});
+    if (key === lastInitialKey.current) return;
+    if (key === "{}") return; // sem slots ainda
+    lastInitialKey.current = key;
+    const boxes = computeTextBoxPositions(layout, !!title, !!isCoverSlide);
+    if (boxes.length > 0) {
+      setTextBoxes(boxes);
+      textBoxesInitialized.current = true;
+    }
+  }, [initialTextBoxes, layout, title, isCoverSlide]);
 
   useEffect(() => {
     const updateScale = () => {
