@@ -941,6 +941,12 @@ const PostEditorPage = () => {
               slideNumberSize, onSlideNumberSizeChange: setSlideNumberSize,
               isCarousel,
               onRecolorElement: handleRecolorElement,
+              showGrid, onShowGridChange: setShowGrid,
+              showRulers, onShowRulersChange: setShowRulers,
+              showCoordinates, onShowCoordinatesChange: setShowCoordinates,
+              enableSnap, onEnableSnapChange: setEnableSnap,
+              onSwapBackgroundImage: handleSwapBackground,
+              swappingBackground,
             };
 
             return (
