@@ -173,7 +173,9 @@ const MyDesignsPage = () => {
                 <section key={label}>
                   <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground/70 mb-3">{label}</h2>
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                    {items.map((d) => (
+                    {items.map((d) => {
+                      const stale = isDesignStale(d);
+                      return (
                       <Card key={d.id} className="overflow-hidden group">
                         <button onClick={() => handleOpen(d)} className="block w-full aspect-square bg-muted relative">
                           {d.thumbnail ? (
@@ -189,6 +191,14 @@ const MyDesignsPage = () => {
                             <p className="text-sm font-medium truncate">{d.title}</p>
                             <p className="text-[11px] text-muted-foreground">{relTime(d.updated_at)}</p>
                           </div>
+                          {stale && (
+                            <div className="flex items-start gap-1.5 rounded-md border border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/20 px-2 py-1.5">
+                              <AlertTriangle className="h-3 w-3 text-amber-600 mt-0.5 shrink-0" />
+                              <p className="text-[10px] text-amber-900 dark:text-amber-200 leading-snug">
+                                O conteúdo-base foi atualizado. Reabra para ver as melhorias na cópia.
+                              </p>
+                            </div>
+                          )}
                           <div className="flex gap-1">
                             <Button variant="outline" size="sm" className="flex-1 h-7 text-[11px] gap-1" onClick={() => handleOpen(d)}>
                               <Pencil className="h-3 w-3" /> Abrir
