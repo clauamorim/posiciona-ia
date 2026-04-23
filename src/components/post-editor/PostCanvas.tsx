@@ -498,6 +498,11 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
     return 10 + (idx >= 0 ? idx : 0);
   };
 
+  // Detecta se há foto de fundo cobrindo todo o canvas (para aplicar text-shadow legível)
+  const hasPhotoBackground = overlayImages.some(
+    img => img.type === "photo" && img.x <= 5 && img.y <= 5 && img.width >= canvasWidth - 10 && img.height >= canvasHeight - 10
+  );
+
   const renderTextBox = (tb: TextBox) => {
     const isSelected = selectedTextId === tb.id;
     const isEditing = editingTextId === tb.id;
@@ -534,6 +539,9 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
             color: isTitle ? resolvedTitleColor : textColor,
             outline: "none", width: "100%", minHeight: "1em",
             opacity: isTitle ? 1 : 0.9,
+            textShadow: hasPhotoBackground
+              ? (isTitle ? "0 2px 12px rgba(0,0,0,0.7), 0 1px 3px rgba(0,0,0,0.5)" : "0 1px 6px rgba(0,0,0,0.6)")
+              : undefined,
           }}
         >
           {content}
