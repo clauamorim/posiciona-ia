@@ -49,6 +49,14 @@ interface PostCanvasProps {
   onSelectedTextChange?: (id: string | null) => void;
   renderOrder?: string[];
   onRenderOrderChange?: (order: string[]) => void;
+  /** Mostra grade de fundo (8x8) para apoiar alinhamento. */
+  showGrid?: boolean;
+  /** Mostra réguas horizontais e verticais nas bordas. */
+  showRulers?: boolean;
+  /** Mostra badge de coordenadas X,Y e tamanho W×H no item selecionado. */
+  showCoordinates?: boolean;
+  /** Habilita snap-guides ao centro/bordas durante o drag. */
+  enableSnap?: boolean;
   // Legacy compat
   onImageMove?: (id: string, x: number, y: number) => void;
   onImageResize?: (id: string, width: number, height: number) => void;
@@ -85,6 +93,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   showSlideNumber = true, slideNumberPosition, onSlideNumberMove,
   slideNumberBgColor, slideNumberTextColor, slideNumberSize,
   onSelectedTextChange, renderOrder: externalRenderOrder, onRenderOrderChange,
+  showGrid = false, showRulers = false, showCoordinates = true, enableSnap = true,
 }) => {
   const isMobile = useIsMobile();
   const handleVisualSize = isMobile ? 22 : RESIZE_HANDLE_SIZE;
@@ -100,6 +109,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
     onSelectedTextChange?.(id);
   };
   const [editingTextId, setEditingTextId] = useState<string | null>(null);
+  const [activeGuides, setActiveGuides] = useState<{ v: number[]; h: number[] }>({ v: [], h: [] });
 
   const [textBoxes, setTextBoxes] = useState<TextBox[]>([]);
   const textBoxesInitialized = useRef(false);
@@ -224,21 +234,87 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
     setResizing({ id: tb.id, startX: e.clientX, startY: e.clientY, origX: tb.x, origY: tb.y, origW: tb.width, origH: tb.height, corner, isText: true });
   };
 
+  // Build snap targets (centers and edges of canvas + other elements)
+  const buildSnapTargets = (excludeId: string) => {
+    const vTargets: number[] = [0, canvasWidth / 2, canvasWidth];
+    const hTargets: number[] = [0, canvasHeight / 2, canvasHeight];
+    overlayImages.forEach(img => {
+      if (img.id === excludeId) return;
+      vTargets.push(img.x, img.x + img.width / 2, img.x + img.width);
+      hTargets.push(img.y, img.y + img.height / 2, img.y + img.height);
+    });
+    textBoxes.forEach(tb => {
+      if (tb.id === excludeId) return;
+      vTargets.push(tb.x, tb.x + tb.width / 2, tb.x + tb.width);
+      hTargets.push(tb.y, tb.y + tb.height / 2, tb.y + tb.height);
+    });
+    return { vTargets, hTargets };
+  };
+
+  const SNAP_THRESHOLD = 8; // canvas pixels
+
+  const snapPosition = (
+    proposedX: number, proposedY: number, w: number, h: number, excludeId: string,
+  ) => {
+    if (!enableSnap) return { x: proposedX, y: proposedY, vGuides: [], hGuides: [] };
+    const { vTargets, hTargets } = buildSnapTargets(excludeId);
+    const candidatesX = [proposedX, proposedX + w / 2, proposedX + w];
+    const candidatesY = [proposedY, proposedY + h / 2, proposedY + h];
+    let bestDX = Infinity, snapDX = 0; const vGuides: number[] = [];
+    candidatesX.forEach((cx, idx) => {
+      vTargets.forEach(t => {
+        const d = Math.abs(cx - t);
+        if (d < SNAP_THRESHOLD && d < bestDX) {
+          bestDX = d; snapDX = t - cx; vGuides.length = 0; vGuides.push(t);
+        } else if (d < SNAP_THRESHOLD && d === bestDX) {
+          if (!vGuides.includes(t)) vGuides.push(t);
+        }
+      });
+    });
+    let bestDY = Infinity, snapDY = 0; const hGuides: number[] = [];
+    candidatesY.forEach((cy, idx) => {
+      hTargets.forEach(t => {
+        const d = Math.abs(cy - t);
+        if (d < SNAP_THRESHOLD && d < bestDY) {
+          bestDY = d; snapDY = t - cy; hGuides.length = 0; hGuides.push(t);
+        } else if (d < SNAP_THRESHOLD && d === bestDY) {
+          if (!hGuides.includes(t)) hGuides.push(t);
+        }
+      });
+    });
+    return {
+      x: bestDX < Infinity ? proposedX + snapDX : proposedX,
+      y: bestDY < Infinity ? proposedY + snapDY : proposedY,
+      vGuides, hGuides,
+    };
+  };
+
   useEffect(() => {
     if (!dragging) return;
     const handlePointerMove = (e: PointerEvent) => {
       if (e.cancelable) e.preventDefault();
       const dx = (e.clientX - dragging.startX) / scale;
       const dy = (e.clientY - dragging.startY) / scale;
+      const proposedX = dragging.origX + dx;
+      const proposedY = dragging.origY + dy;
       if (dragging.isCta) {
-        onCtaMove?.(dragging.origX + dx, dragging.origY + dy);
+        // CTA uses center anchor; skip snap-guides for simplicity
+        onCtaMove?.(proposedX, proposedY);
       } else if (dragging.isText) {
-        setTextBoxes(prev => prev.map(tb => tb.id === dragging.id ? { ...tb, x: dragging.origX + dx, y: dragging.origY + dy } : tb));
+        const tb = textBoxes.find(t => t.id === dragging.id);
+        const w = tb?.width ?? 0; const h = tb?.height ?? 0;
+        const snapped = snapPosition(proposedX, proposedY, w, h, dragging.id);
+        setActiveGuides({ v: snapped.vGuides, h: snapped.hGuides });
+        setTextBoxes(prev => prev.map(t => t.id === dragging.id ? { ...t, x: snapped.x, y: snapped.y } : t));
       } else {
-        updateOverlay(dragging.id, { x: dragging.origX + dx, y: dragging.origY + dy });
+        const img = overlayImages.find(i => i.id === dragging.id);
+        const w = img?.width ?? 0; const h = img?.height ?? 0;
+        const snapped = snapPosition(proposedX, proposedY, w, h, dragging.id);
+        setActiveGuides({ v: snapped.vGuides, h: snapped.hGuides });
+        updateOverlay(dragging.id, { x: snapped.x, y: snapped.y });
       }
     };
-    const handlePointerUp = () => setDragging(null);
+    const handlePointerUp = () => { setDragging(null); setActiveGuides({ v: [], h: [] }); };
     window.addEventListener("pointermove", handlePointerMove, { passive: false });
     window.addEventListener("pointerup", handlePointerUp);
     window.addEventListener("pointercancel", handlePointerUp);
@@ -247,7 +323,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
       window.removeEventListener("pointerup", handlePointerUp);
       window.removeEventListener("pointercancel", handlePointerUp);
     };
-  }, [dragging, scale]);
+  }, [dragging, scale, overlayImages, textBoxes, enableSnap, canvasWidth, canvasHeight]);
 
   useEffect(() => {
     if (!resizing) return;
@@ -288,6 +364,34 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
     };
   }, [resizing, scale, overlayImages]);
 
+  // Arrow-key nudging for selected element (1px / Shift+10px)
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.isContentEditable || target.tagName === "INPUT" || target.tagName === "TEXTAREA")) return;
+      if (!selectedImageId && !selectedTextId) return;
+      if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) return;
+      e.preventDefault();
+      const step = e.shiftKey ? 10 : 1;
+      const dx = e.key === "ArrowLeft" ? -step : e.key === "ArrowRight" ? step : 0;
+      const dy = e.key === "ArrowUp" ? -step : e.key === "ArrowDown" ? step : 0;
+      if (selectedImageId) {
+        const img = overlayImages.find(i => i.id === selectedImageId);
+        if (img) updateOverlay(selectedImageId, { x: img.x + dx, y: img.y + dy });
+      } else if (selectedTextId === "cta") {
+        const pos = ctaPosition || { x: 540, y: 780 };
+        onCtaMove?.(pos.x + dx, pos.y + dy);
+      } else if (selectedTextId === "slideNumber") {
+        const pos = slideNumberPosition || { x: canvasWidth - 60, y: 50 };
+        onSlideNumberMove?.(pos.x + dx, pos.y + dy);
+      } else if (selectedTextId) {
+        setTextBoxes(prev => prev.map(tb => tb.id === selectedTextId ? { ...tb, x: tb.x + dx, y: tb.y + dy } : tb));
+      }
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [selectedImageId, selectedTextId, overlayImages, ctaPosition, slideNumberPosition, canvasWidth]);
+
   const handleCanvasClick = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget || (e.target as HTMLElement).closest("[data-overlay]") === null) {
       onSelectImage?.(null);
@@ -295,6 +399,19 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
       setEditingTextId(null);
     }
   };
+
+  // Selected item bounding box (for coordinates badge)
+  const selectedBounds = (() => {
+    if (selectedImageId) {
+      const img = overlayImages.find(i => i.id === selectedImageId);
+      if (img) return { x: img.x, y: img.y, w: img.width, h: img.height };
+    }
+    if (selectedTextId && selectedTextId.startsWith("text-")) {
+      const tb = textBoxes.find(t => t.id === selectedTextId);
+      if (tb) return { x: tb.x, y: tb.y, w: tb.width, h: tb.height };
+    }
+    return null;
+  })();
 
   const bodyFontSize = fontSize || 28;
   const bodyFontWeight = fontWeight || "normal";
@@ -507,9 +624,70 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
 
   const topZ = 10 + effectiveRenderOrder.length;
 
+  const RULER_PX = 18;
+  const rulerTickEvery = 100; // canvas px
+
   return (
     <div ref={containerRef} className="flex items-center justify-center w-full">
-      <div style={{ width: canvasWidth * scale, height: canvasHeight * scale, overflow: "hidden", position: "relative" }}>
+      <div
+        style={{
+          width: canvasWidth * scale + (showRulers ? RULER_PX : 0),
+          height: canvasHeight * scale + (showRulers ? RULER_PX : 0),
+          overflow: "hidden",
+          position: "relative",
+          paddingTop: showRulers ? RULER_PX : 0,
+          paddingLeft: showRulers ? RULER_PX : 0,
+          boxSizing: "content-box",
+        }}
+      >
+        {/* Rulers */}
+        {showRulers && (
+          <>
+            {/* Top horizontal ruler */}
+            <div style={{
+              position: "absolute", top: 0, left: RULER_PX,
+              width: canvasWidth * scale, height: RULER_PX,
+              background: "hsl(var(--muted))", borderBottom: "1px solid hsl(var(--border))",
+              fontSize: 9, color: "hsl(var(--muted-foreground))",
+              fontFamily: "monospace", overflow: "hidden",
+            }}>
+              {Array.from({ length: Math.ceil(canvasWidth / rulerTickEvery) + 1 }).map((_, i) => {
+                const x = i * rulerTickEvery * scale;
+                return (
+                  <div key={i} style={{ position: "absolute", left: x, top: 0, height: RULER_PX, borderLeft: "1px solid hsl(var(--border))", paddingLeft: 2 }}>
+                    {i * rulerTickEvery}
+                  </div>
+                );
+              })}
+            </div>
+            {/* Left vertical ruler */}
+            <div style={{
+              position: "absolute", top: RULER_PX, left: 0,
+              width: RULER_PX, height: canvasHeight * scale,
+              background: "hsl(var(--muted))", borderRight: "1px solid hsl(var(--border))",
+              fontSize: 9, color: "hsl(var(--muted-foreground))",
+              fontFamily: "monospace", overflow: "hidden",
+            }}>
+              {Array.from({ length: Math.ceil(canvasHeight / rulerTickEvery) + 1 }).map((_, i) => {
+                const y = i * rulerTickEvery * scale;
+                return (
+                  <div key={i} style={{ position: "absolute", top: y, left: 0, width: RULER_PX, borderTop: "1px solid hsl(var(--border))", paddingLeft: 2, lineHeight: "10px" }}>
+                    {i * rulerTickEvery}
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
+
+        <div
+          style={{
+            position: "relative",
+            width: canvasWidth * scale,
+            height: canvasHeight * scale,
+            overflow: "hidden",
+          }}
+        >
         <div
           ref={(el) => {
             if (typeof canvasRef === "function") canvasRef(el);
@@ -525,6 +703,19 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
           }}
           onClick={handleCanvasClick}
         >
+          {/* Background grid (decorative; not exported because it's drawn inside the canvas via overlay) */}
+          {showGrid && (
+            <div
+              aria-hidden
+              style={{
+                position: "absolute", inset: 0, pointerEvents: "none",
+                backgroundImage:
+                  "linear-gradient(to right, rgba(255,255,255,0.08) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.08) 1px, transparent 1px)",
+                backgroundSize: `${canvasWidth / 8}px ${canvasHeight / 8}px`,
+                zIndex: 9999,
+              }}
+            />
+          )}
           {showSlideNumber && slideNumber !== undefined && totalSlides !== undefined && (() => {
             const snPos = slideNumberPosition || { x: canvasWidth - 60, y: 50 };
             const snBg = slideNumberBgColor || accentColor;
@@ -616,6 +807,47 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
             if (img) return renderOverlayItem(img);
             return null;
           })}
+        </div>
+
+        {/* Snap-guides (rendered in scaled overlay, outside the captured canvas) */}
+        {(activeGuides.v.length > 0 || activeGuides.h.length > 0) && (
+          <div aria-hidden style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 99999 }}>
+            {activeGuides.v.map((x, i) => (
+              <div key={`v${i}`} style={{
+                position: "absolute", left: x * scale, top: 0,
+                width: 1, height: "100%", background: "hsl(var(--primary))",
+                boxShadow: "0 0 0 1px hsl(var(--primary) / 0.3)",
+              }} />
+            ))}
+            {activeGuides.h.map((y, i) => (
+              <div key={`h${i}`} style={{
+                position: "absolute", top: y * scale, left: 0,
+                height: 1, width: "100%", background: "hsl(var(--primary))",
+                boxShadow: "0 0 0 1px hsl(var(--primary) / 0.3)",
+              }} />
+            ))}
+          </div>
+        )}
+
+        {/* Coordinates badge for selected element */}
+        {showCoordinates && selectedBounds && (
+          <div
+            aria-hidden
+            style={{
+              position: "absolute",
+              left: Math.min(selectedBounds.x * scale, canvasWidth * scale - 130),
+              top: Math.max(0, (selectedBounds.y - 28 / scale) * scale),
+              padding: "2px 6px",
+              background: "hsl(var(--primary))",
+              color: "hsl(var(--primary-foreground))",
+              fontSize: 10, fontFamily: "monospace",
+              borderRadius: 4, pointerEvents: "none", zIndex: 100000,
+              whiteSpace: "nowrap",
+            }}
+          >
+            {Math.round(selectedBounds.x)}, {Math.round(selectedBounds.y)} · {Math.round(selectedBounds.w)}×{Math.round(selectedBounds.h)}
+          </div>
+        )}
         </div>
       </div>
     </div>

@@ -16,6 +16,8 @@ import { parseReportContent } from "@/lib/reportParser";
 import { cleanMarkdown, extractAfterBold, cleanText, stripFrameworkLabels } from "@/lib/textCleanup";
 import { compressImage } from "@/lib/imageUtils";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { buildAutoLayout, fetchBackgroundImage } from "@/lib/postAutoLayout";
+import { Sparkles, X, Image as ImageIcon } from "lucide-react";
 
 function getContrastColor(hex: string): string {
   const r = parseInt(hex.slice(1, 3), 16);
@@ -200,10 +202,17 @@ const PostEditorPage = () => {
   const [slideNumberSize, setSlideNumberSize] = useState(draft?.slideNumberSize ?? 14);
   const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
   const [renderOrder, setRenderOrder] = useState<string[]>([]);
+  const [showGrid, setShowGrid] = useState(false);
+  const [showRulers, setShowRulers] = useState(false);
+  const [showCoordinates, setShowCoordinates] = useState(true);
+  const [enableSnap, setEnableSnap] = useState(true);
+  const [autoLayoutBanner, setAutoLayoutBanner] = useState(false);
+  const [swappingBackground, setSwappingBackground] = useState(false);
   const singleCanvasRef = useRef<HTMLDivElement>(null);
   const slideRefs = useRef<(HTMLDivElement | null)[]>([]);
   const textsInitializedRef = useRef(!!draft);
   const bgInitializedRef = useRef(!!draft);
+  const autoLayoutRanRef = useRef(!!draft || !!searchParams.get("design"));
 
   const cW = canvasFormat === "reels" ? 1080 : 1080;
   const cH = canvasFormat === "reels" ? 1920 : 1080;
@@ -269,6 +278,87 @@ const PostEditorPage = () => {
     setCtaText(cleanText(day.cta || ""));
     textsInitializedRef.current = true;
   }, [day]);
+
+  // Auto-layout: monta layout inicial (template + bg Unsplash + logo) na primeira abertura
+  useEffect(() => {
+    if (!user || !day || autoLayoutRanRef.current) return;
+    if (!Array.isArray(palette) || palette.length === 0) return;
+    autoLayoutRanRef.current = true;
+    const isCarouselDay = day?.format?.toLowerCase() === "carrossel";
+    const totalSlides = isCarouselDay ? Math.max(1, (day.card_copy?.length || 1)) : 1;
+    const themeStr = (day.theme || day.caption || "").toString();
+    (async () => {
+      try {
+        const result = await buildAutoLayout({
+          weekIndex, dayIndex,
+          slideIndex: 0,
+          totalSlides,
+          isCarousel: isCarouselDay,
+          isCover: isCarouselDay,
+          isLast: false,
+          format: canvasFormat,
+          theme: themeStr,
+          caption: day.caption,
+          hasCta: !!day.cta,
+          paletteHex: palette.map((c: any) => c.hex),
+          bgPaletteHex: palette[bgIndex]?.hex || "#1a1a2e",
+          userId: user.id,
+        });
+        if (result.overlays.length > 0) {
+          setOverlayImages(prev => [...result.overlays, ...prev]);
+          setAutoLayoutBanner(true);
+        }
+        const s = result.suggestions;
+        if (s.titleFontSize) setTitleFontSize(s.titleFontSize);
+        if (s.titleTextAlign) setTitleTextAlign(s.titleTextAlign);
+        if (s.bodyFontSize) setFontSize(s.bodyFontSize);
+        if (s.bodyTextAlign) setTextAlign(s.bodyTextAlign);
+        if (typeof s.showSlideNumber === "boolean") setShowSlideNumber(s.showSlideNumber);
+        if (s.slideNumberSize) setSlideNumberSize(s.slideNumberSize);
+      } catch (err) {
+        console.warn("Auto-layout failed", err);
+      }
+    })();
+  }, [user, day, palette, weekIndex, dayIndex, canvasFormat, bgIndex]);
+
+  // Trocar imagem de fundo (busca nova do Unsplash)
+  const handleSwapBackground = useCallback(async () => {
+    if (swappingBackground || !day) return;
+    setSwappingBackground(true);
+    try {
+      const themeStr = (day.theme || day.caption || "").toString();
+      const result = await fetchBackgroundImage({
+        theme: themeStr,
+        caption: day.caption,
+        format: canvasFormat === "reels" ? "portrait" : "square",
+        allowAI: false,
+      });
+      if (!result) {
+        toast({ title: "Nenhuma imagem encontrada", description: "Tente outro tema ou suba sua própria foto.", variant: "destructive" });
+        return;
+      }
+      setOverlayImages(prev => {
+        const idx = prev.findIndex(o => o.id.startsWith("tpl-bg-"));
+        if (idx >= 0) {
+          const next = [...prev];
+          next[idx] = { ...next[idx], src: result.url };
+          return next;
+        }
+        const w = canvasFormat === "reels" ? 1080 : 1080;
+        const h = canvasFormat === "reels" ? 1920 : 1080;
+        return [
+          { id: `tpl-bg-${crypto.randomUUID()}`, src: result.url, x: 0, y: 0, width: w, height: h, type: "photo", opacity: 0.85 },
+          ...prev,
+        ];
+      });
+      toast({ title: "Imagem atualizada", description: "Fonte: Unsplash (gratuita)." });
+    } catch (err: any) {
+      toast({ title: "Erro ao buscar imagem", description: err?.message, variant: "destructive" });
+    } finally {
+      setSwappingBackground(false);
+    }
+  }, [day, canvasFormat, swappingBackground]);
+
 
   // Save draft on changes (debounced via effect dependencies)
   useEffect(() => {
@@ -736,6 +826,18 @@ const PostEditorPage = () => {
           </div>
         </div>
 
+        {autoLayoutBanner && (
+          <div className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-lg border border-primary/30 bg-primary/5">
+            <div className="flex items-center gap-2 text-sm">
+              <Sparkles className="h-4 w-4 text-primary" />
+              <span className="text-foreground/80">Montagem inicial gerada. Personalize como quiser.</span>
+            </div>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setAutoLayoutBanner(false)}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
+
         <div className="grid gap-6 md:grid-cols-[1fr_280px]">
           <div className="flex items-center justify-center min-h-[400px] bg-muted/30 rounded-2xl p-4 overflow-hidden md:sticky md:top-4 md:self-start">
             {isCarousel ? (
@@ -765,6 +867,8 @@ const PostEditorPage = () => {
                 onSelectedTextChange={setSelectedTextId}
                 renderOrder={renderOrder}
                 onRenderOrderChange={setRenderOrder}
+                showGrid={showGrid} showRulers={showRulers}
+                showCoordinates={showCoordinates} enableSnap={enableSnap}
               />
             ) : (
               <PostCanvas
@@ -786,6 +890,8 @@ const PostEditorPage = () => {
                 onSelectedTextChange={setSelectedTextId}
                 renderOrder={renderOrder}
                 onRenderOrderChange={setRenderOrder}
+                showGrid={showGrid} showRulers={showRulers}
+                showCoordinates={showCoordinates} enableSnap={enableSnap}
               />
             )}
           </div>
@@ -851,6 +957,12 @@ const PostEditorPage = () => {
               slideNumberSize, onSlideNumberSizeChange: setSlideNumberSize,
               isCarousel,
               onRecolorElement: handleRecolorElement,
+              showGrid, onShowGridChange: setShowGrid,
+              showRulers, onShowRulersChange: setShowRulers,
+              showCoordinates, onShowCoordinatesChange: setShowCoordinates,
+              enableSnap, onEnableSnapChange: setEnableSnap,
+              onSwapBackgroundImage: handleSwapBackground,
+              swappingBackground,
             };
 
             return (

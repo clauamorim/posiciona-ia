@@ -101,6 +101,20 @@ interface PostToolbarProps {
   userPortraits?: string[];
   onAddImage: (img: OverlayImage) => void;
 
+  // Guides
+  showGrid?: boolean;
+  onShowGridChange?: (v: boolean) => void;
+  showRulers?: boolean;
+  onShowRulersChange?: (v: boolean) => void;
+  showCoordinates?: boolean;
+  onShowCoordinatesChange?: (v: boolean) => void;
+  enableSnap?: boolean;
+  onEnableSnapChange?: (v: boolean) => void;
+
+  // Background swap
+  onSwapBackgroundImage?: () => void;
+  swappingBackground?: boolean;
+
   // Actions
   onDownload: () => void;
   onSaveDesign?: () => void;
@@ -140,6 +154,16 @@ const PostToolbar: React.FC<PostToolbarProps> = (props) => {
           slideNumberTextColor={props.slideNumberTextColor}
           onSlideNumberTextColorChange={props.onSlideNumberTextColorChange}
           onReset={props.onReset}
+          showGrid={props.showGrid}
+          onShowGridChange={props.onShowGridChange}
+          showRulers={props.showRulers}
+          onShowRulersChange={props.onShowRulersChange}
+          showCoordinates={props.showCoordinates}
+          onShowCoordinatesChange={props.onShowCoordinatesChange}
+          enableSnap={props.enableSnap}
+          onEnableSnapChange={props.onEnableSnapChange}
+          onSwapBackgroundImage={props.onSwapBackgroundImage}
+          swappingBackground={props.swappingBackground}
         />
       </section>
 

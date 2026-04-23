@@ -52,6 +52,10 @@ interface CarouselEditorProps {
   onSelectedTextChange?: (id: string | null) => void;
   renderOrder?: string[];
   onRenderOrderChange?: (order: string[]) => void;
+  showGrid?: boolean;
+  showRulers?: boolean;
+  showCoordinates?: boolean;
+  enableSnap?: boolean;
 }
 
 const CarouselEditor: React.FC<CarouselEditorProps> = ({
@@ -65,6 +69,7 @@ const CarouselEditor: React.FC<CarouselEditorProps> = ({
   showSlideNumber, slideNumberPosition, onSlideNumberMove,
   slideNumberBgColor, slideNumberTextColor, slideNumberSize,
   onSelectedTextChange, renderOrder, onRenderOrderChange,
+  showGrid, showRulers, showCoordinates, enableSnap,
 }) => {
   const total = slides.length;
   const isCover = currentSlide === 0;
@@ -101,6 +106,10 @@ const CarouselEditor: React.FC<CarouselEditorProps> = ({
         onSelectedTextChange={onSelectedTextChange}
         renderOrder={renderOrder}
         onRenderOrderChange={onRenderOrderChange}
+        showGrid={showGrid}
+        showRulers={showRulers}
+        showCoordinates={showCoordinates}
+        enableSnap={enableSnap}
       />
 
       <div className="flex items-center gap-4">
