@@ -12,11 +12,13 @@ interface StyleSelectionModalProps {
   format: "square" | "portrait";
   /** Cores da paleta para preview do estilo minimalista (hex). */
   paletteHex: string[];
+  niche?: string;
+  businessContext?: string;
   onChoose: (style: PostStyle | null) => void;
 }
 
 const StyleSelectionModal: React.FC<StyleSelectionModalProps> = ({
-  open, onOpenChange, theme, caption, format, paletteHex, onChoose,
+  open, onOpenChange, theme, caption, format, paletteHex, niche, businessContext, onChoose,
 }) => {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
@@ -26,10 +28,10 @@ const StyleSelectionModal: React.FC<StyleSelectionModalProps> = ({
   useEffect(() => {
     if (!open || previewUrl) return;
     setLoadingPreview(true);
-    fetchBackgroundImage({ theme, caption, format, allowAI: false })
+    fetchBackgroundImage({ theme, caption, format, allowAI: false, niche, businessContext })
       .then(r => { if (r) setPreviewUrl(r.url); })
       .finally(() => setLoadingPreview(false));
-  }, [open, theme, caption, format, previewUrl]);
+  }, [open, theme, caption, format, previewUrl, niche, businessContext]);
 
   const c1 = paletteHex[0] || "#7c3aed";
   const c2 = paletteHex[1] || c1;

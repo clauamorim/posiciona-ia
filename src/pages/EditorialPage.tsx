@@ -91,11 +91,24 @@ const EditorialPage = () => {
   const weeklyCycles = balances?.weekly_cycles ?? 0;
   const regenerationCredits = balances?.regeneration_credits ?? 0;
 
+  const [userNiche, setUserNiche] = useState<string>("");
+  const [businessContext, setBusinessContext] = useState<string>("");
+
   useEffect(() => {
     if (!user) return;
     supabase.from("reports").select("*").eq("user_id", user.id)
       .order("version", { ascending: false }).limit(1).single()
       .then(({ data }) => { setReport(data); setLoading(false); });
+    supabase.from("profiles").select("niche").eq("user_id", user.id).maybeSingle()
+      .then(({ data }) => { if (data?.niche) setUserNiche(data.niche); });
+    supabase.from("business_questionnaires").select("services,target_audience,company_name")
+      .eq("user_id", user.id).order("version", { ascending: false }).limit(1).maybeSingle()
+      .then(({ data }) => {
+        if (data) {
+          const ctx = [data.company_name, data.services, data.target_audience].filter(Boolean).join(" ");
+          setBusinessContext(ctx);
+        }
+      });
   }, [user]);
 
   const { contentObject, hasEditorial } = parseReportContent(report?.content);
@@ -619,6 +632,8 @@ const EditorialPage = () => {
           caption={styleModal.caption}
           format={styleModal.format}
           paletteHex={paletteHex}
+          niche={userNiche}
+          businessContext={businessContext}
           onChoose={handleStyleChosen}
         />
       )}

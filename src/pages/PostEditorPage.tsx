@@ -167,6 +167,8 @@ const PostEditorPage = () => {
 
   const [report, setReport] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [userNiche, setUserNiche] = useState<string>("");
+  const [businessContext, setBusinessContext] = useState<string>("");
   const [bgIndex, setBgIndex] = useState(draft?.bgIndex ?? 0);
   const [layout, setLayout] = useState<"centered" | "top" | "split">((draft?.layout as any) ?? "centered");
   const [currentSlide, setCurrentSlide] = useState(draft?.currentSlide ?? 0);
@@ -225,6 +227,16 @@ const PostEditorPage = () => {
     if (!user) return;
     supabase.from("reports").select("*").eq("user_id", user.id).order("version", { ascending: false }).limit(1).single()
       .then(({ data }) => { setReport(data); setLoading(false); });
+    supabase.from("profiles").select("niche").eq("user_id", user.id).maybeSingle()
+      .then(({ data }) => { if (data?.niche) setUserNiche(data.niche); });
+    supabase.from("business_questionnaires").select("services,target_audience,company_name")
+      .eq("user_id", user.id).order("version", { ascending: false }).limit(1).maybeSingle()
+      .then(({ data }) => {
+        if (data) {
+          const ctx = [data.company_name, data.services, data.target_audience].filter(Boolean).join(" ");
+          setBusinessContext(ctx);
+        }
+      });
     supabase.from("portrait_generations").select("portraits").eq("user_id", user.id).order("created_at", { ascending: false })
       .then(({ data }) => {
         if (data) {
@@ -308,6 +320,8 @@ const PostEditorPage = () => {
           bgPaletteHex: palette[bgIndex]?.hex || "#1a1a2e",
           userId: user.id,
           style: initialStyle,
+          niche: userNiche,
+          businessContext,
         });
         if (result.overlays.length > 0) {
           setOverlayImages(prev => {
@@ -337,7 +351,7 @@ const PostEditorPage = () => {
         console.warn("Auto-layout failed", err);
       }
     })();
-  }, [user, day, palette, weekIndex, dayIndex, canvasFormat, bgIndex, initialStyle]);
+  }, [user, day, palette, weekIndex, dayIndex, canvasFormat, bgIndex, initialStyle, userNiche, businessContext]);
 
   // Trocar imagem de fundo (busca nova do Unsplash)
   const handleSwapBackground = useCallback(async () => {
@@ -350,6 +364,8 @@ const PostEditorPage = () => {
         caption: day.caption,
         format: canvasFormat === "reels" ? "portrait" : "square",
         allowAI: false,
+        niche: userNiche,
+        businessContext,
       });
       if (!result) {
         toast({ title: "Nenhuma imagem encontrada", description: "Tente outro tema ou suba sua própria foto.", variant: "destructive" });
@@ -378,7 +394,7 @@ const PostEditorPage = () => {
     } finally {
       setSwappingBackground(false);
     }
-  }, [day, canvasFormat, swappingBackground]);
+  }, [day, canvasFormat, swappingBackground, userNiche, businessContext]);
 
 
   // Save draft on changes (debounced via effect dependencies)

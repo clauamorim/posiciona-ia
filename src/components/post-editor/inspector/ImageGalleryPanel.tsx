@@ -16,6 +16,8 @@ interface ImageGalleryPanelProps {
   onPickImage: (url: string, photographer?: PhotographerInfo) => void;
   /** Chamado quando IA é solicitada com sucesso (consome 1 crédito). */
   onAIGenerated?: () => void;
+  niche?: string;
+  businessContext?: string;
 }
 
 interface GalleryItem {
@@ -24,7 +26,7 @@ interface GalleryItem {
 }
 
 const ImageGalleryPanel: React.FC<ImageGalleryPanelProps> = ({
-  defaultQuery, format, onPickImage, onAIGenerated,
+  defaultQuery, format, onPickImage, onAIGenerated, niche, businessContext,
 }) => {
   const [query, setQuery] = useState(defaultQuery);
   const [results, setResults] = useState<GalleryItem[]>([]);
@@ -46,7 +48,7 @@ const ImageGalleryPanel: React.FC<ImageGalleryPanelProps> = ({
     if (!query.trim()) return;
     setLoading(true);
     try {
-      const list = await fetchImageGallery({ query: query.trim(), format, page: p });
+      const list = await fetchImageGallery({ query: query.trim(), format, page: p, niche, businessContext });
       setResults(prev => append ? [...prev, ...list] : list);
       setPage(p);
       setHasSearched(true);
@@ -72,7 +74,7 @@ const ImageGalleryPanel: React.FC<ImageGalleryPanelProps> = ({
     if (!aiPrompt.trim()) return;
     setGeneratingAI(true);
     try {
-      const result = await generateAIImage({ query: aiPrompt.trim(), format });
+      const result = await generateAIImage({ query: aiPrompt.trim(), format, niche });
       if (!result) {
         toast({ title: "Falha ao gerar imagem por IA", variant: "destructive" });
         return;
