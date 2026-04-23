@@ -52,6 +52,10 @@ interface CarouselEditorProps {
   onSelectedTextChange?: (id: string | null) => void;
   renderOrder?: string[];
   onRenderOrderChange?: (order: string[]) => void;
+  showGrid?: boolean;
+  showRulers?: boolean;
+  showCoordinates?: boolean;
+  enableSnap?: boolean;
 }
 
 const CarouselEditor: React.FC<CarouselEditorProps> = ({
