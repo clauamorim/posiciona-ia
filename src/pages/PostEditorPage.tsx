@@ -427,6 +427,39 @@ const PostEditorPage = () => {
     }
   }, [day, canvasFormat, swappingBackground, userNiche, businessContext]);
 
+  // Debita 1 crédito de regeneração após geração IA bem-sucedida
+  const debitRegenerationCredit = useCallback(async () => {
+    if (!user) return;
+    try {
+      const current = balances?.regeneration_credits ?? 0;
+      if (current <= 0) {
+        toast({
+          title: "Sem créditos de regeneração",
+          description: "Você precisa comprar mais créditos para gerar imagens por IA.",
+          variant: "destructive",
+        });
+        return;
+      }
+      const newBalance = current - 1;
+      const { error: updErr } = await supabase
+        .from("user_balances")
+        .update({ regeneration_credits: newBalance })
+        .eq("user_id", user.id);
+      if (updErr) {
+        console.warn("Failed to debit regeneration credit", updErr);
+        return;
+      }
+      await supabase.from("credit_logs").insert({
+        user_id: user.id,
+        credit_type: "regeneration",
+        amount: -1,
+        description: "Geração de imagem IA no editor",
+      });
+      await refreshSubscription();
+    } catch (err) {
+      console.warn("debitRegenerationCredit error", err);
+    }
+  }, [user, balances?.regeneration_credits, refreshSubscription]);
 
   // Save draft on changes (debounced via effect dependencies)
   useEffect(() => {
