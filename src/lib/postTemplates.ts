@@ -52,7 +52,8 @@ const SQUARE_TEMPLATES: Record<TemplateKind, TemplateLayout> = {
     kind: "cover",
     format: "square",
     backgroundOverlay: true,
-    decorativeBlock: { x: 0, y: 760, width: SQUARE_W, height: 320, paletteIndex: 0, opacity: 0.92 },
+    // paletteIndex 2 (geralmente cor escura/contraste) ao invés de 0 (primária) para destacar do gradiente
+    decorativeBlock: { x: 0, y: 760, width: SQUARE_W, height: 320, paletteIndex: 2, opacity: 0.85 },
     logoSlot: { x: 60, y: 60, width: 160, height: 160 },
     portraitSlot: null,
     titleSlot: { x: 80, y: 800, width: 920, fontSize: 64, align: "left" },
