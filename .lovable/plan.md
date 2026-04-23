@@ -1,62 +1,66 @@
 
 
-## Correções para a montagem inicial dos posts
+## Correções: minimalista, fundo da logo, escolha de estilo e texto solto
 
-Identifiquei 3 problemas distintos pelos seus prints, e cada um tem uma causa diferente. Plano enxuto:
+Vou atacar 4 problemas distintos identificados no print e no relato.
 
-## 1. Unsplash retornando fotos irrelevantes (foto de criança chorando)
+## 1. Estilo "minimalista" sem elementos decorativos
 
-**Causa**: `extractKeywords` na edge function pega palavras soltas do tema em **português** ("Superando", "cansaço", "pequenos", "descuidos", "diários") e manda direto para a Unsplash API — que tem catálogo majoritariamente em **inglês**. Resultado: a busca casa com "tired" → fotos genéricas de pessoas exaustas, incluindo crianças. Pior, usa o **tema do dia** que é sempre emocional/abstrato (StoryBrand), em vez do **nicho do negócio**.
+**Causa**: o template `minimal` define um `decorativeBlock` de apenas 200×6px (uma linha quase invisível). No estilo minimal, não há foto de fundo nem moldura — só o gradiente, a logo, o título e essa linha invisível. Resultado: parece "vazio".
+
+**Correção em `postTemplates.ts`**:
+- **Square minimal**: substituir a "linhinha" por um conjunto decorativo real:
+  - Moldura interna fina (retângulo `1000×1000` em `40,40` com stroke de 2px)
+  - Linha horizontal grossa decorativa abaixo do título (`160×4px` em x=460, y=440)
+  - Pequeno losango ou bullet point centralizado entre título e corpo
+- **Reels minimal**: mesma lógica, ajustada para 1080×1920.
+- Adicionar nova função `buildMinimalDecorativeOverlays(template, paletteHex)` em `postTemplates.ts` que retorna **array** de overlays (moldura + linha + ornamento), não apenas um.
+- Em `postAutoLayout.ts`, quando `style === "minimal"`, chamar essa função em vez do `buildDecorativeBlockOverlay` único.
+
+## 2. Logo não fica com fundo transparente
+
+**Causa**: a remoção de fundo só roda no momento do **upload com checkbox "É minha logo" marcado**. A logo do usuário no print foi enviada antes dessa lógica existir (ou marcada como logo só depois). O sistema usa o arquivo original.
 
 **Correção**:
-- Expandir `extractKeywords` para receber também `niche` e `business_context` (nicho do negócio + 2-3 palavras-chave da empresa).
-- Compor a query como: `"<nicho em inglês> <2 substantivos do tema>"` com tradução simples via dicionário interno (ex: `advogado→lawyer`, `psicólogo→therapy`, `marketing→marketing`).
-- Filtrar termos sensíveis ("criança", "child", "kid", "baby") quando o nicho não for infantil — prevenção contra fotos inadequadas.
-- Usar parâmetro `content_filter=high` (já está) + adicionar `order_by=relevant` (não `latest`).
-- Buscar uma **lista de 10** e escolher uma com filtros de qualidade (largura mínima, sem rosto dominante via análise simples do `urls.thumb`).
+- **Reprocessamento sob demanda**: ao buscar a logo em `fetchUserLogo`, verificar se o arquivo é `.png` (já processado). Se for `.jpg`/`.jpeg`, chamar `remove-background` na hora, salvar o resultado como novo `.png`, atualizar `file_path` no `user_gallery_assets` e usar o novo signed URL.
+- **Botão manual** em `AddElementPanel.tsx` na lista da galeria do usuário: botão "Remover fundo" ao lado do toggle "É logo", para reprocessar logos antigas a qualquer momento. Custo: zero (edge function gratuita).
+- Adicionar coluna `bg_removed: boolean` na tabela `user_gallery_assets` via migration para evitar reprocessamento desnecessário.
 
-No `PostEditorPage.tsx` e `EditorialPage.tsx` (modal) passar o nicho/contexto da empresa quando chamar `fetchBackgroundImage` e `fetchImageGallery`.
+## 3. Clicar "Unsplash" ou "IA" abre estilo minimalista
 
-## 2. IA gerando imagens com texto sem sentido ("ME AJUDE A SEGURAR ESSA BARRA")
+**Causa real** (revisando o código): o parâmetro `style` é passado corretamente via URL e `buildAutoLayout` recebe e processa. **Mas** quando `fetchBackgroundImage` falha silenciosamente (sem `UNSPLASH_ACCESS_KEY`, ou erro de rede, ou imagem rejeitada por filtros), `bgInfo` fica `null`, **nenhum overlay de fundo é adicionado**, e o canvas mostra só o gradiente padrão da paleta — visualmente idêntico ao minimal.
 
-**Causa**: o prompt atual diz `"no text"` mas o Gemini Flash Image (e similares) **frequentemente ignora isso quando o tema do post é em português e tem frase emocional**. O modelo interpreta a frase como conteúdo a ser ilustrado literalmente, inserindo letreiros, neon, placas, etc.
+**Correção**:
+- Em `buildAutoLayout`, se `style === "unsplash"` e a busca falhar:
+  - Toast de erro claro: *"Unsplash indisponível — usando fundo gradiente. Tente trocar imagem no editor."*
+  - Em vez de cair no gradiente sem aviso, **retornar `suggestions.useGradient: false`** e **forçar um fundo de cor sólida da paleta** (sem confundir com minimal).
+- Idem para `style === "ai"`: se a IA falhar, toast explicativo + fallback para gradiente + retornar zero crédito (não cobrar).
+- Adicionar **logging detalhado** na edge function `fetch-post-image` (já tem, mas vou verificar e adicionar `console.error` no path de erro do Unsplash para o usuário ver no painel de logs).
+- Adicionar verificação do `UNSPLASH_ACCESS_KEY` no início da edge function — se ausente, retornar erro 503 explícito.
 
-**Correção** no `generateWithAI` da edge function:
-- Reescrever prompt para **inglês puro**, com tema traduzido (não passar o tema português literal).
-- Prompt fixo: `"Editorial photograph, premium magazine quality, soft natural lighting, shallow depth of field. Subject: <tema traduzido>. ABSOLUTELY NO TEXT, NO LETTERS, NO SIGNS, NO NEON, NO TYPOGRAPHY, NO WORDS anywhere in the image. Composition: centered subject with negative space on edges for text overlay. Style: minimal, calm, professional."`.
-- Adicionar instrução negativa redundante (3x "no text" funciona melhor empiricamente).
-- Trocar para o modelo `google/gemini-3-pro-image-preview` (qualidade superior, vale o custo já que o usuário paga 1 crédito).
-- Validação pós-geração: se a edge function detectar falha, retornar erro claro em vez de imagem ruim.
+## 4. Caixa de texto solta no meio do canvas
 
-## 3. Texto título sobreposto ao corpo no template minimalista (degradê)
+**Causa**: o texto "1. Aquele cabelo que não 'coopera'..." é o `card_copy[0]` renderizado no `bodySlot` do template `cover` (y=940 no square). No print, o usuário escolheu Unsplash mas o fundo não carregou (problema #3), então o texto fica solto sem o contraste do bloco decorativo que deveria estar atrás dele.
 
-**Causa**: no template `minimal` do square (linha 78-79 em `postTemplates.ts`), o título começa em `y=320` com `fontSize=70` e o corpo começa em `y=600`. Quando o título tem 2-3 linhas (caso de "Combatendo a sensação de desvalorização e o esgotamento emocional"), passa de 320 px → ~600px e colide com o corpo. O bloco decorativo (faixa) fica em y=540 e também é invadido.
-
-**Correção** em `postTemplates.ts`:
-- **Square minimal**: título y=200, fontSize=60 (não 70), corpo y=720, decorativo y=680, slideNumber mantém.
-- **Reels minimal**: título y=480, corpo y=1180 (espaço vertical sobra).
-- **Square content**: título y=200, corpo y=520 (estava 380, muito próximo).
-- Adicionar **sistema de fallback**: quando o título é maior que 50 caracteres, o `buildAutoLayout` reduz `titleFontSize` em 20% e empurra `bodySlot.y` para baixo proporcionalmente (sugestão dinâmica via `suggestions`).
-
-## 4. Bonus: opacidade do fundo nas fotos
-
-Pelos prints, a foto fica com `opacity: 0.75` mas o **texto não tem sombra/peso** suficiente para se destacar. 
-
-**Correção**: adicionar `text-shadow: 0 2px 8px rgba(0,0,0,0.6)` automaticamente nos textos quando há overlay de fundo de foto (template cover/Unsplash/AI). Aplicado via `PostCanvas.tsx` condicionalmente.
+**Correção**:
+- Garantir que o `decorativeBlock` do template `cover` (a faixa de 1080×320 em y=760) seja renderizado **mesmo quando há foto de fundo** — hoje ele só ajuda a destacar o texto se aparece. No print parece que aparece, mas o texto está acima dele em y=940 dentro da faixa, então o problema visual é: a faixa é toda da mesma cor do gradiente, sumindo no fundo.
+- Mudar `decorativeBlock.paletteIndex` do cover de `0` (cor primária) para um valor com **contraste forte** — usar `palette.find(usage="background")` ou cor escura (#1a1a2e com 92% opacidade).
+- No `PostCanvas.tsx`, adicionar **fundo semi-translúcido automático** atrás do bloco de body text quando há foto de fundo — caixa preta com 40% opacidade e padding 24px (para legibilidade tipo legenda de Instagram).
+- Numerar os textos do `card_copy` (já vem "1.", "2."...) sem prefixo extra. Verificar que `extractAfterBold` não está duplicando o número.
 
 ## Arquivos a editar
 
-- `supabase/functions/fetch-post-image/index.ts` — keyword extraction com nicho, prompt IA reforçado em inglês, modelo pro.
-- `src/lib/postAutoLayout.ts` — aceitar `niche` e `businessContext` no input; ajuste dinâmico de fonte conforme tamanho do título.
-- `src/lib/postTemplates.ts` — ajustar coordenadas y de minimal e content.
-- `src/pages/PostEditorPage.tsx` — passar nicho/contexto do report ao chamar buildAutoLayout/fetchBackgroundImage; aplicar text-shadow condicional.
-- `src/pages/EditorialPage.tsx` — passar nicho/contexto ao modal de seleção.
-- `src/components/post-editor/StyleSelectionModal.tsx` — receber e usar nicho na pré-busca de preview.
-- `src/components/post-editor/inspector/ImageGalleryPanel.tsx` — buscar com nicho como contexto.
+- `src/lib/postTemplates.ts` — novos overlays decorativos para minimal (moldura + linha + ornamento); contraste do bloco do cover.
+- `src/lib/postAutoLayout.ts` — chamar overlays minimal; fallback claro quando Unsplash/IA falha; reprocessamento de logo antiga.
+- `src/components/post-editor/inspector/AddElementPanel.tsx` — botão "Remover fundo" para logos antigas na galeria.
+- `src/components/post-editor/PostCanvas.tsx` — fundo semi-translúcido automático atrás do body text quando há foto.
+- `src/pages/PostEditorPage.tsx` — toast de erro quando estilo escolhido falha; não cobrar crédito IA em falha.
+- `supabase/functions/fetch-post-image/index.ts` — verificação explícita da `UNSPLASH_ACCESS_KEY`; logs detalhados.
+- **Migration SQL nova**: adicionar coluna `bg_removed BOOLEAN DEFAULT false` em `user_gallery_assets`.
 
 ## Fora do escopo
 
-- Mudar para outra API de imagens (mantemos Unsplash + IA).
-- Implementar moderação automática de conteúdo (filtro simples de keywords basta).
-- Re-treinar modelo de IA (impossível, mudança de prompt resolve).
+- Editor visual de moldura/decoração customizada pelo usuário (mantemos predefinidos).
+- Reprocessar todas as logos existentes em batch (faz sob demanda quando o usuário abre o editor).
+- Cache de imagens Unsplash (já existe via `post_background_cache`).
 
