@@ -337,14 +337,16 @@ const PostEditorPage = () => {
         });
         if (result.overlays.length > 0) {
           setOverlayImages(prev => {
-            // Garante que overlays de fundo (tpl-bg-) fiquem no início (atrás de tudo)
-            const next = [...result.overlays, ...prev];
+            // Limpa overlays automáticos anteriores (tpl-*) antes de aplicar os novos
+            const cleaned = prev.filter(o => !o.id.startsWith("tpl-"));
+            const next = [...result.overlays, ...cleaned];
             const bgs = next.filter(o => o.id.startsWith("tpl-bg-"));
             const others = next.filter(o => !o.id.startsWith("tpl-bg-"));
             return [...bgs, ...others];
           });
           setAutoLayoutBanner(true);
         }
+        if (result.slots) setInitialTextBoxes(result.slots);
         const s = result.suggestions;
         if (s.titleFontSize) setTitleFontSize(s.titleFontSize);
         if (s.titleTextAlign) setTitleTextAlign(s.titleTextAlign);
