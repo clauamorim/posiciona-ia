@@ -590,6 +590,7 @@ export type Database = {
           created_at: string
           day_index: number | null
           id: string
+          is_template: boolean
           state: Json
           thumbnail: string | null
           title: string
@@ -601,6 +602,7 @@ export type Database = {
           created_at?: string
           day_index?: number | null
           id?: string
+          is_template?: boolean
           state?: Json
           thumbnail?: string | null
           title?: string
@@ -612,6 +614,7 @@ export type Database = {
           created_at?: string
           day_index?: number | null
           id?: string
+          is_template?: boolean
           state?: Json
           thumbnail?: string | null
           title?: string
@@ -623,30 +626,36 @@ export type Database = {
       }
       user_gallery_assets: {
         Row: {
+          attribution: Json | null
           bg_removed: boolean
           created_at: string
           file_path: string
           id: string
           is_logo: boolean
           name: string
+          source: string
           user_id: string
         }
         Insert: {
+          attribution?: Json | null
           bg_removed?: boolean
           created_at?: string
           file_path: string
           id?: string
           is_logo?: boolean
           name: string
+          source?: string
           user_id: string
         }
         Update: {
+          attribution?: Json | null
           bg_removed?: boolean
           created_at?: string
           file_path?: string
           id?: string
           is_logo?: boolean
           name?: string
+          source?: string
           user_id?: string
         }
         Relationships: []

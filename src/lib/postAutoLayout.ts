@@ -398,13 +398,13 @@ export async function generateAIImage(opts: {
   query: string;
   format: "square" | "portrait";
   niche?: string;
+  businessContext?: string;
 }): Promise<{ url: string; source: "ai" | "cache" } | null> {
   try {
     const { data, error } = await supabase.functions.invoke("fetch-post-image", {
-      body: { theme: opts.query, query: opts.query, format: opts.format, allowAI: true, mode: "single", niche: opts.niche },
+      body: { theme: opts.query, query: opts.query, format: opts.format, allowAI: true, mode: "single", niche: opts.niche, businessContext: opts.businessContext },
     });
     if (error || !data?.url) return null;
-    // Aceita apenas respostas que confirmam origem de IA (incluindo cache de IA).
     const src = data.source === "ai" ? "ai" : null;
     if (!src) {
       console.warn("generateAIImage: response source is not 'ai':", data.source);
@@ -466,6 +466,7 @@ export async function buildAutoLayout(input: AutoLayoutInput): Promise<AutoLayou
       query: input.theme || input.caption || "abstract",
       format: input.format === "reels" ? "portrait" : "square",
       niche: input.niche,
+      businessContext: input.businessContext,
     });
     if (ai) {
       bgInfo = { url: ai.url, source: ai.source };

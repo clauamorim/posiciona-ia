@@ -219,7 +219,6 @@ const PostEditorPage = () => {
   const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
   const [renderOrder, setRenderOrder] = useState<string[]>([]);
   const [showRulers, setShowRulers] = useState(false);
-  const [showCoordinates, setShowCoordinates] = useState(true);
   const [autoLayoutBanner, setAutoLayoutBanner] = useState(false);
   const [swappingBackground, setSwappingBackground] = useState(false);
   const [activePhotographer, setActivePhotographer] = useState<PhotographerInfo | null>(null);
@@ -233,8 +232,9 @@ const PostEditorPage = () => {
   const bgInitializedRef = useRef(!!draft);
   const autoLayoutRanRef = useRef(!!draft || hasDesignParam);
 
+  // Card 4:5 (1080×1350) ou Reels 9:16 (1080×1920)
   const cW = canvasFormat === "reels" ? 1080 : 1080;
-  const cH = canvasFormat === "reels" ? 1920 : 1080;
+  const cH = canvasFormat === "reels" ? 1920 : 1350;
 
   useEffect(() => {
     if (!user) return;
@@ -409,7 +409,7 @@ const PostEditorPage = () => {
           return [updated, ...next];
         }
         const w = canvasFormat === "reels" ? 1080 : 1080;
-        const h = canvasFormat === "reels" ? 1920 : 1080;
+        const h = canvasFormat === "reels" ? 1920 : 1350;
         return [
           { id: `tpl-bg-${crypto.randomUUID()}`, src: result.url, x: 0, y: 0, width: w, height: h, type: "photo", opacity: 0.85 },
           ...prev,
@@ -769,11 +769,49 @@ const PostEditorPage = () => {
       });
   }, [user, designIdParam]);
 
-  const handleSaveDesign = useCallback(async () => {
+  const persistPostPhotosToGallery = useCallback(async () => {
+    if (!user) return;
+    try {
+      const photoOverlays = overlayImages.filter(o => o.type === "photo" && o.src && (o.src.startsWith("http://") || o.src.startsWith("https://")));
+      if (photoOverlays.length === 0) return;
+      // Busca file_paths já existentes para evitar duplicar
+      const { data: existing } = await supabase
+        .from("user_gallery_assets")
+        .select("file_path")
+        .eq("user_id", user.id);
+      const existingPaths = new Set((existing || []).map((r: any) => r.file_path));
+      for (const ov of photoOverlays) {
+        try {
+          const resp = await fetch(ov.src);
+          if (!resp.ok) continue;
+          const blob = await resp.blob();
+          const ext = (blob.type.split("/")[1] || "jpg").split(";")[0];
+          const id = crypto.randomUUID();
+          const path = `${user.id}/saved-${id}.${ext}`;
+          if (existingPaths.has(path)) continue;
+          const isUnsplash = /images\.unsplash\.com|plus\.unsplash\.com/.test(ov.src);
+          const { error: upErr } = await supabase.storage.from("user-uploads").upload(path, blob, { contentType: blob.type, upsert: false });
+          if (upErr) continue;
+          await supabase.from("user_gallery_assets").insert({
+            user_id: user.id,
+            name: isUnsplash ? "Foto Unsplash salva" : "Imagem do post",
+            file_path: path,
+            is_logo: false,
+            bg_removed: false,
+            source: isUnsplash ? "unsplash" : "ai",
+            attribution: activePhotographer && isUnsplash ? activePhotographer as any : null,
+          });
+        } catch {}
+      }
+    } catch (err) {
+      console.warn("persistPostPhotosToGallery failed", err);
+    }
+  }, [user, overlayImages, activePhotographer]);
+
+  const doSaveDesign = useCallback(async (asTemplate: boolean) => {
     if (!user || savingDesign) return;
     setSavingDesign(true);
     try {
-      // Capture thumbnail
       const html2canvas = (await import("html2canvas")).default;
       const el = isCarousel ? slideRefs.current[currentSlide] : singleCanvasRef.current;
       let thumbnail: string | null = null;
@@ -801,9 +839,13 @@ const PostEditorPage = () => {
         slideNumberBgColor, slideNumberTextColor, slideNumberSize,
         displayFont, bodyFont,
       };
-      const title = `Dia ${day?.day || dayIndex + 1} — ${cleanMarkdown(editedTitle || day?.theme || "Sem título").slice(0, 60)}`;
+      const baseTitle = `Dia ${day?.day || dayIndex + 1} — ${cleanMarkdown(editedTitle || day?.theme || "Sem título").slice(0, 60)}`;
+      const title = asTemplate ? `Modelo · ${baseTitle}` : baseTitle;
 
-      if (currentDesignId) {
+      // Persistir fotos do post na galeria do usuário (Unsplash + IA)
+      await persistPostPhotosToGallery();
+
+      if (currentDesignId && !asTemplate) {
         const { error } = await supabase.from("user_designs")
           .update({ title, state, thumbnail, week_index: weekIndex, day_index: dayIndex, updated_at: new Date().toISOString() })
           .eq("id", currentDesignId).eq("user_id", user.id);
@@ -811,15 +853,15 @@ const PostEditorPage = () => {
         toast({ title: "Design atualizado" });
       } else {
         const { data, error } = await supabase.from("user_designs")
-          .insert({ user_id: user.id, title, state, thumbnail, week_index: weekIndex, day_index: dayIndex })
+          .insert({ user_id: user.id, title, state, thumbnail, week_index: weekIndex, day_index: dayIndex, is_template: asTemplate } as any)
           .select("id").single();
         if (error) throw error;
-        if (data) setCurrentDesignId(data.id);
-        toast({ title: "Design salvo" });
+        if (data && !asTemplate) setCurrentDesignId(data.id);
+        toast({ title: asTemplate ? "Modelo salvo" : "Design salvo" });
       }
     } catch (err: any) {
       console.error(err);
-      toast({ title: "Erro ao salvar design", description: err?.message, variant: "destructive" });
+      toast({ title: "Erro ao salvar", description: err?.message, variant: "destructive" });
     } finally {
       setSavingDesign(false);
     }
@@ -828,7 +870,10 @@ const PostEditorPage = () => {
       useGradient, gradientColor2Index, customGradientColor2, gradientDirection, textAlign, customTextColor, customBgColor,
       titleFontSize, titleColor, titleFontFamily, ctaText, ctaBgColor, ctaTextColor, ctaFontSize, ctaPosition,
       canvasFormat, showSlideNumber, slideNumberPosition, slideNumberBgColor, slideNumberTextColor, slideNumberSize,
-      displayFont, bodyFont]);
+      displayFont, bodyFont, titleTextAlign, persistPostPhotosToGallery]);
+
+  const handleSaveDesign = useCallback(() => doSaveDesign(false), [doSaveDesign]);
+  const handleSaveAsTemplate = useCallback(() => doSaveDesign(true), [doSaveDesign]);
 
 
   const handleReset = () => {
@@ -977,7 +1022,6 @@ const PostEditorPage = () => {
                 renderOrder={renderOrder}
                 onRenderOrderChange={setRenderOrder}
                 showRulers={showRulers}
-                showCoordinates={showCoordinates}
                 postStyle={initialStyle || undefined}
               />
             ) : (
@@ -1001,7 +1045,6 @@ const PostEditorPage = () => {
                 renderOrder={renderOrder}
                 onRenderOrderChange={setRenderOrder}
                 showRulers={showRulers}
-                showCoordinates={showCoordinates}
                 postStyle={initialStyle || undefined}
                 initialTextBoxes={initialTextBoxes}
                 resetKey={`${initialStyle || "minimal"}-${canvasFormat}`}
@@ -1071,7 +1114,6 @@ const PostEditorPage = () => {
               isCarousel,
               onRecolorElement: handleRecolorElement,
               showRulers, onShowRulersChange: setShowRulers,
-              showCoordinates, onShowCoordinatesChange: setShowCoordinates,
               onSwapBackgroundImage: handleSwapBackground,
               swappingBackground,
               imageSearchQuery: (day?.theme || day?.caption || "").toString(),
@@ -1086,7 +1128,7 @@ const PostEditorPage = () => {
                     return [updated, ...next];
                   }
                   const w = canvasFormat === "reels" ? 1080 : 1080;
-                  const h = canvasFormat === "reels" ? 1920 : 1080;
+                  const h = canvasFormat === "reels" ? 1920 : 1350;
                   return [
                     { id: `tpl-bg-${crypto.randomUUID()}`, src: url, x: 0, y: 0, width: w, height: h, type: "photo", opacity: 0.85 },
                     ...prev,

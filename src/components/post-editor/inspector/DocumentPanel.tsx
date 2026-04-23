@@ -61,7 +61,7 @@ const DocumentPanel: React.FC<DocumentPanelProps> = ({
           <h4 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-2">Formato</h4>
           <div className="flex gap-1.5">
             <Button variant={canvasFormat === "square" ? "default" : "outline"} size="sm" onClick={() => onCanvasFormatChange("square")} className="gap-1.5 text-xs flex-1 h-8">
-              <Square className="h-3.5 w-3.5" /> 1:1
+              <Square className="h-3.5 w-3.5" /> 4:5
             </Button>
             <Button variant={canvasFormat === "reels" ? "default" : "outline"} size="sm" onClick={() => onCanvasFormatChange("reels")} className="gap-1.5 text-xs flex-1 h-8">
               <Maximize className="h-3.5 w-3.5" /> 9:16

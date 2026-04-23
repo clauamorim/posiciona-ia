@@ -51,7 +51,7 @@ interface PostCanvasProps {
   onRenderOrderChange?: (order: string[]) => void;
   /** Mostra réguas horizontais e verticais nas bordas. */
   showRulers?: boolean;
-  /** Mostra badge de coordenadas X,Y e tamanho W×H no item selecionado. */
+  /** @deprecated Coordenadas foram removidas do canvas. Mantido para compat. */
   showCoordinates?: boolean;
   /** Estilo escolhido na criação do post (minimal força centralização horizontal). */
   postStyle?: "minimal" | "unsplash" | "ai" | string;
@@ -94,11 +94,11 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   selectedImageId, onSelectImage, bgGradient,
   titleFontSize, titleColor, titleFontFamily,
   ctaText, ctaBgColor, ctaTextColor, ctaFontSize, ctaPosition, onCtaMove,
-  canvasWidth = 1080, canvasHeight = 1080,
+  canvasWidth = 1080, canvasHeight = 1350,
   showSlideNumber = true, slideNumberPosition, onSlideNumberMove,
   slideNumberBgColor, slideNumberTextColor, slideNumberSize,
   onSelectedTextChange, renderOrder: externalRenderOrder, onRenderOrderChange,
-  showRulers = false, showCoordinates = true, postStyle,
+  showRulers = false, postStyle,
   initialTextBoxes, resetKey,
 }) => {
   const isMobile = useIsMobile();
@@ -394,23 +394,13 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
     }
   };
 
-  // Selected item bounding box (for coordinates badge)
-  const selectedBounds = (() => {
-    if (selectedImageId) {
-      const img = overlayImages.find(i => i.id === selectedImageId);
-      if (img) return { x: img.x, y: img.y, w: img.width, h: img.height };
-    }
-    if (selectedTextId && selectedTextId.startsWith("text-")) {
-      const tb = textBoxes.find(t => t.id === selectedTextId);
-      if (tb) return { x: tb.x, y: tb.y, w: tb.width, h: tb.height };
-    }
-    return null;
-  })();
-
+  const isMinimalStyle = postStyle === "minimal";
   const bodyFontSize = fontSize || 38;
   const bodyFontWeight = fontWeight || "normal";
   const bodyFontStyle2 = fontStyle || "normal";
-  const bodyTextAlign = textAlign || "center";
+  // Em estilos minimalistas, força centralização horizontal sempre.
+  const bodyTextAlign: "left" | "center" | "right" | "justify" = isMinimalStyle ? "center" : (textAlign || "center");
+  const effectiveTitleAlign: "left" | "center" | "right" | "justify" = isMinimalStyle ? "center" : (titleTextAlign || "center");
 
   const resolvedTitleFontSize = titleFontSize || (isCoverSlide ? 64 : 44);
   const resolvedTitleColor = titleColor || textColor;
@@ -574,7 +564,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
             fontSize: isTitle ? resolvedTitleFontSize : bodyFontSize,
             fontWeight: isTitle ? "bold" : bodyFontWeight,
             fontStyle: isTitle ? "normal" : bodyFontStyle2,
-            textAlign: isTitle ? (titleTextAlign || "center") : bodyTextAlign,
+            textAlign: isTitle ? effectiveTitleAlign : bodyTextAlign,
             lineHeight: isTitle ? 1.15 : 1.55,
             color: hasPhotoBackground ? "#ffffff" : (isTitle ? resolvedTitleColor : textColor),
             outline: "none", width: "100%", minHeight: "1em",
@@ -592,14 +582,17 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   };
 
   const showCta = resolvedCtaText && (isLastSlide || isCoverSlide || (layout === "split" && cta));
-  // CTA dinâmico: sempre abaixo do bloco de texto (body), com folga de 60px
+  // CTA dinâmico: sempre abaixo do bloco de texto (body), com folga de 60px,
+  // e SEMPRE acima do canto inferior direito (onde fica a logo) — pelo menos 200px de margem inferior.
   const bodyBox = textBoxes.find(t => t.type === "body");
   const titleBox = textBoxes.find(t => t.type === "title");
   const referenceBox = bodyBox || titleBox;
+  // Limite máximo do CTA para evitar a área da logo (canto inf. direito)
+  const ctaMaxY = canvasHeight - 200;
   const computedCtaY = referenceBox
-    ? Math.min(canvasHeight - 120, referenceBox.y + referenceBox.height + 60)
-    : (isCoverSlide ? 540 : isLastSlide ? 780 : 960);
-  const computedCtaX = referenceBox ? referenceBox.x + referenceBox.width / 2 : 540;
+    ? Math.min(ctaMaxY, Math.max(referenceBox.y + referenceBox.height + 60, referenceBox.y + referenceBox.height + 60))
+    : (isCoverSlide ? Math.round(canvasHeight * 0.5) : isLastSlide ? Math.round(canvasHeight * 0.72) : Math.round(canvasHeight * 0.88));
+  const computedCtaX = referenceBox ? referenceBox.x + referenceBox.width / 2 : canvasWidth / 2;
   const defaultCtaPos = { x: computedCtaX, y: computedCtaY };
   const ctaPos = ctaPosition || defaultCtaPos;
 
@@ -652,6 +645,12 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
 
     // photo / element / logo
     const isSelected = selectedImageId === img.id;
+    // Full-canvas background photo → cover (preenche sem barras). Demais fotos = contain.
+    const isFullCanvasPhoto =
+      img.type === "photo" &&
+      img.x <= 5 && img.y <= 5 &&
+      img.width >= canvasWidth - 10 && img.height >= canvasHeight - 10;
+    const objectFit: React.CSSProperties["objectFit"] = isFullCanvasPhoto ? "cover" : "contain";
     return (
       <div key={img.id} data-overlay
         style={{
@@ -667,7 +666,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
       >
         <img src={img.src} alt={img.type}
           crossOrigin="anonymous"
-          style={{ width: "100%", height: "100%", objectFit: "contain", pointerEvents: "none", opacity: img.opacity ?? 1 }}
+          style={{ width: "100%", height: "100%", objectFit, pointerEvents: "none", opacity: img.opacity ?? 1 }}
           draggable={false} />
         {isSelected && renderResizeHandles(img, false)}
       </div>
@@ -870,26 +869,6 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
           })}
         </div>
 
-
-        {/* Coordinates badge for selected element */}
-        {showCoordinates && selectedBounds && (
-          <div
-            aria-hidden
-            style={{
-              position: "absolute",
-              left: Math.min(selectedBounds.x * scale, canvasWidth * scale - 130),
-              top: Math.max(0, (selectedBounds.y - 28 / scale) * scale),
-              padding: "2px 6px",
-              background: "hsl(var(--primary))",
-              color: "hsl(var(--primary-foreground))",
-              fontSize: 10, fontFamily: "monospace",
-              borderRadius: 4, pointerEvents: "none", zIndex: 100000,
-              whiteSpace: "nowrap",
-            }}
-          >
-            {Math.round(selectedBounds.x)}, {Math.round(selectedBounds.y)} · {Math.round(selectedBounds.w)}×{Math.round(selectedBounds.h)}
-          </div>
-        )}
         </div>
       </div>
     </div>

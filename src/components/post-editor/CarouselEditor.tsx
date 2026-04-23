@@ -53,7 +53,6 @@ interface CarouselEditorProps {
   renderOrder?: string[];
   onRenderOrderChange?: (order: string[]) => void;
   showRulers?: boolean;
-  showCoordinates?: boolean;
   postStyle?: string;
   initialTextBoxes?: {
     title?: { x: number; y: number; width: number; height: number };
@@ -73,7 +72,7 @@ const CarouselEditor: React.FC<CarouselEditorProps> = ({
   showSlideNumber, slideNumberPosition, onSlideNumberMove,
   slideNumberBgColor, slideNumberTextColor, slideNumberSize,
   onSelectedTextChange, renderOrder, onRenderOrderChange,
-  showRulers, showCoordinates, postStyle,
+  showRulers, postStyle,
   initialTextBoxes, resetKey,
 }) => {
   const total = slides.length;
@@ -112,7 +111,6 @@ const CarouselEditor: React.FC<CarouselEditorProps> = ({
         renderOrder={renderOrder}
         onRenderOrderChange={onRenderOrderChange}
         showRulers={showRulers}
-        showCoordinates={showCoordinates}
         postStyle={postStyle}
         initialTextBoxes={initialTextBoxes}
         resetKey={resetKey ? `${resetKey}-${currentSlide}` : undefined}
