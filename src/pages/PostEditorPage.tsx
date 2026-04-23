@@ -19,7 +19,6 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { buildAutoLayout, fetchBackgroundImage, type PostStyle, type PhotographerInfo } from "@/lib/postAutoLayout";
 import UnsplashAttribution from "@/components/post-editor/UnsplashAttribution";
 import { Sparkles, X, Image as ImageIcon, Loader2 } from "lucide-react";
-import { Progress } from "@/components/ui/progress";
 
 function getContrastColor(hex: string): string {
   const r = parseInt(hex.slice(1, 3), 16);
