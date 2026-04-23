@@ -787,6 +787,28 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
               />
             );
           })()}
+          {/* Degradê de legibilidade quando há foto de fundo (cobre ~55% inferiores) */}
+          {hasPhotoBackground && (() => {
+            const bgIndexInOrder = effectiveRenderOrder.findIndex(id => {
+              const img = overlayImages.find(o => o.id === id);
+              return !!img && img.type === "photo" && img.x <= 5 && img.y <= 5
+                && img.width >= canvasWidth - 10 && img.height >= canvasHeight - 10;
+            });
+            const overlayZ = 10 + (bgIndexInOrder >= 0 ? bgIndexInOrder + 1 : 1);
+            return (
+              <div
+                aria-hidden
+                style={{
+                  position: "absolute", left: 0, right: 0, bottom: 0,
+                  height: "55%",
+                  pointerEvents: "none",
+                  background:
+                    "linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.65) 40%, rgba(0,0,0,0) 100%)",
+                  zIndex: overlayZ,
+                }}
+              />
+            );
+          })()}
           {showSlideNumber && slideNumber !== undefined && totalSlides !== undefined && (() => {
             const snPos = slideNumberPosition || { x: canvasWidth - 60, y: 50 };
             const snBg = slideNumberBgColor || accentColor;
