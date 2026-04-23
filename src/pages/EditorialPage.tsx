@@ -45,6 +45,49 @@ const EditorialPage = () => {
   const [downloadingPDF, setDownloadingPDF] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
 
+  // Modal de seleção de estilo antes de abrir o editor
+  const [styleModal, setStyleModal] = useState<{
+    open: boolean;
+    weekIndex: number;
+    dayIndex: number;
+    isReels: boolean;
+    theme: string;
+    caption: string;
+    format: "square" | "portrait";
+  } | null>(null);
+
+  // Paleta de cores derivada do relatório (para preview do estilo minimal)
+  const paletteHex: string[] = (() => {
+    try {
+      const c = parseReportContent(report?.content)?.contentObject as any;
+      const palette = c?.visual_identity?.color_palette || c?.palette || [];
+      return Array.isArray(palette) ? palette.map((p: any) => (typeof p === "string" ? p : p?.hex)).filter(Boolean) : [];
+    } catch { return []; }
+  })();
+
+  const handleOpenEditor = (wi: number, di: number, day: any, isReels: boolean) => {
+    setStyleModal({
+      open: true,
+      weekIndex: wi,
+      dayIndex: di,
+      isReels,
+      theme: (day?.theme || day?.caption || "").toString(),
+      caption: (day?.caption || "").toString(),
+      format: isReels ? "portrait" : "square",
+    });
+  };
+
+  const handleStyleChosen = (style: PostStyle | null) => {
+    if (!styleModal) return;
+    const params = new URLSearchParams();
+    params.set("week", String(styleModal.weekIndex));
+    params.set("day", String(styleModal.dayIndex));
+    if (styleModal.isReels) params.set("format", "reels");
+    if (style) params.set("style", style);
+    navigate(`/post-editor?${params.toString()}`);
+    setStyleModal(null);
+  };
+
   const weeklyCycles = balances?.weekly_cycles ?? 0;
   const regenerationCredits = balances?.regeneration_credits ?? 0;
 
