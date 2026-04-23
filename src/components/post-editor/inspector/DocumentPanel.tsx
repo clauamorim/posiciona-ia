@@ -38,6 +38,18 @@ interface DocumentPanelProps {
   slideNumberTextColor?: string | null;
   onSlideNumberTextColorChange?: (c: string) => void;
   onReset: () => void;
+  // Guides & assist
+  showGrid?: boolean;
+  onShowGridChange?: (v: boolean) => void;
+  showRulers?: boolean;
+  onShowRulersChange?: (v: boolean) => void;
+  showCoordinates?: boolean;
+  onShowCoordinatesChange?: (v: boolean) => void;
+  enableSnap?: boolean;
+  onEnableSnapChange?: (v: boolean) => void;
+  // Background image swap
+  onSwapBackgroundImage?: () => void;
+  swappingBackground?: boolean;
 }
 
 const DocumentPanel: React.FC<DocumentPanelProps> = ({
