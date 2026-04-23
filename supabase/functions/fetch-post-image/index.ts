@@ -1,14 +1,19 @@
 // Edge function: fetch-post-image
-// Busca uma imagem de fundo para um post.
-// Estratégia: cache → Unsplash → (opcional) IA Gemini.
+// Busca imagens de fundo para um post.
+// Modes:
+//   - "single" (default): retorna 1 imagem (cache → Unsplash → IA opcional)
+//   - "gallery": retorna até 12 imagens do Unsplash com metadata de cada fotógrafo
 //
-// Body: { theme: string, caption?: string, format?: "square"|"portrait", allowAI?: boolean }
-// Retorna: { url: string, source: "cache"|"unsplash"|"ai", keywords: string }
+// Body: { theme: string, caption?: string, format?: "square"|"portrait", allowAI?: boolean,
+//         mode?: "single"|"gallery", query?: string, page?: number }
+// Retorna single: { url, source, keywords, photographer? }
+// Retorna gallery: { results: [{ url, photographer: { name, profileUrl }, unsplashUrl }], keywords }
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { corsHeaders } from "../_shared/cors.ts";
 
 const UNSPLASH_URL = "https://api.unsplash.com/search/photos";
+const UTM = "utm_source=posiciona&utm_medium=referral";
 
 async function hashString(input: string): Promise<string> {
   const data = new TextEncoder().encode(input.toLowerCase().trim());
@@ -19,8 +24,6 @@ async function hashString(input: string): Promise<string> {
 }
 
 async function extractKeywords(theme: string, caption?: string): Promise<string> {
-  // Heurística simples: pega substantivos relevantes do tema.
-  // Strip rótulos como "Slide 1:", "Capa:", "Conteúdo:" etc.
   const cleaned = (theme || "")
     .replace(/^\s*(slide\s*\d+|capa|conteúdo|conclusão|cta)\s*[:\-–]\s*/gi, "")
     .replace(/[^\p{L}\p{N}\s]/gu, " ")
@@ -35,25 +38,42 @@ async function extractKeywords(theme: string, caption?: string): Promise<string>
   return top.length > 0 ? top.join(" ") : (theme || "abstract background").slice(0, 60);
 }
 
-async function searchUnsplash(query: string, format: "square" | "portrait", apiKey: string): Promise<string | null> {
+interface UnsplashPhoto {
+  url: string;
+  unsplashUrl: string;
+  photographer: { name: string; profileUrl: string };
+}
+
+async function searchUnsplashList(
+  query: string,
+  format: "square" | "portrait",
+  apiKey: string,
+  perPage = 12,
+  page = 1,
+): Promise<UnsplashPhoto[]> {
   try {
     const orientation = format === "portrait" ? "portrait" : "squarish";
-    const url = `${UNSPLASH_URL}?query=${encodeURIComponent(query)}&orientation=${orientation}&per_page=5&content_filter=high`;
+    const url = `${UNSPLASH_URL}?query=${encodeURIComponent(query)}&orientation=${orientation}&per_page=${perPage}&page=${page}&content_filter=high`;
     const resp = await fetch(url, {
       headers: { "Authorization": `Client-ID ${apiKey}`, "Accept-Version": "v1" },
     });
     if (!resp.ok) {
       console.error("Unsplash error", resp.status, await resp.text());
-      return null;
+      return [];
     }
     const data = await resp.json();
-    if (!Array.isArray(data.results) || data.results.length === 0) return null;
-    // Pega a primeira (mais relevante segundo Unsplash)
-    const first = data.results[0];
-    return first?.urls?.regular || first?.urls?.full || null;
+    if (!Array.isArray(data.results)) return [];
+    return data.results.map((p: any) => ({
+      url: p?.urls?.regular || p?.urls?.full || "",
+      unsplashUrl: `${p?.links?.html || ""}?${UTM}`,
+      photographer: {
+        name: p?.user?.name || "Unknown",
+        profileUrl: `${p?.user?.links?.html || ""}?${UTM}`,
+      },
+    })).filter((x: UnsplashPhoto) => x.url);
   } catch (err) {
     console.error("Unsplash fetch error", err);
-    return null;
+    return [];
   }
 }
 
@@ -95,9 +115,14 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { theme, caption, format = "square", allowAI = false } = await req.json();
-    if (!theme || typeof theme !== "string") {
-      return new Response(JSON.stringify({ error: "theme required" }), {
+    const body = await req.json();
+    const {
+      theme, caption, format = "square", allowAI = false,
+      mode = "single", query: customQuery, page = 1,
+    } = body;
+
+    if (!theme && !customQuery) {
+      return new Response(JSON.stringify({ error: "theme or query required" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -107,7 +132,25 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceKey);
 
-    const keywords = await extractKeywords(theme, caption);
+    const keywords = customQuery && customQuery.trim().length > 0
+      ? customQuery.trim()
+      : await extractKeywords(theme, caption);
+    const unsplashKey = Deno.env.get("UNSPLASH_ACCESS_KEY");
+
+    // ===== GALLERY MODE =====
+    if (mode === "gallery") {
+      if (!unsplashKey) {
+        return new Response(JSON.stringify({ error: "Unsplash not configured", results: [] }), {
+          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const results = await searchUnsplashList(keywords, format, unsplashKey, 12, page);
+      return new Response(JSON.stringify({ results, keywords, page }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ===== SINGLE MODE =====
     const cacheKey = await hashString(`${keywords}::${format}`);
 
     // 1) Cache lookup
@@ -123,14 +166,17 @@ Deno.serve(async (req) => {
     }
 
     // 2) Unsplash
-    const unsplashKey = Deno.env.get("UNSPLASH_ACCESS_KEY");
     if (unsplashKey) {
-      const url = await searchUnsplash(keywords, format, unsplashKey);
-      if (url) {
+      const list = await searchUnsplashList(keywords, format, unsplashKey, 5, 1);
+      if (list.length > 0) {
+        const first = list[0];
         await supabase.from("post_background_cache").insert({
-          theme_hash: cacheKey, image_url: url, source: "unsplash", keywords,
+          theme_hash: cacheKey, image_url: first.url, source: "unsplash", keywords,
         });
-        return new Response(JSON.stringify({ url, source: "unsplash", keywords }), {
+        return new Response(JSON.stringify({
+          url: first.url, source: "unsplash", keywords,
+          photographer: first.photographer, unsplashUrl: first.unsplashUrl,
+        }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
