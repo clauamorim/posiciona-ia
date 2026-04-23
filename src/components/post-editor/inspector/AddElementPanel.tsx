@@ -224,7 +224,13 @@ const AddElementPanel: React.FC<AddElementPanelProps> = ({
       if (error || !data?.image || !data.image.startsWith("data:image/")) {
         throw new Error("Não foi possível remover o fundo desta imagem.");
       }
-      const newBlob = await (await fetch(data.image)).blob();
+      // SEMPRE passa pelo chroma key — a edge function devolve PNG com fundo verde puro.
+      // Sem essa etapa, o "fundo verde" persistia até no storage.
+      const transparentImage = await chromaKeyAndValidate(data.image);
+      if (!transparentImage) {
+        throw new Error("Não foi possível obter transparência real. Tente uma imagem com fundo mais uniforme.");
+      }
+      const newBlob = await (await fetch(transparentImage)).blob();
       const newPath = asset.file_path.replace(/\.[^.]+$/, "") + ".png";
       const { error: upErr } = await supabase.storage
         .from("user-uploads")
@@ -240,6 +246,8 @@ const AddElementPanel: React.FC<AddElementPanelProps> = ({
       }
       const { data: signed } = await supabase.storage.from("user-uploads").createSignedUrl(newPath, 60 * 60);
       setUserAssets(prev => prev.map(a => a.id === asset.id ? { ...a, file_path: newPath, url: signed?.signedUrl || a.url } : a));
+      // Invalida cache da logo para forçar recarga em próxima montagem automática
+      if (user) clearLogoCache(user.id);
       toast({ title: "Fundo removido com sucesso" });
     } catch (err: any) {
       toast({ title: "Erro ao remover fundo", description: err?.message, variant: "destructive" });
