@@ -164,6 +164,7 @@ const AddElementPanel: React.FC<AddElementPanelProps> = ({
     toast({ title: next ? "Marcada como logo" : "Não é mais logo" });
   };
 
+  // Step 1: pick file → open modal asking if it's a logo
   const handleFileUpload = () => {
     const input = document.createElement("input");
     input.type = "file";
@@ -175,9 +176,7 @@ const AddElementPanel: React.FC<AddElementPanelProps> = ({
         toast({ title: "Imagem muito grande (máx 10MB)", variant: "destructive" });
         return;
       }
-      setUploading(true);
       try {
-        // Read file → compress → upload
         const reader = new FileReader();
         const dataUrl: string = await new Promise((res, rej) => {
           reader.onload = () => res(reader.result as string);
@@ -185,38 +184,50 @@ const AddElementPanel: React.FC<AddElementPanelProps> = ({
           reader.readAsDataURL(file);
         });
         const compressed = await compressImage(dataUrl, 1600, 0.85);
-        // Convert to blob
         const blob = await (await fetch(compressed)).blob();
-        const ext = "jpg";
-        const id = crypto.randomUUID();
-        const path = `${user.id}/${id}.${ext}`;
-        const { error: upErr } = await supabase.storage.from("user-uploads").upload(path, blob, { contentType: "image/jpeg", upsert: false });
-        if (upErr) throw upErr;
-        const { error: insErr } = await supabase.from("user_gallery_assets").insert({
-          user_id: user.id,
-          name: file.name,
-          file_path: path,
-        });
-        if (insErr) throw insErr;
-        const { data: signed } = await supabase.storage.from("user-uploads").createSignedUrl(path, 60 * 60);
-        const url = signed?.signedUrl || compressed;
-        // Add to canvas
-        const img: OverlayImage = {
-          id: crypto.randomUUID(), src: url,
-          x: 200, y: 200, width: 400, height: 400, type: "photo", opacity: 1,
-        };
-        onAddImage(img);
-        // Refresh gallery
-        loadUserAssets();
-        toast({ title: "Imagem salva na sua galeria" });
+        setPendingUpload({ blob, name: file.name, isLogo: false });
       } catch (err: any) {
-        console.error("Upload error:", err);
-        toast({ title: "Erro ao enviar imagem", description: err.message, variant: "destructive" });
-      } finally {
-        setUploading(false);
+        toast({ title: "Erro ao processar imagem", description: err.message, variant: "destructive" });
       }
     };
     input.click();
+  };
+
+  // Step 2: confirm upload (with isLogo decision)
+  const confirmUpload = async () => {
+    if (!pendingUpload || !user) return;
+    setUploading(true);
+    const { blob, name, isLogo } = pendingUpload;
+    try {
+      const id = crypto.randomUUID();
+      const path = `${user.id}/${id}.jpg`;
+      const { error: upErr } = await supabase.storage.from("user-uploads").upload(path, blob, { contentType: "image/jpeg", upsert: false });
+      if (upErr) throw upErr;
+      const { error: insErr } = await supabase.from("user_gallery_assets").insert({
+        user_id: user.id,
+        name,
+        file_path: path,
+        is_logo: isLogo,
+      });
+      if (insErr) throw insErr;
+      const { data: signed } = await supabase.storage.from("user-uploads").createSignedUrl(path, 60 * 60);
+      const url = signed?.signedUrl || "";
+      const img: OverlayImage = {
+        id: crypto.randomUUID(), src: url,
+        x: 200, y: 200, width: 400, height: 400,
+        type: isLogo ? "logo" : "photo",
+        opacity: 1,
+      };
+      onAddImage(img);
+      loadUserAssets();
+      toast({ title: isLogo ? "Logo salva na sua galeria" : "Imagem salva na sua galeria" });
+      setPendingUpload(null);
+    } catch (err: any) {
+      console.error("Upload error:", err);
+      toast({ title: "Erro ao enviar imagem", description: err.message, variant: "destructive" });
+    } finally {
+      setUploading(false);
+    }
   };
 
   const handleAddTextBox = () => {
