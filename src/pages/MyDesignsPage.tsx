@@ -84,9 +84,11 @@ const MyDesignsPage = () => {
 
   /**
    * A design is "stale" when the editorial post it was based on has been
-   * updated (regenerated) AFTER the design was created. We detect this by
-   * checking that the source day's `generator_version` is the current one
-   * AND that the design predates the platform's generator update.
+   * regenerated AFTER the design was created. We can't track post update
+   * timestamps directly, so we use this heuristic: if the base post carries
+   * the current generator_version AND the design predates the introduction
+   * of versioning (no version field), the design is likely based on
+   * outdated copy.
    */
   const isDesignStale = (d: UserDesign): boolean => {
     if (d.week_index == null || d.day_index == null) return false;
@@ -94,11 +96,13 @@ const MyDesignsPage = () => {
     if (!week) return false;
     const day = week[d.day_index];
     if (!day) return false;
-    // If the source day has a current version (not outdated), and the design
-    // was created before that update, the design is stale.
-    if (isOutdated(day)) return false; // base is also outdated, no mismatch
-    // Base has been updated; design is stale if older than current generator stamp.
-    return true;
+    if (isOutdated(day)) return false; // base also outdated, no mismatch
+    // Base is up-to-date; flag designs created before the base was stamped.
+    // We don't have the exact stamp time, so use a conservative check:
+    // designs created before today's generator version threshold (any pre-2026-04-23 design).
+    const designCreated = new Date(d.created_at).getTime();
+    const versionEpoch = new Date("2026-04-23T00:00:00Z").getTime();
+    return designCreated < versionEpoch;
   };
 
   const handleOpen = (d: UserDesign) => {
