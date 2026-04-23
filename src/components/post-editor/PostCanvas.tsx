@@ -821,25 +821,6 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
           })}
         </div>
 
-        {/* Snap-guides (rendered in scaled overlay, outside the captured canvas) */}
-        {(activeGuides.v.length > 0 || activeGuides.h.length > 0) && (
-          <div aria-hidden style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 99999 }}>
-            {activeGuides.v.map((x, i) => (
-              <div key={`v${i}`} style={{
-                position: "absolute", left: x * scale, top: 0,
-                width: 1, height: "100%", background: "hsl(var(--primary))",
-                boxShadow: "0 0 0 1px hsl(var(--primary) / 0.3)",
-              }} />
-            ))}
-            {activeGuides.h.map((y, i) => (
-              <div key={`h${i}`} style={{
-                position: "absolute", top: y * scale, left: 0,
-                height: 1, width: "100%", background: "hsl(var(--primary))",
-                boxShadow: "0 0 0 1px hsl(var(--primary) / 0.3)",
-              }} />
-            ))}
-          </div>
-        )}
 
         {/* Coordinates badge for selected element */}
         {showCoordinates && selectedBounds && (
