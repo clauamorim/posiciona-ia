@@ -292,61 +292,6 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
     setResizing({ id: tb.id, startX: e.clientX, startY: e.clientY, origX: tb.x, origY: tb.y, origW: tb.width, origH: tb.height, corner, isText: true });
   };
 
-  // Build snap targets (centers and edges of canvas + other elements)
-  const buildSnapTargets = (excludeId: string) => {
-    const vTargets: number[] = [0, canvasWidth / 2, canvasWidth];
-    const hTargets: number[] = [0, canvasHeight / 2, canvasHeight];
-    overlayImages.forEach(img => {
-      if (img.id === excludeId) return;
-      vTargets.push(img.x, img.x + img.width / 2, img.x + img.width);
-      hTargets.push(img.y, img.y + img.height / 2, img.y + img.height);
-    });
-    textBoxes.forEach(tb => {
-      if (tb.id === excludeId) return;
-      vTargets.push(tb.x, tb.x + tb.width / 2, tb.x + tb.width);
-      hTargets.push(tb.y, tb.y + tb.height / 2, tb.y + tb.height);
-    });
-    return { vTargets, hTargets };
-  };
-
-  const SNAP_THRESHOLD = 8; // canvas pixels
-
-  const snapPosition = (
-    proposedX: number, proposedY: number, w: number, h: number, excludeId: string,
-  ) => {
-    if (!enableSnap) return { x: proposedX, y: proposedY, vGuides: [], hGuides: [] };
-    const { vTargets, hTargets } = buildSnapTargets(excludeId);
-    const candidatesX = [proposedX, proposedX + w / 2, proposedX + w];
-    const candidatesY = [proposedY, proposedY + h / 2, proposedY + h];
-    let bestDX = Infinity, snapDX = 0; const vGuides: number[] = [];
-    candidatesX.forEach((cx, idx) => {
-      vTargets.forEach(t => {
-        const d = Math.abs(cx - t);
-        if (d < SNAP_THRESHOLD && d < bestDX) {
-          bestDX = d; snapDX = t - cx; vGuides.length = 0; vGuides.push(t);
-        } else if (d < SNAP_THRESHOLD && d === bestDX) {
-          if (!vGuides.includes(t)) vGuides.push(t);
-        }
-      });
-    });
-    let bestDY = Infinity, snapDY = 0; const hGuides: number[] = [];
-    candidatesY.forEach((cy, idx) => {
-      hTargets.forEach(t => {
-        const d = Math.abs(cy - t);
-        if (d < SNAP_THRESHOLD && d < bestDY) {
-          bestDY = d; snapDY = t - cy; hGuides.length = 0; hGuides.push(t);
-        } else if (d < SNAP_THRESHOLD && d === bestDY) {
-          if (!hGuides.includes(t)) hGuides.push(t);
-        }
-      });
-    });
-    return {
-      x: bestDX < Infinity ? proposedX + snapDX : proposedX,
-      y: bestDY < Infinity ? proposedY + snapDY : proposedY,
-      vGuides, hGuides,
-    };
-  };
-
   useEffect(() => {
     if (!dragging) return;
     const handlePointerMove = (e: PointerEvent) => {
@@ -356,23 +301,14 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
       const proposedX = dragging.origX + dx;
       const proposedY = dragging.origY + dy;
       if (dragging.isCta) {
-        // CTA uses center anchor; skip snap-guides for simplicity
         onCtaMove?.(proposedX, proposedY);
       } else if (dragging.isText) {
-        const tb = textBoxes.find(t => t.id === dragging.id);
-        const w = tb?.width ?? 0; const h = tb?.height ?? 0;
-        const snapped = snapPosition(proposedX, proposedY, w, h, dragging.id);
-        setActiveGuides({ v: snapped.vGuides, h: snapped.hGuides });
-        setTextBoxes(prev => prev.map(t => t.id === dragging.id ? { ...t, x: snapped.x, y: snapped.y } : t));
+        setTextBoxes(prev => prev.map(t => t.id === dragging.id ? { ...t, x: proposedX, y: proposedY } : t));
       } else {
-        const img = overlayImages.find(i => i.id === dragging.id);
-        const w = img?.width ?? 0; const h = img?.height ?? 0;
-        const snapped = snapPosition(proposedX, proposedY, w, h, dragging.id);
-        setActiveGuides({ v: snapped.vGuides, h: snapped.hGuides });
-        updateOverlay(dragging.id, { x: snapped.x, y: snapped.y });
+        updateOverlay(dragging.id, { x: proposedX, y: proposedY });
       }
     };
-    const handlePointerUp = () => { setDragging(null); setActiveGuides({ v: [], h: [] }); };
+    const handlePointerUp = () => { setDragging(null); };
     window.addEventListener("pointermove", handlePointerMove, { passive: false });
     window.addEventListener("pointerup", handlePointerUp);
     window.addEventListener("pointercancel", handlePointerUp);
@@ -381,7 +317,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
       window.removeEventListener("pointerup", handlePointerUp);
       window.removeEventListener("pointercancel", handlePointerUp);
     };
-  }, [dragging, scale, overlayImages, textBoxes, enableSnap, canvasWidth, canvasHeight]);
+  }, [dragging, scale, overlayImages, textBoxes, canvasWidth, canvasHeight]);
 
   useEffect(() => {
     if (!resizing) return;
