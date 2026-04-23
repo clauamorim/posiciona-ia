@@ -1035,7 +1035,7 @@ const PostEditorPage = () => {
       {activePhotographer && (
         <UnsplashAttribution
           photographer={activePhotographer}
-          onClose={() => setActivePhotographer(null)}
+          onDismiss={() => setActivePhotographer(null)}
           autoDismissMs={5000}
         />
       )}
