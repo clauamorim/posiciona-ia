@@ -307,9 +307,29 @@ export async function buildAutoLayout(input: AutoLayoutInput): Promise<AutoLayou
   // (em vez de cair sem aviso no fundo padrão, que se confundia com minimal)
   const useGradientFallback = (style === "unsplash" || style === "ai") && styleFailed && input.paletteHex.length >= 2;
 
+  // Slots iniciais (posição/largura/altura) para os blocos de texto do canvas
+  // Altura é estimada com base em fontSize * 1.6 (line-height) * 3 linhas
+  const titleSlot = template.titleSlot
+    ? {
+        x: template.titleSlot.x,
+        y: template.titleSlot.y,
+        width: template.titleSlot.width,
+        height: Math.max(120, Math.round((dynTitleFontSize || template.titleSlot.fontSize) * 1.6 * 2)),
+      }
+    : undefined;
+  const bodySlot = template.bodySlot
+    ? {
+        x: template.bodySlot.x,
+        y: template.bodySlot.y,
+        width: template.bodySlot.width,
+        height: Math.max(160, Math.round(template.bodySlot.fontSize * 1.6 * 4)),
+      }
+    : undefined;
+
   return {
     template,
     overlays,
+    slots: { title: titleSlot, body: bodySlot },
     suggestions: {
       titleFontSize: dynTitleFontSize,
       titleTextAlign: template.titleSlot?.align,
