@@ -52,10 +52,9 @@ interface CarouselEditorProps {
   onSelectedTextChange?: (id: string | null) => void;
   renderOrder?: string[];
   onRenderOrderChange?: (order: string[]) => void;
-  showGrid?: boolean;
   showRulers?: boolean;
   showCoordinates?: boolean;
-  enableSnap?: boolean;
+  postStyle?: string;
   initialTextBoxes?: {
     title?: { x: number; y: number; width: number; height: number };
     body?: { x: number; y: number; width: number; height: number };
