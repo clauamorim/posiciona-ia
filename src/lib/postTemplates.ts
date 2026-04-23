@@ -105,12 +105,12 @@ const REELS_TEMPLATES: Record<TemplateKind, TemplateLayout> = {
     kind: "cover",
     format: "reels",
     backgroundOverlay: true,
-    // paletteIndex 2 para contraste claro com gradiente
-    decorativeBlock: { x: 0, y: 1380, width: REELS_W, height: 540, paletteIndex: 2, opacity: 0.85 },
+    decorativeBlock: null,
     logoSlot: { x: 60, y: 80, width: 180, height: 180 },
     portraitSlot: null,
-    titleSlot: { x: 80, y: 1440, width: 920, fontSize: 80, align: "left" },
-    bodySlot: { x: 80, y: 1660, width: 920, fontSize: 32, align: "left" },
+    // Slots subidos para deixar respiro no rodapé (antes y=1440/1660)
+    titleSlot: { x: 80, y: 1180, width: 920, fontSize: 76, align: "left" },
+    bodySlot: { x: 80, y: 1480, width: 920, fontSize: 32, align: "left" },
     slideNumberSlot: { x: 0, y: 0, size: 14, show: false },
   },
   content: {
