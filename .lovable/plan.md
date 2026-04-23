@@ -1,85 +1,73 @@
 
 
-## Editor que entrega posts prontos — confirmado para implementação
+## Editor de posts: seleção de estilo antes de abrir + galeria Unsplash
 
-Vou prosseguir com o plano apresentado. Resumo abrangendo todos os pontos confirmados:
+Adiciono ao plano de correções já aprovado um novo fluxo de **seleção de estilo inicial** e uma **galeria de imagens** dentro do editor.
 
-### 1. Templates fixos (8 no total)
-- 4 templates para formato quadrado (1080×1080) e 4 para reels (1080×1920).
-- Tipos: **Capa**, **Conteúdo**, **Visual minimalista**, **CTA final**.
-- Escolha determinística por `(weekIndex + dayIndex + slideIndex)` — reabrir o mesmo post sempre dá o mesmo layout.
-- Definidos em código (`src/lib/postTemplates.ts`) — sem necessidade de cadastro manual.
+## 1. Modal "Escolha o estilo do post" (antes de abrir o editor)
 
-### 2. Imagens de fundo: Unsplash + IA fallback
-- Edge function `fetch-post-image` busca no Unsplash usando palavras-chave do tema.
-- Se Unsplash não tiver resultado relevante, usa Gemini Nano Banana para gerar.
-- Cache em tabela `post_background_cache` para evitar repagar IA pelo mesmo tema.
-- **Custos**: Unsplash = grátis; IA = 1 crédito de regeneração com aviso prévio.
-- Requer secret `UNSPLASH_ACCESS_KEY` (chave gratuita em https://unsplash.com/developers).
+Ao clicar em qualquer post na Linha Editorial, antes de abrir `/post-editor`, aparece um modal com 3 opções visuais (cards grandes com preview):
 
-### 3. Logos com checkbox no upload
-- Coluna nova `is_logo BOOLEAN` em `user_gallery_assets`.
-- Modal de upload com checkbox "Esta imagem é minha logo".
-- Sistema escolhe automaticamente a logo de melhor contraste com o fundo do template.
-- Suporte a múltiplas logos (versão clara/escura).
+| Opção | O que entrega | Custo |
+|---|---|---|
+| **Minimalista** | Fundo degradê da paleta da marca, sem foto. Logo + tipografia + bloco decorativo. | Grátis |
+| **Com foto (Unsplash)** | Fundo com foto do Unsplash relacionada ao tema. Logo + tipografia sobreposta. | Grátis |
+| **Com foto IA** | Fundo gerado por IA Gemini, personalizado ao tema. Logo + tipografia sobreposta. | 1 crédito de regeneração |
 
-### 4. Montagem inicial automática
-- Ao abrir `/post-editor?week=X&day=Y` sem draft salvo, o editor já carrega:
-  - Template apropriado.
-  - Fundo do Unsplash (sem custo).
-  - Logo do usuário (se houver).
-  - Paleta da marca, tipografia, posições do template.
-- Banner sutil: "Montagem inicial gerada. Personalize como quiser."
-- Tudo permanece 100% editável (arrastar, trocar texto, redimensionar, recolorir, excluir).
+- Cada card mostra um **preview real** (thumb do Unsplash já buscada via `fetch-post-image` em background quando o modal abre, e um placeholder estilizado para IA até o usuário confirmar).
+- Botão "Pular e abrir editor vazio" no rodapé.
+- A escolha é salva no draft (`initial_style: "minimal" | "unsplash" | "ai"`) para que ao reabrir o post, o estilo seja respeitado.
 
-### 5. Guias de edição no canvas
-- Snap-guides dinâmicos ao arrastar (centro horizontal/vertical, alinhamento com outros elementos).
-- Réguas opcionais nas bordas (toggle).
-- Coordenadas X,Y e tamanho W×H exibidos no elemento selecionado.
-- Grade de fundo opcional (toggle).
-- Atalhos: setas movem 1px, Shift+setas movem 10px.
+## 2. Galeria Unsplash dentro do editor
 
-## Arquivos a serem afetados
+Adiciono uma nova aba no painel "Adicionar elementos" chamada **"Banco de imagens"**:
 
-**Frontend (novos)**
-- `src/lib/postTemplates.ts` — definição dos 8 templates.
-- `src/lib/postAutoLayout.ts` — orquestra template + imagem + logo.
+- Campo de busca livre (palavra-chave personalizável; default = tema do post).
+- Grid com 12 thumbnails do Unsplash (carrega 12 por página, botão "Ver mais").
+- Clique em uma thumb → substitui o fundo atual do canvas.
+- Botão **"Gerar com IA"** abaixo da grade — abre prompt customizável (default = tema do post) e cobra 1 crédito ao confirmar.
+- Atribuição automática do fotógrafo aparece no banner Unsplash (já planejado).
 
-**Frontend (editados)**
-- `src/pages/PostEditorPage.tsx` — chama auto-layout na primeira abertura, banner, botão "Trocar imagem".
-- `src/components/post-editor/PostCanvas.tsx` — snap-guides, réguas, coordenadas, grid, atalhos.
-- `src/components/post-editor/inspector/AddElementPanel.tsx` — checkbox "É minha logo" no upload + badge Logo na galeria.
-- `src/components/post-editor/PostToolbar.tsx` — toggles para guias/grade/réguas e botão "Trocar imagem de fundo".
+A edge function `fetch-post-image` recebe um novo modo:
+- `mode: "single"` (atual) → retorna 1 imagem.
+- `mode: "gallery"` (novo) → retorna até 12 imagens do Unsplash com metadata de cada fotógrafo.
 
-**Backend (novos)**
-- `supabase/functions/fetch-post-image/index.ts` — Unsplash + fallback IA + cache.
+## 3. Tudo continua editável
 
-**Banco**
-- Migração: `is_logo BOOLEAN DEFAULT false` em `user_gallery_assets`.
-- Migração: tabela `post_background_cache (theme_hash TEXT PK, image_url TEXT, source TEXT, created_at TIMESTAMPTZ)`.
+Independente do estilo escolhido (minimal, Unsplash ou IA), o canvas vem com:
+- Logo posicionada (com fundo removido automaticamente — já planejado).
+- Tipografia + bloco decorativo do template.
+- Texto do dia (título, corpo, CTA).
+- Paleta de cores aplicada.
 
-**Secret novo**
-- `UNSPLASH_ACCESS_KEY` (será solicitado via tool antes do uso).
+E o usuário pode arrastar, trocar texto, redimensionar, mudar fonte, recolorir, etc.
 
-## Custos resumidos para o usuário
+## Arquivos afetados (somando ao plano anterior)
 
-| Ação | Custo |
-|---|---|
-| Abrir post montado pronto | Grátis |
-| Trocar imagem por outra do Unsplash | Grátis |
-| Gerar imagem por IA | 1 crédito de regeneração |
-| Editar texto, mover, recolorir, etc. | Grátis |
+**Novos**:
+- `src/components/post-editor/StyleSelectionModal.tsx` — modal com 3 opções.
+- `src/components/post-editor/inspector/ImageGalleryPanel.tsx` — galeria Unsplash + botão IA.
+
+**Editar**:
+- `src/pages/EditorialPage.tsx` — abrir modal de estilo antes de navegar para o editor.
+- `src/pages/PostEditorPage.tsx` — receber `initial_style` via query/state e aplicar no `buildAutoLayout`.
+- `src/lib/postAutoLayout.ts` — aceitar parâmetro `style: "minimal" | "unsplash" | "ai"` e retornar layout correspondente.
+- `src/components/post-editor/inspector/AddElementPanel.tsx` — adicionar nova aba "Banco de imagens".
+- `supabase/functions/fetch-post-image/index.ts` — suportar `mode: "gallery"` retornando até 12 imagens.
+
+## Mantém todas as correções já aprovadas
+
+Todos os 6 fixes anteriores continuam:
+1. Logo sempre com fundo removido.
+2. Bloco decorativo com tamanho mínimo visível.
+3. Banner de atribuição Unsplash (auto-dismiss 5s).
+4. "Trocar imagem" funcional (bg vai para o início do renderOrder).
+5. Grade com cor adaptativa.
+6. Cobrança de IA só quando o usuário confirmar.
 
 ## Fora do escopo
 
-- Galeria de templates customizáveis pelo admin (fase 2).
-- Geração automática de carrossel inteiro com layouts variados via IA.
-- Seleção manual de qual logo usar (sistema escolhe pela melhor combinação).
-
-## Próximos passos quando aprovar default mode
-
-1. Solicitar `UNSPLASH_ACCESS_KEY` via tool de secret (necessário antes de implementar a edge function).
-2. Criar migração SQL (`is_logo` + `post_background_cache`).
-3. Implementar templates, auto-layout e edge function.
-4. Atualizar UI (canvas, toolbar, painel de upload).
+- Salvar imagens favoritas do Unsplash em uma galeria pessoal.
+- Filtros avançados (cor dominante, orientação) na galeria.
+- Histórico de prompts de IA usados.
 
