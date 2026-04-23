@@ -64,6 +64,11 @@ const DocumentPanel: React.FC<DocumentPanelProps> = ({
   slideNumberBgColor, onSlideNumberBgColorChange,
   slideNumberTextColor, onSlideNumberTextColorChange,
   onReset,
+  showGrid, onShowGridChange,
+  showRulers, onShowRulersChange,
+  showCoordinates, onShowCoordinatesChange,
+  enableSnap, onEnableSnapChange,
+  onSwapBackgroundImage, swappingBackground,
 }) => {
   return (
     <div className="space-y-4">
