@@ -116,6 +116,8 @@ const CarouselEditor: React.FC<CarouselEditorProps> = ({
         showRulers={showRulers}
         showCoordinates={showCoordinates}
         enableSnap={enableSnap}
+        initialTextBoxes={initialTextBoxes}
+        resetKey={resetKey ? `${resetKey}-${currentSlide}` : undefined}
       />
 
       <div className="flex items-center gap-4">
