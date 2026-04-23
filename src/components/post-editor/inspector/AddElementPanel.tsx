@@ -201,6 +201,8 @@ const AddElementPanel: React.FC<AddElementPanelProps> = ({
         ? { ...a, is_logo: next }
         : (next ? { ...a, is_logo: false } : a)
     ));
+    // Marcar/desmarcar como logo invalida o cache de sessão
+    if (user) clearLogoCache(user.id);
     toast({ title: next ? "Marcada como logo ativa" : "Não é mais logo" });
   };
 
