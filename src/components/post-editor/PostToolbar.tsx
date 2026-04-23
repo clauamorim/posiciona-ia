@@ -101,6 +101,20 @@ interface PostToolbarProps {
   userPortraits?: string[];
   onAddImage: (img: OverlayImage) => void;
 
+  // Guides
+  showGrid?: boolean;
+  onShowGridChange?: (v: boolean) => void;
+  showRulers?: boolean;
+  onShowRulersChange?: (v: boolean) => void;
+  showCoordinates?: boolean;
+  onShowCoordinatesChange?: (v: boolean) => void;
+  enableSnap?: boolean;
+  onEnableSnapChange?: (v: boolean) => void;
+
+  // Background swap
+  onSwapBackgroundImage?: () => void;
+  swappingBackground?: boolean;
+
   // Actions
   onDownload: () => void;
   onSaveDesign?: () => void;
