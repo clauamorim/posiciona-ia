@@ -111,10 +111,9 @@ const CarouselEditor: React.FC<CarouselEditorProps> = ({
         onSelectedTextChange={onSelectedTextChange}
         renderOrder={renderOrder}
         onRenderOrderChange={onRenderOrderChange}
-        showGrid={showGrid}
         showRulers={showRulers}
         showCoordinates={showCoordinates}
-        enableSnap={enableSnap}
+        postStyle={postStyle}
         initialTextBoxes={initialTextBoxes}
         resetKey={resetKey ? `${resetKey}-${currentSlide}` : undefined}
       />
