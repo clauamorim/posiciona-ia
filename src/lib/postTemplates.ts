@@ -5,93 +5,94 @@
  * (logo, retrato, faixa decorativa, número do slide, CTA) e o tipo
  * de slide a que se aplica.
  *
- * A escolha do template é determinística por (weekIndex + dayIndex + slideIndex).
+ * Formatos:
+ *   - card  → 1080×1350 (4:5, padrão Instagram feed)
+ *   - reels → 1080×1920 (9:16, capa de Reels)
  */
 
 import type { OverlayImage } from "@/components/post-editor/PostToolbar";
 
 export type TemplateKind = "cover" | "content" | "minimal" | "cta";
+// "square" é mantido como alias para compatibilidade com states salvos antes
+// da migração para 4:5 — internamente sempre usamos 1080×1350 quando não-reels.
 export type CanvasFormat = "square" | "reels";
 
 export interface TemplateLayout {
   kind: TemplateKind;
   format: CanvasFormat;
-  /** Bloco decorativo de cor (faixa lateral / inferior). null = sem bloco. */
   decorativeBlock?: {
     x: number; y: number; width: number; height: number;
-    paletteIndex: number; // qual cor usar (índice da paleta)
+    paletteIndex: number;
     opacity?: number;
   } | null;
-  /** Posição da logo na composição. */
   logoSlot?: { x: number; y: number; width: number; height: number } | null;
-  /** Posição opcional de retrato. */
   portraitSlot?: { x: number; y: number; width: number; height: number } | null;
-  /** Configuração do título (override da posição padrão). */
   titleSlot?: { x: number; y: number; width: number; fontSize: number; align: "left" | "center" | "right" };
-  /** Configuração do corpo de texto. */
   bodySlot?: { x: number; y: number; width: number; fontSize: number; align: "left" | "center" | "right" };
-  /** Posição do CTA (somente em templates `cta`). */
   ctaSlot?: { x: number; y: number; fontSize: number };
-  /** Posição do número do slide. */
   slideNumberSlot?: { x: number; y: number; size: number; show: boolean };
-  /** Imagem de fundo translúcida sobreposta? Se true, escurece a imagem. */
   backgroundOverlay?: boolean;
 }
 
-const SQUARE_W = 1080;
-const SQUARE_H = 1080;
+// Card 4:5 (Instagram feed)
+const CARD_W = 1080;
+const CARD_H = 1350;
+// Reels 9:16
 const REELS_W = 1080;
 const REELS_H = 1920;
 
+// Logo padrão: canto inferior direito, com margem segura
+const CARD_LOGO = { x: CARD_W - 200, y: CARD_H - 200, width: 140, height: 140 };
+const REELS_LOGO = { x: REELS_W - 220, y: REELS_H - 240, width: 160, height: 160 };
+
 // =====================
-// Templates QUADRADO
+// Templates 4:5 (CARD)
 // =====================
 
-const SQUARE_TEMPLATES: Record<TemplateKind, TemplateLayout> = {
+const CARD_TEMPLATES: Record<TemplateKind, TemplateLayout> = {
   cover: {
     kind: "cover",
     format: "square",
     backgroundOverlay: true,
-    // No solid decorative block — readability comes from the gradient overlay
-    // rendered by PostCanvas itself when there is a photo background.
     decorativeBlock: null,
-    logoSlot: { x: 60, y: 60, width: 160, height: 160 },
+    logoSlot: CARD_LOGO,
     portraitSlot: null,
-    // Slots subidos para deixar respiro no rodapé (antes y=800/940)
-    titleSlot: { x: 80, y: 620, width: 920, fontSize: 60, align: "left" },
-    bodySlot: { x: 80, y: 820, width: 920, fontSize: 36, align: "left" },
-    slideNumberSlot: { x: SQUARE_W - 80, y: 80, size: 14, show: false },
+    // Título e corpo subidos para liberar a área da logo (canto inf. direito)
+    // e respeitar margem inferior segura (~280px).
+    titleSlot: { x: 80, y: 760, width: 920, fontSize: 64, align: "left" },
+    bodySlot: { x: 80, y: 970, width: 880, fontSize: 38, align: "left" },
+    slideNumberSlot: { x: CARD_W - 80, y: 80, size: 14, show: false },
   },
   content: {
     kind: "content",
     format: "square",
-    decorativeBlock: { x: 0, y: 0, width: 24, height: SQUARE_H, paletteIndex: 1, opacity: 1 },
-    logoSlot: { x: SQUARE_W - 200, y: 60, width: 140, height: 140 },
+    decorativeBlock: { x: 0, y: 0, width: 24, height: CARD_H, paletteIndex: 1, opacity: 1 },
+    logoSlot: CARD_LOGO,
     portraitSlot: null,
-    titleSlot: { x: 100, y: 240, width: 880, fontSize: 54, align: "left" },
-    bodySlot: { x: 100, y: 540, width: 880, fontSize: 38, align: "left" },
-    slideNumberSlot: { x: SQUARE_W - 90, y: 980, size: 16, show: true },
+    titleSlot: { x: 100, y: 280, width: 880, fontSize: 56, align: "left" },
+    bodySlot: { x: 100, y: 600, width: 880, fontSize: 40, align: "left" },
+    slideNumberSlot: { x: CARD_W - 100, y: 1240, size: 16, show: true },
   },
   minimal: {
     kind: "minimal",
     format: "square",
-    // Linha decorativa REAL — agora gerenciada por buildMinimalDecorativeOverlays
     decorativeBlock: null,
-    logoSlot: { x: SQUARE_W / 2 - 80, y: 100, width: 160, height: 160 },
+    logoSlot: CARD_LOGO,
     portraitSlot: null,
-    titleSlot: { x: 120, y: 340, width: 840, fontSize: 60, align: "center" },
-    bodySlot: { x: 140, y: 660, width: 800, fontSize: 38, align: "center" },
-    slideNumberSlot: { x: SQUARE_W / 2, y: 990, size: 14, show: true },
+    // Minimal: título e corpo CENTRALIZADOS (PostCanvas já força isso quando postStyle === "minimal").
+    titleSlot: { x: 120, y: 420, width: 840, fontSize: 62, align: "center" },
+    bodySlot: { x: 140, y: 780, width: 800, fontSize: 40, align: "center" },
+    slideNumberSlot: { x: CARD_W / 2, y: 1250, size: 14, show: true },
   },
   cta: {
     kind: "cta",
     format: "square",
-    decorativeBlock: { x: 0, y: 0, width: SQUARE_W, height: SQUARE_H, paletteIndex: 1, opacity: 1 },
-    logoSlot: { x: SQUARE_W / 2 - 90, y: 100, width: 180, height: 180 },
+    decorativeBlock: { x: 0, y: 0, width: CARD_W, height: CARD_H, paletteIndex: 1, opacity: 1 },
+    logoSlot: CARD_LOGO,
     portraitSlot: null,
-    titleSlot: { x: 80, y: 380, width: 920, fontSize: 64, align: "center" },
-    bodySlot: { x: 80, y: 560, width: 920, fontSize: 36, align: "center" },
-    ctaSlot: { x: SQUARE_W / 2, y: 820, fontSize: 32 },
+    titleSlot: { x: 80, y: 480, width: 920, fontSize: 66, align: "center" },
+    bodySlot: { x: 80, y: 700, width: 920, fontSize: 38, align: "center" },
+    ctaSlot: { x: CARD_W / 2, y: 1020, fontSize: 32 },
     slideNumberSlot: { x: 0, y: 0, size: 14, show: false },
   },
 };
@@ -106,52 +107,45 @@ const REELS_TEMPLATES: Record<TemplateKind, TemplateLayout> = {
     format: "reels",
     backgroundOverlay: true,
     decorativeBlock: null,
-    logoSlot: { x: 60, y: 80, width: 180, height: 180 },
+    logoSlot: REELS_LOGO,
     portraitSlot: null,
-    // Slots subidos para deixar respiro no rodapé (antes y=1440/1660)
     titleSlot: { x: 80, y: 1180, width: 920, fontSize: 76, align: "left" },
-    bodySlot: { x: 80, y: 1480, width: 920, fontSize: 44, align: "left" },
+    bodySlot: { x: 80, y: 1480, width: 920, fontSize: 46, align: "left" },
     slideNumberSlot: { x: 0, y: 0, size: 14, show: false },
   },
   content: {
     kind: "content",
     format: "reels",
     decorativeBlock: { x: 0, y: 0, width: 32, height: REELS_H, paletteIndex: 1, opacity: 1 },
-    logoSlot: { x: REELS_W - 220, y: 80, width: 160, height: 160 },
+    logoSlot: REELS_LOGO,
     portraitSlot: null,
     titleSlot: { x: 100, y: 380, width: 880, fontSize: 72, align: "left" },
-    bodySlot: { x: 100, y: 660, width: 880, fontSize: 48, align: "left" },
+    bodySlot: { x: 100, y: 660, width: 880, fontSize: 50, align: "left" },
     slideNumberSlot: { x: REELS_W - 100, y: 1820, size: 18, show: true },
   },
   minimal: {
     kind: "minimal",
     format: "reels",
     decorativeBlock: null,
-    logoSlot: { x: REELS_W / 2 - 90, y: 160, width: 180, height: 180 },
+    logoSlot: REELS_LOGO,
     portraitSlot: null,
     titleSlot: { x: 120, y: 540, width: 840, fontSize: 78, align: "center" },
-    bodySlot: { x: 140, y: 1100, width: 800, fontSize: 46, align: "center" },
+    bodySlot: { x: 140, y: 1100, width: 800, fontSize: 48, align: "center" },
     slideNumberSlot: { x: REELS_W / 2, y: 1820, size: 16, show: true },
   },
   cta: {
     kind: "cta",
     format: "reels",
     decorativeBlock: { x: 0, y: 0, width: REELS_W, height: REELS_H, paletteIndex: 1, opacity: 1 },
-    logoSlot: { x: REELS_W / 2 - 100, y: 200, width: 200, height: 200 },
+    logoSlot: REELS_LOGO,
     portraitSlot: null,
     titleSlot: { x: 80, y: 720, width: 920, fontSize: 80, align: "center" },
-    bodySlot: { x: 80, y: 1000, width: 920, fontSize: 46, align: "center" },
+    bodySlot: { x: 80, y: 1000, width: 920, fontSize: 48, align: "center" },
     ctaSlot: { x: REELS_W / 2, y: 1380, fontSize: 38 },
     slideNumberSlot: { x: 0, y: 0, size: 14, show: false },
   },
 };
 
-/**
- * Escolhe um template determinístico para um slide.
- * - Slide 0 (capa) sempre = "cover"
- * - Slide é último = "cta"
- * - Caso contrário, alterna entre "content" e "minimal" baseado em hash determinístico.
- */
 export function pickTemplate(opts: {
   weekIndex: number;
   dayIndex: number;
@@ -162,42 +156,33 @@ export function pickTemplate(opts: {
   isLast?: boolean;
   hasCta?: boolean;
 }): TemplateLayout {
-  const set = opts.format === "reels" ? REELS_TEMPLATES : SQUARE_TEMPLATES;
+  const set = opts.format === "reels" ? REELS_TEMPLATES : CARD_TEMPLATES;
   if (opts.isCover || opts.slideIndex === 0) return set.cover;
   if (opts.isLast && opts.hasCta) return set.cta;
-  // Hash determinístico
   const hash = opts.weekIndex * 31 + opts.dayIndex * 7 + opts.slideIndex;
   return hash % 2 === 0 ? set.content : set.minimal;
 }
 
-/** Retorna o template para um slide isolado (não-carrossel). */
 export function pickSingleTemplate(opts: {
   weekIndex: number;
   dayIndex: number;
   format: CanvasFormat;
   hasCta?: boolean;
-  /** Se for "minimal", força template minimal para garantir slots e moldura coerentes. */
   style?: "minimal" | "unsplash" | "ai";
 }): TemplateLayout {
-  const set = opts.format === "reels" ? REELS_TEMPLATES : SQUARE_TEMPLATES;
-  // Quando o usuário escolheu minimal, sempre usar slots minimais
+  const set = opts.format === "reels" ? REELS_TEMPLATES : CARD_TEMPLATES;
   if (opts.style === "minimal") return set.minimal;
-  // Estilos com foto (unsplash/ai) usam o template "cover" — slots otimizados
-  // para sobreposição de gradiente preto translúcido na base.
   if (opts.style === "unsplash" || opts.style === "ai") return set.cover;
-  // Sem estilo definido: alterna por hash (comportamento legado)
   const hash = opts.weekIndex * 31 + opts.dayIndex * 7;
   return hash % 2 === 0 ? set.minimal : set.content;
 }
 
-/** Cria um overlay de bloco decorativo a partir do template. */
 export function buildDecorativeBlockOverlay(
   template: TemplateLayout,
   paletteHex: string,
 ): OverlayImage | null {
   if (!template.decorativeBlock) return null;
   const block = template.decorativeBlock;
-  // Garantir tamanho mínimo visível (evita "barrinha" de 6px que some)
   const MIN_DIM = 80;
   const w = block.width < MIN_DIM && block.width < block.height ? Math.max(MIN_DIM, block.width) : block.width;
   const h = block.height < MIN_DIM && block.height < block.width ? Math.max(MIN_DIM, block.height) : block.height;
@@ -215,7 +200,6 @@ export function buildDecorativeBlockOverlay(
   };
 }
 
-/** Cria um overlay de logo a partir do template. */
 export function buildLogoOverlay(
   template: TemplateLayout,
   logoUrl: string,
@@ -234,14 +218,13 @@ export function buildLogoOverlay(
   };
 }
 
-/** Cria um overlay de imagem de fundo (cobre todo o canvas). */
 export function buildBackgroundImageOverlay(
   imageUrl: string,
   format: CanvasFormat,
   withDarkOverlay = false,
 ): OverlayImage {
-  const w = format === "reels" ? REELS_W : SQUARE_W;
-  const h = format === "reels" ? REELS_H : SQUARE_H;
+  const w = format === "reels" ? REELS_W : CARD_W;
+  const h = format === "reels" ? REELS_H : CARD_H;
   return {
     id: `tpl-bg-${crypto.randomUUID()}`,
     src: imageUrl,
@@ -258,9 +241,7 @@ export function buildBackgroundImageOverlay(
  * Constrói um conjunto de overlays decorativos para o estilo "minimal":
  * moldura interna + linha horizontal abaixo do bloco de texto + ornamento (losango).
  *
- * @param onPhoto Quando true, usa branco translúcido para contrastar com a foto.
- * @param bodyBottomY Y onde termina o bloco de corpo de texto (para posicionar
- *                     a linha+losango sempre ABAIXO do texto, nunca por cima).
+ * FRAME_INSET aumentado para evitar que o texto encoste na moldura.
  */
 export function buildMinimalDecorativeOverlays(
   template: TemplateLayout,
@@ -269,16 +250,16 @@ export function buildMinimalDecorativeOverlays(
   opts?: { onPhoto?: boolean; bodyBottomY?: number },
 ): OverlayImage[] {
   const isReels = template.format === "reels";
-  const W = isReels ? REELS_W : SQUARE_W;
-  const H = isReels ? REELS_H : SQUARE_H;
+  const W = isReels ? REELS_W : CARD_W;
+  const H = isReels ? REELS_H : CARD_H;
   const onPhoto = !!opts?.onPhoto;
   const accent = onPhoto ? "#ffffff" : (accentHex || primaryHex);
   const stroke = onPhoto ? "#ffffff" : primaryHex;
   const strokeOpacity = onPhoto ? 0.7 : 0.55;
   const accentOpacity = onPhoto ? 0.85 : 1;
 
-  // 1) Moldura interna — sempre presente, atrás do texto
-  const FRAME_INSET = isReels ? 60 : 40;
+  // Moldura interna com inset maior para garantir respiro do texto
+  const FRAME_INSET = isReels ? 80 : 60;
   const frameW = W - FRAME_INSET * 2;
   const frameH = H - FRAME_INSET * 2;
   const frameSvg = `<svg width="${frameW}" height="${frameH}" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="1" width="${frameW - 2}" height="${frameH - 2}" fill="none" stroke="${stroke}" stroke-width="2" opacity="${strokeOpacity}"/></svg>`;
@@ -289,16 +270,15 @@ export function buildMinimalDecorativeOverlays(
     type: "element", opacity: 1,
   };
 
-  // 2) Linha horizontal decorativa SEMPRE abaixo do bloco de texto.
-  // Calcula posição com base no fim do corpo de texto (com margem),
-  // caindo para defaults seguros (longe do título) se não houver dado.
+  // Linha horizontal decorativa SEMPRE abaixo do bloco de texto.
   const lineW = isReels ? 220 : 160;
   const lineH = 4;
   const lineX = (W - lineW) / 2;
-  const fallbackLineY = isReels ? 1700 : 920;
+  const fallbackLineY = isReels ? 1700 : 1180;
   const candidateY = opts?.bodyBottomY != null ? opts.bodyBottomY + 40 : fallbackLineY;
-  // Garante que a linha + losango cabem dentro da moldura
-  const maxLineY = H - FRAME_INSET - 80;
+  // A linha precisa caber dentro da moldura E acima da logo (canto inf. direito)
+  const logoTop = isReels ? REELS_LOGO.y : CARD_LOGO.y;
+  const maxLineY = Math.min(H - FRAME_INSET - 80, logoTop - 60);
   const lineY = Math.min(candidateY, maxLineY);
   const lineSvg = `<svg width="${lineW}" height="${lineH}" xmlns="http://www.w3.org/2000/svg"><rect width="${lineW}" height="${lineH}" fill="${accent}" opacity="${accentOpacity}"/></svg>`;
   const line: OverlayImage = {
@@ -308,7 +288,6 @@ export function buildMinimalDecorativeOverlays(
     type: "element", opacity: 1,
   };
 
-  // 3) Ornamento losango logo abaixo da linha
   const dSize = 24;
   const dX = (W - dSize) / 2;
   const dY = lineY + 18;
@@ -322,4 +301,3 @@ export function buildMinimalDecorativeOverlays(
 
   return [frame, line, ornament];
 }
-
