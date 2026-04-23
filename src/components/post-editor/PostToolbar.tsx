@@ -227,6 +227,8 @@ const PostToolbar: React.FC<PostToolbarProps> = (props) => {
           onSwapBackground={props.onSwapBackgroundUrl}
           onAIGenerated={props.onAIGenerated}
           regenerationCredits={props.regenerationCredits}
+          niche={props.niche}
+          businessContext={props.businessContext}
         />
       </section>
 
