@@ -220,6 +220,20 @@ export function clearLogoCache(userId: string) {
   try { sessionStorage.removeItem(`${LOGO_CACHE_PREFIX}${userId}`); } catch {}
 }
 
+/**
+ * Recebe uma data-URL (PNG vindo de remove-background com chroma key verde)
+ * e devolve uma data-URL PNG com transparência real validada.
+ * Retorna `null` se a conversão não produziu transparência adequada
+ * (ex.: a logo continua com grandes áreas verdes/sólidas nas bordas).
+ */
+export async function chromaKeyAndValidate(dataUrl: string): Promise<string | null> {
+  const transparent = await chromaKeyGreenToTransparent(dataUrl);
+  if (!transparent) return null;
+  const status = await analyzeLogoBackground(transparent);
+  if (status !== "transparent") return null;
+  return transparent;
+}
+
 /** Busca a logo mais recente do usuário marcada com is_logo=true. Garante transparência real. */
 async function fetchUserLogo(userId: string): Promise<string | null> {
   // Cache por sessão para evitar reprocessar a cada slide
