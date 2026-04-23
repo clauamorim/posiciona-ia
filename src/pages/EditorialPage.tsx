@@ -103,8 +103,9 @@ const EditorialPage = () => {
     setGeneratingWeek(false);
   };
 
-  const handleRegeneratePost = async (weekIndex: number, dayIndex: number) => {
-    if (!user || regenerationCredits < 1) {
+  const handleRegeneratePost = async (weekIndex: number, dayIndex: number, freeMode = false) => {
+    if (!user) return;
+    if (!freeMode && regenerationCredits < 1) {
       toast({ title: "Créditos insuficientes", description: "Você não tem créditos de ajuste de conteúdo.", variant: "destructive" });
       return;
     }
@@ -127,9 +128,12 @@ const EditorialPage = () => {
           existingPosts,
           storybrand: reportContent?.storybrand || null,
           tone_of_voice: reportContent?.tone_of_voice || null,
+          freeRegeneration: freeMode,
+          currentVersion: day.generator_version || null,
         },
       });
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
 
       const isFirstWeek = structuredEditorial.length > 0 && weekIndex === 0;
       if (isFirstWeek) {
@@ -147,16 +151,65 @@ const EditorialPage = () => {
         setReport({ ...report, editorial_weeks: newWeeks });
       }
 
-      await supabase.from("user_balances").update({ regeneration_credits: regenerationCredits - 1 }).eq("user_id", user.id);
-      await supabase.from("credit_logs").insert({
-        user_id: user.id, credit_type: "regeneration", amount: -1, description: `Ajuste de conteúdo: ${day.theme}`,
-      });
-      await refreshSubscription();
-      toast({ title: "Post regenerado com sucesso!" });
+      if (!freeMode) {
+        await supabase.from("user_balances").update({ regeneration_credits: regenerationCredits - 1 }).eq("user_id", user.id);
+        await supabase.from("credit_logs").insert({
+          user_id: user.id, credit_type: "regeneration", amount: -1, description: `Ajuste de conteúdo: ${day.theme}`,
+        });
+        await refreshSubscription();
+      }
+      toast({ title: freeMode ? "Post atualizado sem custo" : "Post regenerado com sucesso!" });
     } catch (err: any) {
       toast({ title: "Erro ao regenerar post", description: err.message, variant: "destructive" });
     }
     setRegeneratingPost(null);
+  };
+
+  const handleRegenerateWeekFree = async (weekIndex: number) => {
+    if (!user) return;
+    setRegeneratingFreeWeek(weekIndex);
+    try {
+      const [{ data: bq }, { data: profile }, { data: reportData }] = await Promise.all([
+        supabase.from("business_questionnaires").select("*").eq("user_id", user.id).order("version", { ascending: false }).limit(1).single(),
+        supabase.from("profiles").select("niche").eq("user_id", user.id).single(),
+        supabase.from("reports").select("content").eq("user_id", user.id).eq("status", "completed").order("version", { ascending: false }).limit(1).single(),
+      ]);
+      const reportContent = normalizeReportContent(reportData?.content) as Record<string, any> | null;
+      const { data, error } = await supabase.functions.invoke("generate-content-week", {
+        body: {
+          business: bq, niche: profile?.niche || "",
+          previousWeeks: allWeeks
+            .filter((_, i) => i !== weekIndex)
+            .map((w: any[]) => w.map((d: any) => ({ day: d.day, theme: d.theme, format: d.format }))),
+          weekNumber: weekIndex + 1,
+          storybrand: reportContent?.storybrand || null,
+          tone_of_voice: reportContent?.tone_of_voice || null,
+          freeRegeneration: true,
+          replaceWeekIndex: weekIndex,
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      if (!data?.editorial) throw new Error("Resposta vazia da IA.");
+
+      // Replace in the correct slot
+      const isFirstWeek = structuredEditorial.length > 0 && weekIndex === 0;
+      if (isFirstWeek) {
+        const newContent = { ...content, editorial: data.editorial };
+        await supabase.from("reports").update({ content: newContent }).eq("user_id", user.id).eq("version", report.version);
+        setReport({ ...report, content: newContent });
+      } else {
+        const adjustedIndex = structuredEditorial.length > 0 ? weekIndex - 1 : weekIndex;
+        const newWeeks = [...editorialWeeks];
+        newWeeks[adjustedIndex] = data.editorial;
+        await supabase.from("reports").update({ editorial_weeks: newWeeks }).eq("user_id", user.id).eq("version", report.version);
+        setReport({ ...report, editorial_weeks: newWeeks });
+      }
+      toast({ title: "Semana atualizada sem custo" });
+    } catch (err: any) {
+      toast({ title: "Erro ao atualizar semana", description: err.message, variant: "destructive" });
+    }
+    setRegeneratingFreeWeek(null);
   };
 
   const copyCaption = (caption: string) => {
