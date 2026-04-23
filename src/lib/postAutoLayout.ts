@@ -69,21 +69,68 @@ export interface AutoLayoutResult {
   styleFailedReason?: string;
 }
 
-/** Busca a primeira logo do usuário marcada com is_logo=true. */
+/** Busca a primeira logo do usuário marcada com is_logo=true. Reprocessa fundo se ainda for JPG. */
 async function fetchUserLogo(userId: string): Promise<string | null> {
   try {
     const { data } = await supabase
       .from("user_gallery_assets")
-      .select("file_path")
+      .select("id, file_path, bg_removed")
       .eq("user_id", userId)
       .eq("is_logo", true)
       .order("created_at", { ascending: true })
       .limit(1)
       .maybeSingle();
     if (!data?.file_path) return null;
+
+    let filePath = data.file_path as string;
+    const isPng = filePath.toLowerCase().endsWith(".png");
+    const alreadyProcessed = !!(data as any).bg_removed;
+
+    // Reprocessamento sob demanda: se logo é JPG e ainda não passou por remove-background, processa agora
+    if (!isPng && !alreadyProcessed) {
+      try {
+        // Lê signed URL do arquivo atual e envia para edge function
+        const { data: srcSigned } = await supabase.storage
+          .from("user-uploads")
+          .createSignedUrl(filePath, 60 * 5);
+        if (srcSigned?.signedUrl) {
+          // Baixa, converte para data URL e envia
+          const resp = await fetch(srcSigned.signedUrl);
+          const blob = await resp.blob();
+          const dataUrl: string = await new Promise((res, rej) => {
+            const r = new FileReader();
+            r.onload = () => res(r.result as string);
+            r.onerror = () => rej(r.error);
+            r.readAsDataURL(blob);
+          });
+          const { data: rb, error: rbErr } = await supabase.functions.invoke("remove-background", {
+            body: { imageUrl: dataUrl },
+          });
+          if (!rbErr && rb?.image && typeof rb.image === "string" && rb.image.startsWith("data:image/")) {
+            const newBlob = await (await fetch(rb.image)).blob();
+            const newPath = filePath.replace(/\.[^.]+$/, "") + ".png";
+            const { error: upErr } = await supabase.storage
+              .from("user-uploads")
+              .upload(newPath, newBlob, { contentType: "image/png", upsert: true });
+            if (!upErr) {
+              await supabase
+                .from("user_gallery_assets")
+                .update({ file_path: newPath, bg_removed: true })
+                .eq("id", (data as any).id);
+              filePath = newPath;
+            }
+          } else {
+            console.warn("remove-background returned no image, using original logo");
+          }
+        }
+      } catch (rbErr) {
+        console.warn("On-demand bg removal failed for logo, using original", rbErr);
+      }
+    }
+
     const { data: signed } = await supabase.storage
       .from("user-uploads")
-      .createSignedUrl(data.file_path, 60 * 60);
+      .createSignedUrl(filePath, 60 * 60);
     return signed?.signedUrl || null;
   } catch (err) {
     console.warn("fetchUserLogo failed", err);
