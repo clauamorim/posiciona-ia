@@ -11,11 +11,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import {
   Loader2, Sparkles, ChevronDown, Calendar, Video, Image, Smartphone,
-  ImageIcon, PenTool, FileText, RefreshCw, Copy, Download
+  ImageIcon, PenTool, FileText, RefreshCw, Copy, Download, AlertTriangle, Wand2
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { parseReportContent, normalizeReportContent } from "@/lib/reportParser";
 import { cleanText } from "@/lib/textCleanup";
+import { isOutdated, isWeekOutdated, EDITORIAL_GENERATOR_VERSION } from "@/lib/generatorVersion";
 
 // Escape HTML to prevent injection in raw innerHTML strings used for PDF
 function esc(s: string): string {
