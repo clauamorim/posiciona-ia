@@ -984,6 +984,25 @@ const PostEditorPage = () => {
               enableSnap, onEnableSnapChange: setEnableSnap,
               onSwapBackgroundImage: handleSwapBackground,
               swappingBackground,
+              imageSearchQuery: (day?.theme || day?.caption || "").toString(),
+              onUnsplashPick: (photographer: PhotographerInfo) => setActivePhotographer(photographer),
+              onSwapBackgroundUrl: (url: string) => {
+                setOverlayImages(prev => {
+                  const idx = prev.findIndex(o => o.id.startsWith("tpl-bg-"));
+                  if (idx >= 0) {
+                    const next = [...prev];
+                    const updated = { ...next[idx], src: url };
+                    next.splice(idx, 1);
+                    return [updated, ...next];
+                  }
+                  const w = canvasFormat === "reels" ? 1080 : 1080;
+                  const h = canvasFormat === "reels" ? 1920 : 1080;
+                  return [
+                    { id: `tpl-bg-${crypto.randomUUID()}`, src: url, x: 0, y: 0, width: w, height: h, type: "photo", opacity: 0.85 },
+                    ...prev,
+                  ];
+                });
+              },
             };
 
             return (
