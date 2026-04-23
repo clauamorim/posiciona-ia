@@ -1087,6 +1087,8 @@ const PostEditorPage = () => {
                   ];
                 });
               },
+              onAIGenerated: debitRegenerationCredit,
+              regenerationCredits: balances?.regeneration_credits ?? 0,
             };
 
             return (
