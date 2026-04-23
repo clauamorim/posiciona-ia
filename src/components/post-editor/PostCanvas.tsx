@@ -364,6 +364,34 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
     };
   }, [resizing, scale, overlayImages]);
 
+  // Arrow-key nudging for selected element (1px / Shift+10px)
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.isContentEditable || target.tagName === "INPUT" || target.tagName === "TEXTAREA")) return;
+      if (!selectedImageId && !selectedTextId) return;
+      if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) return;
+      e.preventDefault();
+      const step = e.shiftKey ? 10 : 1;
+      const dx = e.key === "ArrowLeft" ? -step : e.key === "ArrowRight" ? step : 0;
+      const dy = e.key === "ArrowUp" ? -step : e.key === "ArrowDown" ? step : 0;
+      if (selectedImageId) {
+        const img = overlayImages.find(i => i.id === selectedImageId);
+        if (img) updateOverlay(selectedImageId, { x: img.x + dx, y: img.y + dy });
+      } else if (selectedTextId === "cta") {
+        const pos = ctaPosition || { x: 540, y: 780 };
+        onCtaMove?.(pos.x + dx, pos.y + dy);
+      } else if (selectedTextId === "slideNumber") {
+        const pos = slideNumberPosition || { x: canvasWidth - 60, y: 50 };
+        onSlideNumberMove?.(pos.x + dx, pos.y + dy);
+      } else if (selectedTextId) {
+        setTextBoxes(prev => prev.map(tb => tb.id === selectedTextId ? { ...tb, x: tb.x + dx, y: tb.y + dy } : tb));
+      }
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [selectedImageId, selectedTextId, overlayImages, ctaPosition, slideNumberPosition, canvasWidth]);
+
   const handleCanvasClick = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget || (e.target as HTMLElement).closest("[data-overlay]") === null) {
       onSelectImage?.(null);
@@ -371,6 +399,19 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
       setEditingTextId(null);
     }
   };
+
+  // Selected item bounding box (for coordinates badge)
+  const selectedBounds = (() => {
+    if (selectedImageId) {
+      const img = overlayImages.find(i => i.id === selectedImageId);
+      if (img) return { x: img.x, y: img.y, w: img.width, h: img.height };
+    }
+    if (selectedTextId && selectedTextId.startsWith("text-")) {
+      const tb = textBoxes.find(t => t.id === selectedTextId);
+      if (tb) return { x: tb.x, y: tb.y, w: tb.width, h: tb.height };
+    }
+    return null;
+  })();
 
   const bodyFontSize = fontSize || 28;
   const bodyFontWeight = fontWeight || "normal";
