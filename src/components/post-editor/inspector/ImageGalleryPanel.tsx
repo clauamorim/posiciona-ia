@@ -86,7 +86,7 @@ const ImageGalleryPanel: React.FC<ImageGalleryPanelProps> = ({
     }
     setGeneratingAI(true);
     try {
-      const result = await generateAIImage({ query: aiPrompt.trim(), format, niche });
+      const result = await generateAIImage({ query: aiPrompt.trim(), format, niche, businessContext });
       if (!result) {
         toast({ title: "Falha ao gerar imagem por IA", description: "Tente novamente em instantes — nenhum crédito foi debitado.", variant: "destructive" });
         return;
