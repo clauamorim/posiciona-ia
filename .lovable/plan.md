@@ -1,133 +1,73 @@
+## Pacote único de correções do Editor de Posts
 
-## Correções prioritárias para o editor de posts
+Implementação consolidada de 6 frentes em uma única passada, sem novas aprovações intermediárias.
 
-Há 3 causas bem prováveis para o que você está vendo agora, e elas se conectam entre si.
+### 1. Loading overlay para Unsplash e IA
+- Em `PostEditorPage.tsx`, adicionar estado `initializingLayout` com mensagem dinâmica.
+- Mostrar overlay com barra de progresso indeterminada cobrindo o canvas enquanto:
+  - Unsplash busca a foto ("Buscando foto editorial...")
+  - IA gera a imagem ("Gerando imagem com IA...")
+  - Logo é processada ("Preparando logo...")
+- Só liberar interação quando o layout estiver pronto.
+- Em caso de erro, fechar overlay e mostrar toast claro (sem cair no minimalista por engano).
 
-## 1. Unsplash/IA “caem no minimalista” porque o editor está reutilizando o draft antigo
+### 2. Caixa de texto semitransparente sobre foto
+- Em `postAutoLayout.ts` e `PostCanvas.tsx`, quando houver foto de fundo (Unsplash ou IA):
+  - Aplicar degradê vertical `linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.6) 40%, rgba(0,0,0,0) 100%)` cobrindo os 45% inferiores.
+  - Texto branco fixo com leve text-shadow para garantir contraste.
+- Remover blocos sólidos antigos que cobriam a imagem.
 
-Hoje o `PostEditorPage` carrega draft por `weekIndex + dayIndex` apenas. Então, se você abriu antes em modo minimalista, ao voltar com `?style=unsplash` ou `?style=ai` ele reaproveita o estado anterior e nem roda a montagem nova, porque `autoLayoutRanRef` já nasce como `true`.
+### 3. Minimalista sempre completo + fallback decorado
+- Em `postTemplates.ts` e `postAutoLayout.ts`, garantir que o estilo minimalista sempre receba:
+  - Gradiente de fundo da paleta
+  - Moldura interna sutil
+  - Linha decorativa
+  - Ornamento central
+  - Slot de logo
+- Se Unsplash ou IA falharem, cair no mesmo conjunto decorado (não em tela vazia).
 
-### Correção
-- Alterar a lógica de draft para considerar também:
-  - `style`
-  - `format`
-  - e se há `design` salvo
-- Regra nova:
-  - se o usuário entrou com `?style=...`, abrir uma composição nova para esse estilo
-  - não reaproveitar draft incompatível de outro estilo
-- Ao aplicar um novo estilo, limpar somente os overlays automáticos antigos (`tpl-*`) antes de montar os novos, para não misturar restos do minimalista com Unsplash/IA.
-- Se o usuário abrir um design salvo (`?design=...`), aí sim preservar o estado salvo.
+### 4. Logo com transparência real
+- Em `postAutoLayout.ts`, refatorar `fetchUserLogo`:
+  - Buscar a logo `is_logo = true` mais recente (não a mais antiga).
+  - Carregar a imagem em canvas e usar `getImageData` para verificar se há pixels com alpha < 255.
+  - Se não houver transparência real, chamar a edge function `remove-background` automaticamente, atualizar `bg_removed = true` no banco e usar a versão tratada.
+  - Cache em sessionStorage por user_id para evitar reprocessar a cada slide.
+- No upload de logo (`AddElementPanel.tsx`), ao marcar `is_logo`, desmarcar as outras logos do mesmo usuário e gravar `bg_removed` corretamente após processar.
 
-## 2. O minimalista continua desorganizado porque o canvas não usa as posições do template
+### 5. Débito de 1 crédito de regeneração por imagem IA
+- Em `PostEditorPage.tsx`, no botão "Gerar com IA":
+  - Antes de chamar: verificar `user_balances.regeneration_credits > 0`. Se zero, bloquear com toast e link para a página de planos.
+  - Chamar a edge function de geração.
+  - Só após receber a imagem com sucesso: decrementar `regeneration_credits` em `user_balances` e inserir registro em `credit_logs` (`credit_type = 'regeneration'`, `amount = -1`, `description = 'Geração de imagem IA no editor'`).
+  - Em caso de falha, não debitar e mostrar erro.
+  - Chamar `refreshSubscription()` do `AuthContext` para atualizar o saldo na UI.
 
-Hoje `postTemplates.ts` define `titleSlot`, `bodySlot`, `logoSlot`, etc., mas o `PostCanvas` ainda calcula as caixas de texto com posições genéricas (`computeTextBoxPositions`). Na prática:
-- o template decorativo vai para um lugar
-- o título e o corpo vão para outro
-- o resultado parece “bagunçado”
+### 6. Snap, Grade e tooltips
+- Em `PostCanvas.tsx`, corrigir renderização da grade (sobreposição com 8% opacidade nas linhas a cada 40px).
+- Em `PostToolbar.tsx` / `DocumentPanel.tsx`:
+  - Adicionar tooltips explicativos:
+    - **Grade**: "Mostra linhas-guia para alinhar elementos"
+    - **Snap**: "Faz os elementos grudarem na grade ao mover"
+    - **Réguas**: "Mostra réguas com coordenadas em pixels"
+  - Mover toggle de "Snap" para dentro de um menu de configurações de canvas (ícone de engrenagem), mantendo "Grade" e "Réguas" visíveis na barra principal.
 
-### Correção
-- Fazer `buildAutoLayout` devolver também as posições iniciais do template:
-  - título
-  - corpo
-  - CTA
-  - número do slide
-- Passar essas posições para `PostEditorPage`.
-- Atualizar `PostCanvas` para inicializar `textBoxes` a partir do template recebido, e não mais por um cálculo genérico.
-- Garantir reset dessas posições quando mudar:
-  - estilo
-  - formato
-  - slide inicial do carrossel
-- Ajustar o template minimalista para ficar mais editorial:
-  - moldura interna
-  - linha decorativa
-  - ornamento central
-  - respiro maior entre logo, título e corpo
+### Arquivos a modificar
 
-## 3. A logo continua com fundo porque a lógica atual confia demais na extensão do arquivo
-
-Hoje a busca da logo:
-- pega a primeira `is_logo = true`
-- ordena pela mais antiga
-- considera `.png` como se já estivesse com fundo removido
-- e só tenta reprocessar quando não é PNG
-
-Isso falha em 3 cenários:
-- a logo branca já está em PNG, mas sem transparência real
-- existem várias logos marcadas, e ele pega a antiga
-- o upload removeu o fundo, mas não gravou corretamente `bg_removed = true`
-
-### Correção
-- No upload de logo, salvar `bg_removed = true` quando a remoção realmente der certo.
-- Em `fetchUserLogo`, deixar de usar “é PNG” como prova de transparência.
-- Reprocessar qualquer logo com `bg_removed = false`, mesmo se for PNG.
-- Trocar a ordenação para usar a logo mais recente, não a mais antiga.
-- Ao marcar uma imagem como logo, desmarcar automaticamente as demais do usuário, para existir uma única logo ativa.
-- Manter o botão manual “Sem fundo”, mas tornar a busca automática mais confiável para que o usuário não precise corrigir isso toda vez.
-
-## 4. Ajuste de entrada no editor para o estilo escolhido
-
-Para evitar nova confusão visual:
-- `EditorialPage` continuará abrindo o modal de estilo
-- ao confirmar, o editor deve abrir já em estado coerente com esse estilo
-- se for Unsplash ou IA, a montagem inicial precisa criar o fundo imediatamente
-- se houver falha real de busca/geração, mostrar erro claro e não parecer “minimalista por engano”
-
-### Comportamento esperado após a correção
-- **Minimalista**: abre com gradiente + moldura + linha/ornamento + logo tratada + texto já bem posicionado
-- **Unsplash**: abre com foto de fundo real + faixa/bloco do template + texto posicionado corretamente
-- **IA**: abre com imagem gerada + composição pronta, sem herdar estado do minimalista
-
-## Arquivos a ajustar
-
-### Frontend
 - `src/pages/PostEditorPage.tsx`
-  - corrigir chave/uso do draft
-  - resetar estado automático por estilo
-  - aplicar slots do template ao canvas
 - `src/components/post-editor/PostCanvas.tsx`
-  - receber posições iniciais do template
-  - parar de depender só do `computeTextBoxPositions`
-- `src/lib/postAutoLayout.ts`
-  - devolver slots/layout inicial completos
-  - melhorar seleção e reprocessamento da logo
-- `src/lib/postTemplates.ts`
-  - refinar layout minimalista e manter elementos decorativos coerentes
-- `src/pages/EditorialPage.tsx`
-  - garantir entrada limpa no editor conforme estilo escolhido
+- `src/components/post-editor/PostToolbar.tsx`
 - `src/components/post-editor/inspector/AddElementPanel.tsx`
-  - garantir consistência do `bg_removed`
-  - manter fluxo manual de remoção de fundo
+- `src/components/post-editor/inspector/DocumentPanel.tsx`
+- `src/lib/postAutoLayout.ts`
+- `src/lib/postTemplates.ts`
 
 ### Banco de dados
-- aproveitar a coluna `bg_removed` já criada
-- ajustar o uso no frontend para ela refletir o estado real da logo
+- Nenhuma migração nova necessária. Usaremos colunas existentes: `user_balances.regeneration_credits`, `credit_logs`, `user_gallery_assets.bg_removed`, `user_gallery_assets.is_logo`.
 
-## Ordem de implementação
-
-1. Corrigir o reaproveitamento indevido de draft por estilo/formato.
-2. Fazer o canvas respeitar os slots reais do template.
-3. Corrigir a lógica de seleção/reprocessamento da logo.
-4. Refinar o minimalista para ficar visualmente consistente.
-5. Validar que Unsplash e IA não herdam mais o layout minimalista.
-
-## Resultado esperado
-
-Depois disso:
-- o minimalista deixa de parecer “quebrado”
-- a logo passa a vir transparente de forma consistente
-- Unsplash e IA deixam de abrir com aparência de minimalista
-- a primeira montagem passa a vir realmente pronta, com layout coerente ao estilo escolhido
-
-## Detalhes técnicos
-
-```text
-Problema principal hoje:
-Escolha de estilo -> abre editor -> draft antigo é carregado -> auto-layout novo não roda
-
-Novo fluxo:
-Escolha de estilo -> valida draft compatível
-  -> se incompatível, limpa apenas estado automático
-  -> monta novo layout do estilo escolhido
-  -> aplica slots reais do template no canvas
-  -> busca logo ativa mais recente e garante transparência
-```
+### Resultado esperado
+- Unsplash e IA não abrem mais como minimalista — mostram loading e só revelam quando o layout está pronto.
+- Texto sobre foto fica sempre legível com degradê preto translúcido.
+- Minimalista volta a ter gradiente, moldura, linha e ornamento.
+- Logo entra transparente de verdade, sem precisar do botão manual.
+- Cada geração IA bem-sucedida debita 1 crédito; falhas não cobram.
+- Grade renderiza, Snap fica explicado e fora da barra principal.
