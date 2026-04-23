@@ -13,7 +13,7 @@ import PostToolbar from "@/components/post-editor/PostToolbar";
 import MobileEditorBar from "@/components/post-editor/MobileEditorBar";
 import type { OverlayImage } from "@/components/post-editor/PostToolbar";
 import { parseReportContent } from "@/lib/reportParser";
-import { cleanMarkdown, extractAfterBold } from "@/lib/textCleanup";
+import { cleanMarkdown, extractAfterBold, cleanText, stripFrameworkLabels } from "@/lib/textCleanup";
 import { compressImage } from "@/lib/imageUtils";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -265,8 +265,8 @@ const PostEditorPage = () => {
     if (textsInitializedRef.current) return;
     const copies = (day.card_copy || [day.caption || ""]).map((t: string) => extractAfterBold(t));
     setEditedTexts(copies);
-    setEditedTitle(cleanMarkdown(day.theme || ""));
-    setCtaText(cleanMarkdown(day.cta || ""));
+    setEditedTitle(cleanText(day.theme || ""));
+    setCtaText(cleanText(day.cta || ""));
     textsInitializedRef.current = true;
   }, [day]);
 
@@ -647,7 +647,7 @@ const PostEditorPage = () => {
     if (!day) return;
     const copies = (day.card_copy || [day.caption || ""]).map((t: string) => extractAfterBold(t));
     setEditedTexts(copies);
-    setEditedTitle(cleanMarkdown(day.theme || ""));
+    setEditedTitle(cleanText(day.theme || ""));
     setOverlayImages([]);
     setSelectedImageId(null);
     setFontSize(28);
@@ -662,7 +662,7 @@ const PostEditorPage = () => {
     setTitleFontSize(44);
     setTitleColor(null);
     setTitleFontFamily(null);
-    setCtaText(cleanMarkdown(day.cta || ""));
+    setCtaText(cleanText(day.cta || ""));
     setCtaBgColor(null);
     setCtaTextColor(null);
     setCtaFontSize(28);
@@ -688,7 +688,7 @@ const PostEditorPage = () => {
   const handleCopyCaption = async () => {
     if (!day?.caption) return;
     try {
-      await navigator.clipboard.writeText(cleanMarkdown(day.caption));
+      await navigator.clipboard.writeText(cleanText(day.caption));
       setCopied(true);
       toast({ title: "Legenda copiada!" });
       setTimeout(() => setCopied(false), 2000);
@@ -726,7 +726,7 @@ const PostEditorPage = () => {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
-            <h1 className="text-xl font-bold font-display">Dia {day.day || dayIndex + 1}: {cleanMarkdown(day.theme)}</h1>
+            <h1 className="text-xl font-bold font-display">Dia {day.day || dayIndex + 1}: {cleanText(day.theme)}</h1>
             <p className="text-sm text-muted-foreground">
               Semana {weekIndex + 1} · {day.format}
               {isCarousel && ` · ${editedTexts.length} slides`}
