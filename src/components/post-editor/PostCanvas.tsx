@@ -563,9 +563,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
     const isTitle = tb.type === "title";
     const content = isTitle ? title : text;
 
-    // Quando há foto de fundo, body text ganha caixa semi-translúcida (estilo legenda Instagram)
-    const showBodyBackdrop = !isTitle && hasPhotoBackground;
-
+    // Caixa de texto sem fundo sólido — a legibilidade vem do degradê global do canvas
     return (
       <div key={tb.id} data-overlay
         style={{
@@ -574,8 +572,6 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
           outline: isSelected ? "2px dashed rgba(255,255,255,0.7)" : "none", outlineOffset: 2,
           zIndex: getZIndex(tb.id), padding: "8px 16px", boxSizing: "border-box", overflow: "hidden",
           touchAction: isEditing ? "auto" : "none",
-          backgroundColor: showBodyBackdrop ? "rgba(0,0,0,0.42)" : undefined,
-          borderRadius: showBodyBackdrop ? 12 : undefined,
         }}
         onPointerDown={(e) => handleTextPointerDown(e, tb)}
         onClick={(e) => { e.stopPropagation(); setSelectedTextId(tb.id); onSelectImage?.(null); }}
@@ -595,11 +591,11 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
             fontStyle: isTitle ? "normal" : bodyFontStyle2,
             textAlign: isTitle ? (titleTextAlign || "center") : bodyTextAlign,
             lineHeight: isTitle ? 1.15 : 1.6,
-            color: isTitle ? resolvedTitleColor : (showBodyBackdrop ? "#ffffff" : textColor),
+            color: hasPhotoBackground ? "#ffffff" : (isTitle ? resolvedTitleColor : textColor),
             outline: "none", width: "100%", minHeight: "1em",
             opacity: isTitle ? 1 : 0.95,
             textShadow: hasPhotoBackground
-              ? (isTitle ? "0 2px 12px rgba(0,0,0,0.7), 0 1px 3px rgba(0,0,0,0.5)" : "0 1px 4px rgba(0,0,0,0.5)")
+              ? (isTitle ? "0 2px 12px rgba(0,0,0,0.55), 0 1px 3px rgba(0,0,0,0.45)" : "0 1px 4px rgba(0,0,0,0.45)")
               : undefined,
           }}
         >
@@ -787,6 +783,28 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
                     `linear-gradient(to right, ${lineColor} 1px, transparent 1px), linear-gradient(to bottom, ${lineColor} 1px, transparent 1px)`,
                   backgroundSize: `${canvasWidth / 8}px ${canvasHeight / 8}px`,
                   zIndex: 1,
+                }}
+              />
+            );
+          })()}
+          {/* Degradê de legibilidade quando há foto de fundo (cobre ~55% inferiores) */}
+          {hasPhotoBackground && (() => {
+            const bgIndexInOrder = effectiveRenderOrder.findIndex(id => {
+              const img = overlayImages.find(o => o.id === id);
+              return !!img && img.type === "photo" && img.x <= 5 && img.y <= 5
+                && img.width >= canvasWidth - 10 && img.height >= canvasHeight - 10;
+            });
+            const overlayZ = 10 + (bgIndexInOrder >= 0 ? bgIndexInOrder + 1 : 1);
+            return (
+              <div
+                aria-hidden
+                style={{
+                  position: "absolute", left: 0, right: 0, bottom: 0,
+                  height: "55%",
+                  pointerEvents: "none",
+                  background:
+                    "linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.65) 40%, rgba(0,0,0,0) 100%)",
+                  zIndex: overlayZ,
                 }}
               />
             );
