@@ -940,7 +940,16 @@ const PostEditorPage = () => {
         )}
 
         <div className="grid gap-6 md:grid-cols-[1fr_280px]">
-          <div className="flex items-center justify-center min-h-[400px] bg-muted/30 rounded-2xl p-4 overflow-hidden md:sticky md:top-4 md:self-start">
+          <div className="relative flex items-center justify-center min-h-[400px] bg-muted/30 rounded-2xl p-4 overflow-hidden md:sticky md:top-4 md:self-start">
+            {initializingLayout && (
+              <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-background/80 backdrop-blur-sm rounded-2xl">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <p className="text-sm font-medium text-foreground/90 text-center px-4">{initializingLayout}</p>
+                <div className="w-48">
+                  <Progress value={undefined as any} className="h-1.5 [&>*]:animate-pulse" />
+                </div>
+              </div>
+            )}
             {isCarousel ? (
               <CarouselEditor
                 slides={editedTexts} theme={editedTitle} cta={ctaText || day.cta || ""}
