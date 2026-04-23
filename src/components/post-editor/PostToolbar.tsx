@@ -1,6 +1,6 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { Download, Save } from "lucide-react";
+import { Download, Save, BookmarkPlus } from "lucide-react";
 import DocumentPanel from "./inspector/DocumentPanel";
 import SelectionPanel, { SelectedKind } from "./inspector/SelectionPanel";
 import AddElementPanel from "./inspector/AddElementPanel";
@@ -111,6 +111,7 @@ interface PostToolbarProps {
   // Actions
   onDownload: () => void;
   onSaveDesign?: () => void;
+  onSaveAsTemplate?: () => void;
   saving?: boolean;
   onReset: () => void;
 }
@@ -239,6 +240,11 @@ const PostToolbar: React.FC<PostToolbarProps> = (props) => {
         {props.onSaveDesign && (
           <Button variant="outline" size="sm" className="gap-2 w-full h-8 text-xs" onClick={props.onSaveDesign} disabled={props.saving}>
             <Save className="h-3.5 w-3.5" /> {props.saving ? "Salvando…" : "Salvar design"}
+          </Button>
+        )}
+        {props.onSaveAsTemplate && (
+          <Button variant="outline" size="sm" className="gap-2 w-full h-8 text-xs" onClick={props.onSaveAsTemplate} disabled={props.saving}>
+            <BookmarkPlus className="h-3.5 w-3.5" /> Salvar como modelo
           </Button>
         )}
         <Button onClick={props.onDownload} className="gap-2 w-full h-9 text-xs">

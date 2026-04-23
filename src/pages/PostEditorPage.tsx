@@ -1145,6 +1145,7 @@ const PostEditorPage = () => {
                   <PostToolbar
                     {...sharedToolbarProps}
                     onSaveDesign={handleSaveDesign}
+                    onSaveAsTemplate={handleSaveAsTemplate}
                     saving={savingDesign}
                   />
                 </div>
