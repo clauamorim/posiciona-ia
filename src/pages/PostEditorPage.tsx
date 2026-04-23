@@ -977,7 +977,6 @@ const PostEditorPage = () => {
                 renderOrder={renderOrder}
                 onRenderOrderChange={setRenderOrder}
                 showRulers={showRulers}
-                showCoordinates={showCoordinates}
                 postStyle={initialStyle || undefined}
               />
             ) : (
@@ -1001,7 +1000,6 @@ const PostEditorPage = () => {
                 renderOrder={renderOrder}
                 onRenderOrderChange={setRenderOrder}
                 showRulers={showRulers}
-                showCoordinates={showCoordinates}
                 postStyle={initialStyle || undefined}
                 initialTextBoxes={initialTextBoxes}
                 resetKey={`${initialStyle || "minimal"}-${canvasFormat}`}
@@ -1071,7 +1069,6 @@ const PostEditorPage = () => {
               isCarousel,
               onRecolorElement: handleRecolorElement,
               showRulers, onShowRulersChange: setShowRulers,
-              showCoordinates, onShowCoordinatesChange: setShowCoordinates,
               onSwapBackgroundImage: handleSwapBackground,
               swappingBackground,
               imageSearchQuery: (day?.theme || day?.caption || "").toString(),
@@ -1086,7 +1083,7 @@ const PostEditorPage = () => {
                     return [updated, ...next];
                   }
                   const w = canvasFormat === "reels" ? 1080 : 1080;
-                  const h = canvasFormat === "reels" ? 1920 : 1080;
+                  const h = canvasFormat === "reels" ? 1920 : 1350;
                   return [
                     { id: `tpl-bg-${crypto.randomUUID()}`, src: url, x: 0, y: 0, width: w, height: h, type: "photo", opacity: 0.85 },
                     ...prev,
