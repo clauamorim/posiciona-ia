@@ -1031,6 +1031,14 @@ const PostEditorPage = () => {
           <p className="text-sm text-foreground/80 whitespace-pre-wrap">{cleanMarkdown(day.caption || "")}</p>
         </div>
       </div>
+
+      {activePhotographer && (
+        <UnsplashAttribution
+          photographer={activePhotographer}
+          onClose={() => setActivePhotographer(null)}
+          autoDismissMs={5000}
+        />
+      )}
     </DashboardLayout>
   );
 };
