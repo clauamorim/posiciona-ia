@@ -377,6 +377,8 @@ const PostEditorPage = () => {
         }
       } catch (err) {
         console.warn("Auto-layout failed", err);
+      } finally {
+        setInitializingLayout(null);
       }
     })();
   }, [user, day, palette, weekIndex, dayIndex, canvasFormat, bgIndex, initialStyle, userNiche, businessContext]);
