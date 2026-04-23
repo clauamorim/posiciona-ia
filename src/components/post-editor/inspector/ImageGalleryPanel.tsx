@@ -1,0 +1,187 @@
+import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Search, Loader2, Sparkles, Image as ImageIcon } from "lucide-react";
+import { fetchImageGallery, generateAIImage, type PhotographerInfo } from "@/lib/postAutoLayout";
+import { toast } from "@/hooks/use-toast";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
+interface ImageGalleryPanelProps {
+  defaultQuery: string;
+  format: "square" | "portrait";
+  /** Chamado quando usuário escolhe imagem; recebe URL e (se Unsplash) info do fotógrafo. */
+  onPickImage: (url: string, photographer?: PhotographerInfo) => void;
+  /** Chamado quando IA é solicitada com sucesso (consome 1 crédito). */
+  onAIGenerated?: () => void;
+}
+
+interface GalleryItem {
+  url: string;
+  photographer: PhotographerInfo;
+}
+
+const ImageGalleryPanel: React.FC<ImageGalleryPanelProps> = ({
+  defaultQuery, format, onPickImage, onAIGenerated,
+}) => {
+  const [query, setQuery] = useState(defaultQuery);
+  const [results, setResults] = useState<GalleryItem[]>([]);
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
+
+  // AI prompt dialog
+  const [aiPromptOpen, setAiPromptOpen] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState(defaultQuery);
+  const [generatingAI, setGeneratingAI] = useState(false);
+
+  useEffect(() => {
+    setQuery(defaultQuery);
+    setAiPrompt(defaultQuery);
+  }, [defaultQuery]);
+
+  const runSearch = async (p = 1, append = false) => {
+    if (!query.trim()) return;
+    setLoading(true);
+    try {
+      const list = await fetchImageGallery({ query: query.trim(), format, page: p });
+      setResults(prev => append ? [...prev, ...list] : list);
+      setPage(p);
+      setHasSearched(true);
+      if (list.length === 0 && !append) {
+        toast({ title: "Nenhuma imagem encontrada", description: "Tente outra palavra-chave." });
+      }
+    } catch (err: any) {
+      toast({ title: "Erro ao buscar imagens", description: err?.message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Auto-search on first mount with default query
+  useEffect(() => {
+    if (!hasSearched && defaultQuery.trim()) {
+      runSearch(1, false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleAIConfirm = async () => {
+    if (!aiPrompt.trim()) return;
+    setGeneratingAI(true);
+    try {
+      const result = await generateAIImage({ query: aiPrompt.trim(), format });
+      if (!result) {
+        toast({ title: "Falha ao gerar imagem por IA", variant: "destructive" });
+        return;
+      }
+      onPickImage(result.url);
+      onAIGenerated?.();
+      toast({ title: "Imagem IA gerada", description: "1 crédito de regeneração usado." });
+      setAiPromptOpen(false);
+    } catch (err: any) {
+      toast({ title: "Erro ao gerar IA", description: err?.message, variant: "destructive" });
+    } finally {
+      setGeneratingAI(false);
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-2">Buscar no Unsplash</p>
+        <form
+          onSubmit={(e) => { e.preventDefault(); runSearch(1, false); }}
+          className="flex gap-1.5"
+        >
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Palavra-chave"
+            className="h-8 text-xs"
+          />
+          <Button type="submit" variant="outline" size="sm" disabled={loading || !query.trim()} className="h-8 px-2">
+            {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
+          </Button>
+        </form>
+      </div>
+
+      {results.length > 0 && (
+        <div className="grid grid-cols-3 gap-1.5">
+          {results.map((item, i) => (
+            <button
+              key={`${item.url}-${i}`}
+              onClick={() => onPickImage(item.url, item.photographer)}
+              className="aspect-square rounded-md border bg-muted/40 hover:ring-2 hover:ring-primary transition-all overflow-hidden"
+              title={`Foto por ${item.photographer.name}`}
+            >
+              <img src={item.url} alt={item.photographer.name} loading="lazy" className="w-full h-full object-cover" />
+            </button>
+          ))}
+        </div>
+      )}
+
+      {hasSearched && results.length === 0 && !loading && (
+        <div className="flex flex-col items-center gap-2 py-6 text-center">
+          <ImageIcon className="h-6 w-6 text-muted-foreground/50" />
+          <p className="text-[11px] text-muted-foreground">Nenhuma imagem encontrada.</p>
+        </div>
+      )}
+
+      {results.length > 0 && results.length % 12 === 0 && (
+        <Button
+          variant="outline" size="sm" className="w-full h-8 text-xs"
+          onClick={() => runSearch(page + 1, true)}
+          disabled={loading}
+        >
+          {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Ver mais"}
+        </Button>
+      )}
+
+      <div className="pt-2 border-t border-border/50">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-1.5">Não gostou?</p>
+        <Button
+          variant="outline" size="sm"
+          onClick={() => setAiPromptOpen(true)}
+          className="gap-2 w-full h-8 text-xs"
+        >
+          <Sparkles className="h-3.5 w-3.5" />
+          Gerar imagem por IA
+        </Button>
+        <p className="text-[10px] text-muted-foreground/70 mt-1">Custo: 1 crédito de regeneração.</p>
+      </div>
+
+      <AlertDialog open={aiPromptOpen} onOpenChange={setAiPromptOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Gerar imagem por IA</AlertDialogTitle>
+            <AlertDialogDescription>
+              Descreva o que você quer ver. Custo: 1 crédito de regeneração.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-2 py-2">
+            <Input
+              value={aiPrompt}
+              onChange={(e) => setAiPrompt(e.target.value)}
+              placeholder="ex: paisagem minimalista com tons quentes ao pôr do sol"
+              className="text-sm"
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={generatingAI}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handleAIConfirm(); }}
+              disabled={generatingAI || !aiPrompt.trim()}
+            >
+              {generatingAI ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-2" /> Gerando…</> : "Gerar (1 crédito)"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+};
+
+export default ImageGalleryPanel;
