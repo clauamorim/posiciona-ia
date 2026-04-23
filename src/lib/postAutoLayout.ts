@@ -215,6 +215,11 @@ async function chromaKeyGreenToTransparent(dataUrl: string): Promise<string | nu
 
 const LOGO_CACHE_PREFIX = "posiciona-logo-cache-";
 
+/** Invalida o cache de sessão da logo (chamar após upload de nova logo). */
+export function clearLogoCache(userId: string) {
+  try { sessionStorage.removeItem(`${LOGO_CACHE_PREFIX}${userId}`); } catch {}
+}
+
 /** Busca a logo mais recente do usuário marcada com is_logo=true. Garante transparência real. */
 async function fetchUserLogo(userId: string): Promise<string | null> {
   // Cache por sessão para evitar reprocessar a cada slide
