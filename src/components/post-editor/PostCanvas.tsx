@@ -49,14 +49,12 @@ interface PostCanvasProps {
   onSelectedTextChange?: (id: string | null) => void;
   renderOrder?: string[];
   onRenderOrderChange?: (order: string[]) => void;
-  /** Mostra grade de fundo (8x8) para apoiar alinhamento. */
-  showGrid?: boolean;
   /** Mostra réguas horizontais e verticais nas bordas. */
   showRulers?: boolean;
   /** Mostra badge de coordenadas X,Y e tamanho W×H no item selecionado. */
   showCoordinates?: boolean;
-  /** Habilita snap-guides ao centro/bordas durante o drag. */
-  enableSnap?: boolean;
+  /** Estilo escolhido na criação do post (minimal força centralização horizontal). */
+  postStyle?: "minimal" | "unsplash" | "ai" | string;
   /** Posições iniciais de título/corpo definidas pelo template (sobrescrevem os cálculos genéricos). */
   initialTextBoxes?: {
     title?: { x: number; y: number; width: number; height: number };
@@ -100,7 +98,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   showSlideNumber = true, slideNumberPosition, onSlideNumberMove,
   slideNumberBgColor, slideNumberTextColor, slideNumberSize,
   onSelectedTextChange, renderOrder: externalRenderOrder, onRenderOrderChange,
-  showGrid = false, showRulers = false, showCoordinates = true, enableSnap = true,
+  showRulers = false, showCoordinates = true, postStyle,
   initialTextBoxes, resetKey,
 }) => {
   const isMobile = useIsMobile();
@@ -140,38 +138,44 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
 
   const computeTextBoxPositions = (lyt: string, hasTitle: boolean, isCover: boolean) => {
     const boxes: TextBox[] = [];
+    const isMinimal = postStyle === "minimal";
+    const centerX = (w: number) => Math.round((canvasWidth - w) / 2);
     // Se há slots vindos do template, usá-los direto
     if (initialTextBoxes?.title && hasTitle) {
+      const w = initialTextBoxes.title.width;
       boxes.push({
         id: "text-title", type: "title",
-        x: initialTextBoxes.title.x,
+        x: isMinimal ? centerX(w) : initialTextBoxes.title.x,
         y: initialTextBoxes.title.y,
-        width: initialTextBoxes.title.width,
+        width: w,
         height: initialTextBoxes.title.height,
       });
     } else if (hasTitle) {
+      const w = isCover ? 880 : 920;
       boxes.push({
         id: "text-title", type: "title",
-        x: isCover ? 100 : 80,
+        x: isMinimal ? centerX(w) : (isCover ? 100 : 80),
         y: isCover ? 300 : (lyt === "top" ? 120 : 250),
-        width: isCover ? 880 : 920,
+        width: w,
         height: isCover ? 140 : 100,
       });
     }
     if (initialTextBoxes?.body) {
+      const w = initialTextBoxes.body.width;
       boxes.push({
         id: "text-body", type: "body",
-        x: initialTextBoxes.body.x,
+        x: isMinimal ? centerX(w) : initialTextBoxes.body.x,
         y: initialTextBoxes.body.y,
-        width: initialTextBoxes.body.width,
+        width: w,
         height: initialTextBoxes.body.height,
       });
     } else {
+      const w = isCover ? 800 : 920;
       boxes.push({
         id: "text-body", type: "body",
-        x: isCover ? 140 : 80,
+        x: isMinimal ? centerX(w) : (isCover ? 140 : 80),
         y: hasTitle ? (isCover ? 480 : (lyt === "top" ? 250 : 400)) : (lyt === "top" ? 120 : 300),
-        width: isCover ? 800 : 920,
+        width: w,
         height: isCover ? 160 : 250,
       });
     }
@@ -288,61 +292,6 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
     setResizing({ id: tb.id, startX: e.clientX, startY: e.clientY, origX: tb.x, origY: tb.y, origW: tb.width, origH: tb.height, corner, isText: true });
   };
 
-  // Build snap targets (centers and edges of canvas + other elements)
-  const buildSnapTargets = (excludeId: string) => {
-    const vTargets: number[] = [0, canvasWidth / 2, canvasWidth];
-    const hTargets: number[] = [0, canvasHeight / 2, canvasHeight];
-    overlayImages.forEach(img => {
-      if (img.id === excludeId) return;
-      vTargets.push(img.x, img.x + img.width / 2, img.x + img.width);
-      hTargets.push(img.y, img.y + img.height / 2, img.y + img.height);
-    });
-    textBoxes.forEach(tb => {
-      if (tb.id === excludeId) return;
-      vTargets.push(tb.x, tb.x + tb.width / 2, tb.x + tb.width);
-      hTargets.push(tb.y, tb.y + tb.height / 2, tb.y + tb.height);
-    });
-    return { vTargets, hTargets };
-  };
-
-  const SNAP_THRESHOLD = 8; // canvas pixels
-
-  const snapPosition = (
-    proposedX: number, proposedY: number, w: number, h: number, excludeId: string,
-  ) => {
-    if (!enableSnap) return { x: proposedX, y: proposedY, vGuides: [], hGuides: [] };
-    const { vTargets, hTargets } = buildSnapTargets(excludeId);
-    const candidatesX = [proposedX, proposedX + w / 2, proposedX + w];
-    const candidatesY = [proposedY, proposedY + h / 2, proposedY + h];
-    let bestDX = Infinity, snapDX = 0; const vGuides: number[] = [];
-    candidatesX.forEach((cx, idx) => {
-      vTargets.forEach(t => {
-        const d = Math.abs(cx - t);
-        if (d < SNAP_THRESHOLD && d < bestDX) {
-          bestDX = d; snapDX = t - cx; vGuides.length = 0; vGuides.push(t);
-        } else if (d < SNAP_THRESHOLD && d === bestDX) {
-          if (!vGuides.includes(t)) vGuides.push(t);
-        }
-      });
-    });
-    let bestDY = Infinity, snapDY = 0; const hGuides: number[] = [];
-    candidatesY.forEach((cy, idx) => {
-      hTargets.forEach(t => {
-        const d = Math.abs(cy - t);
-        if (d < SNAP_THRESHOLD && d < bestDY) {
-          bestDY = d; snapDY = t - cy; hGuides.length = 0; hGuides.push(t);
-        } else if (d < SNAP_THRESHOLD && d === bestDY) {
-          if (!hGuides.includes(t)) hGuides.push(t);
-        }
-      });
-    });
-    return {
-      x: bestDX < Infinity ? proposedX + snapDX : proposedX,
-      y: bestDY < Infinity ? proposedY + snapDY : proposedY,
-      vGuides, hGuides,
-    };
-  };
-
   useEffect(() => {
     if (!dragging) return;
     const handlePointerMove = (e: PointerEvent) => {
@@ -352,23 +301,14 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
       const proposedX = dragging.origX + dx;
       const proposedY = dragging.origY + dy;
       if (dragging.isCta) {
-        // CTA uses center anchor; skip snap-guides for simplicity
         onCtaMove?.(proposedX, proposedY);
       } else if (dragging.isText) {
-        const tb = textBoxes.find(t => t.id === dragging.id);
-        const w = tb?.width ?? 0; const h = tb?.height ?? 0;
-        const snapped = snapPosition(proposedX, proposedY, w, h, dragging.id);
-        setActiveGuides({ v: snapped.vGuides, h: snapped.hGuides });
-        setTextBoxes(prev => prev.map(t => t.id === dragging.id ? { ...t, x: snapped.x, y: snapped.y } : t));
+        setTextBoxes(prev => prev.map(t => t.id === dragging.id ? { ...t, x: proposedX, y: proposedY } : t));
       } else {
-        const img = overlayImages.find(i => i.id === dragging.id);
-        const w = img?.width ?? 0; const h = img?.height ?? 0;
-        const snapped = snapPosition(proposedX, proposedY, w, h, dragging.id);
-        setActiveGuides({ v: snapped.vGuides, h: snapped.hGuides });
-        updateOverlay(dragging.id, { x: snapped.x, y: snapped.y });
+        updateOverlay(dragging.id, { x: proposedX, y: proposedY });
       }
     };
-    const handlePointerUp = () => { setDragging(null); setActiveGuides({ v: [], h: [] }); };
+    const handlePointerUp = () => { setDragging(null); };
     window.addEventListener("pointermove", handlePointerMove, { passive: false });
     window.addEventListener("pointerup", handlePointerUp);
     window.addEventListener("pointercancel", handlePointerUp);
@@ -377,7 +317,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
       window.removeEventListener("pointerup", handlePointerUp);
       window.removeEventListener("pointercancel", handlePointerUp);
     };
-  }, [dragging, scale, overlayImages, textBoxes, enableSnap, canvasWidth, canvasHeight]);
+  }, [dragging, scale, overlayImages, textBoxes, canvasWidth, canvasHeight]);
 
   useEffect(() => {
     if (!resizing) return;
@@ -766,27 +706,6 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
           }}
           onClick={handleCanvasClick}
         >
-          {/* Background grid (cor adaptativa: clara em fundos escuros, escura em fundos claros) */}
-          {showGrid && (() => {
-            const hex = (bgColor || "#000000").replace("#", "");
-            const r = parseInt(hex.slice(0, 2), 16) || 0;
-            const g = parseInt(hex.slice(2, 4), 16) || 0;
-            const b = parseInt(hex.slice(4, 6), 16) || 0;
-            const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-            const lineColor = luminance > 0.5 ? "rgba(0,0,0,0.22)" : "rgba(255,255,255,0.22)";
-            return (
-              <div
-                aria-hidden
-                style={{
-                  position: "absolute", inset: 0, pointerEvents: "none",
-                  backgroundImage:
-                    `linear-gradient(to right, ${lineColor} 1px, transparent 1px), linear-gradient(to bottom, ${lineColor} 1px, transparent 1px)`,
-                  backgroundSize: `${canvasWidth / 8}px ${canvasHeight / 8}px`,
-                  zIndex: 1,
-                }}
-              />
-            );
-          })()}
           {/* Degradê de legibilidade quando há foto de fundo (cobre ~55% inferiores) */}
           {hasPhotoBackground && (() => {
             const bgIndexInOrder = effectiveRenderOrder.findIndex(id => {
@@ -902,25 +821,6 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
           })}
         </div>
 
-        {/* Snap-guides (rendered in scaled overlay, outside the captured canvas) */}
-        {(activeGuides.v.length > 0 || activeGuides.h.length > 0) && (
-          <div aria-hidden style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 99999 }}>
-            {activeGuides.v.map((x, i) => (
-              <div key={`v${i}`} style={{
-                position: "absolute", left: x * scale, top: 0,
-                width: 1, height: "100%", background: "hsl(var(--primary))",
-                boxShadow: "0 0 0 1px hsl(var(--primary) / 0.3)",
-              }} />
-            ))}
-            {activeGuides.h.map((y, i) => (
-              <div key={`h${i}`} style={{
-                position: "absolute", top: y * scale, left: 0,
-                height: 1, width: "100%", background: "hsl(var(--primary))",
-                boxShadow: "0 0 0 1px hsl(var(--primary) / 0.3)",
-              }} />
-            ))}
-          </div>
-        )}
 
         {/* Coordinates badge for selected element */}
         {showCoordinates && selectedBounds && (

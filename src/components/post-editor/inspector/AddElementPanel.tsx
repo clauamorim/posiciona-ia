@@ -111,13 +111,17 @@ interface AddElementPanelProps {
   onAIGenerated?: () => Promise<void> | void;
   /** Saldo atual de créditos de regeneração (para validação). */
   regenerationCredits?: number;
+  /** Nicho do usuário, usado para refinar busca/IA. */
+  niche?: string;
+  /** Contexto de negócio (empresa + serviços + público) para IA. */
+  businessContext?: string;
 }
 
 const AddElementPanel: React.FC<AddElementPanelProps> = ({
   palette, defaultElementColor, bodyFont, textColor, userPortraits = [], onAddImage, onPortraitsChanged,
   hasSelectedElement, onRecolorSelected,
   imageSearchQuery = "", canvasFormat = "square", onUnsplashPick, onSwapBackground,
-  onAIGenerated, regenerationCredits,
+  onAIGenerated, regenerationCredits, niche, businessContext,
 }) => {
   const { user } = useAuth();
   const [elementColor, setElementColor] = useState(defaultElementColor || palette[0]?.hex || "#7c3aed");
@@ -393,10 +397,10 @@ const AddElementPanel: React.FC<AddElementPanelProps> = ({
   };
 
   return (
-    <Tabs defaultValue="upload" className="w-full">
+    <Tabs defaultValue="bgimages" className="w-full">
       <TabsList className="grid grid-cols-6 h-8 p-0.5">
+        <TabsTrigger value="bgimages" className="text-[10px] h-7 px-1" title="Banco de imagens (Unsplash + IA)"><Search className="h-3.5 w-3.5" /></TabsTrigger>
         <TabsTrigger value="upload" className="text-[10px] h-7 px-1" title="Upload"><ImagePlus className="h-3.5 w-3.5" /></TabsTrigger>
-        <TabsTrigger value="bgimages" className="text-[10px] h-7 px-1" title="Banco de imagens"><Search className="h-3.5 w-3.5" /></TabsTrigger>
         <TabsTrigger value="gallery" className="text-[10px] h-7 px-1" title="Minha galeria"><ImageIcon className="h-3.5 w-3.5" /></TabsTrigger>
         <TabsTrigger value="portraits" className="text-[10px] h-7 px-1" title="Retratos"><Camera className="h-3.5 w-3.5" /></TabsTrigger>
         <TabsTrigger value="icons" className="text-[10px] h-7 px-1" title="Ícones"><Shapes className="h-3.5 w-3.5" /></TabsTrigger>
@@ -405,11 +409,16 @@ const AddElementPanel: React.FC<AddElementPanelProps> = ({
 
       {/* Banco de imagens (Unsplash + IA) */}
       <TabsContent value="bgimages" className="mt-3">
+        <p className="text-[10px] text-muted-foreground/80 mb-2 leading-relaxed">
+          Pesquise no Unsplash ou gere uma imagem por IA. Ao escolher, ela substitui o fundo do card.
+        </p>
         <ImageGalleryPanel
           defaultQuery={imageSearchQuery}
           format={canvasFormat === "reels" ? "portrait" : "square"}
           onAIGenerated={onAIGenerated}
           regenerationCredits={regenerationCredits}
+          niche={niche}
+          businessContext={businessContext}
           onPickImage={(url, photographer) => {
             if (photographer) onUnsplashPick?.(photographer);
             if (onSwapBackground) {
