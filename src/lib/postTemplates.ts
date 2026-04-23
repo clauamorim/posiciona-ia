@@ -243,3 +243,58 @@ export function buildBackgroundImageOverlay(
     opacity: withDarkOverlay ? 0.75 : 1,
   };
 }
+
+/**
+ * Constrói um conjunto de overlays decorativos para o estilo "minimal":
+ * moldura interna + linha horizontal abaixo do título + ornamento (losango).
+ * Retorna array (e não único bloco) — substitui buildDecorativeBlockOverlay no estilo minimal.
+ */
+export function buildMinimalDecorativeOverlays(
+  template: TemplateLayout,
+  primaryHex: string,
+  accentHex?: string,
+): OverlayImage[] {
+  const isReels = template.format === "reels";
+  const W = isReels ? REELS_W : SQUARE_W;
+  const H = isReels ? REELS_H : SQUARE_H;
+  const accent = accentHex || primaryHex;
+
+  // 1) Moldura interna
+  const FRAME_INSET = isReels ? 60 : 40;
+  const frameW = W - FRAME_INSET * 2;
+  const frameH = H - FRAME_INSET * 2;
+  const frameSvg = `<svg width="${frameW}" height="${frameH}" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="1" width="${frameW - 2}" height="${frameH - 2}" fill="none" stroke="${primaryHex}" stroke-width="2" opacity="0.55"/></svg>`;
+  const frame: OverlayImage = {
+    id: `tpl-mframe-${crypto.randomUUID()}`,
+    src: `data:image/svg+xml;base64,${btoa(frameSvg)}`,
+    x: FRAME_INSET, y: FRAME_INSET, width: frameW, height: frameH,
+    type: "element", opacity: 1,
+  };
+
+  // 2) Linha horizontal decorativa abaixo do título (largura ~160 / 220 reels)
+  const lineW = isReels ? 220 : 160;
+  const lineH = 4;
+  const lineX = (W - lineW) / 2;
+  const lineY = isReels ? 820 : 460;
+  const lineSvg = `<svg width="${lineW}" height="${lineH}" xmlns="http://www.w3.org/2000/svg"><rect width="${lineW}" height="${lineH}" fill="${accent}"/></svg>`;
+  const line: OverlayImage = {
+    id: `tpl-mline-${crypto.randomUUID()}`,
+    src: `data:image/svg+xml;base64,${btoa(lineSvg)}`,
+    x: lineX, y: lineY, width: lineW, height: lineH,
+    type: "element", opacity: 1,
+  };
+
+  // 3) Ornamento losango entre título e corpo
+  const dSize = 24;
+  const dX = (W - dSize) / 2;
+  const dY = isReels ? 980 : 600;
+  const dSvg = `<svg width="${dSize}" height="${dSize}" xmlns="http://www.w3.org/2000/svg"><polygon points="${dSize / 2},0 ${dSize},${dSize / 2} ${dSize / 2},${dSize} 0,${dSize / 2}" fill="${accent}" opacity="0.85"/></svg>`;
+  const ornament: OverlayImage = {
+    id: `tpl-mornament-${crypto.randomUUID()}`,
+    src: `data:image/svg+xml;base64,${btoa(dSvg)}`,
+    x: dX, y: dY, width: dSize, height: dSize,
+    type: "element", opacity: 1,
+  };
+
+  return [frame, line, ornament];
+}
