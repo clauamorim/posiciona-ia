@@ -623,6 +623,7 @@ export type Database = {
       }
       user_gallery_assets: {
         Row: {
+          bg_removed: boolean
           created_at: string
           file_path: string
           id: string
@@ -631,6 +632,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          bg_removed?: boolean
           created_at?: string
           file_path: string
           id?: string
@@ -639,6 +641,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          bg_removed?: boolean
           created_at?: string
           file_path?: string
           id?: string
