@@ -197,7 +197,7 @@ const PostEditorPage = () => {
   const [ctaFontSize, setCtaFontSize] = useState(draft?.ctaFontSize ?? 28);
   const [ctaPosition, setCtaPosition] = useState<{ x: number; y: number } | null>(draft?.ctaPosition ?? null);
   const [userPortraits, setUserPortraits] = useState<string[]>([]);
-  const [canvasFormat, setCanvasFormat] = useState<"square" | "reels">((draft?.canvasFormat as any) ?? "square");
+  const [canvasFormat, setCanvasFormat] = useState<"square" | "reels">((draft?.canvasFormat as any) ?? (initialFormatParam === "reels" ? "reels" : "square"));
   const [showSlideNumber, setShowSlideNumber] = useState(draft?.showSlideNumber ?? true);
   const [slideNumberPosition, setSlideNumberPosition] = useState<{ x: number; y: number } | null>(draft?.slideNumberPosition ?? null);
   const [slideNumberBgColor, setSlideNumberBgColor] = useState<string | null>(draft?.slideNumberBgColor ?? null);
