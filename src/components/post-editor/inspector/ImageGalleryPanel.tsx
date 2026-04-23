@@ -92,9 +92,13 @@ const ImageGalleryPanel: React.FC<ImageGalleryPanelProps> = ({
         return;
       }
       onPickImage(result.url);
-      // Só debita após sucesso confirmado
-      try { await onAIGenerated?.(); } catch (e) { console.warn("Debit credit failed", e); }
-      toast({ title: "Imagem IA gerada", description: "1 crédito de regeneração utilizado." });
+      // Só debita quando a imagem for de fato gerada agora (não cache).
+      if (result.source === "ai") {
+        try { await onAIGenerated?.(); } catch (e) { console.warn("Debit credit failed", e); }
+        toast({ title: "Imagem IA gerada", description: "1 crédito de regeneração utilizado." });
+      } else {
+        toast({ title: "Imagem IA recuperada do cache", description: "Nenhum crédito foi debitado." });
+      }
       setAiPromptOpen(false);
     } catch (err: any) {
       toast({ title: "Erro ao gerar IA", description: err?.message || "Nenhum crédito foi debitado.", variant: "destructive" });
