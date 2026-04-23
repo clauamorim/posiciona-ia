@@ -100,6 +100,9 @@ interface PostToolbarProps {
   // Add element
   userPortraits?: string[];
   onAddImage: (img: OverlayImage) => void;
+  imageSearchQuery?: string;
+  onUnsplashPick?: (photographer: { name: string; profileUrl: string; unsplashUrl: string }) => void;
+  onSwapBackgroundUrl?: (url: string) => void;
 
   // Guides
   showGrid?: boolean;
@@ -238,6 +241,10 @@ const PostToolbar: React.FC<PostToolbarProps> = (props) => {
           onAddImage={props.onAddImage}
           hasSelectedElement={props.selectedKind === "icon"}
           onRecolorSelected={props.onRecolorElement}
+          imageSearchQuery={props.imageSearchQuery}
+          canvasFormat={props.canvasFormat}
+          onUnsplashPick={props.onUnsplashPick}
+          onSwapBackground={props.onSwapBackgroundUrl}
         />
       </section>
 

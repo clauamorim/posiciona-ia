@@ -16,7 +16,8 @@ import { parseReportContent } from "@/lib/reportParser";
 import { cleanMarkdown, extractAfterBold, cleanText, stripFrameworkLabels } from "@/lib/textCleanup";
 import { compressImage } from "@/lib/imageUtils";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { buildAutoLayout, fetchBackgroundImage } from "@/lib/postAutoLayout";
+import { buildAutoLayout, fetchBackgroundImage, type PostStyle, type PhotographerInfo } from "@/lib/postAutoLayout";
+import UnsplashAttribution from "@/components/post-editor/UnsplashAttribution";
 import { Sparkles, X, Image as ImageIcon } from "lucide-react";
 
 function getContrastColor(hex: string): string {
@@ -159,6 +160,8 @@ const PostEditorPage = () => {
 
   const weekIndex = parseInt(searchParams.get("week") || "0", 10);
   const dayIndex = parseInt(searchParams.get("day") || "0", 10);
+  const initialStyle = (searchParams.get("style") as PostStyle | null) || undefined;
+  const initialFormatParam = searchParams.get("format");
 
   const draft = loadDraft(weekIndex, dayIndex);
 
@@ -194,7 +197,7 @@ const PostEditorPage = () => {
   const [ctaFontSize, setCtaFontSize] = useState(draft?.ctaFontSize ?? 28);
   const [ctaPosition, setCtaPosition] = useState<{ x: number; y: number } | null>(draft?.ctaPosition ?? null);
   const [userPortraits, setUserPortraits] = useState<string[]>([]);
-  const [canvasFormat, setCanvasFormat] = useState<"square" | "reels">((draft?.canvasFormat as any) ?? "square");
+  const [canvasFormat, setCanvasFormat] = useState<"square" | "reels">((draft?.canvasFormat as any) ?? (initialFormatParam === "reels" ? "reels" : "square"));
   const [showSlideNumber, setShowSlideNumber] = useState(draft?.showSlideNumber ?? true);
   const [slideNumberPosition, setSlideNumberPosition] = useState<{ x: number; y: number } | null>(draft?.slideNumberPosition ?? null);
   const [slideNumberBgColor, setSlideNumberBgColor] = useState<string | null>(draft?.slideNumberBgColor ?? null);
@@ -208,6 +211,7 @@ const PostEditorPage = () => {
   const [enableSnap, setEnableSnap] = useState(true);
   const [autoLayoutBanner, setAutoLayoutBanner] = useState(false);
   const [swappingBackground, setSwappingBackground] = useState(false);
+  const [activePhotographer, setActivePhotographer] = useState<PhotographerInfo | null>(null);
   const singleCanvasRef = useRef<HTMLDivElement>(null);
   const slideRefs = useRef<(HTMLDivElement | null)[]>([]);
   const textsInitializedRef = useRef(!!draft);
@@ -303,9 +307,16 @@ const PostEditorPage = () => {
           paletteHex: palette.map((c: any) => c.hex),
           bgPaletteHex: palette[bgIndex]?.hex || "#1a1a2e",
           userId: user.id,
+          style: initialStyle,
         });
         if (result.overlays.length > 0) {
-          setOverlayImages(prev => [...result.overlays, ...prev]);
+          setOverlayImages(prev => {
+            // Garante que overlays de fundo (tpl-bg-) fiquem no início (atrás de tudo)
+            const next = [...result.overlays, ...prev];
+            const bgs = next.filter(o => o.id.startsWith("tpl-bg-"));
+            const others = next.filter(o => !o.id.startsWith("tpl-bg-"));
+            return [...bgs, ...others];
+          });
           setAutoLayoutBanner(true);
         }
         const s = result.suggestions;
@@ -315,11 +326,18 @@ const PostEditorPage = () => {
         if (s.bodyTextAlign) setTextAlign(s.bodyTextAlign);
         if (typeof s.showSlideNumber === "boolean") setShowSlideNumber(s.showSlideNumber);
         if (s.slideNumberSize) setSlideNumberSize(s.slideNumberSize);
+        // Aplicar sugestões de gradiente (estilo minimalista)
+        if (s.useGradient) {
+          setUseGradient(true);
+          if (typeof s.gradientColor2Index === "number") setGradientColor2Index(s.gradientColor2Index);
+          if (s.gradientDirection) setGradientDirection(s.gradientDirection);
+        }
+        if (result.photographer) setActivePhotographer(result.photographer);
       } catch (err) {
         console.warn("Auto-layout failed", err);
       }
     })();
-  }, [user, day, palette, weekIndex, dayIndex, canvasFormat, bgIndex]);
+  }, [user, day, palette, weekIndex, dayIndex, canvasFormat, bgIndex, initialStyle]);
 
   // Trocar imagem de fundo (busca nova do Unsplash)
   const handleSwapBackground = useCallback(async () => {
@@ -340,9 +358,11 @@ const PostEditorPage = () => {
       setOverlayImages(prev => {
         const idx = prev.findIndex(o => o.id.startsWith("tpl-bg-"));
         if (idx >= 0) {
+          // Atualiza o src e move o overlay de fundo para o início (atrás de tudo)
           const next = [...prev];
-          next[idx] = { ...next[idx], src: result.url };
-          return next;
+          const updated = { ...next[idx], src: result.url };
+          next.splice(idx, 1);
+          return [updated, ...next];
         }
         const w = canvasFormat === "reels" ? 1080 : 1080;
         const h = canvasFormat === "reels" ? 1920 : 1080;
@@ -351,6 +371,7 @@ const PostEditorPage = () => {
           ...prev,
         ];
       });
+      if (result.photographer) setActivePhotographer(result.photographer);
       toast({ title: "Imagem atualizada", description: "Fonte: Unsplash (gratuita)." });
     } catch (err: any) {
       toast({ title: "Erro ao buscar imagem", description: err?.message, variant: "destructive" });
@@ -963,6 +984,25 @@ const PostEditorPage = () => {
               enableSnap, onEnableSnapChange: setEnableSnap,
               onSwapBackgroundImage: handleSwapBackground,
               swappingBackground,
+              imageSearchQuery: (day?.theme || day?.caption || "").toString(),
+              onUnsplashPick: (photographer: PhotographerInfo) => setActivePhotographer(photographer),
+              onSwapBackgroundUrl: (url: string) => {
+                setOverlayImages(prev => {
+                  const idx = prev.findIndex(o => o.id.startsWith("tpl-bg-"));
+                  if (idx >= 0) {
+                    const next = [...prev];
+                    const updated = { ...next[idx], src: url };
+                    next.splice(idx, 1);
+                    return [updated, ...next];
+                  }
+                  const w = canvasFormat === "reels" ? 1080 : 1080;
+                  const h = canvasFormat === "reels" ? 1920 : 1080;
+                  return [
+                    { id: `tpl-bg-${crypto.randomUUID()}`, src: url, x: 0, y: 0, width: w, height: h, type: "photo", opacity: 0.85 },
+                    ...prev,
+                  ];
+                });
+              },
             };
 
             return (
@@ -991,6 +1031,14 @@ const PostEditorPage = () => {
           <p className="text-sm text-foreground/80 whitespace-pre-wrap">{cleanMarkdown(day.caption || "")}</p>
         </div>
       </div>
+
+      {activePhotographer && (
+        <UnsplashAttribution
+          photographer={activePhotographer}
+          onDismiss={() => setActivePhotographer(null)}
+          autoDismissMs={5000}
+        />
+      )}
     </DashboardLayout>
   );
 };

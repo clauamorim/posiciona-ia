@@ -232,6 +232,10 @@ const MobileEditorBar: React.FC<MobileEditorBarProps> = (props) => {
                 onAddImage={(img) => { props.onAddImage(img); close(); }}
                 hasSelectedElement={props.selectedKind === "icon"}
                 onRecolorSelected={props.onRecolorElement}
+                imageSearchQuery={(props as any).imageSearchQuery}
+                canvasFormat={props.canvasFormat}
+                onUnsplashPick={(props as any).onUnsplashPick}
+                onSwapBackground={(props as any).onSwapBackgroundUrl}
               />
             )}
             {tab === "document" && (
