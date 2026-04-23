@@ -103,6 +103,8 @@ interface PostToolbarProps {
   imageSearchQuery?: string;
   onUnsplashPick?: (photographer: { name: string; profileUrl: string; unsplashUrl: string }) => void;
   onSwapBackgroundUrl?: (url: string) => void;
+  onAIGenerated?: () => Promise<void> | void;
+  regenerationCredits?: number;
 
   // Guides
   showGrid?: boolean;
@@ -245,6 +247,8 @@ const PostToolbar: React.FC<PostToolbarProps> = (props) => {
           canvasFormat={props.canvasFormat}
           onUnsplashPick={props.onUnsplashPick}
           onSwapBackground={props.onSwapBackgroundUrl}
+          onAIGenerated={props.onAIGenerated}
+          regenerationCredits={props.regenerationCredits}
         />
       </section>
 
