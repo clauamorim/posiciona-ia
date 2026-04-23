@@ -48,6 +48,11 @@ export interface AutoLayoutInput {
 export interface AutoLayoutResult {
   template: TemplateLayout;
   overlays: OverlayImage[];
+  /** Posições iniciais dos blocos de texto (título e corpo) — usadas pelo PostCanvas. */
+  slots?: {
+    title?: { x: number; y: number; width: number; height: number };
+    body?: { x: number; y: number; width: number; height: number };
+  };
   suggestions: {
     titleFontSize?: number;
     titleTextAlign?: "left" | "center" | "right";
@@ -69,7 +74,7 @@ export interface AutoLayoutResult {
   styleFailedReason?: string;
 }
 
-/** Busca a primeira logo do usuário marcada com is_logo=true. Reprocessa fundo se ainda for JPG. */
+/** Busca a logo mais recente do usuário marcada com is_logo=true. Reprocessa fundo se ainda não foi tratado. */
 async function fetchUserLogo(userId: string): Promise<string | null> {
   try {
     const { data } = await supabase
@@ -77,24 +82,22 @@ async function fetchUserLogo(userId: string): Promise<string | null> {
       .select("id, file_path, bg_removed")
       .eq("user_id", userId)
       .eq("is_logo", true)
-      .order("created_at", { ascending: true })
+      .order("created_at", { ascending: false }) // logo mais recente
       .limit(1)
       .maybeSingle();
     if (!data?.file_path) return null;
 
     let filePath = data.file_path as string;
-    const isPng = filePath.toLowerCase().endsWith(".png");
     const alreadyProcessed = !!(data as any).bg_removed;
 
-    // Reprocessamento sob demanda: se logo é JPG e ainda não passou por remove-background, processa agora
-    if (!isPng && !alreadyProcessed) {
+    // Reprocessamento sob demanda: se a logo nunca passou por remove-background,
+    // processa agora — independente da extensão do arquivo (PNG branco também precisa).
+    if (!alreadyProcessed) {
       try {
-        // Lê signed URL do arquivo atual e envia para edge function
         const { data: srcSigned } = await supabase.storage
           .from("user-uploads")
           .createSignedUrl(filePath, 60 * 5);
         if (srcSigned?.signedUrl) {
-          // Baixa, converte para data URL e envia
           const resp = await fetch(srcSigned.signedUrl);
           const blob = await resp.blob();
           const dataUrl: string = await new Promise((res, rej) => {
