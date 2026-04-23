@@ -14,8 +14,10 @@ interface ImageGalleryPanelProps {
   format: "square" | "portrait";
   /** Chamado quando usuário escolhe imagem; recebe URL e (se Unsplash) info do fotógrafo. */
   onPickImage: (url: string, photographer?: PhotographerInfo) => void;
-  /** Chamado quando IA é solicitada com sucesso (consome 1 crédito). */
-  onAIGenerated?: () => void;
+  /** Chamado quando IA é solicitada com sucesso (consome 1 crédito). Deve fazer o débito real. */
+  onAIGenerated?: () => Promise<void> | void;
+  /** Saldo atual de créditos de regeneração (para validar antes de chamar a IA). */
+  regenerationCredits?: number;
   niche?: string;
   businessContext?: string;
 }
@@ -26,7 +28,7 @@ interface GalleryItem {
 }
 
 const ImageGalleryPanel: React.FC<ImageGalleryPanelProps> = ({
-  defaultQuery, format, onPickImage, onAIGenerated, niche, businessContext,
+  defaultQuery, format, onPickImage, onAIGenerated, regenerationCredits, niche, businessContext,
 }) => {
   const [query, setQuery] = useState(defaultQuery);
   const [results, setResults] = useState<GalleryItem[]>([]);
@@ -72,19 +74,30 @@ const ImageGalleryPanel: React.FC<ImageGalleryPanelProps> = ({
 
   const handleAIConfirm = async () => {
     if (!aiPrompt.trim()) return;
+    // Validação de saldo antes da chamada
+    if (typeof regenerationCredits === "number" && regenerationCredits <= 0) {
+      toast({
+        title: "Sem créditos de regeneração",
+        description: "Compre mais créditos para gerar imagens por IA.",
+        variant: "destructive",
+      });
+      setAiPromptOpen(false);
+      return;
+    }
     setGeneratingAI(true);
     try {
       const result = await generateAIImage({ query: aiPrompt.trim(), format, niche });
       if (!result) {
-        toast({ title: "Falha ao gerar imagem por IA", variant: "destructive" });
+        toast({ title: "Falha ao gerar imagem por IA", description: "Tente novamente em instantes — nenhum crédito foi debitado.", variant: "destructive" });
         return;
       }
       onPickImage(result.url);
-      onAIGenerated?.();
-      toast({ title: "Imagem IA gerada", description: "1 crédito de regeneração usado." });
+      // Só debita após sucesso confirmado
+      try { await onAIGenerated?.(); } catch (e) { console.warn("Debit credit failed", e); }
+      toast({ title: "Imagem IA gerada", description: "1 crédito de regeneração utilizado." });
       setAiPromptOpen(false);
     } catch (err: any) {
-      toast({ title: "Erro ao gerar IA", description: err?.message, variant: "destructive" });
+      toast({ title: "Erro ao gerar IA", description: err?.message || "Nenhum crédito foi debitado.", variant: "destructive" });
     } finally {
       setGeneratingAI(false);
     }
