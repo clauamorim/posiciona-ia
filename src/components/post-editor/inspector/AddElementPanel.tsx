@@ -204,15 +204,45 @@ const AddElementPanel: React.FC<AddElementPanelProps> = ({
     input.click();
   };
 
-  // Step 2: confirm upload (with isLogo decision)
+  // Step 2: confirm upload (with isLogo decision). Logos pass through remove-background.
   const confirmUpload = async () => {
     if (!pendingUpload || !user) return;
     setUploading(true);
     const { blob, name, isLogo } = pendingUpload;
     try {
+      let finalBlob = blob;
+      let finalContentType = "image/jpeg";
+      let finalExt = "jpg";
+
+      // Para logos, remover o fundo automaticamente antes de salvar
+      if (isLogo) {
+        try {
+          const dataUrl: string = await new Promise((res, rej) => {
+            const r = new FileReader();
+            r.onload = () => res(r.result as string);
+            r.onerror = () => rej(r.error);
+            r.readAsDataURL(blob);
+          });
+          const compressedForRB = await compressImage(dataUrl, 1024, 0.85);
+          const { data: rbData, error: rbErr } = await supabase.functions.invoke("remove-background", {
+            body: { imageUrl: compressedForRB },
+          });
+          if (!rbErr && rbData?.image && typeof rbData.image === "string" && rbData.image.startsWith("data:image/")) {
+            const resp = await fetch(rbData.image);
+            finalBlob = await resp.blob();
+            finalContentType = "image/png";
+            finalExt = "png";
+          } else {
+            console.warn("remove-background indisponível, salvando logo com fundo original");
+          }
+        } catch (rbErr) {
+          console.warn("Falha ao remover fundo da logo, salvando original", rbErr);
+        }
+      }
+
       const id = crypto.randomUUID();
-      const path = `${user.id}/${id}.jpg`;
-      const { error: upErr } = await supabase.storage.from("user-uploads").upload(path, blob, { contentType: "image/jpeg", upsert: false });
+      const path = `${user.id}/${id}.${finalExt}`;
+      const { error: upErr } = await supabase.storage.from("user-uploads").upload(path, finalBlob, { contentType: finalContentType, upsert: false });
       if (upErr) throw upErr;
       const { error: insErr } = await supabase.from("user_gallery_assets").insert({
         user_id: user.id,
@@ -231,7 +261,7 @@ const AddElementPanel: React.FC<AddElementPanelProps> = ({
       };
       onAddImage(img);
       loadUserAssets();
-      toast({ title: isLogo ? "Logo salva na sua galeria" : "Imagem salva na sua galeria" });
+      toast({ title: isLogo ? "Logo salva (fundo removido)" : "Imagem salva na sua galeria" });
       setPendingUpload(null);
     } catch (err: any) {
       console.error("Upload error:", err);
