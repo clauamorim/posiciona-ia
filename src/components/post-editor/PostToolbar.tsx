@@ -147,16 +147,6 @@ const PostToolbar: React.FC<PostToolbarProps> = (props) => {
           slideNumberTextColor={props.slideNumberTextColor}
           onSlideNumberTextColorChange={props.onSlideNumberTextColorChange}
           onReset={props.onReset}
-          showGrid={props.showGrid}
-          onShowGridChange={props.onShowGridChange}
-          showRulers={props.showRulers}
-          onShowRulersChange={props.onShowRulersChange}
-          showCoordinates={props.showCoordinates}
-          onShowCoordinatesChange={props.onShowCoordinatesChange}
-          enableSnap={props.enableSnap}
-          onEnableSnapChange={props.onEnableSnapChange}
-          onSwapBackgroundImage={props.onSwapBackgroundImage}
-          swappingBackground={props.swappingBackground}
         />
       </section>
 
