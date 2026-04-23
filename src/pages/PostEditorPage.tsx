@@ -279,6 +279,87 @@ const PostEditorPage = () => {
     textsInitializedRef.current = true;
   }, [day]);
 
+  // Auto-layout: monta layout inicial (template + bg Unsplash + logo) na primeira abertura
+  useEffect(() => {
+    if (!user || !day || autoLayoutRanRef.current) return;
+    if (!Array.isArray(palette) || palette.length === 0) return;
+    autoLayoutRanRef.current = true;
+    const isCarouselDay = day?.format?.toLowerCase() === "carrossel";
+    const totalSlides = isCarouselDay ? Math.max(1, (day.card_copy?.length || 1)) : 1;
+    const themeStr = (day.theme || day.caption || "").toString();
+    (async () => {
+      try {
+        const result = await buildAutoLayout({
+          weekIndex, dayIndex,
+          slideIndex: 0,
+          totalSlides,
+          isCarousel: isCarouselDay,
+          isCover: isCarouselDay,
+          isLast: false,
+          format: canvasFormat,
+          theme: themeStr,
+          caption: day.caption,
+          hasCta: !!day.cta,
+          paletteHex: palette.map((c: any) => c.hex),
+          bgPaletteHex: palette[bgIndex]?.hex || "#1a1a2e",
+          userId: user.id,
+        });
+        if (result.overlays.length > 0) {
+          setOverlayImages(prev => [...result.overlays, ...prev]);
+          setAutoLayoutBanner(true);
+        }
+        const s = result.suggestions;
+        if (s.titleFontSize) setTitleFontSize(s.titleFontSize);
+        if (s.titleTextAlign) setTitleTextAlign(s.titleTextAlign);
+        if (s.bodyFontSize) setFontSize(s.bodyFontSize);
+        if (s.bodyTextAlign) setTextAlign(s.bodyTextAlign);
+        if (typeof s.showSlideNumber === "boolean") setShowSlideNumber(s.showSlideNumber);
+        if (s.slideNumberSize) setSlideNumberSize(s.slideNumberSize);
+      } catch (err) {
+        console.warn("Auto-layout failed", err);
+      }
+    })();
+  }, [user, day, palette, weekIndex, dayIndex, canvasFormat, bgIndex]);
+
+  // Trocar imagem de fundo (busca nova do Unsplash)
+  const handleSwapBackground = useCallback(async () => {
+    if (swappingBackground || !day) return;
+    setSwappingBackground(true);
+    try {
+      const themeStr = (day.theme || day.caption || "").toString();
+      const result = await fetchBackgroundImage({
+        theme: themeStr,
+        caption: day.caption,
+        format: canvasFormat === "reels" ? "portrait" : "square",
+        allowAI: false,
+      });
+      if (!result) {
+        toast({ title: "Nenhuma imagem encontrada", description: "Tente outro tema ou suba sua própria foto.", variant: "destructive" });
+        return;
+      }
+      setOverlayImages(prev => {
+        const idx = prev.findIndex(o => o.id.startsWith("tpl-bg-"));
+        if (idx >= 0) {
+          const next = [...prev];
+          next[idx] = { ...next[idx], src: result.url };
+          return next;
+        }
+        const w = canvasFormat === "reels" ? 1080 : 1080;
+        const h = canvasFormat === "reels" ? 1920 : 1080;
+        return [
+          { id: `tpl-bg-${crypto.randomUUID()}`, src: result.url, x: 0, y: 0, width: w, height: h, type: "photo", opacity: 0.85 },
+          ...prev,
+        ];
+      });
+      toast({ title: "Imagem atualizada", description: "Fonte: Unsplash (gratuita)." });
+    } catch (err: any) {
+      toast({ title: "Erro ao buscar imagem", description: err?.message, variant: "destructive" });
+    } finally {
+      setSwappingBackground(false);
+    }
+  }, [day, canvasFormat, swappingBackground]);
+
+
   // Save draft on changes (debounced via effect dependencies)
   useEffect(() => {
     if (!textsInitializedRef.current) return;
