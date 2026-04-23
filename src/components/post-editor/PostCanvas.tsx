@@ -567,11 +567,15 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   };
 
   const showCta = resolvedCtaText && (isLastSlide || isCoverSlide || (layout === "split" && cta));
-  const defaultCtaPos = isCoverSlide
-    ? { x: 540, y: 540 }
-    : isLastSlide
-    ? { x: 540, y: 780 }
-    : { x: 80, y: 960 };
+  // CTA dinâmico: sempre abaixo do bloco de texto (body), com folga de 60px
+  const bodyBox = textBoxes.find(t => t.type === "body");
+  const titleBox = textBoxes.find(t => t.type === "title");
+  const referenceBox = bodyBox || titleBox;
+  const computedCtaY = referenceBox
+    ? Math.min(canvasHeight - 120, referenceBox.y + referenceBox.height + 60)
+    : (isCoverSlide ? 540 : isLastSlide ? 780 : 960);
+  const computedCtaX = referenceBox ? referenceBox.x + referenceBox.width / 2 : 540;
+  const defaultCtaPos = { x: computedCtaX, y: computedCtaY };
   const ctaPos = ctaPosition || defaultCtaPos;
 
   const renderOverlayItem = (img: OverlayImage) => {
