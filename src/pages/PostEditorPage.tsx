@@ -16,7 +16,8 @@ import { parseReportContent } from "@/lib/reportParser";
 import { cleanMarkdown, extractAfterBold, cleanText, stripFrameworkLabels } from "@/lib/textCleanup";
 import { compressImage } from "@/lib/imageUtils";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { buildAutoLayout, fetchBackgroundImage } from "@/lib/postAutoLayout";
+import { buildAutoLayout, fetchBackgroundImage, type PostStyle, type PhotographerInfo } from "@/lib/postAutoLayout";
+import UnsplashAttribution from "@/components/post-editor/UnsplashAttribution";
 import { Sparkles, X, Image as ImageIcon } from "lucide-react";
 
 function getContrastColor(hex: string): string {
