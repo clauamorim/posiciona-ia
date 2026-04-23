@@ -645,6 +645,12 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
 
     // photo / element / logo
     const isSelected = selectedImageId === img.id;
+    // Full-canvas background photo → cover (preenche sem barras). Demais fotos = contain.
+    const isFullCanvasPhoto =
+      img.type === "photo" &&
+      img.x <= 5 && img.y <= 5 &&
+      img.width >= canvasWidth - 10 && img.height >= canvasHeight - 10;
+    const objectFit: React.CSSProperties["objectFit"] = isFullCanvasPhoto ? "cover" : "contain";
     return (
       <div key={img.id} data-overlay
         style={{
@@ -660,7 +666,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
       >
         <img src={img.src} alt={img.type}
           crossOrigin="anonymous"
-          style={{ width: "100%", height: "100%", objectFit: "contain", pointerEvents: "none", opacity: img.opacity ?? 1 }}
+          style={{ width: "100%", height: "100%", objectFit, pointerEvents: "none", opacity: img.opacity ?? 1 }}
           draggable={false} />
         {isSelected && renderResizeHandles(img, false)}
       </div>
