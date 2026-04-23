@@ -1,8 +1,10 @@
 import React from "react";
-import { Square, Maximize, RotateCcw, Grid3x3, Ruler, Crosshair, Magnet, ImageDown, Loader2 } from "lucide-react";
+import { Square, Maximize, RotateCcw, Grid3x3, Ruler, Crosshair, Magnet, ImageDown, Loader2, Settings2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import ColorPicker, { PaletteColor } from "./ColorPicker";
 
 const GRADIENT_DIRECTIONS = [
@@ -184,28 +186,73 @@ const DocumentPanel: React.FC<DocumentPanelProps> = ({
       {(onShowGridChange || onShowRulersChange || onShowCoordinatesChange || onEnableSnapChange) && (
         <div>
           <h4 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-2">Guias de edição</h4>
-          <div className="grid grid-cols-2 gap-1.5">
+          <div className="grid grid-cols-3 gap-1.5">
             {onShowGridChange && (
-              <Button variant={showGrid ? "default" : "outline"} size="sm" onClick={() => onShowGridChange(!showGrid)} className="gap-1.5 text-[11px] h-8">
-                <Grid3x3 className="h-3 w-3" /> Grade
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant={showGrid ? "default" : "outline"} size="sm" onClick={() => onShowGridChange(!showGrid)} className="gap-1.5 text-[11px] h-8">
+                    <Grid3x3 className="h-3 w-3" /> Grade
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-[200px] text-[11px]">
+                  Mostra linhas-guia para alinhar elementos visualmente.
+                </TooltipContent>
+              </Tooltip>
             )}
             {onShowRulersChange && (
-              <Button variant={showRulers ? "default" : "outline"} size="sm" onClick={() => onShowRulersChange(!showRulers)} className="gap-1.5 text-[11px] h-8">
-                <Ruler className="h-3 w-3" /> Réguas
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant={showRulers ? "default" : "outline"} size="sm" onClick={() => onShowRulersChange(!showRulers)} className="gap-1.5 text-[11px] h-8">
+                    <Ruler className="h-3 w-3" /> Réguas
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-[200px] text-[11px]">
+                  Mostra réguas com coordenadas em pixels nas bordas do canvas.
+                </TooltipContent>
+              </Tooltip>
             )}
             {onShowCoordinatesChange && (
-              <Button variant={showCoordinates ? "default" : "outline"} size="sm" onClick={() => onShowCoordinatesChange(!showCoordinates)} className="gap-1.5 text-[11px] h-8">
-                <Crosshair className="h-3 w-3" /> Coords
-              </Button>
-            )}
-            {onEnableSnapChange && (
-              <Button variant={enableSnap ? "default" : "outline"} size="sm" onClick={() => onEnableSnapChange(!enableSnap)} className="gap-1.5 text-[11px] h-8">
-                <Magnet className="h-3 w-3" /> Snap
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant={showCoordinates ? "default" : "outline"} size="sm" onClick={() => onShowCoordinatesChange(!showCoordinates)} className="gap-1.5 text-[11px] h-8">
+                    <Crosshair className="h-3 w-3" /> Coords
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-[200px] text-[11px]">
+                  Mostra a posição (X, Y) e o tamanho do elemento selecionado.
+                </TooltipContent>
+              </Tooltip>
             )}
           </div>
+          {/* Configurações avançadas: Snap em popover separado */}
+          {onEnableSnapChange && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" size="sm" className="gap-1.5 text-[11px] h-7 mt-2 w-full justify-start text-muted-foreground">
+                  <Settings2 className="h-3 w-3" /> Configurações avançadas
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent side="bottom" className="w-64 p-3 space-y-3">
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <label className="flex items-center gap-2 text-xs cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={!!enableSnap}
+                        onChange={(e) => onEnableSnapChange(e.target.checked)}
+                        className="rounded"
+                      />
+                      <Magnet className="h-3 w-3" />
+                      Snap (alinhamento magnético)
+                    </label>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground/80 leading-relaxed">
+                    Quando ativado, os elementos "grudam" automaticamente nas bordas e no centro do canvas ao serem arrastados.
+                  </p>
+                </div>
+              </PopoverContent>
+            </Popover>
+          )}
           <p className="text-[10px] text-muted-foreground/70 mt-1.5">Setas: 1px · Shift+setas: 10px</p>
         </div>
       )}
