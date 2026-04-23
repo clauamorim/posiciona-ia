@@ -465,16 +465,36 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   };
 
   // Unified render order: all items (text boxes + overlays) share one z-index stack
-  // externalRenderOrder controls the order; if not provided, default: textBoxes first, then overlays
+  // Forçamos ordem visual: foto de fundo (full-cover) → decorações (mframe/mline/mornament) → textos → demais overlays
   const allIds = [...textBoxes.map(tb => tb.id), ...overlayImages.map(img => img.id)];
+  const isFullPhoto = (id: string) => {
+    const img = overlayImages.find(o => o.id === id);
+    return !!img && img.type === "photo" && img.x <= 5 && img.y <= 5 && img.width >= canvasWidth - 10 && img.height >= canvasHeight - 10;
+  };
+  const isDecoration = (id: string) => /^tpl-(mframe|mline|mornament)/.test(id);
+  const isTextBoxId = (id: string) => textBoxes.some(t => t.id === id);
+  const sortByVisualLayer = (ids: string[]) => {
+    // 0 = fundo (foto full), 1 = decorações, 2 = textos, 3 = demais
+    const rank = (id: string) => {
+      if (isFullPhoto(id)) return 0;
+      if (isDecoration(id)) return 1;
+      if (isTextBoxId(id)) return 2;
+      return 3;
+    };
+    return [...ids].sort((a, b) => {
+      const ra = rank(a), rb = rank(b);
+      if (ra !== rb) return ra - rb;
+      // preserve original order within the same rank
+      return ids.indexOf(a) - ids.indexOf(b);
+    });
+  };
   const effectiveRenderOrder = (() => {
     if (externalRenderOrder && externalRenderOrder.length > 0) {
-      // Keep only IDs that still exist, append any new ones at the end
       const existing = externalRenderOrder.filter(id => allIds.includes(id));
       const newIds = allIds.filter(id => !existing.includes(id));
-      return [...existing, ...newIds];
+      return sortByVisualLayer([...existing, ...newIds]);
     }
-    return allIds;
+    return sortByVisualLayer(allIds);
   })();
 
   // Sync render order to parent when it changes
@@ -547,11 +567,15 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   };
 
   const showCta = resolvedCtaText && (isLastSlide || isCoverSlide || (layout === "split" && cta));
-  const defaultCtaPos = isCoverSlide
-    ? { x: 540, y: 540 }
-    : isLastSlide
-    ? { x: 540, y: 780 }
-    : { x: 80, y: 960 };
+  // CTA dinâmico: sempre abaixo do bloco de texto (body), com folga de 60px
+  const bodyBox = textBoxes.find(t => t.type === "body");
+  const titleBox = textBoxes.find(t => t.type === "title");
+  const referenceBox = bodyBox || titleBox;
+  const computedCtaY = referenceBox
+    ? Math.min(canvasHeight - 120, referenceBox.y + referenceBox.height + 60)
+    : (isCoverSlide ? 540 : isLastSlide ? 780 : 960);
+  const computedCtaX = referenceBox ? referenceBox.x + referenceBox.width / 2 : 540;
+  const defaultCtaPos = { x: computedCtaX, y: computedCtaY };
   const ctaPos = ctaPosition || defaultCtaPos;
 
   const renderOverlayItem = (img: OverlayImage) => {

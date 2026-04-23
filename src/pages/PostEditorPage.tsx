@@ -218,10 +218,8 @@ const PostEditorPage = () => {
   const [slideNumberSize, setSlideNumberSize] = useState(draft?.slideNumberSize ?? 14);
   const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
   const [renderOrder, setRenderOrder] = useState<string[]>([]);
-  const [showGrid, setShowGrid] = useState(false);
   const [showRulers, setShowRulers] = useState(false);
   const [showCoordinates, setShowCoordinates] = useState(true);
-  const [enableSnap, setEnableSnap] = useState(true);
   const [autoLayoutBanner, setAutoLayoutBanner] = useState(false);
   const [swappingBackground, setSwappingBackground] = useState(false);
   const [activePhotographer, setActivePhotographer] = useState<PhotographerInfo | null>(null);
@@ -978,8 +976,9 @@ const PostEditorPage = () => {
                 onSelectedTextChange={setSelectedTextId}
                 renderOrder={renderOrder}
                 onRenderOrderChange={setRenderOrder}
-                showGrid={showGrid} showRulers={showRulers}
-                showCoordinates={showCoordinates} enableSnap={enableSnap}
+                showRulers={showRulers}
+                showCoordinates={showCoordinates}
+                postStyle={initialStyle || undefined}
               />
             ) : (
               <PostCanvas
@@ -1001,8 +1000,9 @@ const PostEditorPage = () => {
                 onSelectedTextChange={setSelectedTextId}
                 renderOrder={renderOrder}
                 onRenderOrderChange={setRenderOrder}
-                showGrid={showGrid} showRulers={showRulers}
-                showCoordinates={showCoordinates} enableSnap={enableSnap}
+                showRulers={showRulers}
+                showCoordinates={showCoordinates}
+                postStyle={initialStyle || undefined}
                 initialTextBoxes={initialTextBoxes}
                 resetKey={`${initialStyle || "minimal"}-${canvasFormat}`}
               />
@@ -1070,10 +1070,8 @@ const PostEditorPage = () => {
               slideNumberSize, onSlideNumberSizeChange: setSlideNumberSize,
               isCarousel,
               onRecolorElement: handleRecolorElement,
-              showGrid, onShowGridChange: setShowGrid,
               showRulers, onShowRulersChange: setShowRulers,
               showCoordinates, onShowCoordinatesChange: setShowCoordinates,
-              enableSnap, onEnableSnapChange: setEnableSnap,
               onSwapBackgroundImage: handleSwapBackground,
               swappingBackground,
               imageSearchQuery: (day?.theme || day?.caption || "").toString(),
