@@ -394,23 +394,13 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
     }
   };
 
-  // Selected item bounding box (for coordinates badge)
-  const selectedBounds = (() => {
-    if (selectedImageId) {
-      const img = overlayImages.find(i => i.id === selectedImageId);
-      if (img) return { x: img.x, y: img.y, w: img.width, h: img.height };
-    }
-    if (selectedTextId && selectedTextId.startsWith("text-")) {
-      const tb = textBoxes.find(t => t.id === selectedTextId);
-      if (tb) return { x: tb.x, y: tb.y, w: tb.width, h: tb.height };
-    }
-    return null;
-  })();
-
+  const isMinimalStyle = postStyle === "minimal";
   const bodyFontSize = fontSize || 38;
   const bodyFontWeight = fontWeight || "normal";
   const bodyFontStyle2 = fontStyle || "normal";
-  const bodyTextAlign = textAlign || "center";
+  // Em estilos minimalistas, força centralização horizontal sempre.
+  const bodyTextAlign: "left" | "center" | "right" | "justify" = isMinimalStyle ? "center" : (textAlign || "center");
+  const effectiveTitleAlign: "left" | "center" | "right" | "justify" = isMinimalStyle ? "center" : (titleTextAlign || "center");
 
   const resolvedTitleFontSize = titleFontSize || (isCoverSlide ? 64 : 44);
   const resolvedTitleColor = titleColor || textColor;
@@ -574,7 +564,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
             fontSize: isTitle ? resolvedTitleFontSize : bodyFontSize,
             fontWeight: isTitle ? "bold" : bodyFontWeight,
             fontStyle: isTitle ? "normal" : bodyFontStyle2,
-            textAlign: isTitle ? (titleTextAlign || "center") : bodyTextAlign,
+            textAlign: isTitle ? effectiveTitleAlign : bodyTextAlign,
             lineHeight: isTitle ? 1.15 : 1.55,
             color: hasPhotoBackground ? "#ffffff" : (isTitle ? resolvedTitleColor : textColor),
             outline: "none", width: "100%", minHeight: "1em",
