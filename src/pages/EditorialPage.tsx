@@ -610,6 +610,18 @@ const EditorialPage = () => {
           {generateButton}
         </div>
       </div>
+
+      {styleModal && (
+        <StyleSelectionModal
+          open={styleModal.open}
+          onOpenChange={(o) => { if (!o) setStyleModal(null); }}
+          theme={styleModal.theme}
+          caption={styleModal.caption}
+          format={styleModal.format}
+          paletteHex={paletteHex}
+          onChoose={handleStyleChosen}
+        />
+      )}
     </DashboardLayout>
   );
 };
