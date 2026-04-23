@@ -1,55 +1,61 @@
 
 
-## Limpeza de rótulos do framework nos posts
+## Diagnóstico
 
-Os textos "Problema Externo:" no tema e "Slide 1: '...'" no conteúdo vêm direto do que a IA gera. Vou atacar em duas camadas: prompts mais rígidos (corrige o futuro) e sanitização no cliente (corrige o passado e protege contra reincidência).
+Investiguei o banco e encontrei o problema real:
 
-## 1. Prompts mais rígidos nas edge functions
+1. **Print 2 (relatório como JSON cru com ` ```json `)**: o registro desse usuário foi salvo no Supabase com `content` do tipo **string** literal `"```json\n{...}\n```"` em vez de objeto JSON. Isso aconteceu porque o regex de limpeza no edge function `generate-report` falhou em remover o cerca de markdown, então o `JSON.parse` caiu no `catch` e gravou o texto cru.
+2. **Print 1 (Narrativa da Marca vazia)**: é consequência direta — como `parseReportContent` não consegue extrair o objeto, `hasStorybrand` vira `false` e a página mostra empty state.
 
-### `supabase/functions/generate-report/index.ts`
-Hoje esse prompt **não tem** a regra anti-rótulo (só `generate-content-week` e `regenerate-single-post` têm). Vou adicionar o mesmo bloco "REGRA DE LINGUAGEM CRÍTICA" + lista de termos proibidos + exemplos ERRADO/CERTO antes da seção `editorial`.
+Outros 7 relatórios no banco foram salvos corretamente como `object`. Esse é um bug intermitente que reaparece quando a IA decide envelopar a resposta em fence apesar das instruções.
 
-### Os 3 prompts (`generate-report`, `generate-content-week`, `regenerate-single-post`)
-Adicionar regra explícita sobre `card_copy`:
-> NUNCA prefixe os itens de `card_copy` com "Slide 1:", "Slide 2:", "Card 1:", "Página 1:", etc. Cada item do array JÁ É um slide; escreva apenas o conteúdo em si, sem rótulo posicional.
-> ERRADO: `["Slide 1: Você também sente que o tempo voa?", "Slide 2: A solução está aqui"]`
-> CERTO:  `["Você também sente que o tempo voa?", "A solução está aqui"]`
+## Solução em 3 camadas
 
-## 2. Sanitização defensiva no cliente
+### 1. Edge function `generate-report` — parsing robusto
 
-### `src/lib/textCleanup.ts`
-Adicionar nova função `stripFrameworkLabels(text)` que remove no início da string (case-insensitive):
-- `Slide \d+\s*[:\-–]\s*`
-- `Card \d+\s*[:\-–]\s*`
-- `Página \d+\s*[:\-–]\s*`
-- `Problema Externo\s*[:\-–]\s*`
-- `Problema Interno\s*[:\-–]\s*`
-- `Problema Filosófico\s*[:\-–]\s*`
-- `O Plano\s*[:\-–]\s*` / `Plano\s*[:\-–]\s*`
-- `CTA\s*[:\-–]\s*` / `Chamada à Ação\s*[:\-–]\s*` / `Chamada para Ação\s*[:\-–]\s*`
-- `O Sucesso\s*[:\-–]\s*` / `Sucesso\s*[:\-–]\s*`
-- `O Fracasso\s*[:\-–]\s*` / `Fracasso\s*[:\-–]\s*`
-- `O Herói\s*[:\-–]\s*` / `Herói\s*[:\-–]\s*`
-- `O Guia\s*[:\-–]\s*` / `Guia\s*[:\-–]\s*`
+Substituir o regex frágil atual:
+```ts
+const cleaned = rawContent.replace(/^```json?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
+reportContent = JSON.parse(cleaned);
+```
 
-Também remover aspas envolventes residuais (a IA às vezes gera `"Você também sente..."` com aspas literais incluídas).
+Por uma rotina de extração em cascata:
+- Tenta `JSON.parse(rawContent)` direto.
+- Se falhar, busca bloco entre ```` ```json ... ``` ```` (regex `/```(?:json)?\s*([\s\S]*?)\s*```/i`).
+- Se falhar, recorta entre primeira `{` e última `}`.
+- Em cada tentativa, faz `JSON.parse` e valida que tem pelo menos `archetypes` ou `storybrand`.
+- Só salva como string crua **em último caso**, e nesse cenário **retorna 502** com erro claro (`"AI returned malformed JSON"`) em vez de salvar lixo no banco. Assim o front mostra mensagem "Erro ao gerar, tente regenerar" em vez de exibir JSON cru.
 
-Atualizar `cleanText()` para encadear `stripFrameworkLabels` no pipeline.
+Aplicar a mesma rotina em `generate-content-week` e `regenerate-single-post` (mesmo bug latente).
 
-### Pontos onde aplicar a limpeza (já usam `cleanMarkdown` / `extractAfterBold`)
+### 2. Hardening do prompt
 
-- **`src/pages/PostEditorPage.tsx`** (linhas 266-269 e 648-650): aplicar `stripFrameworkLabels` em cada item de `card_copy`, no `theme` e no `cta` ao inicializar e ao resetar; também no título exibido (linha 729) e na legenda copiada (linha 691).
-- **`src/pages/EditorialPage.tsx`**: aplicar nos previews de `day.theme`, `day.caption`, `day.card_copy[]`, `day.cta` (renderização nos cards e no PDF de exportação).
-- **`src/pages/Report.tsx`**: aplicar na exibição da semana 1 do editorial.
+Reforçar a primeira linha do system prompt:
+> **CRÍTICO:** Sua resposta deve começar com `{` e terminar com `}`. NÃO use ``` ``` ``` em hipótese alguma. NÃO escreva nenhum texto antes ou depois do JSON. Se você adicionar markdown fences, o sistema irá rejeitar a resposta.
+
+Reduz a frequência do problema na origem.
+
+### 3. Limpeza do registro corrompido + recuperação no front
+
+- **Migração corretiva**: rodar UPDATE pontual no relatório `3ebfdae8...` para extrair o JSON de dentro da string e regravar como objeto. Vou inspecionar o conteúdo, fazer parse manual e executar a migração via tool de banco.
+- **Reforço no `reportParser.ts`**: melhorar `extractJsonCandidates` para tolerar fences seguidas de whitespace/newlines mais agressivamente e tentar reparar o JSON (remover vírgulas finais antes de `}` ou `]`, que é o erro típico de Gemini).
+
+## Arquivos afetados
+
+- `supabase/functions/generate-report/index.ts` — parsing robusto + prompt hardening
+- `supabase/functions/generate-content-week/index.ts` — mesmo parsing robusto
+- `supabase/functions/regenerate-single-post/index.ts` — mesmo parsing robusto
+- `src/lib/reportParser.ts` — extração tolerante + reparo de JSON
+- Migração SQL: corrigir 1 registro existente no banco
 
 ## Resultado esperado
 
-- "Problema Externo: A Correria Vazia" → "A Correria Vazia"
-- "Slide 1: 'Você também sente...'" → "Você também sente..."
-- Conteúdos novos já saem limpos via prompt; conteúdos antigos já gravados no banco aparecem limpos via sanitização ao renderizar.
+- Relatório do usuário do print volta a renderizar normalmente (Narrativa da Marca + todas as seções) após a migração corretiva.
+- Próximas gerações ficam blindadas: 3 níveis de fallback para parsing, e se tudo falhar o front mostra "Erro ao gerar" claro em vez de JSON cru.
+- Prompt mais agressivo reduz incidência do problema.
 
 ## Fora do escopo
 
-- Reescrever em massa os `card_copy` antigos no banco (não é necessário — a sanitização no cliente cobre exibição e edição).
-- Mexer em outros campos do relatório (StoryBrand, arquétipos) que usam esses rótulos legitimamente.
+- Reescrever a UI da página Report — ela está OK, o problema é de dados.
+- Mudar de Gemini para outro modelo — o bug é resolvível com parsing defensivo.
 
