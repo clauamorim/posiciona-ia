@@ -218,10 +218,8 @@ const PostEditorPage = () => {
   const [slideNumberSize, setSlideNumberSize] = useState(draft?.slideNumberSize ?? 14);
   const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
   const [renderOrder, setRenderOrder] = useState<string[]>([]);
-  const [showGrid, setShowGrid] = useState(false);
   const [showRulers, setShowRulers] = useState(false);
   const [showCoordinates, setShowCoordinates] = useState(true);
-  const [enableSnap, setEnableSnap] = useState(true);
   const [autoLayoutBanner, setAutoLayoutBanner] = useState(false);
   const [swappingBackground, setSwappingBackground] = useState(false);
   const [activePhotographer, setActivePhotographer] = useState<PhotographerInfo | null>(null);
