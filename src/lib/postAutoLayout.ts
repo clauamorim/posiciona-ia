@@ -233,6 +233,8 @@ export async function buildAutoLayout(input: AutoLayoutInput): Promise<AutoLayou
 
   // Resolve estilo: respeitar escolha explícita, ou padrão "unsplash"
   const style: PostStyle = input.style ?? "unsplash";
+  let styleFailed = false;
+  let styleFailedReason: string | undefined;
 
   // 1) Imagem de fundo segundo o estilo
   if (style === "unsplash") {
@@ -246,6 +248,9 @@ export async function buildAutoLayout(input: AutoLayoutInput): Promise<AutoLayou
     });
     if (bgInfo) {
       overlays.push(buildBackgroundImageOverlay(bgInfo.url, input.format, true));
+    } else {
+      styleFailed = true;
+      styleFailedReason = "Banco de imagens indisponível no momento.";
     }
   } else if (style === "ai") {
     const ai = await generateAIImage({
@@ -256,17 +261,28 @@ export async function buildAutoLayout(input: AutoLayoutInput): Promise<AutoLayou
     if (ai) {
       bgInfo = { url: ai.url, source: "ai" };
       overlays.push(buildBackgroundImageOverlay(ai.url, input.format, true));
+    } else {
+      styleFailed = true;
+      styleFailedReason = "A geração por IA falhou. Tente novamente em instantes.";
     }
   }
-  // style === "minimal" → sem imagem; gradient é aplicado via suggestions
+  // style === "minimal" → sem imagem; usamos overlays decorativos próprios + gradient
 
-  // 2) Bloco decorativo (cor da paleta)
-  const blockColor = template.decorativeBlock
-    ? input.paletteHex[template.decorativeBlock.paletteIndex] || input.paletteHex[0] || "#7c3aed"
-    : null;
-  if (blockColor && template.decorativeBlock) {
-    const block = buildDecorativeBlockOverlay(template, blockColor);
-    if (block) overlays.push(block);
+  // 2) Bloco / overlays decorativos
+  if (style === "minimal") {
+    // Para minimal, usar conjunto rico (moldura + linha + ornamento)
+    const primary = input.paletteHex[0] || "#7c3aed";
+    const accent = input.paletteHex[1] || input.paletteHex[0] || "#7c3aed";
+    overlays.push(...buildMinimalDecorativeOverlays(template, primary, accent));
+  } else {
+    // Para outros estilos, usar bloco padrão do template
+    const blockColor = template.decorativeBlock
+      ? input.paletteHex[template.decorativeBlock.paletteIndex] || input.paletteHex[0] || "#7c3aed"
+      : null;
+    if (blockColor && template.decorativeBlock) {
+      const block = buildDecorativeBlockOverlay(template, blockColor);
+      if (block) overlays.push(block);
+    }
   }
 
   // 3) Logo do usuário (se houver)
@@ -284,6 +300,10 @@ export async function buildAutoLayout(input: AutoLayoutInput): Promise<AutoLayou
     dynTitleFontSize = Math.round(dynTitleFontSize * reductionFactor);
   }
 
+  // Se o estilo foi unsplash/ai mas falhou, ativa gradiente de cor sólida da paleta
+  // (em vez de cair sem aviso no fundo padrão, que se confundia com minimal)
+  const useGradientFallback = (style === "unsplash" || style === "ai") && styleFailed && input.paletteHex.length >= 2;
+
   return {
     template,
     overlays,
@@ -296,11 +316,13 @@ export async function buildAutoLayout(input: AutoLayoutInput): Promise<AutoLayou
       slideNumberSize: template.slideNumberSlot?.size,
       backgroundImageUrl: bgInfo?.url,
       backgroundSource: bgInfo?.source ?? "none",
-      // Gradient padrão para estilo minimalista
-      useGradient: style === "minimal" && input.paletteHex.length >= 2,
+      // Gradient para minimalista OU para fallback de erro de estilo
+      useGradient: (style === "minimal" && input.paletteHex.length >= 2) || useGradientFallback,
       gradientColor2Index: 1,
       gradientDirection: "to bottom right",
     },
     photographer: bgInfo?.photographer,
+    styleFailed,
+    styleFailedReason,
   };
 }
