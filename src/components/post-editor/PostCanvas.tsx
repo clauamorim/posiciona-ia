@@ -49,6 +49,14 @@ interface PostCanvasProps {
   onSelectedTextChange?: (id: string | null) => void;
   renderOrder?: string[];
   onRenderOrderChange?: (order: string[]) => void;
+  /** Mostra grade de fundo (8x8) para apoiar alinhamento. */
+  showGrid?: boolean;
+  /** Mostra réguas horizontais e verticais nas bordas. */
+  showRulers?: boolean;
+  /** Mostra badge de coordenadas X,Y e tamanho W×H no item selecionado. */
+  showCoordinates?: boolean;
+  /** Habilita snap-guides ao centro/bordas durante o drag. */
+  enableSnap?: boolean;
   // Legacy compat
   onImageMove?: (id: string, x: number, y: number) => void;
   onImageResize?: (id: string, width: number, height: number) => void;
