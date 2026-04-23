@@ -70,9 +70,51 @@ export function fixPunctuation(text: string): string {
   return fixed.trim();
 }
 
+/**
+ * Strip framework labels and positional prefixes from the START of a string.
+ * Removes things like:
+ * - "Slide 1:", "Card 2 -", "Página 3 –"
+ * - "Problema Externo:", "CTA:", "Plano:", "O Herói –", "Sucesso:"
+ * Also strips wrapping quotes left over from the LLM (e.g. `"Texto"` → `Texto`).
+ * Idempotent: runs the regex pass twice in case multiple labels were chained
+ * (e.g. "Slide 1: Problema Externo: ...").
+ */
+const FRAMEWORK_LABEL_RE = new RegExp(
+  "^\\s*(?:" +
+    // Positional labels with number
+    "(?:slide|card|p[áa]gina|dia)\\s*\\d+" +
+    "|" +
+    // Framework labels (with optional leading article "O ")
+    "(?:o\\s+)?(?:" +
+      "problema\\s+externo|problema\\s+interno|problema\\s+filos[óo]fico|" +
+      "(?:o\\s+)?plano|" +
+      "cta|chamada\\s+(?:à|para)\\s+a[çc][ãa]o|" +
+      "sucesso|fracasso|" +
+      "her[óo]i|guia" +
+    ")" +
+  ")\\s*[:\\-–—]\\s*",
+  "i"
+);
+
+export function stripFrameworkLabels(text: string): string {
+  if (!text || typeof text !== "string") return text || "";
+  let out = text;
+  // Run up to 2 passes to handle chained labels
+  for (let i = 0; i < 2; i++) {
+    const next = out.replace(FRAMEWORK_LABEL_RE, "");
+    if (next === out) break;
+    out = next;
+  }
+  // Strip wrapping quotes (straight or curly) if they envelop the whole string
+  out = out.trim();
+  const quotedMatch = out.match(/^["'“”‘’«»](.+)["'“”‘’«»]$/s);
+  if (quotedMatch) out = quotedMatch[1].trim();
+  return out;
+}
+
 /** Full cleanup pipeline */
 export function cleanText(text: string): string {
-  return fixPunctuation(cleanMarkdown(text));
+  return fixPunctuation(stripFrameworkLabels(cleanMarkdown(text)));
 }
 
 /**
