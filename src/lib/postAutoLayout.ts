@@ -330,6 +330,7 @@ export async function generateAIImage(opts: {
 
 /** Monta a composição inicial completa para um slide. */
 export async function buildAutoLayout(input: AutoLayoutInput): Promise<AutoLayoutResult> {
+  const style: PostStyle = input.style ?? "unsplash";
   const template = input.isCarousel
     ? pickTemplate({
         weekIndex: input.weekIndex,
@@ -346,13 +347,12 @@ export async function buildAutoLayout(input: AutoLayoutInput): Promise<AutoLayou
         dayIndex: input.dayIndex,
         format: input.format,
         hasCta: input.hasCta,
+        style,
       });
 
   const overlays: OverlayImage[] = [];
   let bgInfo: { url: string; source: "unsplash" | "ai" | "cache"; photographer?: PhotographerInfo } | null = null;
 
-  // Resolve estilo: respeitar escolha explícita, ou padrão "unsplash"
-  const style: PostStyle = input.style ?? "unsplash";
   let styleFailed = false;
   let styleFailedReason: string | undefined;
 
@@ -379,7 +379,7 @@ export async function buildAutoLayout(input: AutoLayoutInput): Promise<AutoLayou
       niche: input.niche,
     });
     if (ai) {
-      bgInfo = { url: ai.url, source: "ai" };
+      bgInfo = { url: ai.url, source: ai.source };
       overlays.push(buildBackgroundImageOverlay(ai.url, input.format, true));
     } else {
       styleFailed = true;
@@ -394,16 +394,10 @@ export async function buildAutoLayout(input: AutoLayoutInput): Promise<AutoLayou
     const primary = input.paletteHex[0] || "#7c3aed";
     const accent = input.paletteHex[1] || input.paletteHex[0] || "#7c3aed";
     overlays.push(...buildMinimalDecorativeOverlays(template, primary, accent));
-  } else {
-    // Para outros estilos, usar bloco padrão do template
-    const blockColor = template.decorativeBlock
-      ? input.paletteHex[template.decorativeBlock.paletteIndex] || input.paletteHex[0] || "#7c3aed"
-      : null;
-    if (blockColor && template.decorativeBlock) {
-      const block = buildDecorativeBlockOverlay(template, blockColor);
-      if (block) overlays.push(block);
-    }
   }
+  // IMPORTANTE: para estilos com foto (unsplash/ai) NÃO adicionamos
+  // decorativeBlock sólido — a legibilidade do texto vem do gradiente preto
+  // translúcido do PostCanvas (hasPhotoBackground), não de uma caixa branca.
 
   // 3) Logo do usuário (se houver)
   const logoUrl = await fetchUserLogo(input.userId);
