@@ -346,6 +346,30 @@ export type Database = {
         }
         Relationships: []
       }
+      post_background_cache: {
+        Row: {
+          created_at: string
+          image_url: string
+          keywords: string | null
+          source: string
+          theme_hash: string
+        }
+        Insert: {
+          created_at?: string
+          image_url: string
+          keywords?: string | null
+          source?: string
+          theme_hash: string
+        }
+        Update: {
+          created_at?: string
+          image_url?: string
+          keywords?: string | null
+          source?: string
+          theme_hash?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -602,6 +626,7 @@ export type Database = {
           created_at: string
           file_path: string
           id: string
+          is_logo: boolean
           name: string
           user_id: string
         }
@@ -609,6 +634,7 @@ export type Database = {
           created_at?: string
           file_path: string
           id?: string
+          is_logo?: boolean
           name: string
           user_id: string
         }
@@ -616,6 +642,7 @@ export type Database = {
           created_at?: string
           file_path?: string
           id?: string
+          is_logo?: boolean
           name?: string
           user_id?: string
         }
