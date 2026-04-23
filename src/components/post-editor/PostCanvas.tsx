@@ -51,7 +51,7 @@ interface PostCanvasProps {
   onRenderOrderChange?: (order: string[]) => void;
   /** Mostra réguas horizontais e verticais nas bordas. */
   showRulers?: boolean;
-  /** Mostra badge de coordenadas X,Y e tamanho W×H no item selecionado. */
+  /** @deprecated Coordenadas foram removidas do canvas. Mantido para compat. */
   showCoordinates?: boolean;
   /** Estilo escolhido na criação do post (minimal força centralização horizontal). */
   postStyle?: "minimal" | "unsplash" | "ai" | string;
@@ -94,11 +94,11 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   selectedImageId, onSelectImage, bgGradient,
   titleFontSize, titleColor, titleFontFamily,
   ctaText, ctaBgColor, ctaTextColor, ctaFontSize, ctaPosition, onCtaMove,
-  canvasWidth = 1080, canvasHeight = 1080,
+  canvasWidth = 1080, canvasHeight = 1350,
   showSlideNumber = true, slideNumberPosition, onSlideNumberMove,
   slideNumberBgColor, slideNumberTextColor, slideNumberSize,
   onSelectedTextChange, renderOrder: externalRenderOrder, onRenderOrderChange,
-  showRulers = false, showCoordinates = true, postStyle,
+  showRulers = false, postStyle,
   initialTextBoxes, resetKey,
 }) => {
   const isMobile = useIsMobile();
