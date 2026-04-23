@@ -39,6 +39,7 @@ const EditorialPage = () => {
   const [loading, setLoading] = useState(true);
   const [generatingWeek, setGeneratingWeek] = useState(false);
   const [regeneratingPost, setRegeneratingPost] = useState<string | null>(null);
+  const [regeneratingFreeWeek, setRegeneratingFreeWeek] = useState<number | null>(null);
   const [downloadingPDF, setDownloadingPDF] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
 
