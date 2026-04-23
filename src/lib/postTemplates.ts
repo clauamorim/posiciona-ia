@@ -272,11 +272,13 @@ export function buildMinimalDecorativeOverlays(
     type: "element", opacity: 1,
   };
 
-  // 2) Linha horizontal decorativa abaixo do título (largura ~160 / 220 reels)
+  // 2) Linha horizontal decorativa entre título e corpo
   const lineW = isReels ? 220 : 160;
   const lineH = 4;
   const lineX = (W - lineW) / 2;
-  const lineY = isReels ? 820 : 460;
+  // Square: título termina ~440 (340 + 60*1.6), corpo começa em 660 → linha em 540
+  // Reels: título termina ~720 (540 + 78*1.6*1.5 linhas), corpo em 1100 → linha em 880
+  const lineY = isReels ? 880 : 540;
   const lineSvg = `<svg width="${lineW}" height="${lineH}" xmlns="http://www.w3.org/2000/svg"><rect width="${lineW}" height="${lineH}" fill="${accent}"/></svg>`;
   const line: OverlayImage = {
     id: `tpl-mline-${crypto.randomUUID()}`,
@@ -285,10 +287,10 @@ export function buildMinimalDecorativeOverlays(
     type: "element", opacity: 1,
   };
 
-  // 3) Ornamento losango entre título e corpo
+  // 3) Ornamento losango logo abaixo da linha
   const dSize = 24;
   const dX = (W - dSize) / 2;
-  const dY = isReels ? 980 : 600;
+  const dY = isReels ? 920 : 580;
   const dSvg = `<svg width="${dSize}" height="${dSize}" xmlns="http://www.w3.org/2000/svg"><polygon points="${dSize / 2},0 ${dSize},${dSize / 2} ${dSize / 2},${dSize} 0,${dSize / 2}" fill="${accent}" opacity="0.85"/></svg>`;
   const ornament: OverlayImage = {
     id: `tpl-mornament-${crypto.randomUUID()}`,
