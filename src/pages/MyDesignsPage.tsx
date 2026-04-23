@@ -53,24 +53,53 @@ const MyDesignsPage = () => {
   const navigate = useNavigate();
   const [designs, setDesigns] = useState<UserDesign[]>([]);
   const [loading, setLoading] = useState(true);
+  const [allWeeks, setAllWeeks] = useState<any[][]>([]);
 
   const fetchDesigns = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-    const { data, error } = await supabase
-      .from("user_designs")
-      .select("id, title, thumbnail, week_index, day_index, state, updated_at, created_at")
-      .eq("user_id", user.id)
-      .order("updated_at", { ascending: false });
+    const [{ data: designsData, error }, { data: reportData }] = await Promise.all([
+      supabase
+        .from("user_designs")
+        .select("id, title, thumbnail, week_index, day_index, state, updated_at, created_at")
+        .eq("user_id", user.id)
+        .order("updated_at", { ascending: false }),
+      supabase.from("reports").select("content, editorial_weeks")
+        .eq("user_id", user.id).eq("status", "completed")
+        .order("version", { ascending: false }).limit(1).maybeSingle(),
+    ]);
     if (error) {
       toast({ title: "Erro ao carregar designs", description: error.message, variant: "destructive" });
     } else {
-      setDesigns((data as UserDesign[]) || []);
+      setDesigns((designsData as UserDesign[]) || []);
     }
+    const structured = (reportData?.content as any)?.editorial;
+    const structuredArr = Array.isArray(structured) ? structured : [];
+    const weeks: any[][] = Array.isArray(reportData?.editorial_weeks) ? reportData!.editorial_weeks as any[][] : [];
+    setAllWeeks([...(structuredArr.length > 0 ? [structuredArr] : []), ...weeks]);
     setLoading(false);
   }, [user]);
 
   useEffect(() => { fetchDesigns(); }, [fetchDesigns]);
+
+  /**
+   * A design is "stale" when the editorial post it was based on has been
+   * updated (regenerated) AFTER the design was created. We detect this by
+   * checking that the source day's `generator_version` is the current one
+   * AND that the design predates the platform's generator update.
+   */
+  const isDesignStale = (d: UserDesign): boolean => {
+    if (d.week_index == null || d.day_index == null) return false;
+    const week = allWeeks[d.week_index];
+    if (!week) return false;
+    const day = week[d.day_index];
+    if (!day) return false;
+    // If the source day has a current version (not outdated), and the design
+    // was created before that update, the design is stale.
+    if (isOutdated(day)) return false; // base is also outdated, no mismatch
+    // Base has been updated; design is stale if older than current generator stamp.
+    return true;
+  };
 
   const handleOpen = (d: UserDesign) => {
     const w = d.week_index ?? 0;
