@@ -205,6 +205,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setSession(newSession);
             return;
           }
+          // If a *different* user signed in (account swap), wipe scoped session
+          // storage so we don't leak the previous user's editor draft / logo.
+          if (sessionUserIdRef.current && sessionUserIdRef.current !== newSession.user.id) {
+            clearScopedSession();
+          }
           const requestId = ++authRequestRef.current;
           setIsLoading(true);
           hydrateUser(newSession, requestId);
