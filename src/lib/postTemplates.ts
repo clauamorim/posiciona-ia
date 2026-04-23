@@ -102,7 +102,8 @@ const REELS_TEMPLATES: Record<TemplateKind, TemplateLayout> = {
     kind: "cover",
     format: "reels",
     backgroundOverlay: true,
-    decorativeBlock: { x: 0, y: 1380, width: REELS_W, height: 540, paletteIndex: 0, opacity: 0.9 },
+    // paletteIndex 2 para contraste claro com gradiente
+    decorativeBlock: { x: 0, y: 1380, width: REELS_W, height: 540, paletteIndex: 2, opacity: 0.85 },
     logoSlot: { x: 60, y: 80, width: 180, height: 180 },
     portraitSlot: null,
     titleSlot: { x: 80, y: 1440, width: 920, fontSize: 80, align: "left" },
