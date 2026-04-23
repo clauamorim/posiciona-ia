@@ -624,9 +624,70 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
 
   const topZ = 10 + effectiveRenderOrder.length;
 
+  const RULER_PX = 18;
+  const rulerTickEvery = 100; // canvas px
+
   return (
     <div ref={containerRef} className="flex items-center justify-center w-full">
-      <div style={{ width: canvasWidth * scale, height: canvasHeight * scale, overflow: "hidden", position: "relative" }}>
+      <div
+        style={{
+          width: canvasWidth * scale + (showRulers ? RULER_PX : 0),
+          height: canvasHeight * scale + (showRulers ? RULER_PX : 0),
+          overflow: "hidden",
+          position: "relative",
+          paddingTop: showRulers ? RULER_PX : 0,
+          paddingLeft: showRulers ? RULER_PX : 0,
+          boxSizing: "content-box",
+        }}
+      >
+        {/* Rulers */}
+        {showRulers && (
+          <>
+            {/* Top horizontal ruler */}
+            <div style={{
+              position: "absolute", top: 0, left: RULER_PX,
+              width: canvasWidth * scale, height: RULER_PX,
+              background: "hsl(var(--muted))", borderBottom: "1px solid hsl(var(--border))",
+              fontSize: 9, color: "hsl(var(--muted-foreground))",
+              fontFamily: "monospace", overflow: "hidden",
+            }}>
+              {Array.from({ length: Math.ceil(canvasWidth / rulerTickEvery) + 1 }).map((_, i) => {
+                const x = i * rulerTickEvery * scale;
+                return (
+                  <div key={i} style={{ position: "absolute", left: x, top: 0, height: RULER_PX, borderLeft: "1px solid hsl(var(--border))", paddingLeft: 2 }}>
+                    {i * rulerTickEvery}
+                  </div>
+                );
+              })}
+            </div>
+            {/* Left vertical ruler */}
+            <div style={{
+              position: "absolute", top: RULER_PX, left: 0,
+              width: RULER_PX, height: canvasHeight * scale,
+              background: "hsl(var(--muted))", borderRight: "1px solid hsl(var(--border))",
+              fontSize: 9, color: "hsl(var(--muted-foreground))",
+              fontFamily: "monospace", overflow: "hidden",
+            }}>
+              {Array.from({ length: Math.ceil(canvasHeight / rulerTickEvery) + 1 }).map((_, i) => {
+                const y = i * rulerTickEvery * scale;
+                return (
+                  <div key={i} style={{ position: "absolute", top: y, left: 0, width: RULER_PX, borderTop: "1px solid hsl(var(--border))", paddingLeft: 2, lineHeight: "10px" }}>
+                    {i * rulerTickEvery}
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
+
+        <div
+          style={{
+            position: "relative",
+            width: canvasWidth * scale,
+            height: canvasHeight * scale,
+            overflow: "hidden",
+          }}
+        >
         <div
           ref={(el) => {
             if (typeof canvasRef === "function") canvasRef(el);
@@ -642,6 +703,19 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
           }}
           onClick={handleCanvasClick}
         >
+          {/* Background grid (decorative; not exported because it's drawn inside the canvas via overlay) */}
+          {showGrid && (
+            <div
+              aria-hidden
+              style={{
+                position: "absolute", inset: 0, pointerEvents: "none",
+                backgroundImage:
+                  "linear-gradient(to right, rgba(255,255,255,0.08) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.08) 1px, transparent 1px)",
+                backgroundSize: `${canvasWidth / 8}px ${canvasHeight / 8}px`,
+                zIndex: 9999,
+              }}
+            />
+          )}
           {showSlideNumber && slideNumber !== undefined && totalSlides !== undefined && (() => {
             const snPos = slideNumberPosition || { x: canvasWidth - 60, y: 50 };
             const snBg = slideNumberBgColor || accentColor;
