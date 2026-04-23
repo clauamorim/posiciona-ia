@@ -190,6 +190,8 @@ export async function buildAutoLayout(input: AutoLayoutInput): Promise<AutoLayou
       caption: input.caption,
       format: input.format === "reels" ? "portrait" : "square",
       allowAI: false,
+      niche: input.niche,
+      businessContext: input.businessContext,
     });
     if (bgInfo) {
       overlays.push(buildBackgroundImageOverlay(bgInfo.url, input.format, true));
@@ -198,6 +200,7 @@ export async function buildAutoLayout(input: AutoLayoutInput): Promise<AutoLayou
     const ai = await generateAIImage({
       query: input.theme || input.caption || "abstract",
       format: input.format === "reels" ? "portrait" : "square",
+      niche: input.niche,
     });
     if (ai) {
       bgInfo = { url: ai.url, source: "ai" };
@@ -222,11 +225,19 @@ export async function buildAutoLayout(input: AutoLayoutInput): Promise<AutoLayou
     if (logo) overlays.push(logo);
   }
 
+  // 4) Ajuste dinâmico de fonte/posição quando título é muito longo (evita sobreposição)
+  const titleLen = (input.theme || "").trim().length;
+  let dynTitleFontSize = template.titleSlot?.fontSize;
+  if (dynTitleFontSize && titleLen > 50) {
+    const reductionFactor = titleLen > 80 ? 0.7 : 0.8;
+    dynTitleFontSize = Math.round(dynTitleFontSize * reductionFactor);
+  }
+
   return {
     template,
     overlays,
     suggestions: {
-      titleFontSize: template.titleSlot?.fontSize,
+      titleFontSize: dynTitleFontSize,
       titleTextAlign: template.titleSlot?.align,
       bodyFontSize: template.bodySlot?.fontSize,
       bodyTextAlign: template.bodySlot?.align,
