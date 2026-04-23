@@ -1,8 +1,8 @@
 /**
  * postAutoLayout — orquestra a montagem inicial automática de um post.
  *
- * Combina template + imagem de fundo (Unsplash) + logo do usuário
- * + retrato (opcional) e devolve o conjunto de overlays + ajustes de layout.
+ * Combina template + estilo escolhido (minimal/unsplash/ai) + logo do usuário
+ * e devolve overlays + ajustes de layout.
  */
 
 import { supabase } from "@/integrations/supabase/client";
@@ -12,6 +12,14 @@ import {
   type CanvasFormat, type TemplateLayout,
 } from "./postTemplates";
 import type { OverlayImage } from "@/components/post-editor/PostToolbar";
+
+export type PostStyle = "minimal" | "unsplash" | "ai";
+
+export interface PhotographerInfo {
+  name: string;
+  profileUrl: string;
+  unsplashUrl: string;
+}
 
 export interface AutoLayoutInput {
   weekIndex: number;
@@ -25,15 +33,16 @@ export interface AutoLayoutInput {
   theme: string;
   caption?: string;
   hasCta?: boolean;
-  paletteHex: string[]; // cores da paleta da marca, em ordem
-  bgPaletteHex: string; // cor de fundo principal
+  paletteHex: string[];
+  bgPaletteHex: string;
   userId: string;
+  /** Estilo escolhido pelo usuário no modal. Default: "unsplash" se houver logo, senão "minimal". */
+  style?: PostStyle;
 }
 
 export interface AutoLayoutResult {
   template: TemplateLayout;
   overlays: OverlayImage[];
-  /** Ajustes recomendados ao state do editor. */
   suggestions: {
     titleFontSize?: number;
     titleTextAlign?: "left" | "center" | "right";
@@ -43,7 +52,13 @@ export interface AutoLayoutResult {
     slideNumberSize?: number;
     backgroundImageUrl?: string;
     backgroundSource?: "unsplash" | "ai" | "cache" | "none";
+    /** Sugestão de gradiente (modo minimalista). */
+    useGradient?: boolean;
+    gradientColor2Index?: number;
+    gradientDirection?: string;
   };
+  /** Metadados do fotógrafo (Unsplash) — usado para atribuição obrigatória. */
+  photographer?: PhotographerInfo;
 }
 
 /** Busca a primeira logo do usuário marcada com is_logo=true. */
@@ -68,21 +83,67 @@ async function fetchUserLogo(userId: string): Promise<string | null> {
   }
 }
 
-/** Busca uma imagem de fundo via edge function (Unsplash, sem custo). */
+/** Busca uma imagem de fundo via edge function. Retorna metadata do fotógrafo. */
 export async function fetchBackgroundImage(opts: {
   theme: string;
   caption?: string;
   format: "square" | "portrait";
   allowAI?: boolean;
-}): Promise<{ url: string; source: "unsplash" | "ai" | "cache" } | null> {
+  query?: string;
+}): Promise<{ url: string; source: "unsplash" | "ai" | "cache"; photographer?: PhotographerInfo } | null> {
   try {
     const { data, error } = await supabase.functions.invoke("fetch-post-image", {
-      body: opts,
+      body: { ...opts, mode: "single" },
     });
     if (error || !data?.url) return null;
-    return { url: data.url, source: data.source };
+    const photographer = data.photographer
+      ? { name: data.photographer.name, profileUrl: data.photographer.profileUrl, unsplashUrl: data.unsplashUrl || "" }
+      : undefined;
+    return { url: data.url, source: data.source, photographer };
   } catch (err) {
     console.warn("fetchBackgroundImage failed", err);
+    return null;
+  }
+}
+
+/** Busca galeria de imagens (Unsplash) — até 12. */
+export async function fetchImageGallery(opts: {
+  query: string;
+  format: "square" | "portrait";
+  page?: number;
+}): Promise<Array<{ url: string; photographer: PhotographerInfo }>> {
+  try {
+    const { data, error } = await supabase.functions.invoke("fetch-post-image", {
+      body: { ...opts, theme: opts.query, mode: "gallery" },
+    });
+    if (error || !Array.isArray(data?.results)) return [];
+    return data.results.map((r: any) => ({
+      url: r.url,
+      photographer: {
+        name: r.photographer?.name || "Unknown",
+        profileUrl: r.photographer?.profileUrl || "",
+        unsplashUrl: r.unsplashUrl || "",
+      },
+    }));
+  } catch (err) {
+    console.warn("fetchImageGallery failed", err);
+    return [];
+  }
+}
+
+/** Gera imagem por IA. */
+export async function generateAIImage(opts: {
+  query: string;
+  format: "square" | "portrait";
+}): Promise<{ url: string } | null> {
+  try {
+    const { data, error } = await supabase.functions.invoke("fetch-post-image", {
+      body: { theme: opts.query, query: opts.query, format: opts.format, allowAI: true, mode: "single" },
+    });
+    if (error || !data?.url) return null;
+    return { url: data.url };
+  } catch (err) {
+    console.warn("generateAIImage failed", err);
     return null;
   }
 }
@@ -108,10 +169,13 @@ export async function buildAutoLayout(input: AutoLayoutInput): Promise<AutoLayou
       });
 
   const overlays: OverlayImage[] = [];
-  let bgInfo: { url: string; source: "unsplash" | "ai" | "cache" } | null = null;
+  let bgInfo: { url: string; source: "unsplash" | "ai" | "cache"; photographer?: PhotographerInfo } | null = null;
 
-  // 1) Imagem de fundo (apenas para template "cover")
-  if (template.kind === "cover") {
+  // Resolve estilo: respeitar escolha explícita, ou padrão "unsplash"
+  const style: PostStyle = input.style ?? "unsplash";
+
+  // 1) Imagem de fundo segundo o estilo
+  if (style === "unsplash") {
     bgInfo = await fetchBackgroundImage({
       theme: input.theme,
       caption: input.caption,
@@ -121,7 +185,17 @@ export async function buildAutoLayout(input: AutoLayoutInput): Promise<AutoLayou
     if (bgInfo) {
       overlays.push(buildBackgroundImageOverlay(bgInfo.url, input.format, true));
     }
+  } else if (style === "ai") {
+    const ai = await generateAIImage({
+      query: input.theme || input.caption || "abstract",
+      format: input.format === "reels" ? "portrait" : "square",
+    });
+    if (ai) {
+      bgInfo = { url: ai.url, source: "ai" };
+      overlays.push(buildBackgroundImageOverlay(ai.url, input.format, true));
+    }
   }
+  // style === "minimal" → sem imagem; gradient é aplicado via suggestions
 
   // 2) Bloco decorativo (cor da paleta)
   const blockColor = template.decorativeBlock
@@ -151,6 +225,11 @@ export async function buildAutoLayout(input: AutoLayoutInput): Promise<AutoLayou
       slideNumberSize: template.slideNumberSlot?.size,
       backgroundImageUrl: bgInfo?.url,
       backgroundSource: bgInfo?.source ?? "none",
+      // Gradient padrão para estilo minimalista
+      useGradient: style === "minimal" && input.paletteHex.length >= 2,
+      gradientColor2Index: 1,
+      gradientDirection: "to bottom right",
     },
+    photographer: bgInfo?.photographer,
   };
 }

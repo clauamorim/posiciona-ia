@@ -185,15 +185,19 @@ export function buildDecorativeBlockOverlay(
 ): OverlayImage | null {
   if (!template.decorativeBlock) return null;
   const block = template.decorativeBlock;
-  const svg = `<svg width="${block.width}" height="${block.height}" xmlns="http://www.w3.org/2000/svg"><rect width="${block.width}" height="${block.height}" fill="${paletteHex}"/></svg>`;
+  // Garantir tamanho mínimo visível (evita "barrinha" de 6px que some)
+  const MIN_DIM = 80;
+  const w = block.width < MIN_DIM && block.width < block.height ? Math.max(MIN_DIM, block.width) : block.width;
+  const h = block.height < MIN_DIM && block.height < block.width ? Math.max(MIN_DIM, block.height) : block.height;
+  const svg = `<svg width="${w}" height="${h}" xmlns="http://www.w3.org/2000/svg"><rect width="${w}" height="${h}" fill="${paletteHex}"/></svg>`;
   const src = `data:image/svg+xml;base64,${btoa(svg)}`;
   return {
     id: `tpl-block-${crypto.randomUUID()}`,
     src,
     x: block.x,
     y: block.y,
-    width: block.width,
-    height: block.height,
+    width: w,
+    height: h,
     type: "element",
     opacity: block.opacity ?? 1,
   };

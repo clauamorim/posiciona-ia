@@ -13,7 +13,7 @@ import {
   Circle, Square as SquareIcon, Triangle, Hexagon, Diamond, Flame, Target, Crown,
   ThumbsUp, Bookmark, Send, AtSign, Hash, MapPin, Clock, Eye,
   Lightbulb, Gift, Camera as CameraIcon, Coffee, Smile, Bell, Flag, Shield, Layers,
-  Feather, Music, Pen, Globe, Sparkles, Lock, Unlock, Settings,
+  Feather, Music, Pen, Globe, Sparkles, Lock, Unlock, Settings, Search,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -25,6 +25,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import ColorPicker, { PaletteColor } from "./ColorPicker";
+import ImageGalleryPanel from "./ImageGalleryPanel";
+import type { PhotographerInfo } from "@/lib/postAutoLayout";
 import type { OverlayImage } from "../PostToolbar";
 
 const GRAPHIC_ELEMENTS = [
@@ -97,11 +99,20 @@ interface AddElementPanelProps {
   onPortraitsChanged?: () => void;
   hasSelectedElement?: boolean;
   onRecolorSelected?: (color: string) => void;
+  /** Tema/palavra-chave para busca de imagens (default = tema do post). */
+  imageSearchQuery?: string;
+  /** Formato do canvas para escolher orientação no Unsplash. */
+  canvasFormat?: "square" | "reels";
+  /** Chamado quando usuário pega imagem do Unsplash (para mostrar atribuição). */
+  onUnsplashPick?: (photographer: PhotographerInfo) => void;
+  /** Chamado quando uma imagem precisa virar fundo (substitui bg atual). */
+  onSwapBackground?: (url: string) => void;
 }
 
 const AddElementPanel: React.FC<AddElementPanelProps> = ({
   palette, defaultElementColor, bodyFont, textColor, userPortraits = [], onAddImage, onPortraitsChanged,
   hasSelectedElement, onRecolorSelected,
+  imageSearchQuery = "", canvasFormat = "square", onUnsplashPick, onSwapBackground,
 }) => {
   const { user } = useAuth();
   const [elementColor, setElementColor] = useState(defaultElementColor || palette[0]?.hex || "#7c3aed");
@@ -193,15 +204,45 @@ const AddElementPanel: React.FC<AddElementPanelProps> = ({
     input.click();
   };
 
-  // Step 2: confirm upload (with isLogo decision)
+  // Step 2: confirm upload (with isLogo decision). Logos pass through remove-background.
   const confirmUpload = async () => {
     if (!pendingUpload || !user) return;
     setUploading(true);
     const { blob, name, isLogo } = pendingUpload;
     try {
+      let finalBlob = blob;
+      let finalContentType = "image/jpeg";
+      let finalExt = "jpg";
+
+      // Para logos, remover o fundo automaticamente antes de salvar
+      if (isLogo) {
+        try {
+          const dataUrl: string = await new Promise((res, rej) => {
+            const r = new FileReader();
+            r.onload = () => res(r.result as string);
+            r.onerror = () => rej(r.error);
+            r.readAsDataURL(blob);
+          });
+          const compressedForRB = await compressImage(dataUrl, 1024, 0.85);
+          const { data: rbData, error: rbErr } = await supabase.functions.invoke("remove-background", {
+            body: { imageUrl: compressedForRB },
+          });
+          if (!rbErr && rbData?.image && typeof rbData.image === "string" && rbData.image.startsWith("data:image/")) {
+            const resp = await fetch(rbData.image);
+            finalBlob = await resp.blob();
+            finalContentType = "image/png";
+            finalExt = "png";
+          } else {
+            console.warn("remove-background indisponível, salvando logo com fundo original");
+          }
+        } catch (rbErr) {
+          console.warn("Falha ao remover fundo da logo, salvando original", rbErr);
+        }
+      }
+
       const id = crypto.randomUUID();
-      const path = `${user.id}/${id}.jpg`;
-      const { error: upErr } = await supabase.storage.from("user-uploads").upload(path, blob, { contentType: "image/jpeg", upsert: false });
+      const path = `${user.id}/${id}.${finalExt}`;
+      const { error: upErr } = await supabase.storage.from("user-uploads").upload(path, finalBlob, { contentType: finalContentType, upsert: false });
       if (upErr) throw upErr;
       const { error: insErr } = await supabase.from("user_gallery_assets").insert({
         user_id: user.id,
@@ -220,7 +261,7 @@ const AddElementPanel: React.FC<AddElementPanelProps> = ({
       };
       onAddImage(img);
       loadUserAssets();
-      toast({ title: isLogo ? "Logo salva na sua galeria" : "Imagem salva na sua galeria" });
+      toast({ title: isLogo ? "Logo salva (fundo removido)" : "Imagem salva na sua galeria" });
       setPendingUpload(null);
     } catch (err: any) {
       console.error("Upload error:", err);
@@ -277,13 +318,30 @@ const AddElementPanel: React.FC<AddElementPanelProps> = ({
 
   return (
     <Tabs defaultValue="upload" className="w-full">
-      <TabsList className="grid grid-cols-5 h-8 p-0.5">
-        <TabsTrigger value="upload" className="text-[10px] h-7 px-1"><ImagePlus className="h-3.5 w-3.5" /></TabsTrigger>
-        <TabsTrigger value="gallery" className="text-[10px] h-7 px-1"><ImageIcon className="h-3.5 w-3.5" /></TabsTrigger>
-        <TabsTrigger value="portraits" className="text-[10px] h-7 px-1"><Camera className="h-3.5 w-3.5" /></TabsTrigger>
-        <TabsTrigger value="icons" className="text-[10px] h-7 px-1"><Shapes className="h-3.5 w-3.5" /></TabsTrigger>
-        <TabsTrigger value="frames" className="text-[10px] h-7 px-1"><Minus className="h-3.5 w-3.5" /></TabsTrigger>
+      <TabsList className="grid grid-cols-6 h-8 p-0.5">
+        <TabsTrigger value="upload" className="text-[10px] h-7 px-1" title="Upload"><ImagePlus className="h-3.5 w-3.5" /></TabsTrigger>
+        <TabsTrigger value="bgimages" className="text-[10px] h-7 px-1" title="Banco de imagens"><Search className="h-3.5 w-3.5" /></TabsTrigger>
+        <TabsTrigger value="gallery" className="text-[10px] h-7 px-1" title="Minha galeria"><ImageIcon className="h-3.5 w-3.5" /></TabsTrigger>
+        <TabsTrigger value="portraits" className="text-[10px] h-7 px-1" title="Retratos"><Camera className="h-3.5 w-3.5" /></TabsTrigger>
+        <TabsTrigger value="icons" className="text-[10px] h-7 px-1" title="Ícones"><Shapes className="h-3.5 w-3.5" /></TabsTrigger>
+        <TabsTrigger value="frames" className="text-[10px] h-7 px-1" title="Molduras"><Minus className="h-3.5 w-3.5" /></TabsTrigger>
       </TabsList>
+
+      {/* Banco de imagens (Unsplash + IA) */}
+      <TabsContent value="bgimages" className="mt-3">
+        <ImageGalleryPanel
+          defaultQuery={imageSearchQuery}
+          format={canvasFormat === "reels" ? "portrait" : "square"}
+          onPickImage={(url, photographer) => {
+            if (photographer) onUnsplashPick?.(photographer);
+            if (onSwapBackground) {
+              onSwapBackground(url);
+            } else {
+              handleAddImageFromUrl(url);
+            }
+          }}
+        />
+      </TabsContent>
 
       {/* Upload + text box */}
       <TabsContent value="upload" className="mt-3 space-y-2">

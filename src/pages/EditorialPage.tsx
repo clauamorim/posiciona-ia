@@ -17,6 +17,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { parseReportContent, normalizeReportContent } from "@/lib/reportParser";
 import { cleanText } from "@/lib/textCleanup";
 import { isOutdated, isWeekOutdated, EDITORIAL_GENERATOR_VERSION } from "@/lib/generatorVersion";
+import StyleSelectionModal from "@/components/post-editor/StyleSelectionModal";
+import type { PostStyle } from "@/lib/postAutoLayout";
 
 // Escape HTML to prevent injection in raw innerHTML strings used for PDF
 function esc(s: string): string {
@@ -523,12 +525,12 @@ const EditorialPage = () => {
                             </Button>
                           )}
                           {(day.format?.toLowerCase() === "carrossel" || day.format?.toLowerCase() === "post") && day.card_copy?.length > 0 && (
-                            <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1 px-2" onClick={() => navigate(`/post-editor?week=${wi}&day=${di}`)}>
+                            <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1 px-2" onClick={() => handleOpenEditor(wi, di, day, false)}>
                               <PenTool className="h-3 w-3" /> Criar post
                             </Button>
                           )}
                           {day.format?.toLowerCase() === "reels" && (
-                            <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1 px-2" onClick={() => navigate(`/post-editor?week=${wi}&day=${di}&format=reels-cover`)}>
+                            <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1 px-2" onClick={() => handleOpenEditor(wi, di, day, true)}>
                               <Image className="h-3 w-3" /> Gerar capa
                             </Button>
                           )}
