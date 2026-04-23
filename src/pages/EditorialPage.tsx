@@ -425,20 +425,50 @@ const EditorialPage = () => {
             </TabsList>
           )}
 
-          {allWeeks.map((week, wi) => (
+          {allWeeks.map((week, wi) => {
+            const weekOutdated = isWeekOutdated(week);
+            const isRegenWeek = regeneratingFreeWeek === wi;
+            return (
             <TabsContent key={wi} value={`week-${wi}`}>
+              {weekOutdated && (
+                <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-900/50 p-3 flex flex-col sm:flex-row sm:items-center gap-3">
+                  <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
+                  <div className="flex-1 text-xs text-amber-900 dark:text-amber-200 leading-relaxed">
+                    <strong className="font-semibold">Esta semana foi gerada antes de melhorias na plataforma.</strong>{" "}
+                    Atualize sem custo para aplicar as correções (rótulos do framework removidos, textos mais limpos).
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 gap-1.5 border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-900/30"
+                    onClick={() => handleRegenerateWeekFree(wi)}
+                    disabled={isRegenWeek}
+                  >
+                    {isRegenWeek ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
+                    {isRegenWeek ? "Atualizando..." : "Atualizar semana (grátis)"}
+                  </Button>
+                </div>
+              )}
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {(week || []).map((day: any, di: number) => {
                   const fmt = FORMAT_CONFIG[day.format?.toLowerCase()] || FORMAT_CONFIG.post;
                   const regenKey = `${wi}-${di}`;
+                  const dayOutdated = isOutdated(day);
                   return (
                     <Card key={di} className={`flex flex-col break-inside-avoid border-l-[3px] ${fmt.border}`}>
                       <CardContent className="py-4 flex-1 space-y-3">
                         <div className="flex items-center justify-between">
                           <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Dia {day.day || di + 1}</span>
-                          <Badge variant="outline" className={`text-[10px] gap-1 ${fmt.color}`}>
-                            {fmt.icon} {fmt.label}
-                          </Badge>
+                          <div className="flex items-center gap-1.5">
+                            {dayOutdated && (
+                              <Badge variant="outline" className="text-[10px] gap-1 bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-900">
+                                <AlertTriangle className="h-2.5 w-2.5" /> Desatualizado
+                              </Badge>
+                            )}
+                            <Badge variant="outline" className={`text-[10px] gap-1 ${fmt.color}`}>
+                              {fmt.icon} {fmt.label}
+                            </Badge>
+                          </div>
                         </div>
 
                         <h3 className="text-sm font-semibold leading-tight">{cleanText(day.theme || "")}</h3>
@@ -502,6 +532,17 @@ const EditorialPage = () => {
                               <Image className="h-3 w-3" /> Gerar capa
                             </Button>
                           )}
+                          {dayOutdated && (
+                            <Button
+                              variant="outline" size="sm"
+                              className="h-7 text-[11px] gap-1 px-2 border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200 hover:bg-amber-50 dark:hover:bg-amber-950/30"
+                              onClick={() => handleRegeneratePost(wi, di, true)}
+                              disabled={regeneratingPost === regenKey}
+                            >
+                              {regeneratingPost === regenKey ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />}
+                              Atualizar (grátis)
+                            </Button>
+                          )}
                           <Button
                             variant="ghost" size="sm" className="h-7 text-[11px] gap-1 px-2"
                             onClick={() => handleRegeneratePost(wi, di)}
@@ -517,7 +558,7 @@ const EditorialPage = () => {
                 })}
               </div>
             </TabsContent>
-          ))}
+          );})}
         </Tabs>
 
         <div className="flex justify-center pt-2" data-hide-pdf>
