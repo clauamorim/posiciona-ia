@@ -243,10 +243,12 @@ async function fetchUserLogo(userId: string): Promise<string | null> {
     let finalUrl = signed?.signedUrl || null;
     if (!finalUrl) return null;
 
-    // Verifica se o arquivo realmente tem transparência (não confia em bg_removed nem na extensão)
-    const hasReal = await imageHasTransparency(finalUrl);
+    // Analisa a logo: pode estar transparente, com fundo branco/sólido,
+    // ou indeterminada. Em caso de fundo sólido OU indeterminado, reprocessa.
+    const status = await analyzeLogoBackground(finalUrl);
+    const needsRemoval = status !== "transparent";
 
-    if (!hasReal) {
+    if (needsRemoval) {
       // Reprocessa via remove-background. A edge function devolve um PNG com
       // fundo VERDE (#00FF00) e o flag chromaKey=true; precisamos converter
       // o verde em alpha aqui no cliente, senão a logo continua com fundo.
@@ -266,10 +268,9 @@ async function fetchUserLogo(userId: string): Promise<string | null> {
           // Sempre passa pelo chroma-key — independente da flag, garante alpha real.
           const transparent = await chromaKeyGreenToTransparent(rb.image);
           const finalImage = transparent || rb.image;
-          // Confirma que de fato gerou alpha; se não, não persiste para evitar
-          // continuar reusando uma logo "falsamente" sem fundo.
-          const stillHasBg = !(await imageHasTransparency(finalImage));
-          if (!stillHasBg) {
+          // Confirma que de fato gerou alpha; só persiste se ficou transparente.
+          const newStatus = await analyzeLogoBackground(finalImage);
+          if (newStatus === "transparent") {
             const newBlob = await (await fetch(finalImage)).blob();
             const newPath = filePath.replace(/\.[^.]+$/, "") + ".png";
             const { error: upErr } = await supabase.storage
