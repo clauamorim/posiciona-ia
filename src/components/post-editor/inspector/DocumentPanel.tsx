@@ -163,6 +163,53 @@ const DocumentPanel: React.FC<DocumentPanelProps> = ({
         </div>
       )}
 
+      {/* Background image swap */}
+      {onSwapBackgroundImage && (
+        <div>
+          <h4 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-2">Imagem de fundo</h4>
+          <Button
+            variant="outline" size="sm"
+            onClick={onSwapBackgroundImage}
+            disabled={swappingBackground}
+            className="gap-2 w-full h-8 text-xs"
+          >
+            {swappingBackground ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImageDown className="h-3.5 w-3.5" />}
+            {swappingBackground ? "Buscando…" : "Trocar imagem (Unsplash)"}
+          </Button>
+          <p className="text-[10px] text-muted-foreground/70 mt-1.5">Imagens do Unsplash são gratuitas.</p>
+        </div>
+      )}
+
+      {/* Guides */}
+      {(onShowGridChange || onShowRulersChange || onShowCoordinatesChange || onEnableSnapChange) && (
+        <div>
+          <h4 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-2">Guias de edição</h4>
+          <div className="grid grid-cols-2 gap-1.5">
+            {onShowGridChange && (
+              <Button variant={showGrid ? "default" : "outline"} size="sm" onClick={() => onShowGridChange(!showGrid)} className="gap-1.5 text-[11px] h-8">
+                <Grid3x3 className="h-3 w-3" /> Grade
+              </Button>
+            )}
+            {onShowRulersChange && (
+              <Button variant={showRulers ? "default" : "outline"} size="sm" onClick={() => onShowRulersChange(!showRulers)} className="gap-1.5 text-[11px] h-8">
+                <Ruler className="h-3 w-3" /> Réguas
+              </Button>
+            )}
+            {onShowCoordinatesChange && (
+              <Button variant={showCoordinates ? "default" : "outline"} size="sm" onClick={() => onShowCoordinatesChange(!showCoordinates)} className="gap-1.5 text-[11px] h-8">
+                <Crosshair className="h-3 w-3" /> Coords
+              </Button>
+            )}
+            {onEnableSnapChange && (
+              <Button variant={enableSnap ? "default" : "outline"} size="sm" onClick={() => onEnableSnapChange(!enableSnap)} className="gap-1.5 text-[11px] h-8">
+                <Magnet className="h-3 w-3" /> Snap
+              </Button>
+            )}
+          </div>
+          <p className="text-[10px] text-muted-foreground/70 mt-1.5">Setas: 1px · Shift+setas: 10px</p>
+        </div>
+      )}
+
       {/* Reset */}
       <Button variant="outline" size="sm" onClick={onReset} className="gap-2 w-full h-8 text-xs">
         <RotateCcw className="h-3.5 w-3.5" /> Resetar
