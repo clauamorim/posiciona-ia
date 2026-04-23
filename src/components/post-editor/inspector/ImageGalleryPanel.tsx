@@ -137,6 +137,29 @@ const ImageGalleryPanel: React.FC<ImageGalleryPanelProps> = ({
 
   return (
     <div className="space-y-3">
+      {savedImages.length > 0 && (
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-2">Suas imagens salvas</p>
+          <div className="grid grid-cols-3 gap-1.5 max-h-48 overflow-y-auto pr-1">
+            {savedImages.map((item, i) => (
+              <button
+                key={`${item.url}-${i}`}
+                onClick={() => onPickImage(item.url)}
+                className="aspect-square rounded-md border bg-muted/40 hover:ring-2 hover:ring-primary transition-all overflow-hidden relative"
+                title={item.name}
+              >
+                <img src={item.url} alt={item.name} loading="lazy" className="w-full h-full object-cover" />
+                {item.source !== "upload" && (
+                  <span className="absolute bottom-0.5 right-0.5 px-1 py-px rounded bg-background/80 text-[8px] font-semibold uppercase tracking-wider text-foreground/70">
+                    {item.source === "ai" ? "IA" : "UN"}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div>
         <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-2">Buscar no Unsplash</p>
         <form
