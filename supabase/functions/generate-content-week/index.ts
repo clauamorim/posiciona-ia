@@ -179,6 +179,10 @@ Exemplos:
 - ERRADO em cta: "Chamada à Ação: Agende sua sessão hoje"
 - CERTO em cta: "Agende sua sessão hoje"
 
+NUNCA prefixe os itens de "card_copy" com "Slide 1:", "Slide 2:", "Card 1:", "Página 1:", etc. Cada item do array JÁ É um slide; escreva apenas o conteúdo do slide, sem rótulo posicional.
+ERRADO: ["Slide 1: Você também sente que o tempo voa?", "Slide 2: A solução está aqui"]
+CERTO:  ["Você também sente que o tempo voa?", "A solução está aqui"]
+
 ESTRATÉGIA DE CONTEÚDO — BASEADA EXCLUSIVAMENTE NO STORYBRAND:
 Cada dia explora INTERNAMENTE uma faceta do StoryBrand (use como guia mental, NÃO cite a faceta no texto visível):
 - Dia 1: foco interno = HERÓI (cliente) — mostre que você entende quem ele é, seus desejos e aspirações

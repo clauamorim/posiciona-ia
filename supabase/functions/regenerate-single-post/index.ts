@@ -101,6 +101,10 @@ Exemplos:
 - ERRADO em cta: "Chamada à Ação: Agende sua sessão hoje"
 - CERTO em cta: "Agende sua sessão hoje"
 
+NUNCA prefixe os itens de "card_copy" com "Slide 1:", "Slide 2:", "Card 1:", "Página 1:", etc. Cada item do array JÁ É um slide; escreva apenas o conteúdo do slide, sem rótulo posicional.
+ERRADO: ["Slide 1: Você também sente que o tempo voa?", "Slide 2: A solução está aqui"]
+CERTO:  ["Você também sente que o tempo voa?", "A solução está aqui"]
+
 O JSON deve seguir EXATAMENTE esta estrutura:
 {
   "day": ${dayNumber || 1},
