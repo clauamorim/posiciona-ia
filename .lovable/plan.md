@@ -1,61 +1,49 @@
 
 
-## Diagnóstico
+## Regeneração após atualizações da plataforma
 
-Investiguei o banco e encontrei o problema real:
+A ideia é marcar o conteúdo antigo como "desatualizado" sempre que houver uma melhoria relevante no gerador, e permitir que o usuário regenere **sem custo** as semanas/posts afetados.
 
-1. **Print 2 (relatório como JSON cru com ` ```json `)**: o registro desse usuário foi salvo no Supabase com `content` do tipo **string** literal `"```json\n{...}\n```"` em vez de objeto JSON. Isso aconteceu porque o regex de limpeza no edge function `generate-report` falhou em remover o cerca de markdown, então o `JSON.parse` caiu no `catch` e gravou o texto cru.
-2. **Print 1 (Narrativa da Marca vazia)**: é consequência direta — como `parseReportContent` não consegue extrair o objeto, `hasStorybrand` vira `false` e a página mostra empty state.
+## Como vai funcionar
 
-Outros 7 relatórios no banco foram salvos corretamente como `object`. Esse é um bug intermitente que reaparece quando a IA decide envelopar a resposta em fence apesar das instruções.
+### 1. Versão do gerador (constante de código)
+Crio uma constante `EDITORIAL_GENERATOR_VERSION` no código (ex: `"2026-04-23-v3"`). Toda vez que eu fizer correções relevantes nas edge functions de geração (prompt, parser, sanitização), incremento essa versão.
 
-## Solução em 3 camadas
+### 2. Marcar a versão usada em cada semana/post
+- Ao gerar uma semana, salvo `generator_version` dentro de cada dia do array `editorial_weeks` e `content.editorial`.
+- Conteúdos antigos (sem essa marca) são considerados desatualizados.
 
-### 1. Edge function `generate-report` — parsing robusto
+### 3. UI de aviso na Linha Editorial
+Quando a aba/semana exibida tem conteúdo desatualizado:
+- **Banner discreto no topo da semana**: "Esta semana foi gerada antes de melhorias na plataforma. Regenere sem custo para aplicar as correções (rótulos de framework removidos, textos mais limpos)."
+- **Botão "Regenerar semana (grátis)"** ao lado do banner.
+- **Em cada card de post desatualizado**: badge sutil "Desatualizado" + botão "Atualizar post (grátis)" — diferente do botão "Gerar novo" que cobra crédito.
 
-Substituir o regex frágil atual:
-```ts
-const cleaned = rawContent.replace(/^```json?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
-reportContent = JSON.parse(cleaned);
-```
+### 4. Lógica de regeneração gratuita
+- `regenerate-single-post` e `generate-content-week` recebem flag opcional `freeRegeneration: true`.
+- Quando true, a edge function **pula a dedução de créditos** e exige que o post/semana original tenha `generator_version` ausente ou inferior à atual (verificação no backend pra evitar abuso).
+- Substitui o conteúdo antigo no mesmo slot (mesma semana/dia) em vez de adicionar novo.
 
-Por uma rotina de extração em cascata:
-- Tenta `JSON.parse(rawContent)` direto.
-- Se falhar, busca bloco entre ```` ```json ... ``` ```` (regex `/```(?:json)?\s*([\s\S]*?)\s*```/i`).
-- Se falhar, recorta entre primeira `{` e última `}`.
-- Em cada tentativa, faz `JSON.parse` e valida que tem pelo menos `archetypes` ou `storybrand`.
-- Só salva como string crua **em último caso**, e nesse cenário **retorna 502** com erro claro (`"AI returned malformed JSON"`) em vez de salvar lixo no banco. Assim o front mostra mensagem "Erro ao gerar, tente regenerar" em vez de exibir JSON cru.
-
-Aplicar a mesma rotina em `generate-content-week` e `regenerate-single-post` (mesmo bug latente).
-
-### 2. Hardening do prompt
-
-Reforçar a primeira linha do system prompt:
-> **CRÍTICO:** Sua resposta deve começar com `{` e terminar com `}`. NÃO use ``` ``` ``` em hipótese alguma. NÃO escreva nenhum texto antes ou depois do JSON. Se você adicionar markdown fences, o sistema irá rejeitar a resposta.
-
-Reduz a frequência do problema na origem.
-
-### 3. Limpeza do registro corrompido + recuperação no front
-
-- **Migração corretiva**: rodar UPDATE pontual no relatório `3ebfdae8...` para extrair o JSON de dentro da string e regravar como objeto. Vou inspecionar o conteúdo, fazer parse manual e executar a migração via tool de banco.
-- **Reforço no `reportParser.ts`**: melhorar `extractJsonCandidates` para tolerar fences seguidas de whitespace/newlines mais agressivamente e tentar reparar o JSON (remover vírgulas finais antes de `}` ou `]`, que é o erro típico de Gemini).
+### 5. Aplicar também aos posts personalizados (Meus Designs)
+Designs salvos em `user_designs` apontam para `week_index`/`day_index`. Quando o post-base é regenerado, o design fica defasado — vou exibir um aviso na página `/my-designs`: "O conteúdo-base deste design foi atualizado. [Recriar do zero]" (não sobrescrevo automaticamente o trabalho visual do usuário).
 
 ## Arquivos afetados
 
-- `supabase/functions/generate-report/index.ts` — parsing robusto + prompt hardening
-- `supabase/functions/generate-content-week/index.ts` — mesmo parsing robusto
-- `supabase/functions/regenerate-single-post/index.ts` — mesmo parsing robusto
-- `src/lib/reportParser.ts` — extração tolerante + reparo de JSON
-- Migração SQL: corrigir 1 registro existente no banco
+- `src/lib/generatorVersion.ts` (novo) — constante única de versão + helper `isOutdated(day)`.
+- `supabase/functions/generate-content-week/index.ts` — injeta `generator_version` em cada dia gerado; aceita `freeRegeneration` + `replaceWeekIndex` para sobrescrever em vez de adicionar.
+- `supabase/functions/regenerate-single-post/index.ts` — injeta `generator_version`; aceita `freeRegeneration` (pula dedução se versão antiga).
+- `src/pages/EditorialPage.tsx` — banner por semana, badge por post, botões "Regenerar grátis", chamadas com flag.
+- `src/pages/MyDesignsPage.tsx` — aviso quando o conteúdo-base foi atualizado depois do design.
 
-## Resultado esperado
+## Detalhes técnicos (para referência)
 
-- Relatório do usuário do print volta a renderizar normalmente (Narrativa da Marca + todas as seções) após a migração corretiva.
-- Próximas gerações ficam blindadas: 3 níveis de fallback para parsing, e se tudo falhar o front mostra "Erro ao gerar" claro em vez de JSON cru.
-- Prompt mais agressivo reduz incidência do problema.
+- A versão do gerador fica **só no código**, não no banco. Isso permite incrementar sem migração — basta deploy.
+- A edge function valida server-side: `if (freeRegeneration && oldDay.generator_version === CURRENT_VERSION) return 400`. Evita usuário burlar e regenerar grátis sem motivo.
+- Conteúdo gerado antes desse sistema (sem `generator_version`) conta como desatualizado uma vez. Após a primeira regeneração gratuita, passa a contar como atualizado.
 
 ## Fora do escopo
 
-- Reescrever a UI da página Report — ela está OK, o problema é de dados.
-- Mudar de Gemini para outro modelo — o bug é resolvível com parsing defensivo.
+- Notificação por e-mail informando que há regeneração disponível.
+- Histórico de versões anteriores (substituição é destrutiva — usuário regenera, perde o anterior).
+- Regenerar automaticamente todos os usuários em massa (deixo na mão do usuário pra não consumir recursos do Lovable AI sem necessidade).
 
