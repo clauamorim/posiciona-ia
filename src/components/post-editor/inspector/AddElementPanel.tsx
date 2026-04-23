@@ -161,6 +161,8 @@ const AddElementPanel: React.FC<AddElementPanelProps> = ({
     blob: Blob; name: string; isLogo: boolean;
   } | null>(null);
 
+  const [removingBgId, setRemovingBgId] = useState<string | null>(null);
+
   const toggleLogo = async (asset: UserAsset) => {
     const next = !asset.is_logo;
     const { error } = await supabase
@@ -173,6 +175,50 @@ const AddElementPanel: React.FC<AddElementPanelProps> = ({
     }
     setUserAssets(prev => prev.map(a => a.id === asset.id ? { ...a, is_logo: next } : a));
     toast({ title: next ? "Marcada como logo" : "Não é mais logo" });
+  };
+
+  // Remove fundo de uma imagem da galeria do usuário (útil para logos antigas)
+  const handleRemoveBgFromAsset = async (asset: UserAsset) => {
+    if (removingBgId) return;
+    setRemovingBgId(asset.id);
+    try {
+      const resp = await fetch(asset.url);
+      const blob = await resp.blob();
+      const dataUrl: string = await new Promise((res, rej) => {
+        const r = new FileReader();
+        r.onload = () => res(r.result as string);
+        r.onerror = () => rej(r.error);
+        r.readAsDataURL(blob);
+      });
+      const compressed = await compressImage(dataUrl, 1024, 0.85);
+      const { data, error } = await supabase.functions.invoke("remove-background", {
+        body: { imageUrl: compressed },
+      });
+      if (error || !data?.image || !data.image.startsWith("data:image/")) {
+        throw new Error("Não foi possível remover o fundo desta imagem.");
+      }
+      const newBlob = await (await fetch(data.image)).blob();
+      const newPath = asset.file_path.replace(/\.[^.]+$/, "") + ".png";
+      const { error: upErr } = await supabase.storage
+        .from("user-uploads")
+        .upload(newPath, newBlob, { contentType: "image/png", upsert: true });
+      if (upErr) throw upErr;
+      await supabase
+        .from("user_gallery_assets")
+        .update({ file_path: newPath, bg_removed: true })
+        .eq("id", asset.id);
+      // Remove arquivo antigo se a extensão mudou
+      if (newPath !== asset.file_path) {
+        await supabase.storage.from("user-uploads").remove([asset.file_path]).catch(() => {});
+      }
+      const { data: signed } = await supabase.storage.from("user-uploads").createSignedUrl(newPath, 60 * 60);
+      setUserAssets(prev => prev.map(a => a.id === asset.id ? { ...a, file_path: newPath, url: signed?.signedUrl || a.url } : a));
+      toast({ title: "Fundo removido com sucesso" });
+    } catch (err: any) {
+      toast({ title: "Erro ao remover fundo", description: err?.message, variant: "destructive" });
+    } finally {
+      setRemovingBgId(null);
+    }
   };
 
   // Step 1: pick file → open modal asking if it's a logo
