@@ -13,7 +13,7 @@ import {
   Circle, Square as SquareIcon, Triangle, Hexagon, Diamond, Flame, Target, Crown,
   ThumbsUp, Bookmark, Send, AtSign, Hash, MapPin, Clock, Eye,
   Lightbulb, Gift, Camera as CameraIcon, Coffee, Smile, Bell, Flag, Shield, Layers,
-  Feather, Music, Pen, Globe, Sparkles, Lock, Unlock, Settings,
+  Feather, Music, Pen, Globe, Sparkles, Lock, Unlock, Settings, Search,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -25,6 +25,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import ColorPicker, { PaletteColor } from "./ColorPicker";
+import ImageGalleryPanel from "./ImageGalleryPanel";
+import type { PhotographerInfo } from "@/lib/postAutoLayout";
 import type { OverlayImage } from "../PostToolbar";
 
 const GRAPHIC_ELEMENTS = [
@@ -97,11 +99,20 @@ interface AddElementPanelProps {
   onPortraitsChanged?: () => void;
   hasSelectedElement?: boolean;
   onRecolorSelected?: (color: string) => void;
+  /** Tema/palavra-chave para busca de imagens (default = tema do post). */
+  imageSearchQuery?: string;
+  /** Formato do canvas para escolher orientação no Unsplash. */
+  canvasFormat?: "square" | "reels";
+  /** Chamado quando usuário pega imagem do Unsplash (para mostrar atribuição). */
+  onUnsplashPick?: (photographer: PhotographerInfo) => void;
+  /** Chamado quando uma imagem precisa virar fundo (substitui bg atual). */
+  onSwapBackground?: (url: string) => void;
 }
 
 const AddElementPanel: React.FC<AddElementPanelProps> = ({
   palette, defaultElementColor, bodyFont, textColor, userPortraits = [], onAddImage, onPortraitsChanged,
   hasSelectedElement, onRecolorSelected,
+  imageSearchQuery = "", canvasFormat = "square", onUnsplashPick, onSwapBackground,
 }) => {
   const { user } = useAuth();
   const [elementColor, setElementColor] = useState(defaultElementColor || palette[0]?.hex || "#7c3aed");
