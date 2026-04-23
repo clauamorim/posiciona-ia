@@ -75,11 +75,13 @@ export interface AutoLayoutResult {
 }
 
 /**
- * Verifica se uma imagem (URL) tem transparência real — carrega em canvas
- * e checa alpha. Também processa green-screen (#00FF00) como transparência
- * caso a imagem venha do remove-background sem chroma key aplicado.
+ * Verifica se uma imagem (URL) tem transparência real OU detecta fundo
+ * sólido (branco/quase-branco) que precisa ser removido. Retorna:
+ *   - "transparent" → tem alpha real, está ok
+ *   - "solid-bg"    → fundo sólido (branco/uniforme nas bordas), precisa remover
+ *   - "unknown"     → falhou ao analisar, tratar como precisa-remover por segurança
  */
-async function imageHasTransparency(url: string): Promise<boolean> {
+async function analyzeLogoBackground(url: string): Promise<"transparent" | "solid-bg" | "unknown"> {
   return new Promise((resolve) => {
     try {
       const img = new Image();
@@ -94,19 +96,73 @@ async function imageHasTransparency(url: string): Promise<boolean> {
           canvas.width = w;
           canvas.height = h;
           const ctx = canvas.getContext("2d");
-          if (!ctx) return resolve(false);
+          if (!ctx) return resolve("unknown");
           ctx.drawImage(img, 0, 0, w, h);
           const data = ctx.getImageData(0, 0, w, h).data;
+
+          // 1) Conta pixels com alpha real (< 250)
           let transparentPixels = 0;
           for (let i = 3; i < data.length; i += 4) {
             if (data[i] < 250) transparentPixels++;
           }
-          resolve(transparentPixels / (data.length / 4) > 0.02);
-        } catch { resolve(false); }
+          const totalPixels = data.length / 4;
+          const transparentRatio = transparentPixels / totalPixels;
+
+          // 2) Inspeciona apenas os pixels da BORDA do canvas para detectar
+          //    fundo sólido (branco, preto ou outra cor uniforme).
+          //    Usar bordas evita falsos positivos quando o ícone preenche o centro.
+          const borderThickness = Math.max(2, Math.floor(Math.min(w, h) * 0.06));
+          let borderSamples = 0;
+          let whiteish = 0;       // perto do branco
+          let opaqueBorder = 0;   // alpha = 255
+          let rSum = 0, gSum = 0, bSum = 0;
+          const isBorder = (x: number, y: number) =>
+            x < borderThickness || x >= w - borderThickness ||
+            y < borderThickness || y >= h - borderThickness;
+          for (let y = 0; y < h; y++) {
+            for (let x = 0; x < w; x++) {
+              if (!isBorder(x, y)) continue;
+              const i = (y * w + x) * 4;
+              const r = data[i], g = data[i + 1], b = data[i + 2], a = data[i + 3];
+              borderSamples++;
+              if (a >= 250) opaqueBorder++;
+              rSum += r; gSum += g; bSum += b;
+              if (r > 240 && g > 240 && b > 240 && a >= 250) whiteish++;
+            }
+          }
+
+          // Se >2% dos pixels têm alpha parcial, considera transparente real.
+          if (transparentRatio > 0.02) return resolve("transparent");
+
+          // Se a borda é majoritariamente opaca E majoritariamente branca, tem fundo branco.
+          if (borderSamples > 0) {
+            const opaqueRatio = opaqueBorder / borderSamples;
+            const whiteRatio = whiteish / borderSamples;
+            if (opaqueRatio > 0.85 && whiteRatio > 0.6) return resolve("solid-bg");
+
+            // Detecta também fundo de cor uniforme (variância baixa nas bordas)
+            const rAvg = rSum / borderSamples;
+            const gAvg = gSum / borderSamples;
+            const bAvg = bSum / borderSamples;
+            let variance = 0;
+            for (let y = 0; y < h; y++) {
+              for (let x = 0; x < w; x++) {
+                if (!isBorder(x, y)) continue;
+                const i = (y * w + x) * 4;
+                variance += Math.abs(data[i] - rAvg) + Math.abs(data[i + 1] - gAvg) + Math.abs(data[i + 2] - bAvg);
+              }
+            }
+            const avgVariance = variance / (borderSamples * 3);
+            if (opaqueRatio > 0.85 && avgVariance < 12) return resolve("solid-bg");
+          }
+
+          // Sem alpha e sem fundo claramente sólido: deixa como está.
+          return resolve("transparent");
+        } catch { resolve("unknown"); }
       };
-      img.onerror = () => resolve(false);
+      img.onerror = () => resolve("unknown");
       img.src = url;
-    } catch { resolve(false); }
+    } catch { resolve("unknown"); }
   });
 }
 
@@ -159,6 +215,11 @@ async function chromaKeyGreenToTransparent(dataUrl: string): Promise<string | nu
 
 const LOGO_CACHE_PREFIX = "posiciona-logo-cache-";
 
+/** Invalida o cache de sessão da logo (chamar após upload de nova logo). */
+export function clearLogoCache(userId: string) {
+  try { sessionStorage.removeItem(`${LOGO_CACHE_PREFIX}${userId}`); } catch {}
+}
+
 /** Busca a logo mais recente do usuário marcada com is_logo=true. Garante transparência real. */
 async function fetchUserLogo(userId: string): Promise<string | null> {
   // Cache por sessão para evitar reprocessar a cada slide
@@ -187,10 +248,12 @@ async function fetchUserLogo(userId: string): Promise<string | null> {
     let finalUrl = signed?.signedUrl || null;
     if (!finalUrl) return null;
 
-    // Verifica se o arquivo realmente tem transparência (não confia em bg_removed nem na extensão)
-    const hasReal = await imageHasTransparency(finalUrl);
+    // Analisa a logo: pode estar transparente, com fundo branco/sólido,
+    // ou indeterminada. Em caso de fundo sólido OU indeterminado, reprocessa.
+    const status = await analyzeLogoBackground(finalUrl);
+    const needsRemoval = status !== "transparent";
 
-    if (!hasReal) {
+    if (needsRemoval) {
       // Reprocessa via remove-background. A edge function devolve um PNG com
       // fundo VERDE (#00FF00) e o flag chromaKey=true; precisamos converter
       // o verde em alpha aqui no cliente, senão a logo continua com fundo.
@@ -210,10 +273,9 @@ async function fetchUserLogo(userId: string): Promise<string | null> {
           // Sempre passa pelo chroma-key — independente da flag, garante alpha real.
           const transparent = await chromaKeyGreenToTransparent(rb.image);
           const finalImage = transparent || rb.image;
-          // Confirma que de fato gerou alpha; se não, não persiste para evitar
-          // continuar reusando uma logo "falsamente" sem fundo.
-          const stillHasBg = !(await imageHasTransparency(finalImage));
-          if (!stillHasBg) {
+          // Confirma que de fato gerou alpha; só persiste se ficou transparente.
+          const newStatus = await analyzeLogoBackground(finalImage);
+          if (newStatus === "transparent") {
             const newBlob = await (await fetch(finalImage)).blob();
             const newPath = filePath.replace(/\.[^.]+$/, "") + ".png";
             const { error: upErr } = await supabase.storage
@@ -388,16 +450,21 @@ export async function buildAutoLayout(input: AutoLayoutInput): Promise<AutoLayou
   }
   // style === "minimal" → sem imagem; usamos overlays decorativos próprios + gradient
 
-  // 2) Bloco / overlays decorativos
-  if (style === "minimal") {
-    // Para minimal, usar conjunto rico (moldura + linha + ornamento)
-    const primary = input.paletteHex[0] || "#7c3aed";
-    const accent = input.paletteHex[1] || input.paletteHex[0] || "#7c3aed";
-    overlays.push(...buildMinimalDecorativeOverlays(template, primary, accent));
-  }
-  // IMPORTANTE: para estilos com foto (unsplash/ai) NÃO adicionamos
-  // decorativeBlock sólido — a legibilidade do texto vem do gradiente preto
-  // translúcido do PostCanvas (hasPhotoBackground), não de uma caixa branca.
+  // Calcula bodyBottomY estimado (para posicionar decoração abaixo do texto)
+  const estBodyHeight = template.bodySlot
+    ? Math.max(160, Math.round(template.bodySlot.fontSize * 1.6 * 4))
+    : 160;
+  const bodyBottomY = template.bodySlot
+    ? template.bodySlot.y + estBodyHeight
+    : undefined;
+
+  // 2) Decorações (moldura + linha + losango) — agora em TODOS os estilos
+  const primary = input.paletteHex[0] || "#7c3aed";
+  const accent = input.paletteHex[1] || input.paletteHex[0] || "#7c3aed";
+  const onPhoto = style === "unsplash" || style === "ai";
+  overlays.push(
+    ...buildMinimalDecorativeOverlays(template, primary, accent, { onPhoto, bodyBottomY }),
+  );
 
   // 3) Logo do usuário (se houver)
   const logoUrl = await fetchUserLogo(input.userId);

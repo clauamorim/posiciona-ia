@@ -52,12 +52,14 @@ const SQUARE_TEMPLATES: Record<TemplateKind, TemplateLayout> = {
     kind: "cover",
     format: "square",
     backgroundOverlay: true,
-    // paletteIndex 2 (geralmente cor escura/contraste) ao invés de 0 (primária) para destacar do gradiente
-    decorativeBlock: { x: 0, y: 760, width: SQUARE_W, height: 320, paletteIndex: 2, opacity: 0.85 },
+    // No solid decorative block — readability comes from the gradient overlay
+    // rendered by PostCanvas itself when there is a photo background.
+    decorativeBlock: null,
     logoSlot: { x: 60, y: 60, width: 160, height: 160 },
     portraitSlot: null,
-    titleSlot: { x: 80, y: 800, width: 920, fontSize: 64, align: "left" },
-    bodySlot: { x: 80, y: 940, width: 920, fontSize: 26, align: "left" },
+    // Slots subidos para deixar respiro no rodapé (antes y=800/940)
+    titleSlot: { x: 80, y: 620, width: 920, fontSize: 60, align: "left" },
+    bodySlot: { x: 80, y: 820, width: 920, fontSize: 26, align: "left" },
     slideNumberSlot: { x: SQUARE_W - 80, y: 80, size: 14, show: false },
   },
   content: {
@@ -103,12 +105,12 @@ const REELS_TEMPLATES: Record<TemplateKind, TemplateLayout> = {
     kind: "cover",
     format: "reels",
     backgroundOverlay: true,
-    // paletteIndex 2 para contraste claro com gradiente
-    decorativeBlock: { x: 0, y: 1380, width: REELS_W, height: 540, paletteIndex: 2, opacity: 0.85 },
+    decorativeBlock: null,
     logoSlot: { x: 60, y: 80, width: 180, height: 180 },
     portraitSlot: null,
-    titleSlot: { x: 80, y: 1440, width: 920, fontSize: 80, align: "left" },
-    bodySlot: { x: 80, y: 1660, width: 920, fontSize: 32, align: "left" },
+    // Slots subidos para deixar respiro no rodapé (antes y=1440/1660)
+    titleSlot: { x: 80, y: 1180, width: 920, fontSize: 76, align: "left" },
+    bodySlot: { x: 80, y: 1480, width: 920, fontSize: 32, align: "left" },
     slideNumberSlot: { x: 0, y: 0, size: 14, show: false },
   },
   content: {
@@ -254,24 +256,32 @@ export function buildBackgroundImageOverlay(
 
 /**
  * Constrói um conjunto de overlays decorativos para o estilo "minimal":
- * moldura interna + linha horizontal abaixo do título + ornamento (losango).
- * Retorna array (e não único bloco) — substitui buildDecorativeBlockOverlay no estilo minimal.
+ * moldura interna + linha horizontal abaixo do bloco de texto + ornamento (losango).
+ *
+ * @param onPhoto Quando true, usa branco translúcido para contrastar com a foto.
+ * @param bodyBottomY Y onde termina o bloco de corpo de texto (para posicionar
+ *                     a linha+losango sempre ABAIXO do texto, nunca por cima).
  */
 export function buildMinimalDecorativeOverlays(
   template: TemplateLayout,
   primaryHex: string,
   accentHex?: string,
+  opts?: { onPhoto?: boolean; bodyBottomY?: number },
 ): OverlayImage[] {
   const isReels = template.format === "reels";
   const W = isReels ? REELS_W : SQUARE_W;
   const H = isReels ? REELS_H : SQUARE_H;
-  const accent = accentHex || primaryHex;
+  const onPhoto = !!opts?.onPhoto;
+  const accent = onPhoto ? "#ffffff" : (accentHex || primaryHex);
+  const stroke = onPhoto ? "#ffffff" : primaryHex;
+  const strokeOpacity = onPhoto ? 0.7 : 0.55;
+  const accentOpacity = onPhoto ? 0.85 : 1;
 
-  // 1) Moldura interna
+  // 1) Moldura interna — sempre presente, atrás do texto
   const FRAME_INSET = isReels ? 60 : 40;
   const frameW = W - FRAME_INSET * 2;
   const frameH = H - FRAME_INSET * 2;
-  const frameSvg = `<svg width="${frameW}" height="${frameH}" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="1" width="${frameW - 2}" height="${frameH - 2}" fill="none" stroke="${primaryHex}" stroke-width="2" opacity="0.55"/></svg>`;
+  const frameSvg = `<svg width="${frameW}" height="${frameH}" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="1" width="${frameW - 2}" height="${frameH - 2}" fill="none" stroke="${stroke}" stroke-width="2" opacity="${strokeOpacity}"/></svg>`;
   const frame: OverlayImage = {
     id: `tpl-mframe-${crypto.randomUUID()}`,
     src: `data:image/svg+xml;base64,${btoa(frameSvg)}`,
@@ -279,14 +289,18 @@ export function buildMinimalDecorativeOverlays(
     type: "element", opacity: 1,
   };
 
-  // 2) Linha horizontal decorativa entre título e corpo
+  // 2) Linha horizontal decorativa SEMPRE abaixo do bloco de texto.
+  // Calcula posição com base no fim do corpo de texto (com margem),
+  // caindo para defaults seguros (longe do título) se não houver dado.
   const lineW = isReels ? 220 : 160;
   const lineH = 4;
   const lineX = (W - lineW) / 2;
-  // Square: título termina ~440 (340 + 60*1.6), corpo começa em 660 → linha em 540
-  // Reels: título termina ~720 (540 + 78*1.6*1.5 linhas), corpo em 1100 → linha em 880
-  const lineY = isReels ? 880 : 540;
-  const lineSvg = `<svg width="${lineW}" height="${lineH}" xmlns="http://www.w3.org/2000/svg"><rect width="${lineW}" height="${lineH}" fill="${accent}"/></svg>`;
+  const fallbackLineY = isReels ? 1700 : 920;
+  const candidateY = opts?.bodyBottomY != null ? opts.bodyBottomY + 40 : fallbackLineY;
+  // Garante que a linha + losango cabem dentro da moldura
+  const maxLineY = H - FRAME_INSET - 80;
+  const lineY = Math.min(candidateY, maxLineY);
+  const lineSvg = `<svg width="${lineW}" height="${lineH}" xmlns="http://www.w3.org/2000/svg"><rect width="${lineW}" height="${lineH}" fill="${accent}" opacity="${accentOpacity}"/></svg>`;
   const line: OverlayImage = {
     id: `tpl-mline-${crypto.randomUUID()}`,
     src: `data:image/svg+xml;base64,${btoa(lineSvg)}`,
@@ -297,8 +311,8 @@ export function buildMinimalDecorativeOverlays(
   // 3) Ornamento losango logo abaixo da linha
   const dSize = 24;
   const dX = (W - dSize) / 2;
-  const dY = isReels ? 920 : 580;
-  const dSvg = `<svg width="${dSize}" height="${dSize}" xmlns="http://www.w3.org/2000/svg"><polygon points="${dSize / 2},0 ${dSize},${dSize / 2} ${dSize / 2},${dSize} 0,${dSize / 2}" fill="${accent}" opacity="0.85"/></svg>`;
+  const dY = lineY + 18;
+  const dSvg = `<svg width="${dSize}" height="${dSize}" xmlns="http://www.w3.org/2000/svg"><polygon points="${dSize / 2},0 ${dSize},${dSize / 2} ${dSize / 2},${dSize} 0,${dSize / 2}" fill="${accent}" opacity="${accentOpacity}"/></svg>`;
   const ornament: OverlayImage = {
     id: `tpl-mornament-${crypto.randomUUID()}`,
     src: `data:image/svg+xml;base64,${btoa(dSvg)}`,
@@ -308,3 +322,4 @@ export function buildMinimalDecorativeOverlays(
 
   return [frame, line, ornament];
 }
+

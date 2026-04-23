@@ -57,6 +57,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const sessionUserIdRef = useRef<string | null>(null);
   const hydrationDoneRef = useRef(false);
 
+  const clearScopedSession = () => {
+    try {
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i);
+        if (!key) continue;
+        if (
+          key === "posiciona-editor-draft" ||
+          key.startsWith("posiciona-editor-draft_") ||
+          key.startsWith("posiciona-logo-cache-")
+        ) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach((k) => sessionStorage.removeItem(k));
+    } catch {
+      /* ignore quota / availability errors */
+    }
+  };
+
   const resetAuthState = () => {
     setSession(null);
     setIsAdmin(false);
@@ -64,6 +84,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setBalances(null);
     sessionUserIdRef.current = null;
     hydrationDoneRef.current = false;
+    clearScopedSession();
   };
 
   const checkAdmin = async (userId: string): Promise<boolean> => {
@@ -183,6 +204,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (hydrationDoneRef.current && sessionUserIdRef.current === newSession.user.id) {
             setSession(newSession);
             return;
+          }
+          // If a *different* user signed in (account swap), wipe scoped session
+          // storage so we don't leak the previous user's editor draft / logo.
+          if (sessionUserIdRef.current && sessionUserIdRef.current !== newSession.user.id) {
+            clearScopedSession();
           }
           const requestId = ++authRequestRef.current;
           setIsLoading(true);
