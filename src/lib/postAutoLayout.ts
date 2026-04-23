@@ -38,6 +38,10 @@ export interface AutoLayoutInput {
   userId: string;
   /** Estilo escolhido pelo usuário no modal. Default: "unsplash" se houver logo, senão "minimal". */
   style?: PostStyle;
+  /** Nicho do negócio (PT) — usado para melhorar busca de imagens. */
+  niche?: string;
+  /** Contexto adicional do negócio (PT). */
+  businessContext?: string;
 }
 
 export interface AutoLayoutResult {
@@ -90,6 +94,8 @@ export async function fetchBackgroundImage(opts: {
   format: "square" | "portrait";
   allowAI?: boolean;
   query?: string;
+  niche?: string;
+  businessContext?: string;
 }): Promise<{ url: string; source: "unsplash" | "ai" | "cache"; photographer?: PhotographerInfo } | null> {
   try {
     const { data, error } = await supabase.functions.invoke("fetch-post-image", {
@@ -111,6 +117,8 @@ export async function fetchImageGallery(opts: {
   query: string;
   format: "square" | "portrait";
   page?: number;
+  niche?: string;
+  businessContext?: string;
 }): Promise<Array<{ url: string; photographer: PhotographerInfo }>> {
   try {
     const { data, error } = await supabase.functions.invoke("fetch-post-image", {
@@ -135,10 +143,11 @@ export async function fetchImageGallery(opts: {
 export async function generateAIImage(opts: {
   query: string;
   format: "square" | "portrait";
+  niche?: string;
 }): Promise<{ url: string } | null> {
   try {
     const { data, error } = await supabase.functions.invoke("fetch-post-image", {
-      body: { theme: opts.query, query: opts.query, format: opts.format, allowAI: true, mode: "single" },
+      body: { theme: opts.query, query: opts.query, format: opts.format, allowAI: true, mode: "single", niche: opts.niche },
     });
     if (error || !data?.url) return null;
     return { url: data.url };
