@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { extractJsonFromLLM } from "../_shared/jsonExtract.ts";
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 const API_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
@@ -84,6 +85,8 @@ serve(async (req) => {
     }
 
     const systemPrompt = `Você é um especialista em conteúdo para Instagram, usando exclusivamente a metodologia StoryBrand. Gere UM ÚNICO post novo.
+
+⚠️ CRÍTICO — FORMATO DE SAÍDA: Sua resposta DEVE começar com "{" e terminar com "}". NÃO use \`\`\` em hipótese alguma. NÃO escreva texto antes ou depois do JSON. Não use vírgula final antes de "}" ou "]". Se você adicionar markdown fences ou texto fora do JSON, o sistema REJEITA a resposta.
 
 IMPORTANTE: Responda APENAS com um JSON válido, sem markdown, sem backticks.
 
@@ -171,12 +174,13 @@ Gere 1 novo post no formato "${format}" agora.`;
     const data = await response.json();
     const rawContent = data.choices?.[0]?.message?.content || "";
 
-    let post: any;
-    try {
-      const cleaned = rawContent.replace(/^```json?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
-      post = JSON.parse(cleaned);
-    } catch {
-      throw new Error("Failed to parse AI response as JSON");
+    const post = extractJsonFromLLM(rawContent);
+    if (!post || typeof post !== "object" || Array.isArray(post)) {
+      console.error("Failed to parse AI response:", String(rawContent).substring(0, 500));
+      return new Response(
+        JSON.stringify({ error: "A IA retornou uma resposta inválida. Tente gerar novamente." }),
+        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     return new Response(JSON.stringify({ post }), {
