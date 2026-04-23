@@ -445,6 +445,36 @@ const AddElementPanel: React.FC<AddElementPanelProps> = ({
           ))}
         </div>
       </TabsContent>
+
+      {/* Modal: confirmar se a imagem é uma logo */}
+      <Dialog open={!!pendingUpload} onOpenChange={(open) => { if (!open) setPendingUpload(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Antes de enviar</DialogTitle>
+          </DialogHeader>
+          <div className="flex items-center gap-3 py-2">
+            <Checkbox
+              id="is-logo-checkbox"
+              checked={pendingUpload?.isLogo ?? false}
+              onCheckedChange={(v) => setPendingUpload(prev => prev ? { ...prev, isLogo: !!v } : prev)}
+            />
+            <Label htmlFor="is-logo-checkbox" className="text-sm cursor-pointer">
+              Esta imagem é minha logo
+            </Label>
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            Logos ficam disponíveis para serem inseridas automaticamente nos templates de posts.
+          </p>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" size="sm" onClick={() => setPendingUpload(null)} disabled={uploading}>
+              Cancelar
+            </Button>
+            <Button size="sm" onClick={confirmUpload} disabled={uploading}>
+              {uploading ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Enviando…</> : "Enviar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Tabs>
   );
 };
