@@ -4,6 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Search, Loader2, Sparkles, Image as ImageIcon } from "lucide-react";
 import { fetchImageGallery, generateAIImage, type PhotographerInfo } from "@/lib/postAutoLayout";
 import { toast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -30,11 +32,15 @@ interface GalleryItem {
 const ImageGalleryPanel: React.FC<ImageGalleryPanelProps> = ({
   defaultQuery, format, onPickImage, onAIGenerated, regenerationCredits, niche, businessContext,
 }) => {
+  const { user } = useAuth();
   const [query, setQuery] = useState(defaultQuery);
   const [results, setResults] = useState<GalleryItem[]>([]);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+
+  // Saved images (Unsplash/AI/upload from this user's gallery, photo-only context)
+  const [savedImages, setSavedImages] = useState<Array<{ url: string; name: string; source: string }>>([]);
 
   // AI prompt dialog
   const [aiPromptOpen, setAiPromptOpen] = useState(false);
@@ -45,6 +51,28 @@ const ImageGalleryPanel: React.FC<ImageGalleryPanelProps> = ({
     setQuery(defaultQuery);
     setAiPrompt(defaultQuery);
   }, [defaultQuery]);
+
+  // Carrega imagens salvas (apenas fotos: source unsplash/ai/upload e não-logo)
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("user_gallery_assets")
+        .select("file_path, name, source, is_logo")
+        .eq("user_id", user.id)
+        .eq("is_logo", false)
+        .order("created_at", { ascending: false })
+        .limit(24);
+      if (cancelled || !data) return;
+      const mapped = data.map((row: any) => {
+        const { data: pub } = supabase.storage.from("user-uploads").getPublicUrl(row.file_path);
+        return { url: pub.publicUrl, name: row.name || "Imagem salva", source: row.source || "upload" };
+      });
+      setSavedImages(mapped);
+    })();
+    return () => { cancelled = true; };
+  }, [user]);
 
   const runSearch = async (p = 1, append = false) => {
     if (!query.trim()) return;
