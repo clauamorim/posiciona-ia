@@ -219,7 +219,6 @@ const PostEditorPage = () => {
   const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
   const [renderOrder, setRenderOrder] = useState<string[]>([]);
   const [showRulers, setShowRulers] = useState(false);
-  const [showCoordinates, setShowCoordinates] = useState(true);
   const [autoLayoutBanner, setAutoLayoutBanner] = useState(false);
   const [swappingBackground, setSwappingBackground] = useState(false);
   const [activePhotographer, setActivePhotographer] = useState<PhotographerInfo | null>(null);
@@ -233,8 +232,9 @@ const PostEditorPage = () => {
   const bgInitializedRef = useRef(!!draft);
   const autoLayoutRanRef = useRef(!!draft || hasDesignParam);
 
+  // Card 4:5 (1080×1350) ou Reels 9:16 (1080×1920)
   const cW = canvasFormat === "reels" ? 1080 : 1080;
-  const cH = canvasFormat === "reels" ? 1920 : 1080;
+  const cH = canvasFormat === "reels" ? 1920 : 1350;
 
   useEffect(() => {
     if (!user) return;
@@ -409,7 +409,7 @@ const PostEditorPage = () => {
           return [updated, ...next];
         }
         const w = canvasFormat === "reels" ? 1080 : 1080;
-        const h = canvasFormat === "reels" ? 1920 : 1080;
+        const h = canvasFormat === "reels" ? 1920 : 1350;
         return [
           { id: `tpl-bg-${crypto.randomUUID()}`, src: result.url, x: 0, y: 0, width: w, height: h, type: "photo", opacity: 0.85 },
           ...prev,
