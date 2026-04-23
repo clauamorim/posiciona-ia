@@ -150,3 +150,10 @@ html, body, #root {
   overflow-x: hidden;
   max-width: 100vw;
 }
+
+/* Loading bar animation for editor overlay */
+@keyframes loading-bar {
+  0% { transform: translateX(-100%); }
+  50% { transform: translateX(150%); }
+  100% { transform: translateX(400%); }
+}

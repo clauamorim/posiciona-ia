@@ -18,7 +18,7 @@ import { compressImage } from "@/lib/imageUtils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { buildAutoLayout, fetchBackgroundImage, type PostStyle, type PhotographerInfo } from "@/lib/postAutoLayout";
 import UnsplashAttribution from "@/components/post-editor/UnsplashAttribution";
-import { Sparkles, X, Image as ImageIcon } from "lucide-react";
+import { Sparkles, X, Image as ImageIcon, Loader2 } from "lucide-react";
 
 function getContrastColor(hex: string): string {
   const r = parseInt(hex.slice(1, 3), 16);
@@ -426,6 +426,39 @@ const PostEditorPage = () => {
     }
   }, [day, canvasFormat, swappingBackground, userNiche, businessContext]);
 
+  // Debita 1 crédito de regeneração após geração IA bem-sucedida
+  const debitRegenerationCredit = useCallback(async () => {
+    if (!user) return;
+    try {
+      const current = balances?.regeneration_credits ?? 0;
+      if (current <= 0) {
+        toast({
+          title: "Sem créditos de regeneração",
+          description: "Você precisa comprar mais créditos para gerar imagens por IA.",
+          variant: "destructive",
+        });
+        return;
+      }
+      const newBalance = current - 1;
+      const { error: updErr } = await supabase
+        .from("user_balances")
+        .update({ regeneration_credits: newBalance })
+        .eq("user_id", user.id);
+      if (updErr) {
+        console.warn("Failed to debit regeneration credit", updErr);
+        return;
+      }
+      await supabase.from("credit_logs").insert({
+        user_id: user.id,
+        credit_type: "regeneration",
+        amount: -1,
+        description: "Geração de imagem IA no editor",
+      });
+      await refreshSubscription();
+    } catch (err) {
+      console.warn("debitRegenerationCredit error", err);
+    }
+  }, [user, balances?.regeneration_credits, refreshSubscription]);
 
   // Save draft on changes (debounced via effect dependencies)
   useEffect(() => {
@@ -906,7 +939,16 @@ const PostEditorPage = () => {
         )}
 
         <div className="grid gap-6 md:grid-cols-[1fr_280px]">
-          <div className="flex items-center justify-center min-h-[400px] bg-muted/30 rounded-2xl p-4 overflow-hidden md:sticky md:top-4 md:self-start">
+          <div className="relative flex items-center justify-center min-h-[400px] bg-muted/30 rounded-2xl p-4 overflow-hidden md:sticky md:top-4 md:self-start">
+            {initializingLayout && (
+              <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-background/80 backdrop-blur-sm rounded-2xl">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <p className="text-sm font-medium text-foreground/90 text-center px-4">{initializingLayout}</p>
+                <div className="w-48 h-1.5 bg-muted rounded-full overflow-hidden">
+                  <div className="h-full w-1/3 bg-primary rounded-full animate-[loading-bar_1.4s_ease-in-out_infinite]" />
+                </div>
+              </div>
+            )}
             {isCarousel ? (
               <CarouselEditor
                 slides={editedTexts} theme={editedTitle} cta={ctaText || day.cta || ""}
@@ -1053,6 +1095,8 @@ const PostEditorPage = () => {
                   ];
                 });
               },
+              onAIGenerated: debitRegenerationCredit,
+              regenerationCredits: balances?.regeneration_credits ?? 0,
             };
 
             return (
