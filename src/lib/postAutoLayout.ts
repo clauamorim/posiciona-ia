@@ -445,16 +445,21 @@ export async function buildAutoLayout(input: AutoLayoutInput): Promise<AutoLayou
   }
   // style === "minimal" → sem imagem; usamos overlays decorativos próprios + gradient
 
-  // 2) Bloco / overlays decorativos
-  if (style === "minimal") {
-    // Para minimal, usar conjunto rico (moldura + linha + ornamento)
-    const primary = input.paletteHex[0] || "#7c3aed";
-    const accent = input.paletteHex[1] || input.paletteHex[0] || "#7c3aed";
-    overlays.push(...buildMinimalDecorativeOverlays(template, primary, accent));
-  }
-  // IMPORTANTE: para estilos com foto (unsplash/ai) NÃO adicionamos
-  // decorativeBlock sólido — a legibilidade do texto vem do gradiente preto
-  // translúcido do PostCanvas (hasPhotoBackground), não de uma caixa branca.
+  // Calcula bodyBottomY estimado (para posicionar decoração abaixo do texto)
+  const estBodyHeight = template.bodySlot
+    ? Math.max(160, Math.round(template.bodySlot.fontSize * 1.6 * 4))
+    : 160;
+  const bodyBottomY = template.bodySlot
+    ? template.bodySlot.y + estBodyHeight
+    : undefined;
+
+  // 2) Decorações (moldura + linha + losango) — agora em TODOS os estilos
+  const primary = input.paletteHex[0] || "#7c3aed";
+  const accent = input.paletteHex[1] || input.paletteHex[0] || "#7c3aed";
+  const onPhoto = style === "unsplash" || style === "ai";
+  overlays.push(
+    ...buildMinimalDecorativeOverlays(template, primary, accent, { onPhoto, bodyBottomY }),
+  );
 
   // 3) Logo do usuário (se houver)
   const logoUrl = await fetchUserLogo(input.userId);
