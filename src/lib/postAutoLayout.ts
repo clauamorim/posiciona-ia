@@ -74,8 +74,50 @@ export interface AutoLayoutResult {
   styleFailedReason?: string;
 }
 
-/** Busca a logo mais recente do usuário marcada com is_logo=true. Reprocessa fundo se ainda não foi tratado. */
+/** Verifica se uma imagem (URL) tem transparência real — carrega em canvas e checa alpha. */
+async function imageHasTransparency(url: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    try {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        try {
+          // Amostra reduzida para performance
+          const sampleSize = 200;
+          const ratio = Math.min(1, sampleSize / Math.max(img.width, img.height));
+          const w = Math.max(1, Math.round(img.width * ratio));
+          const h = Math.max(1, Math.round(img.height * ratio));
+          const canvas = document.createElement("canvas");
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) return resolve(false);
+          ctx.drawImage(img, 0, 0, w, h);
+          const data = ctx.getImageData(0, 0, w, h).data;
+          let transparentPixels = 0;
+          for (let i = 3; i < data.length; i += 4) {
+            if (data[i] < 250) transparentPixels++;
+          }
+          // Se >2% dos pixels têm alpha < 250, considera transparente de verdade
+          resolve(transparentPixels / (data.length / 4) > 0.02);
+        } catch { resolve(false); }
+      };
+      img.onerror = () => resolve(false);
+      img.src = url;
+    } catch { resolve(false); }
+  });
+}
+
+const LOGO_CACHE_PREFIX = "posiciona-logo-cache-";
+
+/** Busca a logo mais recente do usuário marcada com is_logo=true. Garante transparência real. */
 async function fetchUserLogo(userId: string): Promise<string | null> {
+  // Cache por sessão para evitar reprocessar a cada slide
+  try {
+    const cached = sessionStorage.getItem(`${LOGO_CACHE_PREFIX}${userId}`);
+    if (cached) return cached;
+  } catch {}
+
   try {
     const { data } = await supabase
       .from("user_gallery_assets")
@@ -88,53 +130,57 @@ async function fetchUserLogo(userId: string): Promise<string | null> {
     if (!data?.file_path) return null;
 
     let filePath = data.file_path as string;
-    const alreadyProcessed = !!(data as any).bg_removed;
 
-    // Reprocessamento sob demanda: se a logo nunca passou por remove-background,
-    // processa agora — independente da extensão do arquivo (PNG branco também precisa).
-    if (!alreadyProcessed) {
+    // Sempre obter URL assinada primeiro
+    const { data: signed } = await supabase.storage
+      .from("user-uploads")
+      .createSignedUrl(filePath, 60 * 60);
+    let finalUrl = signed?.signedUrl || null;
+    if (!finalUrl) return null;
+
+    // Verifica se o arquivo realmente tem transparência (não confia em bg_removed nem na extensão)
+    const hasReal = await imageHasTransparency(finalUrl);
+
+    if (!hasReal) {
+      // Reprocessa via remove-background
       try {
-        const { data: srcSigned } = await supabase.storage
-          .from("user-uploads")
-          .createSignedUrl(filePath, 60 * 5);
-        if (srcSigned?.signedUrl) {
-          const resp = await fetch(srcSigned.signedUrl);
-          const blob = await resp.blob();
-          const dataUrl: string = await new Promise((res, rej) => {
-            const r = new FileReader();
-            r.onload = () => res(r.result as string);
-            r.onerror = () => rej(r.error);
-            r.readAsDataURL(blob);
-          });
-          const { data: rb, error: rbErr } = await supabase.functions.invoke("remove-background", {
-            body: { imageUrl: dataUrl },
-          });
-          if (!rbErr && rb?.image && typeof rb.image === "string" && rb.image.startsWith("data:image/")) {
-            const newBlob = await (await fetch(rb.image)).blob();
-            const newPath = filePath.replace(/\.[^.]+$/, "") + ".png";
-            const { error: upErr } = await supabase.storage
+        const resp = await fetch(finalUrl);
+        const blob = await resp.blob();
+        const dataUrl: string = await new Promise((res, rej) => {
+          const r = new FileReader();
+          r.onload = () => res(r.result as string);
+          r.onerror = () => rej(r.error);
+          r.readAsDataURL(blob);
+        });
+        const { data: rb, error: rbErr } = await supabase.functions.invoke("remove-background", {
+          body: { imageUrl: dataUrl },
+        });
+        if (!rbErr && rb?.image && typeof rb.image === "string" && rb.image.startsWith("data:image/")) {
+          const newBlob = await (await fetch(rb.image)).blob();
+          const newPath = filePath.replace(/\.[^.]+$/, "") + ".png";
+          const { error: upErr } = await supabase.storage
+            .from("user-uploads")
+            .upload(newPath, newBlob, { contentType: "image/png", upsert: true });
+          if (!upErr) {
+            await supabase
+              .from("user_gallery_assets")
+              .update({ file_path: newPath, bg_removed: true })
+              .eq("id", (data as any).id);
+            const { data: signed2 } = await supabase.storage
               .from("user-uploads")
-              .upload(newPath, newBlob, { contentType: "image/png", upsert: true });
-            if (!upErr) {
-              await supabase
-                .from("user_gallery_assets")
-                .update({ file_path: newPath, bg_removed: true })
-                .eq("id", (data as any).id);
-              filePath = newPath;
-            }
-          } else {
-            console.warn("remove-background returned no image, using original logo");
+              .createSignedUrl(newPath, 60 * 60);
+            if (signed2?.signedUrl) finalUrl = signed2.signedUrl;
           }
+        } else {
+          console.warn("remove-background returned no image, using original logo");
         }
       } catch (rbErr) {
         console.warn("On-demand bg removal failed for logo, using original", rbErr);
       }
     }
 
-    const { data: signed } = await supabase.storage
-      .from("user-uploads")
-      .createSignedUrl(filePath, 60 * 60);
-    return signed?.signedUrl || null;
+    try { sessionStorage.setItem(`${LOGO_CACHE_PREFIX}${userId}`, finalUrl); } catch {}
+    return finalUrl;
   } catch (err) {
     console.warn("fetchUserLogo failed", err);
     return null;
