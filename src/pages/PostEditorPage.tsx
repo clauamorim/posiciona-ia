@@ -88,13 +88,18 @@ interface EditorDraft {
   bodyFont: string;
 }
 
-function loadDraft(weekIdx: number, dayIdx: number): EditorDraft | null {
+function loadDraft(weekIdx: number, dayIdx: number, style: string | undefined, format: string): EditorDraft | null {
   try {
     const raw = sessionStorage.getItem(DRAFT_KEY);
     if (!raw) return null;
-    const draft: EditorDraft = JSON.parse(raw);
-    if (draft.weekIndex === weekIdx && draft.dayIndex === dayIdx) return restoreDraftImages(draft);
-    return null;
+    const draft: EditorDraft & { __style?: string; __format?: string } = JSON.parse(raw);
+    if (draft.weekIndex !== weekIdx || draft.dayIndex !== dayIdx) return null;
+    // Só reaproveitar quando estilo e formato batem (evita Unsplash herdar layout minimal)
+    const draftStyle = draft.__style || "minimal";
+    const draftFormat = draft.__format || "square";
+    const targetStyle = style || "minimal";
+    if (draftStyle !== targetStyle || draftFormat !== format) return null;
+    return restoreDraftImages(draft);
   } catch { return null; }
 }
 
