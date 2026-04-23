@@ -168,7 +168,9 @@ const PostEditorPage = () => {
   const initialStyle = (searchParams.get("style") as PostStyle | null) || undefined;
   const initialFormatParam = searchParams.get("format");
 
-  const draft = loadDraft(weekIndex, dayIndex);
+  const targetFormat: "square" | "reels" = initialFormatParam === "reels" ? "reels" : "square";
+  const hasDesignParam = !!searchParams.get("design");
+  const draft = hasDesignParam ? null : loadDraft(weekIndex, dayIndex, initialStyle, targetFormat);
 
   const [report, setReport] = useState<any>(null);
   const [loading, setLoading] = useState(true);
