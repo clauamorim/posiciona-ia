@@ -225,11 +225,12 @@ const PostEditorPage = () => {
   const [autoLayoutBanner, setAutoLayoutBanner] = useState(false);
   const [swappingBackground, setSwappingBackground] = useState(false);
   const [activePhotographer, setActivePhotographer] = useState<PhotographerInfo | null>(null);
+  const [initialTextBoxes, setInitialTextBoxes] = useState<{ title?: { x: number; y: number; width: number; height: number }; body?: { x: number; y: number; width: number; height: number } } | undefined>(undefined);
   const singleCanvasRef = useRef<HTMLDivElement>(null);
   const slideRefs = useRef<(HTMLDivElement | null)[]>([]);
   const textsInitializedRef = useRef(!!draft);
   const bgInitializedRef = useRef(!!draft);
-  const autoLayoutRanRef = useRef(!!draft || !!searchParams.get("design"));
+  const autoLayoutRanRef = useRef(!!draft || hasDesignParam);
 
   const cW = canvasFormat === "reels" ? 1080 : 1080;
   const cH = canvasFormat === "reels" ? 1920 : 1080;
