@@ -98,7 +98,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   showSlideNumber = true, slideNumberPosition, onSlideNumberMove,
   slideNumberBgColor, slideNumberTextColor, slideNumberSize,
   onSelectedTextChange, renderOrder: externalRenderOrder, onRenderOrderChange,
-  showGrid = false, showRulers = false, showCoordinates = true, enableSnap = true,
+  showRulers = false, showCoordinates = true, postStyle,
   initialTextBoxes, resetKey,
 }) => {
   const isMobile = useIsMobile();
