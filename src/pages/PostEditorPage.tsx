@@ -202,10 +202,17 @@ const PostEditorPage = () => {
   const [slideNumberSize, setSlideNumberSize] = useState(draft?.slideNumberSize ?? 14);
   const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
   const [renderOrder, setRenderOrder] = useState<string[]>([]);
+  const [showGrid, setShowGrid] = useState(false);
+  const [showRulers, setShowRulers] = useState(false);
+  const [showCoordinates, setShowCoordinates] = useState(true);
+  const [enableSnap, setEnableSnap] = useState(true);
+  const [autoLayoutBanner, setAutoLayoutBanner] = useState(false);
+  const [swappingBackground, setSwappingBackground] = useState(false);
   const singleCanvasRef = useRef<HTMLDivElement>(null);
   const slideRefs = useRef<(HTMLDivElement | null)[]>([]);
   const textsInitializedRef = useRef(!!draft);
   const bgInitializedRef = useRef(!!draft);
+  const autoLayoutRanRef = useRef(!!draft || !!searchParams.get("design"));
 
   const cW = canvasFormat === "reels" ? 1080 : 1080;
   const cH = canvasFormat === "reels" ? 1920 : 1080;
