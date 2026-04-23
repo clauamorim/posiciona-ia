@@ -312,6 +312,16 @@ const AddElementPanel: React.FC<AddElementPanelProps> = ({
                   <button onClick={() => handleAddImageFromUrl(a.url)} className="absolute inset-0">
                     <img src={a.url} alt={a.name} className="w-full h-full object-cover" loading="lazy" />
                   </button>
+                  {a.is_logo && (
+                    <Badge className="absolute top-1 left-1 px-1.5 py-0 text-[9px] h-4 leading-none">Logo</Badge>
+                  )}
+                  <button
+                    onClick={(e) => { e.stopPropagation(); toggleLogo(a); }}
+                    className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded bg-background/80 backdrop-blur-sm border border-border text-[9px] opacity-0 group-hover:opacity-100 transition-opacity hover:bg-primary hover:text-primary-foreground"
+                    title={a.is_logo ? "Desmarcar como logo" : "Marcar como logo"}
+                  >
+                    {a.is_logo ? "✓ Logo" : "Marcar logo"}
+                  </button>
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <button
