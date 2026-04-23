@@ -718,7 +718,8 @@ const PostEditorPage = () => {
   };
 
   const designIdParam = searchParams.get("design");
-  const [currentDesignId, setCurrentDesignId] = useState<string | null>(designIdParam);
+  const fromTemplateParam = searchParams.get("fromTemplate") === "1";
+  const [currentDesignId, setCurrentDesignId] = useState<string | null>(fromTemplateParam ? null : designIdParam);
   const [savingDesign, setSavingDesign] = useState(false);
   const designLoadedRef = useRef(false);
 
@@ -1145,6 +1146,7 @@ const PostEditorPage = () => {
                   <PostToolbar
                     {...sharedToolbarProps}
                     onSaveDesign={handleSaveDesign}
+                    onSaveAsTemplate={handleSaveAsTemplate}
                     saving={savingDesign}
                   />
                 </div>
