@@ -1,10 +1,8 @@
 import React from "react";
-import { Square, Maximize, RotateCcw, Grid3x3, Ruler, Crosshair, Magnet, ImageDown, Loader2, Settings2 } from "lucide-react";
+import { Square, Maximize, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import ColorPicker, { PaletteColor } from "./ColorPicker";
 
 const GRADIENT_DIRECTIONS = [
@@ -40,18 +38,6 @@ interface DocumentPanelProps {
   slideNumberTextColor?: string | null;
   onSlideNumberTextColorChange?: (c: string) => void;
   onReset: () => void;
-  // Guides & assist
-  showGrid?: boolean;
-  onShowGridChange?: (v: boolean) => void;
-  showRulers?: boolean;
-  onShowRulersChange?: (v: boolean) => void;
-  showCoordinates?: boolean;
-  onShowCoordinatesChange?: (v: boolean) => void;
-  enableSnap?: boolean;
-  onEnableSnapChange?: (v: boolean) => void;
-  // Background image swap
-  onSwapBackgroundImage?: () => void;
-  swappingBackground?: boolean;
 }
 
 const DocumentPanel: React.FC<DocumentPanelProps> = ({
@@ -66,11 +52,6 @@ const DocumentPanel: React.FC<DocumentPanelProps> = ({
   slideNumberBgColor, onSlideNumberBgColorChange,
   slideNumberTextColor, onSlideNumberTextColorChange,
   onReset,
-  showGrid, onShowGridChange,
-  showRulers, onShowRulersChange,
-  showCoordinates, onShowCoordinatesChange,
-  enableSnap, onEnableSnapChange,
-  onSwapBackgroundImage, swappingBackground,
 }) => {
   return (
     <div className="space-y-4">
@@ -165,97 +146,7 @@ const DocumentPanel: React.FC<DocumentPanelProps> = ({
         </div>
       )}
 
-      {/* Background image swap */}
-      {onSwapBackgroundImage && (
-        <div>
-          <h4 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-2">Imagem de fundo</h4>
-          <Button
-            variant="outline" size="sm"
-            onClick={onSwapBackgroundImage}
-            disabled={swappingBackground}
-            className="gap-2 w-full h-8 text-xs"
-          >
-            {swappingBackground ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImageDown className="h-3.5 w-3.5" />}
-            {swappingBackground ? "Buscando…" : "Trocar imagem (Unsplash)"}
-          </Button>
-          <p className="text-[10px] text-muted-foreground/70 mt-1.5">Imagens do Unsplash são gratuitas.</p>
-        </div>
-      )}
-
-      {/* Guides */}
-      {(onShowGridChange || onShowRulersChange || onShowCoordinatesChange || onEnableSnapChange) && (
-        <div>
-          <h4 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-2">Guias de edição</h4>
-          <div className="grid grid-cols-3 gap-1.5">
-            {onShowGridChange && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant={showGrid ? "default" : "outline"} size="sm" onClick={() => onShowGridChange(!showGrid)} className="gap-1.5 text-[11px] h-8">
-                    <Grid3x3 className="h-3 w-3" /> Grade
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="max-w-[200px] text-[11px]">
-                  Mostra linhas-guia para alinhar elementos visualmente.
-                </TooltipContent>
-              </Tooltip>
-            )}
-            {onShowRulersChange && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant={showRulers ? "default" : "outline"} size="sm" onClick={() => onShowRulersChange(!showRulers)} className="gap-1.5 text-[11px] h-8">
-                    <Ruler className="h-3 w-3" /> Réguas
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="max-w-[200px] text-[11px]">
-                  Mostra réguas com coordenadas em pixels nas bordas do canvas.
-                </TooltipContent>
-              </Tooltip>
-            )}
-            {onShowCoordinatesChange && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant={showCoordinates ? "default" : "outline"} size="sm" onClick={() => onShowCoordinatesChange(!showCoordinates)} className="gap-1.5 text-[11px] h-8">
-                    <Crosshair className="h-3 w-3" /> Coords
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="max-w-[200px] text-[11px]">
-                  Mostra a posição (X, Y) e o tamanho do elemento selecionado.
-                </TooltipContent>
-              </Tooltip>
-            )}
-          </div>
-          {/* Configurações avançadas: Snap em popover separado */}
-          {onEnableSnapChange && (
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="ghost" size="sm" className="gap-1.5 text-[11px] h-7 mt-2 w-full justify-start text-muted-foreground">
-                  <Settings2 className="h-3 w-3" /> Configurações avançadas
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent side="bottom" className="w-64 p-3 space-y-3">
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between gap-2">
-                    <label className="flex items-center gap-2 text-xs cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={!!enableSnap}
-                        onChange={(e) => onEnableSnapChange(e.target.checked)}
-                        className="rounded"
-                      />
-                      <Magnet className="h-3 w-3" />
-                      Snap (alinhamento magnético)
-                    </label>
-                  </div>
-                  <p className="text-[10px] text-muted-foreground/80 leading-relaxed">
-                    Quando ativado, os elementos "grudam" automaticamente nas bordas e no centro do canvas ao serem arrastados.
-                  </p>
-                </div>
-              </PopoverContent>
-            </Popover>
-          )}
-          <p className="text-[10px] text-muted-foreground/70 mt-1.5">Setas: 1px · Shift+setas: 10px</p>
-        </div>
-      )}
+      <p className="text-[10px] text-muted-foreground/70">Setas: 1px · Shift+setas: 10px · Para trocar a foto de fundo, abra a aba <strong>Adicionar</strong>.</p>
 
       {/* Reset */}
       <Button variant="outline" size="sm" onClick={onReset} className="gap-2 w-full h-8 text-xs">
