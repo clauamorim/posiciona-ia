@@ -911,6 +911,8 @@ const PostEditorPage = () => {
                 onSlideTextChange={(i, t) => { const copy = [...editedTexts]; copy[i] = t; setEditedTexts(copy); }}
                 onDownloadSlide={handleDownloadSlide} onDownloadAll={handleDownloadAll}
                 slideRefs={slideRefs}
+                initialTextBoxes={initialTextBoxes}
+                resetKey={`${initialStyle || "minimal"}-${canvasFormat}-${currentSlide}`}
                 overlayImages={overlayImages} onUpdateOverlay={handleUpdateOverlay}
                 onImageMove={handleImageMove} onImageResize={handleImageResize}
                 selectedImageId={selectedImageId} onSelectImage={setSelectedImageId}
@@ -954,6 +956,8 @@ const PostEditorPage = () => {
                 onRenderOrderChange={setRenderOrder}
                 showGrid={showGrid} showRulers={showRulers}
                 showCoordinates={showCoordinates} enableSnap={enableSnap}
+                initialTextBoxes={initialTextBoxes}
+                resetKey={`${initialStyle || "minimal"}-${canvasFormat}`}
               />
             )}
           </div>
