@@ -202,12 +202,15 @@ async function searchUnsplashList(
   }
 }
 
-async function generateWithAI(themeEN: string, format: "square" | "portrait"): Promise<string | null> {
+async function generateWithAI(themeEN: string, format: "square" | "portrait", nonce?: string): Promise<string | null> {
   const lovableKey = Deno.env.get("LOVABLE_API_KEY");
   if (!lovableKey) return null;
   const aspect = format === "portrait" ? "vertical 9:16 portrait orientation" : "square 1:1 orientation";
+  // Variação: garante que mesmo o mesmo tema produza fotos diferentes.
+  const seed = nonce || `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
   const prompt = `Editorial photograph, premium magazine quality, soft natural lighting, shallow depth of field, ${aspect}.
 Subject: ${themeEN}.
+Variation seed: ${seed}. Choose a fresh angle, lighting and composition different from any previous render.
 ABSOLUTELY NO TEXT, NO LETTERS, NO SIGNS, NO NEON, NO TYPOGRAPHY, NO WORDS, NO LOGOS, NO BRAND NAMES, NO WRITTEN CONTENT anywhere in the image.
 NO TEXT. NO TEXT. NO TEXT.
 Composition: clean, centered subject with negative space at top and bottom for text overlay later. Soft palette. Style: minimal, calm, professional, contemporary photography. Avoid people's faces dominating the frame. Avoid children. No collage, no illustration — pure photography only.`;
