@@ -416,6 +416,8 @@ const PostEditorPage = () => {
         ];
       });
       if (result.photographer) setActivePhotographer(result.photographer);
+      // Salva automaticamente na galeria pessoal (Unsplash)
+      saveSinglePhotoToGallery(result.url, "unsplash", result.photographer || null).catch(() => {});
       toast({ title: "Imagem atualizada", description: "Fonte: Unsplash (gratuita)." });
     } catch (err: any) {
       toast({ title: "Erro ao buscar imagem", description: err?.message, variant: "destructive" });
