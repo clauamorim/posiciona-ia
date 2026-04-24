@@ -221,7 +221,12 @@ const EditorialPage = () => {
       toast({ title: "Nova semana gerada com sucesso!" });
     } catch (err: any) {
       await refreshSubscription();
-      toast({ title: "Erro ao gerar conteúdo", description: err.message, variant: "destructive" });
+      const raw = String(err?.message || "");
+      const isTimeout = /timeout|timed out|504|connection closed|failed to fetch|networkerror|aborted/i.test(raw);
+      const description = isTimeout
+        ? "A geração demorou mais que o esperado. Tente novamente — geralmente funciona na segunda tentativa."
+        : (raw || "Não foi possível gerar a semana. Tente novamente.");
+      toast({ title: "Erro ao gerar conteúdo", description, variant: "destructive" });
     }
     setGeneratingWeek(false);
   };
