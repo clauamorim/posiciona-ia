@@ -438,8 +438,8 @@ const PostEditorPage = () => {
   }, [day, canvasFormat, swappingBackground, userNiche, businessContext]);
 
   // Debita 1 crédito de regeneração após geração IA bem-sucedida
-  const debitRegenerationCredit = useCallback(async () => {
-    if (!user) return;
+  const debitRegenerationCredit = useCallback(async (): Promise<boolean> => {
+    if (!user) return false;
     try {
       const current = balances?.regeneration_credits ?? 0;
       if (current <= 0) {
@@ -448,7 +448,7 @@ const PostEditorPage = () => {
           description: "Você precisa comprar mais créditos para gerar imagens por IA.",
           variant: "destructive",
         });
-        return;
+        return false;
       }
       const newBalance = current - 1;
       const { error: updErr } = await supabase
@@ -457,7 +457,7 @@ const PostEditorPage = () => {
         .eq("user_id", user.id);
       if (updErr) {
         console.warn("Failed to debit regeneration credit", updErr);
-        return;
+        return false;
       }
       await supabase.from("credit_logs").insert({
         user_id: user.id,
@@ -466,8 +466,10 @@ const PostEditorPage = () => {
         description: "Geração de imagem IA no editor",
       });
       await refreshSubscription();
+      return true;
     } catch (err) {
       console.warn("debitRegenerationCredit error", err);
+      return false;
     }
   }, [user, balances?.regeneration_credits, refreshSubscription]);
 

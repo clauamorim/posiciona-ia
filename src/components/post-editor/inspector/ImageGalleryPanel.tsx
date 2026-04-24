@@ -17,8 +17,8 @@ interface ImageGalleryPanelProps {
   format: "square" | "portrait";
   /** Chamado quando usuário escolhe imagem; recebe URL, info do fotógrafo (Unsplash) e opcionalmente fonte ("ai" / "unsplash" / "saved"). */
   onPickImage: (url: string, photographer?: PhotographerInfo, source?: "ai" | "unsplash" | "saved") => void;
-  /** Chamado quando IA é solicitada com sucesso (consome 1 crédito). Deve fazer o débito real. */
-  onAIGenerated?: () => Promise<void> | void;
+  /** Chamado após geração IA bem-sucedida; retorna false quando o débito falha. */
+  onAIGenerated?: () => Promise<boolean | void> | boolean | void;
   /** Saldo atual de créditos de regeneração (para validar antes de chamar a IA). */
   regenerationCredits?: number;
   niche?: string;
@@ -141,7 +141,7 @@ const ImageGalleryPanel: React.FC<ImageGalleryPanelProps> = ({
       let debitOk = true;
       try {
         const debitResult = await onAIGenerated?.();
-        if (debitResult === false) debitOk = false;
+        if (typeof debitResult === "boolean" && !debitResult) debitOk = false;
       } catch (e) {
         debitOk = false;
         console.warn("Debit credit failed", e);
