@@ -48,6 +48,18 @@ const ensureFreshSession = async (): Promise<boolean> => {
     });
     return false;
   }
+
+  // Força um refresh do token para garantir que o servidor receberá um JWT
+  // válido — evita 401 silencioso quando a sessão local está perto de expirar.
+  try {
+    const { error: refreshError } = await supabase.auth.refreshSession();
+    if (refreshError) {
+      console.warn("refreshSession falhou, seguindo com a sessão atual:", refreshError);
+    }
+  } catch (err) {
+    console.warn("Erro ao tentar atualizar a sessão:", err);
+  }
+
   return true;
 };
 
