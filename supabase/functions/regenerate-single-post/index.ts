@@ -310,7 +310,13 @@ Gere 1 novo post no formato "${format}" agora.`;
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
+    console.error("regenerate-single-post error:", error);
+    const rawMessage = error instanceof Error ? error.message : "";
+    const looksTechnical = /AI API error|fetch failed|JSON|TypeError|SyntaxError/i.test(rawMessage);
+    const message = looksTechnical || !rawMessage
+      ? "Não foi possível regenerar este post agora. Tente novamente em alguns segundos."
+      : rawMessage;
+    return new Response(JSON.stringify({ error: message }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
