@@ -120,8 +120,25 @@ async function callGemini(systemPrompt: string, userContent: any): Promise<strin
     throw err;
   }
 
-  const data = await response.json();
-  return data.choices?.[0]?.message?.content || "";
+  let data: any;
+  try {
+    data = await response.json();
+  } catch (parseErr) {
+    const err = new Error("Resposta vazia da IA") as Error & { status?: number; userMessage?: string };
+    err.status = 502;
+    err.userMessage = "A IA demorou para responder. Tente novamente em alguns segundos.";
+    throw err;
+  }
+
+  const content = data?.choices?.[0]?.message?.content;
+  if (typeof content !== "string" || !content.trim()) {
+    const err = new Error("Conteúdo vazio da IA") as Error & { status?: number; userMessage?: string };
+    err.status = 502;
+    err.userMessage = "A IA demorou para responder. Tente novamente em alguns segundos.";
+    throw err;
+  }
+
+  return content;
 }
 
 serve(async (req) => {
