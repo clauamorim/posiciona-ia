@@ -369,9 +369,13 @@ serve(async (req) => {
       input: {
         input_images: zipUrl,
         trigger_word: triggerWord,
-        steps: 1500,
+        // Treino menos agressivo: reduz overfitting (rosto distorcido, "pele de plástico")
+        // e melhora a generalização para fundos/figurinos novos.
+        steps: 1000,
         learning_rate: 0.0004,
         batch_size: 1,
+        lora_rank: 16,
+        caption_dropout_rate: 0.05,
         autocaption: true,
       },
       webhook: webhookUrl,

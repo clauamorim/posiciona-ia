@@ -506,6 +506,18 @@ const PortraitGenerator = () => {
           </DialogHeader>
 
           <div className="space-y-3">
+            <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-2">
+              <p className="text-sm font-medium flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-primary" />
+                Para um Estúdio Pessoal fiel ao seu rosto
+              </p>
+              <ul className="text-xs text-muted-foreground space-y-1 pl-6 list-disc">
+                <li>Fotos com <strong>fundo neutro e limpo</strong> (parede lisa, estúdio caseiro). Evite fotos externas — elas fazem o modelo aprender o cenário.</li>
+                <li><strong>Iluminação clara e uniforme</strong>, com o rosto bem visível e em foco.</li>
+                <li><strong>Sem óculos escuros, máscara ou chapéu</strong> cobrindo o rosto.</li>
+                <li>Variedade de <strong>expressões e ângulos</strong> (frente, perfil leve, sorrindo, sério).</li>
+              </ul>
+            </div>
             <div
               className="border-2 border-dashed border-primary/20 rounded-xl p-8 text-center cursor-pointer hover:border-primary/40 hover:bg-primary/[0.02] transition-all"
               onClick={() => fileInputRef.current?.click()}
