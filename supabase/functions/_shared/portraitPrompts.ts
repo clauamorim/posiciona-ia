@@ -15,6 +15,11 @@ export type ArchetypeName =
   | "Rebelde"
   | "Bobo-da-corte";
 
+// Reforço aplicado a todos os prompts: garante cenário de estúdio.
+const STUDIO_PREFIX = "professional photography studio, controlled studio lighting, ";
+// Reforço aplicado a todos os negatives: bloqueia vazamento de cenários externos das fotos de treino e artefatos comuns.
+const STUDIO_NEGATIVE = ", outdoor, street, natural daylight, trees, buildings, sky, park, beach, low quality, blurry, deformed face, extra fingers, asymmetric eyes";
+
 export const ARCHETYPE_PROMPTS: Record<ArchetypeName, { prompt: string; negative: string }> = {
   "Governante": {
     prompt: "USR[id] [gender], powerful executive portrait, authoritative calm expression, hard directional lighting, dark textured studio background with subtle wall texture, [outfit], [hair], [makeup], strong posture, direct confident gaze, no smile, fine skin pores, sharp focus, photorealistic, shot on Sony A7, 85mm f/1.4, natural facial features, authentic face, individual hair strands",
@@ -102,7 +107,8 @@ export function buildPortraitPrompt(params: BuildPromptParams): {
   const tpl = ARCHETYPE_PROMPTS[archetypeKey];
   const bg = BACKGROUND_VARIATIONS[params.backgroundIndex];
 
-  let prompt = tpl.prompt;
+  let prompt = STUDIO_PREFIX + tpl.prompt;
+  const negative = tpl.negative + STUDIO_NEGATIVE;
 
   // 1. Substituir frase de fundo se Claro/Escuro
   if (bg.replacement) {
@@ -140,7 +146,7 @@ export function buildPortraitPrompt(params: BuildPromptParams): {
   // 3. Limpeza
   prompt = cleanupPrompt(prompt);
 
-  return { prompt, negative: tpl.negative, backgroundKey: bg.key };
+  return { prompt, negative, backgroundKey: bg.key };
 }
 
 function cleanupPrompt(s: string): string {
@@ -166,6 +172,29 @@ export function buildOutfitText(figurino: any): string {
   const colors = Array.isArray(figurino.cores_roupa) ? figurino.cores_roupa.slice(0, 2).join(" and ") : "";
   if (pieces && colors) return `${pieces} in ${colors}`;
   return pieces || colors || "";
+}
+
+/**
+ * Variação de figurino por look: usa figurino.looks_completos[lookIndex] do relatório,
+ * que já vem com 3 looks distintos (peças e ocasião). Garante que cada um dos 3
+ * retratos tenha um figurino diferente, sempre dentro do que o relatório recomenda.
+ *
+ * Fallback: se o relatório não tiver looks_completos, usa buildOutfitText (peças-chave + cores).
+ */
+export function buildOutfitTextForLook(figurino: any, lookIndex: number): string {
+  if (!figurino || typeof figurino !== "object") return "";
+  const looks = Array.isArray(figurino.looks_completos) ? figurino.looks_completos : [];
+  if (looks.length === 0) return buildOutfitText(figurino);
+
+  // Round-robin para o caso de relatórios com menos de 3 looks
+  const look = looks[lookIndex % looks.length];
+  if (!look || !Array.isArray(look.pecas) || look.pecas.length === 0) {
+    return buildOutfitText(figurino);
+  }
+  // Junta as peças (3-5) em uma única descrição. Mantém o português do relatório —
+  // o restante do prompt em inglês ainda direciona estilo/iluminação corretamente,
+  // e modelos Flux lidam bem com peças de roupa em PT.
+  return look.pecas.slice(0, 5).join(", ");
 }
 
 export function buildHairText(figurino: any): string {

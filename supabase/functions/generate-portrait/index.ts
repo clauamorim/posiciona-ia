@@ -4,7 +4,7 @@ import { corsHeaders } from "../_shared/cors.ts";
 import {
   buildPortraitPrompt,
   mapGender,
-  buildOutfitText,
+  buildOutfitTextForLook,
   buildHairText,
   buildMakeupText,
   BACKGROUND_VARIATIONS,
@@ -26,10 +26,10 @@ async function callFluxLora(params: {
       prompt,
       // black-forest-labs/flux-dev-lora supports `lora_weights` (HF/Replicate model ref or .tar URL)
       lora_weights: loraVersion,
-      lora_scale: 1.0,
+      lora_scale: 0.85,
       num_outputs: 1,
       aspect_ratio: "3:4",
-      guidance_scale: 2.5,
+      guidance_scale: 3.0,
       num_inference_steps: 35,
       output_format: "png",
       output_quality: 95,
@@ -210,17 +210,18 @@ serve(async (req) => {
     const figurino = reportContent?.figurino || {};
     const gender = mapGender(profileRes.data?.gender);
 
-    const outfit = buildOutfitText(figurino);
     const hair = buildHairText(figurino);
     const makeup = buildMakeupText(figurino);
 
-    // 3 sequential calls — one per background
+    // 3 sequential calls — one por background; cada um usa um look diferente do relatório.
     const results: { background: string; portrait: string | null; error?: string; promptUsed?: string }[] = [];
     for (let i = 0; i < BACKGROUND_VARIATIONS.length; i++) {
       if (i > 0) {
         // Space out calls to avoid Replicate 429 (low-credit accounts: 6/min, burst 1)
         await new Promise((r) => setTimeout(r, 1200));
       }
+      // Variação de figurino: look 0 → Neutro, look 1 → Claro, look 2 → Escuro.
+      const outfit = buildOutfitTextForLook(figurino, i);
       const built = buildPortraitPrompt({
         archetype: archetypeName,
         userId: user.id,
