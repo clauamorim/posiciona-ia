@@ -166,6 +166,57 @@ export type Database = {
         }
         Relationships: []
       }
+      content_generation_jobs: {
+        Row: {
+          attempts: number
+          created_at: string
+          error_message: string | null
+          finished_at: string | null
+          id: string
+          payload: Json
+          progress_message: string | null
+          report_id: string
+          result: Json | null
+          started_at: string | null
+          status: string
+          updated_at: string
+          user_id: string
+          week_index: number
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          payload?: Json
+          progress_message?: string | null
+          report_id: string
+          result?: Json | null
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+          week_index: number
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          payload?: Json
+          progress_message?: string | null
+          report_id?: string
+          result?: Json | null
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+          week_index?: number
+        }
+        Relationships: []
+      }
       credit_logs: {
         Row: {
           amount: number
