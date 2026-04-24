@@ -1348,6 +1348,8 @@ const PostEditorPage = () => {
               businessContext,
               caption: (day?.caption || "").toString(),
               postBody: (editedTexts[currentSlide] || day?.card_copy?.[currentSlide] || day?.caption || "").toString(),
+              onUndo: undo,
+              canUndo,
             };
 
             return (
