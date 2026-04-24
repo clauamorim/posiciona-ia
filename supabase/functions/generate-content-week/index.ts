@@ -27,22 +27,42 @@ function parseStoredReportContent(rawContent: unknown): Record<string, any> | nu
   }
 }
 
+/** Normaliza nome de arquivo: lowercase, sem acentos, sem espaços/_/-/.pdf */
+function normalizeDocName(name: string): string {
+  return (name || "")
+    .toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/\.pdf$/i, "")
+    .replace(/[\s_\-.]+/g, "");
+}
+
+/** Whitelist exata para análise de IG e geração editorial. */
+const EDITORIAL_PDF_WHITELIST = ["storybrand", "madetostick", "obviouslyawesome"];
+
 async function fetchReferencePdfs(): Promise<{ mime_type: string; data: string }[]> {
   try {
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     const { data: docs } = await supabaseAdmin
       .from("reference_documents")
-      .select("file_path, file_size")
+      .select("file_path, file_size, name")
       .eq("is_active", true)
-      .order("created_at", { ascending: true })
-      .limit(5);
+      .order("created_at", { ascending: true });
     if (!docs?.length) return [];
+
+    const filtered = docs.filter((d: any) => {
+      const candidate = normalizeDocName(d.name || d.file_path?.split("/").pop() || "");
+      return EDITORIAL_PDF_WHITELIST.some((w) => candidate.includes(w));
+    });
+    if (!filtered.length) {
+      console.warn("No whitelisted PDFs (StoryBrand/MadeToStick/ObviouslyAwesome) found among active reference documents.");
+      return [];
+    }
 
     const parts: { mime_type: string; data: string }[] = [];
     let totalSize = 0;
     const MAX_TOTAL = 8 * 1024 * 1024;
 
-    for (const doc of docs) {
+    for (const doc of filtered) {
       if (totalSize + doc.file_size > MAX_TOTAL) break;
       const { data: fileData, error } = await supabaseAdmin.storage
         .from("reference-pdfs")
@@ -290,6 +310,11 @@ O JSON deve ser um array com 7 objetos:
     "script": "ROTEIRO COMPLETO apenas para Reels/Stories, string vazia para post/carrossel"
   }
 ]
+
+REFORÇO ANTI META-NARRATIVA (CRÍTICO):
+Nunca descreva a estratégia em termos teóricos. NÃO escreva frases como "a marca atua como guia do herói", "o herói da história", "a jornada do herói", "plano de 3 passos", "fracasso iminente", "categoria de mercado". Escreva a copy final, como se o leitor nunca tivesse ouvido falar de framework.
+- ERRADO: "Como guia, mostramos ao herói o plano para superar o problema interno."
+- CERTO: "Em 3 etapas, sua agenda da semana sai do caos para um sistema previsível."
 
 Regras estruturais:
 - 7 dias obrigatórios

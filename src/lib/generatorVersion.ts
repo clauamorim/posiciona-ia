@@ -14,8 +14,13 @@
  * - 2026-04-24-v3: sanitização backend obrigatória (editorialSanitize.ts)
  *   antes de devolver posts. Strip de rótulos StoryBrand/posicionais e
  *   detecção de "vazamento de framework" com retry automático.
+ * - 2026-04-24-v4: PDFs enviados à LLM restritos a StoryBrand, Made to
+ *   Stick e Obviously Awesome (análise de IG e linha editorial).
+ *   Sanitização detecta meta-narrativa embutida (ex.: "marca como guia",
+ *   "jornada do herói"). Regeneração de post único deixa de enviar
+ *   captions dos posts vizinhos — só o tema, para evitar contaminação.
  */
-export const EDITORIAL_GENERATOR_VERSION = "2026-04-24-v3";
+export const EDITORIAL_GENERATOR_VERSION = "2026-04-24-v4";
 
 /**
  * Retorna true quando o dia/post foi gerado antes da versão atual,

@@ -213,7 +213,9 @@ const EditorialPage = () => {
         supabase.from("reports").select("content").eq("user_id", user.id).eq("status", "completed").order("version", { ascending: false }).limit(1).single(),
       ]);
       const reportContent = normalizeReportContent(reportData?.content) as Record<string, any> | null;
-      const existingPosts = allWeeks.flat();
+      // Envia apenas o tema (sem caption/script/card_copy) para evitar
+      // que a IA "ecoe" copy dos posts vizinhos na regeneração.
+      const existingPosts = allWeeks.flat().map((p: any) => ({ theme: p?.theme }));
       const { data, error } = await supabase.functions.invoke("regenerate-single-post", {
         body: {
           format: day.format, theme: day.theme, dayNumber: day.day || dayIndex + 1,
