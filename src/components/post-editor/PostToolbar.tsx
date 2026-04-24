@@ -107,6 +107,10 @@ interface PostToolbarProps {
   regenerationCredits?: number;
   niche?: string;
   businessContext?: string;
+  /** Legenda do post — refina busca/IA. */
+  caption?: string;
+  /** Corpo do post (slide atual ou texto editado). */
+  postBody?: string;
 
   // Actions
   onDownload: () => void;
@@ -230,6 +234,8 @@ const PostToolbar: React.FC<PostToolbarProps> = (props) => {
           regenerationCredits={props.regenerationCredits}
           niche={props.niche}
           businessContext={props.businessContext}
+          caption={props.caption}
+          postBody={props.postBody}
         />
       </section>
 

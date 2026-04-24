@@ -1238,6 +1238,10 @@ const PostEditorPage = () => {
               },
               onAIGenerated: debitRegenerationCredit,
               regenerationCredits: balances?.regeneration_credits ?? 0,
+              niche: userNiche,
+              businessContext,
+              caption: (day?.caption || "").toString(),
+              postBody: (editedTexts[currentSlide] || day?.card_copy?.[currentSlide] || day?.caption || "").toString(),
             };
 
             return (
