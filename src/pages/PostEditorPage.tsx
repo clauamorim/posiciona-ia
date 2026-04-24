@@ -19,6 +19,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { buildAutoLayout, fetchBackgroundImage, type PostStyle, type PhotographerInfo } from "@/lib/postAutoLayout";
 import UnsplashAttribution from "@/components/post-editor/UnsplashAttribution";
 import { Sparkles, X, Image as ImageIcon, Loader2 } from "lucide-react";
+import { useEditorHistory } from "@/hooks/useEditorHistory";
 
 function getContrastColor(hex: string): string {
   const r = parseInt(hex.slice(1, 3), 16);
@@ -280,6 +281,100 @@ const PostEditorPage = () => {
 
   const [displayFont, setDisplayFont] = useState(draft?.displayFont || typography.display || "Space Grotesk");
   const [bodyFont, setBodyFont] = useState(draft?.bodyFont || typography.body || "Inter");
+
+  // ===== Undo / history =====
+  const historyState = {
+    editedTexts,
+    editedTitle,
+    overlayImages,
+    bgIndex,
+    layout,
+    currentSlide,
+    fontSize,
+    fontWeight,
+    fontStyle,
+    useGradient,
+    gradientColor2Index,
+    customGradientColor2,
+    gradientDirection,
+    textAlign,
+    titleTextAlign,
+    customTextColor,
+    customBgColor,
+    titleFontSize,
+    titleColor,
+    titleFontFamily,
+    ctaText,
+    ctaBgColor,
+    ctaTextColor,
+    ctaFontSize,
+    ctaPosition,
+    canvasFormat,
+    showSlideNumber,
+    slideNumberPosition,
+    slideNumberBgColor,
+    slideNumberTextColor,
+    slideNumberSize,
+    renderOrder,
+    displayFont,
+    bodyFont,
+  };
+
+  const applyUndoSnapshot = useCallback((snap: typeof historyState) => {
+    setEditedTexts(snap.editedTexts);
+    setEditedTitle(snap.editedTitle);
+    setOverlayImages(snap.overlayImages);
+    setBgIndex(snap.bgIndex);
+    setLayout(snap.layout);
+    setCurrentSlide(snap.currentSlide);
+    setFontSize(snap.fontSize);
+    setFontWeight(snap.fontWeight);
+    setFontStyle(snap.fontStyle);
+    setUseGradient(snap.useGradient);
+    setGradientColor2Index(snap.gradientColor2Index);
+    setCustomGradientColor2(snap.customGradientColor2);
+    setGradientDirection(snap.gradientDirection);
+    setTextAlign(snap.textAlign);
+    setTitleTextAlign(snap.titleTextAlign);
+    setCustomTextColor(snap.customTextColor);
+    setCustomBgColor(snap.customBgColor);
+    setTitleFontSize(snap.titleFontSize);
+    setTitleColor(snap.titleColor);
+    setTitleFontFamily(snap.titleFontFamily);
+    setCtaText(snap.ctaText);
+    setCtaBgColor(snap.ctaBgColor);
+    setCtaTextColor(snap.ctaTextColor);
+    setCtaFontSize(snap.ctaFontSize);
+    setCtaPosition(snap.ctaPosition);
+    setCanvasFormat(snap.canvasFormat);
+    setShowSlideNumber(snap.showSlideNumber);
+    setSlideNumberPosition(snap.slideNumberPosition);
+    setSlideNumberBgColor(snap.slideNumberBgColor);
+    setSlideNumberTextColor(snap.slideNumberTextColor);
+    setSlideNumberSize(snap.slideNumberSize);
+    setRenderOrder(snap.renderOrder);
+    setDisplayFont(snap.displayFont);
+    setBodyFont(snap.bodyFont);
+  }, []);
+
+  const { undo, canUndo } = useEditorHistory(historyState as any, applyUndoSnapshot as any);
+
+  // Keyboard shortcut: Ctrl/Cmd + Z
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const isUndoCombo = (e.ctrlKey || e.metaKey) && (e.key === "z" || e.key === "Z") && !e.shiftKey;
+      if (!isUndoCombo) return;
+      const target = e.target as HTMLElement | null;
+      if (target) {
+        const tag = target.tagName?.toLowerCase();
+        if (tag === "input" || tag === "textarea" || target.isContentEditable) return;
+      }
+      e.preventDefault();
+      undo();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [undo]);
 
   useEffect(() => {
     if (draft) return; // Don't overwrite draft fonts
