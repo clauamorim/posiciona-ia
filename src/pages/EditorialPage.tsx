@@ -34,6 +34,23 @@ const FORMAT_CONFIG: Record<string, { label: string; icon: React.ReactNode; colo
   post: { label: "Post", icon: <ImageIcon className="h-3 w-3" />, color: "bg-emerald-500/10 text-emerald-600 border-emerald-200", border: "border-l-emerald-500" },
 };
 
+// Garante que a sessão local está válida antes de chamar edge functions.
+// Se o refresh token foi revogado (ex.: login em outra aba), força logout
+// para evitar um 401 silencioso vindo da função.
+const ensureFreshSession = async (): Promise<boolean> => {
+  const { data, error } = await supabase.auth.getSession();
+  if (error || !data?.session) {
+    await supabase.auth.signOut().catch(() => {});
+    toast({
+      title: "Sessão expirada",
+      description: "Faça login novamente para continuar.",
+      variant: "destructive",
+    });
+    return false;
+  }
+  return true;
+};
+
 const getFunctionErrorMessage = async (error: any, data?: any, fallback = "Ocorreu um erro ao processar sua solicitação.") => {
   if (typeof data?.error === "string" && data.error.trim()) return data.error;
 
@@ -161,6 +178,7 @@ const EditorialPage = () => {
     }
     setGeneratingWeek(true);
     try {
+      if (!(await ensureFreshSession())) { setGeneratingWeek(false); return; }
       const [{ data: bq }, { data: profile }, { data: reportData }] = await Promise.all([
         supabase.from("business_questionnaires").select("*").eq("user_id", user.id).order("version", { ascending: false }).limit(1).single(),
         supabase.from("profiles").select("niche").eq("user_id", user.id).single(),
@@ -205,6 +223,7 @@ const EditorialPage = () => {
     const key = `${weekIndex}-${dayIndex}`;
     setRegeneratingPost(key);
     try {
+      if (!(await ensureFreshSession())) { setRegeneratingPost(null); return; }
       const week = allWeeks[weekIndex];
       const day = week[dayIndex];
       const [{ data: bq }, { data: profile }, { data: reportData }] = await Promise.all([
@@ -264,6 +283,7 @@ const EditorialPage = () => {
     if (!user) return;
     setRegeneratingFreeWeek(weekIndex);
     try {
+      if (!(await ensureFreshSession())) { setRegeneratingFreeWeek(null); return; }
       const [{ data: bq }, { data: profile }, { data: reportData }] = await Promise.all([
         supabase.from("business_questionnaires").select("*").eq("user_id", user.id).order("version", { ascending: false }).limit(1).single(),
         supabase.from("profiles").select("niche").eq("user_id", user.id).single(),
