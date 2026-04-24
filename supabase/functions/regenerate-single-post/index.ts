@@ -257,9 +257,9 @@ Gere 1 novo post no formato "${format}" agora.`;
 
     const post = extractJsonFromLLM(rawContent);
     if (!post || typeof post !== "object" || Array.isArray(post)) {
-      console.error("Failed to parse AI response:", String(rawContent).substring(0, 500));
+      console.error("Falha ao interpretar a resposta da IA:", String(rawContent).substring(0, 500));
       return new Response(
-        JSON.stringify({ error: "A IA retornou uma resposta inválida. Tente gerar novamente." }),
+        JSON.stringify({ error: "Não foi possível regenerar este post agora. Tente novamente em alguns segundos." }),
         { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
