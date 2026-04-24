@@ -11,8 +11,11 @@
  * - 2026-04-24-v2: prompts reforçados com Obviously Awesome (posicionamento)
  *   e Made to Stick (SUCCES). Ganchos específicos do nicho, proibição de
  *   aberturas genéricas. PDFs de referência enviados em todas as semanas.
+ * - 2026-04-24-v3: sanitização backend obrigatória (editorialSanitize.ts)
+ *   antes de devolver posts. Strip de rótulos StoryBrand/posicionais e
+ *   detecção de "vazamento de framework" com retry automático.
  */
-export const EDITORIAL_GENERATOR_VERSION = "2026-04-24-v2";
+export const EDITORIAL_GENERATOR_VERSION = "2026-04-24-v3";
 
 /**
  * Retorna true quando o dia/post foi gerado antes da versão atual,
