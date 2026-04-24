@@ -190,6 +190,7 @@ const EditorialPage = () => {
       setReport({ ...report, editorial_weeks: updatedWeeks });
       toast({ title: "Nova semana gerada com sucesso!" });
     } catch (err: any) {
+      await refreshSubscription();
       toast({ title: "Erro ao gerar conteúdo", description: err.message, variant: "destructive" });
     }
     setGeneratingWeek(false);
