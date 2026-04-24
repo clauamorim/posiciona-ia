@@ -1222,7 +1222,8 @@ const PostEditorPage = () => {
                   ];
                 });
                 // Salva automaticamente na galeria pessoal (Unsplash ou IA — auto-detectado pela URL)
-                saveSinglePhotoToGallery(url).catch(() => {});
+                console.log("PostEditor: onSwapBackgroundUrl picked", url);
+                saveSinglePhotoToGallery(url).catch((e) => console.warn("save bg to gallery failed", e));
               },
               onAIGenerated: debitRegenerationCredit,
               regenerationCredits: balances?.regeneration_credits ?? 0,
