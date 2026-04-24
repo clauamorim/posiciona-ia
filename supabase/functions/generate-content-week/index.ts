@@ -368,15 +368,27 @@ Gere 7 novos dias de conteúdo em JSON.`;
     try {
       rawContent = await callGemini(systemPrompt, userContent);
     } catch (firstError) {
-      console.error("First Gemini attempt failed, retrying:", firstError);
-      rawContent = await callGemini(systemPrompt, userContent);
+      console.error("Primeira tentativa do Gemini falhou, tentando novamente:", firstError);
+      try {
+        rawContent = await callGemini(systemPrompt, userContent);
+      } catch (secondError) {
+        console.error("Segunda tentativa do Gemini também falhou:", secondError);
+        const status = typeof (secondError as any)?.status === "number" ? (secondError as any).status : 502;
+        const message = typeof (secondError as any)?.userMessage === "string" && (secondError as any).userMessage.trim()
+          ? (secondError as any).userMessage
+          : "Não foi possível gerar a semana agora. Tente novamente em alguns segundos.";
+        return new Response(JSON.stringify({ error: message }), {
+          status,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     let editorial = extractJsonFromLLM(rawContent);
     if (!Array.isArray(editorial) || editorial.length === 0) {
-      console.error("Failed to parse AI response:", String(rawContent).substring(0, 500));
+      console.error("Falha ao interpretar a resposta da IA:", String(rawContent).substring(0, 500));
       return new Response(
-        JSON.stringify({ error: "A IA retornou uma resposta inválida. Tente gerar novamente." }),
+        JSON.stringify({ error: "Não foi possível gerar a semana agora. Tente novamente em alguns segundos." }),
         { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
