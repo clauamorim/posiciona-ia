@@ -14,8 +14,8 @@ import {
 interface ImageGalleryPanelProps {
   defaultQuery: string;
   format: "square" | "portrait";
-  /** Chamado quando usuário escolhe imagem; recebe URL e (se Unsplash) info do fotógrafo. */
-  onPickImage: (url: string, photographer?: PhotographerInfo) => void;
+  /** Chamado quando usuário escolhe imagem; recebe URL, info do fotógrafo (Unsplash) e opcionalmente fonte ("ai" / "unsplash" / "saved"). */
+  onPickImage: (url: string, photographer?: PhotographerInfo, source?: "ai" | "unsplash" | "saved") => void;
   /** Chamado quando IA é solicitada com sucesso (consome 1 crédito). Deve fazer o débito real. */
   onAIGenerated?: () => Promise<void> | void;
   /** Saldo atual de créditos de regeneração (para validar antes de chamar a IA). */
