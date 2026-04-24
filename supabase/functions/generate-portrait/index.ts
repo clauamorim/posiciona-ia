@@ -15,9 +15,9 @@ const STUDIO_STYLES = [
   "Muted olive-gray backdrop with soft vignette and warm fill light. Two-light setup, elegant and understated. Professional branding aesthetic.",
 ];
 
-const FLUX_MODEL = "flux-kontext-apps/multi-image-kontext-pro";
+const INSTANT_ID_MODEL = "zsxkib/instant-id";
 
-async function generateWithFlux(params: {
+async function generateWithInstantId(params: {
   selfieDataUrls: string[];
   prompt: string;
   token: string;
@@ -25,24 +25,28 @@ async function generateWithFlux(params: {
   const { selfieDataUrls, prompt, token } = params;
   const start = Date.now();
   try {
-    // multi-image-kontext-pro accepts input_image_1 and input_image_2 (max 2 references)
-    // We pick the 2 largest selfies (by base64 length proxy) for best facial fidelity.
+    // InstantID uses 1 strong reference image. Pick the largest selfie (proxy for most detailed).
     const sorted = [...selfieDataUrls]
       .map((s, i) => ({ s, size: s.length, i }))
       .sort((a, b) => b.size - a.size);
     const ref1 = sorted[0]?.s;
-    const ref2 = sorted[1]?.s ?? sorted[0]?.s;
 
     const input: Record<string, unknown> = {
+      image: ref1,
       prompt,
-      input_image_1: ref1,
-      input_image_2: ref2,
-      aspect_ratio: "1:1",
+      negative_prompt: "(lowres, low quality, worst quality:1.2), (text:1.2), watermark, painting, drawing, illustration, glitch, deformed, mutated, cross-eyed, ugly, disfigured",
+      width: 1024,
+      height: 1024,
+      num_inference_steps: 30,
+      guidance_scale: 5,
+      ip_adapter_scale: 0.8,
+      controlnet_conditioning_scale: 0.8,
+      num_outputs: 1,
       output_format: "jpg",
-      safety_tolerance: 2,
+      output_quality: 95,
     };
 
-    console.log(`[portrait] calling replicate model=${FLUX_MODEL} refs=${sorted.length}`);
+    console.log(`[portrait] calling replicate model=${INSTANT_ID_MODEL} refs=1 (from ${sorted.length} selfies)`);
 
     // DIAG: validate which Replicate account this token belongs to
     try {
