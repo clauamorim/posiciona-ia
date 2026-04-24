@@ -156,8 +156,9 @@ const StyleSelectionModal: React.FC<StyleSelectionModalProps> = ({
             );
           })}
         </div>
+        </div>
 
-        <DialogFooter className="gap-2 sm:justify-between">
+        <DialogFooter className="gap-2 sm:justify-between shrink-0">
           <Button variant="ghost" size="sm" onClick={handleSkip}>
             Pular e abrir editor vazio
           </Button>
