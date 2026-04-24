@@ -103,10 +103,12 @@ const EditorialPage = () => {
   const [report, setReport] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [generatingWeek, setGeneratingWeek] = useState(false);
+  const [generatingMessage, setGeneratingMessage] = useState<string>("");
   const [regeneratingPost, setRegeneratingPost] = useState<string | null>(null);
   const [regeneratingFreeWeek, setRegeneratingFreeWeek] = useState<number | null>(null);
   const [downloadingPDF, setDownloadingPDF] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
+  const pollingRef = useRef<{ stop: boolean }>({ stop: false });
 
   // Modal de seleção de estilo antes de abrir o editor
   const [styleModal, setStyleModal] = useState<{
