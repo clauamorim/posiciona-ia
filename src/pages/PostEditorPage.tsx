@@ -719,9 +719,35 @@ const PostEditorPage = () => {
 
   const designIdParam = searchParams.get("design");
   const fromTemplateParam = searchParams.get("fromTemplate") === "1";
+  const fromGalleryParam = searchParams.get("fromGallery");
   const [currentDesignId, setCurrentDesignId] = useState<string | null>(fromTemplateParam ? null : designIdParam);
   const [savingDesign, setSavingDesign] = useState(false);
   const designLoadedRef = useRef(false);
+  const galleryLoadedRef = useRef(false);
+
+  // Pre-carrega imagem da galeria pessoal como background overlay
+  useEffect(() => {
+    if (!user || !fromGalleryParam || galleryLoadedRef.current) return;
+    galleryLoadedRef.current = true;
+    (async () => {
+      const { data } = await supabase
+        .from("user_gallery_assets")
+        .select("file_path, name")
+        .eq("id", fromGalleryParam)
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (!data) return;
+      const { data: pub } = supabase.storage.from("user-uploads").getPublicUrl(data.file_path);
+      const w = canvasFormat === "reels" ? 1080 : 1080;
+      const h = canvasFormat === "reels" ? 1920 : 1350;
+      setOverlayImages(prev => [
+        { id: `tpl-bg-${crypto.randomUUID()}`, src: pub.publicUrl, x: 0, y: 0, width: w, height: h, type: "photo", opacity: 1 },
+        ...prev.filter(o => !o.id.startsWith("tpl-bg-")),
+      ]);
+      toast({ title: "Imagem carregada da galeria", description: data.name });
+    })();
+  }, [user, fromGalleryParam, canvasFormat]);
+
 
   // Load existing design from ?design=ID
   useEffect(() => {
@@ -770,18 +796,18 @@ const PostEditorPage = () => {
       });
   }, [user, designIdParam]);
 
-  const persistPostPhotosToGallery = useCallback(async () => {
-    if (!user) return;
+  const persistPostPhotosToGallery = useCallback(async (): Promise<number> => {
+    if (!user) return 0;
+    let added = 0;
     try {
       const photoOverlays = overlayImages.filter(o => o.type === "photo" && o.src && (o.src.startsWith("http://") || o.src.startsWith("https://")));
-      if (photoOverlays.length === 0) return;
-      // Busca file_paths já existentes para evitar duplicar
-      const { data: existing } = await supabase
-        .from("user_gallery_assets")
-        .select("file_path")
-        .eq("user_id", user.id);
-      const existingPaths = new Set((existing || []).map((r: any) => r.file_path));
-      for (const ov of photoOverlays) {
+      if (photoOverlays.length === 0) return 0;
+      // Pula URLs que já são da galeria do próprio usuário (storage user-uploads)
+      const isFromOwnStorage = (url: string) =>
+        url.includes("/storage/v1/object/public/user-uploads/") || url.includes("/storage/v1/object/sign/user-uploads/");
+      const candidates = photoOverlays.filter(o => !isFromOwnStorage(o.src));
+      if (candidates.length === 0) return 0;
+      for (const ov of candidates) {
         try {
           const resp = await fetch(ov.src);
           if (!resp.ok) continue;
@@ -789,11 +815,10 @@ const PostEditorPage = () => {
           const ext = (blob.type.split("/")[1] || "jpg").split(";")[0];
           const id = crypto.randomUUID();
           const path = `${user.id}/saved-${id}.${ext}`;
-          if (existingPaths.has(path)) continue;
           const isUnsplash = /images\.unsplash\.com|plus\.unsplash\.com/.test(ov.src);
           const { error: upErr } = await supabase.storage.from("user-uploads").upload(path, blob, { contentType: blob.type, upsert: false });
           if (upErr) continue;
-          await supabase.from("user_gallery_assets").insert({
+          const { error: insErr } = await supabase.from("user_gallery_assets").insert({
             user_id: user.id,
             name: isUnsplash ? "Foto Unsplash salva" : "Imagem do post",
             file_path: path,
@@ -802,11 +827,13 @@ const PostEditorPage = () => {
             source: isUnsplash ? "unsplash" : "ai",
             attribution: activePhotographer && isUnsplash ? activePhotographer as any : null,
           });
+          if (!insErr) added += 1;
         } catch {}
       }
     } catch (err) {
       console.warn("persistPostPhotosToGallery failed", err);
     }
+    return added;
   }, [user, overlayImages, activePhotographer]);
 
   const doSaveDesign = useCallback(async (asTemplate: boolean) => {
@@ -844,21 +871,24 @@ const PostEditorPage = () => {
       const title = asTemplate ? `Modelo · ${baseTitle}` : baseTitle;
 
       // Persistir fotos do post na galeria do usuário (Unsplash + IA)
-      await persistPostPhotosToGallery();
+      const addedToGallery = await persistPostPhotosToGallery();
+      const galleryNote = addedToGallery > 0
+        ? ` ${addedToGallery} foto${addedToGallery > 1 ? "s" : ""} adicionada${addedToGallery > 1 ? "s" : ""} à sua galeria.`
+        : "";
 
       if (currentDesignId && !asTemplate) {
         const { error } = await supabase.from("user_designs")
           .update({ title, state, thumbnail, week_index: weekIndex, day_index: dayIndex, updated_at: new Date().toISOString() })
           .eq("id", currentDesignId).eq("user_id", user.id);
         if (error) throw error;
-        toast({ title: "Design atualizado" });
+        toast({ title: "Design atualizado", description: galleryNote || undefined });
       } else {
         const { data, error } = await supabase.from("user_designs")
           .insert({ user_id: user.id, title, state, thumbnail, week_index: weekIndex, day_index: dayIndex, is_template: asTemplate } as any)
           .select("id").single();
         if (error) throw error;
         if (data && !asTemplate) setCurrentDesignId(data.id);
-        toast({ title: asTemplate ? "Modelo salvo" : "Design salvo" });
+        toast({ title: asTemplate ? "Modelo salvo" : "Design salvo", description: galleryNote || undefined });
       }
     } catch (err: any) {
       console.error(err);

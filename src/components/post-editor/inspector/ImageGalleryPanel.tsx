@@ -139,7 +139,17 @@ const ImageGalleryPanel: React.FC<ImageGalleryPanelProps> = ({
     <div className="space-y-3">
       {savedImages.length > 0 && (
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-2">Suas imagens salvas</p>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Suas imagens salvas</p>
+            <a
+              href="/my-gallery"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[10px] font-medium text-primary hover:underline"
+            >
+              Ver toda a galeria
+            </a>
+          </div>
           <div className="grid grid-cols-3 gap-1.5 max-h-48 overflow-y-auto pr-1">
             {savedImages.map((item, i) => (
               <button
