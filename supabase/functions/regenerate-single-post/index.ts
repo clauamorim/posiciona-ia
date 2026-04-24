@@ -157,6 +157,11 @@ O JSON deve seguir EXATAMENTE esta estrutura:
   "script": "..."
 }
 
+REFORÇO ANTI META-NARRATIVA (CRÍTICO):
+NÃO escreva frases como "a marca como guia do herói", "o herói da história", "jornada do herói", "plano de 3 passos", "fracasso iminente", "categoria de mercado". Escreva copy direta, como se o leitor nunca tivesse ouvido falar de framework.
+- ERRADO: "Como guia, mostramos ao herói o plano para superar o problema interno."
+- CERTO: "Em 3 etapas, sua agenda da semana sai do caos para um sistema previsível."
+
 Regras:
 - O tema e conteúdo devem ser COMPLETAMENTE DIFERENTES dos posts existentes listados abaixo
 - Para "carrossel": card_copy deve ter mínimo 5 slides
