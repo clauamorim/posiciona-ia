@@ -33,6 +33,8 @@ export interface AutoLayoutInput {
   format: CanvasFormat;
   theme: string;
   caption?: string;
+  /** Corpo do post (card_copy do slide atual ou texto editado). Refina busca/IA. */
+  body?: string;
   hasCta?: boolean;
   paletteHex: string[];
   bgPaletteHex: string;
@@ -468,7 +470,8 @@ export async function buildAutoLayout(input: AutoLayoutInput): Promise<AutoLayou
     bgInfo = await fetchBackgroundImage({
       theme: input.theme,
       caption: input.caption,
-      format: input.format === "reels" ? "portrait" : "square",
+      body: input.body,
+      format: input.format === "reels" ? "reels" : "card",
       allowAI: false,
       niche: input.niche,
       businessContext: input.businessContext,
@@ -482,7 +485,9 @@ export async function buildAutoLayout(input: AutoLayoutInput): Promise<AutoLayou
   } else if (style === "ai") {
     const ai = await generateAIImage({
       query: input.theme || input.caption || "abstract",
-      format: input.format === "reels" ? "portrait" : "square",
+      caption: input.caption,
+      body: input.body,
+      format: input.format === "reels" ? "reels" : "card",
       niche: input.niche,
       businessContext: input.businessContext,
     });
