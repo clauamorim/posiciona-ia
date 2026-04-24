@@ -192,29 +192,68 @@ Gere 1 novo post no formato "${format}" agora.`;
         ]
       : userPrompt;
 
-    const response = await fetch(API_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userContent },
-        ],
-        max_tokens: 3000,
-      }),
-    });
-
-    if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(`AI API error: ${response.status} - ${errText}`);
+    let response: Response;
+    try {
+      response = await fetch(API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userContent },
+          ],
+          max_tokens: 3000,
+        }),
+      });
+    } catch (networkErr) {
+      console.error("Erro de rede ao chamar a IA:", networkErr);
+      return new Response(
+        JSON.stringify({ error: "A IA demorou para responder. Tente novamente em alguns segundos." }),
+        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
-    const data = await response.json();
-    const rawContent = data.choices?.[0]?.message?.content || "";
+    if (!response.ok) {
+      const errText = await response.text().catch(() => "");
+      console.error(`AI API error ${response.status}:`, errText.substring(0, 300));
+      if (response.status === 402) {
+        return new Response(
+          JSON.stringify({ error: "A geração de conteúdo está temporariamente indisponível. Tente novamente em alguns instantes." }),
+          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      if (response.status === 429) {
+        return new Response(
+          JSON.stringify({ error: "Muitas solicitações ao mesmo tempo. Aguarde um pouco e tente novamente." }),
+          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      return new Response(
+        JSON.stringify({ error: "Não foi possível regenerar este post agora. Tente novamente em alguns segundos." }),
+        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    let data: any;
+    try {
+      data = await response.json();
+    } catch {
+      return new Response(
+        JSON.stringify({ error: "A IA demorou para responder. Tente novamente em alguns segundos." }),
+        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    const rawContent = data?.choices?.[0]?.message?.content || "";
+    if (!rawContent.trim()) {
+      return new Response(
+        JSON.stringify({ error: "A IA demorou para responder. Tente novamente em alguns segundos." }),
+        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     const post = extractJsonFromLLM(rawContent);
     if (!post || typeof post !== "object" || Array.isArray(post)) {
