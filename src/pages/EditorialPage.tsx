@@ -223,6 +223,7 @@ const EditorialPage = () => {
     const key = `${weekIndex}-${dayIndex}`;
     setRegeneratingPost(key);
     try {
+      if (!(await ensureFreshSession())) { setRegeneratingPost(null); return; }
       const week = allWeeks[weekIndex];
       const day = week[dayIndex];
       const [{ data: bq }, { data: profile }, { data: reportData }] = await Promise.all([
