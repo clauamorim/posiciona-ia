@@ -1,39 +1,27 @@
 
 
-## Resolver "provedor principal indisponível" — comprar créditos no Replicate
+## Diagnóstico definitivo do 402 do Replicate
 
-### Diagnóstico
-O erro mudou de `401 Unauthenticated` para `402 Insufficient credit`. Isso significa:
-- Token está correto e autenticado
-- A conta Replicate associada ao token **não tem saldo**
-- Replicate **não cobra automaticamente** o cartão por uso — você precisa comprar créditos antecipadamente (modelo pré-pago)
+### O que vou fazer
+1. **Validar o token diretamente contra a API do Replicate** chamando `https://api.replicate.com/v1/account` com o token que está atualmente salvo no secret `REPLICATE_API_TOKEN`. Isso me devolve o nome da conta — comparo com `clauamorim` para confirmar se é o token certo que está no servidor.
+2. **Disparar uma chamada de teste mínima** ao modelo `flux-kontext-apps/multi-image-kontext-pro` direto da edge function, com log do request_id e da resposta completa do Replicate (não só do status).
+3. **Inspecionar a resposta de erro completa** — o Replicate inclui um campo `detail` com a razão real (ex: "no payment method on file", "credits expired", "model requires verified account", "insufficient credit on this org").
+4. Com essa informação, te aponto exatamente o que ajustar na conta do Replicate (adicionar payment method, verificar conta, trocar de org, etc.) ou re-colar o token corretamente.
 
-### O que você precisa fazer (fora do Lovable)
-1. Acessar [replicate.com/account/billing](https://replicate.com/account/billing#billing)
-2. Confirmar que está logado **na mesma conta** onde gerou o `REPLICATE_API_TOKEN`
-3. Em **"Billing"**, comprar créditos (mínimo costuma ser US$ 10)
-   - Opcional: ativar **"Auto-recharge"** para recarregar automaticamente quando o saldo cair abaixo de um limite (evita cair no fallback Gemini de novo)
-4. Aguardar 1-2 minutos após a compra para o saldo propagar
+### O que NÃO vou fazer
+- Não vou mudar nenhuma lógica do frontend (a remoção do toast de fallback já foi acordada e fica para depois).
+- Não vou trocar o modelo Flux antes de entender por que o 402 persiste.
+- Não vou pedir token novo agora — primeiro confirmo se o que está salvo é realmente o `r8_6uJ...`.
 
-### O que vou fazer no código (após sua confirmação)
-Nada. **Não há mudança de código necessária** — o sistema já está correto:
-- Flux é chamado primeiro
-- Em caso de falha (incluindo 402), cai automaticamente no Gemini
-- O contador de créditos do usuário é debitado normalmente em ambos os casos
+### Arquivos afetados
+- `supabase/functions/generate-portrait/index.ts` — adicionar logs detalhados temporários da resposta do Replicate (status, headers, corpo completo, request_id). Sem mudança de lógica.
 
-A correção é 100% na sua conta do Replicate.
+### Próximo passo após o teste
+Dependendo do resultado:
+- **Se a API do Replicate retornar conta diferente de `clauamorim`** → o secret está desatualizado, te peço para colar o token novamente no fluxo seguro.
+- **Se retornar `clauamorim` mas der 402** → te oriento exatamente o que falta na conta (provavelmente payment method ou verificação), com base no `detail` do erro.
+- **Se passar e gerar a imagem** → problema era cache; remove os logs extras e seguimos para a remoção do toast.
 
 ### Validação
-Após comprar os créditos:
-1. Você gera 1 retrato de teste em `/portraits`
-2. Resultado esperado: retrato gerado **sem** o aviso de "provedor principal indisponível"
-3. Se ainda aparecer o aviso, eu consulto os logs novamente — a razão deve ter mudado de `replicate-create-402` para outra coisa (ou desaparecer)
-
-### Custo de referência
-- `multi-image-kontext-pro`: ~US$ 0,04 por retrato
-- US$ 10 de crédito = ~250 retratos
-- Auto-recharge recomendado em US$ 5 → +US$ 10
-
-### Observação sobre o fallback
-Enquanto o Replicate estiver sem crédito, o sistema continua funcionando via Gemini (fallback) — só que o resultado tem a qualidade visual inferior que motivou a troca para Flux. Comprar crédito resolve definitivamente.
+Você gera 1 retrato em `/portraits` enquanto eu observo os logs. Em até 2 minutos eu te digo o motivo exato do 402.
 
