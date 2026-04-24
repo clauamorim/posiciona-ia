@@ -286,29 +286,25 @@ Photorealistic professional headshot, candid quality, 85mm f/1.8 lens, subtle de
 
 No text, no watermarks, no overlays.`;
 
-    // Try Flux Kontext Pro via Replicate first
+    // Try Flux multi-image Kontext via Replicate first
     let finalImage: string | null = null;
     let provider: "flux" | "gemini" = "flux";
     let usedFallback = false;
 
     if (REPLICATE_API_TOKEN) {
-      const bestIdx = await pickBestSelfieIndex(selfies);
-      const bestSelfie = selfies[bestIdx];
-      const bestSelfieDataUrl = bestSelfie.startsWith("data:")
-        ? bestSelfie
-        : `data:image/jpeg;base64,${bestSelfie}`;
+      const selfieDataUrls = selfies.map((s: string) =>
+        s.startsWith("data:") ? s : `data:image/jpeg;base64,${s}`
+      );
 
-      const otherCount = selfies.length - 1;
-      const fluxPrompt = `Transform this reference photo into a professional studio portrait while preserving the EXACT SAME PERSON.
+      // Short, identity-first prompt — Flux Kontext responds better to concise instructions
+      const fluxPrompt = `Professional studio headshot of the SAME PERSON shown in the reference images. Preserve their exact face: face shape, nose, eyes, eyebrows, lips, jawline, skin tone, hair color and style, age, ethnicity, and any distinguishing features (moles, freckles, facial hair). The output must be immediately recognizable as the same individual — do NOT generate a different person.
 
-${sharedPromptCore}
+${studioStyle}${wardrobeLine}
 
-${otherCount > 0 ? `Note: ${otherCount} additional reference photo(s) of the same individual were available; rely strictly on the provided input image and treat the subject's identity as fixed.` : ""}
-
-Output: a single photorealistic studio headshot indistinguishable from a real DSLR photograph.`;
+Photorealistic, 85mm lens, natural skin texture with pores, natural catchlights in eyes, candid documentary quality. No text, no watermarks.`;
 
       const fluxResult = await generateWithFlux({
-        inputImageDataUrl: bestSelfieDataUrl,
+        selfieDataUrls,
         prompt: fluxPrompt,
         token: REPLICATE_API_TOKEN,
       });
