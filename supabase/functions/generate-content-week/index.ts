@@ -178,7 +178,7 @@ serve(async (req) => {
       });
     }
 
-    // ===== Paid path: check + deduct credits =====
+    // ===== Paid path: validate credits first; only deduct after successful generation =====
     const { data: balanceData } = await supabase
       .from("user_balances")
       .select("weekly_cycles")
@@ -188,19 +188,6 @@ serve(async (req) => {
     if (!balanceData || balanceData.weekly_cycles < 1) {
       return new Response(JSON.stringify({ error: "Créditos de ciclos semanais insuficientes. Adquira mais créditos para continuar gerando conteúdo." }), {
         status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const { error: creditError } = await supabase
-      .from("user_balances")
-      .update({ weekly_cycles: balanceData.weekly_cycles - 1 })
-      .eq("user_id", user.id)
-      .gt("weekly_cycles", 0);
-
-    if (creditError) {
-      console.error("Credit deduction failed:", creditError);
-      return new Response(JSON.stringify({ error: "Erro ao deduzir créditos. Tente novamente." }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -382,6 +369,20 @@ Gere 7 novos dias de conteúdo em JSON.`;
       ...d,
       generator_version: EDITORIAL_GENERATOR_VERSION,
     }));
+
+    const { error: creditError } = await supabase
+      .from("user_balances")
+      .update({ weekly_cycles: balanceData.weekly_cycles - 1 })
+      .eq("user_id", user.id)
+      .eq("weekly_cycles", balanceData.weekly_cycles);
+
+    if (creditError) {
+      console.error("Credit deduction failed:", creditError);
+      return new Response(JSON.stringify({ error: "Não foi possível reservar seu ciclo semanal. Tente novamente." }), {
+        status: 409,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     return new Response(JSON.stringify({ editorial: stamped, generator_version: EDITORIAL_GENERATOR_VERSION }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
