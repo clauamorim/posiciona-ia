@@ -15,9 +15,9 @@ const STUDIO_STYLES = [
   "Muted olive-gray backdrop with soft vignette and warm fill light. Two-light setup, elegant and understated. Professional branding aesthetic.",
 ];
 
-const FLUX_MODEL = "flux-kontext-apps/multi-image-kontext-pro";
+const INSTANT_ID_MODEL = "zsxkib/instant-id";
 
-async function generateWithFlux(params: {
+async function generateWithInstantId(params: {
   selfieDataUrls: string[];
   prompt: string;
   token: string;
@@ -25,24 +25,28 @@ async function generateWithFlux(params: {
   const { selfieDataUrls, prompt, token } = params;
   const start = Date.now();
   try {
-    // multi-image-kontext-pro accepts input_image_1 and input_image_2 (max 2 references)
-    // We pick the 2 largest selfies (by base64 length proxy) for best facial fidelity.
+    // InstantID uses 1 strong reference image. Pick the largest selfie (proxy for most detailed).
     const sorted = [...selfieDataUrls]
       .map((s, i) => ({ s, size: s.length, i }))
       .sort((a, b) => b.size - a.size);
     const ref1 = sorted[0]?.s;
-    const ref2 = sorted[1]?.s ?? sorted[0]?.s;
 
     const input: Record<string, unknown> = {
+      image: ref1,
       prompt,
-      input_image_1: ref1,
-      input_image_2: ref2,
-      aspect_ratio: "1:1",
+      negative_prompt: "(lowres, low quality, worst quality:1.2), (text:1.2), watermark, painting, drawing, illustration, glitch, deformed, mutated, cross-eyed, ugly, disfigured",
+      width: 1024,
+      height: 1024,
+      num_inference_steps: 30,
+      guidance_scale: 5,
+      ip_adapter_scale: 0.8,
+      controlnet_conditioning_scale: 0.8,
+      num_outputs: 1,
       output_format: "jpg",
-      safety_tolerance: 2,
+      output_quality: 95,
     };
 
-    console.log(`[portrait] calling replicate model=${FLUX_MODEL} refs=${sorted.length}`);
+    console.log(`[portrait] calling replicate model=${INSTANT_ID_MODEL} refs=1 (from ${sorted.length} selfies)`);
 
     // DIAG: validate which Replicate account this token belongs to
     try {
@@ -58,7 +62,7 @@ async function generateWithFlux(params: {
       console.log(`[portrait][diag] account-check exception=${e instanceof Error ? e.message : String(e)}`);
     }
 
-    const createRes = await fetch(`https://api.replicate.com/v1/models/${FLUX_MODEL}/predictions`, {
+    const createRes = await fetch(`https://api.replicate.com/v1/models/${INSTANT_ID_MODEL}/predictions`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -121,7 +125,7 @@ async function generateWithFlux(params: {
       binary += String.fromCharCode(...buf.subarray(i, i + chunk));
     }
     const b64 = btoa(binary);
-    console.log(`[portrait] provider=flux status=succeeded latency=${latency}s`);
+    console.log(`[portrait] provider=instant-id status=succeeded latency=${latency}s`);
     return { ok: true, dataUrl: `data:image/jpeg;base64,${b64}` };
   } catch (e) {
     return { ok: false, reason: `exception:${e instanceof Error ? e.message : String(e)}` };
@@ -302,9 +306,9 @@ Photorealistic professional headshot, candid quality, 85mm f/1.8 lens, subtle de
 
 No text, no watermarks, no overlays.`;
 
-    // Try Flux multi-image Kontext via Replicate first
+    // Try InstantID via Replicate first (identity-preserving)
     let finalImage: string | null = null;
-    let provider: "flux" | "gemini" = "flux";
+    let provider: "instant-id" | "gemini" = "instant-id";
     let usedFallback = false;
 
     if (REPLICATE_API_TOKEN) {
@@ -312,24 +316,22 @@ No text, no watermarks, no overlays.`;
         s.startsWith("data:") ? s : `data:image/jpeg;base64,${s}`
       );
 
-      // Short, identity-first prompt — Flux Kontext responds better to concise instructions
-      const fluxPrompt = `Professional studio headshot of the SAME PERSON shown in the reference images. Preserve their exact face: face shape, nose, eyes, eyebrows, lips, jawline, skin tone, hair color and style, age, ethnicity, and any distinguishing features (moles, freckles, facial hair). The output must be immediately recognizable as the same individual — do NOT generate a different person.
+      // InstantID prompt: focus on scene/style — identity comes from the reference image itself
+      const instantIdPrompt = `professional studio headshot portrait, ${studioStyle}${wardrobeLine}
 
-${studioStyle}${wardrobeLine}
+photorealistic, 85mm lens, natural skin texture with visible pores, natural catchlights in eyes, candid documentary photography quality, sharp focus on face, shallow depth of field. No text, no watermarks, no overlays.`;
 
-Photorealistic, 85mm lens, natural skin texture with pores, natural catchlights in eyes, candid documentary quality. No text, no watermarks.`;
-
-      const fluxResult = await generateWithFlux({
+      const instantIdResult = await generateWithInstantId({
         selfieDataUrls,
-        prompt: fluxPrompt,
+        prompt: instantIdPrompt,
         token: REPLICATE_API_TOKEN,
       });
 
-      if (fluxResult.ok) {
-        finalImage = fluxResult.dataUrl;
-        provider = "flux";
+      if (instantIdResult.ok) {
+        finalImage = instantIdResult.dataUrl;
+        provider = "instant-id";
       } else {
-        console.log(`[portrait] flux failed reason=${fluxResult.reason} → falling back to gemini`);
+        console.log(`[portrait] instant-id failed reason=${instantIdResult.reason} → falling back to gemini`);
         usedFallback = true;
       }
     } else {
