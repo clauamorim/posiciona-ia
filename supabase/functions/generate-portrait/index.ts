@@ -15,58 +15,43 @@ const STUDIO_STYLES = [
   "Muted olive-gray backdrop with soft vignette and warm fill light. Two-light setup, elegant and understated. Professional branding aesthetic.",
 ];
 
-// Pick the highest-resolution selfie as Flux input_image (best facial fidelity).
-// Returns its index in the original array, or 0 on any failure.
-async function pickBestSelfieIndex(selfies: string[]): Promise<number> {
-  let bestIdx = 0;
-  let bestPixels = 0;
-  for (let i = 0; i < selfies.length; i++) {
-    try {
-      const dataUrl = selfies[i].startsWith("data:")
-        ? selfies[i]
-        : `data:image/jpeg;base64,${selfies[i]}`;
-      const base64 = dataUrl.split(",")[1];
-      if (!base64) continue;
-      const bin = Uint8Array.from(atob(base64.slice(0, 4096)), (c) => c.charCodeAt(0));
-      // crude size proxy: full base64 length ~ pixel count proxy
-      const sizeProxy = base64.length;
-      if (sizeProxy > bestPixels) {
-        bestPixels = sizeProxy;
-        bestIdx = i;
-      }
-      void bin;
-    } catch {
-      // ignore, keep current best
-    }
-  }
-  return bestIdx;
-}
+const FLUX_MODEL = "flux-kontext-apps/multi-image-kontext-pro";
 
 async function generateWithFlux(params: {
-  inputImageDataUrl: string;
+  selfieDataUrls: string[];
   prompt: string;
   token: string;
 }): Promise<{ ok: true; dataUrl: string } | { ok: false; reason: string }> {
-  const { inputImageDataUrl, prompt, token } = params;
+  const { selfieDataUrls, prompt, token } = params;
   const start = Date.now();
   try {
-    const createRes = await fetch("https://api.replicate.com/v1/models/black-forest-labs/flux-kontext-pro/predictions", {
+    // multi-image-kontext-pro accepts input_image_1 and input_image_2 (max 2 references)
+    // We pick the 2 largest selfies (by base64 length proxy) for best facial fidelity.
+    const sorted = [...selfieDataUrls]
+      .map((s, i) => ({ s, size: s.length, i }))
+      .sort((a, b) => b.size - a.size);
+    const ref1 = sorted[0]?.s;
+    const ref2 = sorted[1]?.s ?? sorted[0]?.s;
+
+    const input: Record<string, unknown> = {
+      prompt,
+      input_image_1: ref1,
+      input_image_2: ref2,
+      aspect_ratio: "1:1",
+      output_format: "jpg",
+      safety_tolerance: 2,
+    };
+
+    console.log(`[portrait] calling replicate model=${FLUX_MODEL} refs=${sorted.length}`);
+
+    const createRes = await fetch(`https://api.replicate.com/v1/models/${FLUX_MODEL}/predictions`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
         Prefer: "wait=5",
       },
-      body: JSON.stringify({
-        input: {
-          prompt,
-          input_image: inputImageDataUrl,
-          aspect_ratio: "1:1",
-          output_format: "jpg",
-          safety_tolerance: 2,
-          prompt_upsampling: false,
-        },
-      }),
+      body: JSON.stringify({ input }),
     });
 
     if (!createRes.ok) {
