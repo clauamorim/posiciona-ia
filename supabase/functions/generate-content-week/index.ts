@@ -120,8 +120,25 @@ async function callGemini(systemPrompt: string, userContent: any): Promise<strin
     throw err;
   }
 
-  const data = await response.json();
-  return data.choices?.[0]?.message?.content || "";
+  let data: any;
+  try {
+    data = await response.json();
+  } catch (parseErr) {
+    const err = new Error("Resposta vazia da IA") as Error & { status?: number; userMessage?: string };
+    err.status = 502;
+    err.userMessage = "A IA demorou para responder. Tente novamente em alguns segundos.";
+    throw err;
+  }
+
+  const content = data?.choices?.[0]?.message?.content;
+  if (typeof content !== "string" || !content.trim()) {
+    const err = new Error("Conteúdo vazio da IA") as Error & { status?: number; userMessage?: string };
+    err.status = 502;
+    err.userMessage = "A IA demorou para responder. Tente novamente em alguns segundos.";
+    throw err;
+  }
+
+  return content;
 }
 
 serve(async (req) => {
@@ -351,15 +368,27 @@ Gere 7 novos dias de conteúdo em JSON.`;
     try {
       rawContent = await callGemini(systemPrompt, userContent);
     } catch (firstError) {
-      console.error("First Gemini attempt failed, retrying:", firstError);
-      rawContent = await callGemini(systemPrompt, userContent);
+      console.error("Primeira tentativa do Gemini falhou, tentando novamente:", firstError);
+      try {
+        rawContent = await callGemini(systemPrompt, userContent);
+      } catch (secondError) {
+        console.error("Segunda tentativa do Gemini também falhou:", secondError);
+        const status = typeof (secondError as any)?.status === "number" ? (secondError as any).status : 502;
+        const message = typeof (secondError as any)?.userMessage === "string" && (secondError as any).userMessage.trim()
+          ? (secondError as any).userMessage
+          : "Não foi possível gerar a semana agora. Tente novamente em alguns segundos.";
+        return new Response(JSON.stringify({ error: message }), {
+          status,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     let editorial = extractJsonFromLLM(rawContent);
     if (!Array.isArray(editorial) || editorial.length === 0) {
-      console.error("Failed to parse AI response:", String(rawContent).substring(0, 500));
+      console.error("Falha ao interpretar a resposta da IA:", String(rawContent).substring(0, 500));
       return new Response(
-        JSON.stringify({ error: "A IA retornou uma resposta inválida. Tente gerar novamente." }),
+        JSON.stringify({ error: "Não foi possível gerar a semana agora. Tente novamente em alguns segundos." }),
         { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -415,11 +444,16 @@ Gere 7 novos dias de conteúdo em JSON.`;
   } catch (error) {
     console.error("generate-content-week error:", error);
     const status = typeof (error as any)?.status === "number" ? (error as any).status : 500;
-    const message = typeof (error as any)?.userMessage === "string" && (error as any).userMessage.trim()
+    const userMessage = typeof (error as any)?.userMessage === "string" && (error as any).userMessage.trim()
       ? (error as any).userMessage
-      : error instanceof Error
-        ? error.message
-        : "Erro inesperado";
+      : null;
+    const rawMessage = error instanceof Error ? error.message : "";
+    // Não vaza mensagens técnicas tipo "AI API error: 500 - ..." para o usuário.
+    const looksTechnical = /AI API error|fetch failed|JSON|TypeError|SyntaxError/i.test(rawMessage);
+    const message = userMessage
+      ?? (looksTechnical || !rawMessage
+        ? "Não foi possível gerar a semana agora. Tente novamente em alguns segundos."
+        : rawMessage);
     return new Response(JSON.stringify({ error: message }), {
       status,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
