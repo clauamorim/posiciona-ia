@@ -337,11 +337,19 @@ async function fetchUserLogo(userId: string): Promise<string | null> {
   }
 }
 
+/**
+ * Formato semântico para busca/IA.
+ *  - "card"  → 4:5  (1080×1350)  [aceita "square" como alias legado]
+ *  - "reels" → 9:16 (1080×1920)  [aceita "portrait" como alias legado]
+ */
+export type ImageFormat = "card" | "reels" | "square" | "portrait";
+
 /** Busca uma imagem de fundo via edge function. Retorna metadata do fotógrafo. */
 export async function fetchBackgroundImage(opts: {
   theme: string;
   caption?: string;
-  format: "square" | "portrait";
+  body?: string;
+  format: ImageFormat;
   allowAI?: boolean;
   query?: string;
   niche?: string;
@@ -365,10 +373,12 @@ export async function fetchBackgroundImage(opts: {
 /** Busca galeria de imagens (Unsplash) — até 12. */
 export async function fetchImageGallery(opts: {
   query: string;
-  format: "square" | "portrait";
+  format: ImageFormat;
   page?: number;
   niche?: string;
   businessContext?: string;
+  caption?: string;
+  body?: string;
 }): Promise<Array<{ url: string; photographer: PhotographerInfo }>> {
   try {
     const { data, error } = await supabase.functions.invoke("fetch-post-image", {
@@ -390,22 +400,23 @@ export async function fetchImageGallery(opts: {
 }
 
 /**
- * Gera imagem por IA. Retorna a URL e a fonte real ("ai" ou "cache" quando
- * vier de cache de IA prévio). NUNCA retorna foto do Unsplash — a edge
- * function isola a cache por modo.
+ * Gera imagem por IA. Retorna a URL e a fonte real ("ai").
+ * NUNCA retorna foto do Unsplash — a edge function isola por modo.
  */
 export async function generateAIImage(opts: {
   query: string;
-  format: "square" | "portrait";
+  format: ImageFormat;
   niche?: string;
   businessContext?: string;
+  caption?: string;
+  body?: string;
 }): Promise<{ url: string; source: "ai" | "cache" } | null> {
   try {
-    // Nonce único garante variação a cada chamada (a edge function injeta no prompt).
     const nonce = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     const { data, error } = await supabase.functions.invoke("fetch-post-image", {
       body: {
         theme: opts.query, query: opts.query, format: opts.format,
+        caption: opts.caption, body: opts.body,
         allowAI: true, mode: "single",
         niche: opts.niche, businessContext: opts.businessContext,
         nonce,
@@ -417,7 +428,6 @@ export async function generateAIImage(opts: {
       console.warn("generateAIImage: response source is not 'ai':", data.source);
       return null;
     }
-    // Cache desativado na edge function — sempre tratamos como geração nova.
     return { url: data.url, source: "ai" };
   } catch (err) {
     console.warn("generateAIImage failed", err);

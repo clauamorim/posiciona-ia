@@ -1,13 +1,13 @@
 // Edge function: fetch-post-image
 // Busca imagens de fundo para um post.
 // Modes:
-//   - "single" (default): retorna 1 imagem (cache → Unsplash → IA opcional)
+//   - "single" (default): retorna 1 imagem (Unsplash → IA opcional). SEM cache, garante variedade.
 //   - "gallery": retorna até 12 imagens do Unsplash com metadata de cada fotógrafo
 //
-// Body: { theme, caption?, niche?, businessContext?, format?, allowAI?,
-//         mode?, query?, page? }
+// Body: { theme, caption?, body?, cta?, niche?, businessContext?,
+//         format?: "card"|"reels"|"square"|"portrait", allowAI?,
+//         mode?, query?, page?, nonce? }
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { corsHeaders } from "../_shared/cors.ts";
 
 const UNSPLASH_URL = "https://api.unsplash.com/search/photos";
@@ -60,6 +60,16 @@ const PT_EN_DICT: Record<string, string> = {
   "familia": "family lifestyle",
   "relacionamento": "relationship couple",
   "amor": "love romantic",
+  "cansaco": "rest calm", "cansada": "rest calm", "cansado": "rest calm",
+  "descanso": "rest relaxation",
+  "rotina": "daily routine lifestyle",
+  "tempo": "time clock",
+  "saudavel": "healthy lifestyle",
+  "alimentacao": "healthy food",
+  "exercicio": "exercise fitness",
+  "meditacao": "meditation calm",
+  "mente": "mindfulness",
+  "corpo": "wellness body",
 };
 
 // Termos sensíveis a evitar quando o nicho não é infantil
@@ -76,54 +86,82 @@ function translateWord(word: string): string | null {
   return null;
 }
 
-async function hashString(input: string): Promise<string> {
-  const data = new TextEncoder().encode(input.toLowerCase().trim());
-  const buf = await crypto.subtle.digest("SHA-256", data);
-  return Array.from(new Uint8Array(buf))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
+/**
+ * Normaliza format vindo do cliente. Aceita tanto a nova nomenclatura
+ * (card/reels) quanto a antiga (square/portrait).
+ *  - card  / square   → 4:5  (1080×1350)
+ *  - reels / portrait → 9:16 (1080×1920)
+ */
+function normalizeFormat(input?: string): "card" | "reels" {
+  const f = (input || "").toLowerCase();
+  if (f === "reels" || f === "portrait" || f === "9:16") return "reels";
+  return "card";
 }
 
 /**
- * Constrói query de busca priorizando o NICHO do negócio (em inglês),
- * combinado com 1-2 substantivos do tema.
+ * Extrai 2-4 substantivos relevantes de um texto longo (copy/legenda),
+ * traduzindo para inglês quando possível.
  */
-function buildSearchQuery(opts: {
-  theme: string; caption?: string; niche?: string; businessContext?: string;
-}): string {
+function extractKeywordsFromText(text: string, max = 4): string[] {
   const stop = new Set([
     "de","da","do","das","dos","o","a","os","as","e","ou","para","por","com","sem","em","no","na","nos","nas",
     "um","uma","uns","umas","que","como","mais","menos","muito","seu","sua","seus","suas","ser","ter","sobre",
-    "the","of","and","or","for","with","to","in","on","an","is","are","be","this","that",
-    "slide","capa","conteudo","conclusao","cta","post","dia",
+    "the","of","and","or","for","with","to","in","on","an","is","are","be","this","that","you","your","we","our",
+    "slide","capa","conteudo","conclusao","cta","post","dia","semana","tema","caption","legenda",
+    "voce","seu","sua","gente","quando","onde","porque","mas","pode","vai","ainda","todo","toda","tudo","nada",
   ]);
+  const tokens = deaccent(text || "")
+    .replace(/[^a-z\s]/g, " ")
+    .split(/\s+/)
+    .filter((w) => w.length >= 4 && !stop.has(w));
 
-  // 1) Traduz nicho (parte mais importante)
+  const seen = new Set<string>();
+  const out: string[] = [];
+  // Primeiro: priorizar palavras que TEM tradução (mais visualmente concretas)
+  for (const w of tokens) {
+    if (seen.has(w)) continue;
+    const tr = translateWord(w);
+    if (tr) {
+      out.push(tr);
+      seen.add(w);
+      if (out.length >= max) return out;
+    }
+  }
+  // Fallback: substantivos longos sem tradução
+  for (const w of tokens) {
+    if (seen.has(w)) continue;
+    if (w.length < 6) continue;
+    out.push(w);
+    seen.add(w);
+    if (out.length >= max) break;
+  }
+  return out;
+}
+
+/**
+ * Constrói query de busca Unsplash:
+ *   nicho (PT→EN) + 2-3 palavras-chave da copy/legenda (PT→EN) + (opcional) tema curto
+ */
+function buildSearchQuery(opts: {
+  theme: string; caption?: string; body?: string;
+  niche?: string; businessContext?: string;
+}): string {
+  // 1) Nicho
   let nicheEN = "";
   if (opts.niche) {
-    const nicheClean = deaccent(opts.niche).replace(/[^a-z\s]/g, " ");
-    const tokens = nicheClean.split(/\s+/).filter(Boolean);
+    const tokens = deaccent(opts.niche).replace(/[^a-z\s]/g, " ").split(/\s+/).filter(Boolean);
     for (const t of tokens) {
       const tr = translateWord(t);
       if (tr) { nicheEN = tr; break; }
     }
-    // Fallback: usa o nicho original se nada traduziu
     if (!nicheEN && tokens.length > 0) nicheEN = tokens.slice(0, 2).join(" ");
   }
 
-  // 2) Tema -> 1-2 palavras-chave traduzidas
-  const themeClean = deaccent(opts.theme || "")
-    .replace(/^(slide\s*\d+|capa|conteudo|conclusao|cta)\s*[:\-–]\s*/gi, "")
-    .replace(/[^a-z\s]/g, " ");
-  const themeWords = themeClean.split(/\s+/).filter(w => w.length >= 4 && !stop.has(w));
+  // 2) Copy/legenda — fonte rica de assunto visual concreto
+  const richText = [opts.theme, opts.body, opts.caption].filter(Boolean).join(" ");
+  const richKeywords = extractKeywordsFromText(richText, 3);
 
-  const themeEN: string[] = [];
-  for (const w of themeWords) {
-    const tr = translateWord(w);
-    if (tr) { themeEN.push(tr); if (themeEN.length >= 2) break; }
-  }
-
-  // 3) Contexto adicional do negócio (já em PT, traduz se possível)
+  // 3) Contexto de negócio (apenas como tie-breaker)
   let ctxEN = "";
   if (opts.businessContext) {
     const ctxTokens = deaccent(opts.businessContext).replace(/[^a-z\s]/g, " ").split(/\s+/).filter(Boolean);
@@ -133,30 +171,35 @@ function buildSearchQuery(opts: {
     }
   }
 
-  // Composição final: prioriza nicho > tema > contexto
-  const parts = [nicheEN, themeEN.join(" "), ctxEN].filter(Boolean);
+  const parts = [nicheEN, richKeywords.join(" "), ctxEN].filter(Boolean);
   let query = parts.join(" ").trim();
 
   // Filtro de termos sensíveis se o nicho não for infantil
-  const nicheIsKidFriendly = opts.niche && KID_FRIENDLY_NICHES.some(k => deaccent(opts.niche!).includes(k));
+  const nicheIsKidFriendly = opts.niche && KID_FRIENDLY_NICHES.some((k) => deaccent(opts.niche!).includes(k));
   if (!nicheIsKidFriendly) {
-    const tokens = query.split(/\s+/).filter(t => !SENSITIVE_TERMS.includes(t));
+    const tokens = query.split(/\s+/).filter((t) => !SENSITIVE_TERMS.includes(t));
     query = tokens.join(" ");
   }
 
-  // Fallback genérico se ficou vazio
   if (!query.trim()) query = "minimal abstract editorial";
-
-  return query.slice(0, 80);
+  return query.slice(0, 90);
 }
 
-/** Tradução do tema PT para uso em prompt IA (frase descritiva). */
-function translateThemeForAI(theme: string, niche?: string): string {
-  // Para a IA, evitar passar a frase emocional em português literal.
-  // Em vez disso, gerar uma descrição em inglês baseada no nicho.
-  const nicheEN = niche ? buildSearchQuery({ theme: "", niche }) : "";
-  const themeKeywords = buildSearchQuery({ theme, niche: undefined });
-  return `${nicheEN} ${themeKeywords}`.trim() || "minimal editorial scene";
+/**
+ * Constrói uma descrição rica para o prompt da IA, incluindo nicho,
+ * intenção do post (extraída do tema), assunto central da copy e legenda.
+ */
+function buildAIPromptSubject(opts: {
+  theme: string; caption?: string; body?: string;
+  niche?: string; businessContext?: string;
+}): string {
+  const nicheEN = opts.niche
+    ? buildSearchQuery({ theme: "", niche: opts.niche })
+    : "";
+  const themeKeywords = extractKeywordsFromText(opts.theme || "", 3).join(" ");
+  const bodyKeywords = extractKeywordsFromText(opts.body || opts.caption || "", 3).join(" ");
+  const subject = [nicheEN, themeKeywords, bodyKeywords].filter(Boolean).join(", ");
+  return subject.trim() || "minimal editorial scene";
 }
 
 interface UnsplashPhoto {
@@ -169,13 +212,16 @@ interface UnsplashPhoto {
 
 async function searchUnsplashList(
   query: string,
-  format: "square" | "portrait",
+  format: "card" | "reels",
   apiKey: string,
   perPage = 12,
   page = 1,
 ): Promise<UnsplashPhoto[]> {
   try {
-    const orientation = format === "portrait" ? "portrait" : "squarish";
+    // Para card (4:5) e reels (9:16) usamos sempre orientation=portrait —
+    // o Unsplash não distingue entre 4:5 e 9:16, então pegamos portrait
+    // e ranqueamos por proximidade de aspect ratio depois.
+    const orientation = "portrait";
     const url = `${UNSPLASH_URL}?query=${encodeURIComponent(query)}&orientation=${orientation}&per_page=${perPage}&page=${page}&content_filter=high&order_by=relevant`;
     const resp = await fetch(url, {
       headers: { "Authorization": `Client-ID ${apiKey}`, "Accept-Version": "v1" },
@@ -186,7 +232,7 @@ async function searchUnsplashList(
     }
     const data = await resp.json();
     if (!Array.isArray(data.results)) return [];
-    return data.results.map((p: any) => ({
+    const list: UnsplashPhoto[] = data.results.map((p: any) => ({
       url: p?.urls?.regular || p?.urls?.full || "",
       unsplashUrl: `${p?.links?.html || ""}?${UTM}`,
       photographer: {
@@ -196,24 +242,38 @@ async function searchUnsplashList(
       width: p?.width,
       height: p?.height,
     })).filter((x: UnsplashPhoto) => x.url && (x.width ?? 0) >= 1080);
+
+    // Ranking: ordena por proximidade do aspect ratio alvo
+    const targetRatio = format === "reels" ? 9 / 16 : 4 / 5; // largura/altura
+    list.sort((a, b) => {
+      const ra = (a.width || 1) / (a.height || 1);
+      const rb = (b.width || 1) / (b.height || 1);
+      return Math.abs(ra - targetRatio) - Math.abs(rb - targetRatio);
+    });
+    return list;
   } catch (err) {
     console.error("Unsplash fetch error", err);
     return [];
   }
 }
 
-async function generateWithAI(themeEN: string, format: "square" | "portrait", nonce?: string): Promise<string | null> {
+async function generateWithAI(
+  subject: string,
+  format: "card" | "reels",
+  nonce?: string,
+): Promise<string | null> {
   const lovableKey = Deno.env.get("LOVABLE_API_KEY");
   if (!lovableKey) return null;
-  const aspect = format === "portrait" ? "vertical 9:16 portrait orientation" : "square 1:1 orientation";
-  // Variação: garante que mesmo o mesmo tema produza fotos diferentes.
+  const aspect = format === "reels"
+    ? "vertical 9:16 portrait orientation, framed for Instagram Reels cover (1080x1920)"
+    : "vertical 4:5 portrait orientation, framed for Instagram feed card (1080x1350)";
   const seed = nonce || `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
   const prompt = `Editorial photograph, premium magazine quality, soft natural lighting, shallow depth of field, ${aspect}.
-Subject: ${themeEN}.
+Subject: ${subject}.
 Variation seed: ${seed}. Choose a fresh angle, lighting and composition different from any previous render.
 ABSOLUTELY NO TEXT, NO LETTERS, NO SIGNS, NO NEON, NO TYPOGRAPHY, NO WORDS, NO LOGOS, NO BRAND NAMES, NO WRITTEN CONTENT anywhere in the image.
 NO TEXT. NO TEXT. NO TEXT.
-Composition: clean, centered subject with negative space at top and bottom for text overlay later. Soft palette. Style: minimal, calm, professional, contemporary photography. Avoid people's faces dominating the frame. Avoid children. No collage, no illustration — pure photography only.`;
+Composition: clean, off-center subject leaving generous negative space at top AND bottom for text overlay later (safe area for headlines and captions). Soft palette, calm contrast. Style: minimal, calm, professional, contemporary photography. Avoid people's faces dominating the frame. Avoid children. No collage, no illustration — pure photography only.`;
 
   try {
     const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -247,10 +307,11 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json();
     const {
-      theme, caption, niche, businessContext,
-      format = "square", allowAI = false,
+      theme, caption, body: postBody, cta,
+      niche, businessContext,
+      format: rawFormat, allowAI = false,
       mode = "single", query: customQuery, page = 1,
-      nonce, // opcional — força variação na geração IA
+      nonce,
     } = body;
 
     if (!theme && !customQuery) {
@@ -260,18 +321,15 @@ Deno.serve(async (req) => {
       });
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, serviceKey);
+    const format = normalizeFormat(rawFormat);
 
     const keywords = customQuery && customQuery.trim().length > 0
       ? customQuery.trim()
-      : buildSearchQuery({ theme, caption, niche, businessContext });
-    console.log("Search query:", keywords, "(niche:", niche, ")");
+      : buildSearchQuery({ theme, caption, body: postBody, niche, businessContext });
+    console.log("Search query:", keywords, "(niche:", niche, "format:", format, "mode:", mode, ")");
 
     const unsplashKey = Deno.env.get("UNSPLASH_ACCESS_KEY");
 
-    // Validação explícita: se não há chave configurada, log + 503 (em vez de cair silenciosamente para o gradiente)
     if (!unsplashKey && (mode === "gallery" || (!allowAI && mode !== "single"))) {
       console.error("UNSPLASH_ACCESS_KEY missing — image search unavailable");
       return new Response(JSON.stringify({
@@ -289,18 +347,10 @@ Deno.serve(async (req) => {
     }
 
     // ===== SINGLE MODE =====
-    // Cache desativado: para garantir VARIEDADE a cada clique
-    //  - IA: cada chamada deve gerar uma imagem nova (usuário paga por isso).
-    //  - Unsplash: queremos rotacionar entre as fotos relevantes em vez de
-    //    sempre devolver a mesma do topo da lista.
-
-    // 1) Estratégia conforme o modo:
-    //    - allowAI=true → SEMPRE tenta IA (nova). Não cai para Unsplash.
-    //    - allowAI=false → tenta Unsplash; se falhar, devolve erro.
     if (allowAI) {
-      const themeEN = translateThemeForAI(theme, niche);
-      console.log("AI prompt subject:", themeEN, "nonce:", nonce);
-      const url = await generateWithAI(themeEN, format, nonce);
+      const subject = buildAIPromptSubject({ theme, caption, body: postBody, niche, businessContext });
+      console.log("AI prompt subject:", subject, "nonce:", nonce);
+      const url = await generateWithAI(subject, format, nonce);
       if (url) {
         return new Response(JSON.stringify({ url, source: "ai", keywords }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -315,9 +365,10 @@ Deno.serve(async (req) => {
     if (unsplashKey) {
       const list = await searchUnsplashList(keywords, format, unsplashKey, 12, 1);
       if (list.length > 0) {
-        // Escolhe uma foto aleatória entre as relevantes — evita devolver
-        // sempre a mesma para o mesmo tema.
-        const pick = list[Math.floor(Math.random() * list.length)];
+        // Top 6 já estão ranqueados por proximidade de aspect ratio + relevância.
+        // Sorteia entre eles para variar entre chamadas.
+        const topPool = list.slice(0, Math.min(6, list.length));
+        const pick = topPool[Math.floor(Math.random() * topPool.length)];
         return new Response(JSON.stringify({
           url: pick.url, source: "unsplash", keywords,
           photographer: pick.photographer, unsplashUrl: pick.unsplashUrl,
