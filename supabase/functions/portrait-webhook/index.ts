@@ -75,11 +75,11 @@ serve(async (req) => {
         .from("portrait_trainings")
         .update({
           status: "ready",
-          lora_weights_url: version || weights,
+          lora_weights_url: weights || version,
           completed_at: new Date().toISOString(),
         })
         .eq("id", trainingId);
-      console.log(`[portrait-webhook] training=${trainingId} READY weights=${(version || weights || "").slice(0, 80)}`);
+      console.log(`[portrait-webhook] training=${trainingId} READY weights=${(weights || version || "").slice(0, 80)}`);
     } else if (status === "failed" || status === "canceled") {
       await supabaseAdmin
         .from("portrait_trainings")

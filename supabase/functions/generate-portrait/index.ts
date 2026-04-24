@@ -217,6 +217,10 @@ serve(async (req) => {
     // 3 sequential calls — one per background
     const results: { background: string; portrait: string | null; error?: string; promptUsed?: string }[] = [];
     for (let i = 0; i < BACKGROUND_VARIATIONS.length; i++) {
+      if (i > 0) {
+        // Space out calls to avoid Replicate 429 (low-credit accounts: 6/min, burst 1)
+        await new Promise((r) => setTimeout(r, 1200));
+      }
       const built = buildPortraitPrompt({
         archetype: archetypeName,
         userId: user.id,
