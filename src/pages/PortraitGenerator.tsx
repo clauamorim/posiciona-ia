@@ -442,7 +442,12 @@ const PortraitGenerator = () => {
                       </Button>
                     </div>
                     {generating && (
-                      <Progress value={undefined} className="animate-pulse" />
+                      <div className="space-y-2">
+                        <Progress value={undefined} className="animate-pulse" />
+                        <p className="text-xs text-muted-foreground">
+                          Gerando seus 3 retratos com variação de figurino e iluminação. Isso leva cerca de 1 minuto — não feche esta aba.
+                        </p>
+                      </div>
                     )}
                   </div>
                 )}
