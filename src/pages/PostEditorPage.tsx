@@ -1214,6 +1214,8 @@ const PostEditorPage = () => {
                     ...prev,
                   ];
                 });
+                // Salva automaticamente na galeria pessoal (Unsplash ou IA — auto-detectado pela URL)
+                saveSinglePhotoToGallery(url).catch(() => {});
               },
               onAIGenerated: debitRegenerationCredit,
               regenerationCredits: balances?.regeneration_credits ?? 0,
