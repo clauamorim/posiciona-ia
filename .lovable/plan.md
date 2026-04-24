@@ -1,54 +1,72 @@
 
 
-## Trocar Flux Kontext por modelo com preservação de identidade facial
+## Trocar para `zsxkib/pulid-flux` (PuLID sobre Flux) e corrigir endpoint do Replicate
 
-### Diagnóstico
-Logs confirmam que o `REPLICATE_API_TOKEN` está correto (conta `clauamorim`), há saldo, e o Flux executou em 11.9s sem erro. **Problema agora é qualidade do modelo**, não infraestrutura.
+### Por que esse modelo
+Estado da arte atual em preservação de identidade single-shot (sem treino prévio). Combina o algoritmo PuLID — que supera o InstantID em benchmarks de fidelidade facial — com a qualidade fotográfica do Flux.1-dev. Pele natural, sem o acabamento "plastificado" típico do InstantID/SDXL. Aceita 1 a 4 selfies de referência (usa todas para construir o embedding facial).
 
-`flux-kontext-apps/multi-image-kontext-pro` foi escolhido por suportar múltiplas imagens, mas:
-- aceita no máximo 2 referências (descartou 2 das 4 selfies enviadas)
-- é otimizado para edição contextual de cena, **não para preservação de rosto**
-- resultado: rosto genérico em vez do rosto da pessoa
-
-### Solução: trocar para modelo identity-preserving
-
-Modelos do Replicate especializados em manter o rosto original:
-
-| Modelo | Vantagem | Custo aprox. |
-|---|---|---|
-| `zsxkib/pulid` | Excelente em preservar traços, aceita 1+ refs, rápido | ~US$ 0,02 |
-| `zsxkib/instant-id` | Padrão da indústria para identity-preserving, ótimo com prompts elaborados | ~US$ 0,02 |
-| `fofr/face-to-many` | Estilizações controladas, rosto preservado | ~US$ 0,03 |
-
-**Recomendação: `zsxkib/instant-id`** — é o mais maduro, tem melhor balanço entre fidelidade facial e liberdade de prompt (estilo de fundo, iluminação, figurino), e funciona bem com 1 selfie de referência (a melhor das 4).
+### Diagnóstico do erro atual
+Logs mostram `404 The requested resource could not be found` ao chamar `POST /v1/models/zsxkib/instant-id/predictions`. Causa: esse endpoint só funciona para "official models" do Replicate. Modelos da comunidade (incluindo `zsxkib/instant-id` e `zsxkib/pulid-flux`) precisam ser chamados via `POST /v1/predictions` passando o hash da versão no body. Vou corrigir junto com a troca de modelo.
 
 ### Mudanças
 
 **`supabase/functions/generate-portrait/index.ts`**
-- Substituir `FLUX_MODEL = "flux-kontext-apps/multi-image-kontext-pro"` por `INSTANT_ID_MODEL = "zsxkib/instant-id"`
-- Trocar a função `generateWithFlux` por `generateWithInstantId`:
-  - input principal: `image` (1 selfie — a maior/melhor das enviadas)
-  - input opcional: `prompt` (estilo de estúdio + figurino)
-  - parâmetros recomendados: `num_inference_steps: 30`, `guidance_scale: 5`, `ip_adapter_scale: 0.8`, `controlnet_conditioning_scale: 0.8`
-- Manter exatamente a mesma lógica de polling, download e conversão para data URL
-- Manter fallback para Gemini se InstantID falhar
-- Manter logs de diagnóstico (account-check, token-fingerprint, request-id em erros)
-- Atualizar mensagem de log de `provider=flux` para `provider=instant-id`
 
-**Sem mudanças no frontend** — `PortraitGenerator.tsx` continua igual, payload de retorno mantém os mesmos campos (`portrait`, `provider`, `used_fallback`, `style_index`).
+1. Substituir `INSTANT_ID_MODEL = "zsxkib/instant-id"` por `PULID_MODEL = "zsxkib/pulid-flux"`.
 
-**Sem mudanças no schema de DB** — nada de migration.
+2. Buscar o hash da versão mais recente do PuLID-Flux na primeira chamada (cache em memória do worker):
+   ```
+   GET https://api.replicate.com/v1/models/zsxkib/pulid-flux
+   → response.latest_version.id
+   ```
 
-### O que acontece com as outras selfies
-InstantID usa 1 referência forte. Vou selecionar a maior selfie (proxy para "mais detalhada") da mesma forma que o código atual já faz com Flux. As demais ficam disponíveis para futuras variações se quiser, mas não são enviadas ao modelo nesta versão.
+3. Trocar a função `generateWithInstantId` por `generateWithPulidFlux`:
+   - Endpoint: `POST /v1/predictions` (não mais `/v1/models/.../predictions`)
+   - Body: `{ version: "<hash>", input: {...} }`
+   - Inputs principais:
+     - `main_face_image`: a maior selfie (referência principal)
+     - `auxiliary_face_images`: até 3 selfies adicionais (PuLID-Flux suporta múltiplas refs para reforçar a identidade)
+     - `prompt`: estilo de estúdio + figurino
+     - `negative_prompt`: igual ao atual
+     - `num_steps`: 20
+     - `guidance_scale`: 4
+     - `id_weight`: 1.05 (controla intensidade da preservação facial; 1.0-1.2 é o sweet spot)
+     - `true_cfg`: 1
+     - `width`: 1024, `height`: 1024
+     - `output_format`: "jpg", `output_quality`: 95
 
-### Validação
-Você gera 1 retrato em `/portraits` com a mesma seleção de selfies. Resultado esperado: rosto **reconhecivelmente seu**, em fundo de estúdio, com figurino do relatório. Latência similar (10-15s).
+4. Manter idêntico:
+   - Polling (até 120s — Flux é um pouco mais lento)
+   - Download da URL e conversão para data URL base64
+   - Fallback para Gemini se PuLID falhar
+   - Logs de diagnóstico (account-check, fingerprint, request-id, body em erros)
+   - Débito de crédito, log em `credit_logs`, persistência em `portrait_generations`
+   - Atualizar string do provider para `"pulid-flux"` no log e no payload de retorno
+
+5. Atualizar prompt para PuLID:
+   - Foco em cena, iluminação, figurino — a identidade vem das imagens de referência
+   - Manter `studioStyle` e `wardrobeLine` exatamente como hoje
+
+### Sem mudanças
+- `PortraitGenerator.tsx` (frontend): payload de retorno mantém os mesmos campos (`portrait`, `provider`, `used_fallback`, `style_index`).
+- Schema do banco: nenhuma migration.
+- Outras edge functions: intactas.
+- Preço de venda ao usuário: inalterado.
 
 ### Custo
-- Antes (Flux Kontext Pro): ~US$ 0,04/retrato → ~250 retratos por US$ 10
-- Depois (InstantID): ~US$ 0,02/retrato → ~500 retratos por US$ 10
+- ~US$ 0,03 por retrato (Flux é mais caro que SDXL, mas qualidade muito superior)
+- US$ 10 → ~330 retratos
+- Margem permanece confortável
+
+### Validação
+Você gera 1 retrato em `/portraits`. Esperado nos logs:
+```
+[portrait] resolved pulid-flux version=<hash de 64 chars>
+[portrait] calling replicate model=zsxkib/pulid-flux refs=N
+[portrait] provider=pulid-flux status=succeeded latency=15-20s
+```
+Resultado visual: rosto **claramente reconhecível como você**, pele natural (não plastificada), fundo de estúdio do `studioStyle` sorteado, figurino do relatório. Sem fallback para Gemini.
 
 ### Plano B
-Se InstantID ainda não atingir a qualidade desejada (raro, mas possível), próxima troca seria `zsxkib/pulid` ou combinação InstantID + face-swap pós-processamento. Não bloqueia a entrega atual.
+Se PuLID-Flux ainda não atingir o nível desejado, próximo passo seria construir o fluxo de fine-tuning com LoRA (treina uma vez, gera infinitos retratos do mesmo rosto). É mudança maior — outro fluxo de UX (etapa de "treinamento" antes da primeira geração) e outro custo. Não bloqueia esta entrega.
 
