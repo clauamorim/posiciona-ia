@@ -240,6 +240,8 @@ const MobileEditorBar: React.FC<MobileEditorBarProps> = (props) => {
                 regenerationCredits={(props as any).regenerationCredits}
                 niche={(props as any).niche}
                 businessContext={(props as any).businessContext}
+                caption={(props as any).caption}
+                postBody={(props as any).postBody}
               />
             )}
             {tab === "document" && (
