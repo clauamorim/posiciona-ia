@@ -35,7 +35,8 @@ interface GalleryItem {
 }
 
 const ImageGalleryPanel: React.FC<ImageGalleryPanelProps> = ({
-  defaultQuery, format, onPickImage, onAIGenerated, regenerationCredits, niche, businessContext,
+  defaultQuery, format, onPickImage, onAIGenerated, regenerationCredits,
+  niche, businessContext, caption, postBody,
 }) => {
   const { user } = useAuth();
   const [query, setQuery] = useState(defaultQuery);
@@ -68,11 +69,12 @@ const ImageGalleryPanel: React.FC<ImageGalleryPanelProps> = ({
       .order("created_at", { ascending: false })
       .limit(24);
     if (!data) return;
-    const mapped = data.map((row: any) => {
-      const { data: pub } = supabase.storage.from("user-uploads").getPublicUrl(row.file_path);
-      return { url: pub.publicUrl, name: row.name || "Imagem salva", source: row.source || "upload" };
-    });
-    setSavedImages(mapped);
+    // Bucket privado — sempre URL assinada.
+    const mapped = await Promise.all(data.map(async (row: any) => {
+      const url = await signedUserUploadUrl(row.file_path);
+      return { url, name: row.name || "Imagem salva", source: row.source || "upload" };
+    }));
+    setSavedImages(mapped.filter((m) => m.url));
   };
 
   useEffect(() => {
@@ -88,7 +90,10 @@ const ImageGalleryPanel: React.FC<ImageGalleryPanelProps> = ({
     if (!query.trim()) return;
     setLoading(true);
     try {
-      const list = await fetchImageGallery({ query: query.trim(), format, page: p, niche, businessContext });
+      const list = await fetchImageGallery({
+        query: query.trim(), format, page: p,
+        niche, businessContext, caption, body: postBody,
+      });
       setResults(prev => append ? [...prev, ...list] : list);
       setPage(p);
       setHasSearched(true);
@@ -124,7 +129,10 @@ const ImageGalleryPanel: React.FC<ImageGalleryPanelProps> = ({
     }
     setGeneratingAI(true);
     try {
-      const result = await generateAIImage({ query: aiPrompt.trim(), format, niche, businessContext });
+      const result = await generateAIImage({
+        query: aiPrompt.trim(), format,
+        niche, businessContext, caption, body: postBody,
+      });
       if (!result) {
         toast({ title: "Falha ao gerar imagem por IA", description: "Tente novamente em instantes — nenhum crédito foi debitado.", variant: "destructive" });
         return;
