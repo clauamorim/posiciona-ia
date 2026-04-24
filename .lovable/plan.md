@@ -1,89 +1,76 @@
 
-## Corrigir o falso “Provedor principal indisponível” nos retratos
+
+## Trocar para `flux-kontext-apps/professional-headshot`
 
 ### Diagnóstico
-O backend não está conseguindo resolver o modelo atual porque o identificador usado está incorreto.
+PuLID-Flux está com `id_weight: 1` mas mesmo assim o resultado parece "renderizado" — pele plástica, rosto idealizado. É um efeito conhecido do Flux quando combinado com adapters de identidade fortes: o modelo "limpa demais" o rosto.
 
-Hoje a função `generate-portrait` usa:
-- `PULID_MODEL = "zsxkib/pulid-flux"`
+O `flux-kontext-apps/professional-headshot` é um **app oficial do Replicate** sob o `flux-kontext-apps/`, desenhado especificamente para uma tarefa: pegar uma foto sua e devolver um headshot profissional, mantendo os traços. Não é um adapter genérico — é um app focado.
 
-Mas os logs mostram:
-- `resolve-version FAIL status=404 body={"detail":"Model not found."}`
+### Schema do modelo (confirmado na doc oficial)
 
-A documentação pública do modelo aponta para o identificador canônico:
-- `bytedance/flux-pulid`
+Inputs:
+- `input_image` (string, uri) — sua selfie. **Aceita apenas 1 imagem.**
+- `gender` ("none" | "male" | "female") — controla o gênero.
+- `background` ("neutral" | outros presets) — fundo.
+- `aspect_ratio` (default "match_input_image").
+- `output_format` (default "png").
+- `seed` (int, opcional).
+- `safety_tolerance` (0-2).
 
-Ou seja: o token está válido, a conta responde, mas a resolução da versão falha antes da geração principal. Isso força o fallback para Gemini e dispara o toast “Provedor principal indisponível”.
+Não aceita `prompt` livre. Toda a "direção criativa" vem de `gender` + `background`.
 
-### O que será implementado
+### Implicações para o produto
+- **Não usaremos mais `studioStyle` randômico** (5 variações de luz/fundo) — o modelo controla isso internamente via `background`.
+- **Não usaremos `wardrobeLine` do figurino** — o modelo não aceita prompt. O figurino do relatório deixa de influenciar o retrato neste motor. Se o usuário quiser variação visual, o controle disponível é o parâmetro `background`.
+- **A "Opção de figurino" (Look 1/2/3) na UI vai mapear para `background` diferente**, não mais para variação de roupa. Vou renomear para "Variação de fundo" no frontend.
 
-#### 1. Corrigir o modelo principal no backend
-Arquivo:
-- `supabase/functions/generate-portrait/index.ts`
+### Mudanças
 
-Mudanças:
-- Trocar `PULID_MODEL = "zsxkib/pulid-flux"` por `PULID_MODEL = "bytedance/flux-pulid"`
-- Manter a chamada correta do Replicate via:
-  - `GET /v1/models/{owner}/{name}` para resolver `latest_version.id`
-  - `POST /v1/predictions` com `{ version, input }`
+**1. `supabase/functions/generate-portrait/index.ts`**
+- Substituir constante `PULID_MODEL = "bytedance/flux-pulid"` por `HEADSHOT_MODEL = "flux-kontext-apps/professional-headshot"`.
+- Como é um app oficial, chamar via endpoint dedicado:
+  - `POST /v1/models/flux-kontext-apps/professional-headshot/predictions`
+  - Body: `{ input: {...} }` — sem precisar resolver versão.
+- Remover `resolvePulidVersion` e cache associado.
+- Substituir `generateWithPulidFlux` por `generateWithHeadshot`:
+  - `input_image`: a maior das selfies (única que o modelo aceita).
+  - `gender`: derivado do `profiles.gender` (Feminino → "female", Masculino → "male", outros → "none").
+  - `background`: mapeado a partir do índice da variação selecionada (3 valores fixos: "neutral", "white", "black" — confirmados nos exemplos da doc).
+  - `aspect_ratio`: "1:1".
+  - `output_format`: "png".
+  - `safety_tolerance`: 2.
+  - `seed`: aleatório.
+- Manter polling, download, conversão para data URL base64, fallback Gemini, débito de crédito, log em `credit_logs`, persistência em `portrait_generations`.
+- Atualizar string do provider para `"professional-headshot"` no log e payload.
+- Remover toda a montagem de `studioStyle` e `wardrobeLine` na geração principal (ainda usadas só no fallback Gemini).
 
-#### 2. Ajustar a geração principal para o schema do modelo correto
-Manter a estratégia já planejada para PuLID sobre Flux:
-- 1 `main_face_image`
-- até 3 referências auxiliares
-- prompt focado em cenário, iluminação e figurino
-- parâmetros de fidelidade facial já configurados
+**2. `src/pages/PortraitGenerator.tsx`**
+- Renomear "Opção de figurino" → "Variação de fundo".
+- Renomear "Look 1 / Look 2 / Look 3" → "Neutro / Claro / Escuro".
+- Atualizar texto auxiliar para refletir que o controle agora é do fundo, não do figurino.
+- Manter o resto do fluxo (upload, preview, créditos, download) intacto.
 
-Também vou alinhar os nomes de inputs ao schema documentado do modelo canônico para evitar incompatibilidades silenciosas.
+**3. Sem mudanças**
+- Schema do banco.
+- Fluxo de checkout / créditos.
+- Histórico persistente.
+- Frontend de upload.
 
-#### 3. Melhorar a lógica de fallback sem expor detalhe técnico ao usuário
-Arquivo:
-- `src/pages/PortraitGenerator.tsx`
+### Custo
+- `flux-kontext-apps/professional-headshot`: ~US$ 0,04 por retrato (Kontext pro).
+- Latência esperada: 8-12s.
 
-Mudanças:
-- Remover o toast com linguagem técnica:
-  - “Retrato gerado com motor reserva”
-  - “Provedor principal indisponível...”
-- Substituir por uma mensagem neutra e premium quando a geração concluir com sucesso
-- Manter erro visível apenas quando a geração realmente falhar nos dois caminhos
-
-Resultado:
-- se o principal voltar a funcionar, nenhum fallback será mostrado
-- se houver fallback bem-sucedido, o usuário continua vendo um sucesso normal, sem detalhe interno de infraestrutura
-
-#### 4. Preservar regras atuais de cobrança e histórico
-Sem mudar:
-- débito de 1 crédito apenas em geração bem-sucedida
-- registro em `credit_logs`
-- persistência em `portrait_generations`
-- payload atual:
-  - `portrait`
-  - `provider`
-  - `used_fallback`
-  - `style_index`
-
-### Validação esperada
-Após a correção, ao gerar 1 retrato em `/portraits`, o esperado é:
-
-```text
-[portrait] resolved pulid-flux version=<hash>
-[portrait] calling replicate model=bytedance/flux-pulid refs=N
-[portrait] provider=pulid-flux status=succeeded latency=15-20s
+### Validação
+Você gera 1 retrato em `/portraits` com o gênero correto no perfil. Logs esperados:
 ```
+[portrait] calling replicate model=flux-kontext-apps/professional-headshot gender=female background=neutral
+[portrait] provider=professional-headshot status=succeeded latency=~10s
+```
+Resultado visual esperado: traços preservados (não idealizados), pele com textura natural, fundo profissional, enquadramento de headshot.
 
-Na interface:
-- não deve mais aparecer “Provedor principal indisponível”
-- o retrato deve sair pelo modelo principal
-- o toast final deve ser apenas de sucesso
+### Plano B
+Se o `professional-headshot` ainda não atingir o nível desejado, próximas opções são:
+- `flux-kontext-apps/portrait-series` — gera várias poses do mesmo rosto a partir de 1 selfie. Útil para variedade.
+- Voltar para fine-tuning com LoRA (treina uma vez, gera infinito) — mudança maior de UX.
 
-### Sem mudanças
-- frontend de upload e preview
-- banco de dados e migrations
-- checkout de pacotes
-- fluxo de histórico
-
-### Detalhes técnicos
-- Causa raiz: identificador de modelo inválido, não problema de token
-- Endpoint correto continua sendo `POST /v1/predictions` com `version`
-- O modelo canônico disponível publicamente é `bytedance/flux-pulid`
-- O fallback para Gemini continua existindo como redundância operacional, mas sem expor essa troca ao usuário final
