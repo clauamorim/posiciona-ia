@@ -1,45 +1,65 @@
 
 
-## Pacote de correções 7 — Minha galeria sempre atualizada + esconder Galeria Posiciona
+## Pacote de correções 8 — Variedade de imagens, galeria, molduras 4:5 e botão "Criar post"
 
-### Problema atual
-1. As imagens IA / Unsplash só aparecem em **"Minhas imagens"** depois que o design é salvo manualmente E a página é recarregada. Hoje a aba só carrega uma vez (`userAssetsLoaded`) e nunca atualiza após uma nova foto entrar no canvas.
-2. Mesmo após salvar, a aba ainda não atualiza dentro da mesma sessão.
-3. A seção **"Galeria Posiciona"** (galeria curada por admin) precisa ser escondida.
+### 1. Mesma imagem IA / Unsplash sempre para o mesmo post
+**Causa**: a edge function `fetch-post-image` faz cache pelo hash `theme + format + modo`. A primeira chamada salva o resultado em `post_background_cache` e qualquer chamada seguinte com o mesmo tema devolve a mesma URL, tanto para Unsplash quanto para IA.
 
-### O que será feito
+**Correção**:
+- Em `supabase/functions/fetch-post-image/index.ts`, **remover o cache para o modo IA** (cada geração precisa ser única — o usuário está pagando por uma nova).
+- Para o modo Unsplash, manter o cache mas:
+  - Trazer **uma lista** de 10 fotos do Unsplash (`searchUnsplashList` já faz isso) e **escolher uma aleatória** em vez de sempre `list[0]`.
+  - Salvar no cache uma chave que inclua um índice rotativo, **ou** simplesmente desativar o cache no modo single (a lista já é ordenada por relevância).
+- Em `generateAIImage` (`src/lib/postAutoLayout.ts`) e em `handleAIConfirm` (`ImageGalleryPanel.tsx`), adicionar um nonce no payload (ex: timestamp ou UUID) que entra na construção da prompt para variar levemente entre chamadas.
+- O preço/débito do crédito permanece igual; muda apenas que cada clique gera uma imagem nova.
 
-**1. Salvamento automático de fotos IA / Unsplash na galeria do usuário**
-- Em `PostEditorPage.tsx`, criar uma função `saveSinglePhotoToGallery(url, source, attribution?)` derivada da lógica atual de `persistPostPhotosToGallery`.
-- Disparar essa função imediatamente quando o usuário:
-  - Escolhe uma foto do Unsplash (`onPickImage` no `ImageGalleryPanel`).
-  - Gera uma imagem por IA com sucesso (no fluxo `handleAIConfirm` / `onPickImage` IA).
-  - Troca o fundo via `handleSwapBackground`.
-- Assim a foto entra na galeria pessoal **no instante em que é usada**, sem depender de "Salvar design".
-- Manter o `persistPostPhotosToGallery` no save apenas como rede de proteção (deduplicar por path/URL para não duplicar).
+### 2. Imagens IA não aparecem na galeria do usuário
+**Causa**: hoje `saveSinglePhotoToGallery` é chamado em dois pontos:
+- `onPickImage` do `ImageGalleryPanel` (✅ funciona para Unsplash e IA quando vem da aba Imagem)
+- `handleSwapBackground` (✅ funciona)
 
-**2. Refresh da seção "Minhas imagens" e "Suas imagens salvas"**
-- Em `AddElementPanel.tsx`, expor um `reloadUserAssets()` e chamá-lo:
-  - Sempre que a aba "Galeria" é aberta.
-  - Após upload local concluído.
-  - Após receber um evento global `posiciona:gallery-updated`.
-- Em `ImageGalleryPanel.tsx`, mesmo tratamento na seção "Suas imagens salvas".
-- O `PostEditorPage` dispara `window.dispatchEvent(new CustomEvent("posiciona:gallery-updated"))` toda vez que `saveSinglePhotoToGallery` insere com sucesso. Os dois painéis ouvem e recarregam.
+Mas **não é chamado no fluxo `handleAIConfirm`** quando o usuário gera uma imagem IA pelo painel "Imagem". O `ImageGalleryPanel.handleAIConfirm` chama `onPickImage(url, "ai")`, que **não** dispara o salvamento da galeria — só atualiza o overlay.
 
-**3. Esconder "Galeria Posiciona"**
-- Em `src/components/post-editor/inspector/AddElementPanel.tsx`, remover o bloco JSX `{/* Posiciona gallery */}` (linhas ~523-544) e o estado/effect que carrega `gallery_assets` (`galleryAssets`, `galleryLoaded`, `useEffect` correspondente).
-- A aba **Galeria** passa a mostrar **apenas "Minhas imagens"**. Se estiver vazia, a mensagem orienta o usuário a enviar imagem ou usar Unsplash/IA.
+**Correção**:
+- Em `src/pages/PostEditorPage.tsx`, no callback `onPickImage` passado para `ImageGalleryPanel`, adicionar a chamada explícita: `saveSinglePhotoToGallery(url, source === "ai" ? "ai" : "unsplash")`.
+- Verificar também `handleSwapBackground` e `buildAutoLayout`/`fetchBackgroundImage` (geração automática inicial do template "ai" e "photo") para garantir que a primeira foto carregada também caia na galeria.
+- Adicionar log de console (`console.log("Saved to gallery:", source, url)`) para diagnóstico.
 
-**4. Mensagem clara quando ainda está vazia**
-- Substituir `"Nenhuma imagem salva."` por: *"Suas imagens IA, Unsplash e uploads aparecem aqui automaticamente quando usadas em posts."*
+### 3. Molduras só permitem redimensionar proporcionalmente — caem em 1:1 e não cabem no 4:5
+**Causa**: as molduras SVG (`Moldura retangular`, `Moldura dupla`, `Moldura arredondada`, etc.) são adicionadas em `AddElementPanel.tsx` com `width: 400, height: 400` no centro do canvas. Tecnicamente o resize livre já existe (handles laterais `t/b/l/r` redimensionam um eixo só), mas:
+- O usuário não percebe os 4 handles laterais — só vê os 4 cantos.
+- 400×400 em um canvas 1080×1350 fica visivelmente quadrado/pequeno.
+
+**Correção**:
+- Em `AddElementPanel.tsx`, ao adicionar uma "moldura" (qualquer SVG cujo nome comece com "Moldura"), **detectar o canvas atual** (passar `canvasFormat` como prop) e inserir a moldura **já ajustada às proporções do canvas**:
+  - 4:5 (1080×1350): moldura entra com `x=60, y=60, width=960, height=1230`.
+  - Reels (1080×1920): `x=60, y=80, width=960, height=1760`.
+- Para os outros SVGs (barras, linhas, divisores, ícones), manter o tamanho atual.
+- Em `PostCanvas.tsx`, também ajustar visualmente os handles laterais para serem mais visíveis (já existem, só estão pequenos no desktop). Subir o `handleVisualSize` desktop de 14 para 16.
+
+### 4. "Criar post" não aparece para posts únicos sem `card_copy`
+**Causa**: em `EditorialPage.tsx` linha 583, a condição é:
+```
+(format === "carrossel" || format === "post") && day.card_copy?.length > 0
+```
+Quando o sétimo dia é um **post único** que a IA gerou sem array `card_copy` (apenas `caption`), o botão fica oculto.
+
+**Correção**:
+- Trocar a condição para mostrar o botão sempre que o formato for "post" ou "carrossel", independente do `card_copy`. Se o array vier vazio, o editor monta um post único usando `caption` como corpo (já é o fallback existente em `PostEditorPage`).
+- Para "post" único: rótulo do botão continua "Criar post". Para "carrossel": idem.
 
 ### Arquivos editados
-- `src/pages/PostEditorPage.tsx` — `saveSinglePhotoToGallery` + chamada em todos os pontos onde uma foto remota entra no canvas + dispatch de evento.
-- `src/components/post-editor/inspector/AddElementPanel.tsx` — remoção da Galeria Posiciona, refresh por evento e ao abrir aba.
-- `src/components/post-editor/inspector/ImageGalleryPanel.tsx` — refresh por evento na seção "Suas imagens salvas".
+- `supabase/functions/fetch-post-image/index.ts` — remover cache IA, randomizar foto Unsplash, aceitar nonce.
+- `src/lib/postAutoLayout.ts` — propagar nonce em `generateAIImage`.
+- `src/components/post-editor/inspector/ImageGalleryPanel.tsx` — adicionar nonce ao chamar IA.
+- `src/pages/PostEditorPage.tsx` — garantir `saveSinglePhotoToGallery` no `onPickImage` para IA, no `handleSwapBackground` e na primeira foto do template.
+- `src/components/post-editor/inspector/AddElementPanel.tsx` — receber `canvasFormat` e ajustar tamanho inicial das molduras.
+- `src/components/post-editor/PostCanvas.tsx` — handles laterais um pouco maiores no desktop.
+- `src/pages/EditorialPage.tsx` — relaxar condição do botão "Criar post" para posts únicos.
 
 ### Resultado esperado
-- Toda foto Unsplash escolhida ou imagem IA gerada vai direto para **Minhas imagens** — sem precisar salvar o design.
-- A seção atualiza automaticamente, sem reload.
-- A "Galeria Posiciona" some por completo da interface.
+- Cada clique em "Trocar fundo" ou "Gerar com IA" devolve uma imagem **diferente** (mesmo para o mesmo tema).
+- Toda imagem IA gerada cai automaticamente em **Minha galeria**, sem reload.
+- Molduras retangulares entram no canvas já ajustadas ao formato 4:5 ou Reels, sem precisar redimensionar manualmente.
+- O botão **"Criar post"** aparece em todos os dias da linha editorial cujo formato é "post" ou "carrossel".
 
