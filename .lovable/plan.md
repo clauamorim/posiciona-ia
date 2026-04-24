@@ -1,45 +1,58 @@
+## Melhorias de fidelidade do retrato + variação de figurino do relatório
 
+### Problemas a corrigir
+1. Proporções faciais distorcidas (overfitting do LoRA + lora_scale alto)
+2. Fundos externos vazando do treino (fotos de treino externas → modelo aprendeu cenário também)
+3. **3 retratos saíram com o mesmo figurino** (geração usava sempre `pecas_chave[0..3]`)
 
-## Recuperar treino existente sem retreinar
+### Solução
 
-### Diagnóstico confirmado
-- Treino `b7b2cf05` está `ready` no banco
-- LoRA está viva no Replicate (`clauamorim/posiciona-usr481caf41d4da`, version `5644794c...`)
-- O campo `lora_weights_url` salvou o identificador `owner/name:hash` em vez da URL `.tar` pública
-- O modelo `flux-dev-lora` precisa da URL `.tar` direta (ex: `https://replicate.delivery/.../trained_model.tar`) — por isso falha com "Failed to download tarball"
+**1. Variação de figurino vinda do relatório (`_shared/portraitPrompts.ts`)**
 
-### Solução (sem retreinar)
+O relatório já entrega `figurino.looks_completos` — um array com 3 looks prontos, cada um com `nome`, `pecas[]` e `ocasiao`. Vou usar exatamente esses 3 looks, um por background:
+- Look 0 → fundo Neutro
+- Look 1 → fundo Claro
+- Look 2 → fundo Escuro
 
-**1. Edge function nova `portrait-fix-weights` (one-shot)**
-- Lê todos os `portrait_trainings` com `status='ready'` cujo `lora_weights_url` não começa com `https://`
-- Para cada um, faz `GET https://api.replicate.com/v1/trainings/<replicate_training_id>` autenticado
-- Extrai `output.weights` (a URL `.tar` real) da resposta
-- Atualiza `lora_weights_url` no banco com a URL correta
-- Retorna o número de registros corrigidos
+Nova função `buildOutfitTextForLook(figurino, lookIndex)`:
+- Lê `figurino.looks_completos[lookIndex].pecas` (3-5 peças)
+- Junta as peças em uma string natural em inglês passada para `[outfit]`
+- Fallback: se não houver `looks_completos` (relatórios antigos com só 1 look), volta a usar `pecas_chave + cores_roupa` como hoje
+- `[hair]` e `[makeup]` continuam vindo de `figurino.cabelo` e `figurino.maquiagem_grooming` (iguais nos 3 looks)
 
-**2. Webhook corrigido (`portrait-webhook/index.ts`)**
-- Trocar a prioridade: `lora_weights_url: weights || version` → garante que treinos novos salvem a URL `.tar`
+Em `generate-portrait/index.ts`: passar `lookIndex = backgroundIndex` para `buildPortraitPrompt`.
 
-**3. Espaçamento entre chamadas (`generate-portrait/index.ts`)**
-- `await new Promise(r => setTimeout(r, 1200))` entre as 3 chamadas sequenciais
-- Evita 429 enquanto seu Replicate tem <$5 de crédito (rate limit reduzido a 6/min com burst 1)
+**2. Treino menos agressivo (`portrait-train/index.ts`)**
+- `steps: 1500` → `1000`
+- `lora_rank: 16` (fixo, antes não estava setado)
+- `caption_dropout_rate: 0.05` (ajuda generalização)
+- Reduz overfitting → rosto mais fiel, menos distorcido
 
-### Fluxo de validação após fix
-1. Eu deploy as 3 funções
-2. Chamo `portrait-fix-weights` 1 vez (corrige seu treino atual em ~2s)
-3. Você clica "Gerar 3 retratos" na tela `/portraits`
-4. Os 3 retratos voltam (Neutro/Claro/Escuro) usando a LoRA já treinada — sem custo de retreino, sem crédito reembolsado
+**3. Inferência mais equilibrada (`generate-portrait/index.ts`)**
+- `lora_scale: 1.0` → `0.85` (deixa o prompt influenciar mais, evita rosto "borrado")
+- `guidance_scale: 2.5` → `3.0` (segue melhor o prompt de fundo de estúdio)
+
+**4. Reforço de estúdio nos prompts (`_shared/portraitPrompts.ts`)**
+- Adicionar ao início de cada prompt: `professional photography studio, controlled studio lighting,`
+- Adicionar ao negative de todos: `outdoor, street, natural daylight, trees, buildings, sky, park, beach, low quality, blurry, deformed face, extra fingers, asymmetric eyes`
+- Combate o vazamento de cenários externos das fotos de treino
+
+**5. Aviso pré-upload no treino (`PortraitGenerator.tsx`)**
+Antes do botão "Treinar", checklist visual com 4 itens:
+- Fotos com fundo neutro/limpo (parede, estúdio caseiro)
+- Iluminação clara e uniforme, rosto bem visível
+- Sem óculos escuros, máscara ou chapéu cobrindo o rosto
+- Variedade de expressões e ângulos (frente, perfil, sorrindo, sério)
+
+### Para validar
+Como o LoRA atual foi treinado com fotos externas, ele já carrega esse "viés de cenário". O ajuste de `lora_scale` + negative prompts vai reduzir bastante, mas para fidelidade máxima recomendo retreinar com selfies em fundo neutro depois de testar.
+
+Sequência:
+1. Aplico todas as 5 mudanças
+2. Você clica "Gerar 3 retratos" com o LoRA atual → vai vir cada look com peças diferentes do relatório, fundo de estúdio reforçado, rosto melhor proporcionado
+3. Se ainda houver vazamento de fundo externo, retreina com fotos novas (1 grátis no mês corrente, ou 4 créditos)
 
 ### Sem mudanças
-- Tabela `portrait_trainings`
-- Bucket `portrait-inputs`
-- UI `/portraits`
-- Lógica de créditos
-- Treino existente permanece válido
-
-### Detalhes técnicos
-- A Replicate API expõe `GET /v1/trainings/<id>` retornando o mesmo payload do webhook, incluindo `output.weights` permanente
-- A função `portrait-fix-weights` exige autenticação (não é pública); só admin ou o próprio usuário pode chamar
-- Após esse fix one-shot, ela pode ser apagada — mas vou deixar disponível caso outros treinos antigos apareçam
-- O warning de console sobre `forwardRef` em `PortraitPreviewDialog`/`BackToTopButton`/`Badge` é cosmético e não afeta o fluxo — fora do escopo desta correção
-
+- Tabela `portrait_trainings`, créditos, webhook, UI da galeria de retratos
+- Os 12 prompts oficiais por arquétipo (apenas prefixo de estúdio + negatives reforçados)
+- Custo/cobrança de treino e geração
