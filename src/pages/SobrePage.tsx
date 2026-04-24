@@ -3,7 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Menu, X } from "lucide-react";
 import posicionaLogo from "@/assets/posiciona-logo.png";
-import claudiaPhoto from "@/assets/claudia-amorim.png";
+import claudiaPhoto from "@/assets/claudia-avatar.webp";
 import { useState } from "react";
 
 const SobrePage = () => {
