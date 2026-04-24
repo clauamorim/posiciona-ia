@@ -62,7 +62,7 @@ async function generateWithInstantId(params: {
       console.log(`[portrait][diag] account-check exception=${e instanceof Error ? e.message : String(e)}`);
     }
 
-    const createRes = await fetch(`https://api.replicate.com/v1/models/${FLUX_MODEL}/predictions`, {
+    const createRes = await fetch(`https://api.replicate.com/v1/models/${INSTANT_ID_MODEL}/predictions`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
