@@ -178,6 +178,7 @@ const EditorialPage = () => {
     }
     setGeneratingWeek(true);
     try {
+      if (!(await ensureFreshSession())) { setGeneratingWeek(false); return; }
       const [{ data: bq }, { data: profile }, { data: reportData }] = await Promise.all([
         supabase.from("business_questionnaires").select("*").eq("user_id", user.id).order("version", { ascending: false }).limit(1).single(),
         supabase.from("profiles").select("niche").eq("user_id", user.id).single(),
