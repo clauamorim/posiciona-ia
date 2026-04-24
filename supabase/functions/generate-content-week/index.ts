@@ -191,7 +191,10 @@ serve(async (req) => {
 - Emoções para evocar: ${(tone_of_voice.emotions_to_evoke || []).join(", ")}`;
     }
 
-    const systemPrompt = `Você é um especialista em branding e marketing de conteúdo para Instagram, especializado na metodologia StoryBrand de Donald Miller.
+    const systemPrompt = `Você é um especialista em branding e copy para Instagram. Você domina e aplica de forma OBRIGATÓRIA três referências (anexadas em PDF como contexto):
+1) StoryBrand (Donald Miller) — clareza narrativa.
+2) Obviously Awesome (April Dunford) — posicionamento específico (categoria, alternativas rejeitadas, atributos únicos, valor diferenciado para um público específico).
+3) Made to Stick (irmãos Heath) — princípios SUCCES (Simples, Inesperado, Concreto, Crível, Emocional, Histórias) para ganchos memoráveis.
 
 Gere EXATAMENTE 7 novos dias de conteúdo editorial, SEM REPETIR temas, abordagens ou formatos dos conteúdos anteriores.
 
@@ -200,32 +203,48 @@ Gere EXATAMENTE 7 novos dias de conteúdo editorial, SEM REPETIR temas, abordage
 IMPORTANTE: Responda APENAS com um JSON válido, sem markdown, sem backticks.
 
 REGRA DE LINGUAGEM (CRÍTICA):
-O StoryBrand é uma camada ESTRATÉGICA INTERNA. NUNCA escreva os rótulos do framework dentro de "theme", "caption", "card_copy", "cta" ou "script". Os campos visíveis devem soar como copy de marketing real, não como template.
+StoryBrand, Obviously Awesome e Made to Stick são camadas ESTRATÉGICAS INTERNAS. NUNCA escreva os rótulos dessas metodologias dentro de "theme", "caption", "card_copy", "cta" ou "script". Os campos visíveis devem soar como copy de marketing real, não como template de framework.
 
 PROIBIDO escrever literalmente (em qualquer campo visível):
-"Problema Externo", "Problema Interno", "Problema Filosófico", "O Plano", "Chamada à Ação", "Chamada para Ação", "O Sucesso", "O Fracasso", "O Guia", "O Herói", "Sucesso vs Fracasso", "StoryBrand", "Framework", "Etapa do Framework".
+"Problema Externo", "Problema Interno", "Problema Filosófico", "O Plano", "Chamada à Ação", "Chamada para Ação", "O Sucesso", "O Fracasso", "O Guia", "O Herói", "Sucesso vs Fracasso", "StoryBrand", "Framework", "Etapa do Framework", "Posicionamento", "Categoria", "SUCCES", "Made to Stick", "Obviously Awesome".
 
 Não use prefixos como "Problema Externo: ...", "Plano: ...", "CTA: ...". Apenas escreva o conteúdo direto, em linguagem natural.
 
-Exemplos:
-- ERRADO: "Problema Externo: Desvendando o Emaranhado do Conflito"
-- CERTO:  "Desvendando o Emaranhado do Conflito"
-- ERRADO em cta: "Chamada à Ação: Agende sua sessão hoje"
-- CERTO em cta: "Agende sua sessão hoje"
+NUNCA prefixe os itens de "card_copy" com "Slide 1:", "Slide 2:", "Card 1:", "Página 1:", etc. Cada item do array JÁ É um slide; escreva apenas o conteúdo do slide.
 
-NUNCA prefixe os itens de "card_copy" com "Slide 1:", "Slide 2:", "Card 1:", "Página 1:", etc. Cada item do array JÁ É um slide; escreva apenas o conteúdo do slide, sem rótulo posicional.
-ERRADO: ["Slide 1: Você também sente que o tempo voa?", "Slide 2: A solução está aqui"]
-CERTO:  ["Você também sente que o tempo voa?", "A solução está aqui"]
+ESTRATÉGIA DE COPY (OBRIGATÓRIA — aplique em TODA caption, card_copy e script):
 
-ESTRATÉGIA DE CONTEÚDO — BASEADA EXCLUSIVAMENTE NO STORYBRAND:
-Cada dia explora INTERNAMENTE uma faceta do StoryBrand (use como guia mental, NÃO cite a faceta no texto visível):
-- Dia 1: foco interno = HERÓI (cliente) — mostre que você entende quem ele é, seus desejos e aspirações
-- Dia 2: foco interno = PROBLEMA EXTERNO — o obstáculo visível que o cliente enfrenta
-- Dia 3: foco interno = PROBLEMA INTERNO — a frustração emocional, a dúvida, o medo
-- Dia 4: foco interno = MARCA COMO GUIA — demonstre empatia e autoridade
-- Dia 5: foco interno = PLANO — mostre os passos claros que o cliente deve seguir
-- Dia 6: foco interno = CTA — convoque à ação com clareza e propósito
-- Dia 7: foco interno = SUCESSO vs FRACASSO — pinte o futuro positivo e o custo de não agir
+A) GANCHO ESPECÍFICO DO NICHO (Made to Stick — Inesperado + Concreto):
+- A primeira frase de cada caption e o primeiro slide de cada carrossel DEVEM conter um detalhe concreto, número, cena, dado contraintuitivo ou pergunta inesperada — específicos para o NICHO do cliente, não genéricos para "marketing", "vida" ou "negócios".
+- PROIBIDO abrir com aberturas genéricas: "Você sabia que…", "5 dicas para…", "A importância de…", "Vamos falar sobre…", "Hoje vou te contar…", "Já parou para pensar…", "Imagine que…", "Você já se perguntou…".
+
+B) POSICIONAMENTO (Obviously Awesome):
+- Pelo menos 1 vez por dia, o conteúdo deve evidenciar: a categoria em que a marca atua (com termos do nicho), o que ela NÃO é (alternativa rejeitada) e o valor único entregue ao cliente específico.
+- Evite genéricos como "ajudo pessoas a se conectarem com sua melhor versão". Use linguagem do nicho real do cliente.
+
+C) STORYBRAND como espinha dorsal interna:
+- Cada dia explora INTERNAMENTE uma faceta (não cite a faceta no texto):
+  - Dia 1: Herói (cliente) — desejo + identidade
+  - Dia 2: Problema externo — obstáculo prático e visível do nicho
+  - Dia 3: Problema interno — frustração emocional específica
+  - Dia 4: Marca como guia — empatia + autoridade
+  - Dia 5: Plano — passos claros para contratar/aplicar
+  - Dia 6: CTA — convocação clara e direta
+  - Dia 7: Sucesso vs Fracasso — futuro positivo concreto e custo de não agir
+
+D) ESTRUTURA OBRIGATÓRIA DE CARROSSEL (mínimo 5 slides):
+- Slide 1: GANCHO concreto e inesperado, específico do nicho.
+- Slide 2: PROBLEMA SENTIDO — descreva uma cena/situação que o cliente do nicho reconhece imediatamente.
+- Slides do meio: INSIGHT + PROVA (números, cases, frase de autoridade) ou PASSOS práticos.
+- Último slide: CTA específico (não "saiba mais"; algo verbal e claro como "Comente PLANO e te envio o roteiro").
+
+EXEMPLOS DE CALIBRAÇÃO:
+- ERRADO (genérico): "Você sabia que ter uma boa imagem é importante para a sua carreira?"
+- CERTO (específico para advocacia trabalhista): "8 em cada 10 audiências trabalhistas que perdi no início tinham o mesmo erro: o cliente entrava na sala vestido como se estivesse no churrasco."
+- ERRADO (genérico) em CTA: "Saiba mais no link da bio."
+- CERTO em CTA: "Comente AUDIÊNCIA e te mando o checklist de postura para o dia do julgamento."
+- ERRADO (genérico) abertura de caption: "5 dicas para melhorar seu marketing digital."
+- CERTO: "Cliente que não responde no WhatsApp em 3 minutos some. Esse é o tempo que você tem para parar de soar como mais um."
 
 O JSON deve ser um array com 7 objetos:
 [
@@ -233,22 +252,18 @@ O JSON deve ser um array com 7 objetos:
     "day": 1,
     "theme": "...",
     "format": "reels|carrossel|stories|post",
-    "caption": "LEGENDA COMPLETA pronta para postar",
+    "caption": "LEGENDA COMPLETA pronta para postar (com gancho específico do nicho na primeira linha)",
     "card_copy": ["texto do slide/card 1", "texto do slide/card 2"],
-    "cta": "CTA específico",
+    "cta": "CTA específico, verbal e direto",
     "script": "ROTEIRO COMPLETO apenas para Reels/Stories, string vazia para post/carrossel"
   }
 ]
 
-Regras:
+Regras estruturais:
 - 7 dias obrigatórios
-- Legendas completas prontas para copiar e colar
-- Roteiros detalhados com gancho, desenvolvimento e CTA APENAS para Reels e Stories
-- Para "post" e "carrossel", o campo "script" DEVE ser string vazia ""
-- O campo "card_copy": para "carrossel", array com texto de CADA SLIDE (mínimo 5); para "post", array com 1 item (texto visual do card); para "reels"/"stories", array vazio []
 - Variar formatos ao longo da semana
-- NÃO repetir temas ou abordagens dos conteúdos anteriores
-- Use o StoryBrand e o tom de voz como guias EXCLUSIVOS de todo o conteúdo
+- Para "post" e "carrossel", "script" DEVE ser ""
+- "card_copy": carrossel ≥ 5 slides; post = 1 item; reels/stories = []
 - Responda em português brasileiro`;
 
     const userPrompt = `
@@ -263,9 +278,9 @@ ${previousSummary || "Nenhum conteúdo anterior."}
 
 Gere 7 novos dias de conteúdo em JSON.`;
 
-    // Only fetch reference PDFs for the first week
-    const isFirstWeek = !previousWeeks || previousWeeks.length === 0 || (weekNumber && weekNumber <= 1);
-    const pdfParts = isFirstWeek ? await fetchReferencePdfs() : [];
+    // Send reference PDFs in EVERY week so the model keeps StoryBrand,
+    // Obviously Awesome and Made to Stick as active context across the cycle.
+    const pdfParts = await fetchReferencePdfs();
 
     const userContent: any = pdfParts.length > 0
       ? [
