@@ -116,13 +116,17 @@ interface AddElementPanelProps {
   niche?: string;
   /** Contexto de negócio (empresa + serviços + público) para IA. */
   businessContext?: string;
+  /** Legenda do post — refina busca/IA. */
+  caption?: string;
+  /** Corpo do post (slide atual ou texto editado). */
+  postBody?: string;
 }
 
 const AddElementPanel: React.FC<AddElementPanelProps> = ({
   palette, defaultElementColor, bodyFont, textColor, userPortraits = [], onAddImage, onPortraitsChanged,
   hasSelectedElement, onRecolorSelected,
   imageSearchQuery = "", canvasFormat = "square", onUnsplashPick, onSwapBackground,
-  onAIGenerated, regenerationCredits, niche, businessContext,
+  onAIGenerated, regenerationCredits, niche, businessContext, caption, postBody,
 }) => {
   const { user } = useAuth();
   const [elementColor, setElementColor] = useState(defaultElementColor || palette[0]?.hex || "#7c3aed");
@@ -447,6 +451,8 @@ const AddElementPanel: React.FC<AddElementPanelProps> = ({
           regenerationCredits={regenerationCredits}
           niche={niche}
           businessContext={businessContext}
+          caption={caption}
+          postBody={postBody}
           onPickImage={(url, photographer, source) => {
             if (photographer) onUnsplashPick?.(photographer);
             if (onSwapBackground) {
