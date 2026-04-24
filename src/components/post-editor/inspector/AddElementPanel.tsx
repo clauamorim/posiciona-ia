@@ -108,8 +108,8 @@ interface AddElementPanelProps {
   onUnsplashPick?: (photographer: PhotographerInfo) => void;
   /** Chamado quando uma imagem precisa virar fundo (substitui bg atual). */
   onSwapBackground?: (url: string, source?: "ai" | "unsplash" | "saved") => void;
-  /** Chamado após geração IA bem-sucedida — deve fazer débito de 1 crédito. */
-  onAIGenerated?: () => Promise<void> | void;
+  /** Chamado após geração IA bem-sucedida — retorna false quando o débito falha. */
+  onAIGenerated?: () => Promise<boolean | void> | boolean | void;
   /** Saldo atual de créditos de regeneração (para validação). */
   regenerationCredits?: number;
   /** Nicho do usuário, usado para refinar busca/IA. */

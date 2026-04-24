@@ -438,8 +438,8 @@ const PostEditorPage = () => {
   }, [day, canvasFormat, swappingBackground, userNiche, businessContext]);
 
   // Debita 1 crédito de regeneração após geração IA bem-sucedida
-  const debitRegenerationCredit = useCallback(async () => {
-    if (!user) return;
+  const debitRegenerationCredit = useCallback(async (): Promise<boolean> => {
+    if (!user) return false;
     try {
       const current = balances?.regeneration_credits ?? 0;
       if (current <= 0) {
@@ -448,7 +448,7 @@ const PostEditorPage = () => {
           description: "Você precisa comprar mais créditos para gerar imagens por IA.",
           variant: "destructive",
         });
-        return;
+        return false;
       }
       const newBalance = current - 1;
       const { error: updErr } = await supabase
@@ -457,7 +457,7 @@ const PostEditorPage = () => {
         .eq("user_id", user.id);
       if (updErr) {
         console.warn("Failed to debit regeneration credit", updErr);
-        return;
+        return false;
       }
       await supabase.from("credit_logs").insert({
         user_id: user.id,
@@ -466,8 +466,10 @@ const PostEditorPage = () => {
         description: "Geração de imagem IA no editor",
       });
       await refreshSubscription();
+      return true;
     } catch (err) {
       console.warn("debitRegenerationCredit error", err);
+      return false;
     }
   }, [user, balances?.regeneration_credits, refreshSubscription]);
 
@@ -821,7 +823,9 @@ const PostEditorPage = () => {
     photographer?: PhotographerInfo | null
   ): Promise<boolean> => {
     if (!user || !url) return false;
-    if (!url.startsWith("http://") && !url.startsWith("https://")) return false;
+    const isHttpUrl = url.startsWith("http://") || url.startsWith("https://");
+    const isDataUrl = url.startsWith("data:image/");
+    if (!isHttpUrl && !isDataUrl) return false;
     const isFromOwnStorage =
       url.includes("/storage/v1/object/public/user-uploads/") ||
       url.includes("/storage/v1/object/sign/user-uploads/");
@@ -832,12 +836,13 @@ const PostEditorPage = () => {
       const resp = await fetch(url);
       if (!resp.ok) return false;
       const blob = await resp.blob();
-      const ext = (blob.type.split("/")[1] || "jpg").split(";")[0];
+      const normalizedType = blob.type || (isDataUrl ? "image/jpeg" : "image/jpg");
+      const ext = (normalizedType.split("/")[1] || "jpg").split(";")[0];
       const id = crypto.randomUUID();
       const path = `${user.id}/saved-${id}.${ext}`;
       const isUnsplash = sourceHint === "unsplash" || /images\.unsplash\.com|plus\.unsplash\.com/.test(url);
       const source = sourceHint || (isUnsplash ? "unsplash" : "ai");
-      const { error: upErr } = await supabase.storage.from("user-uploads").upload(path, blob, { contentType: blob.type, upsert: false });
+      const { error: upErr } = await supabase.storage.from("user-uploads").upload(path, blob, { contentType: normalizedType, upsert: false });
       if (upErr) return false;
       const { error: insErr } = await supabase.from("user_gallery_assets").insert({
         user_id: user.id,
@@ -1233,7 +1238,13 @@ const PostEditorPage = () => {
                 if (source !== "saved") {
                   const hint: "ai" | "unsplash" | undefined =
                     source === "ai" ? "ai" : source === "unsplash" ? "unsplash" : undefined;
-                  saveSinglePhotoToGallery(url, hint).catch((e) => console.warn("save bg to gallery failed", e));
+                  saveSinglePhotoToGallery(url, hint)
+                    .then((saved) => {
+                      if (saved && source === "ai") {
+                        toast({ title: "Imagem IA salva", description: "A imagem gerada já entrou na sua galeria." });
+                      }
+                    })
+                    .catch((e) => console.warn("save bg to gallery failed", e));
                 }
               },
               onAIGenerated: debitRegenerationCredit,

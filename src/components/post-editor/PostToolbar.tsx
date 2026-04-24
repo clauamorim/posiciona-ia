@@ -103,7 +103,7 @@ interface PostToolbarProps {
   imageSearchQuery?: string;
   onUnsplashPick?: (photographer: { name: string; profileUrl: string; unsplashUrl: string }) => void;
   onSwapBackgroundUrl?: (url: string, source?: "ai" | "unsplash" | "saved") => void;
-  onAIGenerated?: () => Promise<void> | void;
+  onAIGenerated?: () => Promise<boolean | void> | boolean | void;
   regenerationCredits?: number;
   niche?: string;
   businessContext?: string;

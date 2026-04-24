@@ -17,8 +17,8 @@ interface ImageGalleryPanelProps {
   format: "square" | "portrait";
   /** Chamado quando usuário escolhe imagem; recebe URL, info do fotógrafo (Unsplash) e opcionalmente fonte ("ai" / "unsplash" / "saved"). */
   onPickImage: (url: string, photographer?: PhotographerInfo, source?: "ai" | "unsplash" | "saved") => void;
-  /** Chamado quando IA é solicitada com sucesso (consome 1 crédito). Deve fazer o débito real. */
-  onAIGenerated?: () => Promise<void> | void;
+  /** Chamado após geração IA bem-sucedida; retorna false quando o débito falha. */
+  onAIGenerated?: () => Promise<boolean | void> | boolean | void;
   /** Saldo atual de créditos de regeneração (para validar antes de chamar a IA). */
   regenerationCredits?: number;
   niche?: string;
@@ -138,13 +138,24 @@ const ImageGalleryPanel: React.FC<ImageGalleryPanelProps> = ({
         return;
       }
       onPickImage(result.url, undefined, "ai");
-      // Só debita quando a imagem for de fato gerada agora (não cache).
-      if (result.source === "ai") {
-        try { await onAIGenerated?.(); } catch (e) { console.warn("Debit credit failed", e); }
-        toast({ title: "Imagem IA gerada", description: "1 crédito de regeneração utilizado." });
-      } else {
-        toast({ title: "Imagem IA recuperada do cache", description: "Nenhum crédito foi debitado." });
+      let debitOk = true;
+      try {
+        const debitResult = await onAIGenerated?.();
+        if (typeof debitResult === "boolean" && !debitResult) debitOk = false;
+      } catch (e) {
+        debitOk = false;
+        console.warn("Debit credit failed", e);
       }
+      if (!debitOk) {
+        toast({ title: "Imagem gerada, mas o crédito não foi debitado", description: "Corrigimos o fluxo para evitar falso sucesso. Tente novamente em instantes.", variant: "destructive" });
+        return;
+      }
+      toast({
+        title: result.savedToGallery ? "Imagem IA gerada e salva" : "Imagem IA gerada",
+        description: result.savedToGallery
+          ? "1 crédito de regeneração utilizado. A imagem já entrou na sua galeria."
+          : "1 crédito de regeneração utilizado.",
+      });
       setAiPromptOpen(false);
     } catch (err: any) {
       toast({ title: "Erro ao gerar IA", description: err?.message || "Nenhum crédito foi debitado.", variant: "destructive" });
