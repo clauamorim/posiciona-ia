@@ -124,13 +124,11 @@ const PortraitGenerator = () => {
     enabled: !!user,
   });
 
-  const figurino = (report?.content as any)?.figurino;
-  const wardrobeOptions = figurino?.pecas_chave?.length > 0
-    ? Array.from({ length: Math.min(Math.ceil((figurino.pecas_chave?.length || 0) / 2), 3) }, (_, i) => ({
-        label: `Look ${i + 1}`,
-        variation: i,
-      }))
-    : [{ label: "Padrão", variation: 0 }];
+  const wardrobeOptions = [
+    { label: "Neutro", variation: 0 },
+    { label: "Claro", variation: 1 },
+    { label: "Escuro", variation: 2 },
+  ];
 
   const { data: packs } = useQuery({
     queryKey: ["portrait-packs"],
