@@ -316,6 +316,7 @@ const PostEditorPage = () => {
     const isCarouselDay = day?.format?.toLowerCase() === "carrossel";
     const totalSlides = isCarouselDay ? Math.max(1, (day.card_copy?.length || 1)) : 1;
     const themeStr = (day.theme || day.caption || "").toString();
+    const initialBody = (day.card_copy?.[0] || day.caption || "").toString();
     (async () => {
       try {
         const result = await buildAutoLayout({
@@ -328,6 +329,7 @@ const PostEditorPage = () => {
           format: canvasFormat,
           theme: themeStr,
           caption: day.caption,
+          body: initialBody,
           hasCta: !!day.cta,
           paletteHex: palette.map((c: any) => c.hex),
           bgPaletteHex: palette[bgIndex]?.hex || "#1a1a2e",
@@ -394,10 +396,12 @@ const PostEditorPage = () => {
     setSwappingBackground(true);
     try {
       const themeStr = (day.theme || day.caption || "").toString();
+      const bodyStr = (editedTexts[currentSlide] || day.card_copy?.[currentSlide] || day.caption || "").toString();
       const result = await fetchBackgroundImage({
         theme: themeStr,
         caption: day.caption,
-        format: canvasFormat === "reels" ? "portrait" : "square",
+        body: bodyStr,
+        format: canvasFormat === "reels" ? "reels" : "card",
         allowAI: false,
         niche: userNiche,
         businessContext,
