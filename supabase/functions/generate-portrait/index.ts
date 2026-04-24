@@ -306,9 +306,9 @@ Photorealistic professional headshot, candid quality, 85mm f/1.8 lens, subtle de
 
 No text, no watermarks, no overlays.`;
 
-    // Try Flux multi-image Kontext via Replicate first
+    // Try InstantID via Replicate first (identity-preserving)
     let finalImage: string | null = null;
-    let provider: "flux" | "gemini" = "flux";
+    let provider: "instant-id" | "gemini" = "instant-id";
     let usedFallback = false;
 
     if (REPLICATE_API_TOKEN) {
@@ -316,24 +316,22 @@ No text, no watermarks, no overlays.`;
         s.startsWith("data:") ? s : `data:image/jpeg;base64,${s}`
       );
 
-      // Short, identity-first prompt — Flux Kontext responds better to concise instructions
-      const fluxPrompt = `Professional studio headshot of the SAME PERSON shown in the reference images. Preserve their exact face: face shape, nose, eyes, eyebrows, lips, jawline, skin tone, hair color and style, age, ethnicity, and any distinguishing features (moles, freckles, facial hair). The output must be immediately recognizable as the same individual — do NOT generate a different person.
+      // InstantID prompt: focus on scene/style — identity comes from the reference image itself
+      const instantIdPrompt = `professional studio headshot portrait, ${studioStyle}${wardrobeLine}
 
-${studioStyle}${wardrobeLine}
+photorealistic, 85mm lens, natural skin texture with visible pores, natural catchlights in eyes, candid documentary photography quality, sharp focus on face, shallow depth of field. No text, no watermarks, no overlays.`;
 
-Photorealistic, 85mm lens, natural skin texture with pores, natural catchlights in eyes, candid documentary quality. No text, no watermarks.`;
-
-      const fluxResult = await generateWithFlux({
+      const instantIdResult = await generateWithInstantId({
         selfieDataUrls,
-        prompt: fluxPrompt,
+        prompt: instantIdPrompt,
         token: REPLICATE_API_TOKEN,
       });
 
-      if (fluxResult.ok) {
-        finalImage = fluxResult.dataUrl;
-        provider = "flux";
+      if (instantIdResult.ok) {
+        finalImage = instantIdResult.dataUrl;
+        provider = "instant-id";
       } else {
-        console.log(`[portrait] flux failed reason=${fluxResult.reason} → falling back to gemini`);
+        console.log(`[portrait] instant-id failed reason=${instantIdResult.reason} → falling back to gemini`);
         usedFallback = true;
       }
     } else {
