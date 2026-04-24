@@ -1,42 +1,117 @@
-# Corrigir modal de seleção de estilo no mobile
+# Plano: Linha Editorial sem vazamento de framework
 
-## Problema
+## Objetivos
 
-No mobile, ao clicar em "Gerar posts", o modal "Escolha o estilo do post" abre com os 3 cards (Minimalista, Unsplash, IA) empilhados verticalmente. Como cada card tem um preview grande (quadrado ou 9:16) e o `DialogContent` é centralizado na tela sem limite de altura nem rolagem, o conteúdo extrapola o viewport para cima e para baixo. O usuário não consegue rolar dentro do modal nem alcançar o rodapé com os botões "Pular" e "Abrir com este estilo".
+1. Garantir que **termos do StoryBrand e meta-linguagem de framework** nunca apareçam nos posts (theme, caption, card_copy, cta, script).
+2. Restringir os PDFs enviados à LLM (na **análise de Instagram** e na **geração editorial**) para apenas três: **StoryBrand**, **Made to Stick** e **Obviously Awesome**.
+3. Na regeneração de **um único post**, **não enviar a descrição/legenda** dos posts vizinhos para a LLM — apenas títulos curtos para evitar repetição, sem contaminar a saída.
 
-## Causa técnica
+---
 
-`src/components/ui/dialog.tsx` — o `DialogContent` usa `top-[50%] translate-y-[-50%]` sem `max-height` nem `overflow`. Combinado com `StyleSelectionModal` (3 cards grandes em coluna no mobile), o conteúdo fica maior que a tela e fica inacessível.
+## 1. Restringir PDFs de referência enviados à LLM
 
-## Solução
+Hoje as edge functions baixam até 5 PDFs ativos da tabela `reference_documents`, sem filtrar nome. Vamos filtrar por nome de arquivo (case-insensitive, ignorando acentos/underscores).
 
-Mudanças mínimas e localizadas em **um único arquivo**: `src/components/post-editor/StyleSelectionModal.tsx`.
+**Edge functions afetadas:**
+- `supabase/functions/generate-content-week/index.ts`
+- `supabase/functions/regenerate-single-post/index.ts`
+- `supabase/functions/analyze-instagram/index.ts`
 
-1. **Limitar a altura do modal e habilitar rolagem interna**:
-   - Adicionar ao `DialogContent`: `max-h-[90vh] overflow-hidden flex flex-col` para que o modal nunca ultrapasse 90% da altura da tela e organize seu conteúdo em coluna.
+**O que muda em cada uma:**
+- A função `fetchReferencePdfs()` passa a aceitar um **whitelist** de nomes normalizados.
+- Para essas três funções, a whitelist será: `["storybrand", "madetostick", "obviouslyawesome"]`.
+- Normalização: lowercase, sem acentos, sem espaços, sem `_` e sem `-`. Assim "Made_to_Stick.pdf", "made-to-stick.pdf" e "Made To Stick.pdf" todos casam.
+- Se nenhum dos três PDFs whitelistados estiver ativo, a função segue funcionando normalmente, apenas sem PDFs (a sanitização e os prompts continuam fazendo o trabalho).
 
-2. **Rolagem somente na área dos cards**:
-   - Envolver o grid dos 3 cards em um wrapper com `overflow-y-auto flex-1 -mx-1 px-1` para que header e footer fiquem fixos e apenas os cards rolem.
+**Não muda:**
+- `generate-report/index.ts` continua usando todos os PDFs ativos (precisa de arquétipos e psicologia das cores).
 
-3. **Reduzir o tamanho do preview no mobile** (defesa extra):
-   - Para a opção Minimalista e IA, trocar o `aspect` por uma altura fixa menor no mobile (ex.: `h-32 sm:aspect-square` quando `format === "square"`, e `h-40 sm:aspect-[9/16]` quando `portrait`). Mantém a proporção certa no desktop e evita previews enormes no mobile.
-   - Para o card Unsplash (que mostra a foto real), aplicar a mesma regra para alinhar visualmente.
+---
 
-4. **Footer sempre visível**:
-   - Adicionar `shrink-0` ao `DialogFooter` para garantir que não seja comprimido e que os botões "Pular" e "Abrir com este estilo" estejam sempre acessíveis.
+## 2. Eliminar termos do StoryBrand nos posts
 
-## Detalhes técnicos
+Diagnóstico: a IA não está mais escrevendo prefixos como "Problema Externo:" (já cobertos pelo sanitizer atual), mas está embutindo **meta-narrativa** dentro do texto, ex.: "A marca, atuando como guia do herói, oferece o plano…". Esse padrão escapa do filtro atual porque não é um rótulo no início da string.
 
-Arquivo a editar: `src/components/post-editor/StyleSelectionModal.tsx`
+**Mudanças em `supabase/functions/_shared/editorialSanitize.ts`:**
 
-- `DialogContent` recebe `className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col"`.
-- Novo wrapper rolável envolve o `<div className="grid ...">` dos cards com `className="overflow-y-auto flex-1 min-h-0 -mx-1 px-1"`.
-- Os previews dentro de cada card passam a usar uma altura responsiva: `h-32 sm:h-auto sm:aspect-square` (square) ou `h-40 sm:h-auto sm:aspect-[9/16]` (portrait), preservando o `rounded-md overflow-hidden` atual.
-- `DialogFooter` recebe `shrink-0` adicional para impedir compressão.
+a) **Expandir `SUSPICIOUS_PATTERNS`** com frases inteiras de meta-narrativa:
+   - `\b(o\s+)?her[óo]i\b` (em qualquer posição, não só prefixo)
+   - `\bguia\s+(da|do)\s+her[óo]i\b`
+   - `\bplano\s+de\s+(3|tr[êe]s)\s+passos\b`
+   - `\bfracasso\s+(iminente|potencial)\b`
+   - `\bjornada\s+do\s+her[óo]i\b`
+   - `\b(a\s+)?marca\s+(como|atuando\s+como)\s+guia\b`
+   - `\bproblema\s+(externo|interno|filos[óo]fico)\b` (já existe — manter)
+   - `\bcategoria\s+(de\s+mercado|cognitiva)\b`
+   - `\bprincipios?\s+succes\b`
 
-Nada muda na lógica (seleção, preview do Unsplash, créditos, callbacks). Não é necessário alterar `dialog.tsx` (mantém compatibilidade com outros modais).
+b) **Nova função `containsFrameworkPhrases(text)`** que retorna true se qualquer um desses padrões aparecer no meio do texto, não apenas como prefixo.
 
-## Validação esperada
+c) **Atualizar `countFrameworkLeaks`** para também invocar `containsFrameworkPhrases`. Isso aumenta a sensibilidade do retry automático que já existe nas duas funções de geração — quando vazamento for detectado, o segundo passe com prompt mais estrito é disparado.
 
-- No mobile (390x567 e similares): o modal abre ocupando até 90% da tela, com os 3 cards roláveis dentro dele e os botões "Pular e abrir editor vazio" e "Abrir com este estilo" sempre visíveis no rodapé.
-- No desktop: aparência praticamente idêntica à atual (cards lado a lado com previews em aspect ratio original).
+**Mudanças nos prompts de `generate-content-week` e `regenerate-single-post`:**
+
+- Adicionar bloco explícito de exemplos **ERRADO → CERTO** cobrindo meta-narrativa (não só rótulos), por exemplo:
+  - ERRADO: "Como guia, mostramos ao herói o plano para superar o problema interno."
+  - CERTO: "Em 3 passos, sua agenda da semana sai do caos para um sistema previsível."
+- Reforçar: *"Nunca descreva a narrativa em termos teóricos. Escreva a copy final, como se o leitor nunca tivesse ouvido falar de framework."*
+
+---
+
+## 3. Regeneração de um único post: não enviar descrição
+
+Hoje, ao clicar "Regenerar este post", o frontend monta `existingPosts = allWeeks.flat()` e a edge function transforma em:
+```
+- {theme}: {caption.substring(0, 80)}
+```
+
+Isso envia **trechos das legendas** de TODOS os posts existentes, o que:
+- Aumenta tokens.
+- Pode poluir a saída se a IA decidir "ecoar" o estilo dos posts antigos.
+- Não é necessário para evitar repetição — basta o tema.
+
+**Mudança em `supabase/functions/regenerate-single-post/index.ts`:**
+- Linha 76: trocar
+  ```ts
+  const existingTitles = (existingPosts || []).map((p: any) => `- ${p.theme}: ${p.caption?.substring(0, 80)}`).join("\n");
+  ```
+  por
+  ```ts
+  const existingTitles = (existingPosts || [])
+    .map((p: any) => p?.theme)
+    .filter((t: string) => typeof t === "string" && t.trim().length > 0)
+    .map((t: string) => `- ${t}`)
+    .join("\n");
+  ```
+- Resultado: a LLM recebe apenas a lista de **temas já usados** para evitar repetição, sem ver caption, card_copy nem script dos vizinhos.
+
+**Mudança em `src/pages/EditorialPage.tsx`** (otimização opcional, mas recomendada):
+- Antes de enviar `existingPosts`, mapear para `[{ theme }]` apenas, reduzindo payload da requisição.
+
+---
+
+## 4. Bump de versão do gerador
+
+Para que os posts atuais (versão `2026-04-24-v3`) fiquem marcados como desatualizados e o usuário possa regenerar **gratuitamente** com as melhorias acima:
+
+- `src/lib/generatorVersion.ts` → `EDITORIAL_GENERATOR_VERSION = "2026-04-24-v4"`
+- `supabase/functions/_shared/generatorVersion.ts` → mesma string
+- Adicionar entrada no histórico do comentário JSDoc descrevendo: filtro de PDFs, sanitização anti meta-narrativa, regeneração sem caption dos vizinhos.
+
+Após o deploy, o botão "Atualizar (grátis)" aparecerá nos posts antigos e permitirá refazê-los sem consumir créditos.
+
+---
+
+## Arquivos editados
+
+- `supabase/functions/_shared/editorialSanitize.ts` — novos padrões e função `containsFrameworkPhrases`
+- `supabase/functions/_shared/generatorVersion.ts` — bump v4
+- `supabase/functions/generate-content-week/index.ts` — whitelist de PDFs + reforço de prompt
+- `supabase/functions/regenerate-single-post/index.ts` — whitelist + prompt + remover caption dos vizinhos
+- `supabase/functions/analyze-instagram/index.ts` — whitelist de PDFs
+- `src/lib/generatorVersion.ts` — bump v4 (espelho)
+- `src/pages/EditorialPage.tsx` — enviar apenas `theme` em `existingPosts` na regeneração
+
+## Deploy
+
+Redeploy das três edge functions após as edições: `generate-content-week`, `regenerate-single-post`, `analyze-instagram`.
