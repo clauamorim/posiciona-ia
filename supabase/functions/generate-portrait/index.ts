@@ -214,11 +214,13 @@ serve(async (req) => {
     const makeup = buildMakeupText(figurino);
 
     // 3 sequential calls — one por background; cada um usa um look diferente do relatório.
+    // Replicate low-credit accounts (<$5) tem rate limit de 6/min com burst 1 → 11s entre chamadas.
+    const INTER_CALL_DELAY_MS = 11000;
+    const RETRY_DELAY_MS = 30000;
     const results: { background: string; portrait: string | null; error?: string; promptUsed?: string }[] = [];
     for (let i = 0; i < BACKGROUND_VARIATIONS.length; i++) {
       if (i > 0) {
-        // Space out calls to avoid Replicate 429 (low-credit accounts: 6/min, burst 1)
-        await new Promise((r) => setTimeout(r, 1200));
+        await new Promise((r) => setTimeout(r, INTER_CALL_DELAY_MS));
       }
       // Variação de figurino: look 0 → Neutro, look 1 → Claro, look 2 → Escuro.
       const outfit = buildOutfitTextForLook(figurino, i);
@@ -233,12 +235,24 @@ serve(async (req) => {
       });
 
       console.log(`[generate-portrait] call ${i + 1}/3 background=${built.backgroundKey} archetype=${archetypeName}`);
-      const r = await callFluxLora({
+      let r = await callFluxLora({
         token: REPLICATE_API_TOKEN,
         loraVersion: training.lora_weights_url,
         prompt: built.prompt,
         negative: built.negative,
       });
+
+      // Retry automático em caso de 429 (rate limit) — espera mais 30s e tenta uma vez
+      if (!r.ok && r.reason.includes("429")) {
+        console.warn(`[generate-portrait] background=${built.backgroundKey} got 429, waiting ${RETRY_DELAY_MS}ms and retrying once`);
+        await new Promise((res) => setTimeout(res, RETRY_DELAY_MS));
+        r = await callFluxLora({
+          token: REPLICATE_API_TOKEN,
+          loraVersion: training.lora_weights_url,
+          prompt: built.prompt,
+          negative: built.negative,
+        });
+      }
 
       if (r.ok) {
         results.push({ background: built.backgroundKey, portrait: r.dataUrl, promptUsed: built.prompt });
