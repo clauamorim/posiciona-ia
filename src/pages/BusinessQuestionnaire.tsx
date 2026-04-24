@@ -168,6 +168,15 @@ const BusinessQuestionnaire = () => {
           </div>
         </div>
 
+        {/* Persuasion callout — only when still editable */}
+        {isEditable && (
+          <div className="border-l-2 border-primary/40 bg-primary/5 px-4 py-3 rounded-r-md">
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Quanto mais detalhadas e específicas forem suas respostas, mais precisa será a análise estratégica e mais persuasiva será a linha editorial gerada para o seu negócio.
+            </p>
+          </div>
+        )}
+
         {/* Locked banner */}
         {isLocked && (
           <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 border border-border/60">

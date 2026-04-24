@@ -71,7 +71,8 @@ const App = () => (
             <Route path="/my-designs" element={<ProtectedRoute requirePlan><MyDesignsPage /></ProtectedRoute>} />
             <Route path="/my-gallery" element={<ProtectedRoute requirePlan><MyGalleryPage /></ProtectedRoute>} />
             <Route path="/help" element={<ProtectedRoute requirePlan><HelpPage /></ProtectedRoute>} />
-            <Route path="/admin" element={<ProtectedRoute requireAdmin><AdminDashboard /></ProtectedRoute>} />
+            <Route path="/admin" element={<ProtectedRoute requireAdmin><AdminUsers /></ProtectedRoute>} />
+            <Route path="/admin/metrics" element={<ProtectedRoute requireAdmin><AdminDashboard /></ProtectedRoute>} />
             <Route path="/admin/users" element={<ProtectedRoute requireAdmin><AdminUsers /></ProtectedRoute>} />
             <Route path="/admin/documents" element={<ProtectedRoute requireAdmin><AdminDocuments /></ProtectedRoute>} />
             <Route path="/admin/gallery" element={<ProtectedRoute requireAdmin><AdminGallery /></ProtectedRoute>} />

@@ -8,8 +8,11 @@
  * Histórico:
  * - 2026-04-23-v1: marca inicial. Inclui sanitização de rótulos StoryBrand
  *   ("Problema Externo:", "Slide 1:") e parser JSON robusto contra fences.
+ * - 2026-04-24-v2: prompts reforçados com Obviously Awesome (posicionamento)
+ *   e Made to Stick (SUCCES). Ganchos específicos do nicho, proibição de
+ *   aberturas genéricas. PDFs de referência enviados em todas as semanas.
  */
-export const EDITORIAL_GENERATOR_VERSION = "2026-04-23-v1";
+export const EDITORIAL_GENERATOR_VERSION = "2026-04-24-v2";
 
 /**
  * Retorna true quando o dia/post foi gerado antes da versão atual,

@@ -27,8 +27,8 @@ const adminGroups: NavGroup[] = [
   {
     label: "Admin",
     items: [
-      { label: "Painel Admin", href: "/admin", icon: Shield },
-      { label: "Usuários", href: "/admin/users", icon: LayoutDashboard },
+      { label: "Usuários", href: "/admin", icon: LayoutDashboard },
+      { label: "Métricas", href: "/admin/metrics", icon: BarChart3 },
       { label: "Documentos LLM", href: "/admin/documents", icon: FileUp },
       { label: "Galeria", href: "/admin/gallery", icon: Image },
     ],
