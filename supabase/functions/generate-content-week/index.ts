@@ -3,7 +3,7 @@ import { corsHeaders } from "../_shared/cors.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { extractJsonFromLLM } from "../_shared/jsonExtract.ts";
 import { EDITORIAL_GENERATOR_VERSION, isOutdatedVersion } from "../_shared/generatorVersion.ts";
-import { sanitizeWeek, countWeekLeaks } from "../_shared/editorialSanitize.ts";
+import { sanitizeWeek, sanitizePost, countWeekLeaks, countFrameworkLeaks } from "../_shared/editorialSanitize.ts";
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 const API_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
@@ -86,22 +86,40 @@ async function fetchReferencePdfs(): Promise<{ mime_type: string; data: string }
   }
 }
 
-async function callGemini(systemPrompt: string, userContent: any): Promise<string> {
-  const response = await fetch(API_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${LOVABLE_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: "google/gemini-2.5-flash",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userContent },
-      ],
-      max_tokens: 8000,
-    }),
-  });
+async function callGemini(systemPrompt: string, userContent: any, timeoutMs = 90000): Promise<string> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  let response: Response;
+  try {
+    response = await fetch(API_URL, {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "google/gemini-3-flash-preview",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userContent },
+        ],
+        max_tokens: 6000,
+      }),
+    });
+  } catch (e: any) {
+    clearTimeout(timeoutId);
+    if (e?.name === "AbortError") {
+      const err = new Error("Tempo limite excedido na chamada à IA") as Error & { status?: number; userMessage?: string };
+      err.status = 504;
+      err.userMessage = "A IA demorou para responder. Tente novamente em alguns segundos.";
+      throw err;
+    }
+    throw e;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   if (!response.ok) {
     const errText = await response.text();
@@ -397,24 +415,39 @@ Gere 7 novos dias de conteúdo em JSON.`;
     let sanitized = sanitizeWeek(editorial as any[]);
     let leaks = countWeekLeaks(sanitized);
 
-    // If sanitized output still "looks like framework", retry once with a stricter system prompt
+    // Surgical retry: regenerate only the leaking days (not the whole week).
     if (leaks > 0) {
-      console.warn(`Framework leaks detected (${leaks}). Retrying with stricter prompt.`);
-      const stricterSystem = systemPrompt +
-        `\n\n⚠️ ÚLTIMA TENTATIVA: a resposta anterior continha rótulos PROIBIDOS (ex.: "Problema Externo", "StoryBrand", "Framework"). REESCREVA tudo em copy direta de marketing. ZERO rótulos estruturais visíveis.`;
-      try {
-        const retryRaw = await callGemini(stricterSystem, userContent);
-        const retryParsed = extractJsonFromLLM(retryRaw);
-        if (Array.isArray(retryParsed) && retryParsed.length > 0) {
-          const retrySanitized = sanitizeWeek(retryParsed as any[]);
-          if (countWeekLeaks(retrySanitized) < leaks) {
-            sanitized = retrySanitized;
-            leaks = countWeekLeaks(retrySanitized);
+      console.warn(`Framework leaks detected (${leaks}). Retrying only leaking days.`);
+      const leakingIndexes: number[] = [];
+      sanitized.forEach((day: any, idx: number) => {
+        if (countFrameworkLeaks(day) > 0) leakingIndexes.push(idx);
+      });
+
+      const dayRetrySystem = `Você é um especialista em copy para Instagram. Reescreva UM ÚNICO dia de conteúdo, sem rótulos de framework (proibido: "Problema Externo", "Plano", "CTA:", "Herói", "Guia", "StoryBrand", "Made to Stick", "Obviously Awesome", "Slide 1:", etc.). Responda APENAS com o objeto JSON do dia, sem markdown, sem texto extra. Estrutura: {"day": N, "theme": "...", "format": "reels|carrossel|stories|post", "caption": "...", "card_copy": [...], "cta": "...", "script": "..."}`;
+
+      // Run all per-day retries in parallel with a tighter timeout (45s each).
+      const results = await Promise.allSettled(
+        leakingIndexes.map(async (idx) => {
+          const original = sanitized[idx];
+          const dayUserPrompt = `Negócio: ${business?.company_name || "—"}\nNicho: ${niche || "—"}\n\nReescreva este dia removendo qualquer rótulo de framework. Mantenha o tema central, o formato e a intenção, mas use copy direta de marketing.\n\nDia atual (com rótulos a remover):\n${JSON.stringify(original)}\n\nResponda APENAS com o objeto JSON do dia reescrito.`;
+          const raw = await callGemini(dayRetrySystem, dayUserPrompt, 45000);
+          const parsed = extractJsonFromLLM(raw);
+          if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+            const cleanedDay = sanitizePost(parsed as Record<string, any>);
+            if (countFrameworkLeaks(cleanedDay) < countFrameworkLeaks(original)) {
+              return { idx, day: cleanedDay };
+            }
           }
+          return null;
+        })
+      );
+
+      for (const r of results) {
+        if (r.status === "fulfilled" && r.value) {
+          sanitized[r.value.idx] = { ...sanitized[r.value.idx], ...r.value.day };
         }
-      } catch (retryErr) {
-        console.error("Stricter retry failed:", retryErr);
       }
+      leaks = countWeekLeaks(sanitized);
     }
 
     // Stamp every day with the current generator version so we can later
