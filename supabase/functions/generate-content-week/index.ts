@@ -415,24 +415,39 @@ Gere 7 novos dias de conteúdo em JSON.`;
     let sanitized = sanitizeWeek(editorial as any[]);
     let leaks = countWeekLeaks(sanitized);
 
-    // If sanitized output still "looks like framework", retry once with a stricter system prompt
+    // Surgical retry: regenerate only the leaking days (not the whole week).
     if (leaks > 0) {
-      console.warn(`Framework leaks detected (${leaks}). Retrying with stricter prompt.`);
-      const stricterSystem = systemPrompt +
-        `\n\n⚠️ ÚLTIMA TENTATIVA: a resposta anterior continha rótulos PROIBIDOS (ex.: "Problema Externo", "StoryBrand", "Framework"). REESCREVA tudo em copy direta de marketing. ZERO rótulos estruturais visíveis.`;
-      try {
-        const retryRaw = await callGemini(stricterSystem, userContent);
-        const retryParsed = extractJsonFromLLM(retryRaw);
-        if (Array.isArray(retryParsed) && retryParsed.length > 0) {
-          const retrySanitized = sanitizeWeek(retryParsed as any[]);
-          if (countWeekLeaks(retrySanitized) < leaks) {
-            sanitized = retrySanitized;
-            leaks = countWeekLeaks(retrySanitized);
+      console.warn(`Framework leaks detected (${leaks}). Retrying only leaking days.`);
+      const leakingIndexes: number[] = [];
+      sanitized.forEach((day: any, idx: number) => {
+        if (countFrameworkLeaks(day) > 0) leakingIndexes.push(idx);
+      });
+
+      const dayRetrySystem = `Você é um especialista em copy para Instagram. Reescreva UM ÚNICO dia de conteúdo, sem rótulos de framework (proibido: "Problema Externo", "Plano", "CTA:", "Herói", "Guia", "StoryBrand", "Made to Stick", "Obviously Awesome", "Slide 1:", etc.). Responda APENAS com o objeto JSON do dia, sem markdown, sem texto extra. Estrutura: {"day": N, "theme": "...", "format": "reels|carrossel|stories|post", "caption": "...", "card_copy": [...], "cta": "...", "script": "..."}`;
+
+      // Run all per-day retries in parallel with a tighter timeout (45s each).
+      const results = await Promise.allSettled(
+        leakingIndexes.map(async (idx) => {
+          const original = sanitized[idx];
+          const dayUserPrompt = `Negócio: ${business?.company_name || "—"}\nNicho: ${niche || "—"}\n\nReescreva este dia removendo qualquer rótulo de framework. Mantenha o tema central, o formato e a intenção, mas use copy direta de marketing.\n\nDia atual (com rótulos a remover):\n${JSON.stringify(original)}\n\nResponda APENAS com o objeto JSON do dia reescrito.`;
+          const raw = await callGemini(dayRetrySystem, dayUserPrompt, 45000);
+          const parsed = extractJsonFromLLM(raw);
+          if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+            const cleanedDay = sanitizePost(parsed as Record<string, any>);
+            if (countFrameworkLeaks(cleanedDay) < countFrameworkLeaks(original)) {
+              return { idx, day: cleanedDay };
+            }
           }
+          return null;
+        })
+      );
+
+      for (const r of results) {
+        if (r.status === "fulfilled" && r.value) {
+          sanitized[r.value.idx] = { ...sanitized[r.value.idx], ...r.value.day };
         }
-      } catch (retryErr) {
-        console.error("Stricter retry failed:", retryErr);
       }
+      leaks = countWeekLeaks(sanitized);
     }
 
     // Stamp every day with the current generator version so we can later
