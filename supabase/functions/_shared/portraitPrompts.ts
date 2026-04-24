@@ -1,0 +1,182 @@
+// Prompts oficiais por arquétipo — NÃO MODIFICAR.
+// Estes textos foram fornecidos pelo cliente e devem ser usados exatamente como estão.
+
+export type ArchetypeName =
+  | "Governante"
+  | "Sábio"
+  | "Cuidador"
+  | "Criador"
+  | "Herói"
+  | "Explorador"
+  | "Inocente"
+  | "Cara-comum"
+  | "Mago"
+  | "Amante"
+  | "Rebelde"
+  | "Bobo-da-corte";
+
+export const ARCHETYPE_PROMPTS: Record<ArchetypeName, { prompt: string; negative: string }> = {
+  "Governante": {
+    prompt: "USR[id] [gender], powerful executive portrait, authoritative calm expression, hard directional lighting, dark textured studio background with subtle wall texture, [outfit], [hair], [makeup], strong posture, direct confident gaze, no smile, fine skin pores, sharp focus, photorealistic, shot on Sony A7, 85mm f/1.4, natural facial features, authentic face, individual hair strands",
+    negative: "plain white background, flat black background, soft lighting, casual, smiling, plastic skin, smooth hair, symmetrical face, artificial face, overly perfect features",
+  },
+  "Sábio": {
+    prompt: "USR[id] [gender], intellectual professional portrait, calm contemplative expression, soft Rembrandt lighting, warm dark textured studio background, subtle linen or concrete wall texture, [outfit], [hair], [makeup], slight tilt of head, thoughtful gaze, no smile, fine skin pores, sharp focus, photorealistic, shot on Sony A7, 85mm f/1.4, natural facial features, authentic face, individual hair strands",
+    negative: "plain white background, flat black background, harsh lighting, casual, smiling, plastic skin, smooth hair, symmetrical face, artificial face, overly perfect features",
+  },
+  "Cuidador": {
+    prompt: "USR[id] [gender], warm professional portrait, gentle approachable expression, soft diffused lighting, warm textured studio background, soft beige or warm grey wall texture, [outfit], [hair], [makeup], slight natural smile, open body language, fine skin pores, sharp focus, photorealistic, shot on Canon R5, 85mm f/1.8, natural facial features, authentic face, individual hair strands",
+    negative: "plain white background, flat black background, harsh lighting, dark background, serious expression, plastic skin, symmetrical face, artificial face, overly perfect features",
+  },
+  "Criador": {
+    prompt: "USR[id] [gender], creative professional portrait, expressive authentic expression, dramatic side lighting, artistic textured studio background, weathered plaster or mixed tones wall texture, [outfit], [hair], [makeup], artistic pose, intense gaze, fine skin pores, sharp focus, photorealistic, shot on Leica M, 50mm f/1.4, natural facial features, authentic face, individual hair strands",
+    negative: "plain white background, flat black background, corporate look, flat lighting, stiff pose, plastic skin, symmetrical face, artificial face, overly perfect features",
+  },
+  "Herói": {
+    prompt: "USR[id] [gender], dynamic professional portrait, determined strong expression, high contrast dramatic lighting, deep textured studio background, dark grey stone or concrete wall texture, [outfit], [hair], [makeup], forward-leaning posture, intense direct gaze, jaw set, fine skin pores, sharp focus, photorealistic, shot on Nikon Z9, 85mm f/1.4, natural facial features, authentic face, individual hair strands",
+    negative: "plain white background, flat black background, soft lighting, casual, relaxed expression, plastic skin, symmetrical face, artificial face, overly perfect features",
+  },
+  "Explorador": {
+    prompt: "USR[id] [gender], authentic professional portrait, free confident expression, natural warm lighting, medium textured studio background, warm earthy tones wall texture, [outfit], [hair], [makeup], relaxed posture, genuine gaze, subtle smile, fine skin pores, sharp focus, photorealistic, shot on Fujifilm X-T5, 35mm f/1.4, natural facial features, authentic face, individual hair strands",
+    negative: "plain white background, flat black background, stiff corporate pose, dark dramatic background, plastic skin, symmetrical face, artificial face, overly perfect features",
+  },
+  "Inocente": {
+    prompt: "USR[id] [gender], fresh professional portrait, genuine warm expression, soft bright lighting, light textured studio background, soft warm white or pale grey wall texture, [outfit], [hair], [makeup], open natural smile, relaxed shoulders, fine skin pores, sharp focus, photorealistic, shot on Canon R5, 85mm f/1.8, natural facial features, authentic face, individual hair strands",
+    negative: "plain flat white background, flat black background, serious expression, dramatic lighting, plastic skin, symmetrical face, artificial face, overly perfect features",
+  },
+  "Cara-comum": {
+    prompt: "USR[id] [gender], approachable professional portrait, genuine relatable expression, soft natural lighting, simple textured studio background, neutral mid-tone wall texture, [outfit], [hair], [makeup], natural relaxed posture, warm gaze, light smile, fine skin pores, sharp focus, photorealistic, shot on Sony A7, 50mm f/1.8, natural facial features, authentic face, individual hair strands",
+    negative: "plain white background, flat black background, dramatic lighting, stiff corporate pose, plastic skin, symmetrical face, artificial face, overly perfect features",
+  },
+  "Mago": {
+    prompt: "USR[id] [gender], visionary professional portrait, intense magnetic expression, dramatic chiaroscuro lighting, mysterious textured studio background, dark moody plaster or smoke-toned wall texture, [outfit], [hair], [makeup], slight forward lean, piercing gaze, no smile, fine skin pores, sharp focus, photorealistic, shot on Sony A7, 85mm f/1.4, natural facial features, authentic face, individual hair strands",
+    negative: "plain white background, flat black background, flat lighting, casual expression, plastic skin, symmetrical face, artificial face, overly perfect features",
+  },
+  "Amante": {
+    prompt: "USR[id] [gender], magnetic professional portrait, warm sophisticated expression, soft golden hour lighting, rich warm textured studio background, deep warm terracotta or burgundy wall texture, [outfit], [hair], [makeup], elegant posture, intense warm gaze, subtle smile, fine skin pores, sharp focus, photorealistic, shot on Leica M, 85mm f/1.2, natural facial features, authentic face, individual hair strands",
+    negative: "plain white background, flat black background, harsh lighting, stiff pose, cold tones, plastic skin, symmetrical face, artificial face, overly perfect features",
+  },
+  "Rebelde": {
+    prompt: "USR[id] [gender], disruptive professional portrait, bold unconventional expression, high contrast dramatic lighting, edgy textured studio background, raw concrete or industrial wall texture, [outfit], [hair], [makeup], strong asymmetric pose, direct challenging gaze, fine skin pores, sharp focus, photorealistic, shot on Leica M, 35mm f/1.4, natural facial features, authentic face, individual hair strands",
+    negative: "plain white background, flat black background, corporate look, soft lighting, conventional pose, plastic skin, symmetrical face, artificial face, overly perfect features",
+  },
+  "Bobo-da-corte": {
+    prompt: "USR[id] [gender], vibrant professional portrait, playful authentic expression, bright dynamic lighting, warm textured studio background, colorful warm-toned or eclectic wall texture, [outfit], [hair], [makeup], natural laugh or wide smile, energetic posture, fine skin pores, sharp focus, photorealistic, shot on Fujifilm X-T5, 50mm f/1.8, natural facial features, authentic face, individual hair strands",
+    negative: "plain white background, flat black background, serious expression, stiff pose, plastic skin, symmetrical face, artificial face, overly perfect features",
+  },
+};
+
+// Mapeamento de fundo para os 3 looks (Neutro / Claro / Escuro)
+export const BACKGROUND_VARIATIONS = [
+  { key: "neutro", label: "Neutro", replacement: null }, // mantém o fundo do arquétipo
+  { key: "claro", label: "Claro", replacement: "warm light textured studio background, soft warm tones" },
+  { key: "escuro", label: "Escuro", replacement: "dark moody textured studio background, deep shadow tones" },
+] as const;
+
+// Regex para localizar a "frase de fundo" no prompt do arquétipo.
+// Captura desde uma palavra-chave de iluminação/fundo até a vírgula imediatamente antes de "[outfit]".
+// Exemplos cobertos:
+//   "dark textured studio background with subtle wall texture, [outfit]"
+//   "warm dark textured studio background, subtle linen or concrete wall texture, [outfit]"
+//   "warm textured studio background, soft beige or warm grey wall texture, [outfit]"
+const BACKGROUND_REGEX = /(?:warm |light |medium |deep |simple |mysterious |edgy |artistic |rich warm |[a-z\s]*?)?(?:dark |light |warm )?textured studio background[^,]*(?:,\s*[^,]*wall texture)?,\s*(?=\[outfit\])/i;
+
+export interface BuildPromptParams {
+  archetype: ArchetypeName | string;
+  userId: string;
+  gender: "woman" | "man" | "none";
+  outfit: string;
+  hair: string;  // só usado se gender === "woman"
+  makeup: string; // só usado se gender === "woman"
+  backgroundIndex: 0 | 1 | 2;
+}
+
+export function buildPortraitPrompt(params: BuildPromptParams): {
+  prompt: string;
+  negative: string;
+  backgroundKey: string;
+} {
+  const archetypeKey = (params.archetype in ARCHETYPE_PROMPTS
+    ? params.archetype
+    : "Cara-comum") as ArchetypeName;
+  const tpl = ARCHETYPE_PROMPTS[archetypeKey];
+  const bg = BACKGROUND_VARIATIONS[params.backgroundIndex];
+
+  let prompt = tpl.prompt;
+
+  // 1. Substituir frase de fundo se Claro/Escuro
+  if (bg.replacement) {
+    if (BACKGROUND_REGEX.test(prompt)) {
+      prompt = prompt.replace(BACKGROUND_REGEX, `${bg.replacement}, `);
+    } else {
+      console.log(`[portrait-prompt] background regex did not match for archetype=${archetypeKey} — using fallback prepend`);
+      prompt = `${bg.replacement}, ${prompt}`;
+    }
+  }
+
+  // 2. Substituir marcadores
+  prompt = prompt.replace(/USR\[id\]/g, `USR${params.userId}`);
+
+  if (params.gender === "none") {
+    prompt = prompt.replace(/\[gender\]/g, "");
+  } else {
+    prompt = prompt.replace(/\[gender\]/g, params.gender);
+  }
+
+  prompt = prompt.replace(/\[outfit\]/g, params.outfit || "");
+
+  if (params.gender === "woman" && params.hair) {
+    prompt = prompt.replace(/\[hair\]/g, params.hair);
+  } else {
+    prompt = prompt.replace(/\[hair\]/g, "");
+  }
+
+  if (params.gender === "woman" && params.makeup) {
+    prompt = prompt.replace(/\[makeup\]/g, params.makeup);
+  } else {
+    prompt = prompt.replace(/\[makeup\]/g, "");
+  }
+
+  // 3. Limpeza
+  prompt = cleanupPrompt(prompt);
+
+  return { prompt, negative: tpl.negative, backgroundKey: bg.key };
+}
+
+function cleanupPrompt(s: string): string {
+  return s
+    .replace(/,\s*,/g, ",")     // ", ," → ","
+    .replace(/,\s*,/g, ",")     // segunda passada para ", , ,"
+    .replace(/\s{2,}/g, " ")    // espaços duplos
+    .replace(/,\s*\n/g, "\n")   // vírgula órfã antes de quebra
+    .replace(/^\s*,\s*/g, "")   // vírgula no início
+    .replace(/,\s*$/g, "")      // vírgula no fim
+    .trim();
+}
+
+export function mapGender(g?: string | null): "woman" | "man" | "none" {
+  if (g === "Feminino") return "woman";
+  if (g === "Masculino") return "man";
+  return "none";
+}
+
+export function buildOutfitText(figurino: any): string {
+  if (!figurino || typeof figurino !== "object") return "";
+  const pieces = Array.isArray(figurino.pecas_chave) ? figurino.pecas_chave.slice(0, 3).join(", ") : "";
+  const colors = Array.isArray(figurino.cores_roupa) ? figurino.cores_roupa.slice(0, 2).join(" and ") : "";
+  if (pieces && colors) return `${pieces} in ${colors}`;
+  return pieces || colors || "";
+}
+
+export function buildHairText(figurino: any): string {
+  if (!figurino || typeof figurino !== "object") return "";
+  if (typeof figurino.penteado === "string") return figurino.penteado;
+  if (typeof figurino.cabelo === "string") return figurino.cabelo;
+  return "";
+}
+
+export function buildMakeupText(figurino: any): string {
+  if (!figurino || typeof figurino !== "object") return "";
+  if (typeof figurino.maquiagem === "string") return figurino.maquiagem;
+  return "";
+}
