@@ -85,8 +85,18 @@ async function callGemini(systemPrompt: string, userContent: any): Promise<strin
 
   if (!response.ok) {
     const errText = await response.text();
-    const err = new Error(`AI API error: ${response.status} - ${errText}`) as Error & { status?: number };
+    const err = new Error(`AI API error: ${response.status} - ${errText}`) as Error & {
+      status?: number;
+      userMessage?: string;
+    };
     err.status = response.status;
+
+    if (response.status === 402) {
+      err.userMessage = "A geração de conteúdo está temporariamente indisponível. Tente novamente em alguns instantes.";
+    } else if (response.status === 429) {
+      err.userMessage = "Muitas solicitações ao mesmo tempo. Aguarde um pouco e tente novamente.";
+    }
+
     throw err;
   }
 
@@ -379,7 +389,12 @@ Gere 7 novos dias de conteúdo em JSON.`;
   } catch (error) {
     console.error("generate-content-week error:", error);
     const status = typeof (error as any)?.status === "number" ? (error as any).status : 500;
-    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "Erro inesperado" }), {
+    const message = typeof (error as any)?.userMessage === "string" && (error as any).userMessage.trim()
+      ? (error as any).userMessage
+      : error instanceof Error
+        ? error.message
+        : "Erro inesperado";
+    return new Response(JSON.stringify({ error: message }), {
       status,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
