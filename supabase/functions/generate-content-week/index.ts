@@ -10,6 +10,23 @@ const API_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+function parseStoredReportContent(rawContent: unknown): Record<string, any> | null {
+  if (!rawContent) return null;
+  if (typeof rawContent === "object" && rawContent !== null && !Array.isArray(rawContent)) {
+    return rawContent as Record<string, any>;
+  }
+  if (typeof rawContent !== "string") return null;
+
+  try {
+    const parsed = JSON.parse(rawContent);
+    return typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)
+      ? parsed as Record<string, any>
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 async function fetchReferencePdfs(): Promise<{ mime_type: string; data: string }[]> {
   try {
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -103,10 +120,9 @@ serve(async (req) => {
 
     const { business, niche, previousWeeks, storybrand, tone_of_voice, weekNumber, freeRegeneration, replaceWeekIndex } = await req.json();
 
-    // ===== Free regeneration path: skip credit deduction, validate outdated =====
+    // ===== Free regeneration path: sanitize the saved week without calling the AI =====
     if (freeRegeneration) {
-      // Fetch current report to validate the targeted week is actually outdated
-      const { data: reportRow } = await supabase
+      const { data: reportRow, error: reportError } = await supabase
         .from("reports")
         .select("editorial_weeks, content, version")
         .eq("user_id", user.id)
@@ -114,13 +130,19 @@ serve(async (req) => {
         .limit(1)
         .single();
 
-      const structured = (reportRow?.content as any)?.editorial;
-      const structuredArr = Array.isArray(structured) ? structured : [];
-      const weeks: any[][] = Array.isArray(reportRow?.editorial_weeks) ? reportRow!.editorial_weeks : [];
+      if (reportError || !reportRow) {
+        return new Response(JSON.stringify({ error: "Relatório não encontrado para atualização gratuita." }), {
+          status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const parsedContent = parseStoredReportContent(reportRow.content);
+      const structuredArr = Array.isArray(parsedContent?.editorial) ? parsedContent.editorial : [];
+      const weeks: any[][] = Array.isArray(reportRow.editorial_weeks) ? reportRow.editorial_weeks : [];
       const allWeeks = [...(structuredArr.length > 0 ? [structuredArr] : []), ...weeks];
       const target = typeof replaceWeekIndex === "number" ? allWeeks[replaceWeekIndex] : null;
 
-      if (!target) {
+      if (!Array.isArray(target) || target.length === 0) {
         return new Response(JSON.stringify({ error: "Semana alvo não encontrada para regeneração gratuita." }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -132,32 +154,42 @@ serve(async (req) => {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-    } else {
-      // ===== Paid path: check + deduct credits =====
-      const { data: balanceData } = await supabase
-        .from("user_balances")
-        .select("weekly_cycles")
-        .eq("user_id", user.id)
-        .single();
 
-      if (!balanceData || balanceData.weekly_cycles < 1) {
-        return new Response(JSON.stringify({ error: "Créditos de ciclos semanais insuficientes. Adquira mais créditos para continuar gerando conteúdo." }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+      const sanitizedOnly = sanitizeWeek(target as any[]).map((d: any) => ({
+        ...d,
+        generator_version: EDITORIAL_GENERATOR_VERSION,
+      }));
 
-      const { error: creditError } = await supabase
-        .from("user_balances")
-        .update({ weekly_cycles: balanceData.weekly_cycles - 1 })
-        .eq("user_id", user.id)
-        .gt("weekly_cycles", 0);
+      return new Response(JSON.stringify({ editorial: sanitizedOnly, generator_version: EDITORIAL_GENERATOR_VERSION, sanitized_only: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
 
-      if (creditError) {
-        console.error("Credit deduction failed:", creditError);
-        return new Response(JSON.stringify({ error: "Erro ao deduzir créditos. Tente novamente." }), {
-          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+    // ===== Paid path: check + deduct credits =====
+    const { data: balanceData } = await supabase
+      .from("user_balances")
+      .select("weekly_cycles")
+      .eq("user_id", user.id)
+      .single();
+
+    if (!balanceData || balanceData.weekly_cycles < 1) {
+      return new Response(JSON.stringify({ error: "Créditos de ciclos semanais insuficientes. Adquira mais créditos para continuar gerando conteúdo." }), {
+        status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const { error: creditError } = await supabase
+      .from("user_balances")
+      .update({ weekly_cycles: balanceData.weekly_cycles - 1 })
+      .eq("user_id", user.id)
+      .gt("weekly_cycles", 0);
+
+    if (creditError) {
+      console.error("Credit deduction failed:", creditError);
+      return new Response(JSON.stringify({ error: "Erro ao deduzir créditos. Tente novamente." }), {
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Build summary of previous content to avoid repetition
