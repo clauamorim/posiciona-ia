@@ -1348,8 +1348,9 @@ const PostEditorPage = () => {
               businessContext,
               caption: (day?.caption || "").toString(),
               postBody: (editedTexts[currentSlide] || day?.card_copy?.[currentSlide] || day?.caption || "").toString(),
-              onUndo: undo,
-              canUndo,
+              // Botão Desfazer temporariamente oculto — corrigir comportamento depois.
+              // onUndo: undo,
+              // canUndo,
             };
 
             return (
