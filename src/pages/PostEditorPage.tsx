@@ -362,6 +362,13 @@ const PostEditorPage = () => {
           if (s.gradientDirection) setGradientDirection(s.gradientDirection);
         }
         if (result.photographer) setActivePhotographer(result.photographer);
+        // Salva imagem inicial do template (IA/Unsplash) automaticamente na galeria pessoal
+        const initialBgUrl = result.suggestions?.backgroundImageUrl;
+        const initialSrc = result.suggestions?.backgroundSource;
+        if (initialBgUrl && (initialSrc === "unsplash" || initialSrc === "ai")) {
+          console.log("Saving initial template bg to gallery:", initialSrc, initialBgUrl);
+          saveSinglePhotoToGallery(initialBgUrl, initialSrc, result.photographer || null).catch(() => {});
+        }
         // Toast claro quando o estilo escolhido falhou (evita confusão com minimal)
         if (result.styleFailed && initialStyle && initialStyle !== "minimal") {
           const styleName = initialStyle === "ai" ? "Geração por IA" : "Banco de imagens";
