@@ -401,6 +401,49 @@ export async function fetchImageGallery(opts: {
   }
 }
 
+async function normalizeImageToAspect(url: string, format: ImageFormat): Promise<string> {
+  const targetRatio = format === "reels" || format === "portrait" ? 9 / 16 : 4 / 5;
+  return new Promise((resolve) => {
+    try {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        try {
+          const srcRatio = img.width / img.height;
+          if (Math.abs(srcRatio - targetRatio) < 0.02) {
+            resolve(url);
+            return;
+          }
+          const outputWidth = 1080;
+          const outputHeight = format === "reels" || format === "portrait" ? 1920 : 1350;
+          const canvas = document.createElement("canvas");
+          canvas.width = outputWidth;
+          canvas.height = outputHeight;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) {
+            resolve(url);
+            return;
+          }
+
+          const coverScale = Math.max(outputWidth / img.width, outputHeight / img.height);
+          const drawWidth = img.width * coverScale;
+          const drawHeight = img.height * coverScale;
+          const dx = (outputWidth - drawWidth) / 2;
+          const dy = (outputHeight - drawHeight) / 2;
+          ctx.drawImage(img, dx, dy, drawWidth, drawHeight);
+          resolve(canvas.toDataURL("image/jpeg", 0.92));
+        } catch {
+          resolve(url);
+        }
+      };
+      img.onerror = () => resolve(url);
+      img.src = url;
+    } catch {
+      resolve(url);
+    }
+  });
+}
+
 /**
  * Gera imagem por IA. Retorna a URL e a fonte real ("ai").
  * NUNCA retorna foto do Unsplash — a edge function isola por modo.
@@ -430,7 +473,8 @@ export async function generateAIImage(opts: {
       console.warn("generateAIImage: response source is not 'ai':", data.source);
       return null;
     }
-    return { url: data.url, source: "ai", savedToGallery: !!data.savedToGallery };
+    const normalizedUrl = await normalizeImageToAspect(data.url, opts.format);
+    return { url: normalizedUrl, source: "ai", savedToGallery: !!data.savedToGallery };
   } catch (err) {
     console.warn("generateAIImage failed", err);
     return null;
