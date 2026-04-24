@@ -342,9 +342,9 @@ Photorealistic professional headshot, candid quality, 85mm f/1.8 lens, subtle de
 
 No text, no watermarks, no overlays.`;
 
-    // Try InstantID via Replicate first (identity-preserving)
+    // Try PuLID-Flux via Replicate first (identity-preserving, state of the art)
     let finalImage: string | null = null;
-    let provider: "instant-id" | "gemini" = "instant-id";
+    let provider: "pulid-flux" | "gemini" = "pulid-flux";
     let usedFallback = false;
 
     if (REPLICATE_API_TOKEN) {
@@ -352,22 +352,22 @@ No text, no watermarks, no overlays.`;
         s.startsWith("data:") ? s : `data:image/jpeg;base64,${s}`
       );
 
-      // InstantID prompt: focus on scene/style — identity comes from the reference image itself
-      const instantIdPrompt = `professional studio headshot portrait, ${studioStyle}${wardrobeLine}
+      // PuLID prompt: focus on scene/style — identity comes from the reference images themselves
+      const pulidPrompt = `professional studio headshot portrait, ${studioStyle}${wardrobeLine}
 
 photorealistic, 85mm lens, natural skin texture with visible pores, natural catchlights in eyes, candid documentary photography quality, sharp focus on face, shallow depth of field. No text, no watermarks, no overlays.`;
 
-      const instantIdResult = await generateWithInstantId({
+      const pulidResult = await generateWithPulidFlux({
         selfieDataUrls,
-        prompt: instantIdPrompt,
+        prompt: pulidPrompt,
         token: REPLICATE_API_TOKEN,
       });
 
-      if (instantIdResult.ok) {
-        finalImage = instantIdResult.dataUrl;
-        provider = "instant-id";
+      if (pulidResult.ok) {
+        finalImage = pulidResult.dataUrl;
+        provider = "pulid-flux";
       } else {
-        console.log(`[portrait] instant-id failed reason=${instantIdResult.reason} → falling back to gemini`);
+        console.log(`[portrait] pulid-flux failed reason=${pulidResult.reason} → falling back to gemini`);
         usedFallback = true;
       }
     } else {
