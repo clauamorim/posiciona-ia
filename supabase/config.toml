@@ -1,1 +1,4 @@
 project_id = "opmheegtmdjqwrfkdboq"
+
+[functions.portrait-webhook]
+verify_jwt = false

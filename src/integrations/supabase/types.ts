@@ -346,6 +346,51 @@ export type Database = {
         }
         Relationships: []
       }
+      portrait_trainings: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          lora_weights_url: string | null
+          replicate_training_id: string | null
+          selfies_count: number
+          status: string
+          trigger_word: string
+          updated_at: string
+          user_id: string
+          was_free: boolean
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          lora_weights_url?: string | null
+          replicate_training_id?: string | null
+          selfies_count?: number
+          status?: string
+          trigger_word: string
+          updated_at?: string
+          user_id: string
+          was_free?: boolean
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          lora_weights_url?: string | null
+          replicate_training_id?: string | null
+          selfies_count?: number
+          status?: string
+          trigger_word?: string
+          updated_at?: string
+          user_id?: string
+          was_free?: boolean
+        }
+        Relationships: []
+      }
       post_background_cache: {
         Row: {
           created_at: string
