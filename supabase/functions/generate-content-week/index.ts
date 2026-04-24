@@ -3,7 +3,7 @@ import { corsHeaders } from "../_shared/cors.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { extractJsonFromLLM } from "../_shared/jsonExtract.ts";
 import { EDITORIAL_GENERATOR_VERSION, isOutdatedVersion } from "../_shared/generatorVersion.ts";
-import { sanitizeWeek, countWeekLeaks } from "../_shared/editorialSanitize.ts";
+import { sanitizeWeek, sanitizePost, countWeekLeaks, countFrameworkLeaks } from "../_shared/editorialSanitize.ts";
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 const API_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
