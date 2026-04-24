@@ -575,7 +575,7 @@ const EditorialPage = () => {
         </Button>
         {generatingWeek && (
           <p className="text-xs text-muted-foreground text-center max-w-xs">
-            Gerando seus 7 posts personalizados. Isso pode levar até 2 minutos — não feche a aba.
+            {generatingMessage || "Gerando seus 7 posts personalizados. Isso pode levar até 2 minutos — não feche a aba."}
           </p>
         )}
       </CardContent>
