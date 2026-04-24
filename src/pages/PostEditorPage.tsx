@@ -746,11 +746,14 @@ const PostEditorPage = () => {
         .eq("user_id", user.id)
         .maybeSingle();
       if (!data) return;
-      const { data: pub } = supabase.storage.from("user-uploads").getPublicUrl(data.file_path);
+      // Bucket privado — sempre URL assinada.
+      const { data: signed } = await supabase.storage.from("user-uploads").createSignedUrl(data.file_path, 60 * 60);
+      const signedUrl = signed?.signedUrl;
+      if (!signedUrl) return;
       const w = canvasFormat === "reels" ? 1080 : 1080;
       const h = canvasFormat === "reels" ? 1920 : 1350;
       setOverlayImages(prev => [
-        { id: `tpl-bg-${crypto.randomUUID()}`, src: pub.publicUrl, x: 0, y: 0, width: w, height: h, type: "photo", opacity: 1 },
+        { id: `tpl-bg-${crypto.randomUUID()}`, src: signedUrl, x: 0, y: 0, width: w, height: h, type: "photo", opacity: 1 },
         ...prev.filter(o => !o.id.startsWith("tpl-bg-")),
       ]);
       toast({ title: "Imagem carregada da galeria", description: data.name });
