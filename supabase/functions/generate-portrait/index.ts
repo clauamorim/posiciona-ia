@@ -161,7 +161,7 @@ async function generateWithPulidFlux(params: {
       binary += String.fromCharCode(...buf.subarray(i, i + chunk));
     }
     const b64 = btoa(binary);
-    console.log(`[portrait] provider=instant-id status=succeeded latency=${latency}s`);
+    console.log(`[portrait] provider=pulid-flux status=succeeded latency=${latency}s`);
     return { ok: true, dataUrl: `data:image/jpeg;base64,${b64}` };
   } catch (e) {
     return { ok: false, reason: `exception:${e instanceof Error ? e.message : String(e)}` };
