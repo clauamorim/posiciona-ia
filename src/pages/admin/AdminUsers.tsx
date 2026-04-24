@@ -12,7 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { Search, Download, Ban, Coins, Crown, Trash2, MailCheck, Loader2, Eye } from "lucide-react";
+import { Search, Download, Ban, Coins, Crown, Trash2, MailCheck, Loader2, Eye, BarChart3 } from "lucide-react";
+import { Link } from "react-router-dom";
 
 interface Plan {
   id: string;
@@ -332,9 +333,16 @@ const AdminUsers = () => {
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <h1 className="text-2xl font-bold font-display">Gerenciar Usuários</h1>
-            <Button variant="outline" size="sm" onClick={exportCSV} className="gap-2">
-              <Download className="h-4 w-4" /> Exportar CSV
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button asChild variant="outline" size="sm" className="gap-2">
+                <Link to="/admin/metrics">
+                  <BarChart3 className="h-4 w-4" /> Ver métricas
+                </Link>
+              </Button>
+              <Button variant="outline" size="sm" onClick={exportCSV} className="gap-2">
+                <Download className="h-4 w-4" /> Exportar CSV
+              </Button>
+            </div>
           </div>
 
           <div className="relative">
