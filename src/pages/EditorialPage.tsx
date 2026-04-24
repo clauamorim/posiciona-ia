@@ -509,6 +509,11 @@ const EditorialPage = () => {
           {generatingWeek ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
           {generatingWeek ? "Gerando..." : allWeeks.length === 0 ? "Gerar primeira semana" : "Gerar +7 dias"}
         </Button>
+        {generatingWeek && (
+          <p className="text-xs text-muted-foreground text-center max-w-xs">
+            Gerando seus 7 posts personalizados. Isso pode levar até 2 minutos — não feche a aba.
+          </p>
+        )}
       </CardContent>
     </Card>
   );
