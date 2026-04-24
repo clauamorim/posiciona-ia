@@ -1,44 +1,42 @@
+# Corrigir modal de seleção de estilo no mobile
+
 ## Problema
 
-Ao clicar em **"Atualizar semana (grátis)"** o app mostra:
-> Erro ao atualizar semana — Failed to send a request to the Edge Function
+No mobile, ao clicar em "Gerar posts", o modal "Escolha o estilo do post" abre com os 3 cards (Minimalista, Unsplash, IA) empilhados verticalmente. Como cada card tem um preview grande (quadrado ou 9:16) e o `DialogContent` é centralizado na tela sem limite de altura nem rolagem, o conteúdo extrapola o viewport para cima e para baixo. O usuário não consegue rolar dentro do modal nem alcançar o rodapé com os botões "Pular" e "Abrir com este estilo".
 
-A edge function `generate-content-week` está deployada e responde ao preflight `OPTIONS` com 200, mas a chamada `POST` real nunca chega ao backend (não aparece nos logs HTTP).
+## Causa técnica
 
-## Causa
+`src/components/ui/dialog.tsx` — o `DialogContent` usa `top-[50%] translate-y-[-50%]` sem `max-height` nem `overflow`. Combinado com `StyleSelectionModal` (3 cards grandes em coluna no mobile), o conteúdo fica maior que a tela e fica inacessível.
 
-O `@supabase/supabase-js` foi atualizado para a versão **2.104.1** e passou a enviar um header novo no request: **`x-supabase-api-version`**. Esse header **não está listado** em `Access-Control-Allow-Headers` no `supabase/functions/_shared/cors.ts`.
+## Solução
 
-Quando o navegador detecta que o servidor não permite explicitamente um header que o cliente quer enviar, ele bloqueia o request **antes de sair**, e o `fetch` rejeita com `TypeError`. O SDK traduz esse erro como “Failed to send a request to the Edge Function”. É por isso que vemos apenas o `OPTIONS 200` nos logs — o `POST` é abortado pelo browser.
+Mudanças mínimas e localizadas em **um único arquivo**: `src/components/post-editor/StyleSelectionModal.tsx`.
 
-Esse problema afeta **todas as edge functions do projeto** (regenerar semana, gerar relatório, gerar retrato, etc.), não só a atualização gratuita de semana.
+1. **Limitar a altura do modal e habilitar rolagem interna**:
+   - Adicionar ao `DialogContent`: `max-h-[90vh] overflow-hidden flex flex-col` para que o modal nunca ultrapasse 90% da altura da tela e organize seu conteúdo em coluna.
 
-## Mudança
+2. **Rolagem somente na área dos cards**:
+   - Envolver o grid dos 3 cards em um wrapper com `overflow-y-auto flex-1 -mx-1 px-1` para que header e footer fiquem fixos e apenas os cards rolem.
 
-**`supabase/functions/_shared/cors.ts`** — adicionar `x-supabase-api-version` à lista de headers permitidos e expor `Access-Control-Max-Age` para reduzir custo de preflight.
+3. **Reduzir o tamanho do preview no mobile** (defesa extra):
+   - Para a opção Minimalista e IA, trocar o `aspect` por uma altura fixa menor no mobile (ex.: `h-32 sm:aspect-square` quando `format === "square"`, e `h-40 sm:aspect-[9/16]` quando `portrait`). Mantém a proporção certa no desktop e evita previews enormes no mobile.
+   - Para o card Unsplash (que mostra a foto real), aplicar a mesma regra para alinhar visualmente.
 
-```ts
-export const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-api-version, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-  "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
-  "Access-Control-Max-Age": "86400",
-};
-```
+4. **Footer sempre visível**:
+   - Adicionar `shrink-0` ao `DialogFooter` para garantir que não seja comprimido e que os botões "Pular" e "Abrir com este estilo" estejam sempre acessíveis.
 
-Como todas as edge functions importam `corsHeaders` desse arquivo único, a mudança propaga automaticamente para o projeto inteiro após o redeploy.
+## Detalhes técnicos
 
-## Redeploy
+Arquivo a editar: `src/components/post-editor/StyleSelectionModal.tsx`
 
-Como a mudança só recompila quando a função é deployada de novo, vou redeployar todas as edge functions ativas para garantir que peguem o novo CORS:
+- `DialogContent` recebe `className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col"`.
+- Novo wrapper rolável envolve o `<div className="grid ...">` dos cards com `className="overflow-y-auto flex-1 min-h-0 -mx-1 px-1"`.
+- Os previews dentro de cada card passam a usar uma altura responsiva: `h-32 sm:h-auto sm:aspect-square` (square) ou `h-40 sm:h-auto sm:aspect-[9/16]` (portrait), preservando o `rounded-md overflow-hidden` atual.
+- `DialogFooter` recebe `shrink-0` adicional para impedir compressão.
 
-`generate-content-week`, `regenerate-single-post`, `generate-report`, `generate-portrait`, `portrait-train`, `portrait-fix-weights`, `portrait-pack-checkout`, `analyze-instagram`, `fetch-post-image`, `firecrawl-scrape`, `extras-checkout`, `upgrade-checkout`, `stripe-checkout`, `remove-background`, `admin-manage-user`.
+Nada muda na lógica (seleção, preview do Unsplash, créditos, callbacks). Não é necessário alterar `dialog.tsx` (mantém compatibilidade com outros modais).
 
-(Não tocaremos em `stripe-webhook` e `portrait-webhook` pois são chamados por servidores externos, não pelo browser.)
+## Validação esperada
 
-## Resultado esperado
-
-- "Atualizar semana (grátis)" volta a chamar a função normalmente.
-- O mesmo erro deixa de aparecer em qualquer outra ação do app.
-- Nada mais muda: lógica, créditos, prompts, UI permanecem idênticos.
+- No mobile (390x567 e similares): o modal abre ocupando até 90% da tela, com os 3 cards roláveis dentro dele e os botões "Pular e abrir editor vazio" e "Abrir com este estilo" sempre visíveis no rodapé.
+- No desktop: aparência praticamente idêntica à atual (cards lado a lado com previews em aspect ratio original).
