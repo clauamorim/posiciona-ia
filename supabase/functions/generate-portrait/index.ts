@@ -15,6 +15,165 @@ const STUDIO_STYLES = [
   "Muted olive-gray backdrop with soft vignette and warm fill light. Two-light setup, elegant and understated. Professional branding aesthetic.",
 ];
 
+// Pick the highest-resolution selfie as Flux input_image (best facial fidelity).
+// Returns its index in the original array, or 0 on any failure.
+async function pickBestSelfieIndex(selfies: string[]): Promise<number> {
+  let bestIdx = 0;
+  let bestPixels = 0;
+  for (let i = 0; i < selfies.length; i++) {
+    try {
+      const dataUrl = selfies[i].startsWith("data:")
+        ? selfies[i]
+        : `data:image/jpeg;base64,${selfies[i]}`;
+      const base64 = dataUrl.split(",")[1];
+      if (!base64) continue;
+      const bin = Uint8Array.from(atob(base64.slice(0, 4096)), (c) => c.charCodeAt(0));
+      // crude size proxy: full base64 length ~ pixel count proxy
+      const sizeProxy = base64.length;
+      if (sizeProxy > bestPixels) {
+        bestPixels = sizeProxy;
+        bestIdx = i;
+      }
+      void bin;
+    } catch {
+      // ignore, keep current best
+    }
+  }
+  return bestIdx;
+}
+
+async function generateWithFlux(params: {
+  inputImageDataUrl: string;
+  prompt: string;
+  token: string;
+}): Promise<{ ok: true; dataUrl: string } | { ok: false; reason: string }> {
+  const { inputImageDataUrl, prompt, token } = params;
+  const start = Date.now();
+  try {
+    const createRes = await fetch("https://api.replicate.com/v1/models/black-forest-labs/flux-kontext-pro/predictions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        Prefer: "wait=5",
+      },
+      body: JSON.stringify({
+        input: {
+          prompt,
+          input_image: inputImageDataUrl,
+          aspect_ratio: "1:1",
+          output_format: "jpg",
+          safety_tolerance: 2,
+          prompt_upsampling: false,
+        },
+      }),
+    });
+
+    if (!createRes.ok) {
+      const txt = await createRes.text();
+      return { ok: false, reason: `replicate-create-${createRes.status}:${txt.slice(0, 200)}` };
+    }
+
+    let prediction = await createRes.json();
+    const id = prediction.id;
+    if (!id) return { ok: false, reason: "no-prediction-id" };
+
+    // Poll up to ~90s
+    const maxAttempts = 60;
+    let attempts = 0;
+    while (
+      prediction.status !== "succeeded" &&
+      prediction.status !== "failed" &&
+      prediction.status !== "canceled" &&
+      attempts < maxAttempts
+    ) {
+      await new Promise((r) => setTimeout(r, 1500));
+      attempts++;
+      const pollRes = await fetch(`https://api.replicate.com/v1/predictions/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!pollRes.ok) {
+        return { ok: false, reason: `replicate-poll-${pollRes.status}` };
+      }
+      prediction = await pollRes.json();
+    }
+
+    const latency = ((Date.now() - start) / 1000).toFixed(1);
+
+    if (prediction.status !== "succeeded") {
+      return { ok: false, reason: `status=${prediction.status} after ${latency}s ${prediction.error ?? ""}` };
+    }
+
+    const output = prediction.output;
+    const imageUrl = Array.isArray(output) ? output[0] : output;
+    if (!imageUrl || typeof imageUrl !== "string") {
+      return { ok: false, reason: "empty-output" };
+    }
+
+    // Download and convert to base64 data URL
+    const imgRes = await fetch(imageUrl);
+    if (!imgRes.ok) return { ok: false, reason: `download-${imgRes.status}` };
+    const buf = new Uint8Array(await imgRes.arrayBuffer());
+    let binary = "";
+    const chunk = 8192;
+    for (let i = 0; i < buf.length; i += chunk) {
+      binary += String.fromCharCode(...buf.subarray(i, i + chunk));
+    }
+    const b64 = btoa(binary);
+    console.log(`[portrait] provider=flux status=succeeded latency=${latency}s`);
+    return { ok: true, dataUrl: `data:image/jpeg;base64,${b64}` };
+  } catch (e) {
+    return { ok: false, reason: `exception:${e instanceof Error ? e.message : String(e)}` };
+  }
+}
+
+async function generateWithGemini(params: {
+  selfies: string[];
+  prompt: string;
+  apiKey: string;
+}): Promise<{ ok: true; dataUrl: string } | { ok: false; reason: string; status?: number }> {
+  const { selfies, prompt, apiKey } = params;
+  const referenceImages = selfies.map((s) => ({
+    type: "image_url" as const,
+    image_url: { url: s.startsWith("data:") ? s : `data:image/jpeg;base64,${s}` },
+  }));
+
+  try {
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-3.1-flash-image-preview",
+        messages: [
+          {
+            role: "user",
+            content: [
+              ...referenceImages,
+              { type: "text", text: prompt },
+            ],
+          },
+        ],
+        modalities: ["image", "text"],
+      }),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      return { ok: false, status: response.status, reason: `gemini-${response.status}:${errText.slice(0, 200)}` };
+    }
+
+    const data = await response.json();
+    const generatedImage = data.choices?.[0]?.message?.images?.[0]?.image_url?.url || "";
+    if (!generatedImage) return { ok: false, reason: "gemini-empty" };
+    return { ok: true, dataUrl: generatedImage };
+  } catch (e) {
+    return { ok: false, reason: `gemini-exception:${e instanceof Error ? e.message : String(e)}` };
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -88,6 +247,8 @@ serve(async (req) => {
     const figurino = reportContent?.figurino || {};
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const REPLICATE_API_TOKEN = Deno.env.get("REPLICATE_API_TOKEN");
+
     if (!LOVABLE_API_KEY) {
       return new Response(JSON.stringify({ error: "LOVABLE_API_KEY não configurada" }), {
         status: 500,
@@ -98,12 +259,7 @@ serve(async (req) => {
     const styleIndex = Math.floor(Math.random() * STUDIO_STYLES.length);
     const studioStyle = STUDIO_STYLES[styleIndex];
 
-    const referenceImages = selfies.map((s: string) => ({
-      type: "image_url" as const,
-      image_url: { url: s.startsWith("data:") ? s : `data:image/jpeg;base64,${s}` },
-    }));
-
-    // Build wardrobe line (simplified to not compete with facial fidelity)
+    // Build wardrobe line (figurino vindo do relatório do usuário — preservado)
     let wardrobeLine = "";
     if (figurino.pecas_chave?.length > 0 || figurino.cores_roupa?.length > 0) {
       const allPieces = figurino.pecas_chave || [];
@@ -123,81 +279,103 @@ serve(async (req) => {
       wardrobeLine = `\nClothing suggestion (secondary priority): ${pieces.join(", ")}. Colors: ${colors.join(", ")}. Gender: ${genderLabel}.`;
     }
 
-    const prompt = `CRITICAL INSTRUCTION: This is an IMAGE EDITING task, NOT image generation. You must transform the reference photos into a professional studio portrait while preserving the EXACT SAME PERSON.
+    const sharedPromptCore = `FACIAL FIDELITY IS THE #1 PRIORITY — above all other instructions.
 
-FACIAL FIDELITY IS THE #1 PRIORITY — above all other instructions.
-
-Study the reference photos with extreme attention. Reproduce the EXACT SAME PERSON:
+Reproduce the EXACT SAME PERSON from the reference photo(s):
 - Same face shape, nose, eyes, eyebrows, lips, jawline, skin tone
 - Same hair color, texture, length, and style
 - Same facial hair (if any), moles, freckles, wrinkles, age, ethnicity
 - Same ear shape, neck proportions, head size
 
-Do NOT create a new person. Do NOT approximate. Do NOT idealize or beautify beyond what is in the references. The output must be IMMEDIATELY recognizable as the same individual — like a real photo taken on the same day.
+Do NOT create a new person. Do NOT idealize or beautify beyond the references. The output must be IMMEDIATELY recognizable as the same individual — like a real photo taken on the same day.
 
-CRITICAL — EXPRESSION & TEETH: Copy the exact expression from the reference photos. If NONE of the reference photos show the person smiling with visible teeth, you MUST NOT generate a smile showing teeth. This is mandatory — teeth pattern inconsistency breaks identity. Match the mouth position precisely: closed lips, slight smile, or open smile only if references show it.
+EXPRESSION & TEETH: Copy the expression from the reference. If the reference does NOT show teeth, do NOT generate a smile showing teeth.
 
-REALISM: Natural skin with pores but do NOT over-sharpen or add excessive texture. Do NOT add wrinkles or blemishes not in references. Hair must have natural flyaways. Eyes must have natural catchlights.
+REALISM: Natural skin with pores but do NOT over-sharpen. Do NOT add wrinkles or blemishes not in references. Hair must have natural flyaways. Eyes must have natural catchlights.
 
 STUDIO SETUP: ${studioStyle}
 Always use a studio backdrop — never outdoor or nature.
 ${wardrobeLine}
 
-Photorealistic professional headshot, candid quality, natural imperfections preserved, shot on 85mm f/1.8 lens, subtle depth of field, documentary photography style — NOT commercial stock photo style.
+Photorealistic professional headshot, candid quality, 85mm f/1.8 lens, subtle depth of field, documentary photography style — NOT commercial stock photo style.
 
-No text, no watermarks, no overlays. Professional branding photo indistinguishable from a real DSLR photograph.`;
+No text, no watermarks, no overlays.`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3.1-flash-image-preview",
-        messages: [
-          {
-            role: "user",
-            content: [
-              ...referenceImages,
-              { type: "text", text: prompt },
-            ],
-          },
-        ],
-        modalities: ["image", "text"],
-      }),
-    });
+    // Try Flux Kontext Pro via Replicate first
+    let finalImage: string | null = null;
+    let provider: "flux" | "gemini" = "flux";
+    let usedFallback = false;
 
-    if (!response.ok) {
-      const status = response.status;
-      if (status === 429) {
-        return new Response(JSON.stringify({ error: "Limite de requisições excedido. Tente novamente em alguns minutos." }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (status === 402) {
-        return new Response(JSON.stringify({ error: "Créditos insuficientes no gateway. Contate o suporte." }), {
-          status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      const errText = await response.text();
-      console.error("Portrait generation error:", status, errText);
-      return new Response(JSON.stringify({ error: "Erro ao gerar retrato. Tente novamente." }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+    if (REPLICATE_API_TOKEN) {
+      const bestIdx = await pickBestSelfieIndex(selfies);
+      const bestSelfie = selfies[bestIdx];
+      const bestSelfieDataUrl = bestSelfie.startsWith("data:")
+        ? bestSelfie
+        : `data:image/jpeg;base64,${bestSelfie}`;
+
+      const otherCount = selfies.length - 1;
+      const fluxPrompt = `Transform this reference photo into a professional studio portrait while preserving the EXACT SAME PERSON.
+
+${sharedPromptCore}
+
+${otherCount > 0 ? `Note: ${otherCount} additional reference photo(s) of the same individual were available; rely strictly on the provided input image and treat the subject's identity as fixed.` : ""}
+
+Output: a single photorealistic studio headshot indistinguishable from a real DSLR photograph.`;
+
+      const fluxResult = await generateWithFlux({
+        inputImageDataUrl: bestSelfieDataUrl,
+        prompt: fluxPrompt,
+        token: REPLICATE_API_TOKEN,
       });
+
+      if (fluxResult.ok) {
+        finalImage = fluxResult.dataUrl;
+        provider = "flux";
+      } else {
+        console.log(`[portrait] flux failed reason=${fluxResult.reason} → falling back to gemini`);
+        usedFallback = true;
+      }
+    } else {
+      console.log("[portrait] REPLICATE_API_TOKEN missing → using gemini");
+      usedFallback = true;
     }
 
-    const data = await response.json();
-    const generatedImage = data.choices?.[0]?.message?.images?.[0]?.image_url?.url || "";
+    // Fallback to Gemini (or primary if no Replicate token)
+    if (!finalImage) {
+      const geminiPrompt = `CRITICAL INSTRUCTION: This is an IMAGE EDITING task, NOT image generation. You must transform the reference photos into a professional studio portrait while preserving the EXACT SAME PERSON.
 
-    if (!generatedImage) {
-      return new Response(JSON.stringify({ error: "Nenhuma imagem gerada. Tente novamente." }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+${sharedPromptCore}
+
+Study ALL reference photos with extreme attention to capture the person's identity from multiple angles.`;
+
+      const geminiResult = await generateWithGemini({
+        selfies,
+        prompt: geminiPrompt,
+        apiKey: LOVABLE_API_KEY,
       });
+
+      if (!geminiResult.ok) {
+        console.log(`[portrait] gemini failed reason=${geminiResult.reason}`);
+        if (geminiResult.status === 429) {
+          return new Response(JSON.stringify({ error: "Limite de requisições excedido. Tente novamente em alguns minutos." }), {
+            status: 429,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        if (geminiResult.status === 402) {
+          return new Response(JSON.stringify({ error: "Créditos insuficientes no gateway. Contate o suporte." }), {
+            status: 402,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        return new Response(JSON.stringify({ error: "Erro ao gerar retrato. Tente novamente." }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      finalImage = geminiResult.dataUrl;
+      provider = "gemini";
     }
 
     // Deduct 1 credit on successful generation (included first, then extra)
@@ -216,17 +394,22 @@ No text, no watermarks, no overlays. Professional branding photo indistinguishab
       user_id: user.id,
       credit_type: "portrait",
       amount: -1,
-      description: `Retrato gerado (estilo ${styleIndex + 1})`,
+      description: `Retrato gerado (${provider}, estilo ${styleIndex + 1})`,
     });
 
-    // Save to portrait history immediately
+    // Save to portrait history
     await supabaseAdmin.from("portrait_generations").insert({
       user_id: user.id,
-      portraits: [generatedImage],
+      portraits: [finalImage],
       style_index: styleIndex,
     });
 
-    return new Response(JSON.stringify({ portrait: generatedImage, style_index: styleIndex }), {
+    return new Response(JSON.stringify({
+      portrait: finalImage,
+      style_index: styleIndex,
+      provider,
+      used_fallback: usedFallback,
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {

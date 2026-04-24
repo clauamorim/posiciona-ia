@@ -235,7 +235,14 @@ const PortraitGenerator = () => {
           setPortraits([portrait]);
           setPortraitStyleIndex(data.style_index ?? null);
           await refreshSubscription();
-          toast({ title: "Retrato gerado!", description: "1 crédito debitado. O retrato já foi salvo no seu histórico." });
+          if (data.used_fallback) {
+            toast({
+              title: "Retrato gerado com motor reserva",
+              description: "Provedor principal indisponível. A qualidade pode variar levemente. 1 crédito debitado.",
+            });
+          } else {
+            toast({ title: "Retrato gerado!", description: "1 crédito debitado. O retrato já foi salvo no seu histórico." });
+          }
         } else {
           toast({ title: "Nenhum retrato foi gerado", variant: "destructive" });
         }
