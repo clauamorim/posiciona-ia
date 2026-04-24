@@ -44,6 +44,20 @@ async function generateWithFlux(params: {
 
     console.log(`[portrait] calling replicate model=${FLUX_MODEL} refs=${sorted.length}`);
 
+    // DIAG: validate which Replicate account this token belongs to
+    try {
+      const acctRes = await fetch("https://api.replicate.com/v1/account", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const acctText = await acctRes.text();
+      console.log(`[portrait][diag] account-check status=${acctRes.status} body=${acctText.slice(0, 300)}`);
+      // Token fingerprint (first 8 + last 4) so we can confirm WHICH token is loaded without leaking it
+      const fp = `${token.slice(0, 8)}...${token.slice(-4)} len=${token.length}`;
+      console.log(`[portrait][diag] token-fingerprint=${fp}`);
+    } catch (e) {
+      console.log(`[portrait][diag] account-check exception=${e instanceof Error ? e.message : String(e)}`);
+    }
+
     const createRes = await fetch(`https://api.replicate.com/v1/models/${FLUX_MODEL}/predictions`, {
       method: "POST",
       headers: {
@@ -56,6 +70,8 @@ async function generateWithFlux(params: {
 
     if (!createRes.ok) {
       const txt = await createRes.text();
+      const reqId = createRes.headers.get("x-request-id") || createRes.headers.get("request-id") || "n/a";
+      console.log(`[portrait][diag] replicate-create FAIL status=${createRes.status} request_id=${reqId} body=${txt.slice(0, 600)}`);
       return { ok: false, reason: `replicate-create-${createRes.status}:${txt.slice(0, 200)}` };
     }
 
