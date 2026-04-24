@@ -119,8 +119,8 @@ async function generateWithPulidFlux(params: {
     const id = prediction.id;
     if (!id) return { ok: false, reason: "no-prediction-id" };
 
-    // Poll up to ~90s
-    const maxAttempts = 60;
+    // Poll up to ~120s (Flux is a bit slower than SDXL)
+    const maxAttempts = 80;
     let attempts = 0;
     while (
       prediction.status !== "succeeded" &&
