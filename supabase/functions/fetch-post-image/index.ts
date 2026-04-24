@@ -286,41 +286,19 @@ Deno.serve(async (req) => {
     }
 
     // ===== SINGLE MODE =====
-    // IMPORTANTE: cache é segmentado por modo (ai vs unsplash) para que IA
-    // não devolva uma foto do Unsplash cacheada como se fosse gerada por IA.
-    const modeTag = allowAI ? "ai" : "unsplash";
-    const cacheKey = await hashString(`${keywords}::${format}::${modeTag}`);
+    // Cache desativado: para garantir VARIEDADE a cada clique
+    //  - IA: cada chamada deve gerar uma imagem nova (usuário paga por isso).
+    //  - Unsplash: queremos rotacionar entre as fotos relevantes em vez de
+    //    sempre devolver a mesma do topo da lista.
 
-    // 1) Cache lookup — só aceita itens da MESMA fonte que o usuário pediu.
-    const { data: cached } = await supabase
-      .from("post_background_cache")
-      .select("image_url, source")
-      .eq("theme_hash", cacheKey)
-      .maybeSingle();
-    if (cached?.image_url && cached.source === modeTag) {
-      return new Response(JSON.stringify({
-        url: cached.image_url,
-        // Reporta a fonte real (ai/unsplash) — "cache" não é usado pelo cliente
-        // para validar débito de crédito.
-        source: cached.source,
-        cached: true,
-        keywords,
-      }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // 2) Estratégia conforme o modo:
-    //    - allowAI=true → SEMPRE tenta IA. Não cai para Unsplash.
+    // 1) Estratégia conforme o modo:
+    //    - allowAI=true → SEMPRE tenta IA (nova). Não cai para Unsplash.
     //    - allowAI=false → tenta Unsplash; se falhar, devolve erro.
     if (allowAI) {
       const themeEN = translateThemeForAI(theme, niche);
-      console.log("AI prompt subject:", themeEN);
-      const url = await generateWithAI(themeEN, format);
+      console.log("AI prompt subject:", themeEN, "nonce:", nonce);
+      const url = await generateWithAI(themeEN, format, nonce);
       if (url) {
-        await supabase.from("post_background_cache").insert({
-          theme_hash: cacheKey, image_url: url, source: "ai", keywords,
-        });
         return new Response(JSON.stringify({ url, source: "ai", keywords }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -332,15 +310,14 @@ Deno.serve(async (req) => {
     }
 
     if (unsplashKey) {
-      const list = await searchUnsplashList(keywords, format, unsplashKey, 10, 1);
+      const list = await searchUnsplashList(keywords, format, unsplashKey, 12, 1);
       if (list.length > 0) {
-        const first = list[0];
-        await supabase.from("post_background_cache").insert({
-          theme_hash: cacheKey, image_url: first.url, source: "unsplash", keywords,
-        });
+        // Escolhe uma foto aleatória entre as relevantes — evita devolver
+        // sempre a mesma para o mesmo tema.
+        const pick = list[Math.floor(Math.random() * list.length)];
         return new Response(JSON.stringify({
-          url: first.url, source: "unsplash", keywords,
-          photographer: first.photographer, unsplashUrl: first.unsplashUrl,
+          url: pick.url, source: "unsplash", keywords,
+          photographer: pick.photographer, unsplashUrl: pick.unsplashUrl,
         }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
