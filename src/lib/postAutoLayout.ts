@@ -401,8 +401,15 @@ export async function generateAIImage(opts: {
   businessContext?: string;
 }): Promise<{ url: string; source: "ai" | "cache" } | null> {
   try {
+    // Nonce único garante variação a cada chamada (a edge function injeta no prompt).
+    const nonce = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     const { data, error } = await supabase.functions.invoke("fetch-post-image", {
-      body: { theme: opts.query, query: opts.query, format: opts.format, allowAI: true, mode: "single", niche: opts.niche, businessContext: opts.businessContext },
+      body: {
+        theme: opts.query, query: opts.query, format: opts.format,
+        allowAI: true, mode: "single",
+        niche: opts.niche, businessContext: opts.businessContext,
+        nonce,
+      },
     });
     if (error || !data?.url) return null;
     const src = data.source === "ai" ? "ai" : null;
@@ -410,7 +417,8 @@ export async function generateAIImage(opts: {
       console.warn("generateAIImage: response source is not 'ai':", data.source);
       return null;
     }
-    return { url: data.url, source: data.cached ? "cache" : "ai" };
+    // Cache desativado na edge function — sempre tratamos como geração nova.
+    return { url: data.url, source: "ai" };
   } catch (err) {
     console.warn("generateAIImage failed", err);
     return null;

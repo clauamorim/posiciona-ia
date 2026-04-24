@@ -202,12 +202,15 @@ async function searchUnsplashList(
   }
 }
 
-async function generateWithAI(themeEN: string, format: "square" | "portrait"): Promise<string | null> {
+async function generateWithAI(themeEN: string, format: "square" | "portrait", nonce?: string): Promise<string | null> {
   const lovableKey = Deno.env.get("LOVABLE_API_KEY");
   if (!lovableKey) return null;
   const aspect = format === "portrait" ? "vertical 9:16 portrait orientation" : "square 1:1 orientation";
+  // Variação: garante que mesmo o mesmo tema produza fotos diferentes.
+  const seed = nonce || `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
   const prompt = `Editorial photograph, premium magazine quality, soft natural lighting, shallow depth of field, ${aspect}.
 Subject: ${themeEN}.
+Variation seed: ${seed}. Choose a fresh angle, lighting and composition different from any previous render.
 ABSOLUTELY NO TEXT, NO LETTERS, NO SIGNS, NO NEON, NO TYPOGRAPHY, NO WORDS, NO LOGOS, NO BRAND NAMES, NO WRITTEN CONTENT anywhere in the image.
 NO TEXT. NO TEXT. NO TEXT.
 Composition: clean, centered subject with negative space at top and bottom for text overlay later. Soft palette. Style: minimal, calm, professional, contemporary photography. Avoid people's faces dominating the frame. Avoid children. No collage, no illustration — pure photography only.`;
@@ -247,6 +250,7 @@ Deno.serve(async (req) => {
       theme, caption, niche, businessContext,
       format = "square", allowAI = false,
       mode = "single", query: customQuery, page = 1,
+      nonce, // opcional — força variação na geração IA
     } = body;
 
     if (!theme && !customQuery) {
@@ -285,41 +289,19 @@ Deno.serve(async (req) => {
     }
 
     // ===== SINGLE MODE =====
-    // IMPORTANTE: cache é segmentado por modo (ai vs unsplash) para que IA
-    // não devolva uma foto do Unsplash cacheada como se fosse gerada por IA.
-    const modeTag = allowAI ? "ai" : "unsplash";
-    const cacheKey = await hashString(`${keywords}::${format}::${modeTag}`);
+    // Cache desativado: para garantir VARIEDADE a cada clique
+    //  - IA: cada chamada deve gerar uma imagem nova (usuário paga por isso).
+    //  - Unsplash: queremos rotacionar entre as fotos relevantes em vez de
+    //    sempre devolver a mesma do topo da lista.
 
-    // 1) Cache lookup — só aceita itens da MESMA fonte que o usuário pediu.
-    const { data: cached } = await supabase
-      .from("post_background_cache")
-      .select("image_url, source")
-      .eq("theme_hash", cacheKey)
-      .maybeSingle();
-    if (cached?.image_url && cached.source === modeTag) {
-      return new Response(JSON.stringify({
-        url: cached.image_url,
-        // Reporta a fonte real (ai/unsplash) — "cache" não é usado pelo cliente
-        // para validar débito de crédito.
-        source: cached.source,
-        cached: true,
-        keywords,
-      }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // 2) Estratégia conforme o modo:
-    //    - allowAI=true → SEMPRE tenta IA. Não cai para Unsplash.
+    // 1) Estratégia conforme o modo:
+    //    - allowAI=true → SEMPRE tenta IA (nova). Não cai para Unsplash.
     //    - allowAI=false → tenta Unsplash; se falhar, devolve erro.
     if (allowAI) {
       const themeEN = translateThemeForAI(theme, niche);
-      console.log("AI prompt subject:", themeEN);
-      const url = await generateWithAI(themeEN, format);
+      console.log("AI prompt subject:", themeEN, "nonce:", nonce);
+      const url = await generateWithAI(themeEN, format, nonce);
       if (url) {
-        await supabase.from("post_background_cache").insert({
-          theme_hash: cacheKey, image_url: url, source: "ai", keywords,
-        });
         return new Response(JSON.stringify({ url, source: "ai", keywords }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -331,15 +313,14 @@ Deno.serve(async (req) => {
     }
 
     if (unsplashKey) {
-      const list = await searchUnsplashList(keywords, format, unsplashKey, 10, 1);
+      const list = await searchUnsplashList(keywords, format, unsplashKey, 12, 1);
       if (list.length > 0) {
-        const first = list[0];
-        await supabase.from("post_background_cache").insert({
-          theme_hash: cacheKey, image_url: first.url, source: "unsplash", keywords,
-        });
+        // Escolhe uma foto aleatória entre as relevantes — evita devolver
+        // sempre a mesma para o mesmo tema.
+        const pick = list[Math.floor(Math.random() * list.length)];
         return new Response(JSON.stringify({
-          url: first.url, source: "unsplash", keywords,
-          photographer: first.photographer, unsplashUrl: first.unsplashUrl,
+          url: pick.url, source: "unsplash", keywords,
+          photographer: pick.photographer, unsplashUrl: pick.unsplashUrl,
         }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });

@@ -14,8 +14,8 @@ import {
 interface ImageGalleryPanelProps {
   defaultQuery: string;
   format: "square" | "portrait";
-  /** Chamado quando usuário escolhe imagem; recebe URL e (se Unsplash) info do fotógrafo. */
-  onPickImage: (url: string, photographer?: PhotographerInfo) => void;
+  /** Chamado quando usuário escolhe imagem; recebe URL, info do fotógrafo (Unsplash) e opcionalmente fonte ("ai" / "unsplash" / "saved"). */
+  onPickImage: (url: string, photographer?: PhotographerInfo, source?: "ai" | "unsplash" | "saved") => void;
   /** Chamado quando IA é solicitada com sucesso (consome 1 crédito). Deve fazer o débito real. */
   onAIGenerated?: () => Promise<void> | void;
   /** Saldo atual de créditos de regeneração (para validar antes de chamar a IA). */
@@ -124,7 +124,7 @@ const ImageGalleryPanel: React.FC<ImageGalleryPanelProps> = ({
         toast({ title: "Falha ao gerar imagem por IA", description: "Tente novamente em instantes — nenhum crédito foi debitado.", variant: "destructive" });
         return;
       }
-      onPickImage(result.url);
+      onPickImage(result.url, undefined, "ai");
       // Só debita quando a imagem for de fato gerada agora (não cache).
       if (result.source === "ai") {
         try { await onAIGenerated?.(); } catch (e) { console.warn("Debit credit failed", e); }
@@ -159,7 +159,7 @@ const ImageGalleryPanel: React.FC<ImageGalleryPanelProps> = ({
             {savedImages.map((item, i) => (
               <button
                 key={`${item.url}-${i}`}
-                onClick={() => onPickImage(item.url)}
+                onClick={() => onPickImage(item.url, undefined, "saved")}
                 className="aspect-square rounded-md border bg-muted/40 hover:ring-2 hover:ring-primary transition-all overflow-hidden relative"
                 title={item.name}
               >
@@ -198,7 +198,7 @@ const ImageGalleryPanel: React.FC<ImageGalleryPanelProps> = ({
           {results.map((item, i) => (
             <button
               key={`${item.url}-${i}`}
-              onClick={() => onPickImage(item.url, item.photographer)}
+              onClick={() => onPickImage(item.url, item.photographer, "unsplash")}
               className="aspect-square rounded-md border bg-muted/40 hover:ring-2 hover:ring-primary transition-all overflow-hidden"
               title={`Foto por ${item.photographer.name}`}
             >

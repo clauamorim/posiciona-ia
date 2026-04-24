@@ -67,7 +67,7 @@ interface PostCanvasProps {
   onImageResize?: (id: string, width: number, height: number) => void;
 }
 
-const RESIZE_HANDLE_SIZE = 14;
+const RESIZE_HANDLE_SIZE = 16;
 
 type Corner = "tl" | "tr" | "bl" | "br" | "t" | "b" | "l" | "r";
 

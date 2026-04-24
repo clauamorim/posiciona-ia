@@ -107,7 +107,7 @@ interface AddElementPanelProps {
   /** Chamado quando usuário pega imagem do Unsplash (para mostrar atribuição). */
   onUnsplashPick?: (photographer: PhotographerInfo) => void;
   /** Chamado quando uma imagem precisa virar fundo (substitui bg atual). */
-  onSwapBackground?: (url: string) => void;
+  onSwapBackground?: (url: string, source?: "ai" | "unsplash" | "saved") => void;
   /** Chamado após geração IA bem-sucedida — deve fazer débito de 1 crédito. */
   onAIGenerated?: () => Promise<void> | void;
   /** Saldo atual de créditos de regeneração (para validação). */
@@ -382,6 +382,24 @@ const AddElementPanel: React.FC<AddElementPanelProps> = ({
     const hMatch = el.svg.match(/height="(\d+)"/);
     const w = wMatch ? parseInt(wMatch[1]) : 400;
     const h = hMatch ? parseInt(hMatch[1]) : 400;
+
+    // Molduras: ajustar automaticamente ao formato do canvas (4:5 ou Reels 9:16)
+    const isFrame = /^moldura/i.test(el.name);
+    if (isFrame) {
+      // Canvas: square=1080x1350 (4:5), reels=1080x1920
+      const cW = 1080;
+      const cH = canvasFormat === "reels" ? 1920 : 1350;
+      const margin = canvasFormat === "reels" ? 80 : 60;
+      onAddImage({
+        id: crypto.randomUUID(), src: svgToDataUrl(el.svg, elementColor),
+        x: margin, y: margin,
+        width: cW - margin * 2,
+        height: cH - margin * 2,
+        type: "element", opacity: 1,
+      });
+      return;
+    }
+
     onAddImage({
       id: crypto.randomUUID(), src: svgToDataUrl(el.svg, elementColor),
       x: 340, y: 460, width: w * 0.8, height: h * 0.8, type: "element", opacity: 1,
@@ -429,10 +447,10 @@ const AddElementPanel: React.FC<AddElementPanelProps> = ({
           regenerationCredits={regenerationCredits}
           niche={niche}
           businessContext={businessContext}
-          onPickImage={(url, photographer) => {
+          onPickImage={(url, photographer, source) => {
             if (photographer) onUnsplashPick?.(photographer);
             if (onSwapBackground) {
-              onSwapBackground(url);
+              onSwapBackground(url, source);
             } else {
               handleAddImageFromUrl(url);
             }

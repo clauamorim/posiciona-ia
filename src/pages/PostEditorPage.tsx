@@ -362,6 +362,13 @@ const PostEditorPage = () => {
           if (s.gradientDirection) setGradientDirection(s.gradientDirection);
         }
         if (result.photographer) setActivePhotographer(result.photographer);
+        // Salva imagem inicial do template (IA/Unsplash) automaticamente na galeria pessoal
+        const initialBgUrl = result.suggestions?.backgroundImageUrl;
+        const initialSrc = result.suggestions?.backgroundSource;
+        if (initialBgUrl && (initialSrc === "unsplash" || initialSrc === "ai")) {
+          console.log("Saving initial template bg to gallery:", initialSrc, initialBgUrl);
+          saveSinglePhotoToGallery(initialBgUrl, initialSrc, result.photographer || null).catch(() => {});
+        }
         // Toast claro quando o estilo escolhido falhou (evita confusão com minimal)
         if (result.styleFailed && initialStyle && initialStyle !== "minimal") {
           const styleName = initialStyle === "ai" ? "Geração por IA" : "Banco de imagens";
@@ -1198,7 +1205,7 @@ const PostEditorPage = () => {
               swappingBackground,
               imageSearchQuery: (day?.theme || day?.caption || "").toString(),
               onUnsplashPick: (photographer: PhotographerInfo) => setActivePhotographer(photographer),
-              onSwapBackgroundUrl: (url: string) => {
+              onSwapBackgroundUrl: (url: string, source?: "ai" | "unsplash" | "saved") => {
                 setOverlayImages(prev => {
                   const idx = prev.findIndex(o => o.id.startsWith("tpl-bg-"));
                   if (idx >= 0) {
@@ -1214,8 +1221,13 @@ const PostEditorPage = () => {
                     ...prev,
                   ];
                 });
-                // Salva automaticamente na galeria pessoal (Unsplash ou IA — auto-detectado pela URL)
-                saveSinglePhotoToGallery(url).catch(() => {});
+                // Salva automaticamente na galeria pessoal — só quando NÃO veio da própria galeria.
+                console.log("PostEditor: onSwapBackgroundUrl picked", { url, source });
+                if (source !== "saved") {
+                  const hint: "ai" | "unsplash" | undefined =
+                    source === "ai" ? "ai" : source === "unsplash" ? "unsplash" : undefined;
+                  saveSinglePhotoToGallery(url, hint).catch((e) => console.warn("save bg to gallery failed", e));
+                }
               },
               onAIGenerated: debitRegenerationCredit,
               regenerationCredits: balances?.regeneration_credits ?? 0,
