@@ -1,76 +1,98 @@
 
 
-## Trocar para `flux-kontext-apps/professional-headshot`
+## Retratos com LoRA — prompts oficiais por arquétipo (atualização do plano)
 
-### Diagnóstico
-PuLID-Flux está com `id_weight: 1` mas mesmo assim o resultado parece "renderizado" — pele plástica, rosto idealizado. É um efeito conhecido do Flux quando combinado com adapters de identidade fortes: o modelo "limpa demais" o rosto.
+Confirmo: vou usar **exatamente** os 12 prompts e seus negativos como você enviou, sem reescrever, sem otimizar, sem traduzir. As regras de substituição também serão aplicadas exatamente como descritas.
 
-O `flux-kontext-apps/professional-headshot` é um **app oficial do Replicate** sob o `flux-kontext-apps/`, desenhado especificamente para uma tarefa: pegar uma foto sua e devolver um headshot profissional, mantendo os traços. Não é um adapter genérico — é um app focado.
+### Substituição dos marcadores (regras finais)
 
-### Schema do modelo (confirmado na doc oficial)
+- `USR[id]` → `USR` + `user.id` completo (UUID inteiro, sem truncar). Ex: `USRf3a2c1b0-1234-5678-9abc-def012345678`
+- `[gender]` → `woman` (Feminino) | `man` (Masculino) | sem substituição se outro/null (remove o marcador limpando vírgula dupla)
+- `[outfit]` → `reports.content.figurino` (texto consolidado: peças-chave + cores se disponível)
+- `[hair]` → `reports.content.figurino.penteado` **só se mulher**; senão remove
+- `[makeup]` → `reports.content.figurino.maquiagem` **só se mulher**; senão remove
 
-Inputs:
-- `input_image` (string, uri) — sua selfie. **Aceita apenas 1 imagem.**
-- `gender` ("none" | "male" | "female") — controla o gênero.
-- `background` ("neutral" | outros presets) — fundo.
-- `aspect_ratio` (default "match_input_image").
-- `output_format` (default "png").
-- `seed` (int, opcional).
-- `safety_tolerance` (0-2).
+Após substituições, função de limpeza:
+- Remove sequências `, ,` → `,`
+- Remove `,  ` → `, `
+- Remove espaços duplos
+- Remove vírgula órfã antes de quebra de linha
 
-Não aceita `prompt` livre. Toda a "direção criativa" vem de `gender` + `background`.
+### 3 chamadas sequenciais (1 retrato por look)
 
-### Implicações para o produto
-- **Não usaremos mais `studioStyle` randômico** (5 variações de luz/fundo) — o modelo controla isso internamente via `background`.
-- **Não usaremos `wardrobeLine` do figurino** — o modelo não aceita prompt. O figurino do relatório deixa de influenciar o retrato neste motor. Se o usuário quiser variação visual, o controle disponível é o parâmetro `background`.
-- **A "Opção de figurino" (Look 1/2/3) na UI vai mapear para `background` diferente**, não mais para variação de roupa. Vou renomear para "Variação de fundo" no frontend.
+A geração de "3 retratos" faz 3 chamadas ao Replicate, uma por background:
 
-### Mudanças
+1. **Neutro** — prompt do arquétipo **sem nenhuma alteração no fundo** (mantém a descrição original de "textured studio background...")
+2. **Claro** — substitui a frase de fundo do arquétipo pela linha:
+   `warm light textured studio background, soft warm tones`
+3. **Escuro** — substitui a frase de fundo do arquétipo pela linha:
+   `dark moody textured studio background, deep shadow tones`
 
-**1. `supabase/functions/generate-portrait/index.ts`**
-- Substituir constante `PULID_MODEL = "bytedance/flux-pulid"` por `HEADSHOT_MODEL = "flux-kontext-apps/professional-headshot"`.
-- Como é um app oficial, chamar via endpoint dedicado:
-  - `POST /v1/models/flux-kontext-apps/professional-headshot/predictions`
-  - Body: `{ input: {...} }` — sem precisar resolver versão.
-- Remover `resolvePulidVersion` e cache associado.
-- Substituir `generateWithPulidFlux` por `generateWithHeadshot`:
-  - `input_image`: a maior das selfies (única que o modelo aceita).
-  - `gender`: derivado do `profiles.gender` (Feminino → "female", Masculino → "male", outros → "none").
-  - `background`: mapeado a partir do índice da variação selecionada (3 valores fixos: "neutral", "white", "black" — confirmados nos exemplos da doc).
-  - `aspect_ratio`: "1:1".
-  - `output_format`: "png".
-  - `safety_tolerance`: 2.
-  - `seed`: aleatório.
-- Manter polling, download, conversão para data URL base64, fallback Gemini, débito de crédito, log em `credit_logs`, persistência em `portrait_generations`.
-- Atualizar string do provider para `"professional-headshot"` no log e payload.
-- Remover toda a montagem de `studioStyle` e `wardrobeLine` na geração principal (ainda usadas só no fallback Gemini).
+A "frase de fundo" é identificada por regex como o trecho que começa em palavra-chave de fundo (ex: `dark textured studio background...`, `warm dark textured studio background...`, etc.) até a próxima vírgula que precede `[outfit]`. Caso o regex falhe em algum arquétipo, fallback é prepend da nova frase de fundo + manter a original (registrado em log para ajuste).
 
-**2. `src/pages/PortraitGenerator.tsx`**
-- Renomear "Opção de figurino" → "Variação de fundo".
-- Renomear "Look 1 / Look 2 / Look 3" → "Neutro / Claro / Escuro".
-- Atualizar texto auxiliar para refletir que o controle agora é do fundo, não do figurino.
-- Manter o resto do fluxo (upload, preview, créditos, download) intacto.
+Cada chamada usa o `negative_prompt` do arquétipo correspondente, **inalterado** nos 3 looks.
 
-**3. Sem mudanças**
-- Schema do banco.
-- Fluxo de checkout / créditos.
-- Histórico persistente.
-- Frontend de upload.
+### Mapeamento arquétipo → prompt
 
-### Custo
-- `flux-kontext-apps/professional-headshot`: ~US$ 0,04 por retrato (Kontext pro).
-- Latência esperada: 8-12s.
+Arquivo novo `supabase/functions/_shared/portraitPrompts.ts` exporta:
 
-### Validação
-Você gera 1 retrato em `/portraits` com o gênero correto no perfil. Logs esperados:
+```ts
+export const ARCHETYPE_PROMPTS: Record<ArchetypeName, { prompt: string; negative: string }> = {
+  "Governante": { prompt: "...", negative: "..." },
+  "Sábio": { ... },
+  "Cuidador": { ... },
+  "Criador": { ... },
+  "Herói": { ... },
+  "Explorador": { ... },
+  "Inocente": { ... },
+  "Cara-comum": { ... },
+  "Mago": { ... },
+  "Amante": { ... },
+  "Rebelde": { ... },
+  "Bobo-da-corte": { ... },
+};
 ```
-[portrait] calling replicate model=flux-kontext-apps/professional-headshot gender=female background=neutral
-[portrait] provider=professional-headshot status=succeeded latency=~10s
-```
-Resultado visual esperado: traços preservados (não idealizados), pele com textura natural, fundo profissional, enquadramento de headshot.
 
-### Plano B
-Se o `professional-headshot` ainda não atingir o nível desejado, próximas opções são:
-- `flux-kontext-apps/portrait-series` — gera várias poses do mesmo rosto a partir de 1 selfie. Útil para variedade.
-- Voltar para fine-tuning com LoRA (treina uma vez, gera infinito) — mudança maior de UX.
+Os nomes são os mesmos já usados em `user_top_archetypes.archetype_name` (ver `src/lib/archetypes.ts`). Lookup é direto pelo nome do arquétipo primário (`rank=1`).
+
+### Resto do plano permanece como aprovado
+
+- LoRA treinada uma vez por usuário via `ostris/flux-dev-lora-trainer` (1500 steps, lr 0.0004, autocaption true, batch 1)
+- Treino: 1 grátis por mês para assinaturas mensais; extra = 4 créditos de retrato
+- Geração: 3 retratos (Neutro/Claro/Escuro), 3 créditos de retrato, 1 linha em `portrait_generations`
+- Webhook público (`verify_jwt = false`) com token HMAC na querystring
+- Tabela nova `portrait_trainings`, bucket `portrait-inputs` (privado)
+- Etapa 1 (validação técnica): backend completo + UI mínima na `/portraits`
+- Etapa 2 (após sua validação visual): UI premium polida
+- Histórico antigo intacto, fluxo single-shot atual será removido após validação
+
+### Parâmetros de geração no Replicate
+
+Modelo de inferência: `black-forest-labs/flux-dev-lora` com `extra_lora` apontando para `output.weights` do treino.
+
+Por chamada:
+```
+prompt: <prompt do arquétipo com substituições + ajuste de fundo>
+negative_prompt: <negative do arquétipo>
+num_outputs: 1
+aspect_ratio: "3:4"
+guidance_scale: 2.5
+num_inference_steps: 35
+lora_scale: 1.0
+output_format: "png"
+seed: <random>
+```
+
+### Secret necessário
+
+- `WEBHOOK_SECRET` — string aleatória 32+ chars (vou pedir via `add_secret` no início da implementação)
+
+### Validação no checkpoint Etapa 1
+
+Você vai:
+1. Treinar 1 LoRA real (consome o grátis ou 4 créditos)
+2. Aguardar ~20 min
+3. Clicar "Gerar 3 retratos" → verificar que os 3 looks vêm com prompts diferentes apenas no fundo, e que o seu rosto está fiel
+
+Se aprovado, parto para Etapa 2 (UI completa).
 
