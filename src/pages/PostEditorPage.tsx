@@ -879,6 +879,7 @@ const PostEditorPage = () => {
     } catch (err) {
       console.warn("persistPostPhotosToGallery failed", err);
     }
+    if (added > 0) window.dispatchEvent(new CustomEvent("posiciona:gallery-updated"));
     return added;
   }, [user, overlayImages, activePhotographer]);
 
