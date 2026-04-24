@@ -239,12 +239,7 @@ const EditorialPage = () => {
         await new Promise((r) => setTimeout(r, POLL_INTERVAL));
         if (pollingRef.current.stop) return;
 
-        const { data: statusData, error: statusError } = await supabase.functions.invoke(
-          "get-content-generation-job",
-          { method: "GET" as any, body: undefined, headers: undefined } as any,
-        ).catch(() => ({ data: null, error: null } as any));
-
-        // O invoke não suporta query params nativamente — fazemos fetch direto
+        // O `supabase.functions.invoke` não passa query params nativamente — fazemos fetch direto.
         const session = (await supabase.auth.getSession()).data.session;
         if (!session) throw new Error("Sessão expirada. Faça login novamente.");
         const projectId = (import.meta as any).env.VITE_SUPABASE_PROJECT_ID;
