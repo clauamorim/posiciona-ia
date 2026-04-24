@@ -247,6 +247,7 @@ Deno.serve(async (req) => {
       theme, caption, niche, businessContext,
       format = "square", allowAI = false,
       mode = "single", query: customQuery, page = 1,
+      nonce, // opcional — força variação na geração IA
     } = body;
 
     if (!theme && !customQuery) {
