@@ -1,98 +1,45 @@
 
 
-## Retratos com LoRA — prompts oficiais por arquétipo (atualização do plano)
+## Recuperar treino existente sem retreinar
 
-Confirmo: vou usar **exatamente** os 12 prompts e seus negativos como você enviou, sem reescrever, sem otimizar, sem traduzir. As regras de substituição também serão aplicadas exatamente como descritas.
+### Diagnóstico confirmado
+- Treino `b7b2cf05` está `ready` no banco
+- LoRA está viva no Replicate (`clauamorim/posiciona-usr481caf41d4da`, version `5644794c...`)
+- O campo `lora_weights_url` salvou o identificador `owner/name:hash` em vez da URL `.tar` pública
+- O modelo `flux-dev-lora` precisa da URL `.tar` direta (ex: `https://replicate.delivery/.../trained_model.tar`) — por isso falha com "Failed to download tarball"
 
-### Substituição dos marcadores (regras finais)
+### Solução (sem retreinar)
 
-- `USR[id]` → `USR` + `user.id` completo (UUID inteiro, sem truncar). Ex: `USRf3a2c1b0-1234-5678-9abc-def012345678`
-- `[gender]` → `woman` (Feminino) | `man` (Masculino) | sem substituição se outro/null (remove o marcador limpando vírgula dupla)
-- `[outfit]` → `reports.content.figurino` (texto consolidado: peças-chave + cores se disponível)
-- `[hair]` → `reports.content.figurino.penteado` **só se mulher**; senão remove
-- `[makeup]` → `reports.content.figurino.maquiagem` **só se mulher**; senão remove
+**1. Edge function nova `portrait-fix-weights` (one-shot)**
+- Lê todos os `portrait_trainings` com `status='ready'` cujo `lora_weights_url` não começa com `https://`
+- Para cada um, faz `GET https://api.replicate.com/v1/trainings/<replicate_training_id>` autenticado
+- Extrai `output.weights` (a URL `.tar` real) da resposta
+- Atualiza `lora_weights_url` no banco com a URL correta
+- Retorna o número de registros corrigidos
 
-Após substituições, função de limpeza:
-- Remove sequências `, ,` → `,`
-- Remove `,  ` → `, `
-- Remove espaços duplos
-- Remove vírgula órfã antes de quebra de linha
+**2. Webhook corrigido (`portrait-webhook/index.ts`)**
+- Trocar a prioridade: `lora_weights_url: weights || version` → garante que treinos novos salvem a URL `.tar`
 
-### 3 chamadas sequenciais (1 retrato por look)
+**3. Espaçamento entre chamadas (`generate-portrait/index.ts`)**
+- `await new Promise(r => setTimeout(r, 1200))` entre as 3 chamadas sequenciais
+- Evita 429 enquanto seu Replicate tem <$5 de crédito (rate limit reduzido a 6/min com burst 1)
 
-A geração de "3 retratos" faz 3 chamadas ao Replicate, uma por background:
+### Fluxo de validação após fix
+1. Eu deploy as 3 funções
+2. Chamo `portrait-fix-weights` 1 vez (corrige seu treino atual em ~2s)
+3. Você clica "Gerar 3 retratos" na tela `/portraits`
+4. Os 3 retratos voltam (Neutro/Claro/Escuro) usando a LoRA já treinada — sem custo de retreino, sem crédito reembolsado
 
-1. **Neutro** — prompt do arquétipo **sem nenhuma alteração no fundo** (mantém a descrição original de "textured studio background...")
-2. **Claro** — substitui a frase de fundo do arquétipo pela linha:
-   `warm light textured studio background, soft warm tones`
-3. **Escuro** — substitui a frase de fundo do arquétipo pela linha:
-   `dark moody textured studio background, deep shadow tones`
+### Sem mudanças
+- Tabela `portrait_trainings`
+- Bucket `portrait-inputs`
+- UI `/portraits`
+- Lógica de créditos
+- Treino existente permanece válido
 
-A "frase de fundo" é identificada por regex como o trecho que começa em palavra-chave de fundo (ex: `dark textured studio background...`, `warm dark textured studio background...`, etc.) até a próxima vírgula que precede `[outfit]`. Caso o regex falhe em algum arquétipo, fallback é prepend da nova frase de fundo + manter a original (registrado em log para ajuste).
-
-Cada chamada usa o `negative_prompt` do arquétipo correspondente, **inalterado** nos 3 looks.
-
-### Mapeamento arquétipo → prompt
-
-Arquivo novo `supabase/functions/_shared/portraitPrompts.ts` exporta:
-
-```ts
-export const ARCHETYPE_PROMPTS: Record<ArchetypeName, { prompt: string; negative: string }> = {
-  "Governante": { prompt: "...", negative: "..." },
-  "Sábio": { ... },
-  "Cuidador": { ... },
-  "Criador": { ... },
-  "Herói": { ... },
-  "Explorador": { ... },
-  "Inocente": { ... },
-  "Cara-comum": { ... },
-  "Mago": { ... },
-  "Amante": { ... },
-  "Rebelde": { ... },
-  "Bobo-da-corte": { ... },
-};
-```
-
-Os nomes são os mesmos já usados em `user_top_archetypes.archetype_name` (ver `src/lib/archetypes.ts`). Lookup é direto pelo nome do arquétipo primário (`rank=1`).
-
-### Resto do plano permanece como aprovado
-
-- LoRA treinada uma vez por usuário via `ostris/flux-dev-lora-trainer` (1500 steps, lr 0.0004, autocaption true, batch 1)
-- Treino: 1 grátis por mês para assinaturas mensais; extra = 4 créditos de retrato
-- Geração: 3 retratos (Neutro/Claro/Escuro), 3 créditos de retrato, 1 linha em `portrait_generations`
-- Webhook público (`verify_jwt = false`) com token HMAC na querystring
-- Tabela nova `portrait_trainings`, bucket `portrait-inputs` (privado)
-- Etapa 1 (validação técnica): backend completo + UI mínima na `/portraits`
-- Etapa 2 (após sua validação visual): UI premium polida
-- Histórico antigo intacto, fluxo single-shot atual será removido após validação
-
-### Parâmetros de geração no Replicate
-
-Modelo de inferência: `black-forest-labs/flux-dev-lora` com `extra_lora` apontando para `output.weights` do treino.
-
-Por chamada:
-```
-prompt: <prompt do arquétipo com substituições + ajuste de fundo>
-negative_prompt: <negative do arquétipo>
-num_outputs: 1
-aspect_ratio: "3:4"
-guidance_scale: 2.5
-num_inference_steps: 35
-lora_scale: 1.0
-output_format: "png"
-seed: <random>
-```
-
-### Secret necessário
-
-- `WEBHOOK_SECRET` — string aleatória 32+ chars (vou pedir via `add_secret` no início da implementação)
-
-### Validação no checkpoint Etapa 1
-
-Você vai:
-1. Treinar 1 LoRA real (consome o grátis ou 4 créditos)
-2. Aguardar ~20 min
-3. Clicar "Gerar 3 retratos" → verificar que os 3 looks vêm com prompts diferentes apenas no fundo, e que o seu rosto está fiel
-
-Se aprovado, parto para Etapa 2 (UI completa).
+### Detalhes técnicos
+- A Replicate API expõe `GET /v1/trainings/<id>` retornando o mesmo payload do webhook, incluindo `output.weights` permanente
+- A função `portrait-fix-weights` exige autenticação (não é pública); só admin ou o próprio usuário pode chamar
+- Após esse fix one-shot, ela pode ser apagada — mas vou deixar disponível caso outros treinos antigos apareçam
+- O warning de console sobre `forwardRef` em `PortraitPreviewDialog`/`BackToTopButton`/`Badge` é cosmético e não afeta o fluxo — fora do escopo desta correção
 
