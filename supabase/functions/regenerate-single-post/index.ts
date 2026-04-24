@@ -10,22 +10,37 @@ const API_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+function normalizeDocName(name: string): string {
+  return (name || "")
+    .toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/\.pdf$/i, "")
+    .replace(/[\s_\-.]+/g, "");
+}
+
+const EDITORIAL_PDF_WHITELIST = ["storybrand", "madetostick", "obviouslyawesome"];
+
 async function fetchReferencePdfs(): Promise<{ mime_type: string; data: string }[]> {
   try {
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     const { data: docs } = await supabaseAdmin
       .from("reference_documents")
-      .select("file_path, file_size")
+      .select("file_path, file_size, name")
       .eq("is_active", true)
-      .order("created_at", { ascending: true })
-      .limit(5);
+      .order("created_at", { ascending: true });
     if (!docs?.length) return [];
+
+    const filtered = docs.filter((d: any) => {
+      const candidate = normalizeDocName(d.name || d.file_path?.split("/").pop() || "");
+      return EDITORIAL_PDF_WHITELIST.some((w) => candidate.includes(w));
+    });
+    if (!filtered.length) return [];
 
     const parts: { mime_type: string; data: string }[] = [];
     let totalSize = 0;
     const MAX_TOTAL = 8 * 1024 * 1024;
 
-    for (const doc of docs) {
+    for (const doc of filtered) {
       if (totalSize + doc.file_size > MAX_TOTAL) break;
       const { data: fileData, error } = await supabaseAdmin.storage
         .from("reference-pdfs")
@@ -73,7 +88,13 @@ serve(async (req) => {
       });
     }
 
-    const existingTitles = (existingPosts || []).map((p: any) => `- ${p.theme}: ${p.caption?.substring(0, 80)}`).join("\n");
+    // Apenas TEMAS dos posts existentes — nunca caption/script/card_copy,
+    // para a IA não "ecoar" tom de voz nem reciclar copy dos posts vizinhos.
+    const existingTitles = (existingPosts || [])
+      .map((p: any) => p?.theme)
+      .filter((t: any) => typeof t === "string" && t.trim().length > 0)
+      .map((t: string) => `- ${t}`)
+      .join("\n");
 
     // Build StoryBrand context
     let storybrandContext = "";
