@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { MousePointer2, Type, Plus, Sliders, Download } from "lucide-react";
+import { MousePointer2, Type, Plus, Sliders, Download, Undo2 } from "lucide-react";
 import { Drawer as DrawerPrimitive } from "vaul";
 import { Drawer, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
@@ -90,6 +90,8 @@ export interface MobileEditorBarProps {
   // Actions
   onDownload: () => void;
   onReset: () => void;
+  onUndo?: () => void;
+  canUndo?: boolean;
 }
 
 const KIND_LABEL: Record<NonNullable<SelectedKind>, string> = {
@@ -119,7 +121,15 @@ const MobileEditorBar: React.FC<MobileEditorBarProps> = (props) => {
         className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-card/95 backdrop-blur-md border-t border-border"
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
       >
-        <div className="grid grid-cols-5 gap-1 px-2 pt-2 pb-2">
+        <div className="grid grid-cols-6 gap-1 px-2 pt-2 pb-2">
+          {props.onUndo && (
+            <TabButton
+              icon={<Undo2 className="h-5 w-5" />}
+              label="Desfazer"
+              onClick={props.onUndo}
+              disabled={!props.canUndo}
+            />
+          )}
           <TabButton
             icon={<MousePointer2 className="h-5 w-5" />}
             label={selectionLabel}

@@ -1,6 +1,6 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { Download, Save, BookmarkPlus } from "lucide-react";
+import { Download, Save, BookmarkPlus, Undo2 } from "lucide-react";
 import DocumentPanel from "./inspector/DocumentPanel";
 import SelectionPanel, { SelectedKind } from "./inspector/SelectionPanel";
 import AddElementPanel from "./inspector/AddElementPanel";
@@ -118,6 +118,8 @@ interface PostToolbarProps {
   onSaveAsTemplate?: () => void;
   saving?: boolean;
   onReset: () => void;
+  onUndo?: () => void;
+  canUndo?: boolean;
 }
 
 const PostToolbar: React.FC<PostToolbarProps> = (props) => {
@@ -243,6 +245,18 @@ const PostToolbar: React.FC<PostToolbarProps> = (props) => {
 
       {/* Actions */}
       <div className="flex flex-col gap-1.5">
+        {props.onUndo && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 w-full h-8 text-xs"
+            onClick={props.onUndo}
+            disabled={!props.canUndo}
+            title="Desfazer (Ctrl+Z)"
+          >
+            <Undo2 className="h-3.5 w-3.5" /> Desfazer
+          </Button>
+        )}
         {props.onSaveDesign && (
           <Button variant="outline" size="sm" className="gap-2 w-full h-8 text-xs" onClick={props.onSaveDesign} disabled={props.saving}>
             <Save className="h-3.5 w-3.5" /> {props.saving ? "Salvando…" : "Salvar design"}
