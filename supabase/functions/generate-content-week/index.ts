@@ -3,6 +3,7 @@ import { corsHeaders } from "../_shared/cors.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { extractJsonFromLLM } from "../_shared/jsonExtract.ts";
 import { EDITORIAL_GENERATOR_VERSION, isOutdatedVersion } from "../_shared/generatorVersion.ts";
+import { sanitizeWeek, countWeekLeaks } from "../_shared/editorialSanitize.ts";
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 const API_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
@@ -289,7 +290,7 @@ Gere 7 novos dias de conteúdo em JSON.`;
         ]
       : userPrompt;
 
-    // Call Gemini with 1 retry
+    // Call Gemini with 1 retry on transport error
     let rawContent: string;
     try {
       rawContent = await callGemini(systemPrompt, userContent);
@@ -298,7 +299,7 @@ Gere 7 novos dias de conteúdo em JSON.`;
       rawContent = await callGemini(systemPrompt, userContent);
     }
 
-    const editorial = extractJsonFromLLM(rawContent);
+    let editorial = extractJsonFromLLM(rawContent);
     if (!Array.isArray(editorial) || editorial.length === 0) {
       console.error("Failed to parse AI response:", String(rawContent).substring(0, 500));
       return new Response(
@@ -307,9 +308,33 @@ Gere 7 novos dias de conteúdo em JSON.`;
       );
     }
 
+    // Backend sanitization — strip framework labels from theme/caption/cta/script/card_copy
+    let sanitized = sanitizeWeek(editorial as any[]);
+    let leaks = countWeekLeaks(sanitized);
+
+    // If sanitized output still "looks like framework", retry once with a stricter system prompt
+    if (leaks > 0) {
+      console.warn(`Framework leaks detected (${leaks}). Retrying with stricter prompt.`);
+      const stricterSystem = systemPrompt +
+        `\n\n⚠️ ÚLTIMA TENTATIVA: a resposta anterior continha rótulos PROIBIDOS (ex.: "Problema Externo", "StoryBrand", "Framework"). REESCREVA tudo em copy direta de marketing. ZERO rótulos estruturais visíveis.`;
+      try {
+        const retryRaw = await callGemini(stricterSystem, userContent);
+        const retryParsed = extractJsonFromLLM(retryRaw);
+        if (Array.isArray(retryParsed) && retryParsed.length > 0) {
+          const retrySanitized = sanitizeWeek(retryParsed as any[]);
+          if (countWeekLeaks(retrySanitized) < leaks) {
+            sanitized = retrySanitized;
+            leaks = countWeekLeaks(retrySanitized);
+          }
+        }
+      } catch (retryErr) {
+        console.error("Stricter retry failed:", retryErr);
+      }
+    }
+
     // Stamp every day with the current generator version so we can later
     // detect outdated content and offer free regeneration.
-    const stamped = (editorial as any[]).map((d) => ({
+    const stamped = sanitized.map((d: any) => ({
       ...d,
       generator_version: EDITORIAL_GENERATOR_VERSION,
     }));
