@@ -1,72 +1,89 @@
 
+## Corrigir o falso “Provedor principal indisponível” nos retratos
 
-## Trocar para `zsxkib/pulid-flux` (PuLID sobre Flux) e corrigir endpoint do Replicate
+### Diagnóstico
+O backend não está conseguindo resolver o modelo atual porque o identificador usado está incorreto.
 
-### Por que esse modelo
-Estado da arte atual em preservação de identidade single-shot (sem treino prévio). Combina o algoritmo PuLID — que supera o InstantID em benchmarks de fidelidade facial — com a qualidade fotográfica do Flux.1-dev. Pele natural, sem o acabamento "plastificado" típico do InstantID/SDXL. Aceita 1 a 4 selfies de referência (usa todas para construir o embedding facial).
+Hoje a função `generate-portrait` usa:
+- `PULID_MODEL = "zsxkib/pulid-flux"`
 
-### Diagnóstico do erro atual
-Logs mostram `404 The requested resource could not be found` ao chamar `POST /v1/models/zsxkib/instant-id/predictions`. Causa: esse endpoint só funciona para "official models" do Replicate. Modelos da comunidade (incluindo `zsxkib/instant-id` e `zsxkib/pulid-flux`) precisam ser chamados via `POST /v1/predictions` passando o hash da versão no body. Vou corrigir junto com a troca de modelo.
+Mas os logs mostram:
+- `resolve-version FAIL status=404 body={"detail":"Model not found."}`
 
-### Mudanças
+A documentação pública do modelo aponta para o identificador canônico:
+- `bytedance/flux-pulid`
 
-**`supabase/functions/generate-portrait/index.ts`**
+Ou seja: o token está válido, a conta responde, mas a resolução da versão falha antes da geração principal. Isso força o fallback para Gemini e dispara o toast “Provedor principal indisponível”.
 
-1. Substituir `INSTANT_ID_MODEL = "zsxkib/instant-id"` por `PULID_MODEL = "zsxkib/pulid-flux"`.
+### O que será implementado
 
-2. Buscar o hash da versão mais recente do PuLID-Flux na primeira chamada (cache em memória do worker):
-   ```
-   GET https://api.replicate.com/v1/models/zsxkib/pulid-flux
-   → response.latest_version.id
-   ```
+#### 1. Corrigir o modelo principal no backend
+Arquivo:
+- `supabase/functions/generate-portrait/index.ts`
 
-3. Trocar a função `generateWithInstantId` por `generateWithPulidFlux`:
-   - Endpoint: `POST /v1/predictions` (não mais `/v1/models/.../predictions`)
-   - Body: `{ version: "<hash>", input: {...} }`
-   - Inputs principais:
-     - `main_face_image`: a maior selfie (referência principal)
-     - `auxiliary_face_images`: até 3 selfies adicionais (PuLID-Flux suporta múltiplas refs para reforçar a identidade)
-     - `prompt`: estilo de estúdio + figurino
-     - `negative_prompt`: igual ao atual
-     - `num_steps`: 20
-     - `guidance_scale`: 4
-     - `id_weight`: 1.05 (controla intensidade da preservação facial; 1.0-1.2 é o sweet spot)
-     - `true_cfg`: 1
-     - `width`: 1024, `height`: 1024
-     - `output_format`: "jpg", `output_quality`: 95
+Mudanças:
+- Trocar `PULID_MODEL = "zsxkib/pulid-flux"` por `PULID_MODEL = "bytedance/flux-pulid"`
+- Manter a chamada correta do Replicate via:
+  - `GET /v1/models/{owner}/{name}` para resolver `latest_version.id`
+  - `POST /v1/predictions` com `{ version, input }`
 
-4. Manter idêntico:
-   - Polling (até 120s — Flux é um pouco mais lento)
-   - Download da URL e conversão para data URL base64
-   - Fallback para Gemini se PuLID falhar
-   - Logs de diagnóstico (account-check, fingerprint, request-id, body em erros)
-   - Débito de crédito, log em `credit_logs`, persistência em `portrait_generations`
-   - Atualizar string do provider para `"pulid-flux"` no log e no payload de retorno
+#### 2. Ajustar a geração principal para o schema do modelo correto
+Manter a estratégia já planejada para PuLID sobre Flux:
+- 1 `main_face_image`
+- até 3 referências auxiliares
+- prompt focado em cenário, iluminação e figurino
+- parâmetros de fidelidade facial já configurados
 
-5. Atualizar prompt para PuLID:
-   - Foco em cena, iluminação, figurino — a identidade vem das imagens de referência
-   - Manter `studioStyle` e `wardrobeLine` exatamente como hoje
+Também vou alinhar os nomes de inputs ao schema documentado do modelo canônico para evitar incompatibilidades silenciosas.
 
-### Sem mudanças
-- `PortraitGenerator.tsx` (frontend): payload de retorno mantém os mesmos campos (`portrait`, `provider`, `used_fallback`, `style_index`).
-- Schema do banco: nenhuma migration.
-- Outras edge functions: intactas.
-- Preço de venda ao usuário: inalterado.
+#### 3. Melhorar a lógica de fallback sem expor detalhe técnico ao usuário
+Arquivo:
+- `src/pages/PortraitGenerator.tsx`
 
-### Custo
-- ~US$ 0,03 por retrato (Flux é mais caro que SDXL, mas qualidade muito superior)
-- US$ 10 → ~330 retratos
-- Margem permanece confortável
+Mudanças:
+- Remover o toast com linguagem técnica:
+  - “Retrato gerado com motor reserva”
+  - “Provedor principal indisponível...”
+- Substituir por uma mensagem neutra e premium quando a geração concluir com sucesso
+- Manter erro visível apenas quando a geração realmente falhar nos dois caminhos
 
-### Validação
-Você gera 1 retrato em `/portraits`. Esperado nos logs:
-```
-[portrait] resolved pulid-flux version=<hash de 64 chars>
-[portrait] calling replicate model=zsxkib/pulid-flux refs=N
+Resultado:
+- se o principal voltar a funcionar, nenhum fallback será mostrado
+- se houver fallback bem-sucedido, o usuário continua vendo um sucesso normal, sem detalhe interno de infraestrutura
+
+#### 4. Preservar regras atuais de cobrança e histórico
+Sem mudar:
+- débito de 1 crédito apenas em geração bem-sucedida
+- registro em `credit_logs`
+- persistência em `portrait_generations`
+- payload atual:
+  - `portrait`
+  - `provider`
+  - `used_fallback`
+  - `style_index`
+
+### Validação esperada
+Após a correção, ao gerar 1 retrato em `/portraits`, o esperado é:
+
+```text
+[portrait] resolved pulid-flux version=<hash>
+[portrait] calling replicate model=bytedance/flux-pulid refs=N
 [portrait] provider=pulid-flux status=succeeded latency=15-20s
 ```
-Resultado visual: rosto **claramente reconhecível como você**, pele natural (não plastificada), fundo de estúdio do `studioStyle` sorteado, figurino do relatório. Sem fallback para Gemini.
 
-### Plano B
-Se PuLID-Flux ainda não atingir o nível desejado, próximo passo seria construir o fluxo de fine-tuning com LoRA (treina uma vez, gera infinitos retratos do mesmo rosto). É mudança maior — outro fluxo de UX (etapa de "treinamento" antes da primeira geração) e outro custo. Não bloqueia esta entrega.
+Na interface:
+- não deve mais aparecer “Provedor principal indisponível”
+- o retrato deve sair pelo modelo principal
+- o toast final deve ser apenas de sucesso
 
+### Sem mudanças
+- frontend de upload e preview
+- banco de dados e migrations
+- checkout de pacotes
+- fluxo de histórico
+
+### Detalhes técnicos
+- Causa raiz: identificador de modelo inválido, não problema de token
+- Endpoint correto continua sendo `POST /v1/predictions` com `version`
+- O modelo canônico disponível publicamente é `bytedance/flux-pulid`
+- O fallback para Gemini continua existindo como redundância operacional, mas sem expor essa troca ao usuário final
