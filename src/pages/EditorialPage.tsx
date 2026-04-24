@@ -103,10 +103,12 @@ const EditorialPage = () => {
   const [report, setReport] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [generatingWeek, setGeneratingWeek] = useState(false);
+  const [generatingMessage, setGeneratingMessage] = useState<string>("");
   const [regeneratingPost, setRegeneratingPost] = useState<string | null>(null);
   const [regeneratingFreeWeek, setRegeneratingFreeWeek] = useState<number | null>(null);
   const [downloadingPDF, setDownloadingPDF] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
+  const pollingRef = useRef<{ stop: boolean }>({ stop: false });
 
   // Modal de seleção de estilo antes de abrir o editor
   const [styleModal, setStyleModal] = useState<{
@@ -183,14 +185,23 @@ const EditorialPage = () => {
     ...editorialWeeks,
   ];
 
+  // Cleanup do polling ao desmontar (evita updates em componente desmontado)
+  useEffect(() => {
+    return () => {
+      pollingRef.current.stop = true;
+    };
+  }, []);
+
   const handleGenerateWeek = async () => {
     if (!user || weeklyCycles < 1) {
       toast({ title: "Créditos insuficientes", description: "Você não tem ciclos semanais disponíveis.", variant: "destructive" });
       return;
     }
     setGeneratingWeek(true);
+    setGeneratingMessage("Iniciando geração…");
+    pollingRef.current.stop = false;
     try {
-      if (!(await ensureFreshSession())) { setGeneratingWeek(false); return; }
+      if (!(await ensureFreshSession())) { setGeneratingWeek(false); setGeneratingMessage(""); return; }
       const [{ data: bq }, { data: profile }, { data: reportData }] = await Promise.all([
         supabase.from("business_questionnaires").select("*").eq("user_id", user.id).order("version", { ascending: false }).limit(1).single(),
         supabase.from("profiles").select("niche").eq("user_id", user.id).single(),
@@ -198,7 +209,9 @@ const EditorialPage = () => {
       ]);
 
       const reportContent = normalizeReportContent(reportData?.content) as Record<string, any> | null;
-      const { data, error } = await supabase.functions.invoke("generate-content-week", {
+
+      // 1) Enfileira o job (responde em <2s)
+      const { data: enqueueData, error: enqueueError } = await supabase.functions.invoke("generate-content-week", {
          body: {
           business: bq, niche: profile?.niche || "",
           previousWeeks: allWeeks.map((week: any[]) => week.map((d: any) => ({ day: d.day, theme: d.theme, format: d.format }))),
@@ -207,17 +220,67 @@ const EditorialPage = () => {
           tone_of_voice: reportContent?.tone_of_voice || null,
         },
       });
-      if (error) throw new Error(await getFunctionErrorMessage(error, data, "Erro ao gerar nova semana."));
-      if (data?.error) throw new Error(data.error);
-      if (!data?.editorial) throw new Error("Nenhum conteúdo foi gerado. Tente novamente.");
+      if (enqueueError) throw new Error(await getFunctionErrorMessage(enqueueError, enqueueData, "Erro ao iniciar a geração."));
+      if (enqueueData?.error) throw new Error(enqueueData.error);
+      const jobId: string | undefined = enqueueData?.jobId;
+      if (!jobId) throw new Error("Não foi possível iniciar a geração. Tente novamente.");
 
-      const updatedWeeks = [...editorialWeeks, data.editorial];
-      await supabase.from("reports").update({ editorial_weeks: updatedWeeks }).eq("user_id", user.id).eq("version", report.version);
+      // 2) Polling do status (a cada 3s, timeout 4 minutos)
+      setGeneratingMessage("Gerando seus 7 posts… pode levar até 2 minutos.");
+      const startedAt = Date.now();
+      const TIMEOUT_MS = 4 * 60 * 1000;
+      const POLL_INTERVAL = 3000;
+      let finalResult: any = null;
 
-      // Credit deduction is handled by the edge function — just refresh balances
+      while (!pollingRef.current.stop) {
+        if (Date.now() - startedAt > TIMEOUT_MS) {
+          throw new Error("A geração ainda está em andamento. Recarregue a página em alguns instantes para ver o resultado.");
+        }
+        await new Promise((r) => setTimeout(r, POLL_INTERVAL));
+        if (pollingRef.current.stop) return;
+
+        // O `supabase.functions.invoke` não passa query params nativamente — fazemos fetch direto.
+        const session = (await supabase.auth.getSession()).data.session;
+        if (!session) throw new Error("Sessão expirada. Faça login novamente.");
+        const projectId = (import.meta as any).env.VITE_SUPABASE_PROJECT_ID;
+        const url = `https://${projectId}.supabase.co/functions/v1/get-content-generation-job?jobId=${encodeURIComponent(jobId)}`;
+        const resp = await fetch(url, {
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+            apikey: (import.meta as any).env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+        });
+        if (!resp.ok) {
+          // erro transitório no polling — continua tentando
+          continue;
+        }
+        const job = await resp.json();
+        if (job?.progress_message) setGeneratingMessage(job.progress_message);
+
+        if (job?.status === "completed") {
+          finalResult = job.result;
+          break;
+        }
+        if (job?.status === "failed") {
+          throw new Error(job.error_message || "Não foi possível gerar a semana. Tente novamente.");
+        }
+      }
+
+      if (!finalResult?.editorial) {
+        throw new Error("Nenhum conteúdo foi gerado. Tente novamente.");
+      }
+
+      // O worker já persistiu em reports.editorial_weeks. Recarrega o report.
+      const { data: freshReport } = await supabase
+        .from("reports")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("version", { ascending: false })
+        .limit(1)
+        .single();
+      if (freshReport) setReport(freshReport);
+
       await refreshSubscription();
-
-      setReport({ ...report, editorial_weeks: updatedWeeks });
       toast({ title: "Nova semana gerada com sucesso!" });
     } catch (err: any) {
       await refreshSubscription();
@@ -229,6 +292,7 @@ const EditorialPage = () => {
       toast({ title: "Erro ao gerar conteúdo", description, variant: "destructive" });
     }
     setGeneratingWeek(false);
+    setGeneratingMessage("");
   };
 
   const handleRegeneratePost = async (weekIndex: number, dayIndex: number, freeMode = false) => {
@@ -511,7 +575,7 @@ const EditorialPage = () => {
         </Button>
         {generatingWeek && (
           <p className="text-xs text-muted-foreground text-center max-w-xs">
-            Gerando seus 7 posts personalizados. Isso pode levar até 2 minutos — não feche a aba.
+            {generatingMessage || "Gerando seus 7 posts personalizados. Isso pode levar até 2 minutos — não feche a aba."}
           </p>
         )}
       </CardContent>
