@@ -107,7 +107,7 @@ interface AddElementPanelProps {
   /** Chamado quando usuário pega imagem do Unsplash (para mostrar atribuição). */
   onUnsplashPick?: (photographer: PhotographerInfo) => void;
   /** Chamado quando uma imagem precisa virar fundo (substitui bg atual). */
-  onSwapBackground?: (url: string) => void;
+  onSwapBackground?: (url: string, source?: "ai" | "unsplash" | "saved") => void;
   /** Chamado após geração IA bem-sucedida — deve fazer débito de 1 crédito. */
   onAIGenerated?: () => Promise<void> | void;
   /** Saldo atual de créditos de regeneração (para validação). */
@@ -429,10 +429,10 @@ const AddElementPanel: React.FC<AddElementPanelProps> = ({
           regenerationCredits={regenerationCredits}
           niche={niche}
           businessContext={businessContext}
-          onPickImage={(url, photographer) => {
+          onPickImage={(url, photographer, source) => {
             if (photographer) onUnsplashPick?.(photographer);
             if (onSwapBackground) {
-              onSwapBackground(url);
+              onSwapBackground(url, source);
             } else {
               handleAddImageFromUrl(url);
             }
