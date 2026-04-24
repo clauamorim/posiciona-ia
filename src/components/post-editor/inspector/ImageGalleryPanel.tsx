@@ -53,25 +53,30 @@ const ImageGalleryPanel: React.FC<ImageGalleryPanelProps> = ({
   }, [defaultQuery]);
 
   // Carrega imagens salvas (apenas fotos: source unsplash/ai/upload e não-logo)
+  const loadSavedImages = async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from("user_gallery_assets")
+      .select("file_path, name, source, is_logo")
+      .eq("user_id", user.id)
+      .eq("is_logo", false)
+      .order("created_at", { ascending: false })
+      .limit(24);
+    if (!data) return;
+    const mapped = data.map((row: any) => {
+      const { data: pub } = supabase.storage.from("user-uploads").getPublicUrl(row.file_path);
+      return { url: pub.publicUrl, name: row.name || "Imagem salva", source: row.source || "upload" };
+    });
+    setSavedImages(mapped);
+  };
+
   useEffect(() => {
     if (!user) return;
-    let cancelled = false;
-    (async () => {
-      const { data } = await supabase
-        .from("user_gallery_assets")
-        .select("file_path, name, source, is_logo")
-        .eq("user_id", user.id)
-        .eq("is_logo", false)
-        .order("created_at", { ascending: false })
-        .limit(24);
-      if (cancelled || !data) return;
-      const mapped = data.map((row: any) => {
-        const { data: pub } = supabase.storage.from("user-uploads").getPublicUrl(row.file_path);
-        return { url: pub.publicUrl, name: row.name || "Imagem salva", source: row.source || "upload" };
-      });
-      setSavedImages(mapped);
-    })();
-    return () => { cancelled = true; };
+    loadSavedImages();
+    const handler = () => loadSavedImages();
+    window.addEventListener("posiciona:gallery-updated", handler);
+    return () => window.removeEventListener("posiciona:gallery-updated", handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const runSearch = async (p = 1, append = false) => {

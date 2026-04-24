@@ -416,6 +416,8 @@ const PostEditorPage = () => {
         ];
       });
       if (result.photographer) setActivePhotographer(result.photographer);
+      // Salva automaticamente na galeria pessoal (Unsplash)
+      saveSinglePhotoToGallery(result.url, "unsplash", result.photographer || null).catch(() => {});
       toast({ title: "Imagem atualizada", description: "Fonte: Unsplash (gratuita)." });
     } catch (err: any) {
       toast({ title: "Erro ao buscar imagem", description: err?.message, variant: "destructive" });
@@ -796,6 +798,51 @@ const PostEditorPage = () => {
       });
   }, [user, designIdParam]);
 
+  // Cache em memória para evitar reinserir a mesma URL na mesma sessão
+  const savedPhotoUrlsRef = useRef<Set<string>>(new Set());
+
+  const saveSinglePhotoToGallery = useCallback(async (
+    url: string,
+    sourceHint?: "unsplash" | "ai",
+    photographer?: PhotographerInfo | null
+  ): Promise<boolean> => {
+    if (!user || !url) return false;
+    if (!url.startsWith("http://") && !url.startsWith("https://")) return false;
+    const isFromOwnStorage =
+      url.includes("/storage/v1/object/public/user-uploads/") ||
+      url.includes("/storage/v1/object/sign/user-uploads/");
+    if (isFromOwnStorage) return false;
+    if (savedPhotoUrlsRef.current.has(url)) return false;
+    savedPhotoUrlsRef.current.add(url);
+    try {
+      const resp = await fetch(url);
+      if (!resp.ok) return false;
+      const blob = await resp.blob();
+      const ext = (blob.type.split("/")[1] || "jpg").split(";")[0];
+      const id = crypto.randomUUID();
+      const path = `${user.id}/saved-${id}.${ext}`;
+      const isUnsplash = sourceHint === "unsplash" || /images\.unsplash\.com|plus\.unsplash\.com/.test(url);
+      const source = sourceHint || (isUnsplash ? "unsplash" : "ai");
+      const { error: upErr } = await supabase.storage.from("user-uploads").upload(path, blob, { contentType: blob.type, upsert: false });
+      if (upErr) return false;
+      const { error: insErr } = await supabase.from("user_gallery_assets").insert({
+        user_id: user.id,
+        name: isUnsplash ? "Foto Unsplash salva" : (source === "ai" ? "Imagem gerada por IA" : "Imagem do post"),
+        file_path: path,
+        is_logo: false,
+        bg_removed: false,
+        source,
+        attribution: (photographer || (isUnsplash ? activePhotographer : null)) as any,
+      });
+      if (insErr) return false;
+      window.dispatchEvent(new CustomEvent("posiciona:gallery-updated"));
+      return true;
+    } catch (err) {
+      console.warn("saveSinglePhotoToGallery failed", err);
+      return false;
+    }
+  }, [user, activePhotographer]);
+
   const persistPostPhotosToGallery = useCallback(async (): Promise<number> => {
     if (!user) return 0;
     let added = 0;
@@ -805,9 +852,10 @@ const PostEditorPage = () => {
       // Pula URLs que já são da galeria do próprio usuário (storage user-uploads)
       const isFromOwnStorage = (url: string) =>
         url.includes("/storage/v1/object/public/user-uploads/") || url.includes("/storage/v1/object/sign/user-uploads/");
-      const candidates = photoOverlays.filter(o => !isFromOwnStorage(o.src));
+      const candidates = photoOverlays.filter(o => !isFromOwnStorage(o.src) && !savedPhotoUrlsRef.current.has(o.src));
       if (candidates.length === 0) return 0;
       for (const ov of candidates) {
+        savedPhotoUrlsRef.current.add(ov.src);
         try {
           const resp = await fetch(ov.src);
           if (!resp.ok) continue;
@@ -833,6 +881,7 @@ const PostEditorPage = () => {
     } catch (err) {
       console.warn("persistPostPhotosToGallery failed", err);
     }
+    if (added > 0) window.dispatchEvent(new CustomEvent("posiciona:gallery-updated"));
     return added;
   }, [user, overlayImages, activePhotographer]);
 
@@ -1165,6 +1214,8 @@ const PostEditorPage = () => {
                     ...prev,
                   ];
                 });
+                // Salva automaticamente na galeria pessoal (Unsplash ou IA — auto-detectado pela URL)
+                saveSinglePhotoToGallery(url).catch(() => {});
               },
               onAIGenerated: debitRegenerationCredit,
               regenerationCredits: balances?.regeneration_credits ?? 0,

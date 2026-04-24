@@ -126,26 +126,9 @@ const AddElementPanel: React.FC<AddElementPanelProps> = ({
 }) => {
   const { user } = useAuth();
   const [elementColor, setElementColor] = useState(defaultElementColor || palette[0]?.hex || "#7c3aed");
-  const [galleryAssets, setGalleryAssets] = useState<{ id: string; name: string; file_path: string; url: string }[]>([]);
-  const [galleryLoaded, setGalleryLoaded] = useState(false);
   const [userAssets, setUserAssets] = useState<UserAsset[]>([]);
   const [userAssetsLoaded, setUserAssetsLoaded] = useState(false);
   const [uploading, setUploading] = useState(false);
-
-  // Load Posiciona gallery (admin)
-  useEffect(() => {
-    if (galleryLoaded) return;
-    supabase.from("gallery_assets").select("id, name, file_path").eq("is_active", true).order("created_at", { ascending: false }).then(({ data }) => {
-      const assets = (data || []).map((a: any) => ({
-        id: a.id,
-        name: a.name,
-        file_path: a.file_path,
-        url: supabase.storage.from("asset-gallery").getPublicUrl(a.file_path).data.publicUrl,
-      }));
-      setGalleryAssets(assets);
-      setGalleryLoaded(true);
-    });
-  }, [galleryLoaded]);
 
   // Load user gallery
   const loadUserAssets = async () => {
@@ -165,6 +148,14 @@ const AddElementPanel: React.FC<AddElementPanelProps> = ({
   };
 
   useEffect(() => { if (user && !userAssetsLoaded) loadUserAssets(); }, [user, userAssetsLoaded]);
+
+  // Atualiza a galeria pessoal quando uma nova imagem IA/Unsplash é salva pelo editor
+  useEffect(() => {
+    const handler = () => { if (user) loadUserAssets(); };
+    window.addEventListener("posiciona:gallery-updated", handler);
+    return () => window.removeEventListener("posiciona:gallery-updated", handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   // Modal state for "is this a logo?" prompt
   const [pendingUpload, setPendingUpload] = useState<{
@@ -468,7 +459,7 @@ const AddElementPanel: React.FC<AddElementPanelProps> = ({
           {!userAssetsLoaded ? (
             <p className="text-[11px] text-muted-foreground">Carregando…</p>
           ) : userAssets.length === 0 ? (
-            <p className="text-[11px] text-muted-foreground">Nenhuma imagem salva.</p>
+            <p className="text-[11px] text-muted-foreground leading-relaxed">Suas imagens IA, Unsplash e uploads aparecem aqui automaticamente quando usadas em posts.</p>
           ) : (
             <div className="grid grid-cols-3 gap-1.5">
               {userAssets.map((a) => (
@@ -516,28 +507,6 @@ const AddElementPanel: React.FC<AddElementPanelProps> = ({
                     </AlertDialogContent>
                   </AlertDialog>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
-        {/* Posiciona gallery */}
-        <div>
-          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-2">Galeria Posiciona</p>
-          {!galleryLoaded ? (
-            <p className="text-[11px] text-muted-foreground">Carregando…</p>
-          ) : galleryAssets.length === 0 ? (
-            <p className="text-[11px] text-muted-foreground">Nenhuma imagem disponível.</p>
-          ) : (
-            <div className="grid grid-cols-3 gap-1.5">
-              {galleryAssets.map((a) => (
-                <Tooltip key={a.id}>
-                  <TooltipTrigger asChild>
-                    <button onClick={() => handleAddImageFromUrl(a.url)} className="aspect-square rounded-md border bg-muted/40 hover:bg-muted transition-colors overflow-hidden">
-                      <img src={a.url} alt={a.name} className="w-full h-full object-contain" loading="lazy" crossOrigin="anonymous" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent>{a.name}</TooltipContent>
-                </Tooltip>
               ))}
             </div>
           )}
