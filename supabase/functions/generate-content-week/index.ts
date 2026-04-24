@@ -44,13 +44,13 @@ async function fetchReferencePdfs(): Promise<{ mime_type: string; data: string }
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     const { data: docs } = await supabaseAdmin
       .from("reference_documents")
-      .select("file_path, file_size, file_name")
+      .select("file_path, file_size, name")
       .eq("is_active", true)
       .order("created_at", { ascending: true });
     if (!docs?.length) return [];
 
     const filtered = docs.filter((d: any) => {
-      const candidate = normalizeDocName(d.file_name || d.file_path?.split("/").pop() || "");
+      const candidate = normalizeDocName(d.name || d.file_path?.split("/").pop() || "");
       return EDITORIAL_PDF_WHITELIST.some((w) => candidate.includes(w));
     });
     if (!filtered.length) {
