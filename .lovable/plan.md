@@ -1,53 +1,45 @@
 
 
-## Onde estão as imagens IA / Unsplash hoje
+## Pacote de correções 7 — Minha galeria sempre atualizada + esconder Galeria Posiciona
 
-As fotos que você usa em posts (Unsplash escolhida na busca, IA gerada, ou foto que veio do template automático) são salvas, ao clicar em **"Salvar design"**, no banco `user_gallery_assets` e no bucket `user-uploads`. Cada item guarda:
+### Problema atual
+1. As imagens IA / Unsplash só aparecem em **"Minhas imagens"** depois que o design é salvo manualmente E a página é recarregada. Hoje a aba só carrega uma vez (`userAssetsLoaded`) e nunca atualiza após uma nova foto entrar no canvas.
+2. Mesmo após salvar, a aba ainda não atualiza dentro da mesma sessão.
+3. A seção **"Galeria Posiciona"** (galeria curada por admin) precisa ser escondida.
 
-- `source`: `unsplash`, `ai` ou `upload`
-- `attribution`: créditos do fotógrafo (Unsplash)
-- `is_logo`: se é a logo da marca
+### O que será feito
 
-**Mas hoje você só consegue ver essa galeria de dentro do editor**, no painel lateral direito, em duas situações:
+**1. Salvamento automático de fotos IA / Unsplash na galeria do usuário**
+- Em `PostEditorPage.tsx`, criar uma função `saveSinglePhotoToGallery(url, source, attribution?)` derivada da lógica atual de `persistPostPhotosToGallery`.
+- Disparar essa função imediatamente quando o usuário:
+  - Escolhe uma foto do Unsplash (`onPickImage` no `ImageGalleryPanel`).
+  - Gera uma imagem por IA com sucesso (no fluxo `handleAIConfirm` / `onPickImage` IA).
+  - Troca o fundo via `handleSwapBackground`.
+- Assim a foto entra na galeria pessoal **no instante em que é usada**, sem depender de "Salvar design".
+- Manter o `persistPostPhotosToGallery` no save apenas como rede de proteção (deduplicar por path/URL para não duplicar).
 
-1. Painel **"Imagem"** (quando uma foto está selecionada) → seção **"Suas imagens salvas"** no topo, antes da busca do Unsplash.
-2. Painel **"Adicionar elemento"** → aba **"Galeria"** → botão **"Suas imagens"**.
+**2. Refresh da seção "Minhas imagens" e "Suas imagens salvas"**
+- Em `AddElementPanel.tsx`, expor um `reloadUserAssets()` e chamá-lo:
+  - Sempre que a aba "Galeria" é aberta.
+  - Após upload local concluído.
+  - Após receber um evento global `posiciona:gallery-updated`.
+- Em `ImageGalleryPanel.tsx`, mesmo tratamento na seção "Suas imagens salvas".
+- O `PostEditorPage` dispara `window.dispatchEvent(new CustomEvent("posiciona:gallery-updated"))` toda vez que `saveSinglePhotoToGallery` insere com sucesso. Os dois painéis ouvem e recarregam.
 
-Não existe ainda uma página dedicada fora do editor (ex: em `/my-designs` ou no menu lateral) onde você veja todas as suas fotos salvas, com filtros por origem (IA / Unsplash / Upload) e poder excluir/reaproveitar.
+**3. Esconder "Galeria Posiciona"**
+- Em `src/components/post-editor/inspector/AddElementPanel.tsx`, remover o bloco JSX `{/* Posiciona gallery */}` (linhas ~523-544) e o estado/effect que carrega `gallery_assets` (`galleryAssets`, `galleryLoaded`, `useEffect` correspondente).
+- A aba **Galeria** passa a mostrar **apenas "Minhas imagens"**. Se estiver vazia, a mensagem orienta o usuário a enviar imagem ou usar Unsplash/IA.
 
----
-
-## Pacote de correções 6 — Galeria pessoal de imagens
-
-### 1. Nova página `/my-gallery`
-- Nova rota acessível pelo menu lateral (`DashboardLayout`) com o nome **"Minha galeria"**.
-- Lista todas as imagens de `user_gallery_assets` do usuário em grid responsivo (4:5 e quadrado conforme a foto), ordenadas por mais recentes.
-- Filtros no topo: **Todas | Geradas por IA | Unsplash | Uploads | Logos**.
-- Cada card mostra:
-  - Miniatura.
-  - Badge da origem (IA / Unsplash / Upload).
-  - Crédito do fotógrafo quando for Unsplash.
-  - Botões: **Usar em novo post**, **Baixar**, **Excluir**.
-
-### 2. Reaproveitamento direto
-- Botão **"Usar em novo post"** abre o editor (`/post-editor?fromGallery=ASSET_ID`) já com a imagem inserida como overlay de foto no canvas em branco (4:5 padrão).
-- O `PostEditorPage` recebe o parâmetro, busca o asset, monta um overlay `type=photo` cobrindo o canvas e segue o fluxo normal.
-
-### 3. Atalho no editor
-- No painel **"Imagem"** dentro do editor, adicionar um link **"Ver toda a galeria"** que leva para `/my-gallery` em nova aba (sem perder o design em edição).
-
-### 4. Indicador visual de salvamento
-- Ao clicar em "Salvar design" no editor, mostrar no toast: *"Design salvo. X foto(s) adicionada(s) à sua galeria."* quando houver fotos novas vindas de IA/Unsplash.
+**4. Mensagem clara quando ainda está vazia**
+- Substituir `"Nenhuma imagem salva."` por: *"Suas imagens IA, Unsplash e uploads aparecem aqui automaticamente quando usadas em posts."*
 
 ### Arquivos editados
-- `src/pages/MyGalleryPage.tsx` (novo).
-- `src/App.tsx` (rota `/my-gallery`).
-- `src/components/DashboardLayout.tsx` (item de menu "Minha galeria").
-- `src/components/post-editor/inspector/ImageGalleryPanel.tsx` (link "Ver toda a galeria").
-- `src/pages/PostEditorPage.tsx` (suporte ao parâmetro `?fromGallery=ID`, toast com contagem).
+- `src/pages/PostEditorPage.tsx` — `saveSinglePhotoToGallery` + chamada em todos os pontos onde uma foto remota entra no canvas + dispatch de evento.
+- `src/components/post-editor/inspector/AddElementPanel.tsx` — remoção da Galeria Posiciona, refresh por evento e ao abrir aba.
+- `src/components/post-editor/inspector/ImageGalleryPanel.tsx` — refresh por evento na seção "Suas imagens salvas".
 
 ### Resultado esperado
-- Você passa a ter um lugar fixo no menu para revisitar tudo que já gerou ou salvou.
-- Pode reusar uma foto IA em outro post sem precisar gerar de novo (e sem gastar crédito).
-- Pode limpar a galeria removendo o que não interessa mais.
+- Toda foto Unsplash escolhida ou imagem IA gerada vai direto para **Minhas imagens** — sem precisar salvar o design.
+- A seção atualiza automaticamente, sem reload.
+- A "Galeria Posiciona" some por completo da interface.
 
