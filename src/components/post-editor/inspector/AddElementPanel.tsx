@@ -511,28 +511,6 @@ const AddElementPanel: React.FC<AddElementPanelProps> = ({
             </div>
           )}
         </div>
-        {/* Posiciona gallery */}
-        <div>
-          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-2">Galeria Posiciona</p>
-          {!galleryLoaded ? (
-            <p className="text-[11px] text-muted-foreground">Carregando…</p>
-          ) : galleryAssets.length === 0 ? (
-            <p className="text-[11px] text-muted-foreground">Nenhuma imagem disponível.</p>
-          ) : (
-            <div className="grid grid-cols-3 gap-1.5">
-              {galleryAssets.map((a) => (
-                <Tooltip key={a.id}>
-                  <TooltipTrigger asChild>
-                    <button onClick={() => handleAddImageFromUrl(a.url)} className="aspect-square rounded-md border bg-muted/40 hover:bg-muted transition-colors overflow-hidden">
-                      <img src={a.url} alt={a.name} className="w-full h-full object-contain" loading="lazy" crossOrigin="anonymous" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent>{a.name}</TooltipContent>
-                </Tooltip>
-              ))}
-            </div>
-          )}
-        </div>
       </TabsContent>
 
       {/* Portraits */}
