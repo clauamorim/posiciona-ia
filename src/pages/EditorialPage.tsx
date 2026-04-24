@@ -580,7 +580,7 @@ const EditorialPage = () => {
                               <Copy className="h-3 w-3" /> Copiar legenda
                             </Button>
                           )}
-                          {(day.format?.toLowerCase() === "carrossel" || day.format?.toLowerCase() === "post") && day.card_copy?.length > 0 && (
+                          {(day.format?.toLowerCase() === "carrossel" || day.format?.toLowerCase() === "post") && (
                             <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1 px-2" onClick={() => handleOpenEditor(wi, di, day, false)}>
                               <PenTool className="h-3 w-3" /> Criar post
                             </Button>
