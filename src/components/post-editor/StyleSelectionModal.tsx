@@ -48,7 +48,9 @@ const StyleSelectionModal: React.FC<StyleSelectionModalProps> = ({
     onOpenChange(false);
   };
 
-  const aspect = format === "portrait" ? "aspect-[9/16]" : "aspect-square";
+  const previewSize = format === "portrait"
+    ? "h-32 sm:h-auto sm:aspect-[9/16]"
+    : "h-28 sm:h-auto sm:aspect-square";
 
   const cards: Array<{
     id: PostStyle; title: string; subtitle: string; cost: string; icon: React.ReactNode;
@@ -61,7 +63,7 @@ const StyleSelectionModal: React.FC<StyleSelectionModalProps> = ({
       cost: "Grátis",
       icon: <Palette className="h-4 w-4" />,
       preview: (
-        <div className={`w-full h-28 sm:h-auto sm:${aspect} rounded-md overflow-hidden`} style={{ background: minimalGradient }}>
+        <div className={`w-full ${previewSize} rounded-md overflow-hidden`} style={{ background: minimalGradient }}>
           <div className="w-full h-full flex flex-col items-center justify-center p-4 text-white/90">
             <div className="w-10 h-10 rounded-full bg-white/20 mb-3" />
             <div className="h-2 w-3/4 bg-white/30 rounded mb-1.5" />
@@ -77,7 +79,7 @@ const StyleSelectionModal: React.FC<StyleSelectionModalProps> = ({
       cost: "Grátis",
       icon: <ImageIcon className="h-4 w-4" />,
       preview: (
-        <div className={`w-full h-28 sm:h-auto sm:${aspect} rounded-md overflow-hidden bg-muted relative`}>
+        <div className={`w-full ${previewSize} rounded-md overflow-hidden bg-muted relative`}>
           {loadingPreview ? (
             <div className="w-full h-full flex items-center justify-center">
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -105,7 +107,7 @@ const StyleSelectionModal: React.FC<StyleSelectionModalProps> = ({
       cost: "1 crédito de regeneração",
       icon: <Sparkles className="h-4 w-4" />,
       preview: (
-        <div className={`w-full h-28 sm:h-auto sm:${aspect} rounded-md overflow-hidden relative`}
+        <div className={`w-full ${previewSize} rounded-md overflow-hidden relative`}
           style={{ background: `linear-gradient(135deg, ${c1}40, ${c2}80, #00000080)` }}>
           <div className="absolute inset-0 flex flex-col items-center justify-center text-white/90">
             <Sparkles className="h-8 w-8 mb-2 opacity-70" />
