@@ -133,15 +133,30 @@ const SUSPICIOUS_PATTERNS: RegExp[] = [
   // Meta-linguagem de framework
   /\betapa\s+do\s+framework\b/i,
   /\bframework\b/i,
+  // Meta-narrativa StoryBrand embutida no meio da copy
+  /\b(o\s+)?her[óo]i\b/i,
+  /\bguia\s+(da|do)\s+her[óo]i\b/i,
+  /\bjornada\s+do\s+her[óo]i\b/i,
+  /\b(a\s+)?marca\s+(como|atuando\s+como|no\s+papel\s+de)\s+guia\b/i,
+  /\bplano\s+de\s+(3|tr[êe]s)\s+passos\b/i,
+  /\bfracasso\s+(iminente|potencial|inevit[áa]vel)\b/i,
+  /\bcategoria\s+(de\s+mercado|cognitiva)\b/i,
+  /\bprinc[íi]pios?\s+succes\b/i,
 ];
 
 /**
  * Heurística: a célula textual tem "cara de framework"?
  * Usada para detectar se é necessário um segundo passe ou rejeição.
+ * Detecta tanto rótulos no início quanto meta-narrativa embutida no meio do texto.
  */
 export function looksLikeFramework(text: string): boolean {
   if (!text || typeof text !== "string") return false;
   return SUSPICIOUS_PATTERNS.some((re) => re.test(text));
+}
+
+/** Alias semântico para detecção de meta-narrativa em qualquer posição. */
+export function containsFrameworkPhrases(text: string): boolean {
+  return looksLikeFramework(text);
 }
 
 /** Conta quantos campos sanitizados ainda parecem "de framework". */
