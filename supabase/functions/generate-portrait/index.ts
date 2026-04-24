@@ -7,6 +7,12 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const HEADSHOT_MODEL = "flux-kontext-apps/professional-headshot";
+
+// 3 background presets exposed in the UI as Neutro / Claro / Escuro
+const BACKGROUND_PRESETS = ["neutral", "white", "black"] as const;
+
+// Studio styles still used by the Gemini fallback prompt
 const STUDIO_STYLES = [
   "Professional studio portrait, soft controlled lighting, clean neutral gray backdrop with subtle tonal gradient. Medium-format camera, shallow depth of field, two-light setup with large softboxes.",
   "Warm neutral-toned seamless backdrop with subtle texture and tonal variation simulating studio lighting. Rembrandt lighting, single key light, subtle shadow on one side. 85mm f/1.4 lens.",
@@ -15,101 +21,49 @@ const STUDIO_STYLES = [
   "Muted olive-gray backdrop with soft vignette and warm fill light. Two-light setup, elegant and understated. Professional branding aesthetic.",
 ];
 
-const PULID_MODEL = "bytedance/flux-pulid";
-
-// Cache the resolved version hash in worker memory (per cold start)
-let cachedPulidVersion: string | null = null;
-
-async function resolvePulidVersion(token: string): Promise<string | null> {
-  if (cachedPulidVersion) return cachedPulidVersion;
-  try {
-    const res = await fetch(`https://api.replicate.com/v1/models/${PULID_MODEL}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) {
-      const txt = await res.text();
-      console.log(`[portrait][diag] resolve-version FAIL status=${res.status} body=${txt.slice(0, 300)}`);
-      return null;
-    }
-    const data = await res.json();
-    const version = data?.latest_version?.id;
-    if (typeof version === "string" && version.length > 0) {
-      cachedPulidVersion = version;
-      console.log(`[portrait] resolved pulid-flux version=${version}`);
-      return version;
-    }
-    console.log(`[portrait][diag] resolve-version: no latest_version.id in response`);
-    return null;
-  } catch (e) {
-    console.log(`[portrait][diag] resolve-version exception=${e instanceof Error ? e.message : String(e)}`);
-    return null;
-  }
+function mapGender(gender?: string | null): "male" | "female" | "none" {
+  if (gender === "Feminino") return "female";
+  if (gender === "Masculino") return "male";
+  return "none";
 }
 
-async function generateWithPulidFlux(params: {
-  selfieDataUrls: string[];
-  prompt: string;
+async function generateWithHeadshot(params: {
+  inputImageDataUrl: string;
+  gender: "male" | "female" | "none";
+  background: string;
   token: string;
 }): Promise<{ ok: true; dataUrl: string } | { ok: false; reason: string }> {
-  const { selfieDataUrls, prompt, token } = params;
+  const { inputImageDataUrl, gender, background, token } = params;
   const start = Date.now();
   try {
-    // bytedance/flux-pulid only accepts a single main_face_image — pick the largest selfie
-    const sorted = [...selfieDataUrls]
-      .map((s, i) => ({ s, size: s.length, i }))
-      .sort((a, b) => b.size - a.size);
-    const mainFace = sorted[0]?.s;
-
-    // DIAG: validate which Replicate account this token belongs to
-    try {
-      const acctRes = await fetch("https://api.replicate.com/v1/account", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const acctText = await acctRes.text();
-      console.log(`[portrait][diag] account-check status=${acctRes.status} body=${acctText.slice(0, 300)}`);
-      const fp = `${token.slice(0, 8)}...${token.slice(-4)} len=${token.length}`;
-      console.log(`[portrait][diag] token-fingerprint=${fp}`);
-    } catch (e) {
-      console.log(`[portrait][diag] account-check exception=${e instanceof Error ? e.message : String(e)}`);
-    }
-
-    const version = await resolvePulidVersion(token);
-    if (!version) {
-      return { ok: false, reason: "could-not-resolve-version" };
-    }
-
-    // Schema canônico do bytedance/flux-pulid
     const input: Record<string, unknown> = {
-      main_face_image: mainFace,
-      prompt,
-      negative_prompt: "bad quality, worst quality, text, signature, watermark, extra limbs, deformed, mutated, cross-eyed, ugly, disfigured, painting, drawing, illustration",
-      num_steps: 20,
-      start_step: 0,
-      guidance_scale: 4,
-      id_weight: 1,
-      true_cfg: 1,
-      max_sequence_length: 128,
-      num_outputs: 1,
-      output_format: "webp",
-      output_quality: 95,
+      input_image: inputImageDataUrl,
+      gender,
+      background,
+      aspect_ratio: "1:1",
+      output_format: "png",
+      safety_tolerance: 2,
       seed: Math.floor(Math.random() * 1000000),
     };
 
-    console.log(`[portrait] calling replicate model=${PULID_MODEL} refs=1 (from ${sorted.length} selfies)`);
+    console.log(`[portrait] calling replicate model=${HEADSHOT_MODEL} gender=${gender} background=${background}`);
 
-    const createRes = await fetch(`https://api.replicate.com/v1/predictions`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-        Prefer: "wait=5",
-      },
-      body: JSON.stringify({ version, input }),
-    });
+    const createRes = await fetch(
+      `https://api.replicate.com/v1/models/${HEADSHOT_MODEL}/predictions`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+          Prefer: "wait=5",
+        },
+        body: JSON.stringify({ input }),
+      }
+    );
 
     if (!createRes.ok) {
       const txt = await createRes.text();
-      const reqId = createRes.headers.get("x-request-id") || createRes.headers.get("request-id") || "n/a";
+      const reqId = createRes.headers.get("x-request-id") || "n/a";
       console.log(`[portrait][diag] replicate-create FAIL status=${createRes.status} request_id=${reqId} body=${txt.slice(0, 600)}`);
       return { ok: false, reason: `replicate-create-${createRes.status}:${txt.slice(0, 200)}` };
     }
@@ -118,7 +72,6 @@ async function generateWithPulidFlux(params: {
     const id = prediction.id;
     if (!id) return { ok: false, reason: "no-prediction-id" };
 
-    // Poll up to ~120s (Flux is a bit slower than SDXL)
     const maxAttempts = 80;
     let attempts = 0;
     while (
@@ -150,7 +103,6 @@ async function generateWithPulidFlux(params: {
       return { ok: false, reason: "empty-output" };
     }
 
-    // Download and convert to base64 data URL
     const imgRes = await fetch(imageUrl);
     if (!imgRes.ok) return { ok: false, reason: `download-${imgRes.status}` };
     const buf = new Uint8Array(await imgRes.arrayBuffer());
@@ -160,9 +112,9 @@ async function generateWithPulidFlux(params: {
       binary += String.fromCharCode(...buf.subarray(i, i + chunk));
     }
     const b64 = btoa(binary);
-    // Detect mime from Replicate URL extension (webp by default for flux-pulid)
-    const mime = imageUrl.toLowerCase().includes(".webp") ? "image/webp" : "image/jpeg";
-    console.log(`[portrait] provider=pulid-flux status=succeeded latency=${latency}s mime=${mime}`);
+    const lower = imageUrl.toLowerCase();
+    const mime = lower.includes(".webp") ? "image/webp" : lower.includes(".jpg") || lower.includes(".jpeg") ? "image/jpeg" : "image/png";
+    console.log(`[portrait] provider=professional-headshot status=succeeded latency=${latency}s mime=${mime}`);
     return { ok: true, dataUrl: `data:${mime};base64,${b64}` };
   } catch (e) {
     return { ok: false, reason: `exception:${e instanceof Error ? e.message : String(e)}` };
@@ -286,8 +238,6 @@ serve(async (req) => {
       });
     }
 
-    const figurino = reportContent?.figurino || {};
-
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     const REPLICATE_API_TOKEN = Deno.env.get("REPLICATE_API_TOKEN");
 
@@ -298,30 +248,60 @@ serve(async (req) => {
       });
     }
 
-    const styleIndex = Math.floor(Math.random() * STUDIO_STYLES.length);
-    const studioStyle = STUDIO_STYLES[styleIndex];
+    // Map UI variation index → background preset
+    const bgIndex = typeof wardrobeVariation === "number" && wardrobeVariation >= 0
+      ? wardrobeVariation % BACKGROUND_PRESETS.length
+      : 0;
+    const background = BACKGROUND_PRESETS[bgIndex];
+    // We persist style_index so the history UI can label variations
+    const styleIndex = bgIndex;
 
-    // Build wardrobe line (figurino vindo do relatório do usuário — preservado)
-    let wardrobeLine = "";
-    if (figurino.pecas_chave?.length > 0 || figurino.cores_roupa?.length > 0) {
-      const allPieces = figurino.pecas_chave || [];
-      const allColors = figurino.cores_roupa || [];
+    let finalImage: string | null = null;
+    let provider: "professional-headshot" | "gemini" = "professional-headshot";
+    let usedFallback = false;
 
-      let pieces: string[], colors: string[];
-      if (typeof wardrobeVariation === "number" && wardrobeVariation > 0) {
-        const offset = wardrobeVariation;
-        pieces = allPieces.length > 0 ? [allPieces[offset % allPieces.length], allPieces[(offset + 1) % allPieces.length]].filter((v: string, i: number, a: string[]) => a.indexOf(v) === i) : [];
-        colors = allColors.length > 0 ? [allColors[offset % allColors.length]] : [];
+    if (REPLICATE_API_TOKEN) {
+      // The headshot model accepts a single input image — pick the largest selfie
+      const sorted = [...selfies]
+        .map((s: string) => (s.startsWith("data:") ? s : `data:image/jpeg;base64,${s}`))
+        .sort((a, b) => b.length - a.length);
+      const inputImage = sorted[0];
+
+      const headshotResult = await generateWithHeadshot({
+        inputImageDataUrl: inputImage,
+        gender: mapGender(gender),
+        background,
+        token: REPLICATE_API_TOKEN,
+      });
+
+      if (headshotResult.ok) {
+        finalImage = headshotResult.dataUrl;
+        provider = "professional-headshot";
       } else {
-        pieces = allPieces.slice(0, 2);
-        colors = allColors.slice(0, 2);
+        console.log(`[portrait] professional-headshot failed reason=${headshotResult.reason} → falling back to gemini`);
+        usedFallback = true;
       }
-
-      const genderLabel = gender === "Feminino" ? "Female" : gender === "Masculino" ? "Male" : "Neutral";
-      wardrobeLine = `\nClothing suggestion (secondary priority): ${pieces.join(", ")}. Colors: ${colors.join(", ")}. Gender: ${genderLabel}.`;
+    } else {
+      console.log("[portrait] REPLICATE_API_TOKEN missing → using gemini");
+      usedFallback = true;
     }
 
-    const sharedPromptCore = `FACIAL FIDELITY IS THE #1 PRIORITY — above all other instructions.
+    // Fallback to Gemini (still uses prompt with figurino + studio style)
+    if (!finalImage) {
+      const figurino = reportContent?.figurino || {};
+      const studioStyle = STUDIO_STYLES[Math.floor(Math.random() * STUDIO_STYLES.length)];
+
+      let wardrobeLine = "";
+      if (figurino.pecas_chave?.length > 0 || figurino.cores_roupa?.length > 0) {
+        const pieces = (figurino.pecas_chave || []).slice(0, 2);
+        const colors = (figurino.cores_roupa || []).slice(0, 2);
+        const genderLabel = gender === "Feminino" ? "Female" : gender === "Masculino" ? "Male" : "Neutral";
+        wardrobeLine = `\nClothing suggestion (secondary priority): ${pieces.join(", ")}. Colors: ${colors.join(", ")}. Gender: ${genderLabel}.`;
+      }
+
+      const geminiPrompt = `CRITICAL INSTRUCTION: This is an IMAGE EDITING task, NOT image generation. You must transform the reference photos into a professional studio portrait while preserving the EXACT SAME PERSON.
+
+FACIAL FIDELITY IS THE #1 PRIORITY — above all other instructions.
 
 Reproduce the EXACT SAME PERSON from the reference photo(s):
 - Same face shape, nose, eyes, eyebrows, lips, jawline, skin tone
@@ -341,46 +321,7 @@ ${wardrobeLine}
 
 Photorealistic professional headshot, candid quality, 85mm f/1.8 lens, subtle depth of field, documentary photography style — NOT commercial stock photo style.
 
-No text, no watermarks, no overlays.`;
-
-    // Try PuLID-Flux via Replicate first (identity-preserving, state of the art)
-    let finalImage: string | null = null;
-    let provider: "pulid-flux" | "gemini" = "pulid-flux";
-    let usedFallback = false;
-
-    if (REPLICATE_API_TOKEN) {
-      const selfieDataUrls = selfies.map((s: string) =>
-        s.startsWith("data:") ? s : `data:image/jpeg;base64,${s}`
-      );
-
-      // PuLID prompt: focus on scene/style — identity comes from the reference images themselves
-      const pulidPrompt = `professional studio headshot portrait, ${studioStyle}${wardrobeLine}
-
-photorealistic, 85mm lens, natural skin texture with visible pores, natural catchlights in eyes, candid documentary photography quality, sharp focus on face, shallow depth of field. No text, no watermarks, no overlays.`;
-
-      const pulidResult = await generateWithPulidFlux({
-        selfieDataUrls,
-        prompt: pulidPrompt,
-        token: REPLICATE_API_TOKEN,
-      });
-
-      if (pulidResult.ok) {
-        finalImage = pulidResult.dataUrl;
-        provider = "pulid-flux";
-      } else {
-        console.log(`[portrait] pulid-flux failed reason=${pulidResult.reason} → falling back to gemini`);
-        usedFallback = true;
-      }
-    } else {
-      console.log("[portrait] REPLICATE_API_TOKEN missing → using gemini");
-      usedFallback = true;
-    }
-
-    // Fallback to Gemini (or primary if no Replicate token)
-    if (!finalImage) {
-      const geminiPrompt = `CRITICAL INSTRUCTION: This is an IMAGE EDITING task, NOT image generation. You must transform the reference photos into a professional studio portrait while preserving the EXACT SAME PERSON.
-
-${sharedPromptCore}
+No text, no watermarks, no overlays.
 
 Study ALL reference photos with extreme attention to capture the person's identity from multiple angles.`;
 
@@ -425,15 +366,13 @@ Study ALL reference photos with extreme attention to capture the person's identi
       }).eq("user_id", user.id);
     }
 
-    // Log credit usage
     await supabaseAdmin.from("credit_logs").insert({
       user_id: user.id,
       credit_type: "portrait",
       amount: -1,
-      description: `Retrato gerado (${provider}, estilo ${styleIndex + 1})`,
+      description: `Retrato gerado (${provider}, fundo ${background})`,
     });
 
-    // Save to portrait history
     await supabaseAdmin.from("portrait_generations").insert({
       user_id: user.id,
       portraits: [finalImage],
