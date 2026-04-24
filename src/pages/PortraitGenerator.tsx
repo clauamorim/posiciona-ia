@@ -124,13 +124,11 @@ const PortraitGenerator = () => {
     enabled: !!user,
   });
 
-  const figurino = (report?.content as any)?.figurino;
-  const wardrobeOptions = figurino?.pecas_chave?.length > 0
-    ? Array.from({ length: Math.min(Math.ceil((figurino.pecas_chave?.length || 0) / 2), 3) }, (_, i) => ({
-        label: `Look ${i + 1}`,
-        variation: i,
-      }))
-    : [{ label: "Padrão", variation: 0 }];
+  const wardrobeOptions = [
+    { label: "Neutro", variation: 0 },
+    { label: "Claro", variation: 1 },
+    { label: "Escuro", variation: 2 },
+  ];
 
   const { data: packs } = useQuery({
     queryKey: ["portrait-packs"],
@@ -452,7 +450,7 @@ const PortraitGenerator = () => {
                 {/* Wardrobe selector */}
                 {wardrobeOptions.length > 1 && (
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Opção de figurino</label>
+                    <label className="text-sm font-medium">Variação de fundo</label>
                     <div className="flex gap-2 flex-wrap">
                       {wardrobeOptions.map((opt, i) => (
                         <Button
@@ -466,7 +464,7 @@ const PortraitGenerator = () => {
                       ))}
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      Cada look usa peças e acessórios diferentes do seu figurino estratégico.
+                      Escolha o tom de fundo do retrato profissional.
                     </p>
                   </div>
                 )}
