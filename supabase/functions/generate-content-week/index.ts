@@ -444,11 +444,16 @@ Gere 7 novos dias de conteúdo em JSON.`;
   } catch (error) {
     console.error("generate-content-week error:", error);
     const status = typeof (error as any)?.status === "number" ? (error as any).status : 500;
-    const message = typeof (error as any)?.userMessage === "string" && (error as any).userMessage.trim()
+    const userMessage = typeof (error as any)?.userMessage === "string" && (error as any).userMessage.trim()
       ? (error as any).userMessage
-      : error instanceof Error
-        ? error.message
-        : "Erro inesperado";
+      : null;
+    const rawMessage = error instanceof Error ? error.message : "";
+    // Não vaza mensagens técnicas tipo "AI API error: 500 - ..." para o usuário.
+    const looksTechnical = /AI API error|fetch failed|JSON|TypeError|SyntaxError/i.test(rawMessage);
+    const message = userMessage
+      ?? (looksTechnical || !rawMessage
+        ? "Não foi possível gerar a semana agora. Tente novamente em alguns segundos."
+        : rawMessage);
     return new Response(JSON.stringify({ error: message }), {
       status,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
