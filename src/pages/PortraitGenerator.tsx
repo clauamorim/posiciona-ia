@@ -8,7 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
-import { Upload, X, Download, Loader2, ImageIcon, PackageOpen, ShoppingCart, Camera, Maximize2 } from "lucide-react";
+import { Upload, X, Download, Loader2, ImageIcon, ShoppingCart, Camera, Maximize2, Sparkles, CheckCircle2, AlertCircle, Wand2 } from "lucide-react";
 import JSZip from "jszip";
 import { compressImage } from "@/lib/imageUtils";
 import { PortraitPreviewDialog } from "@/components/PortraitPreviewDialog";
@@ -18,6 +18,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -30,70 +31,32 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-const MAX_FILES = 5;
+const MIN_TRAINING_FILES = 10;
+const MAX_TRAINING_FILES = 20;
 const MAX_SIZE_MB = 5;
 const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
-
-const PORTRAIT_DRAFT_KEY = "posiciona-portrait-draft";
-
-interface PortraitDraft {
-  selfieBase64s: string[];
-  portraits: string[];
-  portraitStyleIndex: number | null;
-  selectedWardrobe: number;
-}
-
-function loadPortraitDraft(): PortraitDraft | null {
-  try {
-    const raw = sessionStorage.getItem(PORTRAIT_DRAFT_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw);
-  } catch { return null; }
-}
-
-function savePortraitDraft(draft: PortraitDraft) {
-  try { sessionStorage.setItem(PORTRAIT_DRAFT_KEY, JSON.stringify(draft)); } catch {}
-}
+const TRAIN_COST_CREDITS = 4;
+const GENERATE_COST_CREDITS = 3;
 
 const PortraitGenerator = () => {
   const { user, balances, subscription, refreshSubscription } = useAuth();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const savedDraft = useRef(loadPortraitDraft());
-
-  const [selfies, setSelfies] = useState<{ file: File | null; preview: string; base64: string }[]>(() => {
-    if (savedDraft.current?.selfieBase64s?.length) {
-      return savedDraft.current.selfieBase64s.map((b64, i) => ({ file: null, preview: b64, base64: b64 }));
-    }
-    return [];
-  });
-  const [portraits, setPortraits] = useState<string[]>(savedDraft.current?.portraits || []);
-  const [portraitStyleIndex, setPortraitStyleIndex] = useState<number | null>(savedDraft.current?.portraitStyleIndex ?? null);
+  const [trainSelfies, setTrainSelfies] = useState<{ file: File; preview: string; base64: string }[]>([]);
+  const [trainModalOpen, setTrainModalOpen] = useState(false);
+  const [confirmTrainOpen, setConfirmTrainOpen] = useState(false);
+  const [submittingTrain, setSubmittingTrain] = useState(false);
   const [generating, setGenerating] = useState(false);
-  const [progress, setProgress] = useState({ current: 0, total: 1 });
   const [packDialogOpen, setPackDialogOpen] = useState(false);
   const [loadingPack, setLoadingPack] = useState<string | null>(null);
-  const [selectedWardrobe, setSelectedWardrobe] = useState(savedDraft.current?.selectedWardrobe ?? 0);
-  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const [confirmGenerateOpen, setConfirmGenerateOpen] = useState(false);
-
-  // Persist draft on changes
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      savePortraitDraft({
-        selfieBase64s: selfies.map(s => s.base64),
-        portraits,
-        portraitStyleIndex,
-        selectedWardrobe,
-      });
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [selfies, portraits, portraitStyleIndex, selectedWardrobe]);
+  const [portraits, setPortraits] = useState<string[]>([]);
+  const [backgrounds, setBackgrounds] = useState<string[]>([]);
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
 
   const totalCredits = (balances?.portrait_credits_included ?? 0) + (balances?.portrait_credits_extra ?? 0);
 
-  // Check prerequisites
   const { data: archetypes } = useQuery({
     queryKey: ["top-archetypes", user?.id],
     queryFn: async () => {
@@ -118,17 +81,30 @@ const PortraitGenerator = () => {
         .eq("status", "completed")
         .order("created_at", { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
       return data;
     },
     enabled: !!user,
   });
 
-  const wardrobeOptions = [
-    { label: "Neutro", variation: 0 },
-    { label: "Claro", variation: 1 },
-    { label: "Escuro", variation: 2 },
-  ];
+  const { data: latestTraining, refetch: refetchTraining } = useQuery({
+    queryKey: ["portrait-training-latest", user?.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("portrait_trainings")
+        .select("id, status, trigger_word, created_at, completed_at, error_message, was_free")
+        .eq("user_id", user!.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!user,
+    refetchInterval: (q) => {
+      const d = q.state.data as any;
+      return d?.status === "training" ? 30000 : false;
+    },
+  });
 
   const { data: packs } = useQuery({
     queryKey: ["portrait-packs"],
@@ -143,6 +119,9 @@ const PortraitGenerator = () => {
   });
 
   const hasPrerequisites = (archetypes?.length ?? 0) > 0 && !!report;
+  const trainingStatus = latestTraining?.status as "training" | "ready" | "failed" | "expired" | undefined;
+  const hasReadyStudio = trainingStatus === "ready";
+  const isTraining = trainingStatus === "training";
 
   const fileToBase64 = (file: File): Promise<string> =>
     new Promise((resolve, reject) => {
@@ -152,17 +131,15 @@ const PortraitGenerator = () => {
       reader.readAsDataURL(file);
     });
 
-  const handleFiles = useCallback(async (files: FileList | null) => {
+  const handleTrainFiles = useCallback(async (files: FileList | null) => {
     if (!files) return;
-    const remaining = MAX_FILES - selfies.length;
+    const remaining = MAX_TRAINING_FILES - trainSelfies.length;
     if (remaining <= 0) {
-      toast({ title: `Máximo de ${MAX_FILES} imagens`, variant: "destructive" });
+      toast({ title: `Máximo de ${MAX_TRAINING_FILES} fotos`, variant: "destructive" });
       return;
     }
-
     const validFiles = Array.from(files).slice(0, remaining);
-    const newSelfies: typeof selfies = [];
-
+    const next: typeof trainSelfies = [];
     for (const file of validFiles) {
       if (!file.type.startsWith("image/")) {
         toast({ title: `${file.name} não é uma imagem`, variant: "destructive" });
@@ -175,27 +152,63 @@ const PortraitGenerator = () => {
       const raw = await fileToBase64(file);
       let base64: string;
       try {
-        base64 = await compressImage(raw, 1024, 0.8);
+        base64 = await compressImage(raw, 1024, 0.85);
       } catch {
         base64 = raw;
       }
-      newSelfies.push({ file, preview: URL.createObjectURL(file), base64 });
+      next.push({ file, preview: URL.createObjectURL(file), base64 });
     }
+    setTrainSelfies((prev) => [...prev, ...next]);
+  }, [trainSelfies.length, toast]);
 
-    setSelfies(prev => [...prev, ...newSelfies]);
-  }, [selfies.length, toast]);
-
-  const removeSelfie = (index: number) => {
-    setSelfies(prev => {
+  const removeTrainSelfie = (index: number) => {
+    setTrainSelfies((prev) => {
       URL.revokeObjectURL(prev[index].preview);
       return prev.filter((_, i) => i !== index);
     });
   };
 
+  const requestTrain = () => {
+    if (trainSelfies.length < MIN_TRAINING_FILES) {
+      toast({ title: `Envie ao menos ${MIN_TRAINING_FILES} fotos`, variant: "destructive" });
+      return;
+    }
+    setConfirmTrainOpen(true);
+  };
+
+  const submitTraining = async (forcePaid = false) => {
+    setConfirmTrainOpen(false);
+    setSubmittingTrain(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("portrait-train", {
+        body: { selfies: trainSelfies.map((s) => s.base64), force_paid: forcePaid },
+      });
+      if (error) throw error;
+      if (data?.error) {
+        toast({ title: "Não foi possível iniciar o treino", description: data.error, variant: "destructive" });
+        if (data.needs_credits) setPackDialogOpen(true);
+      } else {
+        toast({
+          title: "Treino iniciado",
+          description: data.was_free
+            ? "Treino gratuito do mês usado. Aguarde ~20 min."
+            : `${TRAIN_COST_CREDITS} créditos debitados. Aguarde ~20 min.`,
+        });
+        setTrainModalOpen(false);
+        setTrainSelfies([]);
+        await Promise.all([refreshSubscription(), refetchTraining()]);
+      }
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message ?? "Falha ao iniciar treino", variant: "destructive" });
+    } finally {
+      setSubmittingTrain(false);
+    }
+  };
+
   const requestGenerate = () => {
-    if (selfies.length === 0) return;
-    if (totalCredits <= 0) {
-      toast({ title: "Sem créditos de retrato", description: "Compre um pacote de retratos para continuar.", variant: "destructive" });
+    if (!hasReadyStudio) return;
+    if (totalCredits < GENERATE_COST_CREDITS) {
+      toast({ title: "Sem créditos suficientes", description: `Geração custa ${GENERATE_COST_CREDITS} créditos.`, variant: "destructive" });
       setPackDialogOpen(true);
       return;
     }
@@ -204,56 +217,35 @@ const PortraitGenerator = () => {
 
   const handleGenerate = async () => {
     setConfirmGenerateOpen(false);
-    if (selfies.length === 0) return;
-
-    if (totalCredits <= 0) {
-      toast({ title: "Sem créditos de retrato", description: "Compre um pacote de retratos para continuar.", variant: "destructive" });
-      setPackDialogOpen(true);
-      return;
-    }
-
     setGenerating(true);
     setPortraits([]);
-    setProgress({ current: 0, total: 1 });
-
+    setBackgrounds([]);
     try {
-      const { data, error } = await supabase.functions.invoke("generate-portrait", {
-        body: { selfies: selfies.map(s => s.base64), wardrobeVariation: selectedWardrobe },
-      });
-
+      const { data, error } = await supabase.functions.invoke("generate-portrait", { body: {} });
       if (error) throw error;
       if (data?.error) {
         toast({ title: "Erro", description: data.error, variant: "destructive" });
-        if (data.portrait) {
-          setPortraits([data.portrait]);
-        }
+        if (data.needs_credits) setPackDialogOpen(true);
       } else {
-        const portrait = data.portrait;
-        if (portrait) {
-          setPortraits([portrait]);
-          setPortraitStyleIndex(data.style_index ?? null);
-          await refreshSubscription();
-          toast({
-            title: "Retrato gerado",
-            description: "1 crédito debitado. O retrato já foi salvo no seu histórico.",
-          });
-        } else {
-          toast({ title: "Nenhum retrato foi gerado", variant: "destructive" });
-        }
+        setPortraits(data.portraits || []);
+        setBackgrounds(data.backgrounds || []);
+        await refreshSubscription();
+        toast({
+          title: "Retratos gerados",
+          description: `${data.charged_credits ?? 3} créditos debitados. Salvos no histórico.`,
+        });
       }
     } catch (err: any) {
-      console.error("Generate error:", err);
-      toast({ title: "Erro ao gerar retrato", description: err.message, variant: "destructive" });
+      toast({ title: "Erro ao gerar retratos", description: err.message, variant: "destructive" });
     } finally {
       setGenerating(false);
-      setProgress({ current: 0, total: 0 });
     }
   };
 
   const downloadPortrait = (base64Url: string, index: number) => {
     const link = document.createElement("a");
     link.href = base64Url;
-    link.download = `retrato-marca-${index + 1}.png`;
+    link.download = `retrato-${backgrounds[index] ?? index + 1}.png`;
     link.click();
     toast({ title: "Download iniciado" });
   };
@@ -263,7 +255,7 @@ const PortraitGenerator = () => {
     const zip = new JSZip();
     for (let i = 0; i < portraits.length; i++) {
       const base64Data = portraits[i].replace(/^data:image\/\w+;base64,/, "");
-      zip.file(`retrato-marca-${i + 1}.png`, base64Data, { base64: true });
+      zip.file(`retrato-${backgrounds[i] ?? i + 1}.png`, base64Data, { base64: true });
     }
     const blob = await zip.generateAsync({ type: "blob" });
     const link = document.createElement("a");
@@ -271,11 +263,6 @@ const PortraitGenerator = () => {
     link.download = "retratos-de-marca.zip";
     link.click();
     URL.revokeObjectURL(link.href);
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    handleFiles(e.dataTransfer.files);
   };
 
   const handleBuyPack = async (packId: string) => {
@@ -286,14 +273,19 @@ const PortraitGenerator = () => {
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      if (data?.url) {
-        window.location.href = data.url;
-      }
+      if (data?.url) window.location.href = data.url;
     } catch (err: any) {
       toast({ title: "Erro", description: err.message, variant: "destructive" });
     }
     setLoadingPack(null);
   };
+
+  // Cleanup object URLs
+  useEffect(() => () => {
+    trainSelfies.forEach((s) => URL.revokeObjectURL(s.preview));
+  }, []);
+
+  const isMonthlyPlan = subscription?.billing_type === "monthly" && subscription?.status === "active";
 
   return (
     <DashboardLayout>
@@ -302,7 +294,7 @@ const PortraitGenerator = () => {
           <div>
             <h1 className="text-xl font-semibold tracking-tight">Retratos de Marca</h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Faça upload de selfies e gere retratos profissionais alinhados à sua identidade.
+              Treine um Estúdio Pessoal exclusivo do seu rosto e gere retratos profissionais alinhados ao seu arquétipo.
             </p>
           </div>
           <Dialog open={packDialogOpen} onOpenChange={setPackDialogOpen}>
@@ -317,55 +309,25 @@ const PortraitGenerator = () => {
                 <DialogTitle>Pacotes de Retrato</DialogTitle>
               </DialogHeader>
               <div className="space-y-3">
-                {(packs || []).map((pack: any) => {
-                  const planSlug = subscription?.plan_slug || "semana_conteudo";
-                  const hasDiscount = planSlug !== "semana_conteudo";
-                  let priceCents = pack.price_cents;
-                  if (pack.stripe_price_ids && typeof pack.stripe_price_ids === "object") {
-                    if (pack.credits === 5) {
-                      if (planSlug === "presenca_mensal") priceCents = 6400;
-                      else if (planSlug === "autoridade_total") priceCents = 5900;
-                    } else if (pack.credits === 10) {
-                      if (planSlug === "presenca_mensal") priceCents = 10900;
-                      else if (planSlug === "autoridade_total") priceCents = 9900;
-                    } else if (pack.credits === 15) {
-                      if (planSlug === "presenca_mensal") priceCents = 15400;
-                      else if (planSlug === "autoridade_total") priceCents = 13900;
-                    }
-                  }
-                  const showDiscount = hasDiscount && priceCents < pack.price_cents;
-                  return (
-                    <Card key={pack.id} className="border-border/50">
-                      <CardContent className="flex items-center justify-between py-4">
-                        <div>
-                          <p className="font-semibold">{pack.name}</p>
-                          <p className="text-sm text-muted-foreground">{pack.credits} retratos</p>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <div className="text-right">
-                            <span className="font-bold">R$ {(priceCents / 100).toFixed(0)}</span>
-                            {showDiscount && (
-                              <span className="text-xs text-muted-foreground line-through ml-1.5">R$ {(pack.price_cents / 100).toFixed(0)}</span>
-                            )}
-                          </div>
-                          <Button
-                            size="sm"
-                            onClick={() => handleBuyPack(pack.id)}
-                            disabled={loadingPack === pack.id}
-                          >
-                            {loadingPack === pack.id ? <Loader2 className="h-4 w-4 animate-spin" /> : "Comprar"}
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
+                {(packs || []).map((pack: any) => (
+                  <Card key={pack.id} className="border-border/50">
+                    <CardContent className="flex items-center justify-between py-4">
+                      <div>
+                        <p className="font-semibold">{pack.name}</p>
+                        <p className="text-sm text-muted-foreground">{pack.credits} retratos</p>
+                      </div>
+                      <Button size="sm" onClick={() => handleBuyPack(pack.id)} disabled={loadingPack === pack.id}>
+                        {loadingPack === pack.id ? <Loader2 className="h-4 w-4 animate-spin" /> : `R$ ${(pack.price_cents / 100).toFixed(0)}`}
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
             </DialogContent>
           </Dialog>
         </div>
 
-        {/* Credit info */}
+        {/* Saldo */}
         <Card className="border-primary/20 bg-primary/5">
           <CardContent className="flex items-center justify-between py-4">
             <div className="flex items-center gap-3">
@@ -373,7 +335,7 @@ const PortraitGenerator = () => {
               <div>
                 <p className="font-semibold">Saldo de Retratos</p>
                 <p className="text-xs text-muted-foreground">
-                  {balances?.portrait_credits_included ?? 0} inclusos no plano • {balances?.portrait_credits_extra ?? 0} extras comprados
+                  {balances?.portrait_credits_included ?? 0} inclusos · {balances?.portrait_credits_extra ?? 0} extras
                 </p>
               </div>
             </div>
@@ -387,11 +349,11 @@ const PortraitGenerator = () => {
           <Card className="border-destructive/50 bg-destructive/5">
             <CardContent className="p-6">
               <p className="text-sm text-destructive font-medium">
-                ⚠️ Para gerar retratos, você precisa ter completado:
+                Para gerar retratos, complete antes:
               </p>
               <ul className="text-sm text-destructive/80 mt-2 list-disc list-inside space-y-1">
                 {(archetypes?.length ?? 0) === 0 && <li>Questionário de Arquétipos</li>}
-                {!report && <li>Relatório Estratégico (Análise)</li>}
+                {!report && <li>Relatório Estratégico</li>}
               </ul>
             </CardContent>
           </Card>
@@ -399,161 +361,128 @@ const PortraitGenerator = () => {
 
         {hasPrerequisites && (
           <>
-            {/* Upload Area */}
+            {/* Estúdio Pessoal */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Upload className="h-5 w-5" />
-                  Upload de Selfies
+                  <Sparkles className="h-5 w-5 text-primary" />
+                  Estúdio Pessoal
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div
-                  className="border-2 border-dashed border-primary/20 rounded-xl p-10 text-center cursor-pointer hover:border-primary/40 hover:bg-primary/[0.02] transition-all"
-                  onClick={() => fileInputRef.current?.click()}
-                  onDrop={handleDrop}
-                  onDragOver={(e) => e.preventDefault()}
-                >
-                  <Upload className="h-12 w-12 text-primary/30 mx-auto mb-3" />
-                  <p className="text-sm font-medium text-foreground/70">
-                    Arraste selfies aqui ou clique para selecionar
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1.5">
-                    Selfies de rosto bem iluminadas · 1 a {MAX_FILES} imagens · Máx {MAX_SIZE_MB}MB cada
-                  </p>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    className="hidden"
-                    onChange={(e) => handleFiles(e.target.files)}
-                  />
-                </div>
-
-                {selfies.length > 0 && (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
-                    {selfies.map((s, i) => (
-                      <div key={i} className="relative group aspect-square rounded-lg overflow-hidden border border-border">
-                        <img src={s.preview} alt={`Selfie ${i + 1}`} className="w-full h-full object-cover" />
-                        <button
-                          onClick={() => removeSelfie(i)}
-                          className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Wardrobe selector */}
-                {wardrobeOptions.length > 1 && (
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Variação de fundo</label>
-                    <div className="flex gap-2 flex-wrap">
-                      {wardrobeOptions.map((opt, i) => (
-                        <Button
-                          key={i}
-                          variant={selectedWardrobe === opt.variation ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => setSelectedWardrobe(opt.variation)}
-                        >
-                          {opt.label}
-                        </Button>
-                      ))}
-                    </div>
+                {!latestTraining && (
+                  <div className="space-y-3">
+                    <p className="text-sm text-muted-foreground">
+                      Treine um modelo exclusivo do seu rosto a partir de {MIN_TRAINING_FILES}–{MAX_TRAINING_FILES} fotos. O treino leva ~20 minutos e só precisa ser feito uma vez.
+                    </p>
                     <p className="text-xs text-muted-foreground">
-                      Escolha o tom de fundo do retrato profissional.
+                      {isMonthlyPlan
+                        ? `Você tem 1 treino grátis por mês no seu plano. Treinos extras custam ${TRAIN_COST_CREDITS} créditos.`
+                        : `Cada treino custa ${TRAIN_COST_CREDITS} créditos de retrato.`}
                     </p>
+                    <Button onClick={() => setTrainModalOpen(true)} size="lg" className="gap-2">
+                      <Wand2 className="h-4 w-4" />
+                      Treinar meu Estúdio Pessoal
+                    </Button>
                   </div>
                 )}
 
-                <Button
-                  onClick={requestGenerate}
-                  disabled={selfies.length === 0 || generating || totalCredits <= 0}
-                  className="w-full"
-                  size="lg"
-                >
-                  {generating ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Gerando retrato...
-                    </>
-                  ) : (
-                    <>
-                      <ImageIcon className="h-4 w-4" />
-                      Gerar 1 Retrato (1 crédito)
-                    </>
-                  )}
-                </Button>
-
-                {totalCredits <= 0 && (
-                  <p className="text-sm text-center text-destructive">
-                    Você não tem créditos de retrato.{" "}
-                    <button className="underline" onClick={() => setPackDialogOpen(true)}>
-                      Compre um pacote
-                    </button>
-                  </p>
+                {isTraining && (
+                  <div className="space-y-3 rounded-lg border border-primary/30 bg-primary/5 p-4">
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                      <p className="font-medium">Estúdio sendo treinado</p>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Estamos treinando um modelo exclusivo para o seu rosto. O processo leva cerca de 20 minutos. Você pode fechar esta página — vamos atualizar automaticamente quando estiver pronto.
+                    </p>
+                    <Progress value={undefined} className="animate-pulse" />
+                  </div>
                 )}
 
-                {generating && (
-                  <div className="space-y-2">
-                    <Progress value={undefined} className="animate-pulse" />
-                    <p className="text-xs text-center text-muted-foreground">
-                      Gerando retrato com estilo de marca... Isso pode levar alguns segundos.
+                {trainingStatus === "failed" && (
+                  <div className="space-y-3 rounded-lg border border-destructive/40 bg-destructive/5 p-4">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4 text-destructive" />
+                      <p className="font-medium text-destructive">Treino falhou</p>
+                    </div>
+                    {latestTraining?.error_message && (
+                      <p className="text-xs text-muted-foreground font-mono">{latestTraining.error_message}</p>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      Os créditos foram reembolsados automaticamente (se aplicável).
                     </p>
+                    <Button onClick={() => setTrainModalOpen(true)} variant="outline">
+                      Tentar novamente
+                    </Button>
+                  </div>
+                )}
+
+                {hasReadyStudio && (
+                  <div className="space-y-3 rounded-lg border border-success/40 bg-success/5 p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="h-4 w-4 text-success" />
+                        <p className="font-medium">Estúdio pronto</p>
+                      </div>
+                      <Badge variant="outline" className="font-mono text-xs">{latestTraining?.trigger_word}</Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Seu Estúdio Pessoal está treinado. Cada geração produz <strong>3 retratos</strong> (Neutro, Claro, Escuro) e custa <strong>{GENERATE_COST_CREDITS} créditos</strong>.
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      <Button onClick={requestGenerate} disabled={generating || totalCredits < GENERATE_COST_CREDITS} size="lg" className="gap-2">
+                        {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageIcon className="h-4 w-4" />}
+                        Gerar 3 retratos ({GENERATE_COST_CREDITS} créditos)
+                      </Button>
+                      <Button onClick={() => setTrainModalOpen(true)} variant="outline" size="lg">
+                        Treinar novo Estúdio
+                      </Button>
+                    </div>
+                    {generating && (
+                      <Progress value={undefined} className="animate-pulse" />
+                    )}
                   </div>
                 )}
               </CardContent>
             </Card>
 
-            {/* Generated Portraits */}
+            {/* Resultados */}
             {portraits.length > 0 && (
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle className="flex items-center gap-2">
                     <ImageIcon className="h-5 w-5" />
-                    Retrato Gerado
+                    Retratos Gerados
                   </CardTitle>
-                  {portraits.length > 1 && (
-                    <Button variant="outline" size="sm" onClick={downloadAll}>
-                      <PackageOpen className="h-4 w-4 mr-1" />
-                      Baixar Todos (ZIP)
-                    </Button>
-                  )}
+                  <Button variant="outline" size="sm" onClick={downloadAll}>
+                    <Download className="h-4 w-4 mr-1" />
+                    Baixar todos (ZIP)
+                  </Button>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     {portraits.map((portrait, i) => (
                       <div key={i} className="space-y-2">
                         <button
                           type="button"
                           onClick={() => setPreviewIndex(i)}
-                          className="group relative aspect-square w-full rounded-lg overflow-hidden border border-border bg-muted cursor-zoom-in"
-                          aria-label={`Pré-visualizar retrato ${i + 1}`}
+                          className="group relative aspect-[3/4] w-full rounded-lg overflow-hidden border border-border bg-muted cursor-zoom-in"
                         >
-                          <img
-                            src={portrait}
-                            alt={`Retrato ${i + 1}`}
-                            className="w-full h-full object-cover"
-                          />
+                          <img src={portrait} alt={`Retrato ${backgrounds[i] ?? i + 1}`} className="w-full h-full object-cover" />
                           <div className="absolute inset-0 bg-background/0 group-hover:bg-background/30 transition-colors flex items-center justify-center">
                             <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-background/80 backdrop-blur-sm border border-border rounded-full p-2">
                               <Maximize2 className="h-4 w-4" />
                             </div>
                           </div>
+                          <div className="absolute top-2 left-2">
+                            <Badge variant="secondary" className="capitalize text-xs">{backgrounds[i] ?? `look ${i + 1}`}</Badge>
+                          </div>
                         </button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="w-full"
-                          onClick={() => downloadPortrait(portrait, i)}
-                        >
+                        <Button variant="outline" size="sm" className="w-full" onClick={() => downloadPortrait(portrait, i)}>
                           <Download className="h-4 w-4 mr-1" />
-                          Baixar Retrato {i + 1}
+                          Baixar
                         </Button>
-                        <p className="text-[10px] text-muted-foreground text-center">Salvo no histórico · Download gratuito</p>
                       </div>
                     ))}
                   </div>
@@ -563,6 +492,115 @@ const PortraitGenerator = () => {
           </>
         )}
       </div>
+
+      {/* Modal de upload para treino */}
+      <Dialog open={trainModalOpen} onOpenChange={(o) => { if (!submittingTrain) setTrainModalOpen(o); }}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Treinar Estúdio Pessoal</DialogTitle>
+            <DialogDescription>
+              Envie {MIN_TRAINING_FILES} a {MAX_TRAINING_FILES} fotos do seu rosto, com boa iluminação, ângulos variados e expressões diferentes. Quanto mais fiéis ao seu rosto real, melhor o resultado.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <div
+              className="border-2 border-dashed border-primary/20 rounded-xl p-8 text-center cursor-pointer hover:border-primary/40 hover:bg-primary/[0.02] transition-all"
+              onClick={() => fileInputRef.current?.click()}
+              onDrop={(e) => { e.preventDefault(); handleTrainFiles(e.dataTransfer.files); }}
+              onDragOver={(e) => e.preventDefault()}
+            >
+              <Upload className="h-10 w-10 text-primary/30 mx-auto mb-2" />
+              <p className="text-sm font-medium text-foreground/70">
+                Arraste fotos aqui ou clique para selecionar
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {trainSelfies.length}/{MAX_TRAINING_FILES} · Mínimo {MIN_TRAINING_FILES} · Máx {MAX_SIZE_MB}MB cada
+              </p>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={(e) => handleTrainFiles(e.target.files)}
+              />
+            </div>
+
+            {trainSelfies.length > 0 && (
+              <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 max-h-64 overflow-y-auto">
+                {trainSelfies.map((s, i) => (
+                  <div key={i} className="relative group aspect-square rounded-md overflow-hidden border border-border">
+                    <img src={s.preview} alt={`Selfie ${i + 1}`} className="w-full h-full object-cover" />
+                    <button
+                      onClick={() => removeTrainSelfie(i)}
+                      className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground space-y-1">
+              <p><strong>Custo:</strong> {isMonthlyPlan ? `1 treino grátis por mês no seu plano. Extras custam ${TRAIN_COST_CREDITS} créditos.` : `${TRAIN_COST_CREDITS} créditos de retrato.`}</p>
+              <p><strong>Tempo:</strong> ~20 minutos. Você pode fechar a página e voltar depois.</p>
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setTrainModalOpen(false)} disabled={submittingTrain}>
+                Cancelar
+              </Button>
+              <Button
+                onClick={requestTrain}
+                disabled={trainSelfies.length < MIN_TRAINING_FILES || submittingTrain}
+              >
+                {submittingTrain ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                Iniciar treino
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmação de treino */}
+      <AlertDialog open={confirmTrainOpen} onOpenChange={setConfirmTrainOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar treino do Estúdio Pessoal</AlertDialogTitle>
+            <AlertDialogDescription>
+              {isMonthlyPlan
+                ? `Se você ainda não usou o treino gratuito deste mês, ele será aplicado automaticamente. Caso contrário, ${TRAIN_COST_CREDITS} créditos de retrato serão debitados.`
+                : `${TRAIN_COST_CREDITS} créditos de retrato serão debitados ao iniciar o treino.`}
+              <br /><br />
+              O treino leva ~20 minutos. Em caso de falha, créditos são reembolsados automaticamente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => submitTraining(false)}>Iniciar treino</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirmação de geração */}
+      <AlertDialog open={confirmGenerateOpen} onOpenChange={setConfirmGenerateOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Gerar 3 retratos — {GENERATE_COST_CREDITS} créditos</AlertDialogTitle>
+            <AlertDialogDescription>
+              Vamos gerar 3 retratos (Neutro, Claro, Escuro) usando seu Estúdio Pessoal. Cada um custa 1 crédito.
+              <br /><br />
+              Saldo atual: <strong>{totalCredits} crédito{totalCredits !== 1 ? "s" : ""}</strong>.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleGenerate}>Gerar agora</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <PortraitPreviewDialog
         open={previewIndex !== null}
@@ -574,24 +612,6 @@ const PortraitGenerator = () => {
         downloadHint="Salvo no histórico · Download gratuito"
         downloadLabel="Baixar"
       />
-
-      <AlertDialog open={confirmGenerateOpen} onOpenChange={setConfirmGenerateOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Gerar retrato — 1 crédito</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta ação consome <strong>1 crédito de retrato</strong> imediatamente após a geração, independentemente do download.
-              O retrato ficará salvo no seu histórico e poderá ser baixado quantas vezes quiser, sem custo adicional.
-              <br /><br />
-              Saldo atual: <strong>{totalCredits} crédito{totalCredits !== 1 ? "s" : ""}</strong>.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleGenerate}>Gerar agora</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </DashboardLayout>
   );
 };
