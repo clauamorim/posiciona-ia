@@ -34,6 +34,40 @@ const FORMAT_CONFIG: Record<string, { label: string; icon: React.ReactNode; colo
   post: { label: "Post", icon: <ImageIcon className="h-3 w-3" />, color: "bg-emerald-500/10 text-emerald-600 border-emerald-200", border: "border-l-emerald-500" },
 };
 
+const getFunctionErrorMessage = async (error: any, data?: any, fallback = "Ocorreu um erro ao processar sua solicitação.") => {
+  if (typeof data?.error === "string" && data.error.trim()) return data.error;
+
+  const context = error?.context;
+  if (context) {
+    try {
+      const responseLike = typeof context.clone === "function" ? context.clone() : context;
+      if (typeof responseLike.json === "function") {
+        const parsed = await responseLike.json();
+        if (typeof parsed?.error === "string" && parsed.error.trim()) return parsed.error;
+      }
+    } catch {
+      try {
+        const responseLike = typeof context.clone === "function" ? context.clone() : context;
+        if (typeof responseLike.text === "function") {
+          const rawText = await responseLike.text();
+          if (rawText?.trim()) {
+            try {
+              const parsed = JSON.parse(rawText);
+              if (typeof parsed?.error === "string" && parsed.error.trim()) return parsed.error;
+            } catch {
+              return rawText;
+            }
+          }
+        }
+      } catch {
+      }
+    }
+  }
+
+  if (typeof error?.message === "string" && error.message.trim()) return error.message;
+  return fallback;
+};
+
 const EditorialPage = () => {
   const navigate = useNavigate();
   const { user, balances, refreshSubscription } = useAuth();
@@ -143,7 +177,7 @@ const EditorialPage = () => {
           tone_of_voice: reportContent?.tone_of_voice || null,
         },
       });
-      if (error) throw error;
+      if (error) throw new Error(await getFunctionErrorMessage(error, data, "Erro ao gerar nova semana."));
       if (data?.error) throw new Error(data.error);
       if (!data?.editorial) throw new Error("Nenhum conteúdo foi gerado. Tente novamente.");
 
@@ -190,7 +224,7 @@ const EditorialPage = () => {
           currentVersion: day.generator_version || null,
         },
       });
-      if (error) throw error;
+      if (error) throw new Error(await getFunctionErrorMessage(error, data, "Erro ao atualizar post."));
       if (data?.error) throw new Error(data.error);
 
       const isFirstWeek = structuredEditorial.length > 0 && weekIndex === 0;
@@ -246,7 +280,7 @@ const EditorialPage = () => {
           replaceWeekIndex: weekIndex,
         },
       });
-      if (error) throw error;
+      if (error) throw new Error(await getFunctionErrorMessage(error, data, "Erro ao atualizar semana."));
       if (data?.error) throw new Error(data.error);
       if (!data?.editorial) throw new Error("Resposta vazia da IA.");
 

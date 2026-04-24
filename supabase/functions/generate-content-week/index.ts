@@ -85,7 +85,9 @@ async function callGemini(systemPrompt: string, userContent: any): Promise<strin
 
   if (!response.ok) {
     const errText = await response.text();
-    throw new Error(`AI API error: ${response.status} - ${errText}`);
+    const err = new Error(`AI API error: ${response.status} - ${errText}`) as Error & { status?: number };
+    err.status = response.status;
+    throw err;
   }
 
   const data = await response.json();
@@ -376,8 +378,9 @@ Gere 7 novos dias de conteúdo em JSON.`;
     });
   } catch (error) {
     console.error("generate-content-week error:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
+    const status = typeof (error as any)?.status === "number" ? (error as any).status : 500;
+    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "Erro inesperado" }), {
+      status,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
