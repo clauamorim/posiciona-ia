@@ -15,7 +15,7 @@ const STUDIO_STYLES = [
   "Muted olive-gray backdrop with soft vignette and warm fill light. Two-light setup, elegant and understated. Professional branding aesthetic.",
 ];
 
-const PULID_MODEL = "zsxkib/pulid-flux";
+const PULID_MODEL = "bytedance/flux-pulid";
 
 // Cache the resolved version hash in worker memory (per cold start)
 let cachedPulidVersion: string | null = null;
@@ -54,12 +54,11 @@ async function generateWithPulidFlux(params: {
   const { selfieDataUrls, prompt, token } = params;
   const start = Date.now();
   try {
-    // Sort selfies by size (proxy for detail), pick best as main, rest as auxiliary (up to 3)
+    // bytedance/flux-pulid only accepts a single main_face_image — pick the largest selfie
     const sorted = [...selfieDataUrls]
       .map((s, i) => ({ s, size: s.length, i }))
       .sort((a, b) => b.size - a.size);
     const mainFace = sorted[0]?.s;
-    const auxFaces = sorted.slice(1, 4).map((x) => x.s);
 
     // DIAG: validate which Replicate account this token belongs to
     try {
@@ -79,24 +78,24 @@ async function generateWithPulidFlux(params: {
       return { ok: false, reason: "could-not-resolve-version" };
     }
 
+    // Schema canônico do bytedance/flux-pulid
     const input: Record<string, unknown> = {
       main_face_image: mainFace,
       prompt,
-      negative_prompt: "(lowres, low quality, worst quality:1.2), (text:1.2), watermark, painting, drawing, illustration, glitch, deformed, mutated, cross-eyed, ugly, disfigured",
-      width: 1024,
-      height: 1024,
+      negative_prompt: "bad quality, worst quality, text, signature, watermark, extra limbs, deformed, mutated, cross-eyed, ugly, disfigured, painting, drawing, illustration",
       num_steps: 20,
+      start_step: 0,
       guidance_scale: 4,
-      id_weight: 1.05,
+      id_weight: 1,
       true_cfg: 1,
-      output_format: "jpg",
+      max_sequence_length: 128,
+      num_outputs: 1,
+      output_format: "webp",
       output_quality: 95,
+      seed: Math.floor(Math.random() * 1000000),
     };
-    if (auxFaces[0]) input.auxiliary_face_image_1 = auxFaces[0];
-    if (auxFaces[1]) input.auxiliary_face_image_2 = auxFaces[1];
-    if (auxFaces[2]) input.auxiliary_face_image_3 = auxFaces[2];
 
-    console.log(`[portrait] calling replicate model=${PULID_MODEL} refs=${1 + auxFaces.length} (from ${sorted.length} selfies)`);
+    console.log(`[portrait] calling replicate model=${PULID_MODEL} refs=1 (from ${sorted.length} selfies)`);
 
     const createRes = await fetch(`https://api.replicate.com/v1/predictions`, {
       method: "POST",
@@ -161,8 +160,10 @@ async function generateWithPulidFlux(params: {
       binary += String.fromCharCode(...buf.subarray(i, i + chunk));
     }
     const b64 = btoa(binary);
-    console.log(`[portrait] provider=pulid-flux status=succeeded latency=${latency}s`);
-    return { ok: true, dataUrl: `data:image/jpeg;base64,${b64}` };
+    // Detect mime from Replicate URL extension (webp by default for flux-pulid)
+    const mime = imageUrl.toLowerCase().includes(".webp") ? "image/webp" : "image/jpeg";
+    console.log(`[portrait] provider=pulid-flux status=succeeded latency=${latency}s mime=${mime}`);
+    return { ok: true, dataUrl: `data:${mime};base64,${b64}` };
   } catch (e) {
     return { ok: false, reason: `exception:${e instanceof Error ? e.message : String(e)}` };
   }
