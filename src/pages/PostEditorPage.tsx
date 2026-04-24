@@ -1205,7 +1205,7 @@ const PostEditorPage = () => {
               swappingBackground,
               imageSearchQuery: (day?.theme || day?.caption || "").toString(),
               onUnsplashPick: (photographer: PhotographerInfo) => setActivePhotographer(photographer),
-              onSwapBackgroundUrl: (url: string) => {
+              onSwapBackgroundUrl: (url: string, source?: "ai" | "unsplash" | "saved") => {
                 setOverlayImages(prev => {
                   const idx = prev.findIndex(o => o.id.startsWith("tpl-bg-"));
                   if (idx >= 0) {
@@ -1221,9 +1221,13 @@ const PostEditorPage = () => {
                     ...prev,
                   ];
                 });
-                // Salva automaticamente na galeria pessoal (Unsplash ou IA — auto-detectado pela URL)
-                console.log("PostEditor: onSwapBackgroundUrl picked", url);
-                saveSinglePhotoToGallery(url).catch((e) => console.warn("save bg to gallery failed", e));
+                // Salva automaticamente na galeria pessoal — só quando NÃO veio da própria galeria.
+                console.log("PostEditor: onSwapBackgroundUrl picked", { url, source });
+                if (source !== "saved") {
+                  const hint: "ai" | "unsplash" | undefined =
+                    source === "ai" ? "ai" : source === "unsplash" ? "unsplash" : undefined;
+                  saveSinglePhotoToGallery(url, hint).catch((e) => console.warn("save bg to gallery failed", e));
+                }
               },
               onAIGenerated: debitRegenerationCredit,
               regenerationCredits: balances?.regeneration_credits ?? 0,
