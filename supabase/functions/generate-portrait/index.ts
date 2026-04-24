@@ -15,9 +15,38 @@ const STUDIO_STYLES = [
   "Muted olive-gray backdrop with soft vignette and warm fill light. Two-light setup, elegant and understated. Professional branding aesthetic.",
 ];
 
-const INSTANT_ID_MODEL = "zsxkib/instant-id";
+const PULID_MODEL = "zsxkib/pulid-flux";
 
-async function generateWithInstantId(params: {
+// Cache the resolved version hash in worker memory (per cold start)
+let cachedPulidVersion: string | null = null;
+
+async function resolvePulidVersion(token: string): Promise<string | null> {
+  if (cachedPulidVersion) return cachedPulidVersion;
+  try {
+    const res = await fetch(`https://api.replicate.com/v1/models/${PULID_MODEL}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) {
+      const txt = await res.text();
+      console.log(`[portrait][diag] resolve-version FAIL status=${res.status} body=${txt.slice(0, 300)}`);
+      return null;
+    }
+    const data = await res.json();
+    const version = data?.latest_version?.id;
+    if (typeof version === "string" && version.length > 0) {
+      cachedPulidVersion = version;
+      console.log(`[portrait] resolved pulid-flux version=${version}`);
+      return version;
+    }
+    console.log(`[portrait][diag] resolve-version: no latest_version.id in response`);
+    return null;
+  } catch (e) {
+    console.log(`[portrait][diag] resolve-version exception=${e instanceof Error ? e.message : String(e)}`);
+    return null;
+  }
+}
+
+async function generateWithPulidFlux(params: {
   selfieDataUrls: string[];
   prompt: string;
   token: string;
@@ -25,28 +54,12 @@ async function generateWithInstantId(params: {
   const { selfieDataUrls, prompt, token } = params;
   const start = Date.now();
   try {
-    // InstantID uses 1 strong reference image. Pick the largest selfie (proxy for most detailed).
+    // Sort selfies by size (proxy for detail), pick best as main, rest as auxiliary (up to 3)
     const sorted = [...selfieDataUrls]
       .map((s, i) => ({ s, size: s.length, i }))
       .sort((a, b) => b.size - a.size);
-    const ref1 = sorted[0]?.s;
-
-    const input: Record<string, unknown> = {
-      image: ref1,
-      prompt,
-      negative_prompt: "(lowres, low quality, worst quality:1.2), (text:1.2), watermark, painting, drawing, illustration, glitch, deformed, mutated, cross-eyed, ugly, disfigured",
-      width: 1024,
-      height: 1024,
-      num_inference_steps: 30,
-      guidance_scale: 5,
-      ip_adapter_scale: 0.8,
-      controlnet_conditioning_scale: 0.8,
-      num_outputs: 1,
-      output_format: "jpg",
-      output_quality: 95,
-    };
-
-    console.log(`[portrait] calling replicate model=${INSTANT_ID_MODEL} refs=1 (from ${sorted.length} selfies)`);
+    const mainFace = sorted[0]?.s;
+    const auxFaces = sorted.slice(1, 4).map((x) => x.s);
 
     // DIAG: validate which Replicate account this token belongs to
     try {
@@ -55,21 +68,44 @@ async function generateWithInstantId(params: {
       });
       const acctText = await acctRes.text();
       console.log(`[portrait][diag] account-check status=${acctRes.status} body=${acctText.slice(0, 300)}`);
-      // Token fingerprint (first 8 + last 4) so we can confirm WHICH token is loaded without leaking it
       const fp = `${token.slice(0, 8)}...${token.slice(-4)} len=${token.length}`;
       console.log(`[portrait][diag] token-fingerprint=${fp}`);
     } catch (e) {
       console.log(`[portrait][diag] account-check exception=${e instanceof Error ? e.message : String(e)}`);
     }
 
-    const createRes = await fetch(`https://api.replicate.com/v1/models/${INSTANT_ID_MODEL}/predictions`, {
+    const version = await resolvePulidVersion(token);
+    if (!version) {
+      return { ok: false, reason: "could-not-resolve-version" };
+    }
+
+    const input: Record<string, unknown> = {
+      main_face_image: mainFace,
+      prompt,
+      negative_prompt: "(lowres, low quality, worst quality:1.2), (text:1.2), watermark, painting, drawing, illustration, glitch, deformed, mutated, cross-eyed, ugly, disfigured",
+      width: 1024,
+      height: 1024,
+      num_steps: 20,
+      guidance_scale: 4,
+      id_weight: 1.05,
+      true_cfg: 1,
+      output_format: "jpg",
+      output_quality: 95,
+    };
+    if (auxFaces[0]) input.auxiliary_face_image_1 = auxFaces[0];
+    if (auxFaces[1]) input.auxiliary_face_image_2 = auxFaces[1];
+    if (auxFaces[2]) input.auxiliary_face_image_3 = auxFaces[2];
+
+    console.log(`[portrait] calling replicate model=${PULID_MODEL} refs=${1 + auxFaces.length} (from ${sorted.length} selfies)`);
+
+    const createRes = await fetch(`https://api.replicate.com/v1/predictions`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
         Prefer: "wait=5",
       },
-      body: JSON.stringify({ input }),
+      body: JSON.stringify({ version, input }),
     });
 
     if (!createRes.ok) {
