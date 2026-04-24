@@ -285,7 +285,9 @@ const PortraitGenerator = () => {
     trainSelfies.forEach((s) => URL.revokeObjectURL(s.preview));
   }, []);
 
-  const isMonthlyPlan = subscription?.billing_type === "monthly" && subscription?.status === "active";
+  const isMonthlyPlan =
+    subscription?.status === "active" &&
+    subscription?.plan_slug !== "semana_conteudo";
 
   return (
     <DashboardLayout>
