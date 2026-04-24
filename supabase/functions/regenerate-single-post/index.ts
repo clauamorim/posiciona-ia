@@ -3,6 +3,7 @@ import { corsHeaders } from "../_shared/cors.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { extractJsonFromLLM } from "../_shared/jsonExtract.ts";
 import { EDITORIAL_GENERATOR_VERSION, isOutdatedVersion } from "../_shared/generatorVersion.ts";
+import { sanitizePost, countFrameworkLeaks } from "../_shared/editorialSanitize.ts";
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 const API_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
@@ -198,8 +199,47 @@ Gere 1 novo post no formato "${format}" agora.`;
       );
     }
 
+    // Backend sanitization
+    let cleaned = sanitizePost(post as Record<string, unknown>);
+    let leaks = countFrameworkLeaks(cleaned);
+
+    // If still "framework-y", retry once with stricter prompt
+    if (leaks > 0) {
+      console.warn(`Single-post framework leaks (${leaks}). Retrying stricter.`);
+      const stricter = systemPrompt +
+        `\n\n⚠️ ÚLTIMA TENTATIVA: a resposta anterior continha rótulos PROIBIDOS. REESCREVA tudo em copy direta. ZERO rótulos estruturais visíveis.`;
+      try {
+        const retryResp = await fetch(API_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${LOVABLE_API_KEY}` },
+          body: JSON.stringify({
+            model: "google/gemini-2.5-flash",
+            messages: [
+              { role: "system", content: stricter },
+              { role: "user", content: userContent },
+            ],
+            max_tokens: 3000,
+          }),
+        });
+        if (retryResp.ok) {
+          const retryData = await retryResp.json();
+          const retryRaw = retryData.choices?.[0]?.message?.content || "";
+          const retryParsed = extractJsonFromLLM(retryRaw);
+          if (retryParsed && typeof retryParsed === "object" && !Array.isArray(retryParsed)) {
+            const retryClean = sanitizePost(retryParsed as Record<string, unknown>);
+            if (countFrameworkLeaks(retryClean) < leaks) {
+              cleaned = retryClean;
+              leaks = countFrameworkLeaks(retryClean);
+            }
+          }
+        }
+      } catch (retryErr) {
+        console.error("Stricter single-post retry failed:", retryErr);
+      }
+    }
+
     // Stamp post with current generator version
-    const stampedPost = { ...(post as Record<string, unknown>), generator_version: EDITORIAL_GENERATOR_VERSION };
+    const stampedPost = { ...cleaned, generator_version: EDITORIAL_GENERATOR_VERSION };
 
     return new Response(JSON.stringify({ post: stampedPost, free: !!freeRegeneration }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
