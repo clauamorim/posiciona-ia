@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { signedUserUploadUrl } from "@/lib/userGalleryUrl";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -64,15 +65,23 @@ const MyGalleryPage = () => {
       setLoading(false);
       return;
     }
-    const rows: GalleryRow[] = (data || []).map((r: any) => {
-      const { data: pub } = supabase.storage.from("user-uploads").getPublicUrl(r.file_path);
-      return { ...r, publicUrl: pub.publicUrl };
-    });
+    // Bucket é privado — sempre usar URL assinada para exibir thumbnails.
+    const rows: GalleryRow[] = await Promise.all((data || []).map(async (r: any) => {
+      const url = await signedUserUploadUrl(r.file_path);
+      return { ...r, publicUrl: url };
+    }));
     setItems(rows);
     setLoading(false);
   };
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [user]);
+  useEffect(() => {
+    load();
+    // Recarrega quando uma nova imagem IA/Unsplash é salva pelo editor
+    const handler = () => load();
+    window.addEventListener("posiciona:gallery-updated", handler);
+    return () => window.removeEventListener("posiciona:gallery-updated", handler);
+    /* eslint-disable-next-line */
+  }, [user]);
 
   const filtered = useMemo(() => {
     if (filter === "all") return items;

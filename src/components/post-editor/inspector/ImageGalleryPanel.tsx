@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search, Loader2, Sparkles, Image as ImageIcon } from "lucide-react";
 import { fetchImageGallery, generateAIImage, type PhotographerInfo } from "@/lib/postAutoLayout";
+import { signedUserUploadUrl } from "@/lib/userGalleryUrl";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -22,6 +23,10 @@ interface ImageGalleryPanelProps {
   regenerationCredits?: number;
   niche?: string;
   businessContext?: string;
+  /** Legenda do post — refina busca/IA. */
+  caption?: string;
+  /** Corpo do post (card_copy do slide atual ou texto editado). */
+  postBody?: string;
 }
 
 interface GalleryItem {
