@@ -1,12 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-import { extractJsonFromLLM } from "../_shared/jsonExtract.ts";
 import { EDITORIAL_GENERATOR_VERSION, isOutdatedVersion } from "../_shared/generatorVersion.ts";
-import { sanitizeWeek, sanitizePost, countWeekLeaks, countFrameworkLeaks } from "../_shared/editorialSanitize.ts";
+import { sanitizeWeek } from "../_shared/editorialSanitize.ts";
 
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-const API_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
@@ -84,79 +81,6 @@ async function fetchReferencePdfs(): Promise<{ mime_type: string; data: string }
     console.error("Error fetching reference PDFs:", e);
     return [];
   }
-}
-
-async function callGemini(systemPrompt: string, userContent: any, timeoutMs = 90000): Promise<string> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
-  let response: Response;
-  try {
-    response = await fetch(API_URL, {
-      method: "POST",
-      signal: controller.signal,
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userContent },
-        ],
-        max_tokens: 6000,
-      }),
-    });
-  } catch (e: any) {
-    clearTimeout(timeoutId);
-    if (e?.name === "AbortError") {
-      const err = new Error("Tempo limite excedido na chamada à IA") as Error & { status?: number; userMessage?: string };
-      err.status = 504;
-      err.userMessage = "A IA demorou para responder. Tente novamente em alguns segundos.";
-      throw err;
-    }
-    throw e;
-  } finally {
-    clearTimeout(timeoutId);
-  }
-
-  if (!response.ok) {
-    const errText = await response.text();
-    const err = new Error(`AI API error: ${response.status} - ${errText}`) as Error & {
-      status?: number;
-      userMessage?: string;
-    };
-    err.status = response.status;
-
-    if (response.status === 402) {
-      err.userMessage = "A geração de conteúdo está temporariamente indisponível. Tente novamente em alguns instantes.";
-    } else if (response.status === 429) {
-      err.userMessage = "Muitas solicitações ao mesmo tempo. Aguarde um pouco e tente novamente.";
-    }
-
-    throw err;
-  }
-
-  let data: any;
-  try {
-    data = await response.json();
-  } catch (parseErr) {
-    const err = new Error("Resposta vazia da IA") as Error & { status?: number; userMessage?: string };
-    err.status = 502;
-    err.userMessage = "A IA demorou para responder. Tente novamente em alguns segundos.";
-    throw err;
-  }
-
-  const content = data?.choices?.[0]?.message?.content;
-  if (typeof content !== "string" || !content.trim()) {
-    const err = new Error("Conteúdo vazio da IA") as Error & { status?: number; userMessage?: string };
-    err.status = 502;
-    err.userMessage = "A IA demorou para responder. Tente novamente em alguns segundos.";
-    throw err;
-  }
-
-  return content;
 }
 
 serve(async (req) => {
