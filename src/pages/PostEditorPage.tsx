@@ -871,21 +871,24 @@ const PostEditorPage = () => {
       const title = asTemplate ? `Modelo · ${baseTitle}` : baseTitle;
 
       // Persistir fotos do post na galeria do usuário (Unsplash + IA)
-      await persistPostPhotosToGallery();
+      const addedToGallery = await persistPostPhotosToGallery();
+      const galleryNote = addedToGallery > 0
+        ? ` ${addedToGallery} foto${addedToGallery > 1 ? "s" : ""} adicionada${addedToGallery > 1 ? "s" : ""} à sua galeria.`
+        : "";
 
       if (currentDesignId && !asTemplate) {
         const { error } = await supabase.from("user_designs")
           .update({ title, state, thumbnail, week_index: weekIndex, day_index: dayIndex, updated_at: new Date().toISOString() })
           .eq("id", currentDesignId).eq("user_id", user.id);
         if (error) throw error;
-        toast({ title: "Design atualizado" });
+        toast({ title: "Design atualizado", description: galleryNote || undefined });
       } else {
         const { data, error } = await supabase.from("user_designs")
           .insert({ user_id: user.id, title, state, thumbnail, week_index: weekIndex, day_index: dayIndex, is_template: asTemplate } as any)
           .select("id").single();
         if (error) throw error;
         if (data && !asTemplate) setCurrentDesignId(data.id);
-        toast({ title: asTemplate ? "Modelo salvo" : "Design salvo" });
+        toast({ title: asTemplate ? "Modelo salvo" : "Design salvo", description: galleryNote || undefined });
       }
     } catch (err: any) {
       console.error(err);
