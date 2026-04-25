@@ -339,9 +339,13 @@ serve(async (req) => {
       }
     }
 
+    const selfiesCount = (training as any).selfies_count ?? 0;
+    const loraScale = pickLoraScale(selfiesCount);
+
     console.log(
       `[generate-portrait] archetype=${archetypeName} family=${family} profession="${profession}" ` +
       `category=${profCategory} requestedCount=${requestedCount} outfitSource=${outfitSource} ` +
+      `selfiesCount=${selfiesCount} loraScale=${loraScale} ` +
       `outfits=${JSON.stringify(outfitsForLooks)} poses=${JSON.stringify(selectedPoses)} ` +
       `poseCats=${JSON.stringify(selectedPoseCategories)}`,
     );
