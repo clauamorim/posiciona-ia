@@ -318,67 +318,162 @@ const EditorialPage = () => {
     setGeneratingMessage("");
   };
 
-  const handleRegeneratePost = async (weekIndex: number, dayIndex: number, freeMode = false) => {
+  // Regenera o feed (e o story do mesmo dia em cascata) ou regenera só um story livre.
+  // target = "feed" → cobra 1 crédito e atualiza feed + story (se houver).
+  // target = "story" → permitido apenas quando day.feed == null. Cobra 1 crédito.
+  const handleRegenerateItem = async (
+    weekIndex: number,
+    dayIndex: number,
+    target: "feed" | "story",
+    freeMode = false,
+  ) => {
     if (!user) return;
     if (!freeMode && regenerationCredits < 1) {
       toast({ title: "Créditos insuficientes", description: "Você não tem créditos de ajuste de conteúdo.", variant: "destructive" });
       return;
     }
-    const key = `${weekIndex}-${dayIndex}`;
+    const key = `${weekIndex}-${dayIndex}-${target}`;
     setRegeneratingPost(key);
     try {
       if (!(await ensureFreshSession())) { setRegeneratingPost(null); return; }
       const week = allWeeks[weekIndex];
-      const day = week[dayIndex];
+      const day = week.days[dayIndex];
+
+      if (target === "feed" && !day.feed) {
+        throw new Error("Este dia não tem post de feed para regenerar.");
+      }
+      if (target === "story" && day.feed) {
+        throw new Error("Stories que espelham o feed são atualizados junto com o feed.");
+      }
+
       const [{ data: bq }, { data: profile }, { data: reportData }] = await Promise.all([
         supabase.from("business_questionnaires").select("*").eq("user_id", user.id).order("version", { ascending: false }).limit(1).single(),
         supabase.from("profiles").select("niche").eq("user_id", user.id).single(),
         supabase.from("reports").select("content").eq("user_id", user.id).eq("status", "completed").order("version", { ascending: false }).limit(1).single(),
       ]);
       const reportContent = normalizeReportContent(reportData?.content) as Record<string, any> | null;
-      // Envia apenas o tema (sem caption/script/card_copy) para evitar
-      // que a IA "ecoe" copy dos posts vizinhos na regeneração.
-      const existingPosts = allWeeks.flat().map((p: any) => ({ theme: p?.theme }));
-      const { data, error } = await supabase.functions.invoke("regenerate-single-post", {
-        body: {
-          format: day.format, theme: day.theme, dayNumber: day.day || dayIndex + 1,
-          business: bq, niche: profile?.niche || "",
-          existingPosts,
-          storybrand: reportContent?.storybrand || null,
-          tone_of_voice: reportContent?.tone_of_voice || null,
-          freeRegeneration: freeMode,
-          currentVersion: day.generator_version || null,
-        },
-      });
-      if (error) throw new Error(await getFunctionErrorMessage(error, data, "Erro ao atualizar post."));
-      if (data?.error) throw new Error(data.error);
+
+      // Apenas temas (sem caption/script/card_copy) para evitar eco da IA.
+      const existingPosts = allWeeks.flatMap((w) =>
+        w.days.flatMap((d) => [
+          d.feed?.theme ? { theme: d.feed.theme } : null,
+          d.story?.theme ? { theme: d.story.theme } : null,
+        ].filter(Boolean) as { theme: string }[]),
+      );
+
+      const baseBody = {
+        business: bq,
+        niche: profile?.niche || "",
+        existingPosts,
+        storybrand: reportContent?.storybrand || null,
+        tone_of_voice: reportContent?.tone_of_voice || null,
+        freeRegeneration: freeMode,
+      };
+
+      let newFeed = day.feed;
+      let newStory = day.story;
+
+      if (target === "feed") {
+        // 1) Regenera o feed
+        const { data, error } = await supabase.functions.invoke("regenerate-single-post", {
+          body: {
+            ...baseBody,
+            target: "feed",
+            format: day.feed!.format,
+            theme: day.feed!.theme,
+            dayNumber: day.day || dayIndex + 1,
+            currentVersion: day.feed!.generator_version || day.generator_version || null,
+          },
+        });
+        if (error) throw new Error(await getFunctionErrorMessage(error, data, "Erro ao atualizar post."));
+        if (data?.error) throw new Error(data.error);
+        if (!data?.post) throw new Error("Resposta vazia da IA.");
+        newFeed = data.post;
+
+        // 2) Regenera o story do mesmo dia espelhando o novo feed (sem cobrar crédito extra).
+        try {
+          const { data: storyData, error: storyError } = await supabase.functions.invoke("regenerate-single-post", {
+            body: {
+              ...baseBody,
+              target: "story",
+              dayNumber: day.day || dayIndex + 1,
+              siblingFeed: {
+                theme: newFeed!.theme,
+                format: newFeed!.format,
+                caption: newFeed!.caption,
+              },
+              freeRegeneration: true, // pareado: não cobra
+            },
+          });
+          if (storyError) throw new Error(await getFunctionErrorMessage(storyError, storyData, "Erro ao atualizar o story do dia."));
+          if (storyData?.error) throw new Error(storyData.error);
+          if (storyData?.story) newStory = storyData.story;
+        } catch (storyErr: any) {
+          // Mantém o story antigo se a 2ª chamada falhar — feed já foi atualizado.
+          console.error("Falha ao regenerar story pareado:", storyErr);
+          toast({
+            title: "Feed atualizado, mas o story manteve o conteúdo anterior",
+            description: "Você pode tentar regenerar novamente em instantes.",
+          });
+        }
+      } else {
+        // target === "story" — story livre (dia sem feed)
+        const { data, error } = await supabase.functions.invoke("regenerate-single-post", {
+          body: {
+            ...baseBody,
+            target: "story",
+            dayNumber: day.day || dayIndex + 1,
+            // siblingFeed omitido → função entende como story livre/pessoal
+          },
+        });
+        if (error) throw new Error(await getFunctionErrorMessage(error, data, "Erro ao atualizar story."));
+        if (data?.error) throw new Error(data.error);
+        if (!data?.story) throw new Error("Resposta vazia da IA.");
+        newStory = data.story;
+      }
+
+      // Monta o dia atualizado no shape v6 e grava a semana inteira.
+      const updatedDay: DayV6 = {
+        day: day.day || dayIndex + 1,
+        feed: newFeed,
+        story: newStory,
+        generator_version: EDITORIAL_GENERATOR_VERSION,
+      };
+      const updatedWeek: WeekV6 = {
+        days: week.days.map((d, i) => (i === dayIndex ? updatedDay : d)),
+      };
 
       const isFirstWeek = structuredEditorial.length > 0 && weekIndex === 0;
       if (isFirstWeek) {
-        const newEditorial = [...structuredEditorial];
-        newEditorial[dayIndex] = data.post;
-        const newContent = { ...content, editorial: newEditorial };
-        await supabase.from("reports").update({ content: newContent }).eq("user_id", user.id).eq("version", report.version);
+        const newContent = { ...content, editorial: updatedWeek };
+        await supabase.from("reports").update({ content: newContent as any }).eq("user_id", user.id).eq("version", report.version);
         setReport({ ...report, content: newContent });
       } else {
         const adjustedWeekIndex = structuredEditorial.length > 0 ? weekIndex - 1 : weekIndex;
         const newWeeks = [...editorialWeeks];
-        newWeeks[adjustedWeekIndex] = [...newWeeks[adjustedWeekIndex]];
-        newWeeks[adjustedWeekIndex][dayIndex] = data.post;
-        await supabase.from("reports").update({ editorial_weeks: newWeeks }).eq("user_id", user.id).eq("version", report.version);
+        newWeeks[adjustedWeekIndex] = updatedWeek;
+        await supabase.from("reports").update({ editorial_weeks: newWeeks as any }).eq("user_id", user.id).eq("version", report.version);
         setReport({ ...report, editorial_weeks: newWeeks });
       }
 
       if (!freeMode) {
         await supabase.from("user_balances").update({ regeneration_credits: regenerationCredits - 1 }).eq("user_id", user.id);
+        const themeForLog = target === "feed" ? (newFeed?.theme || day.feed?.theme || "") : (newStory?.theme || day.story?.theme || "");
         await supabase.from("credit_logs").insert({
-          user_id: user.id, credit_type: "regeneration", amount: -1, description: `Ajuste de conteúdo: ${day.theme}`,
+          user_id: user.id, credit_type: "regeneration", amount: -1,
+          description: `Ajuste de conteúdo (${target}): ${themeForLog}`,
         });
         await refreshSubscription();
       }
-      toast({ title: freeMode ? "Post atualizado sem custo" : "Post regenerado com sucesso!" });
+      toast({
+        title: freeMode
+          ? "Conteúdo atualizado sem custo"
+          : target === "feed"
+            ? "Post e story do dia regenerados!"
+            : "Story regenerado com sucesso!",
+      });
     } catch (err: any) {
-      toast({ title: "Erro ao regenerar post", description: err.message, variant: "destructive" });
+      toast({ title: "Erro ao regenerar conteúdo", description: err.message, variant: "destructive" });
     }
     setRegeneratingPost(null);
   };
@@ -773,10 +868,11 @@ const EditorialPage = () => {
                                   )}
                                   <Button
                                     variant="ghost" size="sm" className="h-7 text-[11px] gap-1 px-2"
-                                    onClick={() => handleRegeneratePost(wi, di)}
-                                    disabled={regeneratingPost === regenKey || regenerationCredits < 1}
+                                    onClick={() => handleRegenerateItem(wi, di, "feed")}
+                                    disabled={regeneratingPost === `${regenKey}-feed` || regenerationCredits < 1}
+                                    title="O story deste dia será atualizado junto."
                                   >
-                                    {regeneratingPost === regenKey ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                                    {regeneratingPost === `${regenKey}-feed` ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
                                     Regenerar
                                   </Button>
                                 </div>
@@ -819,6 +915,20 @@ const EditorialPage = () => {
                               </>
                             ) : (
                               <p className="text-xs text-muted-foreground italic">Story ainda não gerado.</p>
+                            )}
+                            {/* Botão de regenerar story aparece SOMENTE em dias sem post de feed.
+                                Stories que espelham o feed são atualizados junto com a regeneração do feed. */}
+                            {!feed && (
+                              <div className="flex flex-wrap gap-1.5 pt-1" data-hide-pdf>
+                                <Button
+                                  variant="ghost" size="sm" className="h-7 text-[11px] gap-1 px-2"
+                                  onClick={() => handleRegenerateItem(wi, di, "story")}
+                                  disabled={regeneratingPost === `${regenKey}-story` || regenerationCredits < 1}
+                                >
+                                  {regeneratingPost === `${regenKey}-story` ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                                  Regenerar story
+                                </Button>
+                              </div>
                             )}
                           </div>
                         </div>
