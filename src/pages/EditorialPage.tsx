@@ -229,7 +229,7 @@ const EditorialPage = () => {
       const { data: enqueueData, error: enqueueError } = await supabase.functions.invoke("generate-content-week", {
          body: {
           business: bq, niche: profile?.niche || "",
-          previousWeeks: allWeeks.map((week: any[]) => week.map((d: any) => ({ day: d.day, theme: d.theme, format: d.format }))),
+          previousWeeks: allWeeks.map((week) => week.days.map((d) => ({ day: d.day, theme: d.feed?.theme || d.story?.theme || "", format: d.feed?.format || "stories" }))),
           weekNumber: allWeeks.length + 1,
           storybrand: reportContent?.storybrand || null,
           tone_of_voice: reportContent?.tone_of_voice || null,
