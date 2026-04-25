@@ -16,13 +16,17 @@ export type ArchetypeName =
   | "Bobo-da-corte";
 
 // Reforço aplicado a todos os prompts: garante cenário de estúdio.
-const STUDIO_PREFIX = "professional photography studio, controlled studio lighting, ";
-// Negative base — aplicado a TODOS os looks. Inclui supressão FORTE de mãos visíveis,
-// já que nossa estratégia agora é esconder mãos em todos os looks (out of frame,
-// behind back, deep pockets, ou cobertas por objeto). Sem dedos visíveis = 0% deformidade.
-const STUDIO_NEGATIVE_BASE = ", outdoor, street, natural daylight, trees, buildings, sky, park, beach, low quality, blurry, deformed face, asymmetric eyes, extra arms, three hands, four hands, mutated hands, extra limbs, missing limbs, disfigured, malformed, duplicate, two heads, cloned face, bad anatomy, multiple people, generic face, idealized face, ai-generated face, plastic skin, airbrushed skin, beauty filter, smoothed skin, different person, face swap, average face, model face, stock photo face, visible fingers, exposed fingers, prominent hand details, fingertips, knuckles, deformed hands, extra fingers, fused fingers, malformed hands, missing fingers, six fingers, seven fingers, four fingers, twisted fingers, bent fingers, claw hands, splayed fingers, pointing fingers";
-// Reforço de anatomia de mãos — aplicado APENAS aos looks que mostram mãos (claro/escuro).
-const HANDS_NEGATIVE_REINFORCE = ", extra fingers, six fingers, seven fingers, four fingers, fused fingers, deformed fingers, disfigured fingers, misshapen hands, bent broken fingers, twisted fingers, clenched fists, stiff claw hands, symmetrical fist pose, hands floating awkwardly, tense rigid fingers";
+// Encurtado pra liberar orçamento de atenção do Flux.
+const STUDIO_PREFIX = "professional editorial portrait, ";
+// Sufixo de qualidade — aplicado UMA VEZ no fim de todo prompt. Mantém densidade
+// fotográfica sem inflar cada template do arquétipo.
+const QUALITY_SUFFIX = "fine skin pores, natural skin texture, photorealistic, shot on Sony A7, 85mm f/1.4, shallow depth of field";
+// Negative base ENXUTO — só o essencial. Tokens demais competem pela atenção do
+// modelo e pioram qualidade visual. Mantemos só o que evita problemas reais.
+const STUDIO_NEGATIVE_BASE = ", plastic skin, beauty filter, smoothed skin, airbrushed, deformed hands, extra fingers, deformed face, asymmetric eyes, multiple people, watermark, low quality, blurry";
+// Reforço de anatomia de mãos — aplicado APENAS aos looks que mostram mãos
+// (atualmente nenhum, já que estamos em modo hands-out-of-frame).
+const HANDS_NEGATIVE_REINFORCE = ", extra fingers, deformed fingers, fused fingers, claw hands";
 
 // ============================================================================
 // POOL DE POSES — estratégia "MÃOS INVISÍVEIS".
@@ -178,87 +182,91 @@ export function getArchetypeFamily(archetype: string): ArchetypeFamily {
   return ARCHETYPE_FAMILY[archetype] ?? "nurturing";
 }
 
+// Templates ENXUTOS por arquétipo. Mantemos só a essência: expressão, iluminação,
+// fundo. Os tokens de qualidade (pele, câmera, lente) vão no QUALITY_SUFFIX único.
+// Estrutura: USR[id] [gender], {essência}, [outfit], [hair], [makeup]
 export const ARCHETYPE_PROMPTS: Record<ArchetypeName, { prompt: string; negative: string }> = {
   "Governante": {
-    prompt: "USR[id] [gender], powerful executive portrait, authoritative calm expression, hard directional lighting, dark textured studio background with subtle wall texture, [outfit], [hair], [makeup], strong posture, direct confident gaze, no smile, fine skin pores, sharp focus, photorealistic, shot on Sony A7, 85mm f/1.4, natural facial features, authentic face, individual hair strands",
-    negative: "plain white background, flat black background, soft lighting, casual, smiling, plastic skin, smooth hair, symmetrical face, artificial face, overly perfect features",
+    prompt: "USR[id] [gender], authoritative calm expression, hard directional lighting, dark textured studio background, [outfit], [hair], [makeup], strong upright posture, direct confident gaze, no smile",
+    negative: "casual, smiling, soft lighting, flat white background",
   },
   "Sábio": {
-    prompt: "USR[id] [gender], intellectual professional portrait, calm contemplative expression, soft Rembrandt lighting, warm dark textured studio background, subtle linen or concrete wall texture, [outfit], [hair], [makeup], slight tilt of head, thoughtful gaze, no smile, fine skin pores, sharp focus, photorealistic, shot on Sony A7, 85mm f/1.4, natural facial features, authentic face, individual hair strands",
-    negative: "plain white background, flat black background, harsh lighting, casual, smiling, plastic skin, smooth hair, symmetrical face, artificial face, overly perfect features",
+    prompt: "USR[id] [gender], calm contemplative expression, soft Rembrandt lighting, deep dark background, [outfit], [hair], [makeup], slight head tilt, thoughtful gaze, no smile",
+    negative: "casual, wide smile, harsh lighting, bright background",
   },
   "Cuidador": {
-    prompt: "USR[id] [gender], warm professional portrait, gentle approachable expression, soft diffused lighting, warm textured studio background, soft beige or warm grey wall texture, [outfit], [hair], [makeup], slight natural smile, open body language, fine skin pores, sharp focus, photorealistic, shot on Canon R5, 85mm f/1.8, natural facial features, authentic face, individual hair strands",
-    negative: "plain white background, flat black background, harsh lighting, dark background, serious expression, plastic skin, symmetrical face, artificial face, overly perfect features",
+    prompt: "USR[id] [gender], gentle approachable expression, soft diffused lighting, warm beige background, [outfit], [hair], [makeup], slight natural smile, open relaxed posture",
+    negative: "harsh lighting, dark moody background, serious cold expression",
   },
   "Criador": {
-    prompt: "USR[id] [gender], creative professional portrait, expressive authentic expression, dramatic side lighting, artistic textured studio background, weathered plaster or mixed tones wall texture, [outfit], [hair], [makeup], artistic pose, intense gaze, fine skin pores, sharp focus, photorealistic, shot on Leica M, 50mm f/1.4, natural facial features, authentic face, individual hair strands",
-    negative: "plain white background, flat black background, corporate look, flat lighting, stiff pose, plastic skin, symmetrical face, artificial face, overly perfect features",
+    prompt: "USR[id] [gender], expressive authentic expression, dramatic side lighting, weathered artistic background, [outfit], [hair], [makeup], natural creative pose, intense gaze",
+    negative: "corporate look, flat lighting, stiff symmetrical pose",
   },
   "Herói": {
-    prompt: "USR[id] [gender], dynamic professional portrait, determined strong expression, high contrast dramatic lighting, deep textured studio background, dark grey stone or concrete wall texture, [outfit], [hair], [makeup], forward-leaning posture, intense direct gaze, jaw set, fine skin pores, sharp focus, photorealistic, shot on Nikon Z9, 85mm f/1.4, natural facial features, authentic face, individual hair strands",
-    negative: "plain white background, flat black background, soft lighting, casual, relaxed expression, plastic skin, symmetrical face, artificial face, overly perfect features",
+    prompt: "USR[id] [gender], determined strong expression, high contrast dramatic lighting, dark stone background, [outfit], [hair], [makeup], forward-leaning posture, intense direct gaze, jaw set",
+    negative: "soft lighting, casual relaxed expression, washed out background",
   },
   "Explorador": {
-    prompt: "USR[id] [gender], authentic professional portrait, free confident expression, natural warm lighting, medium textured studio background, warm earthy tones wall texture, [outfit], [hair], [makeup], relaxed posture, genuine gaze, subtle smile, fine skin pores, sharp focus, photorealistic, shot on Fujifilm X-T5, 35mm f/1.4, natural facial features, authentic face, individual hair strands",
-    negative: "plain white background, flat black background, stiff corporate pose, dark dramatic background, plastic skin, symmetrical face, artificial face, overly perfect features",
+    prompt: "USR[id] [gender], free confident expression, natural warm lighting, earthy textured background, [outfit], [hair], [makeup], relaxed posture, genuine gaze, subtle smile",
+    negative: "stiff corporate pose, dark moody background, flat lighting",
   },
   "Inocente": {
-    prompt: "USR[id] [gender], fresh professional portrait, genuine warm expression, soft bright lighting, light textured studio background, soft warm white or pale grey wall texture, [outfit], [hair], [makeup], open natural smile, relaxed shoulders, fine skin pores, sharp focus, photorealistic, shot on Canon R5, 85mm f/1.8, natural facial features, authentic face, individual hair strands",
-    negative: "plain flat white background, flat black background, serious expression, dramatic lighting, plastic skin, symmetrical face, artificial face, overly perfect features",
+    prompt: "USR[id] [gender], genuine warm expression, soft bright lighting, light pale background, [outfit], [hair], [makeup], open natural smile, relaxed shoulders",
+    negative: "serious heavy expression, dramatic shadows, dark background",
   },
   "Cara-comum": {
-    prompt: "USR[id] [gender], approachable professional portrait, genuine relatable expression, soft natural lighting, simple textured studio background, neutral mid-tone wall texture, [outfit], [hair], [makeup], natural relaxed posture, warm gaze, light smile, fine skin pores, sharp focus, photorealistic, shot on Sony A7, 50mm f/1.8, natural facial features, authentic face, individual hair strands",
-    negative: "plain white background, flat black background, dramatic lighting, stiff corporate pose, plastic skin, symmetrical face, artificial face, overly perfect features",
+    prompt: "USR[id] [gender], approachable relatable expression, soft natural lighting, neutral mid-tone background, [outfit], [hair], [makeup], natural relaxed posture, warm gaze, light smile",
+    negative: "dramatic lighting, stiff corporate pose, intense expression",
   },
   "Mago": {
-    prompt: "USR[id] [gender], visionary professional portrait, intense magnetic expression, dramatic chiaroscuro lighting, mysterious textured studio background, dark moody plaster or smoke-toned wall texture, [outfit], [hair], [makeup], slight forward lean, piercing gaze, no smile, fine skin pores, sharp focus, photorealistic, shot on Sony A7, 85mm f/1.4, natural facial features, authentic face, individual hair strands",
-    negative: "plain white background, flat black background, flat lighting, casual expression, plastic skin, symmetrical face, artificial face, overly perfect features",
+    prompt: "USR[id] [gender], intense magnetic expression, dramatic chiaroscuro lighting, mysterious dark background, [outfit], [hair], [makeup], slight forward lean, piercing gaze, no smile",
+    negative: "flat lighting, casual cheerful expression, bright airy background",
   },
   "Amante": {
-    prompt: "USR[id] [gender], magnetic professional portrait, warm sophisticated expression, soft golden hour lighting, rich warm textured studio background, deep warm terracotta or burgundy wall texture, [outfit], [hair], [makeup], elegant posture, intense warm gaze, subtle smile, fine skin pores, sharp focus, photorealistic, shot on Leica M, 85mm f/1.2, natural facial features, authentic face, individual hair strands",
-    negative: "plain white background, flat black background, harsh lighting, stiff pose, cold tones, plastic skin, symmetrical face, artificial face, overly perfect features",
+    prompt: "USR[id] [gender], warm sophisticated expression, soft golden hour lighting, deep warm terracotta background, [outfit], [hair], [makeup], elegant posture, intense warm gaze, subtle smile",
+    negative: "harsh cold lighting, stiff pose, washed out tones",
   },
   "Rebelde": {
-    prompt: "USR[id] [gender], disruptive professional portrait, bold unconventional expression, high contrast dramatic lighting, edgy textured studio background, raw concrete or industrial wall texture, [outfit], [hair], [makeup], strong asymmetric pose, direct challenging gaze, fine skin pores, sharp focus, photorealistic, shot on Leica M, 35mm f/1.4, natural facial features, authentic face, individual hair strands",
-    negative: "plain white background, flat black background, corporate look, soft lighting, conventional pose, plastic skin, symmetrical face, artificial face, overly perfect features",
+    prompt: "USR[id] [gender], bold unconventional expression, high contrast dramatic lighting, raw industrial background, [outfit], [hair], [makeup], asymmetric pose, direct challenging gaze",
+    negative: "corporate look, soft polished lighting, conventional symmetrical pose",
   },
   "Bobo-da-corte": {
-    prompt: "USR[id] [gender], vibrant professional portrait, playful authentic expression, bright dynamic lighting, warm textured studio background, colorful warm-toned or eclectic wall texture, [outfit], [hair], [makeup], natural laugh or wide smile, energetic posture, fine skin pores, sharp focus, photorealistic, shot on Fujifilm X-T5, 50mm f/1.8, natural facial features, authentic face, individual hair strands",
-    negative: "plain white background, flat black background, serious expression, stiff pose, plastic skin, symmetrical face, artificial face, overly perfect features",
+    prompt: "USR[id] [gender], playful authentic expression, bright dynamic lighting, warm colorful background, [outfit], [hair], [makeup], natural laugh or wide smile, energetic posture",
+    negative: "serious heavy expression, stiff corporate pose, dark moody background",
   },
 };
 
-// Mapeamento de fundo para os 3 looks (Neutro / Claro / Escuro)
+// Mapeamento de fundo para os 3 looks (Neutro / Claro / Escuro).
+// Replacement curto, em linguagem natural, sem redundância.
 export const BACKGROUND_VARIATIONS = [
   { key: "neutro", label: "Neutro", replacement: null }, // mantém o fundo do arquétipo
-  { key: "claro", label: "Claro", replacement: "warm light textured studio background, soft warm tones" },
-  { key: "escuro", label: "Escuro", replacement: "dark moody textured studio background, deep shadow tones" },
+  { key: "claro", label: "Claro", replacement: "warm light background, soft warm tones" },
+  { key: "escuro", label: "Escuro", replacement: "dark moody background, deep shadow tones" },
 ] as const;
 
 /**
  * Framing por look. ESTRATÉGIA "MÃOS FORA DO FRAME EM 100%".
- * Todos os 3 looks são retratos editoriais cortados acima da linha das mãos.
- * Variamos APENAS distância de câmera e angulação dos ombros — o que dá variedade
- * visual sem nunca obrigar o modelo a desenhar mãos, dedos ou pulsos.
+ * Linguagem natural curta, sem pesos numéricos (Flux respeita melhor).
  *   - Look 0 (Neutro): close-up cabeça e ombros, frontal.
  *   - Look 1 (Claro): busto editorial peito e ombros, ombros levemente angulados.
- *   - Look 2 (Escuro): retrato 3/4 cortado bem acima da cintura, sem mãos no frame.
- * Em todos os 3 looks, `showsHands = false` — a pose de mãos é IGNORADA.
+ *   - Look 2 (Escuro): retrato chest-up, ombros sutilmente girados.
+ * Em todos os 3 looks, `showsHands = false`.
  */
 export const FRAMING_VARIATIONS = [
-  { key: "headshot", showsHands: false, instruction: "tight head and shoulders portrait, framed at upper chest, hands completely out of frame, no visible hands, no arms in frame" },
-  { key: "bust", showsHands: false, instruction: "editorial bust portrait, framed at mid-chest with shoulders slightly angled, hands completely out of frame, no visible hands, arms cropped below the frame" },
-  { key: "three-quarter-short", showsHands: false, instruction: "editorial three-quarter portrait cropped well above the waist, shoulders subtly turned, hands completely out of frame, no visible hands, arms relaxed and cropped below the frame" },
+  { key: "headshot", showsHands: false, instruction: "tight head and shoulders crop, hands out of frame" },
+  { key: "bust", showsHands: false, instruction: "mid-chest editorial bust crop, hands out of frame" },
+  { key: "chest-up", showsHands: false, instruction: "chest-up editorial portrait, shoulders subtly turned, hands out of frame" },
 ] as const;
 
-// Regex para localizar a "frase de fundo" no prompt do arquétipo.
-// Captura desde uma palavra-chave de iluminação/fundo até a vírgula imediatamente antes de "[outfit]".
+// Regex para localizar a "frase de fundo" nos novos templates enxutos.
+// Captura desde palavra-chave de fundo (com ou sem cor/tom prefixado) até a
+// vírgula antes de "[outfit]".
 // Exemplos cobertos:
-//   "dark textured studio background with subtle wall texture, [outfit]"
-//   "warm dark textured studio background, subtle linen or concrete wall texture, [outfit]"
-//   "warm textured studio background, soft beige or warm grey wall texture, [outfit]"
-const BACKGROUND_REGEX = /(?:warm |light |medium |deep |simple |mysterious |edgy |artistic |rich warm |[a-z\s]*?)?(?:dark |light |warm )?textured studio background[^,]*(?:,\s*[^,]*wall texture)?,\s*(?=\[outfit\])/i;
+//   "dark textured studio background, [outfit]"
+//   "deep dark background, [outfit]"
+//   "warm beige background, [outfit]"
+//   "earthy textured background, [outfit]"
+const BACKGROUND_REGEX = /[a-z\s-]*background[^,]*,\s*(?=\[outfit\])/i;
 
 export interface PhysicalTraits {
   gender: "woman" | "man";
@@ -302,26 +310,24 @@ export function buildPortraitPrompt(params: BuildPromptParams): {
   // Framing por look — controla se mãos aparecem no frame.
   const framing = FRAMING_VARIATIONS[params.backgroundIndex];
 
-  // Trigger word REAL do treino (USR + 12 hex). Se não vier, deriva do userId
-  // (mesma fórmula usada em portrait-train para retrocompat).
+  // Trigger word REAL do treino (USR + 12 hex). Se não vier, deriva do userId.
   const triggerWord = params.triggerWord
     || `USR${params.userId.replace(/-/g, "").slice(0, 12)}`;
 
-  // Trigger word DUPLICADO no início absoluto — Flux dá mais peso aos primeiros
-  // tokens. Duas menções logo de cara forçam atenção máxima ao LoRA, garantindo
-  // que o rosto gerado seja reconhecível como o da pessoa treinada.
-  let prompt = `${triggerWord}, portrait of ${triggerWord}, ` + STUDIO_PREFIX + tpl.prompt;
+  // Trigger SÓ UMA VEZ no início — espelha o que funcionou no Replicate UI manual.
+  // Duplicar trigger ou inflar com "portrait of X, identical face..." só dilui atenção.
+  let prompt = `${triggerWord}, ` + STUDIO_PREFIX + tpl.prompt;
   // Negative base + reforço de mãos APENAS se este look mostra mãos.
   let negative = tpl.negative + STUDIO_NEGATIVE_BASE + (framing.showsHands ? HANDS_NEGATIVE_REINFORCE : "");
 
-  // Reforço de gênero no negative para evitar troca (técnica conhecida em Flux LoRA)
+  // Reforço de gênero no negative para evitar troca (técnica conhecida em Flux LoRA).
   if (effectiveGender === "woman") {
     negative += ", man, beard, mustache, masculine features, male body";
   } else if (effectiveGender === "man") {
     negative += ", woman, feminine features, makeup, lipstick, female body";
   }
 
-  // 1. Substituir frase de fundo se Claro/Escuro
+  // 1. Substituir frase de fundo se Claro/Escuro.
   if (bg.replacement) {
     if (BACKGROUND_REGEX.test(prompt)) {
       prompt = prompt.replace(BACKGROUND_REGEX, `${bg.replacement}, `);
@@ -331,45 +337,35 @@ export function buildPortraitPrompt(params: BuildPromptParams): {
     }
   }
 
-  // 1b. Injeta a instrução de framing após o STUDIO_PREFIX (que vem após o trigger).
-  prompt = prompt.replace(STUDIO_PREFIX, `${STUDIO_PREFIX}(${framing.instruction}:1.5), `);
+  // 1b. Injeta a instrução de framing logo após o STUDIO_PREFIX, em texto natural
+  // (sem peso numérico). Estrutura final: "USR... professional editorial portrait, {framing}, ..."
+  prompt = prompt.replace(STUDIO_PREFIX, `${STUDIO_PREFIX}${framing.instruction}, `);
 
-  // 2. Substitui o placeholder USR[id] do template pelo trigger real (caso ainda apareça).
+  // 2. Substitui o placeholder USR[id] do template pelo trigger real.
   prompt = prompt.replace(/USR\[id\]/g, triggerWord);
 
-  // Reforço de gênero: duplica o token para ancorar Flux contra deriva
+  // Reforço de gênero: token simples, sem duplicação.
   if (effectiveGender === "none") {
     prompt = prompt.replace(/\[gender\]/g, "person");
   } else {
-    prompt = prompt.replace(/\[gender\]/g, `${effectiveGender}, portrait of a ${effectiveGender}`);
+    prompt = prompt.replace(/\[gender\]/g, effectiveGender);
   }
 
-  // 3. Injeção de traços físicos extraídos das selfies — ancora cabelo, pele, olhos
-  // contra deriva do LoRA. Inserido logo após o trigger USR<id>.
+  // 3. Injeção de traços físicos extraídos das selfies — ancora cabelo, pele, olhos.
   let traitPhrase = "";
   if (params.physicalTraits) {
     const t = params.physicalTraits;
     traitPhrase = `, with ${t.hair_length} ${t.hair_style} ${t.hair_color} hair, ${t.skin_tone} skin, ${t.eye_color} eyes`;
   }
 
-  // 3b. Injeção do OUTFIT logo após USR<id> + traços, com peso BAIXÍSSIMO.
-  // Pesos altos competem com o LoRA pelo orçamento de atenção e degradam
-  // anatomia/proporção do corpo. Mantemos peso quase neutro (1.05).
+  // 3b. OUTFIT em texto natural, sem peso. Linguagem que o Flux respeita melhor.
   const outfitText = (params.outfit || "").trim();
-  const outfitWeight = 1.05;
-  const outfitPhrase = outfitText ? `, (wearing ${outfitText}:${outfitWeight})` : "";
+  const outfitPhrase = outfitText ? `, wearing ${outfitText}` : "";
 
-  // 3b-bis. Pose de mãos: IGNORADA. Todos os looks agora são "hands out of frame".
-  // Mantemos a variável só pra logs no chamador, mas não injetamos no prompt.
-  const handPosePhrase = "";
+  // Injeta traços + outfit logo após o trigger USR<id>.
+  prompt = prompt.replace(/(USR\S+)/, `$1${traitPhrase}${outfitPhrase}`);
 
-  // 3b-ter. Reforço explícito de identidade — ancora o Flux ao LoRA e
-  // preserva texturas naturais de pele e cabelo. Crítico contra "rosto genérico".
-  const identityPhrase = ", preserve exact facial features, same person, identical face to reference, recognizable individual, distinctive facial structure, real person photograph, authentic skin pores, natural skin texture, unretouched skin, fine hair strands, individual hair fibers";
-
-  prompt = prompt.replace(/(USR\S+)/, `$1${identityPhrase}${traitPhrase}${outfitPhrase}${handPosePhrase}`);
-
-  // Esvazia o [outfit] do template original (já injetado acima com peso).
+  // Esvazia o [outfit] do template original (já injetado acima).
   prompt = prompt.replace(/\[outfit\]/g, "");
 
   // 3c. Negative específico do look — impede o Flux de "voltar" ao blazer padrão
@@ -397,7 +393,7 @@ export function buildPortraitPrompt(params: BuildPromptParams): {
     negative += ", formal trousers, suit pants";
   }
 
-  // Cabelo do figurino só é usado quando NÃO temos traços extraídos
+  // Cabelo do figurino só é usado quando NÃO temos traços extraídos.
   if (!params.physicalTraits && effectiveGender === "woman" && params.hair) {
     prompt = prompt.replace(/\[hair\]/g, params.hair);
   } else {
@@ -410,7 +406,10 @@ export function buildPortraitPrompt(params: BuildPromptParams): {
     prompt = prompt.replace(/\[makeup\]/g, "");
   }
 
-  // 4. Limpeza
+  // 4. Sufixo de qualidade UMA VEZ no fim. Tokens fotográficos sem competir com LoRA.
+  prompt = `${prompt}, ${QUALITY_SUFFIX}`;
+
+  // 5. Limpeza.
   prompt = cleanupPrompt(prompt);
 
   return { prompt, negative, backgroundKey: bg.key };
