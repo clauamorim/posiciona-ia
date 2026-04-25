@@ -344,12 +344,14 @@ serve(async (req) => {
       ? (lastGen as any).used_outfits
       : [];
 
-    // ===== POSES DE MÃOS (família-arquétipo) =====
+    // ===== POSES DE MÃOS por CATEGORIA gestual =====
+    // Look 0 (close-up) não usa pose. Looks 1 e 2 vêm de categorias DIFERENTES,
+    // evitando o problema de "duas poses parecidas" na mesma rodada.
     const family = getArchetypeFamily(archetypeName);
-    const fullPosePool = HAND_POSE_POOLS[family];
-    const filteredPosePool = fullPosePool.filter((p) => !recentlyUsedPoses.includes(p));
-    const workingPosePool = filteredPosePool.length >= 3 ? filteredPosePool : fullPosePool;
-    const selectedPoses = shuffle(workingPosePool).slice(0, 3);
+    const posesForLooks12 = pickPosesForLooks(family, recentlyUsedPoses, 2);
+    // Array indexado por look: [null, pose1, pose2]
+    const selectedPoses: (string | null)[] = [null, posesForLooks12[0]?.pose ?? null, posesForLooks12[1]?.pose ?? null];
+    const selectedPoseCategories = ["headshot", posesForLooks12[0]?.category ?? "—", posesForLooks12[1]?.category ?? "—"];
 
     // ===== FIGURINOS — prioridade: overrides > pool curado por profissão > buildOutfitTextForLook(figurino) =====
     const profCategory = mapProfessionToCategory(profession);
