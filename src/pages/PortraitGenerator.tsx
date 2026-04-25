@@ -478,7 +478,11 @@ const PortraitGenerator = () => {
                         <CheckCircle2 className="h-4 w-4 text-success" />
                         <p className="font-medium">Estúdio pronto</p>
                       </div>
-                      <Badge variant="outline" className="font-mono text-xs">{latestTraining?.trigger_word}</Badge>
+                      {latestTraining?.created_at && (
+                        <Badge variant="outline" className="text-xs">
+                          Treinado em {format(new Date(latestTraining.created_at), "dd/MM/yyyy", { locale: ptBR })}
+                        </Badge>
+                      )}
                     </div>
                     <p className="text-sm text-muted-foreground">
                       Seu Estúdio Pessoal está treinado. Cada geração produz <strong>3 retratos</strong> (Neutro, Claro, Escuro) e custa <strong>{GENERATE_COST_CREDITS} créditos</strong>.
