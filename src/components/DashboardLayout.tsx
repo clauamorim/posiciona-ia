@@ -3,7 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard, Building2, Brain, BarChart3,
-  FileText, History, LogOut, Shield, Menu, X, Target, Calendar, Instagram, Camera, HelpCircle, CreditCard, FileUp, Image, User, ChevronRight, Layers, ImageIcon
+  FileText, History, LogOut, Shield, Menu, X, Target, Calendar, Instagram, Camera, HelpCircle, CreditCard, FileUp, Image, User, ChevronRight, Layers, ImageIcon, Sparkles
 } from "lucide-react";
 import posicionaLogo from "@/assets/posiciona-logo.png";
 import { useState, useEffect } from "react";
@@ -46,12 +46,13 @@ export const DashboardLayout = ({ children }: { children: React.ReactNode }) => 
   useEffect(() => {
     if (!user || isAdmin) return;
     const load = async () => {
-      const [bqRes, answersRes, reportRes, igRes, portraitRes] = await Promise.all([
+      const [bqRes, answersRes, reportRes, igRes, portraitRes, pqRes] = await Promise.all([
         supabase.from("business_questionnaires").select("is_complete").eq("user_id", user.id).order("version", { ascending: false }).limit(1),
         supabase.from("archetype_answers").select("question_id").eq("user_id", user.id),
         supabase.from("reports").select("status, editorial_weeks, content").eq("user_id", user.id).order("version", { ascending: false }).limit(1),
         supabase.from("instagram_analyses").select("id").eq("user_id", user.id).limit(1),
         supabase.from("portrait_generations").select("id").eq("user_id", user.id).limit(1),
+        supabase.from("personal_questionnaires").select("status").eq("user_id", user.id).order("version", { ascending: false }).limit(1),
       ]);
       const bComplete = bqRes.data?.[0]?.is_complete ?? false;
       const uniqueQ = new Set(answersRes.data?.map(a => a.question_id) ?? []);
@@ -72,6 +73,7 @@ export const DashboardLayout = ({ children }: { children: React.ReactNode }) => 
       }
       const hasEditorial = hasEditorialWeeks || hasContentEditorial;
       const hasPortraits = (portraitRes.data?.length ?? 0) > 0;
+      const pqSubmitted = pqRes.data?.[0]?.status === "submitted";
 
       setJourneyStatus({
         "/business-questionnaire": bComplete ? "done" : "in_progress",
@@ -80,7 +82,8 @@ export const DashboardLayout = ({ children }: { children: React.ReactNode }) => 
         "/storybrand": rDone ? "done" : "blocked",
         "/report": rDone ? "done" : "blocked",
         "/instagram-analysis": hasIg ? "done" : rDone ? "in_progress" : "blocked",
-        "/editorial": hasEditorial ? "done" : rDone ? "in_progress" : "blocked",
+        "/personal-questionnaire": pqSubmitted ? "done" : rDone ? "in_progress" : "blocked",
+        "/editorial": hasEditorial ? "done" : (rDone && pqSubmitted) ? "in_progress" : "blocked",
         "/portraits": hasPortraits ? "done" : rDone ? "in_progress" : "blocked",
       });
     };
@@ -103,6 +106,7 @@ export const DashboardLayout = ({ children }: { children: React.ReactNode }) => 
         { label: "Narrativa da Marca", href: "/storybrand", icon: Target, status: journeyStatus["/storybrand"] },
         { label: "Relatório", href: "/report", icon: FileText, status: journeyStatus["/report"] },
         { label: "Instagram", href: "/instagram-analysis", icon: Instagram, status: journeyStatus["/instagram-analysis"] },
+        { label: "Sua História", href: "/personal-questionnaire", icon: Sparkles, status: journeyStatus["/personal-questionnaire"] },
         { label: "Linha Editorial", href: "/editorial", icon: Calendar, status: journeyStatus["/editorial"] },
         { label: "Retratos de Marca", href: "/portraits", icon: Camera, status: journeyStatus["/portraits"] },
       ],
