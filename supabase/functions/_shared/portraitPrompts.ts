@@ -310,26 +310,24 @@ export function buildPortraitPrompt(params: BuildPromptParams): {
   // Framing por look — controla se mãos aparecem no frame.
   const framing = FRAMING_VARIATIONS[params.backgroundIndex];
 
-  // Trigger word REAL do treino (USR + 12 hex). Se não vier, deriva do userId
-  // (mesma fórmula usada em portrait-train para retrocompat).
+  // Trigger word REAL do treino (USR + 12 hex). Se não vier, deriva do userId.
   const triggerWord = params.triggerWord
     || `USR${params.userId.replace(/-/g, "").slice(0, 12)}`;
 
-  // Trigger word DUPLICADO no início absoluto — Flux dá mais peso aos primeiros
-  // tokens. Duas menções logo de cara forçam atenção máxima ao LoRA, garantindo
-  // que o rosto gerado seja reconhecível como o da pessoa treinada.
-  let prompt = `${triggerWord}, portrait of ${triggerWord}, ` + STUDIO_PREFIX + tpl.prompt;
+  // Trigger SÓ UMA VEZ no início — espelha o que funcionou no Replicate UI manual.
+  // Duplicar trigger ou inflar com "portrait of X, identical face..." só dilui atenção.
+  let prompt = `${triggerWord}, ` + STUDIO_PREFIX + tpl.prompt;
   // Negative base + reforço de mãos APENAS se este look mostra mãos.
   let negative = tpl.negative + STUDIO_NEGATIVE_BASE + (framing.showsHands ? HANDS_NEGATIVE_REINFORCE : "");
 
-  // Reforço de gênero no negative para evitar troca (técnica conhecida em Flux LoRA)
+  // Reforço de gênero no negative para evitar troca (técnica conhecida em Flux LoRA).
   if (effectiveGender === "woman") {
     negative += ", man, beard, mustache, masculine features, male body";
   } else if (effectiveGender === "man") {
     negative += ", woman, feminine features, makeup, lipstick, female body";
   }
 
-  // 1. Substituir frase de fundo se Claro/Escuro
+  // 1. Substituir frase de fundo se Claro/Escuro.
   if (bg.replacement) {
     if (BACKGROUND_REGEX.test(prompt)) {
       prompt = prompt.replace(BACKGROUND_REGEX, `${bg.replacement}, `);
@@ -339,45 +337,35 @@ export function buildPortraitPrompt(params: BuildPromptParams): {
     }
   }
 
-  // 1b. Injeta a instrução de framing após o STUDIO_PREFIX (que vem após o trigger).
-  prompt = prompt.replace(STUDIO_PREFIX, `${STUDIO_PREFIX}(${framing.instruction}:1.5), `);
+  // 1b. Injeta a instrução de framing logo após o STUDIO_PREFIX, em texto natural
+  // (sem peso numérico). Estrutura final: "USR... professional editorial portrait, {framing}, ..."
+  prompt = prompt.replace(STUDIO_PREFIX, `${STUDIO_PREFIX}${framing.instruction}, `);
 
-  // 2. Substitui o placeholder USR[id] do template pelo trigger real (caso ainda apareça).
+  // 2. Substitui o placeholder USR[id] do template pelo trigger real.
   prompt = prompt.replace(/USR\[id\]/g, triggerWord);
 
-  // Reforço de gênero: duplica o token para ancorar Flux contra deriva
+  // Reforço de gênero: token simples, sem duplicação.
   if (effectiveGender === "none") {
     prompt = prompt.replace(/\[gender\]/g, "person");
   } else {
-    prompt = prompt.replace(/\[gender\]/g, `${effectiveGender}, portrait of a ${effectiveGender}`);
+    prompt = prompt.replace(/\[gender\]/g, effectiveGender);
   }
 
-  // 3. Injeção de traços físicos extraídos das selfies — ancora cabelo, pele, olhos
-  // contra deriva do LoRA. Inserido logo após o trigger USR<id>.
+  // 3. Injeção de traços físicos extraídos das selfies — ancora cabelo, pele, olhos.
   let traitPhrase = "";
   if (params.physicalTraits) {
     const t = params.physicalTraits;
     traitPhrase = `, with ${t.hair_length} ${t.hair_style} ${t.hair_color} hair, ${t.skin_tone} skin, ${t.eye_color} eyes`;
   }
 
-  // 3b. Injeção do OUTFIT logo após USR<id> + traços, com peso BAIXÍSSIMO.
-  // Pesos altos competem com o LoRA pelo orçamento de atenção e degradam
-  // anatomia/proporção do corpo. Mantemos peso quase neutro (1.05).
+  // 3b. OUTFIT em texto natural, sem peso. Linguagem que o Flux respeita melhor.
   const outfitText = (params.outfit || "").trim();
-  const outfitWeight = 1.05;
-  const outfitPhrase = outfitText ? `, (wearing ${outfitText}:${outfitWeight})` : "";
+  const outfitPhrase = outfitText ? `, wearing ${outfitText}` : "";
 
-  // 3b-bis. Pose de mãos: IGNORADA. Todos os looks agora são "hands out of frame".
-  // Mantemos a variável só pra logs no chamador, mas não injetamos no prompt.
-  const handPosePhrase = "";
+  // Injeta traços + outfit logo após o trigger USR<id>.
+  prompt = prompt.replace(/(USR\S+)/, `$1${traitPhrase}${outfitPhrase}`);
 
-  // 3b-ter. Reforço explícito de identidade — ancora o Flux ao LoRA e
-  // preserva texturas naturais de pele e cabelo. Crítico contra "rosto genérico".
-  const identityPhrase = ", preserve exact facial features, same person, identical face to reference, recognizable individual, distinctive facial structure, real person photograph, authentic skin pores, natural skin texture, unretouched skin, fine hair strands, individual hair fibers";
-
-  prompt = prompt.replace(/(USR\S+)/, `$1${identityPhrase}${traitPhrase}${outfitPhrase}${handPosePhrase}`);
-
-  // Esvazia o [outfit] do template original (já injetado acima com peso).
+  // Esvazia o [outfit] do template original (já injetado acima).
   prompt = prompt.replace(/\[outfit\]/g, "");
 
   // 3c. Negative específico do look — impede o Flux de "voltar" ao blazer padrão
@@ -405,7 +393,7 @@ export function buildPortraitPrompt(params: BuildPromptParams): {
     negative += ", formal trousers, suit pants";
   }
 
-  // Cabelo do figurino só é usado quando NÃO temos traços extraídos
+  // Cabelo do figurino só é usado quando NÃO temos traços extraídos.
   if (!params.physicalTraits && effectiveGender === "woman" && params.hair) {
     prompt = prompt.replace(/\[hair\]/g, params.hair);
   } else {
@@ -418,7 +406,10 @@ export function buildPortraitPrompt(params: BuildPromptParams): {
     prompt = prompt.replace(/\[makeup\]/g, "");
   }
 
-  // 4. Limpeza
+  // 4. Sufixo de qualidade UMA VEZ no fim. Tokens fotográficos sem competir com LoRA.
+  prompt = `${prompt}, ${QUALITY_SUFFIX}`;
+
+  // 5. Limpeza.
   prompt = cleanupPrompt(prompt);
 
   return { prompt, negative, backgroundKey: bg.key };
