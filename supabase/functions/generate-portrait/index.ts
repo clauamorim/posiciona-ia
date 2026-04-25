@@ -382,18 +382,20 @@ serve(async (req) => {
         handPose,
       });
 
-      // loraScale calculado acima conforme tamanho do dataset (pickLoraScale).
-      // ESTRATÉGIA ATUAL: hands-out-of-frame em 100% dos looks + prompt enxuto
-      // estilo Replicate UI manual (steps 35, guidance ~2.5, sem weights numéricos).
+      // MODO MANUAL PURO: prompt mínimo (~12 tokens), lora_scale agressivo (0.70-0.78),
+      // guidance variado (2.5/3.0/3.5). Logamos prompt completo + contagem de tokens
+      // pra você poder colar 1:1 no Replicate UI e comparar.
+      const promptTokens = built.prompt.split(",").length;
       console.log(
         `[generate-portrait] call ${i + 1}/${requestedCount} background=${built.backgroundKey} archetype=${archetypeName} ` +
         `trigger="${training.trigger_word}" trainingId=${training.id} ` +
-        `framing=hands-out-of-frame dims=${PORTRAIT_WIDTH}x${PORTRAIT_HEIGHT}(3:4@1MP) ` +
-        `outfit="${outfit}" guidance=${guidanceScale} loraScale=${loraScale} steps=35 ` +
-        `selfiesCount=${selfiesCount} hasTraits=${!!(training as any).physical_traits}`,
+        `dims=${PORTRAIT_WIDTH}x${PORTRAIT_HEIGHT}(3:4@1MP) ` +
+        `guidance=${guidanceScale} loraScale=${loraScale} steps=35 ` +
+        `selfiesCount=${selfiesCount} hasTraits=${!!(training as any).physical_traits} ` +
+        `promptTokens=${promptTokens}`,
       );
-      console.log(`[generate-portrait] PROMPT[${i}]: ${built.prompt.slice(0, 500)}`);
-      console.log(`[generate-portrait] NEGATIVE[${i}]: ${built.negative.slice(0, 300)}`);
+      console.log(`[generate-portrait] PROMPT[${i}]: ${built.prompt}`);
+      console.log(`[generate-portrait] NEGATIVE[${i}]: ${built.negative}`);
       let r = await callFluxLora({
         token: REPLICATE_API_TOKEN,
         loraVersion: training.lora_weights_url,
