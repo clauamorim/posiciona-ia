@@ -298,17 +298,50 @@ serve(async (req) => {
     const hair = buildHairText(figurino);
     const makeup = buildMakeupText(figurino);
 
-    // 3 sequential calls — one por background; cada um usa um look diferente do relatório.
+    // ===== MEMÓRIA CURTA + SORTEIO DE POSES DE MÃOS =====
+    // 1. Busca a última geração do usuário para excluir as poses já usadas.
+    // 2. Embaralha o pool da família do arquétipo.
+    // 3. Filtra poses recentes (se ainda restarem ≥3 opções no pool).
+    // 4. Pega 3 poses (sem reposição) — uma por look.
+    const family = getArchetypeFamily(archetypeName);
+    const fullPool = HAND_POSE_POOLS[family];
+
+    const { data: lastGen } = await supabaseAdmin
+      .from("portrait_generations")
+      .select("used_hand_poses")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const recentlyUsed: string[] = Array.isArray((lastGen as any)?.used_hand_poses)
+      ? (lastGen as any).used_hand_poses
+      : [];
+
+    const filteredPool = fullPool.filter((p) => !recentlyUsed.includes(p));
+    const workingPool = filteredPool.length >= 3 ? filteredPool : fullPool;
+    const shuffled = shuffle(workingPool);
+    const selectedPoses = shuffled.slice(0, 3);
+
+    console.log(
+      `[generate-portrait] archetype=${archetypeName} family=${family} ` +
+      `poolSize=${fullPool.length} recentlyUsed=${recentlyUsed.length} ` +
+      `filteredSize=${filteredPool.length} selected=${JSON.stringify(selectedPoses)}`,
+    );
+
+    // 3 sequential calls — one por background; cada um usa um look + pose diferentes.
     // Replicate low-credit accounts (<$5) tem rate limit de 6/min com burst 1 → 11s entre chamadas.
     const INTER_CALL_DELAY_MS = 11000;
     const RETRY_DELAY_MS = 30000;
-    const results: { background: string; portrait: string | null; error?: string; promptUsed?: string }[] = [];
+    const results: { background: string; portraitUrl: string | null; error?: string; promptUsed?: string; pose?: string }[] = [];
     for (let i = 0; i < BACKGROUND_VARIATIONS.length; i++) {
       if (i > 0) {
         await new Promise((r) => setTimeout(r, INTER_CALL_DELAY_MS));
       }
       // Variação de figurino: look 0 → Neutro, look 1 → Claro, look 2 → Escuro.
       const outfit = buildOutfitTextForLook(figurino, i);
+      const handPose = selectedPoses[i] ?? null;
+      const guidanceScale = GUIDANCE_VARIATIONS[i] ?? 3.5;
       const built = buildPortraitPrompt({
         archetype: archetypeName,
         userId: user.id,
@@ -318,11 +351,12 @@ serve(async (req) => {
         makeup,
         backgroundIndex: i as 0 | 1 | 2,
         physicalTraits: (training as any).physical_traits ?? null,
+        handPose,
       });
 
       console.log(
         `[generate-portrait] call ${i + 1}/3 background=${built.backgroundKey} archetype=${archetypeName} ` +
-        `outfit="${outfit}" hasTraits=${!!(training as any).physical_traits}`,
+        `outfit="${outfit}" pose="${handPose}" guidance=${guidanceScale} hasTraits=${!!(training as any).physical_traits}`,
       );
       console.log(`[generate-portrait] FULL PROMPT call ${i + 1}: ${built.prompt}`);
       console.log(`[generate-portrait] FULL NEGATIVE call ${i + 1}: ${built.negative}`);
@@ -331,6 +365,7 @@ serve(async (req) => {
         loraVersion: training.lora_weights_url,
         prompt: built.prompt,
         negative: built.negative,
+        guidanceScale,
       });
 
       // Retry automático em caso de 429 (rate limit) — espera mais 30s e tenta uma vez
@@ -342,18 +377,19 @@ serve(async (req) => {
           loraVersion: training.lora_weights_url,
           prompt: built.prompt,
           negative: built.negative,
+          guidanceScale,
         });
       }
 
       if (r.ok) {
-        results.push({ background: built.backgroundKey, portrait: r.dataUrl, promptUsed: built.prompt });
+        results.push({ background: built.backgroundKey, portraitUrl: r.imageUrl, promptUsed: built.prompt, pose: handPose ?? undefined });
       } else {
         console.error(`[generate-portrait] background=${built.backgroundKey} failed: ${r.reason}`);
-        results.push({ background: built.backgroundKey, portrait: null, error: r.reason });
+        results.push({ background: built.backgroundKey, portraitUrl: null, error: r.reason, pose: handPose ?? undefined });
       }
     }
 
-    const successful = results.filter((r) => r.portrait);
+    const successful = results.filter((r) => r.portraitUrl);
     if (successful.length === 0) {
       return new Response(
         JSON.stringify({ error: "Falha ao gerar retratos. Tente novamente.", details: results.map((r) => r.error) }),
@@ -361,8 +397,36 @@ serve(async (req) => {
       );
     }
 
+    // ===== UPSCALE 2x EM PARALELO (com fallback resiliente) =====
+    // Se o upscale falhar para alguma imagem, mantém a original 1MP — não bloqueia entrega.
+    const upscaledPortraits = await Promise.all(
+      successful.map(async (r) => {
+        const up = await upscaleImage({ token: REPLICATE_API_TOKEN, imageUrl: r.portraitUrl! });
+        const finalUrl = up.ok ? up.imageUrl : r.portraitUrl!;
+        if (!up.ok) {
+          console.warn(`[generate-portrait] upscale fallback (original) for background=${r.background}: ${up.reason}`);
+        }
+        const dataUrlRes = await urlToDataUrl(finalUrl);
+        if (!dataUrlRes.ok) {
+          console.error(`[generate-portrait] failed to encode final image background=${r.background}: ${dataUrlRes.reason}`);
+          // último fallback: tenta encodar a original
+          const orig = await urlToDataUrl(r.portraitUrl!);
+          return { ...r, dataUrl: orig.ok ? orig.dataUrl : null, upscaled: false };
+        }
+        return { ...r, dataUrl: dataUrlRes.dataUrl, upscaled: up.ok };
+      }),
+    );
+
+    const finalPortraits = upscaledPortraits.filter((r) => r.dataUrl);
+    if (finalPortraits.length === 0) {
+      return new Response(
+        JSON.stringify({ error: "Falha ao processar retratos finais. Tente novamente." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     // Debit credits — charge for successful images only (max GENERATE_COST_CREDITS)
-    const charge = Math.min(GENERATE_COST_CREDITS, successful.length);
+    const charge = Math.min(GENERATE_COST_CREDITS, finalPortraits.length);
     const fromIncluded = Math.min(included, charge);
     const fromExtra = charge - fromIncluded;
     await supabaseAdmin
@@ -374,7 +438,7 @@ serve(async (req) => {
       .eq("user_id", user.id);
 
     await supabaseAdmin.from("credit_logs").insert(
-      successful.map((r) => ({
+      finalPortraits.map((r) => ({
         user_id: user.id,
         credit_type: "portrait",
         amount: -1,
@@ -382,10 +446,16 @@ serve(async (req) => {
       })),
     );
 
+    // Persiste poses usadas para a "memória curta" da próxima geração.
+    const posesUsedThisRound = finalPortraits
+      .map((r) => r.pose)
+      .filter((p): p is string => !!p);
+
     await supabaseAdmin.from("portrait_generations").insert({
       user_id: user.id,
-      portraits: successful.map((r) => r.portrait),
+      portraits: finalPortraits.map((r) => r.dataUrl),
       style_index: 0,
+      used_hand_poses: posesUsedThisRound,
     });
 
     return new Response(
