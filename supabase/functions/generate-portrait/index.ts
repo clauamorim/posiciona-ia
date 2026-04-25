@@ -131,14 +131,15 @@ async function callFluxLora(params: {
   prompt: string;
   negative: string;
   guidanceScale: number;
+  loraScale?: number;
 }): Promise<{ ok: true; imageUrl: string } | { ok: false; reason: string }> {
-  const { token, loraVersion, prompt, negative, guidanceScale } = params;
+  const { token, loraVersion, prompt, negative, guidanceScale, loraScale = 0.95 } = params;
   const start = Date.now();
   try {
     const input: Record<string, unknown> = {
       prompt,
       lora_weights: loraVersion,
-      lora_scale: 0.95,
+      lora_scale: loraScale,
       num_outputs: 1,
       aspect_ratio: "3:4",
       guidance_scale: guidanceScale,
