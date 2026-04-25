@@ -17,8 +17,9 @@ export type ArchetypeName =
 
 // Reforço aplicado a todos os prompts: garante cenário de estúdio.
 const STUDIO_PREFIX = "professional photography studio, controlled studio lighting, ";
-// Reforço aplicado a todos os negatives: bloqueia vazamento de cenários externos das fotos de treino e artefatos comuns.
-const STUDIO_NEGATIVE = ", outdoor, street, natural daylight, trees, buildings, sky, park, beach, low quality, blurry, deformed face, extra fingers, asymmetric eyes";
+// Reforço aplicado a todos os negatives: bloqueia vazamento de cenários externos das fotos de treino,
+// anatomia incorreta (mãos extras, membros duplicados) e artefatos comuns do Flux.
+const STUDIO_NEGATIVE = ", outdoor, street, natural daylight, trees, buildings, sky, park, beach, low quality, blurry, deformed face, extra fingers, asymmetric eyes, extra arms, extra hands, three hands, four hands, mutated hands, deformed hands, extra limbs, missing limbs, fused fingers, disfigured, malformed, duplicate, two heads, cloned face, bad anatomy, multiple people";
 
 export const ARCHETYPE_PROMPTS: Record<ArchetypeName, { prompt: string; negative: string }> = {
   "Governante": {
@@ -86,14 +87,24 @@ export const BACKGROUND_VARIATIONS = [
 //   "warm textured studio background, soft beige or warm grey wall texture, [outfit]"
 const BACKGROUND_REGEX = /(?:warm |light |medium |deep |simple |mysterious |edgy |artistic |rich warm |[a-z\s]*?)?(?:dark |light |warm )?textured studio background[^,]*(?:,\s*[^,]*wall texture)?,\s*(?=\[outfit\])/i;
 
+export interface PhysicalTraits {
+  gender: "woman" | "man";
+  hair_color: string;
+  hair_length: string;
+  hair_style: string;
+  skin_tone: string;
+  eye_color: string;
+}
+
 export interface BuildPromptParams {
   archetype: ArchetypeName | string;
   userId: string;
   gender: "woman" | "man" | "none";
   outfit: string;
-  hair: string;  // só usado se gender === "woman"
+  hair: string;  // só usado se gender === "woman" e não houver physicalTraits
   makeup: string; // só usado se gender === "woman"
   backgroundIndex: 0 | 1 | 2;
+  physicalTraits?: PhysicalTraits | null;
 }
 
 export function buildPortraitPrompt(params: BuildPromptParams): {
@@ -107,8 +118,19 @@ export function buildPortraitPrompt(params: BuildPromptParams): {
   const tpl = ARCHETYPE_PROMPTS[archetypeKey];
   const bg = BACKGROUND_VARIATIONS[params.backgroundIndex];
 
+  // Os traços extraídos do treino são a fonte primária de gênero — sobrescrevem o cadastro.
+  const effectiveGender: "woman" | "man" | "none" =
+    params.physicalTraits?.gender ?? params.gender;
+
   let prompt = STUDIO_PREFIX + tpl.prompt;
-  const negative = tpl.negative + STUDIO_NEGATIVE;
+  let negative = tpl.negative + STUDIO_NEGATIVE;
+
+  // Reforço de gênero no negative para evitar troca (técnica conhecida em Flux LoRA)
+  if (effectiveGender === "woman") {
+    negative += ", man, beard, mustache, masculine features, male body";
+  } else if (effectiveGender === "man") {
+    negative += ", woman, feminine features, makeup, lipstick, female body";
+  }
 
   // 1. Substituir frase de fundo se Claro/Escuro
   if (bg.replacement) {
@@ -123,27 +145,39 @@ export function buildPortraitPrompt(params: BuildPromptParams): {
   // 2. Substituir marcadores
   prompt = prompt.replace(/USR\[id\]/g, `USR${params.userId}`);
 
-  if (params.gender === "none") {
-    prompt = prompt.replace(/\[gender\]/g, "");
+  // Reforço de gênero: duplica o token para ancorar Flux contra deriva
+  if (effectiveGender === "none") {
+    prompt = prompt.replace(/\[gender\]/g, "person");
   } else {
-    prompt = prompt.replace(/\[gender\]/g, params.gender);
+    prompt = prompt.replace(/\[gender\]/g, `${effectiveGender}, portrait of a ${effectiveGender}`);
+  }
+
+  // 3. Injeção de traços físicos extraídos das selfies — ancora cabelo, pele, olhos
+  // contra deriva do LoRA. Inserido logo após o trigger USR<id>.
+  if (params.physicalTraits) {
+    const t = params.physicalTraits;
+    const traitPhrase = `, with ${t.hair_length} ${t.hair_style} ${t.hair_color} hair, ${t.skin_tone} skin, ${t.eye_color} eyes`;
+    // Insere após o primeiro USR<id> (que vem no início do template)
+    prompt = prompt.replace(/(USR\S+)/, `$1${traitPhrase}`);
   }
 
   prompt = prompt.replace(/\[outfit\]/g, params.outfit || "");
 
-  if (params.gender === "woman" && params.hair) {
+  // Cabelo do figurino só é usado quando NÃO temos traços extraídos
+  // (os traços têm prioridade — vêm das fotos reais da usuária)
+  if (!params.physicalTraits && effectiveGender === "woman" && params.hair) {
     prompt = prompt.replace(/\[hair\]/g, params.hair);
   } else {
     prompt = prompt.replace(/\[hair\]/g, "");
   }
 
-  if (params.gender === "woman" && params.makeup) {
+  if (effectiveGender === "woman" && params.makeup) {
     prompt = prompt.replace(/\[makeup\]/g, params.makeup);
   } else {
     prompt = prompt.replace(/\[makeup\]/g, "");
   }
 
-  // 3. Limpeza
+  // 4. Limpeza
   prompt = cleanupPrompt(prompt);
 
   return { prompt, negative, backgroundKey: bg.key };
