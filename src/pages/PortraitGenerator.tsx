@@ -710,9 +710,11 @@ const PortraitGenerator = () => {
       <AlertDialog open={confirmGenerateOpen} onOpenChange={setConfirmGenerateOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Gerar 3 retratos — {GENERATE_COST_CREDITS} créditos</AlertDialogTitle>
+            <AlertDialogTitle>
+              Gerar {requestedCount} retrato{requestedCount > 1 ? "s" : ""} — {requestedCount} crédito{requestedCount > 1 ? "s" : ""}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              Vamos gerar 3 retratos (Neutro, Claro, Escuro) usando seu Estúdio Pessoal. Cada um custa 1 crédito.
+              Vamos gerar {requestedCount} retrato{requestedCount > 1 ? "s" : ""} usando seu Estúdio Pessoal. Cada um custa 1 crédito.
               <br /><br />
               Saldo atual: <strong>{totalCredits} crédito{totalCredits !== 1 ? "s" : ""}</strong>.
             </AlertDialogDescription>
