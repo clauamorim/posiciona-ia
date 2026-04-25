@@ -34,15 +34,41 @@ function shuffle<T>(arr: T[]): T[] {
   return copy;
 }
 
-/** Faz download bruto da URL e devolve um Uint8Array (PNG). */
-async function downloadImageBytes(imageUrl: string): Promise<{ ok: true; bytes: Uint8Array } | { ok: false; reason: string }> {
-  try {
-    const r = await fetch(imageUrl);
-    if (!r.ok) return { ok: false, reason: `download-${r.status}` };
-    return { ok: true, bytes: new Uint8Array(await r.arrayBuffer()) };
-  } catch (e) {
-    return { ok: false, reason: `download-exception:${e instanceof Error ? e.message : String(e)}` };
+/**
+ * Faz download bruto da URL e devolve um Uint8Array (PNG).
+ * Replicate's CDN às vezes retorna HTML 503 transitório — fazemos retry com backoff
+ * e validamos content-type para não tratar HTML como bytes de imagem.
+ */
+async function downloadImageBytes(
+  imageUrl: string,
+  maxAttempts = 4,
+): Promise<{ ok: true; bytes: Uint8Array } | { ok: false; reason: string }> {
+  let lastReason = "unknown";
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const r = await fetch(imageUrl);
+      if (!r.ok) {
+        lastReason = `download-${r.status}`;
+      } else {
+        const ct = r.headers.get("content-type") ?? "";
+        if (!ct.startsWith("image/")) {
+          // Replicate CDN devolveu HTML/erro em vez do PNG — descarta e tenta de novo.
+          await r.body?.cancel();
+          lastReason = `bad-content-type:${ct}`;
+        } else {
+          return { ok: true, bytes: new Uint8Array(await r.arrayBuffer()) };
+        }
+      }
+    } catch (e) {
+      lastReason = `download-exception:${e instanceof Error ? e.message : String(e)}`;
+    }
+    if (attempt < maxAttempts) {
+      const delay = 500 * Math.pow(2, attempt - 1); // 500, 1000, 2000ms
+      console.warn(`[generate-portrait] download attempt ${attempt}/${maxAttempts} failed (${lastReason}), retrying in ${delay}ms`);
+      await new Promise((r) => setTimeout(r, delay));
+    }
   }
+  return { ok: false, reason: lastReason };
 }
 
 // (helper bytesToDataUrl e upscaleImage removidos — não usamos mais Clarity Upscaler.
@@ -369,7 +395,7 @@ serve(async (req) => {
     // Resolução nativa do FLUX = 896x1152, mantida sem reescalonamento.
     const generationId = crypto.randomUUID();
 
-    const pipelineResults = await Promise.all(
+    const pipelineResults = await Promise.allSettled(
       successful.map(async (r, i) => {
         try {
           const dl = await downloadImageBytes(r.portraitUrl!);
@@ -396,9 +422,9 @@ serve(async (req) => {
       }),
     );
 
-    const finalPortraits = pipelineResults.filter(
-      (p): p is NonNullable<typeof p> & { path: string } => p !== null,
-    );
+    const finalPortraits = pipelineResults
+      .map((res) => (res.status === "fulfilled" ? res.value : null))
+      .filter((p): p is NonNullable<typeof p> & { path: string } => p !== null);
 
     if (finalPortraits.length === 0) {
       return new Response(
