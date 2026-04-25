@@ -93,35 +93,18 @@ async function processJob(jobId: string) {
     try {
       await updateJob(jobId, { progress_message: "Gerando seus 7 posts… pode levar até 2 minutos." });
 
-      // Build prompts (mesma lógica da função antiga)
+      // Build prompts
       const previousSummary = (previousWeeks || [])
         .flat()
         .map((d: any) => `Dia ${d.day}: ${d.theme} (${d.format})`)
         .join("\n");
 
-      let storybrandContext = "";
-      if (storybrand) {
-        storybrandContext = `\n\nESTRATÉGIA STORYBRAND DA MARCA (use como base PRINCIPAL para criar conteúdo):
-- Herói (Cliente): ${storybrand.hero || ""}
-- Guia (Marca): ${storybrand.guide || ""}
-- Problema Externo: ${storybrand.external_problem || ""}
-- Problema Interno: ${storybrand.internal_problem || ""}
-- Problema Filosófico: ${storybrand.philosophical_problem || ""}
-- Plano: ${Array.isArray(storybrand.plan) ? storybrand.plan.join(", ") : storybrand.plan || ""}
-- CTA: ${storybrand.cta || ""}
-- Sucesso: ${storybrand.success || ""}
-- Fracasso: ${storybrand.failure || ""}`;
-      }
+      const storybrandContext = renderStorybrandBlock(storybrand);
+      const toneContext = renderToneBlock(tone_of_voice);
 
-      let toneContext = "";
-      if (tone_of_voice) {
-        toneContext = `\n\nTOM DE VOZ DA MARCA:
-- Resumo: ${tone_of_voice.summary || ""}
-- Estilo de comunicação: ${tone_of_voice.communication_style || ""}
-- Palavras para USAR: ${(tone_of_voice.words_to_use || []).join(", ")}
-- Palavras para EVITAR: ${(tone_of_voice.words_to_avoid || []).join(", ")}
-- Emoções para evocar: ${(tone_of_voice.emotions_to_evoke || []).join(", ")}`;
-      }
+      // Carrega contexto pessoal do criador (humanização)
+      const personal = await fetchPersonalQuestionnaire(userId);
+      const personalContext = renderPersonalContext(personal);
 
       const systemPrompt = `Você é um especialista em branding e copy para Instagram. Você domina e aplica de forma OBRIGATÓRIA três referências (anexadas em PDF como contexto):
 1) StoryBrand (Donald Miller) — clareza narrativa.
@@ -131,8 +114,6 @@ async function processJob(jobId: string) {
 Gere EXATAMENTE 7 novos dias de conteúdo editorial, SEM REPETIR temas, abordagens ou formatos dos conteúdos anteriores.
 
 ⚠️ CRÍTICO — FORMATO DE SAÍDA: Sua resposta DEVE começar com "[" e terminar com "]". NÃO use \`\`\` em hipótese alguma. NÃO escreva texto, comentário ou explicação antes ou depois do JSON. Não use vírgula final antes de "}" ou "]". Se você adicionar markdown fences ou texto fora do JSON, o sistema REJEITA a resposta.
-
-IMPORTANTE: Responda APENAS com um JSON válido, sem markdown, sem backticks.
 
 REGRA DE LINGUAGEM (CRÍTICA):
 StoryBrand, Obviously Awesome e Made to Stick são camadas ESTRATÉGICAS INTERNAS. NUNCA escreva os rótulos dessas metodologias dentro de "theme", "caption", "card_copy", "cta" ou "script". Os campos visíveis devem soar como copy de marketing real, não como template de framework.
@@ -147,36 +128,38 @@ NUNCA prefixe os itens de "card_copy" com "Slide 1:", "Slide 2:", "Card 1:", "P�
 ESTRATÉGIA DE COPY (OBRIGATÓRIA — aplique em TODA caption, card_copy e script):
 
 A) GANCHO ESPECÍFICO DO NICHO (Made to Stick — Inesperado + Concreto):
-- A primeira frase de cada caption e o primeiro slide de cada carrossel DEVEM conter um detalhe concreto, número, cena, dado contraintuitivo ou pergunta inesperada — específicos para o NICHO do cliente, não genéricos para "marketing", "vida" ou "negócios".
+- A primeira frase de cada caption e o primeiro slide de cada carrossel DEVEM conter um detalhe concreto, número, cena, dado contraintuitivo ou pergunta inesperada — específicos para o NICHO do cliente.
 - PROIBIDO abrir com aberturas genéricas: "Você sabia que…", "5 dicas para…", "A importância de…", "Vamos falar sobre…", "Hoje vou te contar…", "Já parou para pensar…", "Imagine que…", "Você já se perguntou…".
 
 B) POSICIONAMENTO (Obviously Awesome):
-- Pelo menos 1 vez por dia, o conteúdo deve evidenciar: a categoria em que a marca atua (com termos do nicho), o que ela NÃO é (alternativa rejeitada) e o valor único entregue ao cliente específico.
-- Evite genéricos como "ajudo pessoas a se conectarem com sua melhor versão". Use linguagem do nicho real do cliente.
+- Pelo menos 1 vez por dia, o conteúdo deve evidenciar: a categoria em que a marca atua, o que ela NÃO é (alternativa rejeitada) e o valor único entregue.
 
 C) STORYBRAND como espinha dorsal interna:
 - Cada dia explora INTERNAMENTE uma faceta (não cite a faceta no texto):
   - Dia 1: Herói (cliente) — desejo + identidade
-  - Dia 2: Problema externo — obstáculo prático e visível do nicho
-  - Dia 3: Problema interno — frustração emocional específica
-  - Dia 4: Marca como guia — empatia + autoridade
-  - Dia 5: Plano — passos claros para contratar/aplicar
-  - Dia 6: CTA — convocação clara e direta
-  - Dia 7: Sucesso vs Fracasso — futuro positivo concreto e custo de não agir
+  - Dia 2: Problema externo
+  - Dia 3: Problema interno
+  - Dia 4: Marca como guia
+  - Dia 5: Plano
+  - Dia 6: CTA
+  - Dia 7: Sucesso vs Fracasso
 
 D) ESTRUTURA OBRIGATÓRIA DE CARROSSEL (mínimo 5 slides):
-- Slide 1: GANCHO concreto e inesperado, específico do nicho.
-- Slide 2: PROBLEMA SENTIDO — descreva uma cena/situação que o cliente do nicho reconhece imediatamente.
-- Slides do meio: INSIGHT + PROVA (números, cases, frase de autoridade) ou PASSOS práticos.
-- Último slide: CTA específico (não "saiba mais"; algo verbal e claro como "Comente PLANO e te envio o roteiro").
+- Slide 1: GANCHO concreto e inesperado.
+- Slide 2: PROBLEMA SENTIDO.
+- Slides do meio: INSIGHT + PROVA ou PASSOS.
+- Último slide: CTA específico, verbal e direto.
+
+E) HUMANIZAÇÃO via storytelling pessoal (CRÍTICO quando há contexto pessoal):
+- Reserve 1 ou 2 dos 7 dias para posts em formato STORYTELLING que tecem paralelos entre a vida pessoal/história do criador (hobbies, esportes, valores, memórias) e as dores do cliente-alvo. Modelo de referência: "do tatame ao tribunal" — usar uma vivência concreta do criador como metáfora narrativa para o problema do cliente.
+- Nos demais dias, use detalhes pessoais como TEMPERO: vocabulário do hobby, exemplos do dia a dia, cenas reais. Sem forçar.
+- Nunca invente fatos pessoais. Use APENAS o que está no bloco "CONTEXTO PESSOAL DO CRIADOR".
 
 EXEMPLOS DE CALIBRAÇÃO:
 - ERRADO (genérico): "Você sabia que ter uma boa imagem é importante para a sua carreira?"
-- CERTO (específico para advocacia trabalhista): "8 em cada 10 audiências trabalhistas que perdi no início tinham o mesmo erro: o cliente entrava na sala vestido como se estivesse no churrasco."
-- ERRADO (genérico) em CTA: "Saiba mais no link da bio."
+- CERTO (storytelling para advogado que pratica jiu-jitsu): "No jiu-jitsu, perdi 4 lutas seguidas porque acreditei que força bastava. Aprendi a estratégia. Em audiência trabalhista é igual: o cliente que entra com argumento bruto e sem postura também perde — mesmo com razão."
+- ERRADO em CTA: "Saiba mais no link da bio."
 - CERTO em CTA: "Comente AUDIÊNCIA e te mando o checklist de postura para o dia do julgamento."
-- ERRADO (genérico) abertura de caption: "5 dicas para melhorar seu marketing digital."
-- CERTO: "Cliente que não responde no WhatsApp em 3 minutos some. Esse é o tempo que você tem para parar de soar como mais um."
 
 O JSON deve ser um array com 7 objetos:
 [
@@ -184,17 +167,15 @@ O JSON deve ser um array com 7 objetos:
     "day": 1,
     "theme": "...",
     "format": "reels|carrossel|stories|post",
-    "caption": "LEGENDA COMPLETA pronta para postar (com gancho específico do nicho na primeira linha)",
-    "card_copy": ["texto do slide/card 1", "texto do slide/card 2"],
+    "caption": "LEGENDA COMPLETA pronta para postar",
+    "card_copy": ["texto do slide 1", "texto do slide 2"],
     "cta": "CTA específico, verbal e direto",
     "script": "ROTEIRO COMPLETO apenas para Reels/Stories, string vazia para post/carrossel"
   }
 ]
 
 REFORÇO ANTI META-NARRATIVA (CRÍTICO):
-Nunca descreva a estratégia em termos teóricos. NÃO escreva frases como "a marca atua como guia do herói", "o herói da história", "a jornada do herói", "plano de 3 passos", "fracasso iminente", "categoria de mercado". Escreva a copy final, como se o leitor nunca tivesse ouvido falar de framework.
-- ERRADO: "Como guia, mostramos ao herói o plano para superar o problema interno."
-- CERTO: "Em 3 etapas, sua agenda da semana sai do caos para um sistema previsível."
+Nunca descreva a estratégia em termos teóricos. NÃO escreva frases como "a marca atua como guia do herói", "jornada do herói", "plano de 3 passos", "fracasso iminente", "categoria de mercado".
 
 Regras estruturais:
 - 7 dias obrigatórios
@@ -203,33 +184,26 @@ Regras estruturais:
 - "card_copy": carrossel ≥ 5 slides; post = 1 item; reels/stories = []
 - Responda em português brasileiro`;
 
-      const userPrompt = `
-Negócio: ${business?.company_name || "Não informado"}
+      const userPrompt = `# NEGÓCIO
+Empresa: ${business?.company_name || "Não informado"}
 Serviços: ${business?.services || "Não informado"}
 Público-alvo: ${business?.target_audience || "Não informado"}
-Nicho: ${niche || "Não informado"}
-${storybrandContext}${toneContext}
+Nicho: ${niche || "Não informado"}${storybrandContext}${toneContext}${personalContext}
 
-CONTEÚDOS JÁ PUBLICADOS (NÃO REPETIR):
+# CONTEÚDOS JÁ PUBLICADOS (NÃO REPETIR)
 ${previousSummary || "Nenhum conteúdo anterior."}
 
 Gere 7 novos dias de conteúdo em JSON.`;
 
-      const pdfParts = await fetchReferencePdfs();
-      const userContent: any = pdfParts.length > 0
-        ? [
-            ...pdfParts.map(p => ({ type: "file", file: { filename: "reference.pdf", file_data: `data:application/pdf;base64,${p.data}` } })),
-            { type: "text", text: userPrompt },
-          ]
-        : userPrompt;
+      const pdfs = await fetchEditorialReferencePdfs();
 
-      // Chamar Gemini com 1 retry
+      // Chamar Claude com 1 retry
       let rawContent: string;
       try {
-        rawContent = await callGemini(systemPrompt, userContent, 120000);
+        rawContent = await callClaude({ systemPrompt, userText: userPrompt, pdfs, max_tokens: 8000, timeoutMs: 120000 });
       } catch (firstError) {
-        console.warn("Primeira tentativa do Gemini falhou, tentando novamente:", firstError);
-        rawContent = await callGemini(systemPrompt, userContent, 120000);
+        console.warn("Primeira tentativa do Claude falhou, tentando novamente:", firstError);
+        rawContent = await callClaude({ systemPrompt, userText: userPrompt, pdfs, max_tokens: 8000, timeoutMs: 120000 });
       }
 
       let editorial = extractJsonFromLLM(rawContent);
@@ -256,7 +230,7 @@ Gere 7 novos dias de conteúdo em JSON.`;
           leakingIndexes.map(async (idx) => {
             const original = sanitized[idx];
             const dayUserPrompt = `Negócio: ${business?.company_name || "—"}\nNicho: ${niche || "—"}\n\nReescreva este dia removendo qualquer rótulo de framework. Mantenha o tema central, o formato e a intenção, mas use copy direta de marketing.\n\nDia atual (com rótulos a remover):\n${JSON.stringify(original)}\n\nResponda APENAS com o objeto JSON do dia reescrito.`;
-            const raw = await callGemini(dayRetrySystem, dayUserPrompt, 60000);
+            const raw = await callClaude({ systemPrompt: dayRetrySystem, userText: dayUserPrompt, max_tokens: 2000, timeoutMs: 60000 });
             const parsed = extractJsonFromLLM(raw);
             if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
               const cleanedDay = sanitizePost(parsed as Record<string, any>);
