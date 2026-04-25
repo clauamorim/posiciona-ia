@@ -295,6 +295,87 @@ export type Database = {
         }
         Relationships: []
       }
+      personal_questionnaires: {
+        Row: {
+          advice_to_20yo: string | null
+          biggest_influence: string | null
+          created_at: string
+          defended_belief: string | null
+          dependents: string | null
+          desired_feeling: string | null
+          failure_lesson: string | null
+          formative_story: string | null
+          guiding_belief: string | null
+          hobby: string | null
+          id: string
+          is_complete: boolean
+          pets: string | null
+          pre_meeting_ritual: string | null
+          proud_moment: string | null
+          social_cause: string | null
+          sports: string | null
+          status: string
+          sunday_morning: string | null
+          unblock_method: string | null
+          updated_at: string
+          user_id: string
+          version: number
+          work_routine: string | null
+        }
+        Insert: {
+          advice_to_20yo?: string | null
+          biggest_influence?: string | null
+          created_at?: string
+          defended_belief?: string | null
+          dependents?: string | null
+          desired_feeling?: string | null
+          failure_lesson?: string | null
+          formative_story?: string | null
+          guiding_belief?: string | null
+          hobby?: string | null
+          id?: string
+          is_complete?: boolean
+          pets?: string | null
+          pre_meeting_ritual?: string | null
+          proud_moment?: string | null
+          social_cause?: string | null
+          sports?: string | null
+          status?: string
+          sunday_morning?: string | null
+          unblock_method?: string | null
+          updated_at?: string
+          user_id: string
+          version?: number
+          work_routine?: string | null
+        }
+        Update: {
+          advice_to_20yo?: string | null
+          biggest_influence?: string | null
+          created_at?: string
+          defended_belief?: string | null
+          dependents?: string | null
+          desired_feeling?: string | null
+          failure_lesson?: string | null
+          formative_story?: string | null
+          guiding_belief?: string | null
+          hobby?: string | null
+          id?: string
+          is_complete?: boolean
+          pets?: string | null
+          pre_meeting_ritual?: string | null
+          proud_moment?: string | null
+          social_cause?: string | null
+          sports?: string | null
+          status?: string
+          sunday_morning?: string | null
+          unblock_method?: string | null
+          updated_at?: string
+          user_id?: string
+          version?: number
+          work_routine?: string | null
+        }
+        Relationships: []
+      }
       plans: {
         Row: {
           active: boolean

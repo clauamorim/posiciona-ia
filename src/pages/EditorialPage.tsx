@@ -158,6 +158,7 @@ const EditorialPage = () => {
 
   const [userNiche, setUserNiche] = useState<string>("");
   const [businessContext, setBusinessContext] = useState<string>("");
+  const [personalSubmitted, setPersonalSubmitted] = useState<boolean | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -174,6 +175,9 @@ const EditorialPage = () => {
           setBusinessContext(ctx);
         }
       });
+    supabase.from("personal_questionnaires").select("status")
+      .eq("user_id", user.id).order("version", { ascending: false }).limit(1).maybeSingle()
+      .then(({ data }) => { setPersonalSubmitted(data?.status === "submitted"); });
   }, [user]);
 
   const { contentObject, hasEditorial } = parseReportContent(report?.content);
@@ -195,6 +199,14 @@ const EditorialPage = () => {
   const handleGenerateWeek = async () => {
     if (!user || weeklyCycles < 1) {
       toast({ title: "Créditos insuficientes", description: "Você não tem ciclos semanais disponíveis.", variant: "destructive" });
+      return;
+    }
+    if (personalSubmitted === false) {
+      toast({
+        title: "Conte sua história primeiro",
+        description: "A Linha Editorial precisa do seu Questionário Pessoal para humanizar os posts.",
+      });
+      navigate("/personal-questionnaire");
       return;
     }
     setGeneratingWeek(true);
@@ -285,11 +297,19 @@ const EditorialPage = () => {
     } catch (err: any) {
       await refreshSubscription();
       const raw = String(err?.message || "");
-      const isTimeout = /timeout|timed out|504|connection closed|failed to fetch|networkerror|aborted/i.test(raw);
-      const description = isTimeout
-        ? "A geração demorou mais que o esperado. Tente novamente — geralmente funciona na segunda tentativa."
-        : (raw || "Não foi possível gerar a semana. Tente novamente.");
-      toast({ title: "Erro ao gerar conteúdo", description, variant: "destructive" });
+      if (/question[áa]rio pessoal|personal_questionnaire|conte sua hist[óo]ria/i.test(raw)) {
+        toast({
+          title: "Conte sua história primeiro",
+          description: "Preencha o Questionário Pessoal antes de gerar a Linha Editorial.",
+        });
+        navigate("/personal-questionnaire");
+      } else {
+        const isTimeout = /timeout|timed out|504|connection closed|failed to fetch|networkerror|aborted/i.test(raw);
+        const description = isTimeout
+          ? "A geração demorou mais que o esperado. Tente novamente — geralmente funciona na segunda tentativa."
+          : (raw || "Não foi possível gerar a semana. Tente novamente.");
+        toast({ title: "Erro ao gerar conteúdo", description, variant: "destructive" });
+      }
     }
     setGeneratingWeek(false);
     setGeneratingMessage("");
@@ -561,7 +581,25 @@ const EditorialPage = () => {
     );
   }
 
-  const generateButton = (
+  const needsPersonal = personalSubmitted === false;
+
+  const generateButton = needsPersonal ? (
+    <Card className="border-amber-200/50 bg-amber-500/5">
+      <CardContent className="py-5 flex flex-col items-center gap-3 text-center">
+        <Sparkles className="h-6 w-6 text-amber-600" />
+        <div>
+          <p className="text-sm font-semibold text-foreground">Conte sua história antes de gerar</p>
+          <p className="text-xs text-muted-foreground mt-1 max-w-sm">
+            A Linha Editorial usa suas respostas pessoais (hobbies, valores, memórias) para criar posts em formato storytelling — do tatame ao tribunal. Leva 5 minutos.
+          </p>
+        </div>
+        <Button onClick={() => navigate("/personal-questionnaire")} className="gap-2">
+          <Sparkles className="h-4 w-4" />
+          Preencher Sua História
+        </Button>
+      </CardContent>
+    </Card>
+  ) : (
     <Card className="border-border bg-card">
       <CardContent className="py-4 flex flex-col items-center gap-3">
         <div className="text-center">
@@ -569,7 +607,7 @@ const EditorialPage = () => {
             {weeklyCycles > 0 ? `${weeklyCycles} ciclo${weeklyCycles > 1 ? "s" : ""} disponível${weeklyCycles > 1 ? "is" : ""}` : "Sem ciclos disponíveis"}
           </p>
         </div>
-        <Button onClick={handleGenerateWeek} disabled={generatingWeek || weeklyCycles < 1} className="gap-2">
+        <Button onClick={handleGenerateWeek} disabled={generatingWeek || weeklyCycles < 1 || personalSubmitted === null} className="gap-2">
           {generatingWeek ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
           {generatingWeek ? "Gerando..." : allWeeks.length === 0 ? "Gerar primeira semana" : "Gerar +7 dias"}
         </Button>

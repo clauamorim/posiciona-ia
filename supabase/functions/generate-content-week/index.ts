@@ -115,6 +115,24 @@ serve(async (req) => {
       });
     }
 
+    // Bloqueia geração sem o Questionário Pessoal — humanização obrigatória.
+    const { data: pqRow } = await supabase
+      .from("personal_questionnaires")
+      .select("status")
+      .eq("user_id", user.id)
+      .order("version", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (!pqRow || pqRow.status !== "submitted") {
+      return new Response(JSON.stringify({
+        error: "Conte sua história primeiro: preencha o Questionário Pessoal para humanizar sua linha editorial.",
+        redirect: "/personal-questionnaire",
+      }), {
+        status: 412, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Localiza o relatório alvo (mais recente, completed)
     const { data: targetReport, error: targetReportErr } = await supabase
       .from("reports")

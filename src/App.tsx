@@ -14,6 +14,7 @@ import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import Dashboard from "./pages/Dashboard";
 import BusinessQuestionnaire from "./pages/BusinessQuestionnaire";
+import PersonalQuestionnaire from "./pages/PersonalQuestionnaire";
 import ArchetypeQuestionnaire from "./pages/ArchetypeQuestionnaire";
 import Results from "./pages/Results";
 import StoryBrand from "./pages/StoryBrand";
@@ -59,6 +60,7 @@ const App = () => (
             <Route path="/choose-plan" element={<ProtectedRoute><ChoosePlan /></ProtectedRoute>} />
             <Route path="/dashboard" element={<ProtectedRoute requirePlan><Dashboard /></ProtectedRoute>} />
             <Route path="/business-questionnaire" element={<ProtectedRoute requirePlan><BusinessQuestionnaire /></ProtectedRoute>} />
+            <Route path="/personal-questionnaire" element={<ProtectedRoute requirePlan><PersonalQuestionnaire /></ProtectedRoute>} />
             <Route path="/archetype-questionnaire" element={<ProtectedRoute requirePlan><ArchetypeQuestionnaire /></ProtectedRoute>} />
             <Route path="/results" element={<ProtectedRoute requirePlan><Results /></ProtectedRoute>} />
             <Route path="/report" element={<ProtectedRoute requirePlan><Report /></ProtectedRoute>} />

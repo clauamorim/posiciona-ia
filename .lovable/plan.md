@@ -1,34 +1,52 @@
-## Plano: Créditos flexíveis para geração de retratos
+## Plano final consolidado — Humanização da Linha Editorial
 
-### 1. Backend — `supabase/functions/generate-portrait/index.ts`
+### 1. Tabela `personal_questionnaires`
+- Migração com colunas: `id`, `user_id`, `version`, `status` ('draft'|'submitted'), `is_complete`, `created_at`, `updated_at`.
+- Bloco 1 (Vida pessoal): `hobby`, `pets`, `sports`, `dependents`, `sunday_morning`.
+- Bloco 2 (Bastidores profissionais): `proud_moment`, `failure_lesson`, `work_routine`, `pre_meeting_ritual`, `unblock_method`.
+- Bloco 3 (Valores e visão): `defended_belief`, `social_cause`, `desired_feeling`, `guiding_belief`.
+- Bloco 4 (Memórias): `formative_story`, `biggest_influence`, `advice_to_20yo`.
+- RLS padrão (próprio user + admin). Versionamento `max(version)+1`.
 
-- Trocar checagem `totalCredits < GENERATE_COST_CREDITS` por `totalCredits < 1`.
-- Calcular `requestedCount = Math.min(totalCredits, 3)` logo após obter `totalCredits`.
-- Substituir o loop fixo `BACKGROUND_VARIATIONS.length` (=3) por `requestedCount` iterações.
-- `pickPosesForLooks(family, recentlyUsedPoses, Math.max(0, requestedCount - 1))` — só pega poses para os looks 1+ (look 0 é headshot sem pose).
-- `pickOutfits(family, profCategory, recentlyUsedOutfits, requestedCount)` — pega exatamente N figurinos.
-- Cobrança proporcional: `charge = Math.min(requestedCount, finalPortraits.length)` (já existe lógica similar; ajustar para usar `requestedCount` em vez de `GENERATE_COST_CREDITS`).
-- Mensagem de erro de créditos insuficientes: "Geração requer pelo menos 1 crédito de retrato. Você tem 0."
-- Redeploy da função `generate-portrait`.
+### 2. Página `src/pages/PersonalQuestionnaire.tsx`
+- 4 etapas no padrão do questionário de negócio.
+- Aviso inicial: "Suas respostas serão usadas para humanizar seus posts. Histórias sensíveis podem aparecer publicamente." + checkbox de aceite.
+- Salva `draft` por passo, finaliza como `submitted`.
 
-### 2. Frontend — `src/pages/PortraitGenerator.tsx`
+### 3. Bloqueio: Linha Editorial exige questionário pessoal preenchido
+- Backend (`generate-content-week`): valida `personal_questionnaires` submitted antes de criar job. Sem registro → `412 { error, redirect: "/personal-questionnaire" }`.
+- Frontend (`EditorialPage.tsx` + `Dashboard.tsx`): botão "Gerar semana" desabilitado com tooltip; card de bloqueio com CTA "Preencher Sua História →"; tratamento do 412 com toast + redirect.
+- Dashboard "Próximo passo": passa a indicar "Conte sua história" quando faltar.
 
-- Computar `requestedCount = Math.min(totalPortraitCredits, 3)`.
-- Botão de gerar habilitado quando `totalPortraitCredits >= 1` (em vez de `>= 3`).
-- Texto dinâmico do botão: `"Gerar ${requestedCount} retrato${requestedCount > 1 ? 's' : ''} (${requestedCount} crédito${requestedCount > 1 ? 's' : ''})"`.
-- Mensagem de "créditos insuficientes" ajustada para "Você precisa de pelo menos 1 crédito de retrato".
-- Manter lógica de exibição: a UI já itera sobre `portraits[]` retornado, então 1 ou 2 retratos serão renderizados naturalmente.
+### 4. Navegação
+- Rota `/personal-questionnaire` (ProtectedRoute + requirePlan) em `App.tsx`.
+- Item "Sua História" no grupo Diagnóstico do `DashboardLayout`.
+- Card de incentivo no Dashboard quando ainda não preenchido.
 
-### 3. Item "lovable.dev" no prompt de download
+### 5. Migração para Claude Sonnet 4
+- Solicitar `ANTHROPIC_API_KEY` via add_secret.
+- Criar `supabase/functions/_shared/claudeClient.ts` (`callClaude({ system, messages, max_tokens, pdfs })`).
+- Criar `supabase/functions/_shared/buildClaudeContext.ts` (`buildClaudeContextBlocks({ business, storybrand, archetypes, personal, pdfs })`) — garante PDFs + contexto pessoal em toda chamada.
+- Migrar Gemini → Claude em: `process-content-generation-job`, `regenerate-single-post`, `generate-report`.
+- Manter Gemini para imagens (`generate-portrait`, `fetch-post-image`).
 
-- **Sem alteração de código.** A caixa "Permitir downloads de **lovable.dev**" só aparece dentro do iframe de preview do editor Lovable. Em produção (`posiciona.ia.br`), o navegador exibe apenas o domínio real.
-- A caixa de "múltiplos downloads" já é mitigada pelo botão **"Baixar todos (.zip)"** existente, que entrega um único arquivo.
+### 6. Prompt humanizado
+Toda chamada ao Claude para conteúdo editorial inclui:
+1. System prompt editorial.
+2. PDFs de referência (StoryBrand, Made to Stick, Obviously Awesome) anexados via `content[].type=document`.
+3. Bloco `# CONTEXTO PESSOAL DO CRIADOR` com as 16 respostas (campos vazios omitidos).
+4. Bloco de negócio + StoryBrand + arquétipos.
 
-### Arquivos editados
-- `supabase/functions/generate-portrait/index.ts`
-- `src/pages/PortraitGenerator.tsx`
+Instrução adicional: "Reserve 1–2 dias da semana para posts em formato storytelling, tecendo paralelos entre a vida pessoal/história do criador e as dores do cliente-alvo. Nunca invente fatos."
 
-### Sem alteração
-- Schema, RLS, tabela `user_balances`, `credit_logs`, `portrait_generations`.
-- Pipeline de download/upload paralelo, prompts, LoRA scale, guidance.
-- Pool curado de figurinos e memória curta.
+### 7. Versionamento
+- Bump em `supabase/functions/_shared/generatorVersion.ts` e `src/lib/generatorVersion.ts` para `2026-04-25-v5` — semanas antigas elegíveis para regeneração gratuita.
+
+### Arquivos
+**Novos:** migração SQL, `PersonalQuestionnaire.tsx`, `claudeClient.ts`, `buildClaudeContext.ts`.
+**Editados:** `App.tsx`, `DashboardLayout.tsx`, `Dashboard.tsx`, `EditorialPage.tsx`, `generate-content-week`, `process-content-generation-job`, `regenerate-single-post`, `generate-report`, `generatorVersion.ts` (frontend e shared).
+
+### Ordem de execução
+1. Migração + página + navegação + bloqueio (independe da chave Claude).
+2. Solicitar `ANTHROPIC_API_KEY`.
+3. Após chave: `claudeClient`, `buildClaudeContext`, migrar 3 edge functions, bump v5.

@@ -31,17 +31,19 @@ const Dashboard = () => {
   const [hasInstagram, setHasInstagram] = useState(false);
   const [hasEditorial, setHasEditorial] = useState(false);
   const [hasPortraits, setHasPortraits] = useState(false);
+  const [personalSubmitted, setPersonalSubmitted] = useState(false);
 
   useEffect(() => {
     if (!user) return;
     const load = async () => {
-      const [profileRes, bqRes, answersRes, reportRes, igRes, portraitRes] = await Promise.all([
+      const [profileRes, bqRes, answersRes, reportRes, igRes, portraitRes, pqRes] = await Promise.all([
         supabase.from("profiles").select("*").eq("user_id", user.id).single(),
         supabase.from("business_questionnaires").select("is_complete").eq("user_id", user.id).order("version", { ascending: false }).limit(1),
         supabase.from("archetype_answers").select("question_id").eq("user_id", user.id),
         supabase.from("reports").select("status, editorial_weeks, content").eq("user_id", user.id).order("version", { ascending: false }).limit(1),
         supabase.from("instagram_analyses").select("id").eq("user_id", user.id).limit(1),
         supabase.from("portrait_generations").select("id").eq("user_id", user.id).limit(1),
+        supabase.from("personal_questionnaires").select("status").eq("user_id", user.id).order("version", { ascending: false }).limit(1),
       ]);
       setProfile(profileRes.data);
       setBusinessComplete(bqRes.data?.[0]?.is_complete ?? false);
@@ -64,6 +66,7 @@ const Dashboard = () => {
       setHasEditorial(hasEditorialWeeks || hasContentEditorial);
       setHasInstagram((igRes.data?.length ?? 0) > 0);
       setHasPortraits((portraitRes.data?.length ?? 0) > 0);
+      setPersonalSubmitted(pqRes.data?.[0]?.status === "submitted");
     };
     load();
   }, [user]);
@@ -94,6 +97,14 @@ const Dashboard = () => {
       href: "/results",
       icon: BarChart3,
       cta: "Gerar agora"
+    };
+    if (!personalSubmitted) return {
+      label: "Conte sua história",
+      description: "Antes da Linha Editorial, responda o questionário pessoal para humanizar seus posts.",
+      hint: "Hobbies, valores e memórias que viram conteúdo autêntico",
+      href: "/personal-questionnaire",
+      icon: Sparkles,
+      cta: "Preencher agora"
     };
     if (!hasEditorial) return {
       label: "Linha editorial",
@@ -145,9 +156,14 @@ const Dashboard = () => {
       statusLabel: hasInstagram ? "Concluído" : hasReport ? "Disponível" : "Bloqueado"
     },
     {
+      label: "Sua História", href: "/personal-questionnaire", icon: Sparkles,
+      status: personalSubmitted ? "done" : hasReport ? "in_progress" : "blocked",
+      statusLabel: personalSubmitted ? "Concluído" : hasReport ? "Disponível" : "Bloqueado"
+    },
+    {
       label: "Editorial", href: "/editorial", icon: Calendar,
-      status: hasEditorial ? "done" : hasReport ? "in_progress" : "blocked",
-      statusLabel: hasEditorial ? "Concluído" : hasReport ? "Disponível" : "Bloqueado"
+      status: hasEditorial ? "done" : (hasReport && personalSubmitted) ? "in_progress" : "blocked",
+      statusLabel: hasEditorial ? "Concluído" : (hasReport && personalSubmitted) ? "Disponível" : "Bloqueado"
     },
     {
       label: "Retratos", href: "/portraits", icon: Camera,
