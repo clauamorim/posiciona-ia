@@ -18,7 +18,8 @@ export type ArchetypeName =
 // Reforço aplicado a todos os prompts: garante cenário de estúdio.
 const STUDIO_PREFIX = "professional photography studio, controlled studio lighting, ";
 // Negative base — aplicado a TODOS os looks (sem termos específicos de mãos).
-const STUDIO_NEGATIVE_BASE = ", outdoor, street, natural daylight, trees, buildings, sky, park, beach, low quality, blurry, deformed face, asymmetric eyes, extra arms, three hands, four hands, mutated hands, extra limbs, missing limbs, disfigured, malformed, duplicate, two heads, cloned face, bad anatomy, multiple people";
+// Reforçado contra rostos genéricos / "ai-look" que apagam a identidade do LoRA.
+const STUDIO_NEGATIVE_BASE = ", outdoor, street, natural daylight, trees, buildings, sky, park, beach, low quality, blurry, deformed face, asymmetric eyes, extra arms, three hands, four hands, mutated hands, extra limbs, missing limbs, disfigured, malformed, duplicate, two heads, cloned face, bad anatomy, multiple people, generic face, idealized face, ai-generated face, plastic skin, airbrushed skin, beauty filter, smoothed skin, different person, face swap, average face, model face, stock photo face";
 // Reforço de anatomia de mãos — aplicado APENAS aos looks que mostram mãos (claro/escuro).
 const HANDS_NEGATIVE_REINFORCE = ", extra fingers, six fingers, seven fingers, four fingers, fused fingers, deformed fingers, disfigured fingers, misshapen hands, bent broken fingers, twisted fingers, clenched fists, stiff claw hands, symmetrical fist pose, hands floating awkwardly, tense rigid fingers";
 
