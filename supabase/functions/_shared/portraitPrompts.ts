@@ -182,54 +182,57 @@ export function getArchetypeFamily(archetype: string): ArchetypeFamily {
   return ARCHETYPE_FAMILY[archetype] ?? "nurturing";
 }
 
+// Templates ENXUTOS por arquétipo. Mantemos só a essência: expressão, iluminação,
+// fundo. Os tokens de qualidade (pele, câmera, lente) vão no QUALITY_SUFFIX único.
+// Estrutura: USR[id] [gender], {essência}, [outfit], [hair], [makeup]
 export const ARCHETYPE_PROMPTS: Record<ArchetypeName, { prompt: string; negative: string }> = {
   "Governante": {
-    prompt: "USR[id] [gender], powerful executive portrait, authoritative calm expression, hard directional lighting, dark textured studio background with subtle wall texture, [outfit], [hair], [makeup], strong posture, direct confident gaze, no smile, fine skin pores, sharp focus, photorealistic, shot on Sony A7, 85mm f/1.4, natural facial features, authentic face, individual hair strands",
-    negative: "plain white background, flat black background, soft lighting, casual, smiling, plastic skin, smooth hair, symmetrical face, artificial face, overly perfect features",
+    prompt: "USR[id] [gender], authoritative calm expression, hard directional lighting, dark textured studio background, [outfit], [hair], [makeup], strong upright posture, direct confident gaze, no smile",
+    negative: "casual, smiling, soft lighting, flat white background",
   },
   "Sábio": {
-    prompt: "USR[id] [gender], intellectual professional portrait, calm contemplative expression, soft Rembrandt lighting, warm dark textured studio background, subtle linen or concrete wall texture, [outfit], [hair], [makeup], slight tilt of head, thoughtful gaze, no smile, fine skin pores, sharp focus, photorealistic, shot on Sony A7, 85mm f/1.4, natural facial features, authentic face, individual hair strands",
-    negative: "plain white background, flat black background, harsh lighting, casual, smiling, plastic skin, smooth hair, symmetrical face, artificial face, overly perfect features",
+    prompt: "USR[id] [gender], calm contemplative expression, soft Rembrandt lighting, deep dark background, [outfit], [hair], [makeup], slight head tilt, thoughtful gaze, no smile",
+    negative: "casual, wide smile, harsh lighting, bright background",
   },
   "Cuidador": {
-    prompt: "USR[id] [gender], warm professional portrait, gentle approachable expression, soft diffused lighting, warm textured studio background, soft beige or warm grey wall texture, [outfit], [hair], [makeup], slight natural smile, open body language, fine skin pores, sharp focus, photorealistic, shot on Canon R5, 85mm f/1.8, natural facial features, authentic face, individual hair strands",
-    negative: "plain white background, flat black background, harsh lighting, dark background, serious expression, plastic skin, symmetrical face, artificial face, overly perfect features",
+    prompt: "USR[id] [gender], gentle approachable expression, soft diffused lighting, warm beige background, [outfit], [hair], [makeup], slight natural smile, open relaxed posture",
+    negative: "harsh lighting, dark moody background, serious cold expression",
   },
   "Criador": {
-    prompt: "USR[id] [gender], creative professional portrait, expressive authentic expression, dramatic side lighting, artistic textured studio background, weathered plaster or mixed tones wall texture, [outfit], [hair], [makeup], artistic pose, intense gaze, fine skin pores, sharp focus, photorealistic, shot on Leica M, 50mm f/1.4, natural facial features, authentic face, individual hair strands",
-    negative: "plain white background, flat black background, corporate look, flat lighting, stiff pose, plastic skin, symmetrical face, artificial face, overly perfect features",
+    prompt: "USR[id] [gender], expressive authentic expression, dramatic side lighting, weathered artistic background, [outfit], [hair], [makeup], natural creative pose, intense gaze",
+    negative: "corporate look, flat lighting, stiff symmetrical pose",
   },
   "Herói": {
-    prompt: "USR[id] [gender], dynamic professional portrait, determined strong expression, high contrast dramatic lighting, deep textured studio background, dark grey stone or concrete wall texture, [outfit], [hair], [makeup], forward-leaning posture, intense direct gaze, jaw set, fine skin pores, sharp focus, photorealistic, shot on Nikon Z9, 85mm f/1.4, natural facial features, authentic face, individual hair strands",
-    negative: "plain white background, flat black background, soft lighting, casual, relaxed expression, plastic skin, symmetrical face, artificial face, overly perfect features",
+    prompt: "USR[id] [gender], determined strong expression, high contrast dramatic lighting, dark stone background, [outfit], [hair], [makeup], forward-leaning posture, intense direct gaze, jaw set",
+    negative: "soft lighting, casual relaxed expression, washed out background",
   },
   "Explorador": {
-    prompt: "USR[id] [gender], authentic professional portrait, free confident expression, natural warm lighting, medium textured studio background, warm earthy tones wall texture, [outfit], [hair], [makeup], relaxed posture, genuine gaze, subtle smile, fine skin pores, sharp focus, photorealistic, shot on Fujifilm X-T5, 35mm f/1.4, natural facial features, authentic face, individual hair strands",
-    negative: "plain white background, flat black background, stiff corporate pose, dark dramatic background, plastic skin, symmetrical face, artificial face, overly perfect features",
+    prompt: "USR[id] [gender], free confident expression, natural warm lighting, earthy textured background, [outfit], [hair], [makeup], relaxed posture, genuine gaze, subtle smile",
+    negative: "stiff corporate pose, dark moody background, flat lighting",
   },
   "Inocente": {
-    prompt: "USR[id] [gender], fresh professional portrait, genuine warm expression, soft bright lighting, light textured studio background, soft warm white or pale grey wall texture, [outfit], [hair], [makeup], open natural smile, relaxed shoulders, fine skin pores, sharp focus, photorealistic, shot on Canon R5, 85mm f/1.8, natural facial features, authentic face, individual hair strands",
-    negative: "plain flat white background, flat black background, serious expression, dramatic lighting, plastic skin, symmetrical face, artificial face, overly perfect features",
+    prompt: "USR[id] [gender], genuine warm expression, soft bright lighting, light pale background, [outfit], [hair], [makeup], open natural smile, relaxed shoulders",
+    negative: "serious heavy expression, dramatic shadows, dark background",
   },
   "Cara-comum": {
-    prompt: "USR[id] [gender], approachable professional portrait, genuine relatable expression, soft natural lighting, simple textured studio background, neutral mid-tone wall texture, [outfit], [hair], [makeup], natural relaxed posture, warm gaze, light smile, fine skin pores, sharp focus, photorealistic, shot on Sony A7, 50mm f/1.8, natural facial features, authentic face, individual hair strands",
-    negative: "plain white background, flat black background, dramatic lighting, stiff corporate pose, plastic skin, symmetrical face, artificial face, overly perfect features",
+    prompt: "USR[id] [gender], approachable relatable expression, soft natural lighting, neutral mid-tone background, [outfit], [hair], [makeup], natural relaxed posture, warm gaze, light smile",
+    negative: "dramatic lighting, stiff corporate pose, intense expression",
   },
   "Mago": {
-    prompt: "USR[id] [gender], visionary professional portrait, intense magnetic expression, dramatic chiaroscuro lighting, mysterious textured studio background, dark moody plaster or smoke-toned wall texture, [outfit], [hair], [makeup], slight forward lean, piercing gaze, no smile, fine skin pores, sharp focus, photorealistic, shot on Sony A7, 85mm f/1.4, natural facial features, authentic face, individual hair strands",
-    negative: "plain white background, flat black background, flat lighting, casual expression, plastic skin, symmetrical face, artificial face, overly perfect features",
+    prompt: "USR[id] [gender], intense magnetic expression, dramatic chiaroscuro lighting, mysterious dark background, [outfit], [hair], [makeup], slight forward lean, piercing gaze, no smile",
+    negative: "flat lighting, casual cheerful expression, bright airy background",
   },
   "Amante": {
-    prompt: "USR[id] [gender], magnetic professional portrait, warm sophisticated expression, soft golden hour lighting, rich warm textured studio background, deep warm terracotta or burgundy wall texture, [outfit], [hair], [makeup], elegant posture, intense warm gaze, subtle smile, fine skin pores, sharp focus, photorealistic, shot on Leica M, 85mm f/1.2, natural facial features, authentic face, individual hair strands",
-    negative: "plain white background, flat black background, harsh lighting, stiff pose, cold tones, plastic skin, symmetrical face, artificial face, overly perfect features",
+    prompt: "USR[id] [gender], warm sophisticated expression, soft golden hour lighting, deep warm terracotta background, [outfit], [hair], [makeup], elegant posture, intense warm gaze, subtle smile",
+    negative: "harsh cold lighting, stiff pose, washed out tones",
   },
   "Rebelde": {
-    prompt: "USR[id] [gender], disruptive professional portrait, bold unconventional expression, high contrast dramatic lighting, edgy textured studio background, raw concrete or industrial wall texture, [outfit], [hair], [makeup], strong asymmetric pose, direct challenging gaze, fine skin pores, sharp focus, photorealistic, shot on Leica M, 35mm f/1.4, natural facial features, authentic face, individual hair strands",
-    negative: "plain white background, flat black background, corporate look, soft lighting, conventional pose, plastic skin, symmetrical face, artificial face, overly perfect features",
+    prompt: "USR[id] [gender], bold unconventional expression, high contrast dramatic lighting, raw industrial background, [outfit], [hair], [makeup], asymmetric pose, direct challenging gaze",
+    negative: "corporate look, soft polished lighting, conventional symmetrical pose",
   },
   "Bobo-da-corte": {
-    prompt: "USR[id] [gender], vibrant professional portrait, playful authentic expression, bright dynamic lighting, warm textured studio background, colorful warm-toned or eclectic wall texture, [outfit], [hair], [makeup], natural laugh or wide smile, energetic posture, fine skin pores, sharp focus, photorealistic, shot on Fujifilm X-T5, 50mm f/1.8, natural facial features, authentic face, individual hair strands",
-    negative: "plain white background, flat black background, serious expression, stiff pose, plastic skin, symmetrical face, artificial face, overly perfect features",
+    prompt: "USR[id] [gender], playful authentic expression, bright dynamic lighting, warm colorful background, [outfit], [hair], [makeup], natural laugh or wide smile, energetic posture",
+    negative: "serious heavy expression, stiff corporate pose, dark moody background",
   },
 };
 
