@@ -213,6 +213,157 @@ IMPORTANTE: Use os nomes dos arquétipos EXATAMENTE como fornecidos nos dados ab
 Responda APENAS em português brasileiro. Seja específico, prático e personalizado.`;
 }
 
+function getArchetypeName(input: any, fallback: string): string {
+  return input?.archetype_name || input?.name || fallback;
+}
+
+const PALETTES: Record<string, { hex: string; name: string; usage: string }[]> = {
+  "Herói": [
+    { hex: "#C0392B", name: "Vermelho Poder", usage: "Destaques e chamadas de ação" },
+    { hex: "#2C3E50", name: "Azul Aço", usage: "Base institucional" },
+    { hex: "#ECF0F1", name: "Branco Nobre", usage: "Fundos claros" },
+    { hex: "#E74C3C", name: "Vermelho Impacto", usage: "Ênfase visual" },
+    { hex: "#1A1A2E", name: "Escuro Épico", usage: "Texto e profundidade" },
+  ],
+  "Explorador": [
+    { hex: "#1ABC9C", name: "Verde Aventura", usage: "Destaques e energia de movimento" },
+    { hex: "#2C3E50", name: "Azul Oceano", usage: "Base de autoridade" },
+    { hex: "#F0F3F4", name: "Branco Areia", usage: "Fundos leves" },
+    { hex: "#F39C12", name: "Âmbar", usage: "Chamadas de ação" },
+    { hex: "#16A085", name: "Verde Floresta", usage: "Apoios visuais" },
+  ],
+  "Governante": [
+    { hex: "#D4AC0D", name: "Dourado Real", usage: "Detalhes premium" },
+    { hex: "#1B2631", name: "Azul Marinho", usage: "Base sofisticada" },
+    { hex: "#FDFEFE", name: "Branco Majestade", usage: "Respiro e fundos" },
+    { hex: "#85929E", name: "Prata", usage: "Elementos secundários" },
+    { hex: "#6E2C00", name: "Bronze Imperial", usage: "Contraste editorial" },
+  ],
+  "Amante": [
+    { hex: "#C0392B", name: "Vermelho Paixão", usage: "Pontos de desejo" },
+    { hex: "#6C3483", name: "Roxo Sedução", usage: "Base sensorial" },
+    { hex: "#FDEDEC", name: "Rosa Suave", usage: "Fundos delicados" },
+    { hex: "#F5B7B1", name: "Rosa Quente", usage: "Acentos humanos" },
+    { hex: "#1A1A2E", name: "Escuro Elegante", usage: "Texto e contraste" },
+  ],
+};
+
+const DEFAULT_PALETTE = [
+  { hex: "#6E3FE6", name: "Violeta Estratégico", usage: "Destaques e botões" },
+  { hex: "#171024", name: "Noite Editorial", usage: "Base escura" },
+  { hex: "#F5F4F1", name: "Linho Claro", usage: "Fundos claros" },
+  { hex: "#BFA77A", name: "Dourado Suave", usage: "Detalhes premium" },
+  { hex: "#2F6F73", name: "Verde Profundo", usage: "Contraponto sofisticado" },
+];
+
+function archetypeDescription(name: string): string {
+  const map: Record<string, string> = {
+    "Explorador": "Marca movida por liberdade, expansão e descoberta. Atrai pessoas que desejam sair do automático e encontrar caminhos próprios.",
+    "Governante": "Marca de liderança, ordem e excelência. Comunica domínio, critérios elevados e capacidade de conduzir decisões importantes.",
+    "Amante": "Marca sensorial, cuidadosa e magnética. Cria conexão por beleza, desejo, presença e refinamento nas relações.",
+    "Sábio": "Marca analítica e orientadora. Ganha confiança por clareza, método, profundidade e leitura precisa do contexto.",
+    "Criador": "Marca autoral e inventiva. Valoriza expressão, originalidade, estética e construção de algo com assinatura própria.",
+    "Herói": "Marca determinada e transformadora. Inspira ação, superação e coragem para alcançar um resultado concreto.",
+  };
+  return map[name] || `Marca com energia de ${name}, capaz de orientar decisões de comunicação, estética e posicionamento com consistência.`;
+}
+
+function buildDeterministicReport(payload: any): any {
+  const business = payload?.business || {};
+  const archetypes = payload?.archetypes || {};
+  const primary = getArchetypeName(archetypes.primary, "Explorador");
+  const secondary = getArchetypeName(archetypes.secondary, "Governante");
+  const tertiary = getArchetypeName(archetypes.tertiary, "Amante");
+  const company = business.company_name || "sua marca";
+  const audience = business.target_audience || "seu público ideal";
+  const services = business.services || "seus serviços";
+  const mainCta = business.main_cta || "agendar uma conversa estratégica";
+  const palette = PALETTES[primary] || DEFAULT_PALETTE;
+
+  const arch = (name: string, role: string) => ({
+    name,
+    description: archetypeDescription(name),
+    application: `${role}: use este arquétipo para orientar linguagem, estética, temas editoriais e decisões de posicionamento da ${company}.`,
+    characteristics: ["clareza", "presença", "consistência", "autoridade", "diferenciação"],
+    brands: ["Apple", "Nike", "Chanel"],
+    people: ["Oprah Winfrey", "Steve Jobs", "Michelle Obama"],
+  });
+
+  return {
+    archetypes: {
+      primary: arch(primary, "Arquétipo dominante"),
+      secondary: arch(secondary, "Complemento estratégico"),
+      tertiary: arch(tertiary, "Apoio de nuance"),
+    },
+    visual_identity: {
+      palette,
+      typography: { display: "Cormorant Garamond", body: "Inter", accent: "Raleway" },
+      style: `Editorial premium com contraste entre ${primary}, ${secondary} e ${tertiary}: presença sofisticada, composição limpa e sinais visuais de autoridade.`,
+    },
+    tone_of_voice: {
+      summary: `A voz da ${company} deve soar clara, segura e refinada, traduzindo ${services} em uma promessa compreensível para ${audience}.`,
+      words_to_use: ["clareza", "estratégia", "presença", "método", "transformação"],
+      words_to_avoid: ["barato", "milagre", "garantido", "fórmula mágica", "sem esforço"],
+      emotions_to_evoke: ["confiança", "desejo de avançar", "segurança", "pertencimento"],
+      communication_style: "Direto, elegante e consultivo, com exemplos concretos e chamadas para ação sem pressão excessiva.",
+    },
+    storybrand: {
+      hero: audience,
+      guide: `${company} atua como guia que organiza o caminho e reduz a insegurança de decisão.`,
+      external_problem: business.external_problems || `O público ainda não sabe como escolher ou aplicar ${services} com segurança.`,
+      internal_problem: business.internal_problems || "A pessoa sente dúvida, dispersão ou receio de investir no caminho errado.",
+      philosophical_problem: "Bons profissionais e boas marcas não deveriam depender de improviso para serem percebidos com valor.",
+      plan: ["Diagnosticar o cenário atual", "Definir uma direção estratégica", "Aplicar a estratégia em decisões práticas de comunicação"],
+      cta: mainCta,
+      success: business.promised_transformations || "Uma marca mais clara, desejada e reconhecida pelo público certo.",
+      failure: business.negative_consequences || "Continuar comunicando de forma genérica, com baixa percepção de valor.",
+    },
+    figurino: {
+      resumo: `Figurino estratégico com presença editorial, alinhando ${primary}, ${secondary} e ${tertiary} para transmitir autoridade e aproximação.`,
+      cores_roupa: palette.slice(0, 4).map((c) => c.name),
+      pecas_chave: ["blazer estruturado em tom profundo", "camisa de tecido nobre", "calça de alfaiataria", "peça de destaque na cor principal", "malha fina neutra", "terceira peça elegante", "acessório assinatura"],
+      sapatos: ["sapato clássico de couro", "tênis minimalista premium", "mocassim estruturado", "opção elegante em tom neutro"],
+      acessorios: ["relógio discreto", "óculos com armação marcante", "anel minimalista", "bolsa ou pasta estruturada", "peça metálica discreta"],
+      cabelo: "Acabamento polido, natural e intencional, evitando aparência improvisada.",
+      maquiagem_grooming: "Aparência bem cuidada, pele natural e acabamento coerente com o grau de sofisticação da marca.",
+      evitar: ["excesso de informação visual", "peças desalinhadas ao posicionamento premium"],
+      looks_completos: [
+        { nome: "Autoridade Editorial", pecas: ["blazer estruturado", "base neutra", "sapato clássico"], ocasiao: "reuniões, lives e fotos institucionais" },
+        { nome: "Presença Próxima", pecas: ["malha fina", "calça de alfaiataria", "tênis premium"], ocasiao: "conteúdos educativos e bastidores" },
+        { nome: "Assinatura de Marca", pecas: ["peça na cor principal", "base escura", "acessório assinatura"], ocasiao: "lançamentos e chamadas comerciais" },
+      ],
+      texturas_tecidos: ["alfaiataria", "linho encorpado", "seda fosca"],
+      estampas: ["lisas", "microtexturas", "contrastes discretos"],
+    },
+    simbolos: {
+      primary: [
+        { nome: primary, simbolo: "✦", significado: "Direção central da marca", aplicacao: "Detalhes gráficos e separadores" },
+        { nome: "Bússola", simbolo: "⌖", significado: "Clareza de caminho", aplicacao: "Posts de orientação" },
+        { nome: "Marco", simbolo: "◆", significado: "Decisão e posicionamento", aplicacao: "Capas e destaques" },
+      ],
+      secondary: [
+        { nome: secondary, simbolo: "♛", significado: "Autoridade complementar", aplicacao: "Conteúdos de método" },
+        { nome: "Coluna", simbolo: "▥", significado: "Estrutura", aplicacao: "Diagramas e templates" },
+        { nome: "Selo", simbolo: "◈", significado: "Excelência", aplicacao: "Provas e cases" },
+      ],
+      tertiary: [
+        { nome: tertiary, simbolo: "♡", significado: "Nuance emocional", aplicacao: "Stories e narrativas pessoais" },
+        { nome: "Luz", simbolo: "☼", significado: "Atração", aplicacao: "Destaques visuais" },
+        { nome: "Laço", simbolo: "∞", significado: "Conexão", aplicacao: "Posts de relacionamento" },
+      ],
+    },
+    editorial: [1, 2, 3, 4, 5, 6, 7].map((day) => ({
+      day,
+      theme: ["O desejo do cliente", "O obstáculo visível", "A tensão interna", "A marca como guia", "O caminho em etapas", "Convite para avançar", "O custo de adiar"][day - 1],
+      format: ["post", "carrossel", "reels", "post", "carrossel", "stories", "post"][day - 1],
+      caption: `Conteúdo para ${company}: conecte ${audience} ao problema central e apresente ${services} como caminho claro, específico e desejável.`,
+      card_copy: day === 2 || day === 5 ? ["Você não precisa decidir no escuro.", "Existe um caminho mais claro.", "O primeiro passo é nomear o problema.", "Depois, organizar prioridades.", "Por fim, agir com direção."] : [`${company}: uma direção mais clara para ${audience}.`],
+      cta: mainCta,
+      script: day === 3 || day === 6 ? `Abra nomeando a dúvida principal de ${audience}, mostre o custo de permanecer no improviso e convide para ${mainCta}.` : "",
+    })),
+  };
+}
+
 async function processJob(jobId: string) {
   const { data: job, error: jobErr } = await admin
     .from("report_generation_jobs")
@@ -246,92 +397,14 @@ async function processJob(jobId: string) {
 
   try {
     const payload = job.payload || {};
-    const { business, niche, archetypes, gender } = payload;
     const userId = job.user_id as string;
-    const genderLabel = gender || "Não informado";
 
-    const systemPrompt = buildSystemPrompt(genderLabel);
+    await updateJob(jobId, { progress_message: "Gerando estratégia sem chamada paga à IA…" });
 
-    const userPrompt = `
-Dados do negócio:
-- Nome: ${business?.company_name || "Não informado"}
-- Serviços: ${business?.services || "Não informado"}
-- Público-alvo: ${business?.target_audience || "Não informado"}
-- Problemas externos: ${business?.external_problems || "Não informado"}
-- Problemas internos: ${business?.internal_problems || "Não informado"}
-- Declarações empáticas: ${business?.empathic_statements || "Não informado"}
-- Provas de autoridade: ${business?.authority_proofs || "Não informado"}
-- Etapas para contratar: ${business?.hiring_steps || "Não informado"}
-- Medos do cliente: ${business?.client_fears || "Não informado"}
-- CTA principal: ${business?.main_cta || "Não informado"}
-- Consequências negativas: ${business?.negative_consequences || "Não informado"}
-- Transformações prometidas: ${business?.promised_transformations || "Não informado"}
-
-Nicho/área de atuação: ${niche || "Não informado"}
-
-⚠️ GÊNERO DO CLIENTE (OBRIGATÓRIO para figurino): ${genderLabel}
-Gere TODAS as recomendações de figurino, maquiagem/grooming, acessórios e cabelo para o gênero ${genderLabel}.
-
-Arquétipos principais (calculados pela aplicação — use EXATAMENTE estes nomes):
-- Primário: ${archetypes?.primary?.archetype_name || archetypes?.primary?.name} (pontuação: ${archetypes?.primary?.score}/30)
-- Secundário: ${archetypes?.secondary?.archetype_name || archetypes?.secondary?.name} (pontuação: ${archetypes?.secondary?.score}/30)
-- Terciário: ${archetypes?.tertiary?.archetype_name || archetypes?.tertiary?.name} (pontuação: ${archetypes?.tertiary?.score}/30)
-
-Gere o relatório completo em JSON agora.`;
-
-    // Contexto pessoal
-    const personal = await fetchPersonalQuestionnaire(userId);
-    const personalBlock = renderPersonalContext(personal);
-
-    const enrichedSystemPrompt = systemPrompt + renderBrandscriptFramework();
-
-    await updateJob(jobId, { progress_message: "Gerando estratégia… pode levar até 2 minutos." });
-
-    // Chama Claude SEM retry automático para evitar cobrança duplicada em 504/timeout.
-    let rawContent: string;
-    try {
-      rawContent = await callClaude({
-        systemPrompt: enrichedSystemPrompt,
-        userText: userPrompt + personalBlock,
-        max_tokens: 8000,
-        timeoutMs: 140000,
-        disableRetries: true,
-      });
-    } catch (e) {
-      if (e instanceof ClaudeError) {
-        throw Object.assign(new Error(e.message), {
-          userMessage: e.userMessage || "A IA está instável agora. Tente novamente em alguns segundos.",
-        });
-      }
-      throw e;
-    }
-
-    await updateJob(jobId, { progress_message: "Validando e salvando…" });
-
-    let reportContent = extractJsonFromLLM(rawContent);
-
-    // 1 retry só para parsing inválido (não para 504/timeout)
-    if (!isValidReport(reportContent)) {
-      console.warn("JSON inválido na 1ª tentativa, refazendo apenas o parsing strict…");
-      try {
-        const retryRaw = await callClaude({
-          systemPrompt: enrichedSystemPrompt + "\n\nIMPORTANTE: a tentativa anterior retornou JSON inválido. Responda APENAS com JSON válido, começando com { e terminando com }.",
-          userText: userPrompt + personalBlock,
-          max_tokens: 8000,
-          timeoutMs: 140000,
-          disableRetries: true,
-        });
-        reportContent = extractJsonFromLLM(retryRaw);
-      } catch (retryErr) {
-        console.error("Retry de parsing falhou:", retryErr);
-      }
-    }
-
-    if (!isValidReport(reportContent)) {
-      throw Object.assign(new Error("JSON inválido após retry"), {
-        userMessage: "A IA retornou uma resposta malformada. Tente gerar novamente.",
-      });
-    }
+    // Modo de segurança: evita novas cobranças no Claude enquanto a API externa está
+    // demorando além do limite. Gera um relatório estruturado determinístico com os
+    // dados já preenchidos pelo usuário.
+    const reportContent = buildDeterministicReport(payload);
 
     // Persistir no relatório
     await admin
