@@ -239,6 +239,8 @@ serve(async (req) => {
         `[generate-portrait] call ${i + 1}/3 background=${built.backgroundKey} archetype=${archetypeName} ` +
         `outfit="${outfit}" hasTraits=${!!(training as any).physical_traits}`,
       );
+      console.log(`[generate-portrait] FULL PROMPT call ${i + 1}: ${built.prompt}`);
+      console.log(`[generate-portrait] FULL NEGATIVE call ${i + 1}: ${built.negative}`);
       let r = await callFluxLora({
         token: REPLICATE_API_TOKEN,
         loraVersion: training.lora_weights_url,

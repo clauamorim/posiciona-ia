@@ -1,134 +1,117 @@
+## Diagnóstico
 
-## Diagnóstico dos problemas
+Os logs já mostram que `buildOutfitTextForLook(figurino, i)` está enviando os 3 looks corretos (round-robin). O problema é que o Flux está **ignorando** o que recebe porque:
 
-Analisando os retratos enviados (cabelo curto vs comprido, loira vs morena, três mãos) e o código atual, identifiquei 4 causas combinadas:
+1. **Idioma misto** — o relatório envia peças em português (`vestido tubinho midi`, `trench coat camel`, `calça alfaiataria`). O Flux foi treinado predominantemente em inglês e degrada o entendimento de termos de moda em PT.
+2. **Posição no prompt** — o `[outfit]` aparece tarde no template do arquétipo, depois de `expression`, `lighting`, `background`. Tokens posteriores têm menos peso na atenção do Flux.
+3. **Falta de ênfase** — o Flux suporta sintaxe de peso `(token:1.3)`. Hoje o outfit é apenas uma frase no meio de muitas outras.
+4. **Diluição** — listas com 4-5 peças + acessórios + materiais ficam longas demais; o Flux trava nas 2 primeiras palavras (geralmente "blazer" ou "blusa básica") e aplica sempre o mesmo blazer escuro.
+5. **Sem negative específico do look** — quando o look 2 é um vestido, nada impede o Flux de colocar blazer (porque viu blazer no look 1 e nas selfies de treino).
 
-1. **`autocaption: true`** no treino → o trainer da Replicate gera legendas automáticas inconsistentes (varia "woman with long brown hair" e "person"), então o LoRA não fixa cabelo, cor nem gênero.
-2. **`lora_scale: 0.85`** na inferência → fidelidade baixa, o modelo inventa traços.
-3. **Negative prompt fraco** (`extra fingers, asymmetric eyes`) → não bloqueia "três mãos", "membros extras", "rostos duplicados".
-4. **Figurinos**: o código já tem `buildOutfitTextForLook(figurino, i)` com round-robin. **Funciona se `looks_completos` existir**. Vou verificar e logar para garantir que os 3 looks do relatório cheguem ao Flux.
+## Plano de correção
 
-Sem campos manuais no cadastro: extraio cabelo/pele/gênero direto das selfies de treino com Gemini Vision.
+### Etapa 1 — `supabase/functions/_shared/portraitPrompts.ts`
 
----
+**1.1 Dicionário PT→EN para peças de moda**
 
-## Etapa 1 — Schema (migration)
+Adicionar uma função `translateOutfitPieces(pecas: string[]): string[]` com mapa manual (regex case-insensitive) cobrindo as peças mais comuns dos relatórios:
 
-Adicionar coluna em `portrait_trainings`:
-
-| Campo | Tipo | Descrição |
-|---|---|---|
-| `physical_traits` | jsonb | `{ gender, hair_color, hair_length, skin_tone, eye_color }` extraídos das selfies |
-
-Sem retrocompatibilidade — quem treinar a partir de agora terá os traços; treinos antigos continuam funcionando com prompts mais fracos (mas serão re-treinados no próximo teste).
-
----
-
-## Etapa 2 — `supabase/functions/portrait-train/index.ts`
-
-Antes de subir o ZIP para o Replicate, chamar **Gemini Vision** (`google/gemini-2.5-flash`) com 3 selfies aleatórias do batch:
-
-**Prompt (PT, retorno JSON):**
 ```
-Analise as fotos e devolva APENAS JSON com:
-{
-  "gender": "woman" | "man",
-  "hair_color": "<descrição curta em inglês: brown, dark brown, blonde, black, red, grey>",
-  "hair_length": "<short | medium | long | very long>",
-  "hair_style": "<straight | wavy | curly | coily>",
-  "skin_tone": "<descrição curta em inglês: fair, light, medium, olive, tan, brown, dark brown, deep>",
-  "eye_color": "<brown | dark brown | hazel | green | blue | grey>"
-}
-```
-
-Salvar em `portrait_trainings.physical_traits`.
-
-**Mudanças no input do Replicate:**
-- Trocar `autocaption: true` por:
-  - `autocaption: false`
-  - `autocaption_prefix: "a photo of USR<id>, a {gender} with {hair_length} {hair_style} {hair_color} hair, {skin_tone} skin"`
-- Manter `steps: 1000`, `lora_rank: 16`, `learning_rate: 0.0004`.
-
-Se a extração Gemini falhar (timeout/erro), cair de volta para `autocaption: true` e logar — não quebra o treino.
-
----
-
-## Etapa 3 — `supabase/functions/_shared/portraitPrompts.ts`
-
-**3.1 Negative prompt anti-anatomia** (`STUDIO_NEGATIVE`):
-```
-, outdoor, street, natural daylight, trees, buildings, sky, park, beach, low quality, blurry, deformed face, extra fingers, asymmetric eyes, extra arms, extra hands, three hands, four hands, mutated hands, deformed hands, extra limbs, missing limbs, fused fingers, disfigured, malformed, duplicate, two heads, cloned face, bad anatomy
+vestido tubinho → sheath dress
+vestido midi → midi dress
+vestido longo → long dress
+trench coat → trench coat
+sobretudo → overcoat
+blazer alfaiataria → tailored blazer
+blazer estruturado → structured blazer
+calça alfaiataria → tailored trousers
+calça pantalona → wide-leg trousers
+saia midi → midi skirt
+saia lápis → pencil skirt
+camisa de seda → silk shirt
+blusa de seda → silk blouse
+blusa básica → fitted top
+camiseta básica → fitted t-shirt
+cardigã → cardigan
+malha → knit top
+tricô → knitwear
+casaco → coat
+jaqueta → jacket
+sapato scarpin → pointed-toe pumps
+scarpin → pointed-toe pumps
+sandália → sandals
+bota → boots
+mocassim → loafers
+tênis → sneakers
 ```
 
-**3.2 Reforço de gênero no negative** (gerado dinamicamente em `buildPortraitPrompt`):
-- Se `gender === "woman"`: append `, man, beard, mustache, masculine features` ao negative.
-- Se `gender === "man"`: append `, woman, feminine features, makeup, lipstick` ao negative.
+Cores comuns: `bege → beige`, `caramelo → caramel`, `camelo → camel`, `marinho → navy`, `vinho → burgundy`, `terracota → terracotta`, `off-white → off-white`, `nude → nude`.
 
-**3.3 Injeção dos traços físicos extraídos no prompt:**
+Tudo o que não bater no dicionário fica no original (Flux ainda tenta interpretar). Isso é seguro e incremental.
 
-Adicionar parâmetro opcional `physicalTraits` em `BuildPromptParams`. Quando presente, injetar uma frase logo após `[gender]`:
+**1.2 Simplificar `buildOutfitTextForLook`**
+
+- Reduzir de 5 peças para **3 "headline pieces"** (top + bottom + outer/shoes), removendo acessórios pequenos (cinto, brincos, bolsa pequena) que poluem o prompt.
+- Aplicar o tradutor antes de juntar.
+- Retornar string já no formato `wearing <peça1>, <peça2>, <peça3>` (com o verbo `wearing` embutido — o Flux ancora melhor).
+
+**1.3 Reposicionar e dar peso ao outfit**
+
+No template de cada arquétipo o `[outfit]` aparece depois de `expression`/`lighting`/`background`. Em vez de mexer nos templates (que são fixos por contrato), em `buildPortraitPrompt`:
+
+- Após injetar os traços físicos (`with long wavy brown hair…`), injetar **antes de continuar com o resto do prompt** uma frase ancorada e com peso:
+  `, (wearing <outfit>:1.4),`
+- E **remover** a substituição de `[outfit]` no template original (substituir por string vazia) para não duplicar peças e não diluir a atenção.
+
+Resultado: o outfit aparece **logo após** `USR<id>` + traços físicos, na zona de máxima atenção do Flux, e com peso 1.4.
+
+**1.4 Negative prompt específico do look**
+
+Adicionar parâmetro `outfitText` ao trecho que monta o negative em `buildPortraitPrompt`. Detectar palavras-chave e adicionar exclusões:
+
+- Se o outfit contém `dress` → adicionar `, blazer, suit jacket, pants, trousers` ao negative.
+- Se contém `cardigan` ou `knit` → adicionar `, blazer, suit jacket, formal suit`.
+- Se contém `coat` ou `trench` → adicionar `, blazer underneath, suit`.
+- Se contém `blazer` → adicionar `, dress, casual t-shirt, hoodie`.
+
+Isso impede o Flux de "voltar" para o blazer escuro padrão das selfies de treino.
+
+### Etapa 2 — `supabase/functions/generate-portrait/index.ts`
+
+**2.1 Log do prompt final completo**
+
+Hoje o log mostra apenas `outfit="..."`. Adicionar:
+
 ```
-USR<id> woman with long wavy brown hair and olive skin, brown eyes, ...
+console.log(`[generate-portrait] FULL PROMPT call ${i+1}: ${built.prompt}`);
+console.log(`[generate-portrait] FULL NEGATIVE call ${i+1}: ${built.negative}`);
 ```
 
-Isso ancora os traços contra deriva do LoRA, mesmo com `lora_scale` alto.
+Isso permite auditar (nos logs do Supabase) exatamente o que o Flux recebeu, caso ainda haja regressão.
 
-**3.4 Duplicação de gênero**: trocar `[gender]` por `{gender} portrait of a {gender}` para reforçar o token (técnica conhecida em Flux para evitar troca de gênero).
+**2.2 Sem outras mudanças** — `lora_scale 0.95`, `guidance_scale 3.5`, `num_inference_steps 40` continuam (já validados na rodada anterior).
 
----
+### Etapa 3 — Validação
 
-## Etapa 4 — `supabase/functions/generate-portrait/index.ts`
+Após deploy, basta gerar 3 retratos novos (sem refazer treino — esta etapa não toca em LoRA nem em traços físicos). Os logs vão mostrar o prompt final por chamada, então conseguimos confirmar:
 
-**4.1 Inference tuning:**
-- `lora_scale: 0.95` (era 0.85)
-- `guidance_scale: 3.5` (era 3.0)
-- `num_inference_steps: 40` (era 35)
+- Os 3 outfits aparecem traduzidos em inglês.
+- Cada um aparece como `(wearing ...:1.4)` logo após os traços.
+- Cada negative tem as exclusões corretas.
 
-**4.2 Carregar `physical_traits`** ao buscar o training:
-```ts
-.select("id, lora_weights_url, trigger_word, status, physical_traits")
-```
-
-E passar para `buildPortraitPrompt({ ..., physicalTraits: training.physical_traits })`.
-
-**4.3 Auditar figurinos** — adicionar log explícito por chamada:
-```
-[generate-portrait] call 1/3 background=neutro outfit="<texto exato>" hair="..." traits=<traits>
-```
-
-Para confirmar que `looks_completos[0|1|2]` está sendo usado e não caindo no fallback. Se o relatório tiver < 3 looks, o round-robin já cuida disso, mas o log vai expor o problema se existir.
-
-**4.4 Garantia mínima de 3 figurinos distintos**: se `looks_completos.length < 3`, gerar variações sintéticas baseadas nas `pecas_chave` + descritores (`smart casual blazer`, `elegant blouse`, `structured outerwear`) para que cada chamada tenha figurino diferente, em vez de repetir o look 0.
-
----
-
-## Etapa 5 — Deploy
-
-Ordem de deploy:
-1. Migration (`physical_traits` em `portrait_trainings`).
-2. `portrait-train` (extração + caption_prefix).
-3. `_shared/portraitPrompts.ts` (negative reforçado + injeção de traços).
-4. `generate-portrait` (scales aumentadas + traits + logs).
-
-Como você é a única testadora, depois do deploy basta:
-1. Apagar o treino atual e refazer (gasta os 4 créditos ou usa o grátis mensal).
-2. Gerar 3 retratos novos.
-3. Validar fidelidade + 3 figurinos distintos nos logs.
-
----
+Se o Flux ainda colocar blazer onde devia ter vestido, o log expõe a regressão exata e ajustamos o peso (1.5/1.6) ou o dicionário.
 
 ## Garantias preservadas
 
-- Estrutura de prompt por arquétipo (`ARCHETYPE_PROMPTS`) **não muda** — apenas recebe traços extras.
+- Templates por arquétipo (`ARCHETYPE_PROMPTS`) **não são editados** — só recebem o `[outfit]` esvaziado e o outfit é injetado antes via `buildPortraitPrompt`.
 - 3 backgrounds (Neutro/Claro/Escuro) continuam.
 - Round-robin de figurinos do relatório continua.
-- Cobrança de crédito por imagem bem-sucedida continua.
-- Fluxo de webhook + reembolso em falha continua.
-- Sem campos novos no cadastro do usuário.
+- Traços físicos extraídos continuam ancorados primeiro.
+- Cobrança, retry 429, fallback de 1-2 imagens em caso de falha — tudo mantido.
+- Sem mudança no treino e sem necessidade de refazer LoRA.
 
 ## Fora de escopo
 
-- Re-extração de traços para usuários antigos (você confirmou: só você está testando).
-- Mudança no UI de cadastro.
-- Re-treino automático de LoRAs antigos.
-- Mudança no modelo de inferência (continua `black-forest-labs/flux-dev-lora`).
+- Não mexer em `portrait-train` (trait extraction segue como está).
+- Não mexer no UI do relatório nem na geração do `figurino.looks_completos`.
+- Não traduzir o relatório inteiro — só o subset de moda usado para o prompt.
