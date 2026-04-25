@@ -231,62 +231,57 @@ Dados do negócio:
 - Consequências negativas: ${business.negative_consequences || "Não informado"}
 - Transformações prometidas: ${business.promised_transformations || "Não informado"}
 
-Nicho/área de atuação: ${niche || "Não informado"}
+    Nicho/área de atuação: ${niche || "Não informado"}
 
-⚠️ GÊNERO DO CLIENTE (OBRIGATÓRIO para figurino): ${genderLabel}
-Gere TODAS as recomendações de figurino, maquiagem/grooming, acessórios e cabelo para o gênero ${genderLabel}.
+    ⚠️ GÊNERO DO CLIENTE (OBRIGATÓRIO para figurino): ${genderLabel}
+    Gere TODAS as recomendações de figurino, maquiagem/grooming, acessórios e cabelo para o gênero ${genderLabel}.
 
-Arquétipos principais (calculados pela aplicação — use EXATAMENTE estes nomes):
-- Primário: ${archetypes.primary?.archetype_name || archetypes.primary?.name} (pontuação: ${archetypes.primary?.score}/30)
-- Secundário: ${archetypes.secondary?.archetype_name || archetypes.secondary?.name} (pontuação: ${archetypes.secondary?.score}/30)
-- Terciário: ${archetypes.tertiary?.archetype_name || archetypes.tertiary?.name} (pontuação: ${archetypes.tertiary?.score}/30)
+    Arquétipos principais (calculados pela aplicação — use EXATAMENTE estes nomes):
+    - Primário: ${archetypes.primary?.archetype_name || archetypes.primary?.name} (pontuação: ${archetypes.primary?.score}/30)
+    - Secundário: ${archetypes.secondary?.archetype_name || archetypes.secondary?.name} (pontuação: ${archetypes.secondary?.score}/30)
+    - Terciário: ${archetypes.tertiary?.archetype_name || archetypes.tertiary?.name} (pontuação: ${archetypes.tertiary?.score}/30)
 
-Gere o relatório completo em JSON agora.`;
+    Gere o relatório completo em JSON agora.`;
 
-    // Fetch reference PDFs to include as context
-    const pdfParts = await fetchReferencePdfs();
-
-    // Build user message content — multipart if PDFs exist
-    const userContent: any = pdfParts.length > 0
-      ? [
-          ...pdfParts.map(p => ({ type: "file", file: { filename: "reference.pdf", file_data: `data:application/pdf;base64,${p.data}` } })),
-          { type: "text", text: userPrompt },
-        ]
-      : userPrompt;
-
-    const response = await fetch(API_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userContent },
-        ],
-        max_tokens: 10000,
-      }),
-    });
-
-    if (!response.ok) {
-      const errText = await response.text();
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Limite de requisições excedido. Tente novamente em alguns minutos." }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    // Resolve user from JWT to attach personal context
+    let personalBlock = "";
+    try {
+      const authHeader = req.headers.get("Authorization") || "";
+      if (authHeader) {
+        const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+          global: { headers: { Authorization: authHeader } },
         });
+        const { data: userData } = await userClient.auth.getUser();
+        if (userData?.user?.id) {
+          const personal = await fetchPersonalQuestionnaire(userData.user.id);
+          personalBlock = renderPersonalContext(personal);
+        }
       }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "Créditos de IA esgotados. Adicione créditos ao workspace." }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      throw new Error(`AI API error: ${response.status} - ${errText}`);
+    } catch (e) {
+      console.warn("Could not resolve personal context:", e);
     }
 
-    const data = await response.json();
-    const rawContent = data.choices?.[0]?.message?.content || "";
+    // Fetch reference PDFs (StoryBrand, Made to Stick, Obviously Awesome)
+    const pdfParts = await fetchEditorialReferencePdfs();
+
+    let rawContent: string;
+    try {
+      rawContent = await callClaude({
+        systemPrompt,
+        userText: userPrompt + personalBlock,
+        pdfs: pdfParts,
+        max_tokens: 10000,
+        timeoutMs: 180000,
+      });
+    } catch (e) {
+      if (e instanceof ClaudeError) {
+        return new Response(
+          JSON.stringify({ error: e.userMessage || e.message }),
+          { status: e.status || 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      throw e;
+    }
 
     const reportContent = extractJsonFromLLM(rawContent);
 

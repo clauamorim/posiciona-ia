@@ -19,8 +19,12 @@
  *   Sanitização detecta meta-narrativa embutida (ex.: "marca como guia",
  *   "jornada do herói"). Regeneração de post único deixa de enviar
  *   captions dos posts vizinhos — só o tema, para evitar contaminação.
+ * - 2026-04-25-v5: migração de Gemini para Claude Sonnet 4.5 nas três
+ *   edge functions de geração editorial (relatório, semana, post único).
+ *   Inclui contexto pessoal do criador (questionário pessoal de 16
+ *   campos) em todo prompt para humanização via storytelling.
  */
-export const EDITORIAL_GENERATOR_VERSION = "2026-04-24-v4";
+export const EDITORIAL_GENERATOR_VERSION = "2026-04-25-v5";
 
 /**
  * Retorna true quando o dia/post foi gerado antes da versão atual,
