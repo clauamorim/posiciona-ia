@@ -55,7 +55,7 @@ const AdminDashboard = () => {
   ];
 
   return (
-    <DashboardLayout>
+    <DashboardLayout wide>
       <div className="space-y-6">
         <h1 className="text-2xl font-bold font-display">Painel Administrativo</h1>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
