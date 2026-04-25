@@ -19,6 +19,7 @@ const FLUX_LORA_MODEL = "black-forest-labs/flux-dev-lora";
 const CLARITY_UPSCALER_VERSION = "dfad41707589d68ecdccd1dfa600d55a208f9310748e44bfe35b4a6291453d5e";
 const GENERATE_COST_CREDITS = 3;
 const GUIDANCE_VARIATIONS = [3.0, 3.5, 4.0];
+const GUIDANCE_VARIATIONS_OVERRIDE = [4.0, 4.5, 4.5];
 const PORTRAIT_BUCKET = "portrait-outputs";
 
 /** Fisher–Yates shuffle não destrutivo. */
@@ -392,7 +393,9 @@ serve(async (req) => {
       if (i > 0) await new Promise((r) => setTimeout(r, INTER_CALL_DELAY_MS));
       const outfit = outfitsForLooks[i] ?? "";
       const handPose = selectedPoses[i] ?? null;
-      const guidanceScale = GUIDANCE_VARIATIONS[i] ?? 3.5;
+      const guidanceScale = isUserOverride
+        ? (GUIDANCE_VARIATIONS_OVERRIDE[i] ?? 4.5)
+        : (GUIDANCE_VARIATIONS[i] ?? 3.5);
       const built = buildPortraitPrompt({
         archetype: archetypeName,
         userId: user.id,
@@ -406,9 +409,10 @@ serve(async (req) => {
         isUserOverride,
       });
 
-      // Quando há override do usuário, reduz lora_scale para diminuir o viés do
-      // LoRA em business attire — abrindo espaço pro outfit pedido prevalecer.
-      const loraScale = isUserOverride ? 0.80 : 0.95;
+      // Mantém lora_scale: 0.95 SEMPRE — reduzir esse valor degrada drasticamente
+      // a fidelidade facial. A pressão por respeitar o override de figurino vem
+      // do guidance_scale maior + outfit duplicado no prompt + negatives semânticos.
+      const loraScale = 0.95;
 
       console.log(
         `[generate-portrait] call ${i + 1}/3 background=${built.backgroundKey} archetype=${archetypeName} ` +
@@ -458,7 +462,7 @@ serve(async (req) => {
     // Sequencial (não paralelo) para evitar 429 do Replicate em contas low-credit.
     // Delay de 11s entre upscales + retry com 30s em caso de 429.
     const generationId = crypto.randomUUID();
-    const UPSCALE_INTER_DELAY_MS = 11000;
+    const UPSCALE_INTER_DELAY_MS = 6000;
     const UPSCALE_RETRY_DELAY_MS = 30000;
 
     const finalPortraits: Array<{
@@ -468,7 +472,6 @@ serve(async (req) => {
       pose?: string;
       outfit?: string;
       path: string;
-      dataUrl: string;
       upscaled: boolean;
     }> = [];
 
@@ -514,7 +517,6 @@ serve(async (req) => {
       finalPortraits.push({
         ...r,
         path,
-        dataUrl: bytesToDataUrl(bytes),
         upscaled: up.ok,
       });
     }
@@ -560,9 +562,21 @@ serve(async (req) => {
       used_outfits: outfitsUsedThisRound,
     });
 
+    // Gera URLs assinadas (1h) para o front exibir os retratos imediatamente,
+    // sem precisar fazer um segundo round-trip ao Storage.
+    const signedUrls = await Promise.all(
+      finalPortraits.map(async (r) => {
+        const { data } = await supabaseAdmin.storage
+          .from(PORTRAIT_BUCKET)
+          .createSignedUrl(r.path, 60 * 60);
+        return data?.signedUrl ?? "";
+      }),
+    );
+
     return new Response(
       JSON.stringify({
-        portraits: finalPortraits.map((r) => r.dataUrl), // resposta imediata para o front
+        portraits: signedUrls, // URLs assinadas — leves e válidas por 1h
+        portrait_paths: finalPortraits.map((r) => r.path),
         backgrounds: finalPortraits.map((r) => r.background),
         outfits: finalPortraits.map((r) => r.outfit ?? ""),
         training_id: training.id,
