@@ -10,8 +10,8 @@ import { corsHeaders } from "../_shared/cors.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { extractJsonFromLLM } from "../_shared/jsonExtract.ts";
 import { EDITORIAL_GENERATOR_VERSION } from "../_shared/generatorVersion.ts";
-import { sanitizeWeek, sanitizePost, countWeekLeaks, countFrameworkLeaks } from "../_shared/editorialSanitize.ts";
-import { callClaude, ClaudeError } from "../_shared/claudeClient.ts";
+import { sanitizeWeek } from "../_shared/editorialSanitize.ts";
+import { callClaude } from "../_shared/claudeClient.ts";
 import {
   fetchPersonalQuestionnaire,
   renderPersonalContext,
