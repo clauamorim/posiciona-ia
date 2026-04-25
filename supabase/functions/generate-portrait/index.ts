@@ -66,7 +66,10 @@ async function callFluxLora(params: {
       lora_weights: loraVersion,
       lora_scale: loraScale,
       num_outputs: 1,
-      aspect_ratio: "3:4",
+      // Resolução fixa 896x1152 (3:4 vertical premium). Substitui aspect_ratio
+      // para garantir as dimensões exatas que tínhamos antes do upscaler.
+      width: PORTRAIT_WIDTH,
+      height: PORTRAIT_HEIGHT,
       guidance_scale: guidanceScale,
       num_inference_steps: 40,
       output_format: "png",
