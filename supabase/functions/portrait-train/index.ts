@@ -137,6 +137,80 @@ function startOfMonthISO(): string {
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)).toISOString();
 }
 
+interface PhysicalTraits {
+  gender: "woman" | "man";
+  hair_color: string;
+  hair_length: string;
+  hair_style: string;
+  skin_tone: string;
+  eye_color: string;
+}
+
+/**
+ * Extrai características físicas das selfies usando Gemini Vision.
+ * Usa 3 selfies aleatórias para reduzir custo/latência.
+ * Retorna null em caso de falha — chamador deve usar fallback.
+ */
+async function extractPhysicalTraits(
+  selfies: string[],
+  apiKey: string,
+): Promise<PhysicalTraits | null> {
+  try {
+    // Pega 3 selfies espalhadas pelo array
+    const sample: string[] = [];
+    const step = Math.max(1, Math.floor(selfies.length / 3));
+    for (let i = 0; i < selfies.length && sample.length < 3; i += step) {
+      sample.push(selfies[i]);
+    }
+
+    const content: any[] = [
+      {
+        type: "text",
+        text:
+          "Analise as fotos da MESMA pessoa e devolva APENAS um JSON com as características físicas observadas. Não inclua texto fora do JSON. Schema:\n" +
+          `{
+  "gender": "woman" | "man",
+  "hair_color": "brown | dark brown | blonde | dark blonde | black | red | auburn | grey | white",
+  "hair_length": "short | medium | long | very long",
+  "hair_style": "straight | wavy | curly | coily",
+  "skin_tone": "fair | light | medium | olive | tan | brown | dark brown | deep",
+  "eye_color": "brown | dark brown | hazel | green | blue | grey"
+}`,
+      },
+      ...sample.map((dataUrl) => ({ type: "image_url", image_url: { url: dataUrl } })),
+    ];
+
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 45_000);
+
+    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [{ role: "user", content }],
+        response_format: { type: "json_object" },
+      }),
+      signal: ctrl.signal,
+    });
+    clearTimeout(timer);
+
+    if (!resp.ok) {
+      console.warn(`[portrait-train] traits extraction failed status=${resp.status}`);
+      return null;
+    }
+    const data = await resp.json();
+    const raw = data?.choices?.[0]?.message?.content;
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed.gender !== "woman" && parsed.gender !== "man") return null;
+    return parsed as PhysicalTraits;
+  } catch (e) {
+    console.warn(`[portrait-train] traits extraction exception: ${e instanceof Error ? e.message : String(e)}`);
+    return null;
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -171,6 +245,7 @@ serve(async (req) => {
 
     const REPLICATE_API_TOKEN = Deno.env.get("REPLICATE_API_TOKEN");
     const WEBHOOK_SECRET = Deno.env.get("WEBHOOK_SECRET");
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     if (!REPLICATE_API_TOKEN || !WEBHOOK_SECRET) {
       return new Response(JSON.stringify({ error: "Configuração do servidor incompleta" }), {
