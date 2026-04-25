@@ -631,6 +631,57 @@ export type Database = {
         }
         Relationships: []
       }
+      report_generation_jobs: {
+        Row: {
+          attempts: number
+          created_at: string
+          error_message: string | null
+          finished_at: string | null
+          id: string
+          payload: Json
+          progress_message: string | null
+          report_id: string
+          report_version: number
+          result: Json | null
+          started_at: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          payload?: Json
+          progress_message?: string | null
+          report_id: string
+          report_version: number
+          result?: Json | null
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          payload?: Json
+          progress_message?: string | null
+          report_id?: string
+          report_version?: number
+          result?: Json | null
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       reports: {
         Row: {
           content: Json | null
