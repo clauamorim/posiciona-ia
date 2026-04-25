@@ -33,6 +33,8 @@ const Results = () => {
   const [scores, setScores] = useState<ArchetypeScore[]>([]);
   const [stage, setStage] = useState<Stage>("calculating");
   const [errorMsg, setErrorMsg] = useState("");
+  const [isRateLimited, setIsRateLimited] = useState(false);
+  const [retryToken, setRetryToken] = useState(0);
   const [archetypeDetails, setArchetypeDetails] = useState<Record<string, any>>({});
 
   useEffect(() => {
