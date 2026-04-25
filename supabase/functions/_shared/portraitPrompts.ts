@@ -46,40 +46,141 @@ export const ARCHETYPE_FAMILY: Record<string, ArchetypeFamily> = {
   "Rebelde": "independent",
 };
 
-export const HAND_POSE_POOLS: Record<ArchetypeFamily, string[]> = {
-  authority: [
-    "arms confidently crossed over chest, relaxed shoulders",
-    "one hand thoughtfully under chin, other arm relaxed",
-    "one hand gently holding blazer lapel, other arm at side",
-    "both hands relaxed at sides, natural posture",
-    "one hand resting in trouser pocket, other arm naturally at side",
-    "one hand lightly resting on hip, other arm relaxed",
-  ],
-  nurturing: [
-    "hands softly clasped in front, relaxed posture",
-    "one hand gently placed over heart, other arm at side",
-    "both arms relaxed naturally at sides, open posture",
-    "one hand softly holding the opposite wrist in front",
-    "open palms gesture at waist level, welcoming posture",
-    "hands lightly folded in front, soft natural pose",
-  ],
-  expressive: [
-    "one hand lightly touching chin, other arm relaxed",
-    "one hand running gently through hair, other arm at side",
-    "natural mid-conversation hand gesture, expressive posture",
-    "one hand casually in pocket, other gesturing softly",
-    "one hand resting against cheek, thoughtful pose",
-    "arms relaxed with one hand expressively raised at chest level",
-  ],
-  independent: [
-    "both hands resting in trouser pockets, relaxed posture",
-    "arms casually crossed, relaxed and confident",
-    "one hand in pocket, other arm naturally at side",
-    "one hand resting on hip, weight slightly shifted",
-    "thumb hooked into trouser pocket, other arm relaxed",
-    "arms loosely crossed at waist, casual pose",
-  ],
+/**
+ * Categorias gestuais — agrupam poses por TIPO de gesto.
+ * O sorteio garante que looks 1 e 2 venham de categorias DIFERENTES,
+ * eliminando o problema de "duas poses parecidas" na mesma rodada.
+ */
+export type PoseCategory = "pocket" | "crossed" | "lapel" | "relaxed" | "gesture";
+
+export const HAND_POSE_POOLS_BY_CATEGORY: Record<ArchetypeFamily, Record<PoseCategory, string[]>> = {
+  authority: {
+    pocket: [
+      "one hand resting in trouser pocket, other arm naturally at side",
+      "thumb hooked into trouser pocket, other hand resting at side",
+    ],
+    crossed: [
+      "arms confidently crossed over chest, relaxed shoulders",
+      "arms loosely crossed at waist, confident stance",
+    ],
+    lapel: [
+      "one hand gently holding blazer lapel, other arm at side",
+      "both hands lightly adjusting blazer lapels, composed posture",
+    ],
+    relaxed: [
+      "both hands relaxed at sides, natural upright posture",
+      "one hand lightly resting on hip, other arm relaxed",
+    ],
+    gesture: [
+      "one hand thoughtfully under chin, other arm relaxed",
+      "one hand resting on the wrist of the other in front, composed",
+    ],
+  },
+  nurturing: {
+    pocket: [
+      "one hand softly tucked into pocket, other arm relaxed",
+    ],
+    crossed: [
+      "arms gently crossed at waist, soft posture",
+    ],
+    lapel: [
+      "one hand softly holding the opposite wrist in front",
+      "hands lightly folded in front, soft natural pose",
+    ],
+    relaxed: [
+      "both arms relaxed naturally at sides, open posture",
+      "hands softly clasped in front, relaxed posture",
+    ],
+    gesture: [
+      "one hand gently placed over heart, other arm at side",
+      "open palms gesture at waist level, welcoming posture",
+      "one hand softly resting near collarbone, other at side",
+    ],
+  },
+  expressive: {
+    pocket: [
+      "one hand casually in pocket, other arm relaxed at side",
+    ],
+    crossed: [
+      "arms loosely crossed at waist, expressive relaxed posture",
+    ],
+    lapel: [
+      "one hand softly playing with necklace, other at side",
+    ],
+    relaxed: [
+      "both arms naturally at sides, expressive shoulders",
+      "one hand resting against cheek, thoughtful pose",
+    ],
+    gesture: [
+      "one hand lightly touching chin, other arm relaxed",
+      "one hand running gently through hair, other arm at side",
+      "natural mid-conversation hand gesture, expressive posture",
+      "arms relaxed with one hand expressively raised at chest level",
+    ],
+  },
+  independent: {
+    pocket: [
+      "both hands resting in trouser pockets, relaxed posture",
+      "one hand in pocket, other arm naturally at side",
+      "thumb hooked into trouser pocket, other arm relaxed",
+    ],
+    crossed: [
+      "arms casually crossed, relaxed and confident",
+      "arms loosely crossed at waist, casual pose",
+    ],
+    lapel: [
+      "one hand lightly adjusting jacket collar, other in pocket",
+    ],
+    relaxed: [
+      "both arms relaxed naturally at sides, casual stance",
+      "one hand resting on hip, weight slightly shifted",
+    ],
+    gesture: [
+      "one hand lightly touching jaw, other arm relaxed",
+    ],
+  },
 };
+
+/** Pool plano legado — mantido para retrocompat caso algum chamador antigo use. */
+export const HAND_POSE_POOLS: Record<ArchetypeFamily, string[]> = {
+  authority: Object.values(HAND_POSE_POOLS_BY_CATEGORY.authority).flat(),
+  nurturing: Object.values(HAND_POSE_POOLS_BY_CATEGORY.nurturing).flat(),
+  expressive: Object.values(HAND_POSE_POOLS_BY_CATEGORY.expressive).flat(),
+  independent: Object.values(HAND_POSE_POOLS_BY_CATEGORY.independent).flat(),
+};
+
+/**
+ * Sorteia 2 poses de CATEGORIAS DIFERENTES, evitando categorias usadas
+ * recentemente (memória curta). Devolve {pose, category}.
+ */
+function shuffleArr<T>(a: T[]): T[] {
+  const c = a.slice();
+  for (let i = c.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [c[i], c[j]] = [c[j], c[i]];
+  }
+  return c;
+}
+
+export function pickPosesForLooks(
+  family: ArchetypeFamily,
+  recentlyUsedPoses: string[],
+  count = 2,
+): { pose: string; category: PoseCategory }[] {
+  const byCat = HAND_POSE_POOLS_BY_CATEGORY[family];
+  const allCats = Object.keys(byCat) as PoseCategory[];
+  // Filtra categorias que tenham ao menos 1 pose não usada recentemente
+  const usedSet = new Set(recentlyUsedPoses);
+  const catsWithFresh = allCats.filter((c) => byCat[c].some((p) => !usedSet.has(p)));
+  const catsToUse = catsWithFresh.length >= count ? catsWithFresh : allCats;
+  const chosenCats = shuffleArr(catsToUse).slice(0, count);
+  return chosenCats.map((cat) => {
+    const fresh = byCat[cat].filter((p) => !usedSet.has(p));
+    const pool = fresh.length > 0 ? fresh : byCat[cat];
+    const pose = shuffleArr(pool)[0];
+    return { pose, category: cat };
+  });
+}
 
 export function getArchetypeFamily(archetype: string): ArchetypeFamily {
   return ARCHETYPE_FAMILY[archetype] ?? "nurturing";
