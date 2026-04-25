@@ -168,6 +168,8 @@ export interface BuildPromptParams {
   makeup: string; // só usado se gender === "woman"
   backgroundIndex: 0 | 1 | 2;
   physicalTraits?: PhysicalTraits | null;
+  /** Pose de mãos sorteada do pool da família do arquétipo (em inglês). */
+  handPose?: string | null;
 }
 
 export function buildPortraitPrompt(params: BuildPromptParams): {
