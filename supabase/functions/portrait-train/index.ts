@@ -137,6 +137,80 @@ function startOfMonthISO(): string {
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)).toISOString();
 }
 
+interface PhysicalTraits {
+  gender: "woman" | "man";
+  hair_color: string;
+  hair_length: string;
+  hair_style: string;
+  skin_tone: string;
+  eye_color: string;
+}
+
+/**
+ * Extrai características físicas das selfies usando Gemini Vision.
+ * Usa 3 selfies aleatórias para reduzir custo/latência.
+ * Retorna null em caso de falha — chamador deve usar fallback.
+ */
+async function extractPhysicalTraits(
+  selfies: string[],
+  apiKey: string,
+): Promise<PhysicalTraits | null> {
+  try {
+    // Pega 3 selfies espalhadas pelo array
+    const sample: string[] = [];
+    const step = Math.max(1, Math.floor(selfies.length / 3));
+    for (let i = 0; i < selfies.length && sample.length < 3; i += step) {
+      sample.push(selfies[i]);
+    }
+
+    const content: any[] = [
+      {
+        type: "text",
+        text:
+          "Analise as fotos da MESMA pessoa e devolva APENAS um JSON com as características físicas observadas. Não inclua texto fora do JSON. Schema:\n" +
+          `{
+  "gender": "woman" | "man",
+  "hair_color": "brown | dark brown | blonde | dark blonde | black | red | auburn | grey | white",
+  "hair_length": "short | medium | long | very long",
+  "hair_style": "straight | wavy | curly | coily",
+  "skin_tone": "fair | light | medium | olive | tan | brown | dark brown | deep",
+  "eye_color": "brown | dark brown | hazel | green | blue | grey"
+}`,
+      },
+      ...sample.map((dataUrl) => ({ type: "image_url", image_url: { url: dataUrl } })),
+    ];
+
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 45_000);
+
+    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [{ role: "user", content }],
+        response_format: { type: "json_object" },
+      }),
+      signal: ctrl.signal,
+    });
+    clearTimeout(timer);
+
+    if (!resp.ok) {
+      console.warn(`[portrait-train] traits extraction failed status=${resp.status}`);
+      return null;
+    }
+    const data = await resp.json();
+    const raw = data?.choices?.[0]?.message?.content;
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed.gender !== "woman" && parsed.gender !== "man") return null;
+    return parsed as PhysicalTraits;
+  } catch (e) {
+    console.warn(`[portrait-train] traits extraction exception: ${e instanceof Error ? e.message : String(e)}`);
+    return null;
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -171,6 +245,7 @@ serve(async (req) => {
 
     const REPLICATE_API_TOKEN = Deno.env.get("REPLICATE_API_TOKEN");
     const WEBHOOK_SECRET = Deno.env.get("WEBHOOK_SECRET");
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     if (!REPLICATE_API_TOKEN || !WEBHOOK_SECRET) {
       return new Response(JSON.stringify({ error: "Configuração do servidor incompleta" }), {
@@ -247,6 +322,20 @@ serve(async (req) => {
       });
     }
 
+    // Extrair traços físicos das selfies (gênero/cabelo/pele/olhos) via Gemini Vision.
+    // Usado tanto para o caption_prefix do treino quanto para ancorar a inferência.
+    let physicalTraits: PhysicalTraits | null = null;
+    if (LOVABLE_API_KEY) {
+      physicalTraits = await extractPhysicalTraits(selfies, LOVABLE_API_KEY);
+      if (physicalTraits) {
+        console.log(`[portrait-train] traits extracted: ${JSON.stringify(physicalTraits)}`);
+      } else {
+        console.warn(`[portrait-train] traits extraction returned null — falling back to autocaption`);
+      }
+    } else {
+      console.warn(`[portrait-train] LOVABLE_API_KEY not set — skipping traits extraction`);
+    }
+
     // Create training row first to get an ID for the storage path
     const triggerWord = `USR${user.id.replace(/-/g, "").slice(0, 12)}`;
     const { data: training, error: trainErr } = await supabaseAdmin
@@ -257,6 +346,7 @@ serve(async (req) => {
         status: "training",
         selfies_count: selfies.length,
         was_free: canUseFree,
+        physical_traits: physicalTraits,
       })
       .select("id")
       .single();
@@ -364,20 +454,29 @@ serve(async (req) => {
     }).catch(() => {});
 
     // Kick off training
+    // Quando temos os traços extraídos, usamos autocaption_prefix para ancorar o LoRA
+    // em uma descrição consistente (gênero + cabelo + pele). Sem prefix, o autocaption
+    // do trainer varia entre as fotos e o LoRA não fixa características.
+    const trainInput: Record<string, unknown> = {
+      input_images: zipUrl,
+      trigger_word: triggerWord,
+      steps: 1000,
+      learning_rate: 0.0004,
+      batch_size: 1,
+      lora_rank: 16,
+      caption_dropout_rate: 0.05,
+      autocaption: true,
+    };
+
+    if (physicalTraits) {
+      const t = physicalTraits;
+      trainInput.autocaption_prefix =
+        `a photo of ${triggerWord}, a ${t.gender} with ${t.hair_length} ${t.hair_style} ${t.hair_color} hair, ${t.skin_tone} skin, ${t.eye_color} eyes,`;
+    }
+
     const trainBody = {
       destination,
-      input: {
-        input_images: zipUrl,
-        trigger_word: triggerWord,
-        // Treino menos agressivo: reduz overfitting (rosto distorcido, "pele de plástico")
-        // e melhora a generalização para fundos/figurinos novos.
-        steps: 1000,
-        learning_rate: 0.0004,
-        batch_size: 1,
-        lora_rank: 16,
-        caption_dropout_rate: 0.05,
-        autocaption: true,
-      },
+      input: trainInput,
       webhook: webhookUrl,
       webhook_events_filter: ["completed"],
     };

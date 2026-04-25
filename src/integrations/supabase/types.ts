@@ -404,6 +404,7 @@ export type Database = {
           error_message: string | null
           id: string
           lora_weights_url: string | null
+          physical_traits: Json | null
           replicate_training_id: string | null
           selfies_count: number
           status: string
@@ -418,6 +419,7 @@ export type Database = {
           error_message?: string | null
           id?: string
           lora_weights_url?: string | null
+          physical_traits?: Json | null
           replicate_training_id?: string | null
           selfies_count?: number
           status?: string
@@ -432,6 +434,7 @@ export type Database = {
           error_message?: string | null
           id?: string
           lora_weights_url?: string | null
+          physical_traits?: Json | null
           replicate_training_id?: string | null
           selfies_count?: number
           status?: string

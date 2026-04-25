@@ -1,128 +1,134 @@
-## Causa raiz confirmada nos logs
 
-```
-Primeira tentativa do Gemini falhou: Tempo limite excedido na chamada à IA (status 504)
-Http: connection closed before message completed
-```
+## Diagnóstico dos problemas
 
-A combinação **geração Gemini + sanitização + retry** dentro de uma única invocação síncrona estoura o limite de execução da Edge Function (~150s). As otimizações anteriores (modelo mais rápido, retry cirúrgico, AbortController) reduziram o problema mas não o eliminaram — soluções síncronas estão no limite do orçamento de tempo.
+Analisando os retratos enviados (cabelo curto vs comprido, loira vs morena, três mãos) e o código atual, identifiquei 4 causas combinadas:
 
-A única correção definitiva é **desacoplar a chamada HTTP do processamento pesado**: o frontend dispara um job, recebe um `jobId` em <2s, e faz polling até a conclusão. O processamento pesado roda em background e pode levar 2–3 minutos sem fechar conexão.
+1. **`autocaption: true`** no treino → o trainer da Replicate gera legendas automáticas inconsistentes (varia "woman with long brown hair" e "person"), então o LoRA não fixa cabelo, cor nem gênero.
+2. **`lora_scale: 0.85`** na inferência → fidelidade baixa, o modelo inventa traços.
+3. **Negative prompt fraco** (`extra fingers, asymmetric eyes`) → não bloqueia "três mãos", "membros extras", "rostos duplicados".
+4. **Figurinos**: o código já tem `buildOutfitTextForLook(figurino, i)` com round-robin. **Funciona se `looks_completos` existir**. Vou verificar e logar para garantir que os 3 looks do relatório cheguem ao Flux.
+
+Sem campos manuais no cadastro: extraio cabelo/pele/gênero direto das selfies de treino com Gemini Vision.
 
 ---
 
 ## Etapa 1 — Schema (migration)
 
-Criar tabela `content_generation_jobs`:
+Adicionar coluna em `portrait_trainings`:
 
 | Campo | Tipo | Descrição |
 |---|---|---|
-| `id` | uuid PK | identificador do job |
-| `user_id` | uuid | dono (RLS) |
-| `report_id` | uuid | relatório alvo |
-| `week_index` | integer | semana sendo gerada |
-| `status` | text | `queued` / `processing` / `completed` / `failed` |
-| `progress_message` | text | mensagem em PT exibida ao usuário |
-| `payload` | jsonb | input para o worker (contexto, modo free/paid) |
-| `result` | jsonb | semana gerada (após sucesso) |
-| `error_message` | text | erro amigável em PT |
-| `attempts` | integer default 0 | contador de tentativas do worker |
-| `created_at`, `updated_at`, `started_at`, `finished_at` | timestamptz | rastreamento |
+| `physical_traits` | jsonb | `{ gender, hair_color, hair_length, skin_tone, eye_color }` extraídos das selfies |
 
-RLS:
-- Usuário lê/insere apenas os próprios jobs (`auth.uid() = user_id`).
-- Admin lê todos.
-- Worker usa service-role (ignora RLS).
-
-Index em `(status, created_at)` para o worker pegar jobs `queued` mais antigos.
+Sem retrocompatibilidade — quem treinar a partir de agora terá os traços; treinos antigos continuam funcionando com prompts mais fracos (mas serão re-treinados no próximo teste).
 
 ---
 
-## Etapa 2 — `supabase/functions/generate-content-week/index.ts` vira **enqueuer**
+## Etapa 2 — `supabase/functions/portrait-train/index.ts`
 
-Refatorar para responder em **<2s**:
-1. Validar JWT, ler `user_id`, `report_id`, `week_index`, `mode` (`paid` | `free_outdated`).
-2. Validar saldo (`weekly_cycles` ≥ 1 quando `mode = paid`) — sem debitar ainda.
-3. Validar contexto mínimo (StoryBrand + tom de voz existem no relatório).
-4. Inserir linha em `content_generation_jobs` com `status = queued` e `payload` carregando o que o worker precisa.
-5. Devolver `{ jobId, status: "queued" }`.
+Antes de subir o ZIP para o Replicate, chamar **Gemini Vision** (`google/gemini-2.5-flash`) com 3 selfies aleatórias do batch:
 
-**Não chama Gemini, não sanitiza, não debita crédito.**
-
----
-
-## Etapa 3 — Novo worker `supabase/functions/process-content-generation-job/index.ts`
-
-Função invocada em background. Responsabilidades:
-1. Marcar job como `processing`, `started_at = now()`, `progress_message = "Carregando contexto…"`.
-2. Carregar relatório, contexto e PDFs (whitelist `storybrand`, `madetostick`, `obviouslyawesome` — preserva comportamento atual).
-3. Atualizar `progress_message = "Gerando seus 7 posts…"` e chamar Gemini (`google/gemini-3-flash-preview`) com `AbortController` de 120s.
-4. Sanitizar resposta com `sanitizeWeek` + `countWeekLeaks`.
-5. Se houver leaks, fazer retry **cirúrgico** (apenas dias afetados, em paralelo) com timeout de 60s.
-6. Persistir semana em `reports.editorial_weeks` (substituindo a posição da semana correspondente).
-7. Debitar 1 `weekly_cycles` em `user_balances` (somente em `mode = paid`).
-8. Marcar `status = completed`, `result = <semana sanitizada>`, `finished_at = now()`.
-9. Em qualquer erro: `status = failed`, `error_message` em PT amigável, sem debitar crédito.
-
-A função pode ser disparada de duas formas (qual usar é decisão de implementação):
-- **(a)** O enqueuer faz `fetch(workerUrl)` com `EdgeRuntime.waitUntil(...)` (fire-and-forget) imediatamente após criar o job — latência mínima, sem cron.
-- **(b)** Cron `pg_cron` a cada 30s pegando jobs `queued` mais antigos.
-
-Recomendação: **(a)** como caminho principal e **(b)** como fallback de segurança (pega jobs órfãos de processos que morreram).
-
----
-
-## Etapa 4 — Endpoint de status `supabase/functions/get-content-generation-job/index.ts`
-
-GET leve, autenticado, parâmetro `?jobId=…`. Retorna:
-```json
+**Prompt (PT, retorno JSON):**
+```
+Analise as fotos e devolva APENAS JSON com:
 {
-  "status": "queued|processing|completed|failed",
-  "progress_message": "Gerando seus 7 posts…",
-  "result": null | { ...semana... },
-  "error_message": null | "..."
+  "gender": "woman" | "man",
+  "hair_color": "<descrição curta em inglês: brown, dark brown, blonde, black, red, grey>",
+  "hair_length": "<short | medium | long | very long>",
+  "hair_style": "<straight | wavy | curly | coily>",
+  "skin_tone": "<descrição curta em inglês: fair, light, medium, olive, tan, brown, dark brown, deep>",
+  "eye_color": "<brown | dark brown | hazel | green | blue | grey>"
 }
 ```
-RLS garante que só o dono vê. Resposta em <500ms.
+
+Salvar em `portrait_trainings.physical_traits`.
+
+**Mudanças no input do Replicate:**
+- Trocar `autocaption: true` por:
+  - `autocaption: false`
+  - `autocaption_prefix: "a photo of USR<id>, a {gender} with {hair_length} {hair_style} {hair_color} hair, {skin_tone} skin"`
+- Manter `steps: 1000`, `lora_rank: 16`, `learning_rate: 0.0004`.
+
+Se a extração Gemini falhar (timeout/erro), cair de volta para `autocaption: true` e logar — não quebra o treino.
 
 ---
 
-## Etapa 5 — `src/pages/EditorialPage.tsx`
+## Etapa 3 — `supabase/functions/_shared/portraitPrompts.ts`
 
-1. **Manter o rótulo do botão "+7 dias"** (preferência explícita do usuário).
-2. Refatorar `handleGenerateWeek` e `handleRegenerateWeekFree`:
-   - Chamar `generate-content-week` → recebe `jobId`.
-   - Iniciar polling de `get-content-generation-job` a cada **3s** (timeout total de 4 minutos).
-   - Atualizar UI com `progress_message` retornado pelo worker (ex.: "Gerando seus 7 posts…", "Refinando linguagem…").
-   - Em `completed`: atualizar `editorial_weeks` no estado local, recarregar saldo (`refreshSubscription`), toast de sucesso.
-   - Em `failed`: toast com `error_message` amigável.
-   - Em timeout do polling: toast "A geração ainda está em andamento. Recarregue a página em alguns instantes para ver o resultado."
-3. Botão fica em estado loading durante todo o polling (não re-clicável).
-4. Limpar polling no `useEffect` de unmount.
+**3.1 Negative prompt anti-anatomia** (`STUDIO_NEGATIVE`):
+```
+, outdoor, street, natural daylight, trees, buildings, sky, park, beach, low quality, blurry, deformed face, extra fingers, asymmetric eyes, extra arms, extra hands, three hands, four hands, mutated hands, deformed hands, extra limbs, missing limbs, fused fingers, disfigured, malformed, duplicate, two heads, cloned face, bad anatomy
+```
+
+**3.2 Reforço de gênero no negative** (gerado dinamicamente em `buildPortraitPrompt`):
+- Se `gender === "woman"`: append `, man, beard, mustache, masculine features` ao negative.
+- Se `gender === "man"`: append `, woman, feminine features, makeup, lipstick` ao negative.
+
+**3.3 Injeção dos traços físicos extraídos no prompt:**
+
+Adicionar parâmetro opcional `physicalTraits` em `BuildPromptParams`. Quando presente, injetar uma frase logo após `[gender]`:
+```
+USR<id> woman with long wavy brown hair and olive skin, brown eyes, ...
+```
+
+Isso ancora os traços contra deriva do LoRA, mesmo com `lora_scale` alto.
+
+**3.4 Duplicação de gênero**: trocar `[gender]` por `{gender} portrait of a {gender}` para reforçar o token (técnica conhecida em Flux para evitar troca de gênero).
 
 ---
 
-## Etapa 6 — Deploy
+## Etapa 4 — `supabase/functions/generate-portrait/index.ts`
 
-Deploy de:
-- `generate-content-week` (refatorado)
-- `process-content-generation-job` (novo)
-- `get-content-generation-job` (novo)
+**4.1 Inference tuning:**
+- `lora_scale: 0.95` (era 0.85)
+- `guidance_scale: 3.5` (era 3.0)
+- `num_inference_steps: 40` (era 35)
 
-E migration da nova tabela.
+**4.2 Carregar `physical_traits`** ao buscar o training:
+```ts
+.select("id, lora_weights_url, trigger_word, status, physical_traits")
+```
+
+E passar para `buildPortraitPrompt({ ..., physicalTraits: training.physical_traits })`.
+
+**4.3 Auditar figurinos** — adicionar log explícito por chamada:
+```
+[generate-portrait] call 1/3 background=neutro outfit="<texto exato>" hair="..." traits=<traits>
+```
+
+Para confirmar que `looks_completos[0|1|2]` está sendo usado e não caindo no fallback. Se o relatório tiver < 3 looks, o round-robin já cuida disso, mas o log vai expor o problema se existir.
+
+**4.4 Garantia mínima de 3 figurinos distintos**: se `looks_completos.length < 3`, gerar variações sintéticas baseadas nas `pecas_chave` + descritores (`smart casual blazer`, `elegant blouse`, `structured outerwear`) para que cada chamada tenha figurino diferente, em vez de repetir o look 0.
+
+---
+
+## Etapa 5 — Deploy
+
+Ordem de deploy:
+1. Migration (`physical_traits` em `portrait_trainings`).
+2. `portrait-train` (extração + caption_prefix).
+3. `_shared/portraitPrompts.ts` (negative reforçado + injeção de traços).
+4. `generate-portrait` (scales aumentadas + traits + logs).
+
+Como você é a única testadora, depois do deploy basta:
+1. Apagar o treino atual e refazer (gasta os 4 créditos ou usa o grátis mensal).
+2. Gerar 3 retratos novos.
+3. Validar fidelidade + 3 figurinos distintos nos logs.
 
 ---
 
 ## Garantias preservadas
 
-- PDFs enviados continuam restritos à whitelist `storybrand` / `madetostick` / `obviouslyawesome`.
-- Sanitização anti-vazamento de framework (`editorialSanitize.ts`) continua aplicada.
-- Versionamento `EDITORIAL_GENERATOR_VERSION` continua marcado em cada dia.
-- Crédito só é debitado após sucesso (regra atual mantida).
-- RLS: usuário só vê os próprios jobs.
+- Estrutura de prompt por arquétipo (`ARCHETYPE_PROMPTS`) **não muda** — apenas recebe traços extras.
+- 3 backgrounds (Neutro/Claro/Escuro) continuam.
+- Round-robin de figurinos do relatório continua.
+- Cobrança de crédito por imagem bem-sucedida continua.
+- Fluxo de webhook + reembolso em falha continua.
+- Sem campos novos no cadastro do usuário.
 
 ## Fora de escopo
 
-- Realtime (Supabase Realtime channel) — polling de 3s é suficiente e mais simples para esta UX. Pode ser uma evolução futura.
-- Mudar rótulo do botão (proibido pelo usuário).
-- Refatorar `regenerate-single-post` (post único é rápido e não dá timeout — fica como está).
+- Re-extração de traços para usuários antigos (você confirmou: só você está testando).
+- Mudança no UI de cadastro.
+- Re-treino automático de LoRAs antigos.
+- Mudança no modelo de inferência (continua `black-forest-labs/flux-dev-lora`).
