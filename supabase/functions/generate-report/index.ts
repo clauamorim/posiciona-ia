@@ -36,7 +36,7 @@ serve(async (req) => {
     }
     const userId = userData.user.id;
 
-    const { business, niche, archetypes, gender, reportId, reportVersion } = await req.json();
+    const { business, niche, archetypes, gender, reportId, reportVersion, force } = await req.json();
 
     if (!business || !archetypes) {
       return new Response(JSON.stringify({ error: "Dados obrigatórios faltando" }), {
@@ -85,6 +85,30 @@ serve(async (req) => {
       if (Date.now() - createdAt < 5 * 60 * 1000) {
         return new Response(JSON.stringify({ jobId: existing.id, status: existing.status, reused: true }), {
           status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
+    // Trava de segurança: se este relatório já falhou, não dispara outra chamada paga
+    // à IA automaticamente. Só um fluxo explicitamente manual pode enviar force=true.
+    if (!force) {
+      const { data: failedJobs } = await admin
+        .from("report_generation_jobs")
+        .select("id, error_message, created_at")
+        .eq("user_id", userId)
+        .eq("report_id", targetReportId)
+        .eq("status", "failed")
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      if (failedJobs && failedJobs.length > 0) {
+        return new Response(JSON.stringify({
+          error: failedJobs[0].error_message || "A geração anterior falhou e foi pausada para evitar novas cobranças.",
+          jobId: failedJobs[0].id,
+          status: "failed",
+          blocked: true,
+        }), {
+          status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
     }
