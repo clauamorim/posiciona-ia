@@ -59,42 +59,6 @@ const PortraitGenerator = () => {
   const [outfits, setOutfits] = useState<string[]>([]);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
 
-  // Overrides opcionais de figurino (persistidos em localStorage por usuário)
-  const overridesKey = user ? `portrait-outfit-overrides-${user.id}` : "";
-  const [outfitOverrides, setOutfitOverrides] = useState<string[]>(["", "", ""]);
-  const [overridesDialogOpen, setOverridesDialogOpen] = useState(false);
-
-  useEffect(() => {
-    if (!overridesKey) return;
-    try {
-      const raw = localStorage.getItem(overridesKey);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length === 3) setOutfitOverrides(parsed.map((s) => String(s ?? "")));
-      }
-    } catch {
-      // ignore
-    }
-  }, [overridesKey]);
-
-  const saveOverrides = () => {
-    if (!overridesKey) return;
-    try {
-      localStorage.setItem(overridesKey, JSON.stringify(outfitOverrides));
-    } catch {
-      // ignore
-    }
-    setOverridesDialogOpen(false);
-    toast({ title: "Figurinos personalizados salvos", description: "Serão usados na próxima geração." });
-  };
-
-  const clearOverrides = () => {
-    setOutfitOverrides(["", "", ""]);
-    if (overridesKey) {
-      try { localStorage.removeItem(overridesKey); } catch { /* ignore */ }
-    }
-  };
-
   // Recovery de gerações órfãs: arquivos no Storage sem linha em portrait_generations.
   // Acontece quando a edge function termina o upload mas a resposta HTTP é cortada
   // antes de retornar o JSON ao cliente. Aqui criamos a linha sem debitar créditos.
