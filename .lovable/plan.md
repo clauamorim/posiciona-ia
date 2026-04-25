@@ -1,41 +1,47 @@
-## Ajuste de qualidade dos retratos
+## Objetivo
+Eliminar deformidades de mãos (problema universal do FLUX) escondendo-as nos enquadramentos, e aumentar fidelidade facial recalibrando o `loraScale` para cima.
 
-Edição única em `supabase/functions/generate-portrait/index.ts`:
+## Arquivos a editar
 
-### 1. Corrigir dimensões (896x1152 vertical)
-No objeto `input` da `callFluxLora`:
-- Remover `width: PORTRAIT_WIDTH` e `height: PORTRAIT_HEIGHT` (FLUX LoRA ignora silenciosamente).
-- Adicionar `aspect_ratio: "3:4"` e `megapixels: "1"`.
-- Manter as constantes `PORTRAIT_WIDTH/HEIGHT` apenas para referência nos logs.
+### 1. `supabase/functions/_shared/portraitPrompts.ts`
 
-### 2. loraScale adaptativo por nº de selfies
-- Adicionar `selfies_count` no `select` da query `portrait_trainings`.
-- Criar função `pickLoraScale(selfiesCount)`:
-  - `≤ 12` → **0.82**
-  - `13–20` → **0.88**
-  - `≥ 21` → **0.93**
-- Substituir o atual `const loraScale = 1.0` pelo valor calculado.
+**a) Reescrever `HAND_POSE_POOLS_BY_CATEGORY`** — substituir todas as poses por estratégias "mãos invisíveis":
+- Mãos atrás das costas
+- Mãos profundamente nos bolsos (calça, blazer)
+- Braços cruzados com mãos escondidas sob os braços
+- Mãos cortadas pelo enquadramento (out of frame)
+- Segurando objeto que oculta dedos: caderno fechado contra o peito, xícara vista de lado, óculos dobrados, livro fechado
+- Manter variedade entre as 3 categorias gestuais (assertiva / acolhedora / contemplativa) usando linguagem corporal de braços/ombros/postura, não de mãos
 
-### 3. Aumentar guidance_scale
-- `GUIDANCE_VARIATIONS`: `[2.6, 2.8, 3.0]` → **`[3.5, 3.8, 4.0]`**.
+**b) Reforçar `STUDIO_NEGATIVE_BASE`** — adicionar termos:
+- `visible fingers, exposed fingers, prominent hand details, fingertips, knuckles, deformed hands, extra fingers, fused fingers, malformed hands, mutated hands, missing fingers, six fingers`
 
-### 4. Aumentar refinamento
-- `num_inference_steps`: `40` → **`45`**.
+### 2. `supabase/functions/generate-portrait/index.ts`
 
-### 5. Logs aprimorados
-- Incluir `selfiesCount` e `loraScale` calculado nos logs já existentes (sem novos `console.log`, apenas estender a string).
+**Recalibrar `pickLoraScale()`** — subir todos os valores para aumentar fidelidade facial:
+- `≤ 12` selfies → **0.90** (era 0.82)
+- `13–20` selfies → **0.95** (era 0.88)
+- `≥ 21` selfies → **1.00** (era 0.93)
 
-### Deploy
-- Fazer `supabase--deploy_edge_functions` apenas para `generate-portrait`.
+Manter:
+- `GUIDANCE_VARIATIONS = [3.5, 3.8, 4.0]` (já bom)
+- `num_inference_steps = 45` (já bom)
+- `aspect_ratio: "3:4" + megapixels: "1"` (já corrigido)
 
-### Fora de escopo
-- Não mexer em `portrait-train/index.ts`.
-- Não chamar Claude/Anthropic.
-- Não criar migração de banco (coluna `selfies_count` já existe).
-- Não regenerar retratos automaticamente — usuária testará quando quiser.
+## Deploy
+- `supabase--deploy_edge_functions` em `generate-portrait` (a função `_shared` é puxada automaticamente).
 
-### Resultado esperado (dataset de 12 selfies)
-- Dimensões: 896x1152 vertical ✅
-- loraScale: 0.82
-- Mãos significativamente melhores
-- Rosto mais natural, menos "decorado"
+## Fora de escopo
+- Não retreinar LoRA
+- Não chamar Claude
+- Não mudar UI
+- Sem migração de banco
+
+## Resultado esperado (12 selfies)
+- 0% mãos deformadas (porque mãos não aparecem)
+- Rosto significativamente mais fiel (loraScale 0.90 vs 0.82 atual)
+- Risco: se loraScale 0.90 começar a "decorar" rosto de novo (textura artificial), reduzimos pra 0.86 num ajuste seguinte
+
+## Custo
+- Implementação: zero
+- Próximo teste seu: ~$0.10 Replicate (3 retratos)
