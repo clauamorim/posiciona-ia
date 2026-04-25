@@ -386,7 +386,7 @@ const PT_EN_FASHION: Array<[RegExp, string]> = [
   [/marrom/gi, "brown"],
 ];
 
-function translateFashion(text: string): string {
+export function translateFashion(text: string): string {
   let out = text;
   for (const [re, en] of PT_EN_FASHION) {
     out = out.replace(re, en);
