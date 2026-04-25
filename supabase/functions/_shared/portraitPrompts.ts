@@ -180,57 +180,56 @@ export function getArchetypeFamily(archetype: string): ArchetypeFamily {
   return ARCHETYPE_FAMILY[archetype] ?? "nurturing";
 }
 
-// Templates ENXUTOS por arquétipo. Mantemos só a essência: expressão, iluminação,
-// fundo. Os tokens de qualidade (pele, câmera, lente) vão no QUALITY_SUFFIX único.
-// Estrutura: USR[id] [gender], {essência}, [outfit], [hair], [makeup]
+// Templates MÍNIMOS por arquétipo. Apenas a essência: expressão + iluminação + fundo.
+// O builder monta: {trigger} {gender}, {essência}, {hair}, {outfit}, {QUALITY_SUFFIX}
 export const ARCHETYPE_PROMPTS: Record<ArchetypeName, { prompt: string; negative: string }> = {
   "Governante": {
-    prompt: "USR[id] [gender], authoritative calm expression, hard directional lighting, dark textured studio background, [outfit], [hair], [makeup], strong upright posture, direct confident gaze, no smile",
-    negative: "casual, smiling, soft lighting, flat white background",
+    prompt: "authoritative calm expression, hard directional lighting, dark background, no smile",
+    negative: "casual, smiling, soft lighting",
   },
   "Sábio": {
-    prompt: "USR[id] [gender], calm contemplative expression, soft Rembrandt lighting, deep dark background, [outfit], [hair], [makeup], slight head tilt, thoughtful gaze, no smile",
-    negative: "casual, wide smile, harsh lighting, bright background",
+    prompt: "calm contemplative expression, soft Rembrandt lighting, deep dark background, no smile",
+    negative: "casual, wide smile, harsh lighting",
   },
   "Cuidador": {
-    prompt: "USR[id] [gender], gentle approachable expression, soft diffused lighting, warm beige background, [outfit], [hair], [makeup], slight natural smile, open relaxed posture",
-    negative: "harsh lighting, dark moody background, serious cold expression",
+    prompt: "gentle approachable expression, soft diffused lighting, warm beige background, slight natural smile",
+    negative: "harsh lighting, dark background, cold expression",
   },
   "Criador": {
-    prompt: "USR[id] [gender], expressive authentic expression, dramatic side lighting, weathered artistic background, [outfit], [hair], [makeup], natural creative pose, intense gaze",
-    negative: "corporate look, flat lighting, stiff symmetrical pose",
+    prompt: "expressive authentic expression, dramatic side lighting, weathered artistic background, intense gaze",
+    negative: "corporate look, flat lighting, stiff pose",
   },
   "Herói": {
-    prompt: "USR[id] [gender], determined strong expression, high contrast dramatic lighting, dark stone background, [outfit], [hair], [makeup], forward-leaning posture, intense direct gaze, jaw set",
-    negative: "soft lighting, casual relaxed expression, washed out background",
+    prompt: "determined strong expression, high contrast dramatic lighting, dark stone background, intense direct gaze",
+    negative: "soft lighting, casual relaxed expression",
   },
   "Explorador": {
-    prompt: "USR[id] [gender], free confident expression, natural warm lighting, earthy textured background, [outfit], [hair], [makeup], relaxed posture, genuine gaze, subtle smile",
-    negative: "stiff corporate pose, dark moody background, flat lighting",
+    prompt: "free confident expression, natural warm lighting, earthy textured background, subtle smile",
+    negative: "stiff corporate pose, dark moody background",
   },
   "Inocente": {
-    prompt: "USR[id] [gender], genuine warm expression, soft bright lighting, light pale background, [outfit], [hair], [makeup], open natural smile, relaxed shoulders",
-    negative: "serious heavy expression, dramatic shadows, dark background",
+    prompt: "genuine warm expression, soft bright lighting, light pale background, natural smile",
+    negative: "serious heavy expression, dark background",
   },
   "Cara-comum": {
-    prompt: "USR[id] [gender], approachable relatable expression, soft natural lighting, neutral mid-tone background, [outfit], [hair], [makeup], natural relaxed posture, warm gaze, light smile",
-    negative: "dramatic lighting, stiff corporate pose, intense expression",
+    prompt: "approachable relatable expression, soft natural lighting, neutral mid-tone background, light smile",
+    negative: "dramatic lighting, intense expression",
   },
   "Mago": {
-    prompt: "USR[id] [gender], intense magnetic expression, dramatic chiaroscuro lighting, mysterious dark background, [outfit], [hair], [makeup], slight forward lean, piercing gaze, no smile",
-    negative: "flat lighting, casual cheerful expression, bright airy background",
+    prompt: "intense magnetic expression, dramatic chiaroscuro lighting, mysterious dark background, no smile",
+    negative: "flat lighting, casual cheerful expression",
   },
   "Amante": {
-    prompt: "USR[id] [gender], warm sophisticated expression, soft golden hour lighting, deep warm terracotta background, [outfit], [hair], [makeup], elegant posture, intense warm gaze, subtle smile",
-    negative: "harsh cold lighting, stiff pose, washed out tones",
+    prompt: "warm sophisticated expression, soft golden hour lighting, deep warm terracotta background, subtle smile",
+    negative: "harsh cold lighting, washed out tones",
   },
   "Rebelde": {
-    prompt: "USR[id] [gender], bold unconventional expression, high contrast dramatic lighting, raw industrial background, [outfit], [hair], [makeup], asymmetric pose, direct challenging gaze",
-    negative: "corporate look, soft polished lighting, conventional symmetrical pose",
+    prompt: "bold unconventional expression, high contrast dramatic lighting, raw industrial background, direct challenging gaze",
+    negative: "corporate look, soft polished lighting",
   },
   "Bobo-da-corte": {
-    prompt: "USR[id] [gender], playful authentic expression, bright dynamic lighting, warm colorful background, [outfit], [hair], [makeup], natural laugh or wide smile, energetic posture",
-    negative: "serious heavy expression, stiff corporate pose, dark moody background",
+    prompt: "playful authentic expression, bright dynamic lighting, warm colorful background, natural smile",
+    negative: "serious heavy expression, dark moody background",
   },
 };
 
