@@ -564,6 +564,7 @@ serve(async (req) => {
       JSON.stringify({
         portraits: finalPortraits.map((r) => r.dataUrl), // resposta imediata para o front
         backgrounds: finalPortraits.map((r) => r.background),
+        outfits: finalPortraits.map((r) => r.outfit ?? ""),
         training_id: training.id,
         charged_credits: charge,
       }),
