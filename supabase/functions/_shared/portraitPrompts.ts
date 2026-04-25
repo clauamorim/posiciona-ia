@@ -18,8 +18,71 @@ export type ArchetypeName =
 // Reforço aplicado a todos os prompts: garante cenário de estúdio.
 const STUDIO_PREFIX = "professional photography studio, controlled studio lighting, ";
 // Reforço aplicado a todos os negatives: bloqueia vazamento de cenários externos das fotos de treino,
-// anatomia incorreta (mãos extras, membros duplicados) e artefatos comuns do Flux.
-const STUDIO_NEGATIVE = ", outdoor, street, natural daylight, trees, buildings, sky, park, beach, low quality, blurry, deformed face, extra fingers, asymmetric eyes, extra arms, extra hands, three hands, four hands, mutated hands, deformed hands, extra limbs, missing limbs, fused fingers, disfigured, malformed, duplicate, two heads, cloned face, bad anatomy, multiple people";
+// anatomia incorreta (mãos extras, membros duplicados), poses de mão rígidas e artefatos comuns do Flux.
+const STUDIO_NEGATIVE = ", outdoor, street, natural daylight, trees, buildings, sky, park, beach, low quality, blurry, deformed face, extra fingers, asymmetric eyes, extra arms, extra hands, three hands, four hands, mutated hands, deformed hands, extra limbs, missing limbs, fused fingers, disfigured, malformed, duplicate, two heads, cloned face, bad anatomy, multiple people, clenched fists, stiff claw hands, symmetrical fist pose, hands floating awkwardly, tense rigid fingers";
+
+// ============================================================================
+// POOL DE POSES DE MÃOS — variedade fotogênica por família de arquétipo.
+// Cada arquétipo é mapeado para uma família; cada família tem 5–6 poses
+// naturais e compatíveis com o tom emocional do arquétipo.
+// O sorteio é feito em generate-portrait (sem reposição por geração).
+// ============================================================================
+
+export type ArchetypeFamily = "authority" | "nurturing" | "expressive" | "independent";
+
+export const ARCHETYPE_FAMILY: Record<string, ArchetypeFamily> = {
+  "Governante": "authority",
+  "Herói": "authority",
+  "Mago": "authority",
+  "Cuidador": "nurturing",
+  "Inocente": "nurturing",
+  "Cara-comum": "nurturing",
+  "Criador": "expressive",
+  "Amante": "expressive",
+  "Bobo-da-corte": "expressive",
+  "Sábio": "independent",
+  "Explorador": "independent",
+  "Rebelde": "independent",
+};
+
+export const HAND_POSE_POOLS: Record<ArchetypeFamily, string[]> = {
+  authority: [
+    "arms confidently crossed over chest, relaxed shoulders",
+    "one hand thoughtfully under chin, other arm relaxed",
+    "one hand gently holding blazer lapel, other arm at side",
+    "both hands relaxed at sides, natural posture",
+    "one hand resting in trouser pocket, other arm naturally at side",
+    "one hand lightly resting on hip, other arm relaxed",
+  ],
+  nurturing: [
+    "hands softly clasped in front, relaxed posture",
+    "one hand gently placed over heart, other arm at side",
+    "both arms relaxed naturally at sides, open posture",
+    "one hand softly holding the opposite wrist in front",
+    "open palms gesture at waist level, welcoming posture",
+    "hands lightly folded in front, soft natural pose",
+  ],
+  expressive: [
+    "one hand lightly touching chin, other arm relaxed",
+    "one hand running gently through hair, other arm at side",
+    "natural mid-conversation hand gesture, expressive posture",
+    "one hand casually in pocket, other gesturing softly",
+    "one hand resting against cheek, thoughtful pose",
+    "arms relaxed with one hand expressively raised at chest level",
+  ],
+  independent: [
+    "both hands resting in trouser pockets, relaxed posture",
+    "arms casually crossed, relaxed and confident",
+    "one hand in pocket, other arm naturally at side",
+    "one hand resting on hip, weight slightly shifted",
+    "thumb hooked into trouser pocket, other arm relaxed",
+    "arms loosely crossed at waist, casual pose",
+  ],
+};
+
+export function getArchetypeFamily(archetype: string): ArchetypeFamily {
+  return ARCHETYPE_FAMILY[archetype] ?? "nurturing";
+}
 
 export const ARCHETYPE_PROMPTS: Record<ArchetypeName, { prompt: string; negative: string }> = {
   "Governante": {
@@ -105,6 +168,8 @@ export interface BuildPromptParams {
   makeup: string; // só usado se gender === "woman"
   backgroundIndex: 0 | 1 | 2;
   physicalTraits?: PhysicalTraits | null;
+  /** Pose de mãos sorteada do pool da família do arquétipo (em inglês). */
+  handPose?: string | null;
 }
 
 export function buildPortraitPrompt(params: BuildPromptParams): {
@@ -167,8 +232,13 @@ export function buildPortraitPrompt(params: BuildPromptParams): {
   const outfitText = (params.outfit || "").trim();
   const outfitPhrase = outfitText ? `, (wearing ${outfitText}:1.4)` : "";
 
-  if (traitPhrase || outfitPhrase) {
-    prompt = prompt.replace(/(USR\S+)/, `$1${traitPhrase}${outfitPhrase}`);
+  // 3b-bis. Injeção da POSE DE MÃOS sorteada — peso 1.2 para não competir com o outfit.
+  // Aparece logo após o outfit, na zona de máxima atenção do Flux.
+  const handPoseText = (params.handPose || "").trim();
+  const handPosePhrase = handPoseText ? `, (hands: ${handPoseText}:1.2)` : "";
+
+  if (traitPhrase || outfitPhrase || handPosePhrase) {
+    prompt = prompt.replace(/(USR\S+)/, `$1${traitPhrase}${outfitPhrase}${handPosePhrase}`);
   }
 
   // Esvazia o [outfit] do template original (já injetado acima com peso).
