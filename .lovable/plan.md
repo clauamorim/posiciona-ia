@@ -1,22 +1,21 @@
-# Reordenar "Sua História" como 2º passo da jornada
+## Corrigir fluxo de redirecionamento + mitigar rate limit do Claude
 
-## Nova ordem
-Diagnóstico → **Sua História** → Arquétipos → Resultados → Narrativa → Relatório → Instagram → Linha Editorial → Retratos
+### 1. Corrigir redirecionamento dos questionários
+- **`src/pages/BusinessQuestionnaire.tsx`**: trocar redirect final de `/archetype-questionnaire` para `/personal-questionnaire`.
+- **`src/pages/PersonalQuestionnaire.tsx`**: garantir que após submit redireciona para `/archetype-questionnaire`.
 
-## Mudanças
+### 2. Reduzir contexto do `generate-report` (causa do 429)
+- **`supabase/functions/generate-report/index.ts`**: remover a chamada a `fetchEditorialReferencePdfs()` e parar de enviar os PDFs de StoryBrand/Made to Stick/Obviously Awesome. O Claude já conhece o framework BrandScript nativamente — reforçar 2-3 parágrafos descritivos no system prompt se necessário.
+- PDFs de referência continuam ativos nas funções de Linha Editorial (`generate-content-week`, `regenerate-single-post`, `process-content-generation-job`).
 
-### `src/components/DashboardLayout.tsx`
-- Mover item "Sua História" no array `userGroups` para a posição logo após "Diagnóstico".
-- Atualizar lógica de `journeyStatus`:
-  - `/personal-questionnaire`: `done` se `pqSubmitted`, `in_progress` se `bComplete`, senão `blocked`.
-  - `/archetype-questionnaire`: `done` se `aDone`, `in_progress` se `bComplete && pqSubmitted`, senão `blocked`.
+### 3. Retry exponencial no cliente Claude
+- **`supabase/functions/_shared/claudeClient.ts`**: adicionar retry automático para erros 429 (rate limit) e 529 (overloaded). 3 tentativas com backoff: 2s, 5s, 10s. Se esgotar, propaga erro com `userMessage` amigável.
 
-### `src/pages/Dashboard.tsx`
-- Reordenar `journeySteps` para colocar "Sua História" como 2º item.
-- Atualizar `getNextStep` priorizando: Diagnóstico → Sua História → Arquétipos → Estratégia → Editorial → Retratos.
-- Ajustar dependências dos status (Arquétipos bloqueado até Sua História submetida).
+### 4. UX de erro no frontend
+- **`src/pages/Results.tsx`**: detectar erros 429/"rate limit"/"overloaded" e exibir mensagem específica ("A IA está com alta demanda agora. Aguarde um instante e tente novamente.") com botão **Tentar novamente** que reinvoca a geração.
 
-## Sem mudanças
-- Backend `generate-content-week` (já valida via 412).
-- Tabela `personal_questionnaires`, página `/personal-questionnaire`, rota em `App.tsx`.
-- Lógica de bloqueio da Linha Editorial (continua exigindo questionário pessoal).
+### 5. Deploy
+- Redeploy de `generate-report` (suficiente para resolver o erro reportado; outras funções pegam o retry no próximo deploy delas).
+
+### Dados existentes
+Respostas em `business_questionnaires` e `archetype_answers` permanecem intactas — nenhuma migration necessária.
