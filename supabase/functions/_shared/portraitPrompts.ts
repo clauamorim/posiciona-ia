@@ -154,17 +154,43 @@ export function buildPortraitPrompt(params: BuildPromptParams): {
 
   // 3. Injeção de traços físicos extraídos das selfies — ancora cabelo, pele, olhos
   // contra deriva do LoRA. Inserido logo após o trigger USR<id>.
+  let traitPhrase = "";
   if (params.physicalTraits) {
     const t = params.physicalTraits;
-    const traitPhrase = `, with ${t.hair_length} ${t.hair_style} ${t.hair_color} hair, ${t.skin_tone} skin, ${t.eye_color} eyes`;
-    // Insere após o primeiro USR<id> (que vem no início do template)
-    prompt = prompt.replace(/(USR\S+)/, `$1${traitPhrase}`);
+    traitPhrase = `, with ${t.hair_length} ${t.hair_style} ${t.hair_color} hair, ${t.skin_tone} skin, ${t.eye_color} eyes`;
   }
 
-  prompt = prompt.replace(/\[outfit\]/g, params.outfit || "");
+  // 3b. Injeção do OUTFIT logo após USR<id> + traços, com peso 1.4 (sintaxe Flux).
+  // Resolve dois problemas: (a) tokens cedo no prompt recebem muito mais atenção;
+  // (b) `(... :1.4)` força o Flux a respeitar a peça em vez de cair no padrão das selfies.
+  // O `[outfit]` no template original é esvaziado para evitar duplicação/diluição.
+  const outfitText = (params.outfit || "").trim();
+  const outfitPhrase = outfitText ? `, (wearing ${outfitText}:1.4)` : "";
+
+  if (traitPhrase || outfitPhrase) {
+    prompt = prompt.replace(/(USR\S+)/, `$1${traitPhrase}${outfitPhrase}`);
+  }
+
+  // Esvazia o [outfit] do template original (já injetado acima com peso).
+  prompt = prompt.replace(/\[outfit\]/g, "");
+
+  // 3c. Negative específico do look — impede o Flux de "voltar" ao blazer padrão
+  // das selfies de treino quando o look pede vestido/cardigan/coat.
+  const outfitLower = outfitText.toLowerCase();
+  if (/\bdress\b/.test(outfitLower)) {
+    negative += ", blazer, suit jacket, trousers, pants, formal suit";
+  }
+  if (/\bcardigan\b|\bknit\b|\bknitwear\b/.test(outfitLower)) {
+    negative += ", blazer, suit jacket, formal suit";
+  }
+  if (/\bcoat\b|\btrench\b|\bovercoat\b/.test(outfitLower)) {
+    negative += ", blazer underneath, formal suit";
+  }
+  if (/\bblazer\b/.test(outfitLower)) {
+    negative += ", dress, casual t-shirt, hoodie";
+  }
 
   // Cabelo do figurino só é usado quando NÃO temos traços extraídos
-  // (os traços têm prioridade — vêm das fotos reais da usuária)
   if (!params.physicalTraits && effectiveGender === "woman" && params.hair) {
     prompt = prompt.replace(/\[hair\]/g, params.hair);
   } else {
