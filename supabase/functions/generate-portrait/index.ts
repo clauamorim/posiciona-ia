@@ -164,19 +164,7 @@ serve(async (req) => {
       });
     }
 
-    // Lê overrides opcionais do body — ignora qualquer outro campo.
-    let outfitOverrides: string[] = [];
-    try {
-      const body = await req.json().catch(() => ({}));
-      if (Array.isArray(body?.outfit_overrides)) {
-        outfitOverrides = body.outfit_overrides
-          .filter((s: unknown) => typeof s === "string")
-          .map((s: string) => s.trim())
-          .slice(0, 3);
-      }
-    } catch {
-      // body opcional
-    }
+
 
     const REPLICATE_API_TOKEN = Deno.env.get("REPLICATE_API_TOKEN");
     if (!REPLICATE_API_TOKEN) {
