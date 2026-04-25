@@ -346,6 +346,7 @@ export type Database = {
           id: string
           portraits: Json
           style_index: number | null
+          used_hand_poses: Json
           user_id: string
         }
         Insert: {
@@ -353,6 +354,7 @@ export type Database = {
           id?: string
           portraits?: Json
           style_index?: number | null
+          used_hand_poses?: Json
           user_id: string
         }
         Update: {
@@ -360,6 +362,7 @@ export type Database = {
           id?: string
           portraits?: Json
           style_index?: number | null
+          used_hand_poses?: Json
           user_id?: string
         }
         Relationships: []
