@@ -200,27 +200,103 @@ export function mapGender(g?: string | null): "woman" | "man" | "none" {
   return "none";
 }
 
+// Dicionário PT→EN focado em peças de moda dos relatórios. Aplicado por substring
+// case-insensitive. O que não bater no dicionário é mantido — o Flux ainda tenta
+// interpretar, e termos universais (trench coat, blazer, cardigan) já vêm em inglês.
+const PT_EN_FASHION: Array<[RegExp, string]> = [
+  // Vestidos (mais específico antes de mais genérico)
+  [/vestido\s+tubinho\s+midi/gi, "midi sheath dress"],
+  [/vestido\s+tubinho/gi, "sheath dress"],
+  [/vestido\s+midi/gi, "midi dress"],
+  [/vestido\s+longo/gi, "long dress"],
+  [/vestido\s+envelope/gi, "wrap dress"],
+  [/vestido\s+camisa/gi, "shirt dress"],
+  [/vestido/gi, "dress"],
+  // Casacos / outerwear
+  [/sobretudo/gi, "overcoat"],
+  [/trench\s*coat/gi, "trench coat"],
+  [/casaco\s+longo/gi, "long coat"],
+  [/casaco/gi, "coat"],
+  [/jaqueta\s+de\s+couro/gi, "leather jacket"],
+  [/jaqueta/gi, "jacket"],
+  // Blazers
+  [/blazer\s+(de\s+)?alfaiataria/gi, "tailored blazer"],
+  [/blazer\s+estruturado/gi, "structured blazer"],
+  [/blazer\s+oversized/gi, "oversized blazer"],
+  [/blazer/gi, "blazer"],
+  // Calças
+  [/calça\s+(de\s+)?alfaiataria/gi, "tailored trousers"],
+  [/calça\s+pantalona/gi, "wide-leg trousers"],
+  [/calça\s+reta/gi, "straight-leg trousers"],
+  [/calça\s+jeans/gi, "denim jeans"],
+  [/calça/gi, "trousers"],
+  // Saias
+  [/saia\s+midi/gi, "midi skirt"],
+  [/saia\s+lápis|saia\s+lapis/gi, "pencil skirt"],
+  [/saia\s+longa/gi, "long skirt"],
+  [/saia/gi, "skirt"],
+  // Tops
+  [/camisa\s+(de\s+)?seda/gi, "silk shirt"],
+  [/blusa\s+(de\s+)?seda/gi, "silk blouse"],
+  [/blusa\s+básica|blusa\s+basica/gi, "fitted top"],
+  [/camiseta\s+básica|camiseta\s+basica/gi, "fitted t-shirt"],
+  [/camiseta/gi, "t-shirt"],
+  [/camisa/gi, "button-up shirt"],
+  [/blusa/gi, "blouse"],
+  [/cardigã|cardiga/gi, "cardigan"],
+  [/tricô|trico/gi, "knitwear"],
+  [/malha/gi, "knit top"],
+  [/regata/gi, "tank top"],
+  // Sapatos
+  [/sapato\s+scarpin|scarpin/gi, "pointed-toe pumps"],
+  [/salto\s+alto/gi, "high heels"],
+  [/sandália|sandalia/gi, "sandals"],
+  [/bota/gi, "boots"],
+  [/mocassim/gi, "loafers"],
+  [/tênis|tenis/gi, "sneakers"],
+  // Acessórios
+  [/cinto/gi, "belt"],
+  [/lenço|lenco/gi, "scarf"],
+  [/bolsa/gi, "bag"],
+  // Cores
+  [/bege/gi, "beige"],
+  [/caramelo/gi, "caramel"],
+  [/camelo/gi, "camel"],
+  [/marinho/gi, "navy"],
+  [/vinho/gi, "burgundy"],
+  [/terracota/gi, "terracotta"],
+  [/preto/gi, "black"],
+  [/branco/gi, "white"],
+  [/cinza/gi, "grey"],
+  [/marrom/gi, "brown"],
+];
+
+function translateFashion(text: string): string {
+  let out = text;
+  for (const [re, en] of PT_EN_FASHION) {
+    out = out.replace(re, en);
+  }
+  return out;
+}
+
 export function buildOutfitText(figurino: any): string {
   if (!figurino || typeof figurino !== "object") return "";
   const pieces = Array.isArray(figurino.pecas_chave) ? figurino.pecas_chave.slice(0, 3).join(", ") : "";
   const colors = Array.isArray(figurino.cores_roupa) ? figurino.cores_roupa.slice(0, 2).join(" and ") : "";
-  if (pieces && colors) return `${pieces} in ${colors}`;
-  return pieces || colors || "";
+  const raw = pieces && colors ? `${pieces} in ${colors}` : (pieces || colors || "");
+  return translateFashion(raw);
 }
 
 /**
- * Variação de figurino por look: usa figurino.looks_completos[lookIndex] do relatório,
- * que já vem com 3 looks distintos (peças e ocasião). Garante que cada um dos 3
- * retratos tenha um figurino diferente, sempre dentro do que o relatório recomenda.
- *
- * Fallback: se o relatório não tiver looks_completos, usa buildOutfitText (peças-chave + cores).
+ * Variação de figurino por look: usa figurino.looks_completos[lookIndex] do relatório.
+ * Retorna a string já traduzida PT→EN, com no máximo 3 "headline pieces" (top/bottom/outer)
+ * para não diluir a atenção do Flux. Cada chamada (Neutro/Claro/Escuro) usa um look diferente.
  */
 export function buildOutfitTextForLook(figurino: any, lookIndex: number): string {
   if (!figurino || typeof figurino !== "object") return "";
   const looks = Array.isArray(figurino.looks_completos) ? figurino.looks_completos : [];
 
   // Modificadores sintéticos para forçar variação quando o relatório tem < 3 looks distintos.
-  // Aplicados como sufixo para variar tom/formalidade entre as 3 imagens geradas.
   const SYNTHETIC_MODIFIERS = [
     "smart casual styling, neutral palette",
     "elegant refined styling, lighter palette",
@@ -232,19 +308,16 @@ export function buildOutfitTextForLook(figurino: any, lookIndex: number): string
     return base ? `${base}, ${SYNTHETIC_MODIFIERS[lookIndex % 3]}` : SYNTHETIC_MODIFIERS[lookIndex % 3];
   }
 
-  // Round-robin para o caso de relatórios com menos de 3 looks
   const look = looks[lookIndex % looks.length];
   if (!look || !Array.isArray(look.pecas) || look.pecas.length === 0) {
     const base = buildOutfitText(figurino);
     return base ? `${base}, ${SYNTHETIC_MODIFIERS[lookIndex % 3]}` : SYNTHETIC_MODIFIERS[lookIndex % 3];
   }
 
-  // Junta as peças (3-5) em uma única descrição. Mantém o português do relatório —
-  // o restante do prompt em inglês ainda direciona estilo/iluminação corretamente,
-  // e modelos Flux lidam bem com peças de roupa em PT.
-  let outfit = look.pecas.slice(0, 5).join(", ");
+  // Pega só 3 peças headline (top + bottom + outer/shoes) — acessórios pequenos diluem.
+  const headline = look.pecas.slice(0, 3).map((p: string) => translateFashion(String(p))).join(", ");
+  let outfit = headline;
 
-  // Se o relatório tem < 3 looks distintos, adiciona modificador sintético para garantir variação visível
   if (looks.length < 3) {
     outfit += `, ${SYNTHETIC_MODIFIERS[lookIndex % 3]}`;
   }
