@@ -237,16 +237,19 @@ export const BACKGROUND_VARIATIONS = [
 ] as const;
 
 /**
- * Framing por look. Estratégia mista para minimizar dedos deformados:
- *   - Look 0 (Neutro): close-up enquadrando peito/ombros — mãos FORA do frame.
- *     100% à prova de erro de mãos. Sempre teremos pelo menos 1 retrato perfeito.
- *   - Look 1 (Claro): waist-up com pose de mãos sorteada (mãos visíveis).
- *   - Look 2 (Escuro): waist-up com pose de mãos sorteada (mãos visíveis).
+ * Framing por look. ESTRATÉGIA "MÃOS FORA DO FRAME EM 100%".
+ * Todos os 3 looks são retratos editoriais cortados acima da linha das mãos.
+ * Variamos APENAS distância de câmera e angulação dos ombros — o que dá variedade
+ * visual sem nunca obrigar o modelo a desenhar mãos, dedos ou pulsos.
+ *   - Look 0 (Neutro): close-up cabeça e ombros, frontal.
+ *   - Look 1 (Claro): busto editorial peito e ombros, ombros levemente angulados.
+ *   - Look 2 (Escuro): retrato 3/4 cortado bem acima da cintura, sem mãos no frame.
+ * Em todos os 3 looks, `showsHands = false` — a pose de mãos é IGNORADA.
  */
 export const FRAMING_VARIATIONS = [
-  { key: "headshot", showsHands: false, instruction: "head and shoulders portrait, framed at chest level, hands not visible in frame" },
-  { key: "waist-up", showsHands: true, instruction: "waist-up portrait, hands visible naturally in frame" },
-  { key: "waist-up", showsHands: true, instruction: "waist-up portrait, hands visible naturally in frame" },
+  { key: "headshot", showsHands: false, instruction: "tight head and shoulders portrait, framed at upper chest, hands completely out of frame, no visible hands, no arms in frame" },
+  { key: "bust", showsHands: false, instruction: "editorial bust portrait, framed at mid-chest with shoulders slightly angled, hands completely out of frame, no visible hands, arms cropped below the frame" },
+  { key: "three-quarter-short", showsHands: false, instruction: "editorial three-quarter portrait cropped well above the waist, shoulders subtly turned, hands completely out of frame, no visible hands, arms relaxed and cropped below the frame" },
 ] as const;
 
 // Regex para localizar a "frase de fundo" no prompt do arquétipo.
