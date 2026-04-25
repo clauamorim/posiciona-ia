@@ -458,43 +458,51 @@ const EditorialPage = () => {
         const grid = document.createElement("div");
         grid.style.cssText = "display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px;";
         
-        for (let di = 0; di < (week || []).length; di++) {
-          const day = week[di];
-          const fmt = FORMAT_CONFIG[day.format?.toLowerCase()] || FORMAT_CONFIG.post;
+        for (let di = 0; di < week.days.length; di++) {
+          const day = week.days[di];
+          const feed = day.feed;
+          const fmt = FORMAT_CONFIG[(feed?.format || "post").toLowerCase()] || FORMAT_CONFIG.post;
           const card = document.createElement("div");
           card.style.cssText = "background:white;border-radius:12px;padding:16px;border:1px solid #e5e1db;break-inside:avoid;";
 
           let html = `<div style="display:flex;justify-content:space-between;margin-bottom:8px;">
             <span style="font-size:10px;font-weight:700;text-transform:uppercase;color:#6b7280;">Dia ${day.day || di + 1}</span>
-            <span style="font-size:10px;font-weight:600;color:#6b7280;">${fmt.label}</span>
+            <span style="font-size:10px;font-weight:600;color:#6b7280;">${feed ? fmt.label : "Sem feed"}</span>
           </div>
-          <h3 style="font-size:13px;font-weight:600;margin-bottom:8px;color:#1a1a2e;">${esc(cleanText(day.theme || ""))}</h3>`;
+          <h3 style="font-size:13px;font-weight:600;margin-bottom:8px;color:#1a1a2e;">${esc(cleanText(feed?.theme || day.story?.theme || ""))}</h3>`;
 
-          if (day.caption) {
+          if (feed?.caption) {
             html += `<div style="margin-bottom:6px;">
-              <p style="font-size:10px;font-weight:700;text-transform:uppercase;color:#9ca3af;margin-bottom:2px;">Legenda</p>
-              <p style="font-size:11px;color:#374151;line-height:1.5;">${esc(cleanText(day.caption))}</p>
+              <p style="font-size:10px;font-weight:700;text-transform:uppercase;color:#9ca3af;margin-bottom:2px;">Legenda (Feed)</p>
+              <p style="font-size:11px;color:#374151;line-height:1.5;">${esc(cleanText(feed.caption))}</p>
             </div>`;
           }
 
-          if (day.cta) {
+          if (feed?.cta) {
             html += `<div style="margin-bottom:6px;">
               <p style="font-size:10px;font-weight:700;text-transform:uppercase;color:#9ca3af;margin-bottom:2px;">CTA</p>
-              <p style="font-size:11px;font-weight:600;color:#7c3aed;">${esc(cleanText(day.cta))}</p>
+              <p style="font-size:11px;font-weight:600;color:#7c3aed;">${esc(cleanText(feed.cta))}</p>
             </div>`;
           }
 
-          if (day.card_copy?.length > 0) {
+          if (feed?.card_copy && feed.card_copy.length > 0) {
             html += `<div style="margin-top:6px;padding:8px;background:#f9fafb;border-radius:8px;border:1px solid #e5e7eb;">
               <p style="font-size:10px;font-weight:700;text-transform:uppercase;color:#9ca3af;margin-bottom:4px;">Conteúdo</p>
-              ${day.card_copy.map((c: string) => `<p style="font-size:11px;color:#374151;line-height:1.4;margin-bottom:4px;">${esc(cleanText(c))}</p>`).join("")}
+              ${feed.card_copy.map((c: string) => `<p style="font-size:11px;color:#374151;line-height:1.4;margin-bottom:4px;">${esc(cleanText(c))}</p>`).join("")}
             </div>`;
           }
 
-          if (day.script && (day.format?.toLowerCase() === "reels" || day.format?.toLowerCase() === "stories")) {
+          if (feed?.script && (feed.format === "reels")) {
             html += `<div style="margin-top:6px;padding:8px;background:#f9fafb;border-radius:8px;border:1px solid #e5e7eb;">
               <p style="font-size:10px;font-weight:700;text-transform:uppercase;color:#9ca3af;margin-bottom:4px;">Roteiro</p>
-              <p style="font-size:11px;color:#374151;line-height:1.4;white-space:pre-wrap;">${esc(day.script)}</p>
+              <p style="font-size:11px;color:#374151;line-height:1.4;white-space:pre-wrap;">${esc(feed.script)}</p>
+            </div>`;
+          }
+
+          if (day.story?.frames?.length) {
+            html += `<div style="margin-top:8px;padding:8px;background:#fef3c7;border-radius:8px;border:1px solid #fde68a;">
+              <p style="font-size:10px;font-weight:700;text-transform:uppercase;color:#92400e;margin-bottom:4px;">Stories${day.story.mirrors_feed ? " (mesmo tema do feed)" : ""}</p>
+              ${day.story.frames.map((f: string) => `<p style="font-size:11px;color:#78350f;line-height:1.4;margin-bottom:4px;">${esc(cleanText(f))}</p>`).join("")}
             </div>`;
           }
 
@@ -668,7 +676,7 @@ const EditorialPage = () => {
           )}
 
           {allWeeks.map((week, wi) => {
-            const weekOutdated = isWeekOutdated(week);
+            const weekOutdated = isWeekOutdated(week.days as any);
             const isRegenWeek = regeneratingFreeWeek === wi;
             return (
             <TabsContent key={wi} value={`week-${wi}`}>
