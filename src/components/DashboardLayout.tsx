@@ -77,12 +77,12 @@ export const DashboardLayout = ({ children }: { children: React.ReactNode }) => 
 
       setJourneyStatus({
         "/business-questionnaire": bComplete ? "done" : "in_progress",
-        "/archetype-questionnaire": aDone ? "done" : bComplete ? "in_progress" : "blocked",
+        "/personal-questionnaire": pqSubmitted ? "done" : bComplete ? "in_progress" : "blocked",
+        "/archetype-questionnaire": aDone ? "done" : (bComplete && pqSubmitted) ? "in_progress" : "blocked",
         "/results": rDone ? "done" : aDone ? "in_progress" : "blocked",
         "/storybrand": rDone ? "done" : "blocked",
         "/report": rDone ? "done" : "blocked",
         "/instagram-analysis": hasIg ? "done" : rDone ? "in_progress" : "blocked",
-        "/personal-questionnaire": pqSubmitted ? "done" : rDone ? "in_progress" : "blocked",
         "/editorial": hasEditorial ? "done" : (rDone && pqSubmitted) ? "in_progress" : "blocked",
         "/portraits": hasPortraits ? "done" : rDone ? "in_progress" : "blocked",
       });
@@ -101,12 +101,12 @@ export const DashboardLayout = ({ children }: { children: React.ReactNode }) => 
       label: "Sua jornada",
       items: [
         { label: "Diagnóstico", href: "/business-questionnaire", icon: Building2, status: journeyStatus["/business-questionnaire"] },
+        { label: "Sua História", href: "/personal-questionnaire", icon: Sparkles, status: journeyStatus["/personal-questionnaire"] },
         { label: "Arquétipos", href: "/archetype-questionnaire", icon: Brain, status: journeyStatus["/archetype-questionnaire"] },
         { label: "Resultados", href: "/results", icon: BarChart3, status: journeyStatus["/results"] },
         { label: "Narrativa da Marca", href: "/storybrand", icon: Target, status: journeyStatus["/storybrand"] },
         { label: "Relatório", href: "/report", icon: FileText, status: journeyStatus["/report"] },
         { label: "Instagram", href: "/instagram-analysis", icon: Instagram, status: journeyStatus["/instagram-analysis"] },
-        { label: "Sua História", href: "/personal-questionnaire", icon: Sparkles, status: journeyStatus["/personal-questionnaire"] },
         { label: "Linha Editorial", href: "/editorial", icon: Calendar, status: journeyStatus["/editorial"] },
         { label: "Retratos de Marca", href: "/portraits", icon: Camera, status: journeyStatus["/portraits"] },
       ],
