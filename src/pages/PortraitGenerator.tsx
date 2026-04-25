@@ -260,10 +260,12 @@ const PortraitGenerator = () => {
     }
   };
 
+  const requestedCount = Math.min(totalCredits, GENERATE_COST_CREDITS);
+
   const requestGenerate = () => {
     if (!hasReadyStudio) return;
-    if (totalCredits < GENERATE_COST_CREDITS) {
-      toast({ title: "Sem créditos suficientes", description: `Geração custa ${GENERATE_COST_CREDITS} créditos.`, variant: "destructive" });
+    if (totalCredits < 1) {
+      toast({ title: "Sem créditos suficientes", description: "Você precisa de pelo menos 1 crédito de retrato.", variant: "destructive" });
       setPackDialogOpen(true);
       return;
     }
@@ -529,12 +531,14 @@ const PortraitGenerator = () => {
                       )}
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      Seu Estúdio Pessoal está treinado. Cada geração produz <strong>3 retratos</strong> (Neutro, Claro, Escuro) e custa <strong>{GENERATE_COST_CREDITS} créditos</strong>.
+                      Seu Estúdio Pessoal está treinado. Cada geração produz até <strong>3 retratos</strong> (Neutro, Claro, Escuro) e custa <strong>1 crédito por retrato</strong>.
                     </p>
                     <div className="flex flex-wrap gap-2">
-                      <Button onClick={requestGenerate} disabled={generating || totalCredits < GENERATE_COST_CREDITS} size="lg" className="gap-2">
+                      <Button onClick={requestGenerate} disabled={generating || totalCredits < 1} size="lg" className="gap-2">
                         {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageIcon className="h-4 w-4" />}
-                        Gerar 3 retratos ({GENERATE_COST_CREDITS} créditos)
+                        {requestedCount > 0
+                          ? `Gerar ${requestedCount} retrato${requestedCount > 1 ? "s" : ""} (${requestedCount} crédito${requestedCount > 1 ? "s" : ""})`
+                          : "Sem créditos disponíveis"}
                       </Button>
                       <Button onClick={() => setTrainModalOpen(true)} variant="outline" size="lg">
                         Treinar novo Estúdio
@@ -544,7 +548,7 @@ const PortraitGenerator = () => {
                       <div className="space-y-2">
                         <Progress value={undefined} className="animate-pulse" />
                         <p className="text-xs text-muted-foreground">
-                          Gerando seus 3 retratos com variação de figurino e iluminação. Isso leva cerca de 1 minuto — não feche esta aba.
+                          Gerando seu{requestedCount > 1 ? "s" : ""} {requestedCount} retrato{requestedCount > 1 ? "s" : ""} com variação de figurino e iluminação. Isso leva cerca de 1 minuto — não feche esta aba.
                         </p>
                       </div>
                     )}
@@ -706,9 +710,11 @@ const PortraitGenerator = () => {
       <AlertDialog open={confirmGenerateOpen} onOpenChange={setConfirmGenerateOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Gerar 3 retratos — {GENERATE_COST_CREDITS} créditos</AlertDialogTitle>
+            <AlertDialogTitle>
+              Gerar {requestedCount} retrato{requestedCount > 1 ? "s" : ""} — {requestedCount} crédito{requestedCount > 1 ? "s" : ""}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              Vamos gerar 3 retratos (Neutro, Claro, Escuro) usando seu Estúdio Pessoal. Cada um custa 1 crédito.
+              Vamos gerar {requestedCount} retrato{requestedCount > 1 ? "s" : ""} usando seu Estúdio Pessoal. Cada um custa 1 crédito.
               <br /><br />
               Saldo atual: <strong>{totalCredits} crédito{totalCredits !== 1 ? "s" : ""}</strong>.
             </AlertDialogDescription>
