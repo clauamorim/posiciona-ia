@@ -35,7 +35,7 @@ const adminGroups: NavGroup[] = [
   },
 ];
 
-export const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
+export const DashboardLayout = ({ children, wide = false }: { children: React.ReactNode; wide?: boolean }) => {
   const { user, isAdmin, signOut } = useAuth();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
