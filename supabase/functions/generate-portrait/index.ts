@@ -385,41 +385,21 @@ serve(async (req) => {
       );
     }
 
-    // ===== UPSCALE + UPLOAD PARALELO =====
-    // Os 3 upscales rodam em paralelo (3 req simultâneas, bem abaixo do limite de 10/min do Replicate).
-    // Cada pipeline: upscale → download → upload ao Storage.
-    // Em caso de 429, espera 30s e tenta de novo (1 retry).
+    // ===== DOWNLOAD + UPLOAD PARALELO (sem upscaler) =====
+    // Os 3 retratos vão direto do Replicate ao Storage privado em paralelo.
+    // Resolução nativa do FLUX = 896x1152, mantida sem reescalonamento.
     const generationId = crypto.randomUUID();
-    const UPSCALE_RETRY_DELAY_MS = 30000;
 
     const pipelineResults = await Promise.all(
       successful.map(async (r, i) => {
         try {
-          // 1. Upscale (com 1 retry em caso de 429)
-          let up = await upscaleImage({ token: REPLICATE_API_TOKEN, imageUrl: r.portraitUrl! });
-          if (!up.ok && up.reason.includes("429")) {
-            console.warn(`[upscale] background=${r.background} got 429, waiting ${UPSCALE_RETRY_DELAY_MS}ms`);
-            await new Promise((res) => setTimeout(res, UPSCALE_RETRY_DELAY_MS));
-            up = await upscaleImage({ token: REPLICATE_API_TOKEN, imageUrl: r.portraitUrl! });
-          }
-          const finalUrl = up.ok ? up.imageUrl : r.portraitUrl!;
-          if (!up.ok) {
-            console.warn(`[upscale] fallback (original 1MP) for background=${r.background}: ${up.reason}`);
-          }
-
-          // 2. Download bytes (fallback para original se o upscale baixou mal)
-          let dl = await downloadImageBytes(finalUrl);
+          const dl = await downloadImageBytes(r.portraitUrl!);
           if (!dl.ok) {
-            const orig = await downloadImageBytes(r.portraitUrl!);
-            if (!orig.ok) {
-              console.error(`[generate-portrait] failed to download for background=${r.background}`);
-              return null;
-            }
-            dl = orig;
+            console.error(`[generate-portrait] failed to download background=${r.background}: ${dl.reason}`);
+            return null;
           }
-          const bytes = (dl as { ok: true; bytes: Uint8Array }).bytes;
+          const bytes = dl.bytes;
 
-          // 3. Upload ao Storage privado
           const path = `${user.id}/${generationId}/${i}.png`;
           const upRes = await supabaseAdmin.storage
             .from(PORTRAIT_BUCKET)
@@ -428,8 +408,8 @@ serve(async (req) => {
             console.error(`[generate-portrait] storage upload failed background=${r.background}: ${upRes.error.message}`);
             return null;
           }
-          console.log(`[generate-portrait] uploaded background=${r.background} path=${path} bytes=${bytes.length} upscaled=${up.ok}`);
-          return { ...r, path, upscaled: up.ok };
+          console.log(`[generate-portrait] uploaded background=${r.background} path=${path} bytes=${bytes.length}`);
+          return { ...r, path };
         } catch (e) {
           console.error(`[generate-portrait] pipeline exception background=${r.background}:`, e);
           return null;
@@ -438,7 +418,7 @@ serve(async (req) => {
     );
 
     const finalPortraits = pipelineResults.filter(
-      (p): p is NonNullable<typeof p> & { path: string; upscaled: boolean } => p !== null,
+      (p): p is NonNullable<typeof p> & { path: string } => p !== null,
     );
 
     if (finalPortraits.length === 0) {
@@ -447,6 +427,7 @@ serve(async (req) => {
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
+
 
     // Debit credits — cobra apenas pelas imagens com sucesso (max GENERATE_COST_CREDITS)
     const charge = Math.min(GENERATE_COST_CREDITS, finalPortraits.length);
