@@ -293,10 +293,20 @@ serve(async (req) => {
     // Look 0 (close-up) não usa pose. Looks 1 e 2 vêm de categorias DIFERENTES,
     // evitando o problema de "duas poses parecidas" na mesma rodada.
     const family = getArchetypeFamily(archetypeName);
-    const posesForLooks12 = pickPosesForLooks(family, recentlyUsedPoses, 2);
-    // Array indexado por look: [null, pose1, pose2]
-    const selectedPoses: (string | null)[] = [null, posesForLooks12[0]?.pose ?? null, posesForLooks12[1]?.pose ?? null];
-    const selectedPoseCategories = ["headshot", posesForLooks12[0]?.category ?? "—", posesForLooks12[1]?.category ?? "—"];
+    // Look 0 (close-up) não usa pose. Pega poses para os looks 1+ (até requestedCount-1 poses).
+    const numPoses = Math.max(0, requestedCount - 1);
+    const posesForLooks12 = pickPosesForLooks(family, recentlyUsedPoses, numPoses);
+    // Array indexado por look: [null, pose1?, pose2?]
+    const selectedPoses: (string | null)[] = [
+      null,
+      posesForLooks12[0]?.pose ?? null,
+      posesForLooks12[1]?.pose ?? null,
+    ];
+    const selectedPoseCategories = [
+      "headshot",
+      posesForLooks12[0]?.category ?? "—",
+      posesForLooks12[1]?.category ?? "—",
+    ];
 
     // ===== FIGURINOS — pool curado por profissão > buildOutfitTextForLook(figurino) =====
     const profCategory = mapProfessionToCategory(profession);
@@ -305,28 +315,29 @@ serve(async (req) => {
 
     {
       // Pool curado da profissão. Se vazio (ex: family sem matriz), volta ao figurino do relatório.
-      const fromPool = pickOutfits(family, profCategory, recentlyUsedOutfits, 3);
-      if (fromPool.length === 3) {
+      const fromPool = pickOutfits(family, profCategory, recentlyUsedOutfits, requestedCount);
+      if (fromPool.length === requestedCount) {
         outfitsForLooks = fromPool;
         outfitSource = `pool:${family}/${profCategory}`;
       } else {
         // Fallback: figurino do relatório (comportamento anterior).
-        outfitsForLooks = [0, 1, 2].map((i) => buildOutfitTextForLook(figurino, i));
+        outfitsForLooks = Array.from({ length: requestedCount }, (_, i) => buildOutfitTextForLook(figurino, i));
         outfitSource = "report-figurino-fallback";
       }
     }
 
     console.log(
       `[generate-portrait] archetype=${archetypeName} family=${family} profession="${profession}" ` +
-      `category=${profCategory} outfitSource=${outfitSource} outfits=${JSON.stringify(outfitsForLooks)} ` +
-      `poses=${JSON.stringify(selectedPoses)} poseCats=${JSON.stringify(selectedPoseCategories)}`,
+      `category=${profCategory} requestedCount=${requestedCount} outfitSource=${outfitSource} ` +
+      `outfits=${JSON.stringify(outfitsForLooks)} poses=${JSON.stringify(selectedPoses)} ` +
+      `poseCats=${JSON.stringify(selectedPoseCategories)}`,
     );
 
-    // 3 sequential calls — Replicate low-credit accounts (<$5) tem rate limit 6/min.
+    // Geração sequencial — Replicate low-credit accounts (<$5) tem rate limit 6/min.
     const INTER_CALL_DELAY_MS = 11000;
     const RETRY_DELAY_MS = 30000;
     const results: { background: string; portraitUrl: string | null; error?: string; pose?: string; outfit?: string }[] = [];
-    for (let i = 0; i < BACKGROUND_VARIATIONS.length; i++) {
+    for (let i = 0; i < requestedCount; i++) {
       if (i > 0) await new Promise((r) => setTimeout(r, INTER_CALL_DELAY_MS));
       const outfit = outfitsForLooks[i] ?? "";
       const handPose = selectedPoses[i] ?? null;
