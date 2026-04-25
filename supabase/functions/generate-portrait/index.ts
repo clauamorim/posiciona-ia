@@ -517,7 +517,6 @@ serve(async (req) => {
       finalPortraits.push({
         ...r,
         path,
-        dataUrl: bytesToDataUrl(bytes),
         upscaled: up.ok,
       });
     }
