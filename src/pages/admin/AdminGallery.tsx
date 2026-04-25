@@ -86,7 +86,7 @@ export default function AdminGallery() {
   };
 
   return (
-    <DashboardLayout>
+    <DashboardLayout wide>
       <div className="space-y-6">
         <h1 className="text-2xl font-bold">Galeria de Imagens</h1>
         <p className="text-sm text-muted-foreground">
