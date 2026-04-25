@@ -16,9 +16,9 @@ import { mapProfessionToCategory, pickOutfits } from "../_shared/outfitPool.ts";
 
 const FLUX_LORA_MODEL = "black-forest-labs/flux-dev-lora";
 const GENERATE_COST_CREDITS = 3;
-// Guidance calibrado pra espelhar o que funcionou no Replicate UI manual (2.5).
-// Variamos sutilmente entre os 3 looks pra dar variedade sem fugir muito do ponto-doce.
-const GUIDANCE_VARIATIONS = [2.5, 2.7, 2.9];
+// Guidance variado: 2.5 (documental) / 3.0 (equilibrado) / 3.5 (definido).
+// Range maior pra você ver na prática qual valor funciona melhor.
+const GUIDANCE_VARIATIONS = [2.5, 3.0, 3.5];
 const PORTRAIT_BUCKET = "portrait-outputs";
 // Referência (logs apenas). FLUX LoRA usa aspect_ratio + megapixels — width/height
 // no input são ignorados silenciosamente e o modelo cai pra 1024x1024.
@@ -27,14 +27,15 @@ const PORTRAIT_HEIGHT = 1152;
 
 /**
  * Calibra a força do LoRA conforme o tamanho do dataset de selfies.
- * Calibrado pra valores próximos do default do Replicate UI (~0.8), que produziu
- * textura de pele e expressões mais naturais. Scales >0.9 começam a "endurecer"
- * o resultado e suavizar pele em excesso.
+ * AGRESSIVAMENTE BAIXO: a 0.80+ o LoRA dominava e sobrescrevia textura/anatomia
+ * naturais do FLUX base (pele lisa decorada, maquiagem pesada, rosto inflado).
+ * A 0.70-0.78 o modelo base respira — perde-se ~10% fidelidade facial mas ganha-se
+ * textura, anatomia correta e atenuação de artefatos do treino.
  */
 function pickLoraScale(selfiesCount: number): number {
-  if (selfiesCount <= 12) return 0.80;
-  if (selfiesCount <= 20) return 0.85;
-  return 0.88;
+  if (selfiesCount <= 12) return 0.70;
+  if (selfiesCount <= 20) return 0.75;
+  return 0.78;
 }
 
 /** Fisher–Yates shuffle não destrutivo. */
@@ -289,10 +290,11 @@ serve(async (req) => {
     const effectiveGender: "woman" | "man" | "none" = traitsGender ?? gender;
 
     const hair = buildHairText(figurino);
-    // Maquiagem detalhada do relatório era pesada (cílios postiços, contorno, batom marcado)
-    // e competia com poros, simulando filtro de beleza. Trocamos por instrução minimalista
-    // explícita — o LoRA produz make natural sozinho. Vazio para homens.
-    const makeup = effectiveGender === "woman" ? "natural minimal makeup, no heavy contouring" : "";
+    // Maquiagem REMOVIDA do prompt. O LoRA aprendeu makeup das selfies — qualquer
+    // instrução positiva ou negativa colide com o que ele decorou. Estratégia atual:
+    // reduzir lora_scale (0.70-0.78) pra atenuar make pesada, e usar negative
+    // "heavy makeup" no STUDIO_NEGATIVE_BASE.
+    const makeup = "";
 
     // ===== MEMÓRIA CURTA: lê última geração =====
     const { data: lastGen } = await supabaseAdmin
@@ -380,18 +382,20 @@ serve(async (req) => {
         handPose,
       });
 
-      // loraScale calculado acima conforme tamanho do dataset (pickLoraScale).
-      // ESTRATÉGIA ATUAL: hands-out-of-frame em 100% dos looks + prompt enxuto
-      // estilo Replicate UI manual (steps 35, guidance ~2.5, sem weights numéricos).
+      // MODO MANUAL PURO: prompt mínimo (~12 tokens), lora_scale agressivo (0.70-0.78),
+      // guidance variado (2.5/3.0/3.5). Logamos prompt completo + contagem de tokens
+      // pra você poder colar 1:1 no Replicate UI e comparar.
+      const promptTokens = built.prompt.split(",").length;
       console.log(
         `[generate-portrait] call ${i + 1}/${requestedCount} background=${built.backgroundKey} archetype=${archetypeName} ` +
         `trigger="${training.trigger_word}" trainingId=${training.id} ` +
-        `framing=hands-out-of-frame dims=${PORTRAIT_WIDTH}x${PORTRAIT_HEIGHT}(3:4@1MP) ` +
-        `outfit="${outfit}" guidance=${guidanceScale} loraScale=${loraScale} steps=35 ` +
-        `selfiesCount=${selfiesCount} hasTraits=${!!(training as any).physical_traits}`,
+        `dims=${PORTRAIT_WIDTH}x${PORTRAIT_HEIGHT}(3:4@1MP) ` +
+        `guidance=${guidanceScale} loraScale=${loraScale} steps=35 ` +
+        `selfiesCount=${selfiesCount} hasTraits=${!!(training as any).physical_traits} ` +
+        `promptTokens=${promptTokens}`,
       );
-      console.log(`[generate-portrait] PROMPT[${i}]: ${built.prompt.slice(0, 500)}`);
-      console.log(`[generate-portrait] NEGATIVE[${i}]: ${built.negative.slice(0, 300)}`);
+      console.log(`[generate-portrait] PROMPT[${i}]: ${built.prompt}`);
+      console.log(`[generate-portrait] NEGATIVE[${i}]: ${built.negative}`);
       let r = await callFluxLora({
         token: REPLICATE_API_TOKEN,
         loraVersion: training.lora_weights_url,

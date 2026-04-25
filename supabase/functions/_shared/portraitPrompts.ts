@@ -15,17 +15,15 @@ export type ArchetypeName =
   | "Rebelde"
   | "Bobo-da-corte";
 
-// Reforço aplicado a todos os prompts: garante cenário de estúdio.
-// Sem "editorial" — essa palavra-âncora empurrava Flux pra estética glossy/magazine.
-const STUDIO_PREFIX = "professional portrait, ";
-// Sufixo de qualidade — aplicado UMA VEZ no fim de todo prompt. Tokens fortes
-// pró-textura (visible skin pores, unretouched, raw photograph) tiram o modelo
-// do "modo retoque" e trazem aspecto fotográfico documental.
-const QUALITY_SUFFIX = "visible skin pores, unretouched skin, natural skin imperfections, fine facial detail, raw photograph, photorealistic, shot on Sony A7, 85mm f/1.4, shallow depth of field, subtle film grain";
-// Negative base ENXUTO + termos cosméticos contra "modo revista".
-const STUDIO_NEGATIVE_BASE = ", plastic skin, beauty filter, smoothed skin, airbrushed, retouched skin, instagram filter, heavy makeup, glossy skin, porcelain skin, deformed hands, extra fingers, deformed face, asymmetric eyes, multiple people, watermark, low quality, blurry";
+// MODO MANUAL PURO: prompt mínimo espelhando exatamente o que funcionou no
+// Replicate UI. Cada token a mais dilui o peso dos críticos de textura/pele.
+//
+// QUALITY_SUFFIX = fórmula exata do manual que funcionou.
+const QUALITY_SUFFIX = "fine skin pores, photorealistic, shot on Sony A7, 85mm f/1.4, shallow depth of field";
+// Negative MÍNIMO — só os 6 itens críticos. Negatives longos competem por atenção.
+const STUDIO_NEGATIVE_BASE = ", plastic skin, beauty filter, smoothed skin, heavy makeup, deformed face, deformed hands";
 // Reforço de anatomia de mãos — aplicado APENAS aos looks que mostram mãos
-// (atualmente nenhum, já que estamos em modo hands-out-of-frame).
+// (atualmente nenhum, hands-out-of-frame em todos).
 const HANDS_NEGATIVE_REINFORCE = ", extra fingers, deformed fingers, fused fingers, claw hands";
 
 // ============================================================================
@@ -182,91 +180,89 @@ export function getArchetypeFamily(archetype: string): ArchetypeFamily {
   return ARCHETYPE_FAMILY[archetype] ?? "nurturing";
 }
 
-// Templates ENXUTOS por arquétipo. Mantemos só a essência: expressão, iluminação,
-// fundo. Os tokens de qualidade (pele, câmera, lente) vão no QUALITY_SUFFIX único.
-// Estrutura: USR[id] [gender], {essência}, [outfit], [hair], [makeup]
+// Templates MÍNIMOS por arquétipo. Apenas a essência: expressão + iluminação + fundo.
+// O builder monta: {trigger} {gender}, {essência}, {hair}, {outfit}, {QUALITY_SUFFIX}
 export const ARCHETYPE_PROMPTS: Record<ArchetypeName, { prompt: string; negative: string }> = {
   "Governante": {
-    prompt: "USR[id] [gender], authoritative calm expression, hard directional lighting, dark textured studio background, [outfit], [hair], [makeup], strong upright posture, direct confident gaze, no smile",
-    negative: "casual, smiling, soft lighting, flat white background",
+    prompt: "authoritative calm expression, hard directional lighting, dark background, no smile",
+    negative: "casual, smiling, soft lighting",
   },
   "Sábio": {
-    prompt: "USR[id] [gender], calm contemplative expression, soft Rembrandt lighting, deep dark background, [outfit], [hair], [makeup], slight head tilt, thoughtful gaze, no smile",
-    negative: "casual, wide smile, harsh lighting, bright background",
+    prompt: "calm contemplative expression, soft Rembrandt lighting, deep dark background, no smile",
+    negative: "casual, wide smile, harsh lighting",
   },
   "Cuidador": {
-    prompt: "USR[id] [gender], gentle approachable expression, soft diffused lighting, warm beige background, [outfit], [hair], [makeup], slight natural smile, open relaxed posture",
-    negative: "harsh lighting, dark moody background, serious cold expression",
+    prompt: "gentle approachable expression, soft diffused lighting, warm beige background, slight natural smile",
+    negative: "harsh lighting, dark background, cold expression",
   },
   "Criador": {
-    prompt: "USR[id] [gender], expressive authentic expression, dramatic side lighting, weathered artistic background, [outfit], [hair], [makeup], natural creative pose, intense gaze",
-    negative: "corporate look, flat lighting, stiff symmetrical pose",
+    prompt: "expressive authentic expression, dramatic side lighting, weathered artistic background, intense gaze",
+    negative: "corporate look, flat lighting, stiff pose",
   },
   "Herói": {
-    prompt: "USR[id] [gender], determined strong expression, high contrast dramatic lighting, dark stone background, [outfit], [hair], [makeup], forward-leaning posture, intense direct gaze, jaw set",
-    negative: "soft lighting, casual relaxed expression, washed out background",
+    prompt: "determined strong expression, high contrast dramatic lighting, dark stone background, intense direct gaze",
+    negative: "soft lighting, casual relaxed expression",
   },
   "Explorador": {
-    prompt: "USR[id] [gender], free confident expression, natural warm lighting, earthy textured background, [outfit], [hair], [makeup], relaxed posture, genuine gaze, subtle smile",
-    negative: "stiff corporate pose, dark moody background, flat lighting",
+    prompt: "free confident expression, natural warm lighting, earthy textured background, subtle smile",
+    negative: "stiff corporate pose, dark moody background",
   },
   "Inocente": {
-    prompt: "USR[id] [gender], genuine warm expression, soft bright lighting, light pale background, [outfit], [hair], [makeup], open natural smile, relaxed shoulders",
-    negative: "serious heavy expression, dramatic shadows, dark background",
+    prompt: "genuine warm expression, soft bright lighting, light pale background, natural smile",
+    negative: "serious heavy expression, dark background",
   },
   "Cara-comum": {
-    prompt: "USR[id] [gender], approachable relatable expression, soft natural lighting, neutral mid-tone background, [outfit], [hair], [makeup], natural relaxed posture, warm gaze, light smile",
-    negative: "dramatic lighting, stiff corporate pose, intense expression",
+    prompt: "approachable relatable expression, soft natural lighting, neutral mid-tone background, light smile",
+    negative: "dramatic lighting, intense expression",
   },
   "Mago": {
-    prompt: "USR[id] [gender], intense magnetic expression, dramatic chiaroscuro lighting, mysterious dark background, [outfit], [hair], [makeup], slight forward lean, piercing gaze, no smile",
-    negative: "flat lighting, casual cheerful expression, bright airy background",
+    prompt: "intense magnetic expression, dramatic chiaroscuro lighting, mysterious dark background, no smile",
+    negative: "flat lighting, casual cheerful expression",
   },
   "Amante": {
-    prompt: "USR[id] [gender], warm sophisticated expression, soft golden hour lighting, deep warm terracotta background, [outfit], [hair], [makeup], elegant posture, intense warm gaze, subtle smile",
-    negative: "harsh cold lighting, stiff pose, washed out tones",
+    prompt: "warm sophisticated expression, soft golden hour lighting, deep warm terracotta background, subtle smile",
+    negative: "harsh cold lighting, washed out tones",
   },
   "Rebelde": {
-    prompt: "USR[id] [gender], bold unconventional expression, high contrast dramatic lighting, raw industrial background, [outfit], [hair], [makeup], asymmetric pose, direct challenging gaze",
-    negative: "corporate look, soft polished lighting, conventional symmetrical pose",
+    prompt: "bold unconventional expression, high contrast dramatic lighting, raw industrial background, direct challenging gaze",
+    negative: "corporate look, soft polished lighting",
   },
   "Bobo-da-corte": {
-    prompt: "USR[id] [gender], playful authentic expression, bright dynamic lighting, warm colorful background, [outfit], [hair], [makeup], natural laugh or wide smile, energetic posture",
-    negative: "serious heavy expression, stiff corporate pose, dark moody background",
+    prompt: "playful authentic expression, bright dynamic lighting, warm colorful background, natural smile",
+    negative: "serious heavy expression, dark moody background",
   },
 };
 
 // Mapeamento de fundo para os 3 looks (Neutro / Claro / Escuro).
 // Replacement curto, em linguagem natural, sem redundância.
+// Mapeamento de fundo para os 3 looks (Neutro / Claro / Escuro).
+// O regex captura "...background[...],"  — replacement já inclui a vírgula final.
 export const BACKGROUND_VARIATIONS = [
   { key: "neutro", label: "Neutro", replacement: null }, // mantém o fundo do arquétipo
-  { key: "claro", label: "Claro", replacement: "warm light background, soft warm tones" },
-  { key: "escuro", label: "Escuro", replacement: "dark moody background, deep shadow tones" },
+  { key: "claro", label: "Claro", replacement: "warm light background, soft warm tones," },
+  { key: "escuro", label: "Escuro", replacement: "dark moody background, deep shadow tones," },
 ] as const;
 
 /**
  * Framing por look. ESTRATÉGIA "MÃOS FORA DO FRAME EM 100%".
- * Linguagem natural curta, sem pesos numéricos (Flux respeita melhor).
- *   - Look 0 (Neutro): close-up cabeça e ombros, frontal.
- *   - Look 1 (Claro): busto editorial peito e ombros, ombros levemente angulados.
- *   - Look 2 (Escuro): retrato chest-up, ombros sutilmente girados.
- * Em todos os 3 looks, `showsHands = false`.
+ * Look 0 (Neutro): instrução vazia → default natural do FLUX é close-up.
+ * Looks 1/2 recebem instrução curta de bust/chest-up.
  */
 export const FRAMING_VARIATIONS = [
-  { key: "headshot", showsHands: false, instruction: "tight head and shoulders crop, hands out of frame" },
-  { key: "bust", showsHands: false, instruction: "mid-chest editorial bust crop, hands out of frame" },
-  { key: "chest-up", showsHands: false, instruction: "chest-up editorial portrait, shoulders subtly turned, hands out of frame" },
+  { key: "headshot", showsHands: false, instruction: "" },
+  { key: "bust", showsHands: false, instruction: "bust crop" },
+  { key: "chest-up", showsHands: false, instruction: "chest-up crop" },
 ] as const;
 
-// Regex para localizar a "frase de fundo" nos novos templates enxutos.
-// Captura desde palavra-chave de fundo (com ou sem cor/tom prefixado) até a
-// vírgula antes de "[outfit]".
+// Regex para localizar a frase de fundo nos templates mínimos.
+// Os novos templates terminam com "...background, no smile" OU "...background, intense gaze" etc.
+// Captura desde a palavra-chave de fundo até a primeira vírgula.
 // Exemplos cobertos:
-//   "dark textured studio background, [outfit]"
-//   "deep dark background, [outfit]"
-//   "warm beige background, [outfit]"
-//   "earthy textured background, [outfit]"
-const BACKGROUND_REGEX = /[a-z\s-]*background[^,]*,\s*(?=\[outfit\])/i;
+//   "dark background, no smile"
+//   "deep dark background, no smile"
+//   "warm beige background, slight natural smile"
+//   "earthy textured background, subtle smile"
+const BACKGROUND_REGEX = /[a-z\s-]*background[^,]*,/i;
 
 export interface PhysicalTraits {
   gender: "woman" | "man";
@@ -314,78 +310,72 @@ export function buildPortraitPrompt(params: BuildPromptParams): {
   const triggerWord = params.triggerWord
     || `USR${params.userId.replace(/-/g, "").slice(0, 12)}`;
 
-  // Trigger SÓ UMA VEZ no início — espelha o que funcionou no Replicate UI manual.
-  // Duplicar trigger ou inflar com "portrait of X, identical face..." só dilui atenção.
-  let prompt = `${triggerWord}, ` + STUDIO_PREFIX + tpl.prompt;
-  // Negative base + reforço de mãos APENAS se este look mostra mãos.
-  let negative = tpl.negative + STUDIO_NEGATIVE_BASE + (framing.showsHands ? HANDS_NEGATIVE_REINFORCE : "");
-
-  // Reforço de gênero no negative para evitar troca (técnica conhecida em Flux LoRA).
-  if (effectiveGender === "woman") {
-    negative += ", man, beard, mustache, masculine features, male body";
-  } else if (effectiveGender === "man") {
-    negative += ", woman, feminine features, makeup, lipstick, female body";
-  }
-
-  // 1. Substituir frase de fundo se Claro/Escuro.
+  // ===== TEMPLATE BASE: aplica fundo (claro/escuro) sobre a essência do arquétipo =====
+  let archetypeEssence = tpl.prompt;
   if (bg.replacement) {
-    if (BACKGROUND_REGEX.test(prompt)) {
-      prompt = prompt.replace(BACKGROUND_REGEX, `${bg.replacement}, `);
+    if (BACKGROUND_REGEX.test(archetypeEssence)) {
+      archetypeEssence = archetypeEssence.replace(BACKGROUND_REGEX, `${bg.replacement}`);
     } else {
-      console.log(`[portrait-prompt] background regex did not match for archetype=${archetypeKey} — using fallback prepend`);
-      prompt = `${bg.replacement}, ${prompt}`;
+      console.log(`[portrait-prompt] background regex did not match for archetype=${archetypeKey} — prepending`);
+      archetypeEssence = `${bg.replacement} ${archetypeEssence}`;
     }
   }
 
-  // 1b. Injeta a instrução de framing logo após o STUDIO_PREFIX, em texto natural
-  // (sem peso numérico). Estrutura final: "USR... professional editorial portrait, {framing}, ..."
-  prompt = prompt.replace(STUDIO_PREFIX, `${STUDIO_PREFIX}${framing.instruction}, `);
-
-  // 2. Substitui o placeholder USR[id] do template pelo trigger real.
-  prompt = prompt.replace(/USR\[id\]/g, triggerWord);
-
-  // Reforço de gênero: token simples, sem duplicação.
-  if (effectiveGender === "none") {
-    prompt = prompt.replace(/\[gender\]/g, "person");
-  } else {
-    prompt = prompt.replace(/\[gender\]/g, effectiveGender);
-  }
-
-  // 3. Injeção de traços físicos extraídos das selfies — ancora cabelo, pele, olhos.
-  // Qualificador de textura na pele força o Flux a renderizar poros em vez de superfície uniforme.
-  let traitPhrase = "";
+  // ===== TRAITS MÍNIMOS: só cabelo (cor + comprimento) =====
+  // Pele e olhos saem — o LoRA já sabe disso e tokens extras diluem atenção.
+  let hairDescriptor = "";
   if (params.physicalTraits) {
     const t = params.physicalTraits;
-    traitPhrase = `, with ${t.hair_length} ${t.hair_style} ${t.hair_color} hair, ${t.skin_tone} skin with visible pores and natural texture, ${t.eye_color} eyes`;
+    hairDescriptor = `${t.hair_length} ${t.hair_color} hair`;
+  } else if (effectiveGender === "woman" && params.hair) {
+    hairDescriptor = params.hair;
   }
 
-  // 3b. OUTFIT em texto natural, sem peso. Linguagem que o Flux respeita melhor.
+  // ===== OUTFIT em texto natural =====
   const outfitText = (params.outfit || "").trim();
-  const outfitPhrase = outfitText ? `, wearing ${outfitText}` : "";
 
-  // Injeta traços + outfit logo após o trigger USR<id>.
-  prompt = prompt.replace(/(USR\S+)/, `$1${traitPhrase}${outfitPhrase}`);
+  // ===== GÊNERO: token simples =====
+  const genderToken = effectiveGender === "none" ? "person" : effectiveGender;
 
-  // Esvazia o [outfit] do template original (já injetado acima).
-  prompt = prompt.replace(/\[outfit\]/g, "");
+  // ===== MONTAGEM FINAL — espelha estrutura do manual que funcionou =====
+  // {trigger} {gender}, {framing?}, {archetype_essence}, {hair?}, {outfit?}, {QUALITY_SUFFIX}
+  const parts: string[] = [
+    `${triggerWord} ${genderToken}`,
+  ];
+  if (framing.instruction) parts.push(framing.instruction);
+  parts.push(archetypeEssence);
+  if (hairDescriptor) parts.push(hairDescriptor);
+  if (outfitText) parts.push(outfitText);
+  parts.push(QUALITY_SUFFIX);
 
-  // 3c. Negative específico do look — impede o Flux de "voltar" ao blazer padrão
-  // das selfies de treino quando o look pede vestido/cardigan/coat etc.
+  let prompt = parts.join(", ");
+
+  // ===== NEGATIVE =====
+  let negative = tpl.negative + STUDIO_NEGATIVE_BASE + (framing.showsHands ? HANDS_NEGATIVE_REINFORCE : "");
+
+  // Reforço de gênero no negative (técnica padrão Flux LoRA contra troca).
+  if (effectiveGender === "woman") {
+    negative += ", man, beard, mustache, masculine features";
+  } else if (effectiveGender === "man") {
+    negative += ", woman, feminine features, lipstick";
+  }
+
+  // Negative específico por outfit — impede o Flux de "voltar" ao blazer das selfies.
   const outfitLower = outfitText.toLowerCase();
   if (/\bdress\b|\bgown\b|\bslip dress\b/.test(outfitLower)) {
-    negative += ", blazer, suit jacket, business suit, trousers, pants, formal suit, turtleneck, long sleeves, formal shirt, tie";
+    negative += ", blazer, suit jacket, trousers, formal suit, turtleneck, tie";
   }
   if (/\bcardigan\b|\bknit\b|\bknitwear\b|\bsweater\b/.test(outfitLower)) {
-    negative += ", blazer, suit jacket, formal suit, tie";
+    negative += ", blazer, suit jacket, tie";
   }
   if (/\bcoat\b|\btrench\b|\bovercoat\b/.test(outfitLower)) {
     negative += ", blazer underneath, formal suit";
   }
   if (/\bblazer\b|\bpantsuit\b|\bsuit\b/.test(outfitLower)) {
-    negative += ", dress, casual t-shirt, hoodie, sportswear";
+    negative += ", dress, t-shirt, hoodie, sportswear";
   }
   if (/\bathletic\b|\bsportswear\b|\blegging\b|\bgym\b|\bworkout\b|\bsports?\s*top\b|academia/.test(outfitLower)) {
-    negative += ", formal wear, blazer, suit, dress shirt, tie, business attire";
+    negative += ", formal wear, blazer, suit, tie";
   }
   if (/\bjumpsuit\b|macac/.test(outfitLower)) {
     negative += ", separate top and trousers, blazer";
@@ -394,23 +384,7 @@ export function buildPortraitPrompt(params: BuildPromptParams): {
     negative += ", formal trousers, suit pants";
   }
 
-  // Cabelo do figurino só é usado quando NÃO temos traços extraídos.
-  if (!params.physicalTraits && effectiveGender === "woman" && params.hair) {
-    prompt = prompt.replace(/\[hair\]/g, params.hair);
-  } else {
-    prompt = prompt.replace(/\[hair\]/g, "");
-  }
-
-  if (effectiveGender === "woman" && params.makeup) {
-    prompt = prompt.replace(/\[makeup\]/g, params.makeup);
-  } else {
-    prompt = prompt.replace(/\[makeup\]/g, "");
-  }
-
-  // 4. Sufixo de qualidade UMA VEZ no fim. Tokens fotográficos sem competir com LoRA.
-  prompt = `${prompt}, ${QUALITY_SUFFIX}`;
-
-  // 5. Limpeza.
+  // Limpeza final.
   prompt = cleanupPrompt(prompt);
 
   return { prompt, negative, backgroundKey: bg.key };
