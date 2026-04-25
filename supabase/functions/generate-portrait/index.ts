@@ -232,9 +232,13 @@ serve(async (req) => {
         hair,
         makeup,
         backgroundIndex: i as 0 | 1 | 2,
+        physicalTraits: (training as any).physical_traits ?? null,
       });
 
-      console.log(`[generate-portrait] call ${i + 1}/3 background=${built.backgroundKey} archetype=${archetypeName}`);
+      console.log(
+        `[generate-portrait] call ${i + 1}/3 background=${built.backgroundKey} archetype=${archetypeName} ` +
+        `outfit="${outfit}" hasTraits=${!!(training as any).physical_traits}`,
+      );
       let r = await callFluxLora({
         token: REPLICATE_API_TOKEN,
         loraVersion: training.lora_weights_url,
