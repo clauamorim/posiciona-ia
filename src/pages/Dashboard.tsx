@@ -82,6 +82,14 @@ const Dashboard = () => {
       icon: Building2,
       cta: "Preencher agora"
     };
+    if (!personalSubmitted) return {
+      label: "Conte sua história",
+      description: "Antes dos arquétipos, responda o questionário pessoal para humanizar sua estratégia.",
+      hint: "Hobbies, valores e memórias que viram conteúdo autêntico",
+      href: "/personal-questionnaire",
+      icon: Sparkles,
+      cta: "Preencher agora"
+    };
     if (!archetypesDone) return {
       label: "Questionário de arquétipos",
       description: "Complete o questionário para revelar a essência da sua marca.",
@@ -97,14 +105,6 @@ const Dashboard = () => {
       href: "/results",
       icon: BarChart3,
       cta: "Gerar agora"
-    };
-    if (!personalSubmitted) return {
-      label: "Conte sua história",
-      description: "Antes da Linha Editorial, responda o questionário pessoal para humanizar seus posts.",
-      hint: "Hobbies, valores e memórias que viram conteúdo autêntico",
-      href: "/personal-questionnaire",
-      icon: Sparkles,
-      cta: "Preencher agora"
     };
     if (!hasEditorial) return {
       label: "Linha editorial",
@@ -141,9 +141,14 @@ const Dashboard = () => {
       statusLabel: businessComplete ? "Concluído" : "Pronto para preencher"
     },
     {
+      label: "Sua História", href: "/personal-questionnaire", icon: Sparkles,
+      status: personalSubmitted ? "done" : businessComplete ? "in_progress" : "blocked",
+      statusLabel: personalSubmitted ? "Concluído" : businessComplete ? "Pronto para preencher" : "Bloqueado"
+    },
+    {
       label: "Arquétipos", href: "/archetype-questionnaire", icon: Brain,
-      status: archetypesDone ? "done" : businessComplete ? "in_progress" : "blocked",
-      statusLabel: archetypesDone ? "Concluído" : businessComplete ? "Pronto para preencher" : "Bloqueado"
+      status: archetypesDone ? "done" : (businessComplete && personalSubmitted) ? "in_progress" : "blocked",
+      statusLabel: archetypesDone ? "Concluído" : (businessComplete && personalSubmitted) ? "Pronto para preencher" : "Bloqueado"
     },
     {
       label: "Estratégia", href: "/results", icon: Target,
@@ -154,11 +159,6 @@ const Dashboard = () => {
       label: "Instagram", href: "/instagram-analysis", icon: Instagram,
       status: hasInstagram ? "done" : hasReport ? "in_progress" : "blocked",
       statusLabel: hasInstagram ? "Concluído" : hasReport ? "Disponível" : "Bloqueado"
-    },
-    {
-      label: "Sua História", href: "/personal-questionnaire", icon: Sparkles,
-      status: personalSubmitted ? "done" : hasReport ? "in_progress" : "blocked",
-      statusLabel: personalSubmitted ? "Concluído" : hasReport ? "Disponível" : "Bloqueado"
     },
     {
       label: "Editorial", href: "/editorial", icon: Calendar,
