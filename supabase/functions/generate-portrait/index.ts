@@ -16,9 +16,10 @@ import { mapProfessionToCategory, pickOutfits } from "../_shared/outfitPool.ts";
 
 const FLUX_LORA_MODEL = "black-forest-labs/flux-dev-lora";
 const GENERATE_COST_CREDITS = 3;
-// Guidance mais alto = melhor aderência ao prompt (mãos, dedos, postura corporal),
-// sem perder fidelidade facial porque compensamos com lora_scale calibrado por dataset.
-const GUIDANCE_VARIATIONS = [3.5, 3.8, 4.0];
+// Guidance recalibrado: valores mais baixos preservam melhor anatomia/proporção
+// e deixam o LoRA "respirar". Valores muito altos (>4) começam a induzir
+// distorção corporal mesmo com prompt limpo.
+const GUIDANCE_VARIATIONS = [3.0, 3.2, 3.4];
 const PORTRAIT_BUCKET = "portrait-outputs";
 // Referência (logs apenas). FLUX LoRA usa aspect_ratio + megapixels — width/height
 // no input são ignorados silenciosamente e o modelo cai pra 1024x1024.
@@ -27,13 +28,14 @@ const PORTRAIT_HEIGHT = 1152;
 
 /**
  * Calibra a força do LoRA conforme o tamanho do dataset de selfies.
- * Datasets pequenos decoram detalhes ruidosos → precisam de scale menor pra "soltar".
- * Datasets grandes generalizam melhor → suportam scale maior sem deformar.
+ * Recalibrado pra baixo: scales muito altas (>0.95) começam a "puxar" defeitos
+ * de anatomia presentes nas selfies de treino (ângulos repetitivos, distorções
+ * de close-up de smartphone). Mantemos rosto reconhecível com scales menores.
  */
 function pickLoraScale(selfiesCount: number): number {
-  if (selfiesCount <= 12) return 0.90;
-  if (selfiesCount <= 20) return 0.95;
-  return 1.00;
+  if (selfiesCount <= 12) return 0.86;
+  if (selfiesCount <= 20) return 0.90;
+  return 0.92;
 }
 
 /** Fisher–Yates shuffle não destrutivo. */
@@ -373,13 +375,14 @@ serve(async (req) => {
       });
 
       // loraScale calculado acima conforme tamanho do dataset (pickLoraScale).
+      // ESTRATÉGIA ATUAL: hands-out-of-frame em 100% dos looks. Variedade vem
+      // de distância de câmera (close / bust / 3-quarter cropped) + outfit + fundo.
       console.log(
-        `[generate-portrait] call ${i + 1}/3 background=${built.backgroundKey} archetype=${archetypeName} ` +
+        `[generate-portrait] call ${i + 1}/${requestedCount} background=${built.backgroundKey} archetype=${archetypeName} ` +
         `trigger="${training.trigger_word}" trainingId=${training.id} ` +
-        `dims=${PORTRAIT_WIDTH}x${PORTRAIT_HEIGHT}(3:4@1MP) outfit="${outfit}" ` +
-        `pose="${i === 0 ? "(headshot, no hands)" : handPose}" poseCat=${selectedPoseCategories[i]} ` +
-        `guidance=${guidanceScale} loraScale=${loraScale} selfiesCount=${selfiesCount} ` +
-        `hasTraits=${!!(training as any).physical_traits}`,
+        `framing=hands-out-of-frame dims=${PORTRAIT_WIDTH}x${PORTRAIT_HEIGHT}(3:4@1MP) ` +
+        `outfit="${outfit}" guidance=${guidanceScale} loraScale=${loraScale} ` +
+        `selfiesCount=${selfiesCount} hasTraits=${!!(training as any).physical_traits}`,
       );
       let r = await callFluxLora({
         token: REPLICATE_API_TOKEN,
