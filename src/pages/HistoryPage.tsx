@@ -76,11 +76,12 @@ const HistoryPage = () => {
   const formatDate = (d: string) =>
     new Date(d).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
 
-  const downloadPortrait = (url: string, index: number) => {
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `retrato-marca-${index + 1}.png`;
-    link.click();
+  const downloadPortrait = async (url: string, index: number) => {
+    try {
+      await downloadAsBlob(url, `retrato-marca-${index + 1}.png`);
+    } catch (e) {
+      console.warn("download falhou", e);
+    }
   };
 
   const downloadAnalysisPDF = (analysis: any) => {
