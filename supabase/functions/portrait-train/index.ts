@@ -454,20 +454,29 @@ serve(async (req) => {
     }).catch(() => {});
 
     // Kick off training
+    // Quando temos os traços extraídos, usamos autocaption_prefix para ancorar o LoRA
+    // em uma descrição consistente (gênero + cabelo + pele). Sem prefix, o autocaption
+    // do trainer varia entre as fotos e o LoRA não fixa características.
+    const trainInput: Record<string, unknown> = {
+      input_images: zipUrl,
+      trigger_word: triggerWord,
+      steps: 1000,
+      learning_rate: 0.0004,
+      batch_size: 1,
+      lora_rank: 16,
+      caption_dropout_rate: 0.05,
+      autocaption: true,
+    };
+
+    if (physicalTraits) {
+      const t = physicalTraits;
+      trainInput.autocaption_prefix =
+        `a photo of ${triggerWord}, a ${t.gender} with ${t.hair_length} ${t.hair_style} ${t.hair_color} hair, ${t.skin_tone} skin, ${t.eye_color} eyes,`;
+    }
+
     const trainBody = {
       destination,
-      input: {
-        input_images: zipUrl,
-        trigger_word: triggerWord,
-        // Treino menos agressivo: reduz overfitting (rosto distorcido, "pele de plástico")
-        // e melhora a generalização para fundos/figurinos novos.
-        steps: 1000,
-        learning_rate: 0.0004,
-        batch_size: 1,
-        lora_rank: 16,
-        caption_dropout_rate: 0.05,
-        autocaption: true,
-      },
+      input: trainInput,
       webhook: webhookUrl,
       webhook_events_filter: ["completed"],
     };
