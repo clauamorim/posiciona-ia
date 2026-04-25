@@ -12,7 +12,7 @@ import posicionaLogo from "@/assets/posiciona-logo.png";
 
 const Login = () => {
   const navigate = useNavigate();
-  const { user, isLoading: authLoading } = useAuth();
+  const { user, isAdmin, isLoading: authLoading } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -21,9 +21,9 @@ const Login = () => {
   useEffect(() => {
     if (!loginTriggered || authLoading) return;
     if (user) {
-      navigate("/dashboard", { replace: true });
+      navigate(isAdmin ? "/admin" : "/dashboard", { replace: true });
     }
-  }, [loginTriggered, authLoading, user, navigate]);
+  }, [loginTriggered, authLoading, user, isAdmin, navigate]);
 
   const attemptLogin = async (cleanEmail: string, cleanPassword: string, retries = 2): Promise<{ error: any }> => {
     let lastError: any = null;
