@@ -269,17 +269,13 @@ serve(async (req) => {
     const selectedPoses: (string | null)[] = [null, posesForLooks12[0]?.pose ?? null, posesForLooks12[1]?.pose ?? null];
     const selectedPoseCategories = ["headshot", posesForLooks12[0]?.category ?? "—", posesForLooks12[1]?.category ?? "—"];
 
-    // ===== FIGURINOS — prioridade: overrides > pool curado por profissão > buildOutfitTextForLook(figurino) =====
+    // ===== FIGURINOS — pool curado por profissão > buildOutfitTextForLook(figurino) =====
     const profCategory = mapProfessionToCategory(profession);
     let outfitsForLooks: string[] = [];
     let outfitSource = "report-figurino";
 
-    if (outfitOverrides.length === 3) {
-      // Usuário descreveu os 3 looks — traduz PT→EN e usa como está.
-      outfitsForLooks = outfitOverrides.map((s) => translateFashion(s));
-      outfitSource = "user-override";
-    } else {
-      // Tenta o pool curado da profissão. Se vazio (ex: family sem matriz), volta ao figurino do relatório.
+    {
+      // Pool curado da profissão. Se vazio (ex: family sem matriz), volta ao figurino do relatório.
       const fromPool = pickOutfits(family, profCategory, recentlyUsedOutfits, 3);
       if (fromPool.length === 3) {
         outfitsForLooks = fromPool;
@@ -296,8 +292,6 @@ serve(async (req) => {
       `category=${profCategory} outfitSource=${outfitSource} outfits=${JSON.stringify(outfitsForLooks)} ` +
       `poses=${JSON.stringify(selectedPoses)} poseCats=${JSON.stringify(selectedPoseCategories)}`,
     );
-
-    const isUserOverride = outfitSource === "user-override";
 
     // 3 sequential calls — Replicate low-credit accounts (<$5) tem rate limit 6/min.
     const INTER_CALL_DELAY_MS = 11000;
