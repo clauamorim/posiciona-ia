@@ -31,9 +31,9 @@ const PORTRAIT_HEIGHT = 1152;
  * Datasets grandes generalizam melhor → suportam scale maior sem deformar.
  */
 function pickLoraScale(selfiesCount: number): number {
-  if (selfiesCount <= 12) return 0.82;
-  if (selfiesCount <= 20) return 0.88;
-  return 0.93;
+  if (selfiesCount <= 12) return 0.90;
+  if (selfiesCount <= 20) return 0.95;
+  return 1.00;
 }
 
 /** Fisher–Yates shuffle não destrutivo. */
