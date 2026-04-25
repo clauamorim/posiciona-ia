@@ -3,7 +3,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 import { extractJsonFromLLM, isValidReport } from "../_shared/jsonExtract.ts";
 import { callClaude, ClaudeError } from "../_shared/claudeClient.ts";
-import { fetchEditorialReferencePdfs, fetchPersonalQuestionnaire, renderPersonalContext } from "../_shared/buildClaudeContext.ts";
+import { fetchStrategyReferencePdfs, fetchPersonalQuestionnaire, renderPersonalContext } from "../_shared/buildClaudeContext.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -261,8 +261,8 @@ Dados do negócio:
       console.warn("Could not resolve personal context:", e);
     }
 
-    // Fetch reference PDFs (StoryBrand, Made to Stick, Obviously Awesome)
-    const pdfParts = await fetchEditorialReferencePdfs();
+    // Fetch only StoryBrand PDF for strategy generation (Made to Stick e Obviously Awesome ficam reservados para a Linha Editorial)
+    const pdfParts = await fetchStrategyReferencePdfs();
 
     let rawContent: string;
     try {
