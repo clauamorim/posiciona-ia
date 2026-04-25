@@ -250,14 +250,10 @@ const Results = () => {
               </div>
             )}
             {stage === "error" && (
-              <Button
-                size="sm"
-                variant={isRateLimited ? "default" : "outline"}
-                onClick={() => { setErrorMsg(""); setIsRateLimited(false); setStage("calculating"); setRetryToken(t => t + 1); }}
-                className="flex-shrink-0"
-              >
-                Tentar novamente
-              </Button>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground flex-shrink-0 max-w-xs">
+                <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
+                <span>Geração pausada para evitar nova cobrança automática.</span>
+              </div>
             )}
           </CardContent>
         </Card>
