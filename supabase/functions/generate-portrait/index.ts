@@ -16,13 +16,25 @@ import { mapProfessionToCategory, pickOutfits } from "../_shared/outfitPool.ts";
 
 const FLUX_LORA_MODEL = "black-forest-labs/flux-dev-lora";
 const GENERATE_COST_CREDITS = 3;
-// Guidance baixo = mais peso no LoRA (rosto fiel). Sem override de figurino,
-// usamos valores ainda mais baixos para máxima fidelidade facial.
-const GUIDANCE_VARIATIONS = [2.6, 2.8, 3.0];
+// Guidance mais alto = melhor aderência ao prompt (mãos, dedos, postura corporal),
+// sem perder fidelidade facial porque compensamos com lora_scale calibrado por dataset.
+const GUIDANCE_VARIATIONS = [3.5, 3.8, 4.0];
 const PORTRAIT_BUCKET = "portrait-outputs";
-// Resolução vertical premium (mantida do fluxo anterior, sem upscaler).
+// Referência (logs apenas). FLUX LoRA usa aspect_ratio + megapixels — width/height
+// no input são ignorados silenciosamente e o modelo cai pra 1024x1024.
 const PORTRAIT_WIDTH = 896;
 const PORTRAIT_HEIGHT = 1152;
+
+/**
+ * Calibra a força do LoRA conforme o tamanho do dataset de selfies.
+ * Datasets pequenos decoram detalhes ruidosos → precisam de scale menor pra "soltar".
+ * Datasets grandes generalizam melhor → suportam scale maior sem deformar.
+ */
+function pickLoraScale(selfiesCount: number): number {
+  if (selfiesCount <= 12) return 0.82;
+  if (selfiesCount <= 20) return 0.88;
+  return 0.93;
+}
 
 /** Fisher–Yates shuffle não destrutivo. */
 function shuffle<T>(arr: T[]): T[] {
