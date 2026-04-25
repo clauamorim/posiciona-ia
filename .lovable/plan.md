@@ -1,218 +1,112 @@
 ## Objetivo
 
-Reestruturar a Linha Editorial para gerar **dois tracks paralelos por semana**:
+Corrigir o erro `undefined is not an object (evaluating 'Se.format')` que aparece ao regenerar um post da Linha Editorial, e ajustar o comportamento dos botões de regeneração às regras V6:
 
-- **Feed**: exatamente **4 posts** (mix de carrossel, post único e reels)
-- **Stories**: exatamente **7 sugestões** (uma por dia)
-- **Espelhamento de tema**: nos dias em que há post de feed, o story do mesmo dia aborda o mesmo tema
-- **Conteúdo pessoal**: pode aparecer no feed ou stories, com **predominância nos stories**
-
-E **prevenir todos os erros previsíveis** (timeout, truncamento de JSON, parser quebrando em estrutura aninhada, falha parcial em uma das etapas).
+- **Posts de feed**: têm botão "Regenerar". Ao regenerar o feed, o **story do mesmo dia também é regenerado automaticamente** (sem botão próprio), garantindo que continue alinhado ao tema novo.
+- **Stories sem post de feed correspondente** (dias livres): recebem botão próprio "Regenerar story".
+- **Stories que espelham um feed** (`mirrors_feed: true` ou simplesmente: dia que tem `feed != null`): **não recebem botão**. Eles só são atualizados quando o feed daquele dia é regenerado.
 
 ---
 
-## 1. Nova estrutura de dados (`reports.editorial_weeks` JSONB)
+## 1. Causa do erro atual
 
-Cada semana passa a ter 7 dias, e cada dia tem 2 sub-objetos:
-
-```jsonc
-{
-  "week_index": 1,
-  "days": [
-    {
-      "day": 1,
-      "feed": {
-        "format": "carrossel" | "post" | "reels",
-        "theme": "...",
-        "caption": "...",
-        "cta": "...",
-        "card_copy": ["...", "..."],   // só carrossel
-        "script": "...",                // só reels
-        "is_personal": false
-      } | null,                          // null nos 3 dias sem feed
-      "story": {
-        "theme": "...",
-        "frames": ["...", "...", "..."], // 3-5 frames sugeridos
-        "is_personal": true,
-        "mirrors_feed": false            // true quando espelha o tema do feed do mesmo dia
-      }
-    }
-    // ... 7 dias
-  ]
-}
-```
-
-**Distribuição obrigatória por semana** (instruída no prompt):
-- 4 dias com `feed` preenchido + `story` (3 desses stories espelham o tema do feed; 1 é pessoal espelhando o feed pessoal, se houver)
-- 3 dias com `feed: null` + `story` (livres, predominância pessoal)
-- Total stories pessoais: **mínimo 4 dos 7**
-- Posts pessoais no feed: **0 ou 1 por semana** (predominância nos stories)
+Em `src/pages/EditorialPage.tsx`, a função `handleRegeneratePost` (linha 321) ainda lê o post no shape v5 (`week[dayIndex].format`, `week[dayIndex].theme`), mas a semana agora vive no shape v6 (`week.days[dayIndex].feed.format`). Quando ela tenta acessar `.format` num objeto v6, recebe `undefined` e a edge function `regenerate-single-post` quebra na hora de montar o prompt.
 
 ---
 
-## 2. Geração em 2 estágios (anti-timeout)
+## 2. Refatoração de `handleRegeneratePost`
 
-**Arquivo:** `supabase/functions/process-content-generation-job/index.ts`
+**Arquivo:** `src/pages/EditorialPage.tsx`
 
-Em vez de uma chamada Claude gerando ~11k tokens (risco de timeout 170s + truncamento), dividir em duas chamadas sequenciais:
+Substituir por `handleRegenerateItem(weekIndex, dayIndex, target)` onde `target ∈ {"feed","story"}`:
 
-**Estágio A — Feed (4 posts)**
-- Prompt focado só nas 4 peças de feed.
-- Saída esperada: ~4-5k tokens.
-- `max_tokens: 6000`.
-- Persiste resultado parcial em `content_generation_jobs.result` com `{ stage: "feed_done", feed: [...] }`.
+- Lê `week.days[dayIndex]` no shape v6.
+- Monta payload com:
+  - `target`
+  - `day_index`
+  - `current_feed` (quando target=story, para o LLM espelhar se necessário; mas no nosso caso stories que espelham feed nunca chamam essa função, então só usado para contexto leve)
+  - `current_day_theme`, `previousWeeks` resumidas, `storybrand`, `personalContext`, etc.
+- Chama a edge function `regenerate-single-post`.
 
-**Estágio B — Stories (7)**
-- Recebe o array de feed do Estágio A como contexto enxuto (apenas `day`, `theme`, `format`, `is_personal`).
-- Prompt instrui: "para os dias X, Y, Z (que têm feed), o story DEVE espelhar o tema do feed correspondente. Para os outros 3 dias, criar stories livres com predominância pessoal".
-- Saída esperada: ~3-4k tokens.
-- `max_tokens: 5000`.
-- Combina feed + stories no shape final e grava em `reports.editorial_weeks`.
+**Comportamento de espelhamento automático:**
+- Se `target === "feed"` e `day.feed != null`:
+  1. Chama a edge function pedindo um novo `feed`.
+  2. Em seguida, dispara uma segunda chamada interna pedindo um novo `story` daquele dia, passando o `feed` recém-gerado como contexto e instruindo "espelhar tema do feed".
+  3. As duas atualizações são gravadas juntas em `editorial_weeks` numa única operação `update`.
+  4. Custo: **1 crédito** apenas (o par feed+story conta como uma regeneração lógica).
+- Se `target === "story"` (só permitido quando `day.feed == null`):
+  1. Uma chamada simples regenerando só o story livre.
+  2. Custo: 1 crédito.
 
-**Vantagens:**
-- Cada chamada fica bem abaixo do timeout (cada ~30-60s).
-- Se o Estágio B falhar, mantém o feed gerado e marca status `completed_partial` → usuário pode retomar só os stories.
-- Diminui risco de truncamento de JSON pela metade.
-
----
-
-## 3. Parser JSON robusto para estruturas aninhadas
-
-**Arquivo:** `supabase/functions/_shared/jsonExtract.ts`
-
-O parser atual usa regex de `firstBrace`/`lastBrace` que pode falhar em estruturas profundas. Adicionar uma estratégia de **contador balanceado de chaves** que respeita strings e escapes (já existe parcialmente no `repairAndParse`, mas vamos torná-la a estratégia primária para extração).
-
-Adicionar também:
-- Função `extractJsonArray(raw)` específica para casos onde a LLM devolve `[ {...}, {...} ]`.
-- Validação de schema mínimo: `isValidWeek(value)` que confere se tem `days` array com 7 itens e cada um tem chaves `day`, `feed`, `story`.
+Estado de loading vira `${wi}-${di}-${target}` para o spinner ser específico ao botão clicado.
 
 ---
 
-## 4. Sanitização recursiva
+## 3. UI — botões granulares
 
-**Arquivo:** `supabase/functions/_shared/editorialSanitize.ts`
+**Arquivo:** `src/pages/EditorialPage.tsx`
 
-Atualizar `sanitizePost` (e criar `sanitizeDay`) para descer em:
-- `day.feed.theme/caption/cta/script` + `day.feed.card_copy[]`
-- `day.story.theme` + `day.story.frames[]`
-
-`countFrameworkLeaks` e `countWeekLeaks` precisam considerar a nova estrutura (somar leaks de feed + story em cada dia).
+- **Coluna feed** (quando `day.feed` existe): mantém o botão `Regenerar` (label: "Regenerar"). Tooltip/microcopy curta: "O story deste dia será atualizado junto." Sem botão extra.
+- **Coluna story**:
+  - Se `day.feed != null` (story espelha feed): **sem botão** — apenas o badge "Mesmo tema do feed" continua visível (já existe).
+  - Se `day.feed == null` (story livre / pessoal): mostrar botão `Regenerar story` ao lado do conteúdo.
+- Estado `regeneratingKey` cobre ambos os casos.
 
 ---
 
-## 5. Regeneração granular
+## 4. Edge function — `regenerate-single-post`
 
 **Arquivo:** `supabase/functions/regenerate-single-post/index.ts`
 
-Aceitar novos parâmetros:
-- `target: "feed" | "story"` (qual dos dois regenerar nesse dia)
-- `day_index: number`
+Já aceita `target` (implementado na v6). Confirmar/ajustar:
 
-Comportamento:
-- Se `target=feed`: regenera só o `day.feed` mantendo o `day.story`. Se o story atual tinha `mirrors_feed: true`, marca aviso de "story pode estar desalinhado, considere regenerar".
-- Se `target=story`: regenera só `day.story`, recebendo o `day.feed` (se existir) como contexto para espelhamento.
-- Custo de crédito: 1 `regeneration_credit` por target (mantém o modelo atual).
+- Quando `target=feed`, retorna `{ feed: {...} }` no shape novo.
+- Quando `target=story`, retorna `{ story: {...} }` no shape novo, recebendo `mirror_feed: { theme, format }` opcional para espelhar.
+- Validar payload e retornar 400 com mensagem clara se faltar `target` ou `day_index`.
 
----
-
-## 6. UI — `EditorialPage.tsx`
-
-Reescrever a renderização de cada dia para layout de **duas colunas**:
-
-```
-┌─────────────────────────────────────────────────┐
-│ Dia 1                                           │
-├──────────────────────┬──────────────────────────┤
-│ FEED                 │ STORIES                  │
-│ [carrossel: tema X]  │ [3 frames: tema X]       │
-│ caption / cta        │ (espelha o feed)         │
-│ [Regenerar feed]     │ [Regenerar story]        │
-└──────────────────────┴──────────────────────────┘
-```
-
-- Dias sem feed mostram coluna esquerda vazia com badge "Sem post no feed".
-- Badge `Pessoal` continua aparecendo onde aplicável.
-- Mobile: empilhar feed acima, story abaixo.
-- Botão `Editar no Editor Visual` continua só no feed (stories não vão pro editor por enquanto).
-- Botão `Gerar capa` (reels) continua igual.
+O frontend faz **duas chamadas sequenciais** quando precisa regenerar feed+story; a edge não precisa orquestrar isso.
 
 ---
 
-## 7. Export PDF
+## 5. Custo de créditos
 
-**Arquivo:** `src/lib/pdfExport.ts` + componente da Linha Editorial
-
-Atualizar a árvore DOM oculta usada para PDF para refletir as duas colunas. Cada dia vira uma seção `[data-pdf-section]` com os dois blocos lado a lado (em telas grandes do PDF) ou empilhados.
-
----
-
-## 8. Versionamento e migração de dados antigos
-
-**Arquivo:** `src/lib/generatorVersion.ts` e `_shared/generatorVersion.ts`
-
-Bump para `2026-04-25-v6`. Adicionar nota de histórico:
-> v6: divisão da linha editorial em Feed (4 posts) + Stories (7 sugestões), com geração em 2 estágios para evitar timeout e parser robusto para estrutura aninhada.
-
-**Conteúdo legado** (estrutura antiga): `isOutdated` continua retornando true → UI mostra banner "Linha editorial atualizada — regenere gratuitamente" usando o crédito de versão obsoleta (já existe esse fluxo).
-
-A leitura é **tolerante**: se `editorial_weeks[i].days[j]` não existir mas existir o shape antigo, renderiza no formato antigo até o usuário regenerar. Sem migration destrutiva.
+- Regenerar feed (que arrasta o story junto): **1 `regeneration_credit`**.
+- Regenerar story livre: **1 `regeneration_credit`**.
+- A segunda chamada (story que segue o feed) é marcada com flag `paired: true` no payload e a edge function **não decrementa crédito** quando recebe essa flag — o débito acontece só na chamada primária.
 
 ---
 
-## 9. Mitigação de erros — checklist completo
+## 6. Mensagens de erro
 
-| Risco | Mitigação |
-|---|---|
-| Timeout 170s na edge function | Geração em 2 estágios (cada ≤60s típico) |
-| `max_tokens` truncando JSON | Cada estágio fica em 5-6k tokens, bem abaixo do limite |
-| Parser quebrando em JSON aninhado | Contador balanceado de chaves + validação de schema |
-| Estágio B falha após A OK | Status `completed_partial`; UI permite retomar só os stories sem cobrar crédito de novo |
-| Claude esquecer espelhamento | Estágio B recebe feed como contexto explícito + instrução literal "DEVE espelhar tema" |
-| Sanitização perdendo campos novos | `sanitizeDay` recursivo cobrindo feed + story.frames |
-| Regeneração desalinhar feed↔story | Aviso na UI + opção de regenerar o par junto |
-| Rate limit Anthropic | Reduzir bloco de frameworks de ~3k → ~800 tokens (resumo denso, não cita PDFs) |
-| Conteúdo legado quebrar a UI | Renderização tolerante: detecta shape antigo e renderiza no formato v5 até regenerar |
+- Se a edge retornar 400/500, mostrar toast com mensagem amigável e **não** corromper o estado da semana (manter o conteúdo antigo).
+- Logar `console.error` com o payload enviado para facilitar debug futuro.
 
 ---
 
-## 10. Arquivos editados
+## 7. Arquivos editados
 
-**Backend:**
-- `supabase/functions/process-content-generation-job/index.ts` — 2 estágios, prompts novos
-- `supabase/functions/regenerate-single-post/index.ts` — parâmetro `target`
-- `supabase/functions/_shared/jsonExtract.ts` — parser balanceado + `isValidWeek`
-- `supabase/functions/_shared/editorialSanitize.ts` — `sanitizeDay` recursivo
-- `supabase/functions/_shared/generatorVersion.ts` — bump v6
-
-**Frontend:**
-- `src/lib/generatorVersion.ts` — bump v6 + histórico
-- `src/pages/EditorialPage.tsx` — layout 2 colunas, botões granulares, leitura tolerante a shape antigo
-- `src/lib/pdfExport.ts` — não muda (usa `[data-pdf-section]`)
-- Componente de PDF da Linha Editorial — render dos 2 tracks
-
-**Banco:**
-- Sem migration destrutiva. `editorial_weeks` continua JSONB livre. Leitura tolerante.
+- `src/pages/EditorialPage.tsx` — refator de `handleRegeneratePost` para `handleRegenerateItem`, novo botão "Regenerar story" condicional, encadeamento feed→story.
+- `supabase/functions/regenerate-single-post/index.ts` — aceitar flag `paired` para não cobrar crédito duplicado; validar payload v6.
 
 ---
 
-## 11. O que NÃO muda
+## 8. O que NÃO muda
 
-- Modelo Claude Sonnet 4.5.
-- Custo: 1 weekly_cycle por semana (igual ao atual).
-- Custo de regeneração: 1 regeneration_credit por target.
-- PDFs de referência (StoryBrand, Made to Stick, Obviously Awesome) — só os textos densos enviados como contexto.
-- Sistema de jobs assíncrono (queue + worker + polling).
-- Sanitização de rótulos de framework continua obrigatória.
+- Shape v6 da semana.
+- Geração inicial em 2 estágios.
+- Sanitização recursiva.
+- Custo e modelo do Claude.
+- UI dos dias sem alterações estruturais (apenas o botão de story aparece condicionalmente).
 
 ---
 
 ## Resultado esperado
 
-- Cada semana entrega **4 peças de feed estruturadas** + **7 stories acionáveis**, com coerência temática nos dias compartilhados.
-- Tempo de geração total por semana: **~60-100s** (vs. risco de >170s de uma chamada só).
-- Zero perda de trabalho em caso de falha parcial (Estágio A salvo, B retomável).
-- Conteúdo antigo continua visível e oferece upgrade gratuito para a v6.
+- Erro `Se.format` resolvido — leitura no shape v6 correto.
+- Regenerar feed atualiza feed + story do mesmo dia automaticamente, mantendo coerência temática.
+- Stories que espelham feed nunca exibem botão próprio (não confundem o usuário).
+- Stories independentes (dias sem feed) ganham botão dedicado.
 
 ## Reversibilidade
 
-Alta — apenas o shape do `editorial_weeks` muda, e a leitura é tolerante. Se precisar reverter, basta voltar a versão v5 no `generatorVersion.ts` e o frontend renderiza no shape antigo.
+Alta — mudanças confinadas ao handler de regeneração e à condicional do botão de story. Sem migração de dados.
