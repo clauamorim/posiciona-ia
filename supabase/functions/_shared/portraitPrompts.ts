@@ -285,6 +285,8 @@ export interface BuildPromptParams {
   physicalTraits?: PhysicalTraits | null;
   /** Pose de mãos sorteada do pool da família do arquétipo (em inglês). */
   handPose?: string | null;
+  /** Se true, o outfit veio de personalização do usuário — peso aumentado para fidelidade. */
+  isUserOverride?: boolean;
 }
 
 export function buildPortraitPrompt(params: BuildPromptParams): {
