@@ -216,8 +216,33 @@ export function countFrameworkLeaks(post: Record<string, any>): number {
   return count;
 }
 
-/** Soma vazamentos em todos os posts da semana. */
+/** Soma vazamentos em todos os posts da semana (shape v5). */
 export function countWeekLeaks(week: Record<string, any>[]): number {
   if (!Array.isArray(week)) return 0;
   return week.reduce((sum, p) => sum + countFrameworkLeaks(p), 0);
 }
+
+/** Conta vazamentos no story (theme + frames[]). */
+export function countStoryLeaks(story: Record<string, any> | null | undefined): number {
+  if (!story || typeof story !== "object") return 0;
+  let count = 0;
+  if (looksLikeFramework(story.theme || "")) count++;
+  if (Array.isArray(story.frames)) {
+    for (const f of story.frames) if (looksLikeFramework(f || "")) count++;
+  }
+  return count;
+}
+
+/** Conta vazamentos em um dia v6 (feed + story). */
+export function countDayLeaks(day: Record<string, any> | null | undefined): number {
+  if (!day || typeof day !== "object") return 0;
+  const feedLeaks = day.feed && typeof day.feed === "object" ? countFrameworkLeaks(day.feed) : 0;
+  return feedLeaks + countStoryLeaks(day.story);
+}
+
+/** Soma vazamentos numa semana v6 ({ days: Day[] }). */
+export function countWeekV6Leaks(week: Record<string, any> | null | undefined): number {
+  if (!week || !Array.isArray((week as any).days)) return 0;
+  return (week as any).days.reduce((sum: number, d: any) => sum + countDayLeaks(d), 0);
+}
+
