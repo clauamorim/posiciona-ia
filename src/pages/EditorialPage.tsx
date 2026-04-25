@@ -297,11 +297,19 @@ const EditorialPage = () => {
     } catch (err: any) {
       await refreshSubscription();
       const raw = String(err?.message || "");
-      const isTimeout = /timeout|timed out|504|connection closed|failed to fetch|networkerror|aborted/i.test(raw);
-      const description = isTimeout
-        ? "A geração demorou mais que o esperado. Tente novamente — geralmente funciona na segunda tentativa."
-        : (raw || "Não foi possível gerar a semana. Tente novamente.");
-      toast({ title: "Erro ao gerar conteúdo", description, variant: "destructive" });
+      if (/question[áa]rio pessoal|personal_questionnaire|conte sua hist[óo]ria/i.test(raw)) {
+        toast({
+          title: "Conte sua história primeiro",
+          description: "Preencha o Questionário Pessoal antes de gerar a Linha Editorial.",
+        });
+        navigate("/personal-questionnaire");
+      } else {
+        const isTimeout = /timeout|timed out|504|connection closed|failed to fetch|networkerror|aborted/i.test(raw);
+        const description = isTimeout
+          ? "A geração demorou mais que o esperado. Tente novamente — geralmente funciona na segunda tentativa."
+          : (raw || "Não foi possível gerar a semana. Tente novamente.");
+        toast({ title: "Erro ao gerar conteúdo", description, variant: "destructive" });
+      }
     }
     setGeneratingWeek(false);
     setGeneratingMessage("");
