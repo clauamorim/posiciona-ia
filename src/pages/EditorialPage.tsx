@@ -868,10 +868,11 @@ const EditorialPage = () => {
                                   )}
                                   <Button
                                     variant="ghost" size="sm" className="h-7 text-[11px] gap-1 px-2"
-                                    onClick={() => handleRegeneratePost(wi, di)}
-                                    disabled={regeneratingPost === regenKey || regenerationCredits < 1}
+                                    onClick={() => handleRegenerateItem(wi, di, "feed")}
+                                    disabled={regeneratingPost === `${regenKey}-feed` || regenerationCredits < 1}
+                                    title="O story deste dia será atualizado junto."
                                   >
-                                    {regeneratingPost === regenKey ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                                    {regeneratingPost === `${regenKey}-feed` ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
                                     Regenerar
                                   </Button>
                                 </div>
@@ -914,6 +915,20 @@ const EditorialPage = () => {
                               </>
                             ) : (
                               <p className="text-xs text-muted-foreground italic">Story ainda não gerado.</p>
+                            )}
+                            {/* Botão de regenerar story aparece SOMENTE em dias sem post de feed.
+                                Stories que espelham o feed são atualizados junto com a regeneração do feed. */}
+                            {!feed && (
+                              <div className="flex flex-wrap gap-1.5 pt-1" data-hide-pdf>
+                                <Button
+                                  variant="ghost" size="sm" className="h-7 text-[11px] gap-1 px-2"
+                                  onClick={() => handleRegenerateItem(wi, di, "story")}
+                                  disabled={regeneratingPost === `${regenKey}-story` || regenerationCredits < 1}
+                                >
+                                  {regeneratingPost === `${regenKey}-story` ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                                  Regenerar story
+                                </Button>
+                              </div>
                             )}
                           </div>
                         </div>
