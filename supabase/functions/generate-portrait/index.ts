@@ -9,7 +9,7 @@ import {
   buildMakeupText,
   translateFashion,
   BACKGROUND_VARIATIONS,
-  HAND_POSE_POOLS,
+  pickPosesForLooks,
   getArchetypeFamily,
 } from "../_shared/portraitPrompts.ts";
 import { mapProfessionToCategory, pickOutfits } from "../_shared/outfitPool.ts";
