@@ -243,27 +243,24 @@ export const BACKGROUND_VARIATIONS = [
 
 /**
  * Framing por look. ESTRATÉGIA "MÃOS FORA DO FRAME EM 100%".
- * Linguagem natural curta, sem pesos numéricos (Flux respeita melhor).
- *   - Look 0 (Neutro): close-up cabeça e ombros, frontal.
- *   - Look 1 (Claro): busto editorial peito e ombros, ombros levemente angulados.
- *   - Look 2 (Escuro): retrato chest-up, ombros sutilmente girados.
- * Em todos os 3 looks, `showsHands = false`.
+ * Look 0 (Neutro): instrução vazia → default natural do FLUX é close-up.
+ * Looks 1/2 recebem instrução curta de bust/chest-up.
  */
 export const FRAMING_VARIATIONS = [
-  { key: "headshot", showsHands: false, instruction: "tight head and shoulders crop, hands out of frame" },
-  { key: "bust", showsHands: false, instruction: "mid-chest editorial bust crop, hands out of frame" },
-  { key: "chest-up", showsHands: false, instruction: "chest-up editorial portrait, shoulders subtly turned, hands out of frame" },
+  { key: "headshot", showsHands: false, instruction: "" },
+  { key: "bust", showsHands: false, instruction: "bust crop" },
+  { key: "chest-up", showsHands: false, instruction: "chest-up crop" },
 ] as const;
 
-// Regex para localizar a "frase de fundo" nos novos templates enxutos.
-// Captura desde palavra-chave de fundo (com ou sem cor/tom prefixado) até a
-// vírgula antes de "[outfit]".
+// Regex para localizar a frase de fundo nos templates mínimos.
+// Os novos templates terminam com "...background, no smile" OU "...background, intense gaze" etc.
+// Captura desde a palavra-chave de fundo até a primeira vírgula.
 // Exemplos cobertos:
-//   "dark textured studio background, [outfit]"
-//   "deep dark background, [outfit]"
-//   "warm beige background, [outfit]"
-//   "earthy textured background, [outfit]"
-const BACKGROUND_REGEX = /[a-z\s-]*background[^,]*,\s*(?=\[outfit\])/i;
+//   "dark background, no smile"
+//   "deep dark background, no smile"
+//   "warm beige background, slight natural smile"
+//   "earthy textured background, subtle smile"
+const BACKGROUND_REGEX = /[a-z\s-]*background[^,]*,/i;
 
 export interface PhysicalTraits {
   gender: "woman" | "man";
