@@ -58,6 +58,7 @@ const PortraitGenerator = () => {
   const [confirmGenerateOpen, setConfirmGenerateOpen] = useState(false);
   const [portraits, setPortraits] = useState<string[]>([]);
   const [backgrounds, setBackgrounds] = useState<string[]>([]);
+  const [outfits, setOutfits] = useState<string[]>([]);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
 
   // Overrides opcionais de figurino (persistidos em localStorage por usuário)
