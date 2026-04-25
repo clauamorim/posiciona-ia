@@ -326,6 +326,7 @@ serve(async (req) => {
       const built = buildPortraitPrompt({
         archetype: archetypeName,
         userId: user.id,
+        triggerWord: training.trigger_word, // ← trigger REAL do treino (USR + 12 hex)
         gender,
         outfit,
         hair,
