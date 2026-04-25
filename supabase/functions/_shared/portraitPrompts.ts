@@ -307,7 +307,9 @@ export function buildPortraitPrompt(params: BuildPromptParams): {
   // Framing por look — controla se mãos aparecem no frame.
   const framing = FRAMING_VARIATIONS[params.backgroundIndex];
 
-  let prompt = STUDIO_PREFIX + tpl.prompt;
+  // Trigger word como PRIMEIRO TOKEN ABSOLUTO do prompt — Flux dá mais peso
+  // aos primeiros tokens, e isso é crítico para o LoRA reconhecer a identidade.
+  let prompt = `USR${params.userId}, ` + STUDIO_PREFIX + tpl.prompt;
   // Negative base + reforço de mãos APENAS se este look mostra mãos.
   let negative = tpl.negative + STUDIO_NEGATIVE_BASE + (framing.showsHands ? HANDS_NEGATIVE_REINFORCE : "");
 
@@ -328,11 +330,11 @@ export function buildPortraitPrompt(params: BuildPromptParams): {
     }
   }
 
-  // 1b. Injeta a instrução de framing logo no início (após STUDIO_PREFIX) com peso forte.
+  // 1b. Injeta a instrução de framing após o STUDIO_PREFIX (que vem após o trigger).
   // Para look 0 (headshot) isso garante que mãos não aparecem.
   prompt = prompt.replace(STUDIO_PREFIX, `${STUDIO_PREFIX}(${framing.instruction}:1.5), `);
 
-  // 2. Substituir marcadores
+  // 2. Remove o placeholder USR[id] do template (o trigger real já está no início).
   prompt = prompt.replace(/USR\[id\]/g, `USR${params.userId}`);
 
   // Reforço de gênero: duplica o token para ancorar Flux contra deriva
