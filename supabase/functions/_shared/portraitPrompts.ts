@@ -410,6 +410,13 @@ export function buildPortraitPrompt(params: BuildPromptParams): {
     prompt = prompt.replace(/\[makeup\]/g, "");
   }
 
+  // 3d. Quando vem de override do usuário, REPETE o outfit no final do prompt
+  // com peso ainda maior — duas menções aumentam a probabilidade do Flux
+  // respeitar a peça pedida em vez de usar o blazer das selfies de treino.
+  if (params.isUserOverride && outfitText) {
+    prompt = `${prompt}, (clearly wearing ${outfitText}:2.2), outfit visible: ${outfitText}`;
+  }
+
   // 4. Limpeza
   prompt = cleanupPrompt(prompt);
 
