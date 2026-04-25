@@ -322,6 +322,20 @@ serve(async (req) => {
       });
     }
 
+    // Extrair traços físicos das selfies (gênero/cabelo/pele/olhos) via Gemini Vision.
+    // Usado tanto para o caption_prefix do treino quanto para ancorar a inferência.
+    let physicalTraits: PhysicalTraits | null = null;
+    if (LOVABLE_API_KEY) {
+      physicalTraits = await extractPhysicalTraits(selfies, LOVABLE_API_KEY);
+      if (physicalTraits) {
+        console.log(`[portrait-train] traits extracted: ${JSON.stringify(physicalTraits)}`);
+      } else {
+        console.warn(`[portrait-train] traits extraction returned null — falling back to autocaption`);
+      }
+    } else {
+      console.warn(`[portrait-train] LOVABLE_API_KEY not set — skipping traits extraction`);
+    }
+
     // Create training row first to get an ID for the storage path
     const triggerWord = `USR${user.id.replace(/-/g, "").slice(0, 12)}`;
     const { data: training, error: trainErr } = await supabaseAdmin
@@ -332,6 +346,7 @@ serve(async (req) => {
         status: "training",
         selfies_count: selfies.length,
         was_free: canUseFree,
+        physical_traits: physicalTraits,
       })
       .select("id")
       .single();
