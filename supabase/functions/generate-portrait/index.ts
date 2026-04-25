@@ -240,15 +240,18 @@ serve(async (req) => {
     const extra = balanceRes.data?.portrait_credits_extra ?? 0;
     const totalCredits = included + extra;
 
-    if (totalCredits < GENERATE_COST_CREDITS) {
+    if (totalCredits < 1) {
       return new Response(
         JSON.stringify({
-          error: `Geração requer ${GENERATE_COST_CREDITS} créditos de retrato. Você tem ${totalCredits}.`,
+          error: `Geração requer pelo menos 1 crédito de retrato. Você tem ${totalCredits}.`,
           needs_credits: true,
         }),
         { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
+
+    // Quantos retratos serão gerados nesta rodada (1, 2 ou 3 dependendo do saldo).
+    const requestedCount = Math.min(totalCredits, GENERATE_COST_CREDITS);
 
     const training = trainingRes.data;
     if (!training?.lora_weights_url) {
