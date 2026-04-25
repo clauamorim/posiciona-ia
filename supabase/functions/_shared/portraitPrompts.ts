@@ -236,36 +236,37 @@ export const ARCHETYPE_PROMPTS: Record<ArchetypeName, { prompt: string; negative
   },
 };
 
-// Mapeamento de fundo para os 3 looks (Neutro / Claro / Escuro)
+// Mapeamento de fundo para os 3 looks (Neutro / Claro / Escuro).
+// Replacement curto, em linguagem natural, sem redundância.
 export const BACKGROUND_VARIATIONS = [
   { key: "neutro", label: "Neutro", replacement: null }, // mantém o fundo do arquétipo
-  { key: "claro", label: "Claro", replacement: "warm light textured studio background, soft warm tones" },
-  { key: "escuro", label: "Escuro", replacement: "dark moody textured studio background, deep shadow tones" },
+  { key: "claro", label: "Claro", replacement: "warm light background, soft warm tones" },
+  { key: "escuro", label: "Escuro", replacement: "dark moody background, deep shadow tones" },
 ] as const;
 
 /**
  * Framing por look. ESTRATÉGIA "MÃOS FORA DO FRAME EM 100%".
- * Todos os 3 looks são retratos editoriais cortados acima da linha das mãos.
- * Variamos APENAS distância de câmera e angulação dos ombros — o que dá variedade
- * visual sem nunca obrigar o modelo a desenhar mãos, dedos ou pulsos.
+ * Linguagem natural curta, sem pesos numéricos (Flux respeita melhor).
  *   - Look 0 (Neutro): close-up cabeça e ombros, frontal.
  *   - Look 1 (Claro): busto editorial peito e ombros, ombros levemente angulados.
- *   - Look 2 (Escuro): retrato 3/4 cortado bem acima da cintura, sem mãos no frame.
- * Em todos os 3 looks, `showsHands = false` — a pose de mãos é IGNORADA.
+ *   - Look 2 (Escuro): retrato chest-up, ombros sutilmente girados.
+ * Em todos os 3 looks, `showsHands = false`.
  */
 export const FRAMING_VARIATIONS = [
-  { key: "headshot", showsHands: false, instruction: "tight head and shoulders portrait, framed at upper chest, hands completely out of frame, no visible hands, no arms in frame" },
-  { key: "bust", showsHands: false, instruction: "editorial bust portrait, framed at mid-chest with shoulders slightly angled, hands completely out of frame, no visible hands, arms cropped below the frame" },
-  { key: "three-quarter-short", showsHands: false, instruction: "editorial three-quarter portrait cropped well above the waist, shoulders subtly turned, hands completely out of frame, no visible hands, arms relaxed and cropped below the frame" },
+  { key: "headshot", showsHands: false, instruction: "tight head and shoulders crop, hands out of frame" },
+  { key: "bust", showsHands: false, instruction: "mid-chest editorial bust crop, hands out of frame" },
+  { key: "chest-up", showsHands: false, instruction: "chest-up editorial portrait, shoulders subtly turned, hands out of frame" },
 ] as const;
 
-// Regex para localizar a "frase de fundo" no prompt do arquétipo.
-// Captura desde uma palavra-chave de iluminação/fundo até a vírgula imediatamente antes de "[outfit]".
+// Regex para localizar a "frase de fundo" nos novos templates enxutos.
+// Captura desde palavra-chave de fundo (com ou sem cor/tom prefixado) até a
+// vírgula antes de "[outfit]".
 // Exemplos cobertos:
-//   "dark textured studio background with subtle wall texture, [outfit]"
-//   "warm dark textured studio background, subtle linen or concrete wall texture, [outfit]"
-//   "warm textured studio background, soft beige or warm grey wall texture, [outfit]"
-const BACKGROUND_REGEX = /(?:warm |light |medium |deep |simple |mysterious |edgy |artistic |rich warm |[a-z\s]*?)?(?:dark |light |warm )?textured studio background[^,]*(?:,\s*[^,]*wall texture)?,\s*(?=\[outfit\])/i;
+//   "dark textured studio background, [outfit]"
+//   "deep dark background, [outfit]"
+//   "warm beige background, [outfit]"
+//   "earthy textured background, [outfit]"
+const BACKGROUND_REGEX = /[a-z\s-]*background[^,]*,\s*(?=\[outfit\])/i;
 
 export interface PhysicalTraits {
   gender: "woman" | "man";
