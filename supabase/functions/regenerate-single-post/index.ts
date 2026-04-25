@@ -10,11 +10,11 @@ import { EDITORIAL_GENERATOR_VERSION, isOutdatedVersion } from "../_shared/gener
 import { sanitizePost, countFrameworkLeaks } from "../_shared/editorialSanitize.ts";
 import { callClaude, ClaudeError } from "../_shared/claudeClient.ts";
 import {
-  fetchEditorialReferencePdfs,
   fetchPersonalQuestionnaire,
   renderPersonalContext,
   renderStorybrandBlock,
   renderToneBlock,
+  renderEditorialFrameworks,
 } from "../_shared/buildClaudeContext.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -64,10 +64,10 @@ serve(async (req) => {
     const personal = userId ? await fetchPersonalQuestionnaire(userId) : null;
     const personalContext = renderPersonalContext(personal);
 
-    const systemPrompt = `Você é um especialista em copy para Instagram. Aplique de forma OBRIGATÓRIA três referências (anexadas em PDF como contexto):
+    const systemPrompt = `Você é um especialista em copy para Instagram. Aplique de forma OBRIGATÓRIA três frameworks (descritos em detalhe ao final deste prompt):
 1) StoryBrand — clareza narrativa.
 2) Obviously Awesome (April Dunford) — posicionamento específico do nicho.
-3) Made to Stick — princípios SUCCES (Simples, Inesperado, Concreto, Crível, Emocional, Histórias).
+3) Made to Stick — princípios SUCCESs (Simples, Inesperado, Concreto, Crível, Emocional, Histórias).
 
 Gere UM ÚNICO post novo, no formato pedido.
 
@@ -130,11 +130,12 @@ ${existingTitles || "Nenhum"}
 
 Gere 1 novo post no formato "${format}" agora.`;
 
-    const pdfs = await fetchEditorialReferencePdfs();
+    // Frameworks como texto denso (substitui PDFs para respeitar rate limit do Claude).
+    const enrichedSystemPrompt = systemPrompt + renderEditorialFrameworks();
 
     let rawContent: string;
     try {
-      rawContent = await callClaude({ systemPrompt, userText: userPrompt, pdfs, max_tokens: 3000, timeoutMs: 90000 });
+      rawContent = await callClaude({ systemPrompt: enrichedSystemPrompt, userText: userPrompt, max_tokens: 3000, timeoutMs: 90000 });
     } catch (e) {
       const ce = e as ClaudeError;
       const status = ce.status || 502;
@@ -158,10 +159,10 @@ Gere 1 novo post no formato "${format}" agora.`;
 
     if (leaks > 0) {
       console.warn(`Single-post framework leaks (${leaks}). Retrying stricter.`);
-      const stricter = systemPrompt +
+      const stricter = enrichedSystemPrompt +
         `\n\n⚠️ ÚLTIMA TENTATIVA: a resposta anterior continha rótulos PROIBIDOS. REESCREVA tudo em copy direta. ZERO rótulos estruturais visíveis.`;
       try {
-        const retryRaw = await callClaude({ systemPrompt: stricter, userText: userPrompt, pdfs, max_tokens: 3000, timeoutMs: 60000 });
+        const retryRaw = await callClaude({ systemPrompt: stricter, userText: userPrompt, max_tokens: 3000, timeoutMs: 60000 });
         const retryParsed = extractJsonFromLLM(retryRaw);
         if (retryParsed && typeof retryParsed === "object" && !Array.isArray(retryParsed)) {
           const retryClean = sanitizePost(retryParsed as Record<string, unknown>);

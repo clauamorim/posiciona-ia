@@ -3,7 +3,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 import { extractJsonFromLLM, isValidReport } from "../_shared/jsonExtract.ts";
 import { callClaude, ClaudeError } from "../_shared/claudeClient.ts";
-import { fetchStrategyReferencePdfs, fetchPersonalQuestionnaire, renderPersonalContext } from "../_shared/buildClaudeContext.ts";
+import { fetchPersonalQuestionnaire, renderPersonalContext, renderBrandscriptFramework } from "../_shared/buildClaudeContext.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -261,15 +261,15 @@ Dados do negócio:
       console.warn("Could not resolve personal context:", e);
     }
 
-    // Fetch only StoryBrand PDF for strategy generation (Made to Stick e Obviously Awesome ficam reservados para a Linha Editorial)
-    const pdfParts = await fetchStrategyReferencePdfs();
+    // Framework BrandScript injetado como texto denso no system prompt
+    // (substitui o PDF para respeitar o rate limit de 30k tokens/min do Claude).
+    const enrichedSystemPrompt = systemPrompt + renderBrandscriptFramework();
 
     let rawContent: string;
     try {
       rawContent = await callClaude({
-        systemPrompt,
+        systemPrompt: enrichedSystemPrompt,
         userText: userPrompt + personalBlock,
-        pdfs: pdfParts,
         max_tokens: 10000,
         timeoutMs: 180000,
       });
