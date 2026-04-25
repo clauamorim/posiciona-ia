@@ -372,15 +372,13 @@ serve(async (req) => {
         handPose,
       });
 
-      // lora_scale: 1.0 — peso máximo do LoRA para fidelidade facial.
-      const loraScale = 1.0;
-
+      // loraScale calculado acima conforme tamanho do dataset (pickLoraScale).
       console.log(
         `[generate-portrait] call ${i + 1}/3 background=${built.backgroundKey} archetype=${archetypeName} ` +
         `trigger="${training.trigger_word}" trainingId=${training.id} ` +
-        `dims=${PORTRAIT_WIDTH}x${PORTRAIT_HEIGHT} outfit="${outfit}" ` +
+        `dims=${PORTRAIT_WIDTH}x${PORTRAIT_HEIGHT}(3:4@1MP) outfit="${outfit}" ` +
         `pose="${i === 0 ? "(headshot, no hands)" : handPose}" poseCat=${selectedPoseCategories[i]} ` +
-        `guidance=${guidanceScale} loraScale=${loraScale} ` +
+        `guidance=${guidanceScale} loraScale=${loraScale} selfiesCount=${selfiesCount} ` +
         `hasTraits=${!!(training as any).physical_traits}`,
       );
       let r = await callFluxLora({
