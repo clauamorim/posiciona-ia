@@ -105,11 +105,54 @@ export function sanitizePost<T extends Record<string, any>>(post: T): T {
   return cleaned as T;
 }
 
-/** Sanitiza um array de posts (semana inteira). */
+/**
+ * Sanitiza um story (theme + frames[]).
+ */
+export function sanitizeStory<T extends Record<string, any>>(story: T): T {
+  if (!story || typeof story !== "object") return story;
+  const cleaned: any = { ...story };
+  if (typeof cleaned.theme === "string") {
+    cleaned.theme = cleanEditorialText(cleaned.theme);
+  }
+  if (Array.isArray(cleaned.frames)) {
+    cleaned.frames = cleaned.frames
+      .map((item: unknown) => cleanEditorialText(item))
+      .filter((s: string) => s.length > 0);
+  }
+  return cleaned as T;
+}
+
+/**
+ * Sanitiza um dia v6 com `feed` (post|null) e `story`.
+ */
+export function sanitizeDay<T extends Record<string, any>>(day: T): T {
+  if (!day || typeof day !== "object") return day;
+  const cleaned: any = { ...day };
+  if (cleaned.feed && typeof cleaned.feed === "object") {
+    cleaned.feed = sanitizePost(cleaned.feed);
+  }
+  if (cleaned.story && typeof cleaned.story === "object") {
+    cleaned.story = sanitizeStory(cleaned.story);
+  }
+  return cleaned as T;
+}
+
+/** Sanitiza um array de posts (semana inteira no shape v5). */
 export function sanitizeWeek<T extends Record<string, any>>(week: T[]): T[] {
   if (!Array.isArray(week)) return week;
   return week.map((p) => sanitizePost(p));
 }
+
+/** Sanitiza uma semana v6 ({ days: Day[] }) recursivamente. */
+export function sanitizeWeekV6<T extends Record<string, any>>(week: T): T {
+  if (!week || typeof week !== "object") return week;
+  const cleaned: any = { ...week };
+  if (Array.isArray(cleaned.days)) {
+    cleaned.days = cleaned.days.map((d: any) => sanitizeDay(d));
+  }
+  return cleaned as T;
+}
+
 
 /**
  * Termos cuja presença como palavra isolada (após sanitização) indica
