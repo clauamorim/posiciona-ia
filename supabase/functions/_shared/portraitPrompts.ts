@@ -232,8 +232,13 @@ export function buildPortraitPrompt(params: BuildPromptParams): {
   const outfitText = (params.outfit || "").trim();
   const outfitPhrase = outfitText ? `, (wearing ${outfitText}:1.4)` : "";
 
-  if (traitPhrase || outfitPhrase) {
-    prompt = prompt.replace(/(USR\S+)/, `$1${traitPhrase}${outfitPhrase}`);
+  // 3b-bis. Injeção da POSE DE MÃOS sorteada — peso 1.2 para não competir com o outfit.
+  // Aparece logo após o outfit, na zona de máxima atenção do Flux.
+  const handPoseText = (params.handPose || "").trim();
+  const handPosePhrase = handPoseText ? `, (hands: ${handPoseText}:1.2)` : "";
+
+  if (traitPhrase || outfitPhrase || handPosePhrase) {
+    prompt = prompt.replace(/(USR\S+)/, `$1${traitPhrase}${outfitPhrase}${handPosePhrase}`);
   }
 
   // Esvazia o [outfit] do template original (já injetado acima com peso).
