@@ -15,17 +15,15 @@ export type ArchetypeName =
   | "Rebelde"
   | "Bobo-da-corte";
 
-// Reforço aplicado a todos os prompts: garante cenário de estúdio.
-// Sem "editorial" — essa palavra-âncora empurrava Flux pra estética glossy/magazine.
-const STUDIO_PREFIX = "professional portrait, ";
-// Sufixo de qualidade — aplicado UMA VEZ no fim de todo prompt. Tokens fortes
-// pró-textura (visible skin pores, unretouched, raw photograph) tiram o modelo
-// do "modo retoque" e trazem aspecto fotográfico documental.
-const QUALITY_SUFFIX = "visible skin pores, unretouched skin, natural skin imperfections, fine facial detail, raw photograph, photorealistic, shot on Sony A7, 85mm f/1.4, shallow depth of field, subtle film grain";
-// Negative base ENXUTO + termos cosméticos contra "modo revista".
-const STUDIO_NEGATIVE_BASE = ", plastic skin, beauty filter, smoothed skin, airbrushed, retouched skin, instagram filter, heavy makeup, glossy skin, porcelain skin, deformed hands, extra fingers, deformed face, asymmetric eyes, multiple people, watermark, low quality, blurry";
+// MODO MANUAL PURO: prompt mínimo espelhando exatamente o que funcionou no
+// Replicate UI. Cada token a mais dilui o peso dos críticos de textura/pele.
+//
+// QUALITY_SUFFIX = fórmula exata do manual que funcionou.
+const QUALITY_SUFFIX = "fine skin pores, photorealistic, shot on Sony A7, 85mm f/1.4, shallow depth of field";
+// Negative MÍNIMO — só os 6 itens críticos. Negatives longos competem por atenção.
+const STUDIO_NEGATIVE_BASE = ", plastic skin, beauty filter, smoothed skin, heavy makeup, deformed face, deformed hands";
 // Reforço de anatomia de mãos — aplicado APENAS aos looks que mostram mãos
-// (atualmente nenhum, já que estamos em modo hands-out-of-frame).
+// (atualmente nenhum, hands-out-of-frame em todos).
 const HANDS_NEGATIVE_REINFORCE = ", extra fingers, deformed fingers, fused fingers, claw hands";
 
 // ============================================================================
