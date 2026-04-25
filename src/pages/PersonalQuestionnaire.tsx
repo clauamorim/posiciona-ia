@@ -133,12 +133,14 @@ const PersonalQuestionnaire = () => {
     }
     setSaving(true);
     const newStatus: QStatus = complete ? "submitted" : "draft";
-    const payload: Record<string, any> = {
+    const fieldPayload: Record<string, string> = {};
+    allFieldKeys.forEach(k => { fieldPayload[k] = (answers[k] || "").trim(); });
+    const payload = {
       user_id: user.id,
-      ...answers,
+      ...fieldPayload,
       is_complete: complete,
       status: newStatus,
-    };
+    } as any;
     if (existingId) {
       await supabase.from("personal_questionnaires").update(payload).eq("id", existingId);
     } else {
