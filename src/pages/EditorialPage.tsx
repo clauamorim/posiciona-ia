@@ -399,7 +399,7 @@ const EditorialPage = () => {
           business: bq, niche: profile?.niche || "",
           previousWeeks: allWeeks
             .filter((_, i) => i !== weekIndex)
-            .map((w: any[]) => w.map((d: any) => ({ day: d.day, theme: d.theme, format: d.format }))),
+            .map((w) => w.days.map((d) => ({ day: d.day, theme: d.feed?.theme || d.story?.theme || "", format: d.feed?.format || "stories" }))),
           weekNumber: weekIndex + 1,
           storybrand: reportContent?.storybrand || null,
           tone_of_voice: reportContent?.tone_of_voice || null,
