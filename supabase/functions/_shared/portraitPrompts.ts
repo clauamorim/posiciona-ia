@@ -25,10 +25,11 @@ const STUDIO_NEGATIVE_BASE = ", outdoor, street, natural daylight, trees, buildi
 const HANDS_NEGATIVE_REINFORCE = ", extra fingers, six fingers, seven fingers, four fingers, fused fingers, deformed fingers, disfigured fingers, misshapen hands, bent broken fingers, twisted fingers, clenched fists, stiff claw hands, symmetrical fist pose, hands floating awkwardly, tense rigid fingers";
 
 // ============================================================================
-// POOL DE POSES DE MÃOS — variedade fotogênica por família de arquétipo.
-// Cada arquétipo é mapeado para uma família; cada família tem 5–6 poses
-// naturais e compatíveis com o tom emocional do arquétipo.
-// O sorteio é feito em generate-portrait (sem reposição por geração).
+// POOL DE POSES — estratégia "MÃOS INVISÍVEIS".
+// FLUX (e qualquer modelo de difusão) deforma dedos com frequência. Em vez de
+// tentar gerar mãos perfeitas, ESCONDEMOS as mãos em 100% dos looks usando
+// 4 categorias gestuais que mantêm variedade visual via braços, ombros e postura.
+// Cada arquétipo é mapeado a uma família; cada família tem 4 categorias.
 // ============================================================================
 
 export type ArchetypeFamily = "authority" | "nurturing" | "expressive" | "independent";
@@ -49,96 +50,85 @@ export const ARCHETYPE_FAMILY: Record<string, ArchetypeFamily> = {
 };
 
 /**
- * Categorias gestuais — agrupam poses por TIPO de gesto.
- * O sorteio garante que looks 1 e 2 venham de categorias DIFERENTES,
- * eliminando o problema de "duas poses parecidas" na mesma rodada.
+ * Categorias gestuais — 4 estratégias que escondem dedos:
+ *   - behind_back: mãos atrás das costas (totalmente invisíveis)
+ *   - deep_pocket: mãos enfiadas profundamente nos bolsos (só pulso visível)
+ *   - cropped_out: braços relaxados, mãos abaixo da linha do enquadramento
+ *   - holding_object: segurando objeto que cobre os dedos
+ *
+ * O sorteio em pickPosesForLooks garante que looks 1 e 2 venham de
+ * categorias DIFERENTES — variedade sem nunca expor dedos.
  */
-export type PoseCategory = "pocket" | "crossed" | "lapel" | "relaxed" | "gesture";
+export type PoseCategory = "behind_back" | "deep_pocket" | "cropped_out" | "holding_object";
 
 export const HAND_POSE_POOLS_BY_CATEGORY: Record<ArchetypeFamily, Record<PoseCategory, string[]>> = {
   authority: {
-    pocket: [
-      "one hand resting in trouser pocket, other arm naturally at side",
-      "thumb hooked into trouser pocket, other hand resting at side",
+    behind_back: [
+      "hands clasped behind back, shoulders open and squared, confident upright posture",
+      "arms held behind back, wrists hidden, chest open, commanding stance",
     ],
-    crossed: [
-      "arms confidently crossed over chest, relaxed shoulders",
-      "arms loosely crossed at waist, confident stance",
+    deep_pocket: [
+      "both hands deep in trouser pockets, only wrists visible at the hem, relaxed authoritative stance",
+      "one hand deep in trouser pocket with thumb hooked at the seam, other arm naturally lowered with hand cropped below frame",
     ],
-    lapel: [
-      "one hand gently holding blazer lapel, other arm at side",
-      "both hands lightly adjusting blazer lapels, composed posture",
+    cropped_out: [
+      "arms relaxed downward at sides, hands cropped below the frame, strong upright posture",
+      "arms loosely crossed high at the chest with each hand tucked under the opposite upper arm, hands fully hidden",
     ],
-    relaxed: [
-      "both hands relaxed at sides, natural upright posture",
-      "one hand lightly resting on hip, other arm relaxed",
-    ],
-    gesture: [
-      "one hand thoughtfully under chin, other arm relaxed",
-      "one hand resting on the wrist of the other in front, composed",
+    holding_object: [
+      "arms folded holding a closed leather notebook flat against the chest, hands obscured by the notebook cover",
+      "holding folded reading glasses in front of the chest with both hands wrapped around the frame, fingers hidden behind the glasses",
     ],
   },
   nurturing: {
-    pocket: [
-      "one hand softly tucked into pocket, other arm relaxed",
+    behind_back: [
+      "hands gently clasped behind back, soft open shoulders, warm posture",
     ],
-    crossed: [
-      "arms gently crossed at waist, soft posture",
+    deep_pocket: [
+      "both hands tucked softly into cardigan pockets, only wrists visible, gentle stance",
+      "one hand softly tucked into pocket with wrist barely visible, other arm relaxed downward and cropped below frame",
     ],
-    lapel: [
-      "one hand softly holding the opposite wrist in front",
-      "hands lightly folded in front, soft natural pose",
+    cropped_out: [
+      "arms relaxed naturally at sides, hands cropped below the frame, soft open posture",
+      "arms loosely crossed at the waist with each hand tucked under the opposite forearm, hands fully hidden",
     ],
-    relaxed: [
-      "both arms relaxed naturally at sides, open posture",
-      "hands softly clasped in front, relaxed posture",
-    ],
-    gesture: [
-      "one hand gently placed over heart, other arm at side",
-      "open palms gesture at waist level, welcoming posture",
-      "one hand softly resting near collarbone, other at side",
+    holding_object: [
+      "holding a closed hardcover book flat against the chest with both arms wrapped around it, fingers hidden behind the book",
+      "holding a ceramic mug at chest level with both hands wrapped around the cup, fingers obscured by the mug",
     ],
   },
   expressive: {
-    pocket: [
-      "one hand casually in pocket, other arm relaxed at side",
+    behind_back: [
+      "one hand holding the opposite wrist behind the back, expressive open shoulders",
     ],
-    crossed: [
-      "arms loosely crossed at waist, expressive relaxed posture",
+    deep_pocket: [
+      "one hand casually tucked deep in pocket with only the wrist showing, other arm crossed over the torso with the hand hidden under the upper arm",
     ],
-    lapel: [
-      "one hand softly playing with necklace, other at side",
+    cropped_out: [
+      "arms relaxed downward in a flowing posture, hands cropped below the frame, expressive shoulder line",
+      "arms gently crossed high with each hand tucked beneath the opposite upper arm, hands fully concealed",
     ],
-    relaxed: [
-      "both arms naturally at sides, expressive shoulders",
-      "one hand resting against cheek, thoughtful pose",
-    ],
-    gesture: [
-      "one hand lightly touching chin, other arm relaxed",
-      "one hand running gently through hair, other arm at side",
-      "natural mid-conversation hand gesture, expressive posture",
-      "arms relaxed with one hand expressively raised at chest level",
+    holding_object: [
+      "holding a closed sketchbook flat against the chest with both arms, fingers hidden behind the cover",
+      "holding a folded silk scarf against the torso with both hands wrapped around the fabric, fingers obscured by the scarf",
+      "holding a closed pair of sunglasses against the chest with both hands cupping the frame, fingers concealed behind the glasses",
     ],
   },
   independent: {
-    pocket: [
-      "both hands resting in trouser pockets, relaxed posture",
-      "one hand in pocket, other arm naturally at side",
-      "thumb hooked into trouser pocket, other arm relaxed",
+    behind_back: [
+      "hands clasped behind back, casual confident posture, relaxed shoulders",
     ],
-    crossed: [
-      "arms casually crossed, relaxed and confident",
-      "arms loosely crossed at waist, casual pose",
+    deep_pocket: [
+      "both hands deep in jeans pockets with only the wrists exposed, relaxed independent stance",
+      "one hand deep in trouser pocket, other arm relaxed downward with hand cropped below the frame",
     ],
-    lapel: [
-      "one hand lightly adjusting jacket collar, other in pocket",
+    cropped_out: [
+      "arms naturally at sides, hands cropped below the frame, casual upright stance",
+      "arms loosely crossed over the chest with each hand tucked beneath the opposite upper arm, hands fully hidden",
     ],
-    relaxed: [
-      "both arms relaxed naturally at sides, casual stance",
-      "one hand resting on hip, weight slightly shifted",
-    ],
-    gesture: [
-      "one hand lightly touching jaw, other arm relaxed",
+    holding_object: [
+      "holding a closed leather journal flat against the torso with both arms wrapped around it, fingers concealed behind the cover",
+      "holding folded sunglasses against the chest with both hands cupping the frame, fingers hidden behind the glasses",
     ],
   },
 };
