@@ -283,11 +283,6 @@ const PortraitGenerator = () => {
     const timeoutId = setTimeout(() => controller.abort(), 240000);
 
     try {
-      const body: { outfit_overrides?: string[] } = {};
-      if (allOverridesFilled) {
-        body.outfit_overrides = outfitOverrides.map((s) => s.trim());
-      }
-
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
       if (!token) throw new Error("Sessão expirada — faça login novamente.");
@@ -300,7 +295,7 @@ const PortraitGenerator = () => {
           apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(body),
+        body: JSON.stringify({}),
         signal: controller.signal,
       });
 
