@@ -1,68 +1,24 @@
+// Regenera um único post da semana editorial usando Claude.
+// 2026-04-25-v5: migrado de Gemini para Claude Sonnet 4.5 + injeção
+// obrigatória do contexto pessoal do criador.
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { extractJsonFromLLM } from "../_shared/jsonExtract.ts";
 import { EDITORIAL_GENERATOR_VERSION, isOutdatedVersion } from "../_shared/generatorVersion.ts";
 import { sanitizePost, countFrameworkLeaks } from "../_shared/editorialSanitize.ts";
+import { callClaude, ClaudeError } from "../_shared/claudeClient.ts";
+import {
+  fetchEditorialReferencePdfs,
+  fetchPersonalQuestionnaire,
+  renderPersonalContext,
+  renderStorybrandBlock,
+  renderToneBlock,
+} from "../_shared/buildClaudeContext.ts";
 
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-const API_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-
-function normalizeDocName(name: string): string {
-  return (name || "")
-    .toLowerCase()
-    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-    .replace(/\.pdf$/i, "")
-    .replace(/[\s_\-.]+/g, "");
-}
-
-const EDITORIAL_PDF_WHITELIST = ["storybrand", "madetostick", "obviouslyawesome"];
-
-async function fetchReferencePdfs(): Promise<{ mime_type: string; data: string }[]> {
-  try {
-    const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-    const { data: docs } = await supabaseAdmin
-      .from("reference_documents")
-      .select("file_path, file_size, name")
-      .eq("is_active", true)
-      .order("created_at", { ascending: true });
-    if (!docs?.length) return [];
-
-    const filtered = docs.filter((d: any) => {
-      const candidate = normalizeDocName(d.name || d.file_path?.split("/").pop() || "");
-      return EDITORIAL_PDF_WHITELIST.some((w) => candidate.includes(w));
-    });
-    if (!filtered.length) return [];
-
-    const parts: { mime_type: string; data: string }[] = [];
-    let totalSize = 0;
-    const MAX_TOTAL = 8 * 1024 * 1024;
-
-    for (const doc of filtered) {
-      if (totalSize + doc.file_size > MAX_TOTAL) break;
-      const { data: fileData, error } = await supabaseAdmin.storage
-        .from("reference-pdfs")
-        .download(doc.file_path);
-      if (error || !fileData) continue;
-      const arrayBuf = await fileData.arrayBuffer();
-      const bytes = new Uint8Array(arrayBuf);
-      let binary = "";
-      const CHUNK = 8192;
-      for (let i = 0; i < bytes.length; i += CHUNK) {
-        binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, Math.min(i + CHUNK, bytes.length))));
-      }
-      const b64 = btoa(binary);
-      parts.push({ mime_type: "application/pdf", data: b64 });
-      totalSize += doc.file_size;
-    }
-    return parts;
-  } catch (e) {
-    console.error("Error fetching reference PDFs:", e);
-    return [];
-  }
-}
+const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -70,6 +26,17 @@ serve(async (req) => {
   }
 
   try {
+    const authHeader = req.headers.get("Authorization");
+    let userId: string | null = null;
+    if (authHeader) {
+      const token = authHeader.replace("Bearer ", "");
+      const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        global: { headers: { Authorization: `Bearer ${token}` } },
+      });
+      const { data: { user } } = await userClient.auth.getUser();
+      userId = user?.id || null;
+    }
+
     const { format, theme, dayNumber, business, niche, existingPosts, storybrand, tone_of_voice, freeRegeneration, currentVersion } = await req.json();
 
     if (!format || !business) {
@@ -79,8 +46,6 @@ serve(async (req) => {
       });
     }
 
-    // When the client asks for a free regeneration, validate server-side
-    // that the targeted post was generated with an outdated version.
     if (freeRegeneration && !isOutdatedVersion(currentVersion)) {
       return new Response(JSON.stringify({ error: "Este post já está atualizado." }), {
         status: 400,
@@ -88,33 +53,16 @@ serve(async (req) => {
       });
     }
 
-    // Apenas TEMAS dos posts existentes — nunca caption/script/card_copy,
-    // para a IA não "ecoar" tom de voz nem reciclar copy dos posts vizinhos.
     const existingTitles = (existingPosts || [])
       .map((p: any) => p?.theme)
       .filter((t: any) => typeof t === "string" && t.trim().length > 0)
       .map((t: string) => `- ${t}`)
       .join("\n");
 
-    // Build StoryBrand context
-    let storybrandContext = "";
-    if (storybrand) {
-      storybrandContext = `\n\nESTRATÉGIA STORYBRAND DA MARCA (guia EXCLUSIVO do conteúdo):
-- Herói (Cliente): ${storybrand.hero || ""}
-- Guia (Marca): ${storybrand.guide || ""}
-- Problema Externo: ${storybrand.external_problem || ""}
-- Problema Interno: ${storybrand.internal_problem || ""}
-- CTA: ${storybrand.cta || ""}
-- Sucesso: ${storybrand.success || ""}
-- Fracasso: ${storybrand.failure || ""}`;
-    }
-
-    let toneContext = "";
-    if (tone_of_voice) {
-      toneContext = `\n\nTOM DE VOZ: ${tone_of_voice.summary || ""}
-- Palavras para USAR: ${(tone_of_voice.words_to_use || []).join(", ")}
-- Palavras para EVITAR: ${(tone_of_voice.words_to_avoid || []).join(", ")}`;
-    }
+    const storybrandContext = renderStorybrandBlock(storybrand);
+    const toneContext = renderToneBlock(tone_of_voice);
+    const personal = userId ? await fetchPersonalQuestionnaire(userId) : null;
+    const personalContext = renderPersonalContext(personal);
 
     const systemPrompt = `Você é um especialista em copy para Instagram. Aplique de forma OBRIGATÓRIA três referências (anexadas em PDF como contexto):
 1) StoryBrand — clareza narrativa.
@@ -134,9 +82,14 @@ NUNCA prefixe os itens de "card_copy" com "Slide 1:", "Card 1:", "Página 1:". C
 
 ESTRATÉGIA DE COPY (OBRIGATÓRIA):
 - Gancho específico do NICHO do cliente na primeira frase da caption e no slide 1 do carrossel — concreto, com número, cena ou contradição. PROIBIDO abrir com "Você sabia que…", "5 dicas para…", "A importância de…", "Vamos falar sobre…", "Já parou para pensar…".
-- Posicionamento específico: deixe claro a categoria, o que a marca NÃO é e o valor único entregue ao cliente do nicho.
-- Carrossel: Slide 1 = gancho concreto. Slide 2 = problema sentido. Slides do meio = insight ou prova. Último = CTA verbal e direto (não "saiba mais").
+- Posicionamento específico: deixe claro a categoria, o que a marca NÃO é e o valor único.
+- Carrossel: Slide 1 = gancho concreto. Slide 2 = problema sentido. Slides do meio = insight ou prova. Último = CTA verbal e direto.
 - CTA específico, com verbo de ação direto.
+
+HUMANIZAÇÃO (quando há contexto pessoal do criador):
+- Se este post for do tipo "storytelling pessoal", teça um paralelo entre uma vivência real do criador (do bloco de contexto pessoal) e a dor do cliente-alvo. Modelo: "do tatame ao tribunal".
+- Caso contrário, use detalhes pessoais como tempero sutil (vocabulário, exemplos, cenas).
+- NUNCA invente fatos pessoais.
 
 EXEMPLOS:
 - ERRADO: "Problema Externo: Desvendando o Conflito"
@@ -157,102 +110,38 @@ O JSON deve seguir EXATAMENTE esta estrutura:
   "script": "..."
 }
 
-REFORÇO ANTI META-NARRATIVA (CRÍTICO):
-NÃO escreva frases como "a marca como guia do herói", "o herói da história", "jornada do herói", "plano de 3 passos", "fracasso iminente", "categoria de mercado". Escreva copy direta, como se o leitor nunca tivesse ouvido falar de framework.
-- ERRADO: "Como guia, mostramos ao herói o plano para superar o problema interno."
-- CERTO: "Em 3 etapas, sua agenda da semana sai do caos para um sistema previsível."
-
 Regras:
 - O tema e conteúdo devem ser COMPLETAMENTE DIFERENTES dos posts existentes listados abaixo
 - Para "carrossel": card_copy deve ter mínimo 5 slides
 - Para "post": card_copy deve ter 1 item com texto visual
 - Para "reels"/"stories": card_copy pode ser []
-- "script": APENAS para "reels" e "stories" deve ter roteiro completo. Para "post" e "carrossel", DEVE ser string vazia ""
+- "script": APENAS para "reels" e "stories" deve ter roteiro completo. Para "post" e "carrossel", DEVE ser ""
 - "caption" é a legenda completa pronta para Instagram
 - Responda em português brasileiro`;
 
-    const userPrompt = `Negócio: ${business.company_name || ""}
+    const userPrompt = `# NEGÓCIO
+Empresa: ${business.company_name || ""}
 Serviços: ${business.services || ""}
 Público: ${business.target_audience || ""}
-Nicho: ${niche || ""}
-${storybrandContext}${toneContext}
+Nicho: ${niche || ""}${storybrandContext}${toneContext}${personalContext}
 
-Posts já existentes (NÃO repita nenhum deles):
+# POSTS JÁ EXISTENTES (NÃO REPETIR)
 ${existingTitles || "Nenhum"}
 
 Gere 1 novo post no formato "${format}" agora.`;
 
-    // Fetch reference PDFs
-    const pdfParts = await fetchReferencePdfs();
+    const pdfs = await fetchEditorialReferencePdfs();
 
-    const userContent: any = pdfParts.length > 0
-      ? [
-          ...pdfParts.map(p => ({ type: "file", file: { filename: "reference.pdf", file_data: `data:application/pdf;base64,${p.data}` } })),
-          { type: "text", text: userPrompt },
-        ]
-      : userPrompt;
-
-    let response: Response;
+    let rawContent: string;
     try {
-      response = await fetch(API_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        },
-        body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userContent },
-          ],
-          max_tokens: 3000,
-        }),
+      rawContent = await callClaude({ systemPrompt, userText: userPrompt, pdfs, max_tokens: 3000, timeoutMs: 90000 });
+    } catch (e) {
+      const ce = e as ClaudeError;
+      const status = ce.status || 502;
+      const message = ce.userMessage || "Não foi possível regenerar este post agora. Tente novamente em alguns segundos.";
+      return new Response(JSON.stringify({ error: message }), {
+        status, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
-    } catch (networkErr) {
-      console.error("Erro de rede ao chamar a IA:", networkErr);
-      return new Response(
-        JSON.stringify({ error: "A IA demorou para responder. Tente novamente em alguns segundos." }),
-        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    if (!response.ok) {
-      const errText = await response.text().catch(() => "");
-      console.error(`AI API error ${response.status}:`, errText.substring(0, 300));
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "A geração de conteúdo está temporariamente indisponível. Tente novamente em alguns instantes." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: "Muitas solicitações ao mesmo tempo. Aguarde um pouco e tente novamente." }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      return new Response(
-        JSON.stringify({ error: "Não foi possível regenerar este post agora. Tente novamente em alguns segundos." }),
-        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    let data: any;
-    try {
-      data = await response.json();
-    } catch {
-      return new Response(
-        JSON.stringify({ error: "A IA demorou para responder. Tente novamente em alguns segundos." }),
-        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-    const rawContent = data?.choices?.[0]?.message?.content || "";
-    if (!rawContent.trim()) {
-      return new Response(
-        JSON.stringify({ error: "A IA demorou para responder. Tente novamente em alguns segundos." }),
-        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
     }
 
     const post = extractJsonFromLLM(rawContent);
@@ -264,38 +153,21 @@ Gere 1 novo post no formato "${format}" agora.`;
       );
     }
 
-    // Backend sanitization
     let cleaned = sanitizePost(post as Record<string, unknown>);
     let leaks = countFrameworkLeaks(cleaned);
 
-    // If still "framework-y", retry once with stricter prompt
     if (leaks > 0) {
       console.warn(`Single-post framework leaks (${leaks}). Retrying stricter.`);
       const stricter = systemPrompt +
         `\n\n⚠️ ÚLTIMA TENTATIVA: a resposta anterior continha rótulos PROIBIDOS. REESCREVA tudo em copy direta. ZERO rótulos estruturais visíveis.`;
       try {
-        const retryResp = await fetch(API_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${LOVABLE_API_KEY}` },
-          body: JSON.stringify({
-            model: "google/gemini-2.5-flash",
-            messages: [
-              { role: "system", content: stricter },
-              { role: "user", content: userContent },
-            ],
-            max_tokens: 3000,
-          }),
-        });
-        if (retryResp.ok) {
-          const retryData = await retryResp.json();
-          const retryRaw = retryData.choices?.[0]?.message?.content || "";
-          const retryParsed = extractJsonFromLLM(retryRaw);
-          if (retryParsed && typeof retryParsed === "object" && !Array.isArray(retryParsed)) {
-            const retryClean = sanitizePost(retryParsed as Record<string, unknown>);
-            if (countFrameworkLeaks(retryClean) < leaks) {
-              cleaned = retryClean;
-              leaks = countFrameworkLeaks(retryClean);
-            }
+        const retryRaw = await callClaude({ systemPrompt: stricter, userText: userPrompt, pdfs, max_tokens: 3000, timeoutMs: 60000 });
+        const retryParsed = extractJsonFromLLM(retryRaw);
+        if (retryParsed && typeof retryParsed === "object" && !Array.isArray(retryParsed)) {
+          const retryClean = sanitizePost(retryParsed as Record<string, unknown>);
+          if (countFrameworkLeaks(retryClean) < leaks) {
+            cleaned = retryClean;
+            leaks = countFrameworkLeaks(retryClean);
           }
         }
       } catch (retryErr) {
@@ -303,7 +175,6 @@ Gere 1 novo post no formato "${format}" agora.`;
       }
     }
 
-    // Stamp post with current generator version
     const stampedPost = { ...cleaned, generator_version: EDITORIAL_GENERATOR_VERSION };
 
     return new Response(JSON.stringify({ post: stampedPost, free: !!freeRegeneration }), {
@@ -312,7 +183,7 @@ Gere 1 novo post no formato "${format}" agora.`;
   } catch (error) {
     console.error("regenerate-single-post error:", error);
     const rawMessage = error instanceof Error ? error.message : "";
-    const looksTechnical = /AI API error|fetch failed|JSON|TypeError|SyntaxError/i.test(rawMessage);
+    const looksTechnical = /AI API error|fetch failed|JSON|TypeError|SyntaxError|Claude/i.test(rawMessage);
     const message = looksTechnical || !rawMessage
       ? "Não foi possível regenerar este post agora. Tente novamente em alguns segundos."
       : rawMessage;
