@@ -260,10 +260,12 @@ const PortraitGenerator = () => {
     }
   };
 
+  const requestedCount = Math.min(totalCredits, GENERATE_COST_CREDITS);
+
   const requestGenerate = () => {
     if (!hasReadyStudio) return;
-    if (totalCredits < GENERATE_COST_CREDITS) {
-      toast({ title: "Sem créditos suficientes", description: `Geração custa ${GENERATE_COST_CREDITS} créditos.`, variant: "destructive" });
+    if (totalCredits < 1) {
+      toast({ title: "Sem créditos suficientes", description: "Você precisa de pelo menos 1 crédito de retrato.", variant: "destructive" });
       setPackDialogOpen(true);
       return;
     }
