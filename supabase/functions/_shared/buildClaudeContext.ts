@@ -20,8 +20,17 @@ function normalizeDocName(name: string): string {
 }
 
 const EDITORIAL_PDF_WHITELIST = ["storybrand", "madetostick", "obviouslyawesome"];
+const STRATEGY_PDF_WHITELIST = ["storybrand"];
+
+export async function fetchStrategyReferencePdfs(): Promise<ClaudePdfPart[]> {
+  return fetchReferencePdfsByWhitelist(STRATEGY_PDF_WHITELIST);
+}
 
 export async function fetchEditorialReferencePdfs(): Promise<ClaudePdfPart[]> {
+  return fetchReferencePdfsByWhitelist(EDITORIAL_PDF_WHITELIST);
+}
+
+async function fetchReferencePdfsByWhitelist(whitelist: string[]): Promise<ClaudePdfPart[]> {
   try {
     const admin = createClient(
       Deno.env.get("SUPABASE_URL")!,
