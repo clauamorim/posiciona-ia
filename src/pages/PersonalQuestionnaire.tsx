@@ -299,7 +299,7 @@ const PersonalQuestionnaire = () => {
                   </Button>
                 ) : !isSubmitted ? (
                   <Button size="sm" onClick={() => save(true)} disabled={!canFinish || saving}>
-                    <Sparkles className="h-3.5 w-3.5 mr-1" /> Concluir e liberar Linha Editorial
+                    <Sparkles className="h-3.5 w-3.5 mr-1" /> Concluir e ir para Arquétipos
                   </Button>
                 ) : (
                   <Button size="sm" onClick={() => navigate("/archetype-questionnaire")}>
