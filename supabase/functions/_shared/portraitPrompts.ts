@@ -354,7 +354,10 @@ export function buildPortraitPrompt(params: BuildPromptParams): {
   // Quando vem de override do usuário, peso aumenta para 1.8 para forçar fidelidade
   // contra o viés de business attire das selfies de treino.
   const outfitText = (params.outfit || "").trim();
-  const outfitWeight = params.isUserOverride ? 1.8 : 1.4;
+  // Peso 1.4 (padrão) e 2.0 quando vem de override do usuário, com REPETIÇÃO
+  // do termo no final do prompt — duas menções ancoram melhor o Flux contra
+  // o viés de business attire das selfies de treino.
+  const outfitWeight = params.isUserOverride ? 2.0 : 1.4;
   const outfitPhrase = outfitText ? `, (wearing ${outfitText}:${outfitWeight})` : "";
 
   // 3b-bis. Injeção da POSE DE MÃOS — APENAS se este look mostra mãos.
