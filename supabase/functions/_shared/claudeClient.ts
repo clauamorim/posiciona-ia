@@ -35,6 +35,12 @@ export interface CallClaudeOptions {
   max_tokens?: number;
   /** Timeout em ms. Padrão: 120s. */
   timeoutMs?: number;
+  /**
+   * Desativa o retry automático em 429/5xx. Útil para chamadas caras
+   * (ex.: relatório estratégico) onde cada tentativa custa tokens reais
+   * e o caller prefere falhar rápido + permitir retry manual do usuário.
+   */
+  disableRetries?: boolean;
 }
 
 export class ClaudeError extends Error {
