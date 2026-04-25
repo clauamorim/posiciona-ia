@@ -290,10 +290,11 @@ serve(async (req) => {
     const effectiveGender: "woman" | "man" | "none" = traitsGender ?? gender;
 
     const hair = buildHairText(figurino);
-    // Maquiagem detalhada do relatório era pesada (cílios postiços, contorno, batom marcado)
-    // e competia com poros, simulando filtro de beleza. Trocamos por instrução minimalista
-    // explícita — o LoRA produz make natural sozinho. Vazio para homens.
-    const makeup = effectiveGender === "woman" ? "natural minimal makeup, no heavy contouring" : "";
+    // Maquiagem REMOVIDA do prompt. O LoRA aprendeu makeup das selfies — qualquer
+    // instrução positiva ou negativa colide com o que ele decorou. Estratégia atual:
+    // reduzir lora_scale (0.70-0.78) pra atenuar make pesada, e usar negative
+    // "heavy makeup" no STUDIO_NEGATIVE_BASE.
+    const makeup = "";
 
     // ===== MEMÓRIA CURTA: lê última geração =====
     const { data: lastGen } = await supabaseAdmin
