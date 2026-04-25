@@ -17,9 +17,10 @@ export type ArchetypeName =
 
 // Reforço aplicado a todos os prompts: garante cenário de estúdio.
 const STUDIO_PREFIX = "professional photography studio, controlled studio lighting, ";
-// Reforço aplicado a todos os negatives: bloqueia vazamento de cenários externos das fotos de treino,
-// anatomia incorreta (mãos extras, membros duplicados), poses de mão rígidas e artefatos comuns do Flux.
-const STUDIO_NEGATIVE = ", outdoor, street, natural daylight, trees, buildings, sky, park, beach, low quality, blurry, deformed face, extra fingers, asymmetric eyes, extra arms, extra hands, three hands, four hands, mutated hands, deformed hands, extra limbs, missing limbs, fused fingers, disfigured, malformed, duplicate, two heads, cloned face, bad anatomy, multiple people, clenched fists, stiff claw hands, symmetrical fist pose, hands floating awkwardly, tense rigid fingers";
+// Negative base — aplicado a TODOS os looks (sem termos específicos de mãos).
+const STUDIO_NEGATIVE_BASE = ", outdoor, street, natural daylight, trees, buildings, sky, park, beach, low quality, blurry, deformed face, asymmetric eyes, extra arms, three hands, four hands, mutated hands, extra limbs, missing limbs, disfigured, malformed, duplicate, two heads, cloned face, bad anatomy, multiple people";
+// Reforço de anatomia de mãos — aplicado APENAS aos looks que mostram mãos (claro/escuro).
+const HANDS_NEGATIVE_REINFORCE = ", extra fingers, six fingers, seven fingers, four fingers, fused fingers, deformed fingers, disfigured fingers, misshapen hands, bent broken fingers, twisted fingers, clenched fists, stiff claw hands, symmetrical fist pose, hands floating awkwardly, tense rigid fingers";
 
 // ============================================================================
 // POOL DE POSES DE MÃOS — variedade fotogênica por família de arquétipo.
