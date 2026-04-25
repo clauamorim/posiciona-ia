@@ -40,9 +40,11 @@ const Results = () => {
   const [isRateLimited, setIsRateLimited] = useState(false);
   const [retryToken, setRetryToken] = useState(0);
   const [archetypeDetails, setArchetypeDetails] = useState<Record<string, any>>({});
+  const [progressMessage, setProgressMessage] = useState<string>("");
 
   useEffect(() => {
     if (!user) return;
+    let cancelled = false;
     const run = async () => {
       let activeReportVersion: number | null = null;
       try {
