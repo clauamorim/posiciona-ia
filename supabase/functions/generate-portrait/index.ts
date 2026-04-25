@@ -395,7 +395,7 @@ serve(async (req) => {
     // Resolução nativa do FLUX = 896x1152, mantida sem reescalonamento.
     const generationId = crypto.randomUUID();
 
-    const pipelineResults = await Promise.all(
+    const pipelineResults = await Promise.allSettled(
       successful.map(async (r, i) => {
         try {
           const dl = await downloadImageBytes(r.portraitUrl!);
@@ -422,9 +422,9 @@ serve(async (req) => {
       }),
     );
 
-    const finalPortraits = pipelineResults.filter(
-      (p): p is NonNullable<typeof p> & { path: string } => p !== null,
-    );
+    const finalPortraits = pipelineResults
+      .map((res) => (res.status === "fulfilled" ? res.value : null))
+      .filter((p): p is NonNullable<typeof p> & { path: string } => p !== null);
 
     if (finalPortraits.length === 0) {
       return new Response(
