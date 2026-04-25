@@ -21,6 +21,10 @@ const STAGE_LABELS: Record<Stage, string> = {
   error: "Ocorreu um erro.",
 };
 
+// Polling: 3s entre checks, timeout total de 5min
+const POLL_INTERVAL_MS = 3000;
+const POLL_TIMEOUT_MS = 5 * 60 * 1000;
+
 const RANK_LABELS: Record<string, { subtitle: string; size: string }> = {
   "Primário": { subtitle: "Arquétipo dominante — define o tom central da sua marca", size: "md:col-span-1" },
   "Secundário": { subtitle: "Complemento estratégico — enriquece sua comunicação", size: "md:col-span-1" },
@@ -36,9 +40,11 @@ const Results = () => {
   const [isRateLimited, setIsRateLimited] = useState(false);
   const [retryToken, setRetryToken] = useState(0);
   const [archetypeDetails, setArchetypeDetails] = useState<Record<string, any>>({});
+  const [progressMessage, setProgressMessage] = useState<string>("");
 
   useEffect(() => {
     if (!user) return;
+    let cancelled = false;
     const run = async () => {
       let activeReportVersion: number | null = null;
       try {
@@ -102,33 +108,77 @@ const Results = () => {
         };
 
         let reportVersion: number;
+        let reportRowId: string | null = null;
         if (latestReport && ["pending", "generating", "error"].includes(latestReport.status)) {
           reportVersion = latestReport.version;
-          await supabase.from("reports").update({ status: "generating", content: null, error_message: null })
-            .eq("user_id", user.id).eq("version", reportVersion);
+          const { data: existing } = await supabase.from("reports")
+            .update({ status: "generating", content: null, error_message: null })
+            .eq("user_id", user.id).eq("version", reportVersion)
+            .select("id").single();
+          reportRowId = existing?.id || null;
         } else {
           reportVersion = (latestReport?.version || 0) + 1;
-          await supabase.from("reports").insert({
+          const { data: inserted } = await supabase.from("reports").insert({
             user_id: user.id, version: reportVersion, status: "generating", error_message: null,
-          });
+          }).select("id").single();
+          reportRowId = inserted?.id || null;
         }
         activeReportVersion = reportVersion;
 
-        const { data: reportData, error: reportError } = await supabase.functions.invoke("generate-report", {
-          body: { business: bqData, niche: profile?.niche || "", archetypes, gender: profile?.gender || "Não informado" },
+        // 1. Enfileira o job (resposta em <1s)
+        const { data: queueData, error: queueError } = await supabase.functions.invoke("generate-report", {
+          body: {
+            business: bqData,
+            niche: profile?.niche || "",
+            archetypes,
+            gender: profile?.gender || "Não informado",
+            reportId: reportRowId,
+            reportVersion,
+          },
         });
-        if (reportError) throw reportError;
+        if (queueError) throw queueError;
+        const jobId = queueData?.jobId;
+        if (!jobId) throw new Error("Falha ao enfileirar geração da estratégia.");
 
-        const normalizedReportContent = normalizeReportContent(reportData?.report) as any;
+        // 2. Polling até completar/falhar/timeout
+        const startedAt = Date.now();
+        let finalReport: any = null;
+        while (!cancelled) {
+          if (Date.now() - startedAt > POLL_TIMEOUT_MS) {
+            throw new Error("Tempo limite excedido aguardando a estratégia. Tente novamente.");
+          }
+          await new Promise(r => setTimeout(r, POLL_INTERVAL_MS));
+          if (cancelled) return;
+
+          const { data: jobStatus, error: pollError } = await supabase.functions.invoke("get-report-generation-job", {
+            body: { jobId },
+          });
+          if (pollError) {
+            console.warn("Polling error (segue tentando):", pollError);
+            continue;
+          }
+          if (jobStatus?.progress_message) setProgressMessage(jobStatus.progress_message);
+          if (jobStatus?.status === "completed") {
+            finalReport = jobStatus.result?.report;
+            break;
+          }
+          if (jobStatus?.status === "failed") {
+            throw new Error(jobStatus.error_message || "Não foi possível gerar a estratégia.");
+          }
+        }
+        if (cancelled) return;
+
+        const normalizedReportContent = normalizeReportContent(finalReport) as any;
         if (normalizedReportContent?.archetypes) setArchetypeDetails(normalizedReportContent.archetypes);
 
-        await supabase.from("reports").update({ content: normalizedReportContent, status: "completed" })
-          .eq("user_id", user.id).eq("version", reportVersion);
-        await supabase.from("business_questionnaires").update({ status: "locked" }).eq("user_id", user.id);
+        // O worker já atualizou reports.content e reports.status no servidor.
+        // Frontend só precisa hidratar a UI.
 
         setStage("done");
+        setProgressMessage("");
         toast({ title: "Estratégia gerada com sucesso!" });
       } catch (err: any) {
+        if (cancelled) return;
         console.error("Results error:", err);
         const rawMsg = (err?.message || "") + " " + (err?.context?.body ? JSON.stringify(err.context.body) : "");
         const lower = rawMsg.toLowerCase();
@@ -136,13 +186,10 @@ const Results = () => {
         const message = rateLimited
           ? "A IA está com alta demanda agora. Aguarde alguns segundos e tente novamente."
           : (err.message || "Erro desconhecido");
-        if (activeReportVersion) {
-          await supabase.from("reports").update({ status: "error", error_message: message })
-            .eq("user_id", user.id).eq("version", activeReportVersion);
-        }
         setIsRateLimited(rateLimited);
         setErrorMsg(message);
         setStage("error");
+        setProgressMessage("");
         toast({
           title: rateLimited ? "Alta demanda na IA" : "Erro",
           description: rateLimited ? "Tente novamente em alguns segundos." : err.message,
@@ -151,6 +198,7 @@ const Results = () => {
       }
     };
     run();
+    return () => { cancelled = true; };
   }, [user, retryToken]);
 
   const top3 = getTop3(scores);
@@ -185,7 +233,9 @@ const Results = () => {
               <Sparkles className="h-5 w-5 text-destructive shrink-0" />
             )}
             <div className="flex-1 min-w-0">
-              <p className="font-medium text-sm">{STAGE_LABELS[stage]}</p>
+              <p className="font-medium text-sm">
+                {stage === "generating_report" && progressMessage ? progressMessage : STAGE_LABELS[stage]}
+              </p>
               {stage === "error" && errorMsg && (
                 <p className="text-xs text-muted-foreground mt-0.5">{errorMsg}</p>
               )}
