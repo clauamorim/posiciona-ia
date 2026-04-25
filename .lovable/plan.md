@@ -1,125 +1,218 @@
-## Diagnóstico honesto
+## Objetivo
 
-Olhando as 3 novas imagens, identifiquei **3 problemas** com causas distintas:
+Reestruturar a Linha Editorial para gerar **dois tracks paralelos por semana**:
 
-### 1. Maquiagem pesada vem do LoRA, não do prompt
-Mesmo com `natural minimal makeup, no heavy contouring` + negative `heavy makeup`, **todas** as 3 imagens têm cílios pesados, smoky eye, batom marcado. Isso significa: **o LoRA aprendeu a maquiagem das selfies como parte da identidade**. O modelo "acha" que make pesada **é você**. Nenhum prompt vence esse aprendizado profundo.
+- **Feed**: exatamente **4 posts** (mix de carrossel, post único e reels)
+- **Stories**: exatamente **7 sugestões** (uma por dia)
+- **Espelhamento de tema**: nos dias em que há post de feed, o story do mesmo dia aborda o mesmo tema
+- **Conteúdo pessoal**: pode aparecer no feed ou stories, com **predominância nos stories**
 
-### 2. Pele suavizada também está embutida no LoRA
-Os tokens pró-textura (`visible skin pores`, `unretouched`, `raw photograph`, `subtle film grain`) perdem para o que o LoRA decorou. Se as selfies foram tiradas com filtro de beleza nativo do celular, o LoRA aprendeu pele lisa como característica facial.
-
-### 3. Proporções faciais infladas
-Rosto mais redondo, queixo perdido, maxilar suavizado — sintoma clássico de **lora_scale alto demais** combinado com selfies majoritariamente **frontais em close**. O modelo só "sabe" te renderizar de frente; quando pede outro ângulo ou enquadramento mais aberto, ele "estica" o rosto frontal aprendido.
-
-### 4. O prompt ainda está inflado vs. o manual
-- **Manual que funcionou**: ~12 tokens (`TOK woman, portrait of a wise and authoritative professional, calm confident gaze, soft Rembrandt lighting, deep dark background, dark blazer, no smile, contemplative expression, fine skin pores, hair pulled back, photorealistic, shot on Sony A7, 85mm f/1.4, shallow depth of field`).
-- **Nosso atual**: ~30 tokens (prefix + framing + archetype template + traits + outfit + makeup + hair + suffix + negatives gigantes).
-
-Cada token a mais **dilui o peso** dos tokens críticos de textura.
+E **prevenir todos os erros previsíveis** (timeout, truncamento de JSON, parser quebrando em estrutura aninhada, falha parcial em uma das etapas).
 
 ---
 
-## O plano: "Modo Manual Puro" + diagnóstico
+## 1. Nova estrutura de dados (`reports.editorial_weeks` JSONB)
 
-### Mudança 1 — Prompt mínimo (`_shared/portraitPrompts.ts`)
+Cada semana passa a ter 7 dias, e cada dia tem 2 sub-objetos:
 
-Reescrever `buildPortraitPrompt` para gerar exatamente a mesma estrutura do manual que funcionou:
-
-```
-{TRIGGER} {gender}, {archetype_essence}, {hair_descriptor}, {outfit_descriptor}, {QUALITY_SUFFIX}
-```
-
-**Cortes:**
-- ❌ Remover `STUDIO_PREFIX` (`"professional portrait, "`) — redundante com o template do arquétipo.
-- ❌ Remover `framing.instruction` injetado no meio (`tight head and shoulders crop, hands out of frame`) — vamos colocar isso só nos looks 1 e 2 (bust/chest-up). No look 0 (close-up) é o default natural do retrato.
-- ❌ Remover `traitPhrase` longa (`with X hair, Y skin with visible pores and natural texture, Z eyes`) → reduzir a só `{hair_color} {hair_length} hair`. Pele e olhos saem (o LoRA já sabe disso).
-- ❌ Remover `[makeup]` placeholder e a linha que injeta `natural minimal makeup` — não funciona, só ocupa espaço. Vai pro **negative** apenas.
-- ❌ Remover `hand_pose` longo dos templates dos arquétipos (não há mãos no frame nos looks 0/1, e no look 2 a pose vai ficar implícita pelo crop).
-
-**Templates dos arquétipos enxugados ainda mais.** Exemplo:
-
-Antes (Sábio): `"USR[id] [gender], calm contemplative expression, soft Rembrandt lighting, deep dark background, [outfit], [hair], [makeup], slight head tilt, thoughtful gaze, no smile"`
-
-Depois (Sábio): `"calm contemplative expression, soft Rembrandt lighting, deep dark background, no smile"`
-
-(O trigger, gender, hair, outfit e quality suffix são montados pelo builder, não pelo template.)
-
-**Reduzir QUALITY_SUFFIX** para a versão exata do manual (que funcionou): `"fine skin pores, photorealistic, shot on Sony A7, 85mm f/1.4, shallow depth of field"`
-
-Eliminar os tokens "agressivos" que estávamos jogando (`visible skin pores`, `unretouched skin`, `raw photograph`, `natural skin imperfections`, `subtle film grain`) — eles não estão funcionando E estão diluindo. Voltar à fórmula do manual.
-
-**Reduzir negative** para os 6 itens críticos: `"plastic skin, beauty filter, smoothed skin, heavy makeup, deformed face, deformed hands"`. Cortar `instagram filter, retouched skin, glossy skin, porcelain skin, asymmetric eyes, multiple people, watermark, low quality, blurry` (ruído desnecessário).
-
-### Mudança 2 — Lora scale agressivamente baixo (`generate-portrait/index.ts`)
-
-```ts
-function pickLoraScale(selfiesCount: number): number {
-  if (selfiesCount <= 12) return 0.70;  // era 0.80
-  if (selfiesCount <= 20) return 0.75;  // era 0.85
-  return 0.78;                           // era 0.88
+```jsonc
+{
+  "week_index": 1,
+  "days": [
+    {
+      "day": 1,
+      "feed": {
+        "format": "carrossel" | "post" | "reels",
+        "theme": "...",
+        "caption": "...",
+        "cta": "...",
+        "card_copy": ["...", "..."],   // só carrossel
+        "script": "...",                // só reels
+        "is_personal": false
+      } | null,                          // null nos 3 dias sem feed
+      "story": {
+        "theme": "...",
+        "frames": ["...", "...", "..."], // 3-5 frames sugeridos
+        "is_personal": true,
+        "mirrors_feed": false            // true quando espelha o tema do feed do mesmo dia
+      }
+    }
+    // ... 7 dias
+  ]
 }
 ```
 
-**Justificativa**: a 0.80–0.88 o LoRA está "dominando" e sobrescrevendo a textura/anatomia natural do FLUX base. A 0.70–0.78 deixamos o modelo base respirar — perde-se um pouco de fidelidade facial mas ganha-se textura, anatomia e proporções corretas. É o trade-off que faz sentido AGORA porque o gargalo é qualidade, não identidade.
-
-### Mudança 3 — Variar guidance num range maior
-
-Atual: `[2.5, 2.7, 2.9]`. Trocar por `[2.5, 3.0, 3.5]` para ter um look mais "fotográfico documental" (2.5), um equilibrado (3.0) e um mais "definido" (3.5). Assim você vê na prática qual valor funciona melhor e podemos fixar na próxima iteração.
-
-### Mudança 4 — Logging do prompt completo
-
-No log atual cortamos com `.slice(0, 500)`. Vamos logar **prompt completo** (sem truncar) e a **contagem de tokens** (split por vírgula) pra você poder colar exatamente no Replicate UI e comparar 1:1.
-
-### Mudança 5 — Diagnóstico das selfies (read-only, sem retreino ainda)
-
-Adicionar um log no início de `generate-portrait` que conta:
-- Quantas selfies foram usadas no treino atual.
-- Quais traits foram extraídos (o `physical_traits.skin_tone` etc).
-
-Isso não muda nada na geração, mas **permite decidir** se vale a pena retreinar.
+**Distribuição obrigatória por semana** (instruída no prompt):
+- 4 dias com `feed` preenchido + `story` (3 desses stories espelham o tema do feed; 1 é pessoal espelhando o feed pessoal, se houver)
+- 3 dias com `feed: null` + `story` (livres, predominância pessoal)
+- Total stories pessoais: **mínimo 4 dos 7**
+- Posts pessoais no feed: **0 ou 1 por semana** (predominância nos stories)
 
 ---
 
-## O que NÃO muda
+## 2. Geração em 2 estágios (anti-timeout)
 
-- Trigger word real do treino.
-- Aspect ratio 3:4 @ 1MP.
-- Steps 35.
-- Pool de outfits por profissão (mantido).
-- Memória curta de poses/outfits.
-- Estratégia hands-out-of-frame (apenas removemos a frase explícita do prompt — o crop em 3:4 + chest-up já garante).
+**Arquivo:** `supabase/functions/process-content-generation-job/index.ts`
+
+Em vez de uma chamada Claude gerando ~11k tokens (risco de timeout 170s + truncamento), dividir em duas chamadas sequenciais:
+
+**Estágio A — Feed (4 posts)**
+- Prompt focado só nas 4 peças de feed.
+- Saída esperada: ~4-5k tokens.
+- `max_tokens: 6000`.
+- Persiste resultado parcial em `content_generation_jobs.result` com `{ stage: "feed_done", feed: [...] }`.
+
+**Estágio B — Stories (7)**
+- Recebe o array de feed do Estágio A como contexto enxuto (apenas `day`, `theme`, `format`, `is_personal`).
+- Prompt instrui: "para os dias X, Y, Z (que têm feed), o story DEVE espelhar o tema do feed correspondente. Para os outros 3 dias, criar stories livres com predominância pessoal".
+- Saída esperada: ~3-4k tokens.
+- `max_tokens: 5000`.
+- Combina feed + stories no shape final e grava em `reports.editorial_weeks`.
+
+**Vantagens:**
+- Cada chamada fica bem abaixo do timeout (cada ~30-60s).
+- Se o Estágio B falhar, mantém o feed gerado e marca status `completed_partial` → usuário pode retomar só os stories.
+- Diminui risco de truncamento de JSON pela metade.
 
 ---
 
-## Decisão sobre retreino — depois desta rodada
+## 3. Parser JSON robusto para estruturas aninhadas
 
-Se mesmo com **prompt mínimo + lora_scale 0.70-0.78** a maquiagem continuar pesada e a pele suavizada, **a única solução é retreinar com selfies melhores**. Critérios pra um dataset bom:
+**Arquivo:** `supabase/functions/_shared/jsonExtract.ts`
 
-1. **15-25 selfies** (mais não é melhor — pode rigidificar).
-2. **Sem maquiagem ou maquiagem mínima** (sem cílios postiços, sem batom marcado, sem contorno).
-3. **Sem filtro de beleza nativo do iPhone/Samsung** — usar app tipo "ProCam" ou modo RAW. Tirar com luz natural de janela.
-4. **Variação de ângulos**: 50% frontais, 25% perfil 3/4 esquerdo, 25% perfil 3/4 direito.
-5. **Variação de enquadramento**: 50% close (rosto), 30% busto, 20% 3/4 do corpo.
-6. **Variação de expressão**: sorriso aberto, sorriso fechado, neutro, sério.
-7. **Boa iluminação lateral** em pelo menos metade (luz de janela é ideal).
+O parser atual usa regex de `firstBrace`/`lastBrace` que pode falhar em estruturas profundas. Adicionar uma estratégia de **contador balanceado de chaves** que respeita strings e escapes (já existe parcialmente no `repairAndParse`, mas vamos torná-la a estratégia primária para extração).
 
-Mas **antes de pedir esse esforço**, vamos rodar uma rodada com o "Modo Manual Puro" — pode ser que resolva 80% sem retreino.
+Adicionar também:
+- Função `extractJsonArray(raw)` específica para casos onde a LLM devolve `[ {...}, {...} ]`.
+- Validação de schema mínimo: `isValidWeek(value)` que confere se tem `days` array com 7 itens e cada um tem chaves `day`, `feed`, `story`.
+
+---
+
+## 4. Sanitização recursiva
+
+**Arquivo:** `supabase/functions/_shared/editorialSanitize.ts`
+
+Atualizar `sanitizePost` (e criar `sanitizeDay`) para descer em:
+- `day.feed.theme/caption/cta/script` + `day.feed.card_copy[]`
+- `day.story.theme` + `day.story.frames[]`
+
+`countFrameworkLeaks` e `countWeekLeaks` precisam considerar a nova estrutura (somar leaks de feed + story em cada dia).
+
+---
+
+## 5. Regeneração granular
+
+**Arquivo:** `supabase/functions/regenerate-single-post/index.ts`
+
+Aceitar novos parâmetros:
+- `target: "feed" | "story"` (qual dos dois regenerar nesse dia)
+- `day_index: number`
+
+Comportamento:
+- Se `target=feed`: regenera só o `day.feed` mantendo o `day.story`. Se o story atual tinha `mirrors_feed: true`, marca aviso de "story pode estar desalinhado, considere regenerar".
+- Se `target=story`: regenera só `day.story`, recebendo o `day.feed` (se existir) como contexto para espelhamento.
+- Custo de crédito: 1 `regeneration_credit` por target (mantém o modelo atual).
+
+---
+
+## 6. UI — `EditorialPage.tsx`
+
+Reescrever a renderização de cada dia para layout de **duas colunas**:
+
+```
+┌─────────────────────────────────────────────────┐
+│ Dia 1                                           │
+├──────────────────────┬──────────────────────────┤
+│ FEED                 │ STORIES                  │
+│ [carrossel: tema X]  │ [3 frames: tema X]       │
+│ caption / cta        │ (espelha o feed)         │
+│ [Regenerar feed]     │ [Regenerar story]        │
+└──────────────────────┴──────────────────────────┘
+```
+
+- Dias sem feed mostram coluna esquerda vazia com badge "Sem post no feed".
+- Badge `Pessoal` continua aparecendo onde aplicável.
+- Mobile: empilhar feed acima, story abaixo.
+- Botão `Editar no Editor Visual` continua só no feed (stories não vão pro editor por enquanto).
+- Botão `Gerar capa` (reels) continua igual.
+
+---
+
+## 7. Export PDF
+
+**Arquivo:** `src/lib/pdfExport.ts` + componente da Linha Editorial
+
+Atualizar a árvore DOM oculta usada para PDF para refletir as duas colunas. Cada dia vira uma seção `[data-pdf-section]` com os dois blocos lado a lado (em telas grandes do PDF) ou empilhados.
+
+---
+
+## 8. Versionamento e migração de dados antigos
+
+**Arquivo:** `src/lib/generatorVersion.ts` e `_shared/generatorVersion.ts`
+
+Bump para `2026-04-25-v6`. Adicionar nota de histórico:
+> v6: divisão da linha editorial em Feed (4 posts) + Stories (7 sugestões), com geração em 2 estágios para evitar timeout e parser robusto para estrutura aninhada.
+
+**Conteúdo legado** (estrutura antiga): `isOutdated` continua retornando true → UI mostra banner "Linha editorial atualizada — regenere gratuitamente" usando o crédito de versão obsoleta (já existe esse fluxo).
+
+A leitura é **tolerante**: se `editorial_weeks[i].days[j]` não existir mas existir o shape antigo, renderiza no formato antigo até o usuário regenerar. Sem migration destrutiva.
+
+---
+
+## 9. Mitigação de erros — checklist completo
+
+| Risco | Mitigação |
+|---|---|
+| Timeout 170s na edge function | Geração em 2 estágios (cada ≤60s típico) |
+| `max_tokens` truncando JSON | Cada estágio fica em 5-6k tokens, bem abaixo do limite |
+| Parser quebrando em JSON aninhado | Contador balanceado de chaves + validação de schema |
+| Estágio B falha após A OK | Status `completed_partial`; UI permite retomar só os stories sem cobrar crédito de novo |
+| Claude esquecer espelhamento | Estágio B recebe feed como contexto explícito + instrução literal "DEVE espelhar tema" |
+| Sanitização perdendo campos novos | `sanitizeDay` recursivo cobrindo feed + story.frames |
+| Regeneração desalinhar feed↔story | Aviso na UI + opção de regenerar o par junto |
+| Rate limit Anthropic | Reduzir bloco de frameworks de ~3k → ~800 tokens (resumo denso, não cita PDFs) |
+| Conteúdo legado quebrar a UI | Renderização tolerante: detecta shape antigo e renderiza no formato v5 até regenerar |
+
+---
+
+## 10. Arquivos editados
+
+**Backend:**
+- `supabase/functions/process-content-generation-job/index.ts` — 2 estágios, prompts novos
+- `supabase/functions/regenerate-single-post/index.ts` — parâmetro `target`
+- `supabase/functions/_shared/jsonExtract.ts` — parser balanceado + `isValidWeek`
+- `supabase/functions/_shared/editorialSanitize.ts` — `sanitizeDay` recursivo
+- `supabase/functions/_shared/generatorVersion.ts` — bump v6
+
+**Frontend:**
+- `src/lib/generatorVersion.ts` — bump v6 + histórico
+- `src/pages/EditorialPage.tsx` — layout 2 colunas, botões granulares, leitura tolerante a shape antigo
+- `src/lib/pdfExport.ts` — não muda (usa `[data-pdf-section]`)
+- Componente de PDF da Linha Editorial — render dos 2 tracks
+
+**Banco:**
+- Sem migration destrutiva. `editorial_weeks` continua JSONB livre. Leitura tolerante.
+
+---
+
+## 11. O que NÃO muda
+
+- Modelo Claude Sonnet 4.5.
+- Custo: 1 weekly_cycle por semana (igual ao atual).
+- Custo de regeneração: 1 regeneration_credit por target.
+- PDFs de referência (StoryBrand, Made to Stick, Obviously Awesome) — só os textos densos enviados como contexto.
+- Sistema de jobs assíncrono (queue + worker + polling).
+- Sanitização de rótulos de framework continua obrigatória.
 
 ---
 
 ## Resultado esperado
 
-- Pele com mais textura visível (não 100%, mas perceptivelmente menos lisa).
-- Maquiagem mais discreta (lora_scale baixo permite o FLUX base atenuar o que o LoRA aprendeu).
-- Proporções faciais mais corretas (queixo, maxilar, formato do rosto).
-- Iluminação mais cinematográfica (com guidance 3.5 num dos looks).
-- Aspecto fotográfico documental, próximo do manual.
-
-## Risco
-
-- **Perda de fidelidade facial em ~10-15%** (lora_scale 0.70 vs 0.85). Mitigação: o trigger continua puxando identidade; só perdemos detalhes "decorados" do dataset (que é justamente o que queremos).
-- **Look 0 sem `headshot crop` explícito** pode vir um pouco mais aberto. Mitigação: o aspect 3:4 + ausência de outras instruções de framing tendem a default close-up.
+- Cada semana entrega **4 peças de feed estruturadas** + **7 stories acionáveis**, com coerência temática nos dias compartilhados.
+- Tempo de geração total por semana: **~60-100s** (vs. risco de >170s de uma chamada só).
+- Zero perda de trabalho em caso de falha parcial (Estágio A salvo, B retomável).
+- Conteúdo antigo continua visível e oferece upgrade gratuito para a v6.
 
 ## Reversibilidade
 
-100% reversível — só 2 arquivos editados (`_shared/portraitPrompts.ts` e `generate-portrait/index.ts`).
+Alta — apenas o shape do `editorial_weeks` muda, e a leitura é tolerante. Se precisar reverter, basta voltar a versão v5 no `generatorVersion.ts` e o frontend renderiza no shape antigo.

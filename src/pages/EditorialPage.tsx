@@ -17,6 +17,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { parseReportContent, normalizeReportContent } from "@/lib/reportParser";
 import { cleanText } from "@/lib/textCleanup";
 import { isOutdated, isWeekOutdated, EDITORIAL_GENERATOR_VERSION } from "@/lib/generatorVersion";
+import { normalizeWeekToV6, type WeekV6, type DayV6, type FeedPostV6 } from "@/lib/editorialShape";
 import StyleSelectionModal from "@/components/post-editor/StyleSelectionModal";
 import type { PostStyle } from "@/lib/postAutoLayout";
 
@@ -183,11 +184,13 @@ const EditorialPage = () => {
   const { contentObject, hasEditorial } = parseReportContent(report?.content);
   const content = contentObject ?? {};
   const structuredEditorial = Array.isArray(content.editorial) ? content.editorial : [];
-  const editorialWeeks: any[][] = Array.isArray(report?.editorial_weeks) ? report.editorial_weeks : [];
-  const allWeeks = [
+  const editorialWeeks: any[] = Array.isArray(report?.editorial_weeks) ? report.editorial_weeks : [];
+  const allWeeksRaw: any[] = [
     ...(hasEditorial && structuredEditorial.length > 0 ? [structuredEditorial] : []),
     ...editorialWeeks,
   ];
+  // Sempre normaliza para shape v6 antes de renderizar (tolerante a v5 antigo)
+  const allWeeks: WeekV6[] = allWeeksRaw.map((w) => normalizeWeekToV6(w));
 
   // Cleanup do polling ao desmontar (evita updates em componente desmontado)
   useEffect(() => {
@@ -226,7 +229,7 @@ const EditorialPage = () => {
       const { data: enqueueData, error: enqueueError } = await supabase.functions.invoke("generate-content-week", {
          body: {
           business: bq, niche: profile?.niche || "",
-          previousWeeks: allWeeks.map((week: any[]) => week.map((d: any) => ({ day: d.day, theme: d.theme, format: d.format }))),
+          previousWeeks: allWeeks.map((week) => week.days.map((d) => ({ day: d.day, theme: d.feed?.theme || d.story?.theme || "", format: d.feed?.format || "stories" }))),
           weekNumber: allWeeks.length + 1,
           storybrand: reportContent?.storybrand || null,
           tone_of_voice: reportContent?.tone_of_voice || null,
@@ -396,7 +399,7 @@ const EditorialPage = () => {
           business: bq, niche: profile?.niche || "",
           previousWeeks: allWeeks
             .filter((_, i) => i !== weekIndex)
-            .map((w: any[]) => w.map((d: any) => ({ day: d.day, theme: d.theme, format: d.format }))),
+            .map((w) => w.days.map((d) => ({ day: d.day, theme: d.feed?.theme || d.story?.theme || "", format: d.feed?.format || "stories" }))),
           weekNumber: weekIndex + 1,
           storybrand: reportContent?.storybrand || null,
           tone_of_voice: reportContent?.tone_of_voice || null,
@@ -455,43 +458,51 @@ const EditorialPage = () => {
         const grid = document.createElement("div");
         grid.style.cssText = "display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px;";
         
-        for (let di = 0; di < (week || []).length; di++) {
-          const day = week[di];
-          const fmt = FORMAT_CONFIG[day.format?.toLowerCase()] || FORMAT_CONFIG.post;
+        for (let di = 0; di < week.days.length; di++) {
+          const day = week.days[di];
+          const feed = day.feed;
+          const fmt = FORMAT_CONFIG[(feed?.format || "post").toLowerCase()] || FORMAT_CONFIG.post;
           const card = document.createElement("div");
           card.style.cssText = "background:white;border-radius:12px;padding:16px;border:1px solid #e5e1db;break-inside:avoid;";
 
           let html = `<div style="display:flex;justify-content:space-between;margin-bottom:8px;">
             <span style="font-size:10px;font-weight:700;text-transform:uppercase;color:#6b7280;">Dia ${day.day || di + 1}</span>
-            <span style="font-size:10px;font-weight:600;color:#6b7280;">${fmt.label}</span>
+            <span style="font-size:10px;font-weight:600;color:#6b7280;">${feed ? fmt.label : "Sem feed"}</span>
           </div>
-          <h3 style="font-size:13px;font-weight:600;margin-bottom:8px;color:#1a1a2e;">${esc(cleanText(day.theme || ""))}</h3>`;
+          <h3 style="font-size:13px;font-weight:600;margin-bottom:8px;color:#1a1a2e;">${esc(cleanText(feed?.theme || day.story?.theme || ""))}</h3>`;
 
-          if (day.caption) {
+          if (feed?.caption) {
             html += `<div style="margin-bottom:6px;">
-              <p style="font-size:10px;font-weight:700;text-transform:uppercase;color:#9ca3af;margin-bottom:2px;">Legenda</p>
-              <p style="font-size:11px;color:#374151;line-height:1.5;">${esc(cleanText(day.caption))}</p>
+              <p style="font-size:10px;font-weight:700;text-transform:uppercase;color:#9ca3af;margin-bottom:2px;">Legenda (Feed)</p>
+              <p style="font-size:11px;color:#374151;line-height:1.5;">${esc(cleanText(feed.caption))}</p>
             </div>`;
           }
 
-          if (day.cta) {
+          if (feed?.cta) {
             html += `<div style="margin-bottom:6px;">
               <p style="font-size:10px;font-weight:700;text-transform:uppercase;color:#9ca3af;margin-bottom:2px;">CTA</p>
-              <p style="font-size:11px;font-weight:600;color:#7c3aed;">${esc(cleanText(day.cta))}</p>
+              <p style="font-size:11px;font-weight:600;color:#7c3aed;">${esc(cleanText(feed.cta))}</p>
             </div>`;
           }
 
-          if (day.card_copy?.length > 0) {
+          if (feed?.card_copy && feed.card_copy.length > 0) {
             html += `<div style="margin-top:6px;padding:8px;background:#f9fafb;border-radius:8px;border:1px solid #e5e7eb;">
               <p style="font-size:10px;font-weight:700;text-transform:uppercase;color:#9ca3af;margin-bottom:4px;">Conteúdo</p>
-              ${day.card_copy.map((c: string) => `<p style="font-size:11px;color:#374151;line-height:1.4;margin-bottom:4px;">${esc(cleanText(c))}</p>`).join("")}
+              ${feed.card_copy.map((c: string) => `<p style="font-size:11px;color:#374151;line-height:1.4;margin-bottom:4px;">${esc(cleanText(c))}</p>`).join("")}
             </div>`;
           }
 
-          if (day.script && (day.format?.toLowerCase() === "reels" || day.format?.toLowerCase() === "stories")) {
+          if (feed?.script && (feed.format === "reels")) {
             html += `<div style="margin-top:6px;padding:8px;background:#f9fafb;border-radius:8px;border:1px solid #e5e7eb;">
               <p style="font-size:10px;font-weight:700;text-transform:uppercase;color:#9ca3af;margin-bottom:4px;">Roteiro</p>
-              <p style="font-size:11px;color:#374151;line-height:1.4;white-space:pre-wrap;">${esc(day.script)}</p>
+              <p style="font-size:11px;color:#374151;line-height:1.4;white-space:pre-wrap;">${esc(feed.script)}</p>
+            </div>`;
+          }
+
+          if (day.story?.frames?.length) {
+            html += `<div style="margin-top:8px;padding:8px;background:#fef3c7;border-radius:8px;border:1px solid #fde68a;">
+              <p style="font-size:10px;font-weight:700;text-transform:uppercase;color:#92400e;margin-bottom:4px;">Stories${day.story.mirrors_feed ? " (mesmo tema do feed)" : ""}</p>
+              ${day.story.frames.map((f: string) => `<p style="font-size:11px;color:#78350f;line-height:1.4;margin-bottom:4px;">${esc(cleanText(f))}</p>`).join("")}
             </div>`;
           }
 
@@ -665,7 +676,7 @@ const EditorialPage = () => {
           )}
 
           {allWeeks.map((week, wi) => {
-            const weekOutdated = isWeekOutdated(week);
+            const weekOutdated = isWeekOutdated(week.days as any);
             const isRegenWeek = regeneratingFreeWeek === wi;
             return (
             <TabsContent key={wi} value={`week-${wi}`}>
@@ -688,108 +699,145 @@ const EditorialPage = () => {
                   </Button>
                 </div>
               )}
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {(week || []).map((day: any, di: number) => {
-                  const fmt = FORMAT_CONFIG[day.format?.toLowerCase()] || FORMAT_CONFIG.post;
+              <div className="grid gap-3 sm:grid-cols-1 lg:grid-cols-2">
+                {week.days.map((day: DayV6, di: number) => {
+                  const feed = day.feed;
+                  const story = day.story;
+                  const fmt = FORMAT_CONFIG[(feed?.format || "post").toLowerCase()] || FORMAT_CONFIG.post;
                   const regenKey = `${wi}-${di}`;
-                  const dayOutdated = isOutdated(day);
+                  const dayOutdated = isOutdated({ generator_version: day.generator_version });
                   return (
-                    <Card key={di} className={`flex flex-col break-inside-avoid border-l-[3px] ${fmt.border}`}>
+                    <Card key={di} className="flex flex-col break-inside-avoid border border-border">
                       <CardContent className="py-4 flex-1 space-y-3">
                         <div className="flex items-center justify-between">
                           <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Dia {day.day || di + 1}</span>
-                          <div className="flex items-center gap-1.5">
-                            {dayOutdated && (
-                              <Badge variant="outline" className="text-[10px] gap-1 bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-900">
-                                <AlertTriangle className="h-2.5 w-2.5" /> Desatualizado
-                              </Badge>
-                            )}
-                            <Badge variant="outline" className={`text-[10px] gap-1 ${fmt.color}`}>
-                              {fmt.icon} {fmt.label}
-                            </Badge>
-                          </div>
-                        </div>
-
-                        <h3 className="text-sm font-semibold leading-tight">{cleanText(day.theme || "")}</h3>
-
-                        {/* Caption preview */}
-                        <div>
-                          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Legenda</p>
-                          <p className="text-xs text-foreground/70 leading-relaxed line-clamp-3">{cleanText(day.caption || "")}</p>
-                        </div>
-
-                        {day.cta && (
-                          <div>
-                            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-0.5">CTA</p>
-                            <p className="text-xs font-medium text-primary">{cleanText(day.cta)}</p>
-                          </div>
-                        )}
-
-                        {/* Carousel content (collapsible) */}
-                        {day.card_copy?.length > 0 && (
-                          <Collapsible>
-                            <CollapsibleTrigger className="flex items-center gap-1 text-[11px] font-medium text-primary hover:underline">
-                              <ChevronDown className="h-3 w-3" /> Ver conteúdo completo
-                            </CollapsibleTrigger>
-                            <CollapsibleContent>
-                              <div className="mt-2 space-y-1.5 p-3 rounded-lg bg-muted/30 border">
-                                {day.card_copy.map((copy: string, idx: number) => (
-                                  <p key={idx} className="text-xs text-foreground/70 leading-relaxed">{cleanText(copy)}</p>
-                                ))}
-                              </div>
-                            </CollapsibleContent>
-                          </Collapsible>
-                        )}
-
-                        {day.script && (day.format?.toLowerCase() === "reels" || day.format?.toLowerCase() === "stories") && (
-                          <Collapsible>
-                            <CollapsibleTrigger className="flex items-center gap-1 text-[11px] font-medium text-primary hover:underline">
-                              <ChevronDown className="h-3 w-3" /> Ver roteiro
-                            </CollapsibleTrigger>
-                            <CollapsibleContent>
-                              <div className="mt-2 p-3 rounded-lg bg-muted/30 border text-xs leading-relaxed whitespace-pre-wrap">
-                                {day.script}
-                              </div>
-                            </CollapsibleContent>
-                          </Collapsible>
-                        )}
-
-                        {/* Actions */}
-                        <div className="flex flex-wrap gap-2 pt-1" data-hide-pdf>
-                          {day.caption && (
-                            <Button variant="ghost" size="sm" className="h-7 text-[11px] gap-1 px-2" onClick={() => copyCaption(day.caption)}>
-                              <Copy className="h-3 w-3" /> Copiar legenda
-                            </Button>
-                          )}
-                          {(day.format?.toLowerCase() === "carrossel" || day.format?.toLowerCase() === "post") && (
-                            <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1 px-2" onClick={() => handleOpenEditor(wi, di, day, false)}>
-                              <PenTool className="h-3 w-3" /> Criar post
-                            </Button>
-                          )}
-                          {day.format?.toLowerCase() === "reels" && (
-                            <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1 px-2" onClick={() => handleOpenEditor(wi, di, day, true)}>
-                              <Image className="h-3 w-3" /> Gerar capa
-                            </Button>
-                          )}
                           {dayOutdated && (
-                            <Button
-                              variant="outline" size="sm"
-                              className="h-7 text-[11px] gap-1 px-2 border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200 hover:bg-amber-50 dark:hover:bg-amber-950/30"
-                              onClick={() => handleRegeneratePost(wi, di, true)}
-                              disabled={regeneratingPost === regenKey}
-                            >
-                              {regeneratingPost === regenKey ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />}
-                              Atualizar (grátis)
-                            </Button>
+                            <Badge variant="outline" className="text-[10px] gap-1 bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-900">
+                              <AlertTriangle className="h-2.5 w-2.5" /> Desatualizado
+                            </Badge>
                           )}
-                          <Button
-                            variant="ghost" size="sm" className="h-7 text-[11px] gap-1 px-2"
-                            onClick={() => handleRegeneratePost(wi, di)}
-                            disabled={regeneratingPost === regenKey || regenerationCredits < 1}
-                          >
-                            {regeneratingPost === regenKey ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
-                            Gerar novo
-                          </Button>
+                        </div>
+
+                        <div className="grid gap-3 md:grid-cols-2">
+                          {/* ===== Coluna FEED ===== */}
+                          <div className={`rounded-md border p-3 space-y-2 ${feed ? `border-l-[3px] ${fmt.border}` : "border-dashed border-muted"}`}>
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Feed</span>
+                              {feed ? (
+                                <Badge variant="outline" className={`text-[10px] gap-1 ${fmt.color}`}>
+                                  {fmt.icon} {fmt.label}
+                                </Badge>
+                              ) : (
+                                <span className="text-[10px] text-muted-foreground italic">Sem post</span>
+                              )}
+                            </div>
+                            {feed ? (
+                              <>
+                                <h3 className="text-sm font-semibold leading-tight">{cleanText(feed.theme || "")}</h3>
+                                {feed.caption && (
+                                  <div>
+                                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Legenda</p>
+                                    <p className="text-xs text-foreground/70 leading-relaxed line-clamp-3">{cleanText(feed.caption)}</p>
+                                  </div>
+                                )}
+                                {feed.cta && (
+                                  <div>
+                                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-0.5">CTA</p>
+                                    <p className="text-xs font-medium text-primary">{cleanText(feed.cta)}</p>
+                                  </div>
+                                )}
+                                {feed.card_copy && feed.card_copy.length > 0 && (
+                                  <Collapsible>
+                                    <CollapsibleTrigger className="flex items-center gap-1 text-[11px] font-medium text-primary hover:underline">
+                                      <ChevronDown className="h-3 w-3" /> Ver slides
+                                    </CollapsibleTrigger>
+                                    <CollapsibleContent>
+                                      <div className="mt-2 space-y-1.5 p-3 rounded-lg bg-muted/30 border">
+                                        {feed.card_copy.map((copy: string, idx: number) => (
+                                          <p key={idx} className="text-xs text-foreground/70 leading-relaxed">{cleanText(copy)}</p>
+                                        ))}
+                                      </div>
+                                    </CollapsibleContent>
+                                  </Collapsible>
+                                )}
+                                {feed.script && feed.format === "reels" && (
+                                  <Collapsible>
+                                    <CollapsibleTrigger className="flex items-center gap-1 text-[11px] font-medium text-primary hover:underline">
+                                      <ChevronDown className="h-3 w-3" /> Ver roteiro
+                                    </CollapsibleTrigger>
+                                    <CollapsibleContent>
+                                      <div className="mt-2 p-3 rounded-lg bg-muted/30 border text-xs leading-relaxed whitespace-pre-wrap">
+                                        {feed.script}
+                                      </div>
+                                    </CollapsibleContent>
+                                  </Collapsible>
+                                )}
+                                <div className="flex flex-wrap gap-1.5 pt-1" data-hide-pdf>
+                                  {feed.caption && (
+                                    <Button variant="ghost" size="sm" className="h-7 text-[11px] gap-1 px-2" onClick={() => copyCaption(feed.caption)}>
+                                      <Copy className="h-3 w-3" /> Copiar
+                                    </Button>
+                                  )}
+                                  {(feed.format === "carrossel" || feed.format === "post") && (
+                                    <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1 px-2" onClick={() => handleOpenEditor(wi, di, feed, false)}>
+                                      <PenTool className="h-3 w-3" /> Criar
+                                    </Button>
+                                  )}
+                                  {feed.format === "reels" && (
+                                    <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1 px-2" onClick={() => handleOpenEditor(wi, di, feed, true)}>
+                                      <Image className="h-3 w-3" /> Capa
+                                    </Button>
+                                  )}
+                                  <Button
+                                    variant="ghost" size="sm" className="h-7 text-[11px] gap-1 px-2"
+                                    onClick={() => handleRegeneratePost(wi, di)}
+                                    disabled={regeneratingPost === regenKey || regenerationCredits < 1}
+                                  >
+                                    {regeneratingPost === regenKey ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                                    Regenerar
+                                  </Button>
+                                </div>
+                              </>
+                            ) : (
+                              <p className="text-xs text-muted-foreground italic">Este dia não tem post no feed — só story.</p>
+                            )}
+                          </div>
+
+                          {/* ===== Coluna STORIES ===== */}
+                          <div className="rounded-md border border-l-[3px] border-l-amber-500 p-3 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Stories</span>
+                              <div className="flex items-center gap-1">
+                                {story.mirrors_feed && (
+                                  <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200">
+                                    Mesmo tema do feed
+                                  </Badge>
+                                )}
+                                {story.is_personal && !story.mirrors_feed && (
+                                  <Badge variant="outline" className="text-[10px] bg-pink-50 text-pink-700 border-pink-200">
+                                    Pessoal
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                            {story.theme || story.frames?.length ? (
+                              <>
+                                <h4 className="text-sm font-semibold leading-tight">{cleanText(story.theme || "")}</h4>
+                                {story.frames?.length > 0 && (
+                                  <div className="space-y-1.5">
+                                    {story.frames.map((f: string, idx: number) => (
+                                      <div key={idx} className="flex gap-2 items-start">
+                                        <span className="text-[10px] font-semibold text-amber-600 mt-0.5">{idx + 1}.</span>
+                                        <p className="text-xs text-foreground/70 leading-relaxed">{cleanText(f)}</p>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </>
+                            ) : (
+                              <p className="text-xs text-muted-foreground italic">Story ainda não gerado.</p>
+                            )}
+                          </div>
                         </div>
                       </CardContent>
                     </Card>

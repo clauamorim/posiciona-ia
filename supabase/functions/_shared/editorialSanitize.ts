@@ -105,11 +105,54 @@ export function sanitizePost<T extends Record<string, any>>(post: T): T {
   return cleaned as T;
 }
 
-/** Sanitiza um array de posts (semana inteira). */
+/**
+ * Sanitiza um story (theme + frames[]).
+ */
+export function sanitizeStory<T extends Record<string, any>>(story: T): T {
+  if (!story || typeof story !== "object") return story;
+  const cleaned: any = { ...story };
+  if (typeof cleaned.theme === "string") {
+    cleaned.theme = cleanEditorialText(cleaned.theme);
+  }
+  if (Array.isArray(cleaned.frames)) {
+    cleaned.frames = cleaned.frames
+      .map((item: unknown) => cleanEditorialText(item))
+      .filter((s: string) => s.length > 0);
+  }
+  return cleaned as T;
+}
+
+/**
+ * Sanitiza um dia v6 com `feed` (post|null) e `story`.
+ */
+export function sanitizeDay<T extends Record<string, any>>(day: T): T {
+  if (!day || typeof day !== "object") return day;
+  const cleaned: any = { ...day };
+  if (cleaned.feed && typeof cleaned.feed === "object") {
+    cleaned.feed = sanitizePost(cleaned.feed);
+  }
+  if (cleaned.story && typeof cleaned.story === "object") {
+    cleaned.story = sanitizeStory(cleaned.story);
+  }
+  return cleaned as T;
+}
+
+/** Sanitiza um array de posts (semana inteira no shape v5). */
 export function sanitizeWeek<T extends Record<string, any>>(week: T[]): T[] {
   if (!Array.isArray(week)) return week;
   return week.map((p) => sanitizePost(p));
 }
+
+/** Sanitiza uma semana v6 ({ days: Day[] }) recursivamente. */
+export function sanitizeWeekV6<T extends Record<string, any>>(week: T): T {
+  if (!week || typeof week !== "object") return week;
+  const cleaned: any = { ...week };
+  if (Array.isArray(cleaned.days)) {
+    cleaned.days = cleaned.days.map((d: any) => sanitizeDay(d));
+  }
+  return cleaned as T;
+}
+
 
 /**
  * Termos cuja presença como palavra isolada (após sanitização) indica
@@ -173,8 +216,33 @@ export function countFrameworkLeaks(post: Record<string, any>): number {
   return count;
 }
 
-/** Soma vazamentos em todos os posts da semana. */
+/** Soma vazamentos em todos os posts da semana (shape v5). */
 export function countWeekLeaks(week: Record<string, any>[]): number {
   if (!Array.isArray(week)) return 0;
   return week.reduce((sum, p) => sum + countFrameworkLeaks(p), 0);
 }
+
+/** Conta vazamentos no story (theme + frames[]). */
+export function countStoryLeaks(story: Record<string, any> | null | undefined): number {
+  if (!story || typeof story !== "object") return 0;
+  let count = 0;
+  if (looksLikeFramework(story.theme || "")) count++;
+  if (Array.isArray(story.frames)) {
+    for (const f of story.frames) if (looksLikeFramework(f || "")) count++;
+  }
+  return count;
+}
+
+/** Conta vazamentos em um dia v6 (feed + story). */
+export function countDayLeaks(day: Record<string, any> | null | undefined): number {
+  if (!day || typeof day !== "object") return 0;
+  const feedLeaks = day.feed && typeof day.feed === "object" ? countFrameworkLeaks(day.feed) : 0;
+  return feedLeaks + countStoryLeaks(day.story);
+}
+
+/** Soma vazamentos numa semana v6 ({ days: Day[] }). */
+export function countWeekV6Leaks(week: Record<string, any> | null | undefined): number {
+  if (!week || !Array.isArray((week as any).days)) return 0;
+  return (week as any).days.reduce((sum: number, d: any) => sum + countDayLeaks(d), 0);
+}
+

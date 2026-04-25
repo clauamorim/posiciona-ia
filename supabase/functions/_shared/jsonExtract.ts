@@ -104,3 +104,30 @@ export function isValidReport(value: unknown): value is Record<string, unknown> 
   const keys = ["archetypes", "storybrand", "visual_identity", "tone_of_voice", "editorial"];
   return keys.some((k) => value[k] !== undefined && value[k] !== null);
 }
+
+/**
+ * Extract a JSON array specifically. Useful when the LLM is asked to return
+ * a top-level [ {...}, {...} ] structure but may have wrapped it in prose.
+ */
+export function extractJsonArray(rawContent: string): unknown[] | null {
+  const value = extractJsonFromLLM(rawContent);
+  return Array.isArray(value) ? value : null;
+}
+
+/**
+ * Validate a v6 editorial week shape: { week_index?, days: Day[7] }
+ * where each day has `day:number`, `feed: object|null`, `story: object`.
+ */
+export function isValidWeekV6(value: unknown): value is { days: any[] } {
+  if (!isRecord(value)) return false;
+  const days = value.days;
+  if (!Array.isArray(days) || days.length !== 7) return false;
+  return days.every((d) => {
+    if (!isRecord(d)) return false;
+    if (typeof d.day !== "number") return false;
+    const feedOk = d.feed === null || isRecord(d.feed);
+    const storyOk = isRecord(d.story);
+    return feedOk && storyOk;
+  });
+}
+
