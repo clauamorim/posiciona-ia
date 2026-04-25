@@ -458,68 +458,61 @@ serve(async (req) => {
       );
     }
 
-    // ===== UPSCALE 2x SEQUENCIAL + UPLOAD AO STORAGE =====
-    // Sequencial (não paralelo) para evitar 429 do Replicate em contas low-credit.
-    // Delay de 11s entre upscales + retry com 30s em caso de 429.
+    // ===== UPSCALE + UPLOAD PARALELO =====
+    // Os 3 upscales rodam em paralelo (3 req simultâneas, bem abaixo do limite de 10/min do Replicate).
+    // Cada pipeline: upscale → download → upload ao Storage.
+    // Em caso de 429, espera 30s e tenta de novo (1 retry).
     const generationId = crypto.randomUUID();
-    const UPSCALE_INTER_DELAY_MS = 6000;
     const UPSCALE_RETRY_DELAY_MS = 30000;
 
-    const finalPortraits: Array<{
-      background: string;
-      portraitUrl: string | null;
-      error?: string;
-      pose?: string;
-      outfit?: string;
-      path: string;
-      upscaled: boolean;
-    }> = [];
+    const pipelineResults = await Promise.all(
+      successful.map(async (r, i) => {
+        try {
+          // 1. Upscale (com 1 retry em caso de 429)
+          let up = await upscaleImage({ token: REPLICATE_API_TOKEN, imageUrl: r.portraitUrl! });
+          if (!up.ok && up.reason.includes("429")) {
+            console.warn(`[upscale] background=${r.background} got 429, waiting ${UPSCALE_RETRY_DELAY_MS}ms`);
+            await new Promise((res) => setTimeout(res, UPSCALE_RETRY_DELAY_MS));
+            up = await upscaleImage({ token: REPLICATE_API_TOKEN, imageUrl: r.portraitUrl! });
+          }
+          const finalUrl = up.ok ? up.imageUrl : r.portraitUrl!;
+          if (!up.ok) {
+            console.warn(`[upscale] fallback (original 1MP) for background=${r.background}: ${up.reason}`);
+          }
 
-    for (let i = 0; i < successful.length; i++) {
-      if (i > 0) await new Promise((res) => setTimeout(res, UPSCALE_INTER_DELAY_MS));
-      const r = successful[i];
+          // 2. Download bytes (fallback para original se o upscale baixou mal)
+          let dl = await downloadImageBytes(finalUrl);
+          if (!dl.ok) {
+            const orig = await downloadImageBytes(r.portraitUrl!);
+            if (!orig.ok) {
+              console.error(`[generate-portrait] failed to download for background=${r.background}`);
+              return null;
+            }
+            dl = orig;
+          }
+          const bytes = (dl as { ok: true; bytes: Uint8Array }).bytes;
 
-      // 1. Upscale (com 1 retry em caso de 429)
-      let up = await upscaleImage({ token: REPLICATE_API_TOKEN, imageUrl: r.portraitUrl! });
-      if (!up.ok && up.reason.includes("429")) {
-        console.warn(`[upscale] background=${r.background} got 429, waiting ${UPSCALE_RETRY_DELAY_MS}ms`);
-        await new Promise((res) => setTimeout(res, UPSCALE_RETRY_DELAY_MS));
-        up = await upscaleImage({ token: REPLICATE_API_TOKEN, imageUrl: r.portraitUrl! });
-      }
-      const finalUrl = up.ok ? up.imageUrl : r.portraitUrl!;
-      if (!up.ok) {
-        console.warn(`[upscale] fallback (original 1MP) for background=${r.background}: ${up.reason}`);
-      }
-
-      // 2. Download dos bytes finais (com fallback para original)
-      let dl = await downloadImageBytes(finalUrl);
-      if (!dl.ok) {
-        const orig = await downloadImageBytes(r.portraitUrl!);
-        if (!orig.ok) {
-          console.error(`[generate-portrait] failed to download both upscaled and original for background=${r.background}`);
-          continue;
+          // 3. Upload ao Storage privado
+          const path = `${user.id}/${generationId}/${i}.png`;
+          const upRes = await supabaseAdmin.storage
+            .from(PORTRAIT_BUCKET)
+            .upload(path, bytes, { contentType: "image/png", upsert: true });
+          if (upRes.error) {
+            console.error(`[generate-portrait] storage upload failed background=${r.background}: ${upRes.error.message}`);
+            return null;
+          }
+          console.log(`[generate-portrait] uploaded background=${r.background} path=${path} bytes=${bytes.length} upscaled=${up.ok}`);
+          return { ...r, path, upscaled: up.ok };
+        } catch (e) {
+          console.error(`[generate-portrait] pipeline exception background=${r.background}:`, e);
+          return null;
         }
-        dl = orig;
-      }
-      const bytes = (dl as { ok: true; bytes: Uint8Array }).bytes;
+      }),
+    );
 
-      // 3. Upload ao Storage privado
-      const path = `${user.id}/${generationId}/${i}.png`;
-      const upRes = await supabaseAdmin.storage
-        .from(PORTRAIT_BUCKET)
-        .upload(path, bytes, { contentType: "image/png", upsert: true });
-      if (upRes.error) {
-        console.error(`[generate-portrait] storage upload failed background=${r.background}: ${upRes.error.message}`);
-        continue;
-      }
-      console.log(`[generate-portrait] uploaded background=${r.background} path=${path} bytes=${bytes.length} upscaled=${up.ok}`);
-
-      finalPortraits.push({
-        ...r,
-        path,
-        upscaled: up.ok,
-      });
-    }
+    const finalPortraits = pipelineResults.filter(
+      (p): p is NonNullable<typeof p> & { path: string; upscaled: boolean } => p !== null,
+    );
 
     if (finalPortraits.length === 0) {
       return new Response(
