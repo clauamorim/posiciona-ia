@@ -16,10 +16,9 @@ import { mapProfessionToCategory, pickOutfits } from "../_shared/outfitPool.ts";
 
 const FLUX_LORA_MODEL = "black-forest-labs/flux-dev-lora";
 const GENERATE_COST_CREDITS = 3;
-// Guidance baixo = mais peso no LoRA (rosto fiel). Quando há override de figurino,
-// subimos um pouco para o Flux respeitar a peça pedida — mas sem sufocar o LoRA.
-const GUIDANCE_VARIATIONS = [2.8, 3.0, 3.2];
-const GUIDANCE_VARIATIONS_OVERRIDE = [3.2, 3.5, 3.5];
+// Guidance baixo = mais peso no LoRA (rosto fiel). Sem override de figurino,
+// usamos valores ainda mais baixos para máxima fidelidade facial.
+const GUIDANCE_VARIATIONS = [2.6, 2.8, 3.0];
 const PORTRAIT_BUCKET = "portrait-outputs";
 // Resolução vertical premium (mantida do fluxo anterior, sem upscaler).
 const PORTRAIT_WIDTH = 896;
@@ -165,19 +164,7 @@ serve(async (req) => {
       });
     }
 
-    // Lê overrides opcionais do body — ignora qualquer outro campo.
-    let outfitOverrides: string[] = [];
-    try {
-      const body = await req.json().catch(() => ({}));
-      if (Array.isArray(body?.outfit_overrides)) {
-        outfitOverrides = body.outfit_overrides
-          .filter((s: unknown) => typeof s === "string")
-          .map((s: string) => s.trim())
-          .slice(0, 3);
-      }
-    } catch {
-      // body opcional
-    }
+
 
     const REPLICATE_API_TOKEN = Deno.env.get("REPLICATE_API_TOKEN");
     if (!REPLICATE_API_TOKEN) {
@@ -282,17 +269,13 @@ serve(async (req) => {
     const selectedPoses: (string | null)[] = [null, posesForLooks12[0]?.pose ?? null, posesForLooks12[1]?.pose ?? null];
     const selectedPoseCategories = ["headshot", posesForLooks12[0]?.category ?? "—", posesForLooks12[1]?.category ?? "—"];
 
-    // ===== FIGURINOS — prioridade: overrides > pool curado por profissão > buildOutfitTextForLook(figurino) =====
+    // ===== FIGURINOS — pool curado por profissão > buildOutfitTextForLook(figurino) =====
     const profCategory = mapProfessionToCategory(profession);
     let outfitsForLooks: string[] = [];
     let outfitSource = "report-figurino";
 
-    if (outfitOverrides.length === 3) {
-      // Usuário descreveu os 3 looks — traduz PT→EN e usa como está.
-      outfitsForLooks = outfitOverrides.map((s) => translateFashion(s));
-      outfitSource = "user-override";
-    } else {
-      // Tenta o pool curado da profissão. Se vazio (ex: family sem matriz), volta ao figurino do relatório.
+    {
+      // Pool curado da profissão. Se vazio (ex: family sem matriz), volta ao figurino do relatório.
       const fromPool = pickOutfits(family, profCategory, recentlyUsedOutfits, 3);
       if (fromPool.length === 3) {
         outfitsForLooks = fromPool;
@@ -310,8 +293,6 @@ serve(async (req) => {
       `poses=${JSON.stringify(selectedPoses)} poseCats=${JSON.stringify(selectedPoseCategories)}`,
     );
 
-    const isUserOverride = outfitSource === "user-override";
-
     // 3 sequential calls — Replicate low-credit accounts (<$5) tem rate limit 6/min.
     const INTER_CALL_DELAY_MS = 11000;
     const RETRY_DELAY_MS = 30000;
@@ -320,9 +301,7 @@ serve(async (req) => {
       if (i > 0) await new Promise((r) => setTimeout(r, INTER_CALL_DELAY_MS));
       const outfit = outfitsForLooks[i] ?? "";
       const handPose = selectedPoses[i] ?? null;
-      const guidanceScale = isUserOverride
-        ? (GUIDANCE_VARIATIONS_OVERRIDE[i] ?? 4.5)
-        : (GUIDANCE_VARIATIONS[i] ?? 3.5);
+      const guidanceScale = GUIDANCE_VARIATIONS[i] ?? 3.0;
       const built = buildPortraitPrompt({
         archetype: archetypeName,
         userId: user.id,
@@ -334,13 +313,10 @@ serve(async (req) => {
         backgroundIndex: i as 0 | 1 | 2,
         physicalTraits: (training as any).physical_traits ?? null,
         handPose,
-        isUserOverride,
       });
 
-      // Mantém lora_scale: 0.95 SEMPRE — reduzir esse valor degrada drasticamente
-      // a fidelidade facial. A pressão por respeitar o override de figurino vem
-      // do guidance_scale maior + outfit duplicado no prompt + negatives semânticos.
-      const loraScale = 0.95;
+      // lora_scale: 1.0 — peso máximo do LoRA para fidelidade facial.
+      const loraScale = 1.0;
 
       console.log(
         `[generate-portrait] call ${i + 1}/3 background=${built.backgroundKey} archetype=${archetypeName} ` +
@@ -348,7 +324,7 @@ serve(async (req) => {
         `dims=${PORTRAIT_WIDTH}x${PORTRAIT_HEIGHT} outfit="${outfit}" ` +
         `pose="${i === 0 ? "(headshot, no hands)" : handPose}" poseCat=${selectedPoseCategories[i]} ` +
         `guidance=${guidanceScale} loraScale=${loraScale} ` +
-        `override=${isUserOverride} hasTraits=${!!(training as any).physical_traits}`,
+        `hasTraits=${!!(training as any).physical_traits}`,
       );
       let r = await callFluxLora({
         token: REPLICATE_API_TOKEN,

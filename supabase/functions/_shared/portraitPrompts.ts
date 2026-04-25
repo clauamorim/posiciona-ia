@@ -18,7 +18,8 @@ export type ArchetypeName =
 // Reforço aplicado a todos os prompts: garante cenário de estúdio.
 const STUDIO_PREFIX = "professional photography studio, controlled studio lighting, ";
 // Negative base — aplicado a TODOS os looks (sem termos específicos de mãos).
-const STUDIO_NEGATIVE_BASE = ", outdoor, street, natural daylight, trees, buildings, sky, park, beach, low quality, blurry, deformed face, asymmetric eyes, extra arms, three hands, four hands, mutated hands, extra limbs, missing limbs, disfigured, malformed, duplicate, two heads, cloned face, bad anatomy, multiple people";
+// Reforçado contra rostos genéricos / "ai-look" que apagam a identidade do LoRA.
+const STUDIO_NEGATIVE_BASE = ", outdoor, street, natural daylight, trees, buildings, sky, park, beach, low quality, blurry, deformed face, asymmetric eyes, extra arms, three hands, four hands, mutated hands, extra limbs, missing limbs, disfigured, malformed, duplicate, two heads, cloned face, bad anatomy, multiple people, generic face, idealized face, ai-generated face, plastic skin, airbrushed skin, beauty filter, smoothed skin, different person, face swap, average face, model face, stock photo face";
 // Reforço de anatomia de mãos — aplicado APENAS aos looks que mostram mãos (claro/escuro).
 const HANDS_NEGATIVE_REINFORCE = ", extra fingers, six fingers, seven fingers, four fingers, fused fingers, deformed fingers, disfigured fingers, misshapen hands, bent broken fingers, twisted fingers, clenched fists, stiff claw hands, symmetrical fist pose, hands floating awkwardly, tense rigid fingers";
 
@@ -287,8 +288,6 @@ export interface BuildPromptParams {
   physicalTraits?: PhysicalTraits | null;
   /** Pose de mãos sorteada do pool da família do arquétipo (em inglês). */
   handPose?: string | null;
-  /** Se true, o outfit veio de personalização do usuário — peso aumentado para fidelidade. */
-  isUserOverride?: boolean;
 }
 
 export function buildPortraitPrompt(params: BuildPromptParams): {
@@ -314,9 +313,10 @@ export function buildPortraitPrompt(params: BuildPromptParams): {
   const triggerWord = params.triggerWord
     || `USR${params.userId.replace(/-/g, "").slice(0, 12)}`;
 
-  // Trigger word como PRIMEIRO TOKEN ABSOLUTO do prompt — Flux dá mais peso
-  // aos primeiros tokens, e isso é crítico para o LoRA reconhecer a identidade.
-  let prompt = `${triggerWord}, ` + STUDIO_PREFIX + tpl.prompt;
+  // Trigger word DUPLICADO no início absoluto — Flux dá mais peso aos primeiros
+  // tokens. Duas menções logo de cara forçam atenção máxima ao LoRA, garantindo
+  // que o rosto gerado seja reconhecível como o da pessoa treinada.
+  let prompt = `${triggerWord}, portrait of ${triggerWord}, ` + STUDIO_PREFIX + tpl.prompt;
   // Negative base + reforço de mãos APENAS se este look mostra mãos.
   let negative = tpl.negative + STUDIO_NEGATIVE_BASE + (framing.showsHands ? HANDS_NEGATIVE_REINFORCE : "");
 
@@ -358,11 +358,11 @@ export function buildPortraitPrompt(params: BuildPromptParams): {
     traitPhrase = `, with ${t.hair_length} ${t.hair_style} ${t.hair_color} hair, ${t.skin_tone} skin, ${t.eye_color} eyes`;
   }
 
-  // 3b. Injeção do OUTFIT logo após USR<id> + traços, com peso moderado.
-  // Pesos altos (>1.6) competem com o LoRA pelo orçamento de atenção e
-  // degradam a fidelidade facial. Mantemos peso conservador.
+  // 3b. Injeção do OUTFIT logo após USR<id> + traços, com peso BAIXO.
+  // Pesos altos (>1.4) competem com o LoRA pelo orçamento de atenção e
+  // degradam a fidelidade facial. Mantemos peso enxuto.
   const outfitText = (params.outfit || "").trim();
-  const outfitWeight = params.isUserOverride ? 1.5 : 1.3;
+  const outfitWeight = 1.2;
   const outfitPhrase = outfitText ? `, (wearing ${outfitText}:${outfitWeight})` : "";
 
   // 3b-bis. Injeção da POSE DE MÃOS — APENAS se este look mostra mãos.
@@ -370,9 +370,8 @@ export function buildPortraitPrompt(params: BuildPromptParams): {
   const handPosePhrase = handPoseText ? `, (hands: ${handPoseText}:1.2)` : "";
 
   // 3b-ter. Reforço explícito de identidade — ancora o Flux ao LoRA e
-  // preserva texturas naturais de pele e cabelo (que tendem a ser perdidas
-  // quando o guidance sobe ou o outfit ganha peso demais).
-  const identityPhrase = ", preserve exact facial features, same person, identical face, recognizable individual, natural skin texture, authentic skin pores, fine hair strands";
+  // preserva texturas naturais de pele e cabelo. Crítico contra "rosto genérico".
+  const identityPhrase = ", preserve exact facial features, same person, identical face to reference, recognizable individual, distinctive facial structure, real person photograph, authentic skin pores, natural skin texture, unretouched skin, fine hair strands, individual hair fibers";
 
   prompt = prompt.replace(/(USR\S+)/, `$1${identityPhrase}${traitPhrase}${outfitPhrase}${handPosePhrase}`);
 
@@ -415,13 +414,6 @@ export function buildPortraitPrompt(params: BuildPromptParams): {
     prompt = prompt.replace(/\[makeup\]/g, params.makeup);
   } else {
     prompt = prompt.replace(/\[makeup\]/g, "");
-  }
-
-  // 3d. Quando vem de override do usuário, REPETE o outfit no final do prompt
-  // com peso leve — duas menções (início + fim) ancoram a peça sem sufocar
-  // o LoRA de rosto. Peso final reduzido de 2.2 → 1.4 para preservar fidelidade.
-  if (params.isUserOverride && outfitText) {
-    prompt = `${prompt}, (clearly wearing ${outfitText}:1.4)`;
   }
 
   // 4. Limpeza
