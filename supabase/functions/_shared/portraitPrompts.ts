@@ -143,6 +143,19 @@ export const BACKGROUND_VARIATIONS = [
   { key: "escuro", label: "Escuro", replacement: "dark moody textured studio background, deep shadow tones" },
 ] as const;
 
+/**
+ * Framing por look. Estratégia mista para minimizar dedos deformados:
+ *   - Look 0 (Neutro): close-up enquadrando peito/ombros — mãos FORA do frame.
+ *     100% à prova de erro de mãos. Sempre teremos pelo menos 1 retrato perfeito.
+ *   - Look 1 (Claro): waist-up com pose de mãos sorteada (mãos visíveis).
+ *   - Look 2 (Escuro): waist-up com pose de mãos sorteada (mãos visíveis).
+ */
+export const FRAMING_VARIATIONS = [
+  { key: "headshot", showsHands: false, instruction: "head and shoulders portrait, framed at chest level, hands not visible in frame" },
+  { key: "waist-up", showsHands: true, instruction: "waist-up portrait, hands visible naturally in frame" },
+  { key: "waist-up", showsHands: true, instruction: "waist-up portrait, hands visible naturally in frame" },
+] as const;
+
 // Regex para localizar a "frase de fundo" no prompt do arquétipo.
 // Captura desde uma palavra-chave de iluminação/fundo até a vírgula imediatamente antes de "[outfit]".
 // Exemplos cobertos:
