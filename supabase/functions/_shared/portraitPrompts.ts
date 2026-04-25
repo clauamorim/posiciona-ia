@@ -418,13 +418,6 @@ export function buildPortraitPrompt(params: BuildPromptParams): {
     prompt = prompt.replace(/\[makeup\]/g, "");
   }
 
-  // 3d. Quando vem de override do usuário, REPETE o outfit no final do prompt
-  // com peso leve — duas menções (início + fim) ancoram a peça sem sufocar
-  // o LoRA de rosto. Peso final reduzido de 2.2 → 1.4 para preservar fidelidade.
-  if (params.isUserOverride && outfitText) {
-    prompt = `${prompt}, (clearly wearing ${outfitText}:1.4)`;
-  }
-
   // 4. Limpeza
   prompt = cleanupPrompt(prompt);
 
