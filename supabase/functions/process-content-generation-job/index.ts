@@ -13,11 +13,11 @@ import { EDITORIAL_GENERATOR_VERSION } from "../_shared/generatorVersion.ts";
 import { sanitizeWeek, sanitizePost, countWeekLeaks, countFrameworkLeaks } from "../_shared/editorialSanitize.ts";
 import { callClaude, ClaudeError } from "../_shared/claudeClient.ts";
 import {
-  fetchEditorialReferencePdfs,
   fetchPersonalQuestionnaire,
   renderPersonalContext,
   renderStorybrandBlock,
   renderToneBlock,
+  renderEditorialFrameworks,
 } from "../_shared/buildClaudeContext.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -106,10 +106,10 @@ async function processJob(jobId: string) {
       const personal = await fetchPersonalQuestionnaire(userId);
       const personalContext = renderPersonalContext(personal);
 
-      const systemPrompt = `Você é um especialista em branding e copy para Instagram. Você domina e aplica de forma OBRIGATÓRIA três referências (anexadas em PDF como contexto):
+      const systemPrompt = `Você é um especialista em branding e copy para Instagram. Você domina e aplica de forma OBRIGATÓRIA três frameworks (descritos em detalhe ao final deste prompt):
 1) StoryBrand (Donald Miller) — clareza narrativa.
-2) Obviously Awesome (April Dunford) — posicionamento específico (categoria, alternativas rejeitadas, atributos únicos, valor diferenciado para um público específico).
-3) Made to Stick (irmãos Heath) — princípios SUCCES (Simples, Inesperado, Concreto, Crível, Emocional, Histórias) para ganchos memoráveis.
+2) Obviously Awesome (April Dunford) — posicionamento específico.
+3) Made to Stick (irmãos Heath) — princípios SUCCESs (Simples, Inesperado, Concreto, Crível, Emocional, Histórias).
 
 Gere EXATAMENTE 7 novos dias de conteúdo editorial, SEM REPETIR temas, abordagens ou formatos dos conteúdos anteriores.
 
@@ -195,15 +195,17 @@ ${previousSummary || "Nenhum conteúdo anterior."}
 
 Gere 7 novos dias de conteúdo em JSON.`;
 
-      const pdfs = await fetchEditorialReferencePdfs();
+      // Frameworks injetados como texto denso (substitui PDFs para respeitar
+      // o limite de 30k tokens/min da org Anthropic).
+      const enrichedSystemPrompt = systemPrompt + renderEditorialFrameworks();
 
       // Chamar Claude com 1 retry
       let rawContent: string;
       try {
-        rawContent = await callClaude({ systemPrompt, userText: userPrompt, pdfs, max_tokens: 8000, timeoutMs: 120000 });
+        rawContent = await callClaude({ systemPrompt: enrichedSystemPrompt, userText: userPrompt, max_tokens: 8000, timeoutMs: 120000 });
       } catch (firstError) {
         console.warn("Primeira tentativa do Claude falhou, tentando novamente:", firstError);
-        rawContent = await callClaude({ systemPrompt, userText: userPrompt, pdfs, max_tokens: 8000, timeoutMs: 120000 });
+        rawContent = await callClaude({ systemPrompt: enrichedSystemPrompt, userText: userPrompt, max_tokens: 8000, timeoutMs: 120000 });
       }
 
       let editorial = extractJsonFromLLM(rawContent);
