@@ -58,6 +58,9 @@ export class ClaudeError extends Error {
  * Faz tratamento de erros amigável (timeout, 429, 402, JSON inválido).
  */
 export async function callClaude(opts: CallClaudeOptions): Promise<string> {
+  if (opts.disableRetries) {
+    return await callClaudeOnce(opts);
+  }
   const RETRY_DELAYS_MS = [2000, 5000, 10000];
   let lastError: any;
   for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
