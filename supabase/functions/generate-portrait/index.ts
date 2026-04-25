@@ -344,8 +344,10 @@ serve(async (req) => {
 
       console.log(
         `[generate-portrait] call ${i + 1}/3 background=${built.backgroundKey} archetype=${archetypeName} ` +
-        `outfit="${outfit}" pose="${i === 0 ? "(headshot, no hands)" : handPose}" ` +
-        `poseCat=${selectedPoseCategories[i]} guidance=${guidanceScale} loraScale=${loraScale} ` +
+        `trigger="${training.trigger_word}" trainingId=${training.id} ` +
+        `dims=${PORTRAIT_WIDTH}x${PORTRAIT_HEIGHT} outfit="${outfit}" ` +
+        `pose="${i === 0 ? "(headshot, no hands)" : handPose}" poseCat=${selectedPoseCategories[i]} ` +
+        `guidance=${guidanceScale} loraScale=${loraScale} ` +
         `override=${isUserOverride} hasTraits=${!!(training as any).physical_traits}`,
       );
       let r = await callFluxLora({
