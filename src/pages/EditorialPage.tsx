@@ -17,6 +17,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { parseReportContent, normalizeReportContent } from "@/lib/reportParser";
 import { cleanText } from "@/lib/textCleanup";
 import { isOutdated, isWeekOutdated, EDITORIAL_GENERATOR_VERSION } from "@/lib/generatorVersion";
+import { normalizeWeekToV6, type WeekV6, type DayV6, type FeedPostV6 } from "@/lib/editorialShape";
 import StyleSelectionModal from "@/components/post-editor/StyleSelectionModal";
 import type { PostStyle } from "@/lib/postAutoLayout";
 
