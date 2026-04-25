@@ -218,17 +218,37 @@ export function buildOutfitText(figurino: any): string {
 export function buildOutfitTextForLook(figurino: any, lookIndex: number): string {
   if (!figurino || typeof figurino !== "object") return "";
   const looks = Array.isArray(figurino.looks_completos) ? figurino.looks_completos : [];
-  if (looks.length === 0) return buildOutfitText(figurino);
+
+  // Modificadores sintéticos para forçar variação quando o relatório tem < 3 looks distintos.
+  // Aplicados como sufixo para variar tom/formalidade entre as 3 imagens geradas.
+  const SYNTHETIC_MODIFIERS = [
+    "smart casual styling, neutral palette",
+    "elegant refined styling, lighter palette",
+    "structured tailored styling, darker palette",
+  ];
+
+  if (looks.length === 0) {
+    const base = buildOutfitText(figurino);
+    return base ? `${base}, ${SYNTHETIC_MODIFIERS[lookIndex % 3]}` : SYNTHETIC_MODIFIERS[lookIndex % 3];
+  }
 
   // Round-robin para o caso de relatórios com menos de 3 looks
   const look = looks[lookIndex % looks.length];
   if (!look || !Array.isArray(look.pecas) || look.pecas.length === 0) {
-    return buildOutfitText(figurino);
+    const base = buildOutfitText(figurino);
+    return base ? `${base}, ${SYNTHETIC_MODIFIERS[lookIndex % 3]}` : SYNTHETIC_MODIFIERS[lookIndex % 3];
   }
+
   // Junta as peças (3-5) em uma única descrição. Mantém o português do relatório —
   // o restante do prompt em inglês ainda direciona estilo/iluminação corretamente,
   // e modelos Flux lidam bem com peças de roupa em PT.
-  return look.pecas.slice(0, 5).join(", ");
+  let outfit = look.pecas.slice(0, 5).join(", ");
+
+  // Se o relatório tem < 3 looks distintos, adiciona modificador sintético para garantir variação visível
+  if (looks.length < 3) {
+    outfit += `, ${SYNTHETIC_MODIFIERS[lookIndex % 3]}`;
+  }
+  return outfit;
 }
 
 export function buildHairText(figurino: any): string {
