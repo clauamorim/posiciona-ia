@@ -349,8 +349,11 @@ export function buildPortraitPrompt(params: BuildPromptParams): {
   }
 
   // 3b. Injeção do OUTFIT logo após USR<id> + traços, com peso 1.4 (sintaxe Flux).
+  // Quando vem de override do usuário, peso aumenta para 1.8 para forçar fidelidade
+  // contra o viés de business attire das selfies de treino.
   const outfitText = (params.outfit || "").trim();
-  const outfitPhrase = outfitText ? `, (wearing ${outfitText}:1.4)` : "";
+  const outfitWeight = params.isUserOverride ? 1.8 : 1.4;
+  const outfitPhrase = outfitText ? `, (wearing ${outfitText}:${outfitWeight})` : "";
 
   // 3b-bis. Injeção da POSE DE MÃOS — APENAS se este look mostra mãos.
   // Para o look 0 (headshot), não injetamos pose porque mãos não estão no frame.
@@ -365,19 +368,28 @@ export function buildPortraitPrompt(params: BuildPromptParams): {
   prompt = prompt.replace(/\[outfit\]/g, "");
 
   // 3c. Negative específico do look — impede o Flux de "voltar" ao blazer padrão
-  // das selfies de treino quando o look pede vestido/cardigan/coat.
+  // das selfies de treino quando o look pede vestido/cardigan/coat etc.
   const outfitLower = outfitText.toLowerCase();
-  if (/\bdress\b/.test(outfitLower)) {
-    negative += ", blazer, suit jacket, trousers, pants, formal suit";
+  if (/\bdress\b|\bgown\b|\bslip dress\b/.test(outfitLower)) {
+    negative += ", blazer, suit jacket, business suit, trousers, pants, formal suit, turtleneck, long sleeves, formal shirt, tie";
   }
-  if (/\bcardigan\b|\bknit\b|\bknitwear\b/.test(outfitLower)) {
-    negative += ", blazer, suit jacket, formal suit";
+  if (/\bcardigan\b|\bknit\b|\bknitwear\b|\bsweater\b/.test(outfitLower)) {
+    negative += ", blazer, suit jacket, formal suit, tie";
   }
   if (/\bcoat\b|\btrench\b|\bovercoat\b/.test(outfitLower)) {
     negative += ", blazer underneath, formal suit";
   }
-  if (/\bblazer\b/.test(outfitLower)) {
-    negative += ", dress, casual t-shirt, hoodie";
+  if (/\bblazer\b|\bpantsuit\b|\bsuit\b/.test(outfitLower)) {
+    negative += ", dress, casual t-shirt, hoodie, sportswear";
+  }
+  if (/\bathletic\b|\bsportswear\b|\blegging\b|\bgym\b|\bworkout\b|\bsports?\s*top\b|academia/.test(outfitLower)) {
+    negative += ", formal wear, blazer, suit, dress shirt, tie, business attire";
+  }
+  if (/\bjumpsuit\b|macac/.test(outfitLower)) {
+    negative += ", separate top and trousers, blazer";
+  }
+  if (/\bjeans\b|\bdenim\b/.test(outfitLower)) {
+    negative += ", formal trousers, suit pants";
   }
 
   // Cabelo do figurino só é usado quando NÃO temos traços extraídos
