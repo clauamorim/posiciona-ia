@@ -378,8 +378,10 @@ serve(async (req) => {
     console.log(
       `[generate-portrait] archetype=${archetypeName} family=${family} profession="${profession}" ` +
       `category=${profCategory} outfitSource=${outfitSource} outfits=${JSON.stringify(outfitsForLooks)} ` +
-      `poses=${JSON.stringify(selectedPoses)}`,
+      `poses=${JSON.stringify(selectedPoses)} poseCats=${JSON.stringify(selectedPoseCategories)}`,
     );
+
+    const isUserOverride = outfitSource === "user-override";
 
     // 3 sequential calls — Replicate low-credit accounts (<$5) tem rate limit 6/min.
     const INTER_CALL_DELAY_MS = 11000;
