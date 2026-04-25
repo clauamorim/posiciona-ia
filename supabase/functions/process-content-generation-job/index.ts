@@ -200,22 +200,47 @@ Gere 7 novos dias de conteúdo em JSON.`;
       const enrichedSystemPrompt = systemPrompt + renderEditorialFrameworks();
 
       // Uma única chamada paga, sem retry automático (evita cobrança duplicada).
-      // max_tokens reduzido para 3500: 7 posts curtos cabem confortavelmente
-      // e a geração fica ~40% mais rápida, evitando timeouts.
-      // timeoutMs aumentado para 170s — margem segura dentro do limite do worker.
+      // max_tokens=6000: 7 posts com caption + carrossel completo + script
+      // não cabem em 3500 (causa truncamento). 6000 é o teto seguro dentro
+      // dos 170s de timeout do worker.
       const rawContent = await callClaude({
         systemPrompt: enrichedSystemPrompt,
         userText: userPrompt,
-        max_tokens: 3500,
+        max_tokens: 6000,
         timeoutMs: 170000,
         disableRetries: true,
       });
 
       let editorial = extractJsonFromLLM(rawContent);
+
+      // Se o parse falhou, salva amostra do raw para diagnóstico antes de abortar.
+      // Tentamos ainda uma recuperação manual: buscar até onde der dias completos.
       if (!Array.isArray(editorial) || editorial.length === 0) {
-        throw Object.assign(new Error("Resposta inválida da IA"), {
-          userMessage: "Não foi possível gerar a semana agora. Tente novamente em alguns segundos.",
-        });
+        console.error(
+          `[job ${jobId}] Parse falhou. raw length=${rawContent?.length || 0}. ` +
+          `Início: ${(rawContent || "").substring(0, 300)} | ` +
+          `Fim: ${(rawContent || "").substring(Math.max(0, (rawContent || "").length - 300))}`
+        );
+
+        // Tentativa de salvar dias parciais: extrai cada `{ "day": N, ... }` fechado.
+        const partial: any[] = [];
+        const objRegex = /\{\s*"day"\s*:\s*\d+[\s\S]*?\n\s*\}/g;
+        const matches = (rawContent || "").match(objRegex) || [];
+        for (const m of matches) {
+          try {
+            const obj = JSON.parse(m);
+            if (obj && typeof obj.day === "number") partial.push(obj);
+          } catch { /* ignora item quebrado */ }
+        }
+        if (partial.length >= 3) {
+          console.warn(`[job ${jobId}] Recuperados ${partial.length} dias parciais.`);
+          editorial = partial;
+        } else {
+          throw Object.assign(new Error("Resposta inválida da IA"), {
+            userMessage:
+              "A IA respondeu de forma incompleta. Tente novamente — seu crédito de ciclo já foi devolvido.",
+          });
+        }
       }
 
       // Sanitização local (regex) — sem chamadas extras à IA.
