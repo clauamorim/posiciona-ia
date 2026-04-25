@@ -250,6 +250,19 @@ const Report = () => {
           </div>
         </div>
 
+        {/* Fallback (modelo simplificado) */}
+        {report?.content?.is_fallback && (
+          <div data-hide-pdf>
+            <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-950/20">
+              <AlertTriangle className="h-4 w-4 text-amber-600" />
+              <AlertTitle className="text-amber-800 dark:text-amber-400">Versão simplificada</AlertTitle>
+              <AlertDescription className="text-amber-700 dark:text-amber-300">
+                Esta estratégia foi gerada em modo simplificado porque a IA não respondeu a tempo. Você pode regenerar para tentar a versão completa.
+              </AlertDescription>
+            </Alert>
+          </div>
+        )}
+
         {/* Missing sections warning */}
         {hasMissingSections && (
           <div data-hide-pdf>

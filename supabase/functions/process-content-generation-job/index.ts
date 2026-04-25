@@ -10,8 +10,8 @@ import { corsHeaders } from "../_shared/cors.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { extractJsonFromLLM } from "../_shared/jsonExtract.ts";
 import { EDITORIAL_GENERATOR_VERSION } from "../_shared/generatorVersion.ts";
-import { sanitizeWeek, sanitizePost, countWeekLeaks, countFrameworkLeaks } from "../_shared/editorialSanitize.ts";
-import { callClaude, ClaudeError } from "../_shared/claudeClient.ts";
+import { sanitizeWeek } from "../_shared/editorialSanitize.ts";
+import { callClaude } from "../_shared/claudeClient.ts";
 import {
   fetchPersonalQuestionnaire,
   renderPersonalContext,
@@ -199,14 +199,14 @@ Gere 7 novos dias de conteúdo em JSON.`;
       // o limite de 30k tokens/min da org Anthropic).
       const enrichedSystemPrompt = systemPrompt + renderEditorialFrameworks();
 
-      // Chamar Claude com 1 retry
-      let rawContent: string;
-      try {
-        rawContent = await callClaude({ systemPrompt: enrichedSystemPrompt, userText: userPrompt, max_tokens: 8000, timeoutMs: 120000 });
-      } catch (firstError) {
-        console.warn("Primeira tentativa do Claude falhou, tentando novamente:", firstError);
-        rawContent = await callClaude({ systemPrompt: enrichedSystemPrompt, userText: userPrompt, max_tokens: 8000, timeoutMs: 120000 });
-      }
+      // Uma única chamada paga, sem retry automático (evita cobrança duplicada).
+      const rawContent = await callClaude({
+        systemPrompt: enrichedSystemPrompt,
+        userText: userPrompt,
+        max_tokens: 8000,
+        timeoutMs: 140000,
+        disableRetries: true,
+      });
 
       let editorial = extractJsonFromLLM(rawContent);
       if (!Array.isArray(editorial) || editorial.length === 0) {
@@ -215,41 +215,8 @@ Gere 7 novos dias de conteúdo em JSON.`;
         });
       }
 
-      // Sanitização
-      let sanitized = sanitizeWeek(editorial as any[]);
-      let leaks = countWeekLeaks(sanitized);
-
-      if (leaks > 0) {
-        await updateJob(jobId, { progress_message: "Refinando linguagem dos posts…" });
-        const leakingIndexes: number[] = [];
-        sanitized.forEach((day: any, idx: number) => {
-          if (countFrameworkLeaks(day) > 0) leakingIndexes.push(idx);
-        });
-
-        const dayRetrySystem = `Você é um especialista em copy para Instagram. Reescreva UM ÚNICO dia de conteúdo, sem rótulos de framework (proibido: "Problema Externo", "Plano", "CTA:", "Herói", "Guia", "StoryBrand", "Made to Stick", "Obviously Awesome", "Slide 1:", etc.). Responda APENAS com o objeto JSON do dia, sem markdown, sem texto extra. Estrutura: {"day": N, "theme": "...", "format": "reels|carrossel|stories|post", "caption": "...", "card_copy": [...], "cta": "...", "script": "..."}`;
-
-        const results = await Promise.allSettled(
-          leakingIndexes.map(async (idx) => {
-            const original = sanitized[idx];
-            const dayUserPrompt = `Negócio: ${business?.company_name || "—"}\nNicho: ${niche || "—"}\n\nReescreva este dia removendo qualquer rótulo de framework. Mantenha o tema central, o formato e a intenção, mas use copy direta de marketing.\n\nDia atual (com rótulos a remover):\n${JSON.stringify(original)}\n\nResponda APENAS com o objeto JSON do dia reescrito.`;
-            const raw = await callClaude({ systemPrompt: dayRetrySystem, userText: dayUserPrompt, max_tokens: 2000, timeoutMs: 60000 });
-            const parsed = extractJsonFromLLM(raw);
-            if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-              const cleanedDay = sanitizePost(parsed as Record<string, any>);
-              if (countFrameworkLeaks(cleanedDay) < countFrameworkLeaks(original)) {
-                return { idx, day: cleanedDay };
-              }
-            }
-            return null;
-          })
-        );
-
-        for (const r of results) {
-          if (r.status === "fulfilled" && r.value) {
-            sanitized[r.value.idx] = { ...sanitized[r.value.idx], ...r.value.day };
-          }
-        }
-      }
+      // Sanitização local (regex) — sem chamadas extras à IA.
+      const sanitized = sanitizeWeek(editorial as any[]);
 
       const stamped = sanitized.map((d: any) => ({
         ...d,
