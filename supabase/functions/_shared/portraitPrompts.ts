@@ -309,9 +309,14 @@ export function buildPortraitPrompt(params: BuildPromptParams): {
   // Framing por look — controla se mãos aparecem no frame.
   const framing = FRAMING_VARIATIONS[params.backgroundIndex];
 
+  // Trigger word REAL do treino (USR + 12 hex). Se não vier, deriva do userId
+  // (mesma fórmula usada em portrait-train para retrocompat).
+  const triggerWord = params.triggerWord
+    || `USR${params.userId.replace(/-/g, "").slice(0, 12)}`;
+
   // Trigger word como PRIMEIRO TOKEN ABSOLUTO do prompt — Flux dá mais peso
   // aos primeiros tokens, e isso é crítico para o LoRA reconhecer a identidade.
-  let prompt = `USR${params.userId}, ` + STUDIO_PREFIX + tpl.prompt;
+  let prompt = `${triggerWord}, ` + STUDIO_PREFIX + tpl.prompt;
   // Negative base + reforço de mãos APENAS se este look mostra mãos.
   let negative = tpl.negative + STUDIO_NEGATIVE_BASE + (framing.showsHands ? HANDS_NEGATIVE_REINFORCE : "");
 
@@ -333,11 +338,10 @@ export function buildPortraitPrompt(params: BuildPromptParams): {
   }
 
   // 1b. Injeta a instrução de framing após o STUDIO_PREFIX (que vem após o trigger).
-  // Para look 0 (headshot) isso garante que mãos não aparecem.
   prompt = prompt.replace(STUDIO_PREFIX, `${STUDIO_PREFIX}(${framing.instruction}:1.5), `);
 
-  // 2. Remove o placeholder USR[id] do template (o trigger real já está no início).
-  prompt = prompt.replace(/USR\[id\]/g, `USR${params.userId}`);
+  // 2. Substitui o placeholder USR[id] do template pelo trigger real (caso ainda apareça).
+  prompt = prompt.replace(/USR\[id\]/g, triggerWord);
 
   // Reforço de gênero: duplica o token para ancorar Flux contra deriva
   if (effectiveGender === "none") {
