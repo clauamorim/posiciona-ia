@@ -16,13 +16,25 @@ import { mapProfessionToCategory, pickOutfits } from "../_shared/outfitPool.ts";
 
 const FLUX_LORA_MODEL = "black-forest-labs/flux-dev-lora";
 const GENERATE_COST_CREDITS = 3;
-// Guidance baixo = mais peso no LoRA (rosto fiel). Sem override de figurino,
-// usamos valores ainda mais baixos para máxima fidelidade facial.
-const GUIDANCE_VARIATIONS = [2.6, 2.8, 3.0];
+// Guidance mais alto = melhor aderência ao prompt (mãos, dedos, postura corporal),
+// sem perder fidelidade facial porque compensamos com lora_scale calibrado por dataset.
+const GUIDANCE_VARIATIONS = [3.5, 3.8, 4.0];
 const PORTRAIT_BUCKET = "portrait-outputs";
-// Resolução vertical premium (mantida do fluxo anterior, sem upscaler).
+// Referência (logs apenas). FLUX LoRA usa aspect_ratio + megapixels — width/height
+// no input são ignorados silenciosamente e o modelo cai pra 1024x1024.
 const PORTRAIT_WIDTH = 896;
 const PORTRAIT_HEIGHT = 1152;
+
+/**
+ * Calibra a força do LoRA conforme o tamanho do dataset de selfies.
+ * Datasets pequenos decoram detalhes ruidosos → precisam de scale menor pra "soltar".
+ * Datasets grandes generalizam melhor → suportam scale maior sem deformar.
+ */
+function pickLoraScale(selfiesCount: number): number {
+  if (selfiesCount <= 12) return 0.82;
+  if (selfiesCount <= 20) return 0.88;
+  return 0.93;
+}
 
 /** Fisher–Yates shuffle não destrutivo. */
 function shuffle<T>(arr: T[]): T[] {
@@ -91,12 +103,13 @@ async function callFluxLora(params: {
       lora_weights: loraVersion,
       lora_scale: loraScale,
       num_outputs: 1,
-      // Resolução fixa 896x1152 (3:4 vertical premium). Substitui aspect_ratio
-      // para garantir as dimensões exatas que tínhamos antes do upscaler.
-      width: PORTRAIT_WIDTH,
-      height: PORTRAIT_HEIGHT,
+      // FLUX LoRA: usar aspect_ratio + megapixels. width/height no input são
+      // ignorados silenciosamente e o modelo cai pra 1024x1024 quadrado.
+      // 3:4 com 1MP ≈ 896x1152 (resolução vertical premium nativa).
+      aspect_ratio: "3:4",
+      megapixels: "1",
       guidance_scale: guidanceScale,
-      num_inference_steps: 40,
+      num_inference_steps: 45,
       output_format: "png",
       output_quality: 95,
       seed: Math.floor(Math.random() * 1000000),
@@ -213,7 +226,7 @@ serve(async (req) => {
         .single(),
       supabaseAdmin
         .from("portrait_trainings")
-        .select("id, lora_weights_url, trigger_word, status, physical_traits")
+        .select("id, lora_weights_url, trigger_word, status, physical_traits, selfies_count")
         .eq("user_id", user.id)
         .eq("status", "ready")
         .order("created_at", { ascending: false })
@@ -326,9 +339,13 @@ serve(async (req) => {
       }
     }
 
+    const selfiesCount = (training as any).selfies_count ?? 0;
+    const loraScale = pickLoraScale(selfiesCount);
+
     console.log(
       `[generate-portrait] archetype=${archetypeName} family=${family} profession="${profession}" ` +
       `category=${profCategory} requestedCount=${requestedCount} outfitSource=${outfitSource} ` +
+      `selfiesCount=${selfiesCount} loraScale=${loraScale} ` +
       `outfits=${JSON.stringify(outfitsForLooks)} poses=${JSON.stringify(selectedPoses)} ` +
       `poseCats=${JSON.stringify(selectedPoseCategories)}`,
     );
@@ -355,15 +372,13 @@ serve(async (req) => {
         handPose,
       });
 
-      // lora_scale: 1.0 — peso máximo do LoRA para fidelidade facial.
-      const loraScale = 1.0;
-
+      // loraScale calculado acima conforme tamanho do dataset (pickLoraScale).
       console.log(
         `[generate-portrait] call ${i + 1}/3 background=${built.backgroundKey} archetype=${archetypeName} ` +
         `trigger="${training.trigger_word}" trainingId=${training.id} ` +
-        `dims=${PORTRAIT_WIDTH}x${PORTRAIT_HEIGHT} outfit="${outfit}" ` +
+        `dims=${PORTRAIT_WIDTH}x${PORTRAIT_HEIGHT}(3:4@1MP) outfit="${outfit}" ` +
         `pose="${i === 0 ? "(headshot, no hands)" : handPose}" poseCat=${selectedPoseCategories[i]} ` +
-        `guidance=${guidanceScale} loraScale=${loraScale} ` +
+        `guidance=${guidanceScale} loraScale=${loraScale} selfiesCount=${selfiesCount} ` +
         `hasTraits=${!!(training as any).physical_traits}`,
       );
       let r = await callFluxLora({
