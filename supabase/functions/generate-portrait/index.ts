@@ -46,88 +46,9 @@ async function downloadImageBytes(imageUrl: string): Promise<{ ok: true; bytes: 
   }
 }
 
-/** Converte Uint8Array em data URL base64 (para resposta imediata ao frontend). */
-function bytesToDataUrl(bytes: Uint8Array, mime = "image/png"): string {
-  let binary = "";
-  const chunk = 8192;
-  for (let i = 0; i < bytes.length; i += chunk) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
-  }
-  return `data:${mime};base64,${btoa(binary)}`;
-}
-
-/**
- * Upscale via philz1337x/clarity-upscaler — superior em rostos.
- * Resiliente: em caso de qualquer erro/timeout, devolve { ok: false } e o
- * caller mantém a imagem original.
- */
-async function upscaleImage(params: {
-  token: string;
-  imageUrl: string;
-}): Promise<{ ok: true; imageUrl: string } | { ok: false; reason: string }> {
-  const { token, imageUrl } = params;
-  const start = Date.now();
-  console.log(`[upscale] start image=${imageUrl.slice(0, 80)}`);
-  try {
-    const createRes = await fetch("https://api.replicate.com/v1/predictions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-        Prefer: "wait=5",
-      },
-      body: JSON.stringify({
-        version: CLARITY_UPSCALER_VERSION,
-        input: {
-          image: imageUrl,
-          scale_factor: 2,
-          dynamic: 6,
-          creativity: 0.35,
-          resemblance: 0.6,
-          output_format: "png",
-        },
-      }),
-    });
-    console.log(`[upscale] create-status=${createRes.status}`);
-    if (!createRes.ok) {
-      const txt = await createRes.text();
-      return { ok: false, reason: `upscale-create-${createRes.status}:${txt.slice(0, 150)}` };
-    }
-    let prediction = await createRes.json();
-    const id = prediction.id;
-    if (!id) return { ok: false, reason: "upscale-no-id" };
-
-    const maxAttempts = 60; // ~90s
-    let attempts = 0;
-    while (
-      prediction.status !== "succeeded" &&
-      prediction.status !== "failed" &&
-      prediction.status !== "canceled" &&
-      attempts < maxAttempts
-    ) {
-      await new Promise((r) => setTimeout(r, 1500));
-      attempts++;
-      const pollRes = await fetch(`https://api.replicate.com/v1/predictions/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!pollRes.ok) return { ok: false, reason: `upscale-poll-${pollRes.status}` };
-      prediction = await pollRes.json();
-      if (attempts % 10 === 0) console.log(`[upscale] poll attempt=${attempts} status=${prediction.status}`);
-    }
-
-    const latency = ((Date.now() - start) / 1000).toFixed(1);
-    if (prediction.status !== "succeeded") {
-      return { ok: false, reason: `upscale-status=${prediction.status} after ${latency}s` };
-    }
-    const output = prediction.output;
-    const upUrl = Array.isArray(output) ? output[0] : output;
-    if (!upUrl || typeof upUrl !== "string") return { ok: false, reason: "upscale-empty" };
-    console.log(`[upscale] success latency=${latency}s`);
-    return { ok: true, imageUrl: upUrl };
-  } catch (e) {
-    return { ok: false, reason: `upscale-exception:${e instanceof Error ? e.message : String(e)}` };
-  }
-}
+// (helper bytesToDataUrl e upscaleImage removidos — não usamos mais Clarity Upscaler.
+// Trocamos resolução alta por fidelidade facial máxima: o LoRA gera direto em 896x1152
+// e os bytes vão direto ao Storage privado, sem etapa intermediária.)
 
 async function callFluxLora(params: {
   token: string;
