@@ -301,9 +301,7 @@ serve(async (req) => {
       if (i > 0) await new Promise((r) => setTimeout(r, INTER_CALL_DELAY_MS));
       const outfit = outfitsForLooks[i] ?? "";
       const handPose = selectedPoses[i] ?? null;
-      const guidanceScale = isUserOverride
-        ? (GUIDANCE_VARIATIONS_OVERRIDE[i] ?? 4.5)
-        : (GUIDANCE_VARIATIONS[i] ?? 3.5);
+      const guidanceScale = GUIDANCE_VARIATIONS[i] ?? 3.0;
       const built = buildPortraitPrompt({
         archetype: archetypeName,
         userId: user.id,
@@ -315,13 +313,10 @@ serve(async (req) => {
         backgroundIndex: i as 0 | 1 | 2,
         physicalTraits: (training as any).physical_traits ?? null,
         handPose,
-        isUserOverride,
       });
 
-      // Mantém lora_scale: 0.95 SEMPRE — reduzir esse valor degrada drasticamente
-      // a fidelidade facial. A pressão por respeitar o override de figurino vem
-      // do guidance_scale maior + outfit duplicado no prompt + negatives semânticos.
-      const loraScale = 0.95;
+      // lora_scale: 1.0 — peso máximo do LoRA para fidelidade facial.
+      const loraScale = 1.0;
 
       console.log(
         `[generate-portrait] call ${i + 1}/3 background=${built.backgroundKey} archetype=${archetypeName} ` +
@@ -329,7 +324,7 @@ serve(async (req) => {
         `dims=${PORTRAIT_WIDTH}x${PORTRAIT_HEIGHT} outfit="${outfit}" ` +
         `pose="${i === 0 ? "(headshot, no hands)" : handPose}" poseCat=${selectedPoseCategories[i]} ` +
         `guidance=${guidanceScale} loraScale=${loraScale} ` +
-        `override=${isUserOverride} hasTraits=${!!(training as any).physical_traits}`,
+        `hasTraits=${!!(training as any).physical_traits}`,
       );
       let r = await callFluxLora({
         token: REPLICATE_API_TOKEN,
