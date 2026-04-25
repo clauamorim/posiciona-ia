@@ -267,54 +267,93 @@ const PortraitGenerator = () => {
     setPortraits([]);
     setBackgrounds([]);
     setOutfits([]);
+
+    // Edge function pode levar até ~3min (3 gerações + 3 upscales sequenciais).
+    // O cliente padrão da SDK aborta antes — usamos fetch nativo com 240s.
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 240000);
+
     try {
       const body: { outfit_overrides?: string[] } = {};
       if (allOverridesFilled) {
         body.outfit_overrides = outfitOverrides.map((s) => s.trim());
       }
-      const { data, error } = await supabase.functions.invoke("generate-portrait", { body });
-      if (error) throw error;
-      if (data?.error) {
-        toast({ title: "Erro", description: data.error, variant: "destructive" });
-        if (data.needs_credits) setPackDialogOpen(true);
-      } else {
-        setPortraits(data.portraits || []);
-        setBackgrounds(data.backgrounds || []);
-        setOutfits(data.outfits || []);
-        await refreshSubscription();
-        toast({
-          title: "Retratos gerados",
-          description: `${data.charged_credits ?? 3} créditos debitados. Salvos no histórico.`,
-        });
+
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) throw new Error("Sessão expirada — faça login novamente.");
+
+      const fnUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-portrait`;
+      const res = await fetch(fnUrl, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+
+      const data = await res.json().catch(() => ({} as any));
+      if (!res.ok || data?.error) {
+        const msg = data?.error || `Erro HTTP ${res.status}`;
+        toast({ title: "Erro", description: msg, variant: "destructive" });
+        if (data?.needs_credits) setPackDialogOpen(true);
+        return;
       }
+      setPortraits(data.portraits || []);
+      setBackgrounds(data.backgrounds || []);
+      setOutfits(data.outfits || []);
+      await refreshSubscription();
+      toast({
+        title: "Retratos gerados",
+        description: `${data.charged_credits ?? 3} créditos debitados. Salvos no histórico.`,
+      });
     } catch (err: any) {
-      toast({ title: "Erro ao gerar retratos", description: err.message, variant: "destructive" });
+      const isAbort = err?.name === "AbortError";
+      toast({
+        title: "Erro ao gerar retratos",
+        description: isAbort
+          ? "A geração demorou mais do que o esperado. Verifique seu histórico — os retratos podem já ter sido salvos."
+          : (err?.message ?? "Falha desconhecida"),
+        variant: "destructive",
+      });
     } finally {
+      clearTimeout(timeoutId);
       setGenerating(false);
     }
   };
 
-  const downloadPortrait = (base64Url: string, index: number) => {
-    const link = document.createElement("a");
-    link.href = base64Url;
-    link.download = `retrato-${backgrounds[index] ?? index + 1}.png`;
-    link.click();
-    toast({ title: "Download iniciado" });
+  const downloadPortrait = async (url: string, index: number) => {
+    try {
+      await downloadAsBlob(url, `retrato-${backgrounds[index] ?? index + 1}.png`);
+      toast({ title: "Download iniciado" });
+    } catch (e: any) {
+      toast({ title: "Erro ao baixar", description: e?.message, variant: "destructive" });
+    }
   };
 
   const downloadAll = async () => {
     if (portraits.length === 0) return;
-    const zip = new JSZip();
-    for (let i = 0; i < portraits.length; i++) {
-      const base64Data = portraits[i].replace(/^data:image\/\w+;base64,/, "");
-      zip.file(`retrato-${backgrounds[i] ?? i + 1}.png`, base64Data, { base64: true });
+    try {
+      const zip = new JSZip();
+      for (let i = 0; i < portraits.length; i++) {
+        const url = portraits[i];
+        const blob = url.startsWith("data:")
+          ? await (await fetch(url)).blob()
+          : await (await fetch(url, { credentials: "omit" })).blob();
+        zip.file(`retrato-${backgrounds[i] ?? i + 1}.png`, blob);
+      }
+      const blob = await zip.generateAsync({ type: "blob" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "retratos-de-marca.zip";
+      link.click();
+      URL.revokeObjectURL(link.href);
+    } catch (e: any) {
+      toast({ title: "Erro ao baixar ZIP", description: e?.message, variant: "destructive" });
     }
-    const blob = await zip.generateAsync({ type: "blob" });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = "retratos-de-marca.zip";
-    link.click();
-    URL.revokeObjectURL(link.href);
   };
 
   const handleBuyPack = async (packId: string) => {
