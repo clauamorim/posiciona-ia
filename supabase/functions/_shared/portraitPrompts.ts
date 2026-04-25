@@ -277,6 +277,8 @@ export interface PhysicalTraits {
 export interface BuildPromptParams {
   archetype: ArchetypeName | string;
   userId: string;
+  /** Trigger word REAL gerado no treino (USR + 12 hex). Se omitido, derivado do userId. */
+  triggerWord?: string;
   gender: "woman" | "man" | "none";
   outfit: string;
   hair: string;  // só usado se gender === "woman" e não houver physicalTraits
