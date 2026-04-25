@@ -279,6 +279,7 @@ const PortraitGenerator = () => {
       } else {
         setPortraits(data.portraits || []);
         setBackgrounds(data.backgrounds || []);
+        setOutfits(data.outfits || []);
         await refreshSubscription();
         toast({
           title: "Retratos gerados",
