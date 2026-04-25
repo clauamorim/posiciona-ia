@@ -98,6 +98,57 @@ const PortraitGenerator = () => {
     }
   };
 
+  // Recovery de gerações órfãs: arquivos no Storage sem linha em portrait_generations.
+  // Acontece quando a edge function termina o upload mas a resposta HTTP é cortada
+  // antes de retornar o JSON ao cliente. Aqui criamos a linha sem debitar créditos.
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data: files, error: listErr } = await supabase.storage
+          .from("portrait-outputs")
+          .list(user.id, { limit: 100, sortBy: { column: "created_at", order: "desc" } });
+        if (listErr || !files || cancelled) return;
+        // Cada item é uma "pasta" (generation_id). Filtramos só folders.
+        const generationFolders = files.filter((f) => f.id === null || (f as any).metadata === null).map((f) => f.name);
+        if (generationFolders.length === 0) return;
+
+        const { data: existing } = await supabase
+          .from("portrait_generations")
+          .select("id")
+          .eq("user_id", user.id)
+          .in("id", generationFolders);
+        const existingSet = new Set((existing || []).map((r: any) => r.id));
+        const orphans = generationFolders.filter((id) => !existingSet.has(id));
+        if (orphans.length === 0 || cancelled) return;
+
+        for (const generationId of orphans) {
+          const { data: imgs } = await supabase.storage
+            .from("portrait-outputs")
+            .list(`${user.id}/${generationId}`, { limit: 10 });
+          const paths = (imgs || [])
+            .filter((f) => /\.png$/i.test(f.name))
+            .sort((a, b) => a.name.localeCompare(b.name))
+            .map((f) => `${user.id}/${generationId}/${f.name}`);
+          if (paths.length === 0) continue;
+          await supabase.from("portrait_generations").insert({
+            id: generationId,
+            user_id: user.id,
+            portraits: paths,
+            style_index: 0,
+            used_hand_poses: [],
+            used_outfits: [],
+          });
+          console.log(`[portrait-recovery] restored orphan generation=${generationId} files=${paths.length}`);
+        }
+      } catch (e) {
+        console.warn("[portrait-recovery] failed", e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user]);
+
   const allOverridesFilled = outfitOverrides.every((s) => s.trim().length > 0);
   const someOverridesFilled = outfitOverrides.some((s) => s.trim().length > 0);
 
