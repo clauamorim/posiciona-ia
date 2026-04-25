@@ -585,11 +585,6 @@ const PortraitGenerator = () => {
                             <Badge variant="secondary" className="capitalize text-xs">{backgrounds[i] ?? `look ${i + 1}`}</Badge>
                           </div>
                         </button>
-                        {outfits[i] && (
-                          <p className="text-xs text-muted-foreground italic line-clamp-2 px-0.5" title={enToPtFashion(outfits[i])}>
-                            {enToPtFashion(outfits[i])}
-                          </p>
-                        )}
                         <Button variant="outline" size="sm" className="w-full" onClick={() => downloadPortrait(portrait, i)}>
                           <Download className="h-4 w-4 mr-1" />
                           Baixar
