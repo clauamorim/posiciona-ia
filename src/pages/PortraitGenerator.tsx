@@ -709,7 +709,12 @@ const PortraitGenerator = () => {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            {[0, 1, 2].map((i) => (
+            <div className="flex items-start gap-2 rounded-md border border-border bg-muted/40 px-3 py-2">
+              <Info className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                O <strong>Look 1</strong> é um close-up (rosto e ombros). Para vestidos, decotes ou peças de corpo inteiro, use os <strong>Looks 2 e 3</strong>.
+              </p>
+            </div>
               <div key={i} className="space-y-1.5">
                 <Label htmlFor={`outfit-${i}`} className="text-sm">
                   Look {i + 1} {i === 0 ? "(close-up · sem mãos)" : i === 1 ? "(fundo claro)" : "(fundo escuro)"}
