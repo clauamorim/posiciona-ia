@@ -110,9 +110,6 @@ const PortraitGenerator = () => {
     return () => { cancelled = true; };
   }, [user]);
 
-  const allOverridesFilled = outfitOverrides.every((s) => s.trim().length > 0);
-  const someOverridesFilled = outfitOverrides.some((s) => s.trim().length > 0);
-
   const totalCredits = (balances?.portrait_credits_included ?? 0) + (balances?.portrait_credits_extra ?? 0);
 
   const { data: archetypes } = useQuery({
