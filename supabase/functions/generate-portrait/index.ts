@@ -110,7 +110,7 @@ async function callFluxLora(params: {
       aspect_ratio: "3:4",
       megapixels: "1",
       guidance_scale: guidanceScale,
-      num_inference_steps: 45,
+      num_inference_steps: 35,
       output_format: "png",
       output_quality: 95,
       seed: Math.floor(Math.random() * 1000000),
