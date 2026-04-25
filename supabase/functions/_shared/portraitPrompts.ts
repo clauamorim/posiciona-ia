@@ -46,40 +46,141 @@ export const ARCHETYPE_FAMILY: Record<string, ArchetypeFamily> = {
   "Rebelde": "independent",
 };
 
-export const HAND_POSE_POOLS: Record<ArchetypeFamily, string[]> = {
-  authority: [
-    "arms confidently crossed over chest, relaxed shoulders",
-    "one hand thoughtfully under chin, other arm relaxed",
-    "one hand gently holding blazer lapel, other arm at side",
-    "both hands relaxed at sides, natural posture",
-    "one hand resting in trouser pocket, other arm naturally at side",
-    "one hand lightly resting on hip, other arm relaxed",
-  ],
-  nurturing: [
-    "hands softly clasped in front, relaxed posture",
-    "one hand gently placed over heart, other arm at side",
-    "both arms relaxed naturally at sides, open posture",
-    "one hand softly holding the opposite wrist in front",
-    "open palms gesture at waist level, welcoming posture",
-    "hands lightly folded in front, soft natural pose",
-  ],
-  expressive: [
-    "one hand lightly touching chin, other arm relaxed",
-    "one hand running gently through hair, other arm at side",
-    "natural mid-conversation hand gesture, expressive posture",
-    "one hand casually in pocket, other gesturing softly",
-    "one hand resting against cheek, thoughtful pose",
-    "arms relaxed with one hand expressively raised at chest level",
-  ],
-  independent: [
-    "both hands resting in trouser pockets, relaxed posture",
-    "arms casually crossed, relaxed and confident",
-    "one hand in pocket, other arm naturally at side",
-    "one hand resting on hip, weight slightly shifted",
-    "thumb hooked into trouser pocket, other arm relaxed",
-    "arms loosely crossed at waist, casual pose",
-  ],
+/**
+ * Categorias gestuais — agrupam poses por TIPO de gesto.
+ * O sorteio garante que looks 1 e 2 venham de categorias DIFERENTES,
+ * eliminando o problema de "duas poses parecidas" na mesma rodada.
+ */
+export type PoseCategory = "pocket" | "crossed" | "lapel" | "relaxed" | "gesture";
+
+export const HAND_POSE_POOLS_BY_CATEGORY: Record<ArchetypeFamily, Record<PoseCategory, string[]>> = {
+  authority: {
+    pocket: [
+      "one hand resting in trouser pocket, other arm naturally at side",
+      "thumb hooked into trouser pocket, other hand resting at side",
+    ],
+    crossed: [
+      "arms confidently crossed over chest, relaxed shoulders",
+      "arms loosely crossed at waist, confident stance",
+    ],
+    lapel: [
+      "one hand gently holding blazer lapel, other arm at side",
+      "both hands lightly adjusting blazer lapels, composed posture",
+    ],
+    relaxed: [
+      "both hands relaxed at sides, natural upright posture",
+      "one hand lightly resting on hip, other arm relaxed",
+    ],
+    gesture: [
+      "one hand thoughtfully under chin, other arm relaxed",
+      "one hand resting on the wrist of the other in front, composed",
+    ],
+  },
+  nurturing: {
+    pocket: [
+      "one hand softly tucked into pocket, other arm relaxed",
+    ],
+    crossed: [
+      "arms gently crossed at waist, soft posture",
+    ],
+    lapel: [
+      "one hand softly holding the opposite wrist in front",
+      "hands lightly folded in front, soft natural pose",
+    ],
+    relaxed: [
+      "both arms relaxed naturally at sides, open posture",
+      "hands softly clasped in front, relaxed posture",
+    ],
+    gesture: [
+      "one hand gently placed over heart, other arm at side",
+      "open palms gesture at waist level, welcoming posture",
+      "one hand softly resting near collarbone, other at side",
+    ],
+  },
+  expressive: {
+    pocket: [
+      "one hand casually in pocket, other arm relaxed at side",
+    ],
+    crossed: [
+      "arms loosely crossed at waist, expressive relaxed posture",
+    ],
+    lapel: [
+      "one hand softly playing with necklace, other at side",
+    ],
+    relaxed: [
+      "both arms naturally at sides, expressive shoulders",
+      "one hand resting against cheek, thoughtful pose",
+    ],
+    gesture: [
+      "one hand lightly touching chin, other arm relaxed",
+      "one hand running gently through hair, other arm at side",
+      "natural mid-conversation hand gesture, expressive posture",
+      "arms relaxed with one hand expressively raised at chest level",
+    ],
+  },
+  independent: {
+    pocket: [
+      "both hands resting in trouser pockets, relaxed posture",
+      "one hand in pocket, other arm naturally at side",
+      "thumb hooked into trouser pocket, other arm relaxed",
+    ],
+    crossed: [
+      "arms casually crossed, relaxed and confident",
+      "arms loosely crossed at waist, casual pose",
+    ],
+    lapel: [
+      "one hand lightly adjusting jacket collar, other in pocket",
+    ],
+    relaxed: [
+      "both arms relaxed naturally at sides, casual stance",
+      "one hand resting on hip, weight slightly shifted",
+    ],
+    gesture: [
+      "one hand lightly touching jaw, other arm relaxed",
+    ],
+  },
 };
+
+/** Pool plano legado — mantido para retrocompat caso algum chamador antigo use. */
+export const HAND_POSE_POOLS: Record<ArchetypeFamily, string[]> = {
+  authority: Object.values(HAND_POSE_POOLS_BY_CATEGORY.authority).flat(),
+  nurturing: Object.values(HAND_POSE_POOLS_BY_CATEGORY.nurturing).flat(),
+  expressive: Object.values(HAND_POSE_POOLS_BY_CATEGORY.expressive).flat(),
+  independent: Object.values(HAND_POSE_POOLS_BY_CATEGORY.independent).flat(),
+};
+
+/**
+ * Sorteia 2 poses de CATEGORIAS DIFERENTES, evitando categorias usadas
+ * recentemente (memória curta). Devolve {pose, category}.
+ */
+function shuffleArr<T>(a: T[]): T[] {
+  const c = a.slice();
+  for (let i = c.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [c[i], c[j]] = [c[j], c[i]];
+  }
+  return c;
+}
+
+export function pickPosesForLooks(
+  family: ArchetypeFamily,
+  recentlyUsedPoses: string[],
+  count = 2,
+): { pose: string; category: PoseCategory }[] {
+  const byCat = HAND_POSE_POOLS_BY_CATEGORY[family];
+  const allCats = Object.keys(byCat) as PoseCategory[];
+  // Filtra categorias que tenham ao menos 1 pose não usada recentemente
+  const usedSet = new Set(recentlyUsedPoses);
+  const catsWithFresh = allCats.filter((c) => byCat[c].some((p) => !usedSet.has(p)));
+  const catsToUse = catsWithFresh.length >= count ? catsWithFresh : allCats;
+  const chosenCats = shuffleArr(catsToUse).slice(0, count);
+  return chosenCats.map((cat) => {
+    const fresh = byCat[cat].filter((p) => !usedSet.has(p));
+    const pool = fresh.length > 0 ? fresh : byCat[cat];
+    const pose = shuffleArr(pool)[0];
+    return { pose, category: cat };
+  });
+}
 
 export function getArchetypeFamily(archetype: string): ArchetypeFamily {
   return ARCHETYPE_FAMILY[archetype] ?? "nurturing";
@@ -184,6 +285,8 @@ export interface BuildPromptParams {
   physicalTraits?: PhysicalTraits | null;
   /** Pose de mãos sorteada do pool da família do arquétipo (em inglês). */
   handPose?: string | null;
+  /** Se true, o outfit veio de personalização do usuário — peso aumentado para fidelidade. */
+  isUserOverride?: boolean;
 }
 
 export function buildPortraitPrompt(params: BuildPromptParams): {
@@ -248,8 +351,11 @@ export function buildPortraitPrompt(params: BuildPromptParams): {
   }
 
   // 3b. Injeção do OUTFIT logo após USR<id> + traços, com peso 1.4 (sintaxe Flux).
+  // Quando vem de override do usuário, peso aumenta para 1.8 para forçar fidelidade
+  // contra o viés de business attire das selfies de treino.
   const outfitText = (params.outfit || "").trim();
-  const outfitPhrase = outfitText ? `, (wearing ${outfitText}:1.4)` : "";
+  const outfitWeight = params.isUserOverride ? 1.8 : 1.4;
+  const outfitPhrase = outfitText ? `, (wearing ${outfitText}:${outfitWeight})` : "";
 
   // 3b-bis. Injeção da POSE DE MÃOS — APENAS se este look mostra mãos.
   // Para o look 0 (headshot), não injetamos pose porque mãos não estão no frame.
@@ -264,19 +370,28 @@ export function buildPortraitPrompt(params: BuildPromptParams): {
   prompt = prompt.replace(/\[outfit\]/g, "");
 
   // 3c. Negative específico do look — impede o Flux de "voltar" ao blazer padrão
-  // das selfies de treino quando o look pede vestido/cardigan/coat.
+  // das selfies de treino quando o look pede vestido/cardigan/coat etc.
   const outfitLower = outfitText.toLowerCase();
-  if (/\bdress\b/.test(outfitLower)) {
-    negative += ", blazer, suit jacket, trousers, pants, formal suit";
+  if (/\bdress\b|\bgown\b|\bslip dress\b/.test(outfitLower)) {
+    negative += ", blazer, suit jacket, business suit, trousers, pants, formal suit, turtleneck, long sleeves, formal shirt, tie";
   }
-  if (/\bcardigan\b|\bknit\b|\bknitwear\b/.test(outfitLower)) {
-    negative += ", blazer, suit jacket, formal suit";
+  if (/\bcardigan\b|\bknit\b|\bknitwear\b|\bsweater\b/.test(outfitLower)) {
+    negative += ", blazer, suit jacket, formal suit, tie";
   }
   if (/\bcoat\b|\btrench\b|\bovercoat\b/.test(outfitLower)) {
     negative += ", blazer underneath, formal suit";
   }
-  if (/\bblazer\b/.test(outfitLower)) {
-    negative += ", dress, casual t-shirt, hoodie";
+  if (/\bblazer\b|\bpantsuit\b|\bsuit\b/.test(outfitLower)) {
+    negative += ", dress, casual t-shirt, hoodie, sportswear";
+  }
+  if (/\bathletic\b|\bsportswear\b|\blegging\b|\bgym\b|\bworkout\b|\bsports?\s*top\b|academia/.test(outfitLower)) {
+    negative += ", formal wear, blazer, suit, dress shirt, tie, business attire";
+  }
+  if (/\bjumpsuit\b|macac/.test(outfitLower)) {
+    negative += ", separate top and trousers, blazer";
+  }
+  if (/\bjeans\b|\bdenim\b/.test(outfitLower)) {
+    negative += ", formal trousers, suit pants";
   }
 
   // Cabelo do figurino só é usado quando NÃO temos traços extraídos
@@ -326,7 +441,15 @@ const PT_EN_FASHION: Array<[RegExp, string]> = [
   [/vestido\s+longo/gi, "long dress"],
   [/vestido\s+envelope/gi, "wrap dress"],
   [/vestido\s+camisa/gi, "shirt dress"],
+  [/vestido\s+slip/gi, "slip dress"],
   [/vestido/gi, "dress"],
+  [/macacão|macacao/gi, "jumpsuit"],
+  // Atletwear / academia
+  [/roupa\s+de\s+academia|roupa\s+de\s+gin[áa]stica|look\s+fitness|gym\s+wear/gi, "athletic wear sportswear"],
+  [/legging/gi, "leggings"],
+  [/top\s+esportivo|top\s+fitness|sports\s+top/gi, "sports top"],
+  [/moletom/gi, "sweatshirt"],
+  [/regata\s+esportiva/gi, "athletic tank top"],
   // Casacos / outerwear
   [/sobretudo/gi, "overcoat"],
   [/trench\s*coat/gi, "trench coat"],
@@ -334,56 +457,126 @@ const PT_EN_FASHION: Array<[RegExp, string]> = [
   [/casaco/gi, "coat"],
   [/jaqueta\s+de\s+couro/gi, "leather jacket"],
   [/jaqueta/gi, "jacket"],
-  // Blazers
+  // Blazers / ternos
   [/blazer\s+(de\s+)?alfaiataria/gi, "tailored blazer"],
   [/blazer\s+estruturado/gi, "structured blazer"],
   [/blazer\s+oversized/gi, "oversized blazer"],
+  [/blazer\s+transpassad[oa]/gi, "double-breasted blazer"],
   [/blazer/gi, "blazer"],
+  [/terninho/gi, "pantsuit"],
+  [/terno\s+de\s+3\s+pe[çc]as|terno\s+de\s+tr[êe]s\s+pe[çc]as/gi, "three-piece suit"],
+  [/terno/gi, "suit"],
   // Calças
-  [/calça\s+(de\s+)?alfaiataria/gi, "tailored trousers"],
-  [/calça\s+pantalona/gi, "wide-leg trousers"],
-  [/calça\s+reta/gi, "straight-leg trousers"],
-  [/calça\s+jeans/gi, "denim jeans"],
-  [/calça/gi, "trousers"],
+  [/cal[çc]a\s+(de\s+)?alfaiataria/gi, "tailored trousers"],
+  [/cal[çc]a\s+pantalona/gi, "wide-leg trousers"],
+  [/cal[çc]a\s+reta/gi, "straight-leg trousers"],
+  [/cal[çc]a\s+jeans/gi, "denim jeans"],
+  [/cal[çc]a\s+chino/gi, "chinos"],
+  [/cal[çc]a\s+cintura\s+alta|cintura\s+alta/gi, "high-waist trousers"],
+  [/cal[çc]a/gi, "trousers"],
+  [/jeans/gi, "denim jeans"],
   // Saias
   [/saia\s+midi/gi, "midi skirt"],
-  [/saia\s+lápis|saia\s+lapis/gi, "pencil skirt"],
+  [/saia\s+l[áa]pis/gi, "pencil skirt"],
   [/saia\s+longa/gi, "long skirt"],
   [/saia/gi, "skirt"],
   // Tops
   [/camisa\s+(de\s+)?seda/gi, "silk shirt"],
   [/blusa\s+(de\s+)?seda/gi, "silk blouse"],
-  [/blusa\s+básica|blusa\s+basica/gi, "fitted top"],
-  [/camiseta\s+básica|camiseta\s+basica/gi, "fitted t-shirt"],
+  [/top\s+(de\s+)?seda/gi, "silk top"],
+  [/camisa\s+(de\s+)?linho/gi, "linen shirt"],
+  [/blusa\s+(de\s+)?linho/gi, "linen blouse"],
+  [/camisa\s+(de\s+)?algod[ãa]o/gi, "cotton shirt"],
+  [/blusa\s+(de\s+)?algod[ãa]o/gi, "cotton blouse"],
+  [/blusa\s+b[áa]sica/gi, "fitted top"],
+  [/camiseta\s+b[áa]sica/gi, "fitted t-shirt"],
   [/camiseta/gi, "t-shirt"],
+  [/camisa\s+social/gi, "button-up shirt"],
   [/camisa/gi, "button-up shirt"],
+  [/blusa\s+transpassad[oa]/gi, "wrap top"],
   [/blusa/gi, "blouse"],
-  [/cardigã|cardiga/gi, "cardigan"],
-  [/tricô|trico/gi, "knitwear"],
+  [/cardig[ãa]/gi, "cardigan"],
+  [/tric[ôo]/gi, "knitwear"],
   [/malha/gi, "knit top"],
+  [/su[ée]ter\s+(de\s+)?cashmere/gi, "cashmere sweater"],
+  [/su[ée]ter/gi, "sweater"],
+  [/cashmere/gi, "cashmere"],
+  [/gola\s+alta/gi, "turtleneck"],
   [/regata/gi, "tank top"],
+  // Detalhes
+  [/decote\s+v|decote\s+em\s+v/gi, "v-neck"],
+  [/decote\s+u/gi, "scoop neck"],
+  [/decote\s+quadrado/gi, "square neckline"],
+  [/decote/gi, "neckline"],
+  [/al[çc]a\s+fina|al[çc]as\s+finas/gi, "thin straps"],
+  [/al[çc]a\s+larga|al[çc]as\s+largas/gi, "wide straps"],
+  [/al[çc]a/gi, "strap"],
+  [/sem\s+mangas|sem\s+manga/gi, "sleeveless"],
+  [/manga\s+curta/gi, "short sleeves"],
+  [/manga\s+longa/gi, "long sleeves"],
+  [/manga\s+3\/4|manga\s+tr[êe]s\s+quartos/gi, "three-quarter sleeves"],
+  // Tecidos
+  [/seda/gi, "silk"],
+  [/cetim/gi, "satin"],
+  [/veludo/gi, "velvet"],
+  [/linho/gi, "linen"],
+  [/algod[ãa]o/gi, "cotton"],
+  [/couro/gi, "leather"],
+  [/jeans|denim/gi, "denim"],
   // Sapatos
   [/sapato\s+scarpin|scarpin/gi, "pointed-toe pumps"],
-  [/salto\s+alto/gi, "high heels"],
-  [/sandália|sandalia/gi, "sandals"],
+  [/salto\s+alto|salto/gi, "high heels"],
+  [/sand[áa]lia/gi, "sandals"],
   [/bota/gi, "boots"],
   [/mocassim/gi, "loafers"],
-  [/tênis|tenis/gi, "sneakers"],
+  [/t[êe]nis/gi, "sneakers"],
   // Acessórios
+  [/cinto\s+fino/gi, "thin belt"],
+  [/cinto\s+(de\s+)?couro/gi, "leather belt"],
   [/cinto/gi, "belt"],
-  [/lenço|lenco/gi, "scarf"],
+  [/len[çc]o/gi, "scarf"],
   [/bolsa/gi, "bag"],
+  [/colar\s+dourado/gi, "gold necklace"],
+  [/colar/gi, "necklace"],
+  [/brincos\s+dourados/gi, "gold earrings"],
+  [/brincos\s+de\s+p[ée]rola/gi, "pearl earrings"],
+  [/brincos\s+statement/gi, "statement earrings"],
+  [/brincos/gi, "earrings"],
+  [/argolas?\s+dourad[oa]s/gi, "gold hoop earrings"],
+  [/an[ée]is/gi, "rings"],
+  [/an[ée]l/gi, "ring"],
+  [/rel[óo]gio/gi, "watch"],
   // Cores
   [/bege/gi, "beige"],
   [/caramelo/gi, "caramel"],
   [/camelo/gi, "camel"],
-  [/marinho/gi, "navy"],
-  [/vinho/gi, "burgundy"],
+  [/marinho|azul\s+marinho/gi, "navy"],
+  [/vinho|bord[ôo]/gi, "burgundy"],
   [/terracota/gi, "terracotta"],
+  [/ferrugem/gi, "rust"],
+  [/laranja\s+queimado/gi, "burnt orange"],
+  [/mostarda/gi, "mustard"],
+  [/esmeralda/gi, "emerald"],
+  [/verde\s+oliva|oliva/gi, "olive"],
+  [/verde\s+s[áa]lvia|s[áa]lvia/gi, "sage green"],
+  [/verde/gi, "green"],
+  [/lavanda/gi, "lavender"],
+  [/malva/gi, "mauve"],
+  [/rosa\s+blush/gi, "blush pink"],
+  [/rosa\s+antigo/gi, "dusty rose"],
+  [/rosa/gi, "pink"],
+  [/champanhe|champagne/gi, "champagne"],
+  [/marfim/gi, "ivory"],
+  [/creme/gi, "cream"],
+  [/off[\s-]?white/gi, "off-white"],
+  [/nude/gi, "nude"],
+  [/grafite/gi, "charcoal"],
   [/preto/gi, "black"],
   [/branco/gi, "white"],
   [/cinza/gi, "grey"],
   [/marrom/gi, "brown"],
+  [/dourado|ouro/gi, "gold"],
+  [/prata|prateado/gi, "silver"],
 ];
 
 export function translateFashion(text: string): string {

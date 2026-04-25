@@ -9,7 +9,7 @@ import {
   buildMakeupText,
   translateFashion,
   BACKGROUND_VARIATIONS,
-  HAND_POSE_POOLS,
+  pickPosesForLooks,
   getArchetypeFamily,
 } from "../_shared/portraitPrompts.ts";
 import { mapProfessionToCategory, pickOutfits } from "../_shared/outfitPool.ts";
@@ -131,14 +131,15 @@ async function callFluxLora(params: {
   prompt: string;
   negative: string;
   guidanceScale: number;
+  loraScale?: number;
 }): Promise<{ ok: true; imageUrl: string } | { ok: false; reason: string }> {
-  const { token, loraVersion, prompt, negative, guidanceScale } = params;
+  const { token, loraVersion, prompt, negative, guidanceScale, loraScale = 0.95 } = params;
   const start = Date.now();
   try {
     const input: Record<string, unknown> = {
       prompt,
       lora_weights: loraVersion,
-      lora_scale: 0.95,
+      lora_scale: loraScale,
       num_outputs: 1,
       aspect_ratio: "3:4",
       guidance_scale: guidanceScale,
@@ -344,12 +345,14 @@ serve(async (req) => {
       ? (lastGen as any).used_outfits
       : [];
 
-    // ===== POSES DE MÃOS (família-arquétipo) =====
+    // ===== POSES DE MÃOS por CATEGORIA gestual =====
+    // Look 0 (close-up) não usa pose. Looks 1 e 2 vêm de categorias DIFERENTES,
+    // evitando o problema de "duas poses parecidas" na mesma rodada.
     const family = getArchetypeFamily(archetypeName);
-    const fullPosePool = HAND_POSE_POOLS[family];
-    const filteredPosePool = fullPosePool.filter((p) => !recentlyUsedPoses.includes(p));
-    const workingPosePool = filteredPosePool.length >= 3 ? filteredPosePool : fullPosePool;
-    const selectedPoses = shuffle(workingPosePool).slice(0, 3);
+    const posesForLooks12 = pickPosesForLooks(family, recentlyUsedPoses, 2);
+    // Array indexado por look: [null, pose1, pose2]
+    const selectedPoses: (string | null)[] = [null, posesForLooks12[0]?.pose ?? null, posesForLooks12[1]?.pose ?? null];
+    const selectedPoseCategories = ["headshot", posesForLooks12[0]?.category ?? "—", posesForLooks12[1]?.category ?? "—"];
 
     // ===== FIGURINOS — prioridade: overrides > pool curado por profissão > buildOutfitTextForLook(figurino) =====
     const profCategory = mapProfessionToCategory(profession);
@@ -376,8 +379,10 @@ serve(async (req) => {
     console.log(
       `[generate-portrait] archetype=${archetypeName} family=${family} profession="${profession}" ` +
       `category=${profCategory} outfitSource=${outfitSource} outfits=${JSON.stringify(outfitsForLooks)} ` +
-      `poses=${JSON.stringify(selectedPoses)}`,
+      `poses=${JSON.stringify(selectedPoses)} poseCats=${JSON.stringify(selectedPoseCategories)}`,
     );
+
+    const isUserOverride = outfitSource === "user-override";
 
     // 3 sequential calls — Replicate low-credit accounts (<$5) tem rate limit 6/min.
     const INTER_CALL_DELAY_MS = 11000;
@@ -398,12 +403,18 @@ serve(async (req) => {
         backgroundIndex: i as 0 | 1 | 2,
         physicalTraits: (training as any).physical_traits ?? null,
         handPose,
+        isUserOverride,
       });
+
+      // Quando há override do usuário, reduz lora_scale para diminuir o viés do
+      // LoRA em business attire — abrindo espaço pro outfit pedido prevalecer.
+      const loraScale = isUserOverride ? 0.80 : 0.95;
 
       console.log(
         `[generate-portrait] call ${i + 1}/3 background=${built.backgroundKey} archetype=${archetypeName} ` +
-        `outfit="${outfit}" pose="${i === 0 ? "(headshot, no hands)" : handPose}" guidance=${guidanceScale} ` +
-        `hasTraits=${!!(training as any).physical_traits}`,
+        `outfit="${outfit}" pose="${i === 0 ? "(headshot, no hands)" : handPose}" ` +
+        `poseCat=${selectedPoseCategories[i]} guidance=${guidanceScale} loraScale=${loraScale} ` +
+        `override=${isUserOverride} hasTraits=${!!(training as any).physical_traits}`,
       );
       let r = await callFluxLora({
         token: REPLICATE_API_TOKEN,
@@ -411,6 +422,7 @@ serve(async (req) => {
         prompt: built.prompt,
         negative: built.negative,
         guidanceScale,
+        loraScale,
       });
 
       if (!r.ok && r.reason.includes("429")) {
@@ -422,6 +434,7 @@ serve(async (req) => {
           prompt: built.prompt,
           negative: built.negative,
           guidanceScale,
+          loraScale,
         });
       }
 
@@ -441,57 +454,70 @@ serve(async (req) => {
       );
     }
 
-    // ===== UPSCALE 2x EM PARALELO + UPLOAD AO STORAGE =====
-    // Cria o id da geração agora para poder usar como pasta no Storage.
+    // ===== UPSCALE 2x SEQUENCIAL + UPLOAD AO STORAGE =====
+    // Sequencial (não paralelo) para evitar 429 do Replicate em contas low-credit.
+    // Delay de 11s entre upscales + retry com 30s em caso de 429.
     const generationId = crypto.randomUUID();
+    const UPSCALE_INTER_DELAY_MS = 11000;
+    const UPSCALE_RETRY_DELAY_MS = 30000;
 
-    const processed = await Promise.allSettled(
-      successful.map(async (r, i) => {
-        // 1. Upscale (com fallback resiliente)
-        const up = await upscaleImage({ token: REPLICATE_API_TOKEN, imageUrl: r.portraitUrl! });
-        const finalUrl = up.ok ? up.imageUrl : r.portraitUrl!;
-        if (!up.ok) {
-          console.warn(`[upscale] fallback (original) for background=${r.background}: ${up.reason}`);
+    const finalPortraits: Array<{
+      background: string;
+      portraitUrl: string | null;
+      error?: string;
+      pose?: string;
+      outfit?: string;
+      path: string;
+      dataUrl: string;
+      upscaled: boolean;
+    }> = [];
+
+    for (let i = 0; i < successful.length; i++) {
+      if (i > 0) await new Promise((res) => setTimeout(res, UPSCALE_INTER_DELAY_MS));
+      const r = successful[i];
+
+      // 1. Upscale (com 1 retry em caso de 429)
+      let up = await upscaleImage({ token: REPLICATE_API_TOKEN, imageUrl: r.portraitUrl! });
+      if (!up.ok && up.reason.includes("429")) {
+        console.warn(`[upscale] background=${r.background} got 429, waiting ${UPSCALE_RETRY_DELAY_MS}ms`);
+        await new Promise((res) => setTimeout(res, UPSCALE_RETRY_DELAY_MS));
+        up = await upscaleImage({ token: REPLICATE_API_TOKEN, imageUrl: r.portraitUrl! });
+      }
+      const finalUrl = up.ok ? up.imageUrl : r.portraitUrl!;
+      if (!up.ok) {
+        console.warn(`[upscale] fallback (original 1MP) for background=${r.background}: ${up.reason}`);
+      }
+
+      // 2. Download dos bytes finais (com fallback para original)
+      let dl = await downloadImageBytes(finalUrl);
+      if (!dl.ok) {
+        const orig = await downloadImageBytes(r.portraitUrl!);
+        if (!orig.ok) {
+          console.error(`[generate-portrait] failed to download both upscaled and original for background=${r.background}`);
+          continue;
         }
+        dl = orig;
+      }
+      const bytes = (dl as { ok: true; bytes: Uint8Array }).bytes;
 
-        // 2. Download dos bytes finais
-        const dl = await downloadImageBytes(finalUrl);
-        if (!dl.ok) {
-          // Última tentativa: bytes da imagem original
-          const orig = await downloadImageBytes(r.portraitUrl!);
-          if (!orig.ok) {
-            console.error(`[generate-portrait] failed to download both upscaled and original for background=${r.background}`);
-            return null;
-          }
-          dl.ok = true as any;
-          (dl as any).bytes = orig.bytes;
-        }
-        const bytes = (dl as { ok: true; bytes: Uint8Array }).bytes;
+      // 3. Upload ao Storage privado
+      const path = `${user.id}/${generationId}/${i}.png`;
+      const upRes = await supabaseAdmin.storage
+        .from(PORTRAIT_BUCKET)
+        .upload(path, bytes, { contentType: "image/png", upsert: true });
+      if (upRes.error) {
+        console.error(`[generate-portrait] storage upload failed background=${r.background}: ${upRes.error.message}`);
+        continue;
+      }
+      console.log(`[generate-portrait] uploaded background=${r.background} path=${path} bytes=${bytes.length} upscaled=${up.ok}`);
 
-        // 3. Upload ao Storage privado
-        const path = `${user.id}/${generationId}/${i}.png`;
-        const upRes = await supabaseAdmin.storage
-          .from(PORTRAIT_BUCKET)
-          .upload(path, bytes, { contentType: "image/png", upsert: true });
-        if (upRes.error) {
-          console.error(`[generate-portrait] storage upload failed background=${r.background}: ${upRes.error.message}`);
-          return null;
-        }
-        console.log(`[generate-portrait] uploaded background=${r.background} path=${path} bytes=${bytes.length} upscaled=${up.ok}`);
-
-        // 4. Devolve dataUrl (resposta imediata) + path (persistido)
-        return {
-          ...r,
-          path,
-          dataUrl: bytesToDataUrl(bytes),
-          upscaled: up.ok,
-        };
-      }),
-    );
-
-    const finalPortraits = processed
-      .map((p) => (p.status === "fulfilled" ? p.value : null))
-      .filter((p): p is NonNullable<typeof p> => p !== null);
+      finalPortraits.push({
+        ...r,
+        path,
+        dataUrl: bytesToDataUrl(bytes),
+        upscaled: up.ok,
+      });
+    }
 
     if (finalPortraits.length === 0) {
       return new Response(
@@ -538,6 +564,7 @@ serve(async (req) => {
       JSON.stringify({
         portraits: finalPortraits.map((r) => r.dataUrl), // resposta imediata para o front
         backgrounds: finalPortraits.map((r) => r.background),
+        outfits: finalPortraits.map((r) => r.outfit ?? ""),
         training_id: training.id,
         charged_credits: charge,
       }),

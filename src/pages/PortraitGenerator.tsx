@@ -8,11 +8,14 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
-import { Upload, X, Download, Loader2, ImageIcon, ShoppingCart, Camera, Maximize2, Sparkles, CheckCircle2, AlertCircle, Wand2, Shirt } from "lucide-react";
+import { Upload, X, Download, Loader2, ImageIcon, ShoppingCart, Camera, Maximize2, Sparkles, CheckCircle2, AlertCircle, Wand2, Shirt, Info } from "lucide-react";
 import JSZip from "jszip";
 import { compressImage } from "@/lib/imageUtils";
 import { PortraitPreviewDialog } from "@/components/PortraitPreviewDialog";
 import { Textarea } from "@/components/ui/textarea";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { enToPtFashion } from "@/lib/portraitFashion";
 import { Label } from "@/components/ui/label";
 import {
   Dialog,
@@ -55,6 +58,7 @@ const PortraitGenerator = () => {
   const [confirmGenerateOpen, setConfirmGenerateOpen] = useState(false);
   const [portraits, setPortraits] = useState<string[]>([]);
   const [backgrounds, setBackgrounds] = useState<string[]>([]);
+  const [outfits, setOutfits] = useState<string[]>([]);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
 
   // Overrides opcionais de figurino (persistidos em localStorage por usuário)
@@ -261,6 +265,7 @@ const PortraitGenerator = () => {
     setGenerating(true);
     setPortraits([]);
     setBackgrounds([]);
+    setOutfits([]);
     try {
       const body: { outfit_overrides?: string[] } = {};
       if (allOverridesFilled) {
@@ -274,6 +279,7 @@ const PortraitGenerator = () => {
       } else {
         setPortraits(data.portraits || []);
         setBackgrounds(data.backgrounds || []);
+        setOutfits(data.outfits || []);
         await refreshSubscription();
         toast({
           title: "Retratos gerados",
@@ -472,7 +478,11 @@ const PortraitGenerator = () => {
                         <CheckCircle2 className="h-4 w-4 text-success" />
                         <p className="font-medium">Estúdio pronto</p>
                       </div>
-                      <Badge variant="outline" className="font-mono text-xs">{latestTraining?.trigger_word}</Badge>
+                      {latestTraining?.created_at && (
+                        <Badge variant="outline" className="text-xs">
+                          Treinado em {format(new Date(latestTraining.created_at), "dd/MM/yyyy", { locale: ptBR })}
+                        </Badge>
+                      )}
                     </div>
                     <p className="text-sm text-muted-foreground">
                       Seu Estúdio Pessoal está treinado. Cada geração produz <strong>3 retratos</strong> (Neutro, Claro, Escuro) e custa <strong>{GENERATE_COST_CREDITS} créditos</strong>.
@@ -546,6 +556,11 @@ const PortraitGenerator = () => {
                             <Badge variant="secondary" className="capitalize text-xs">{backgrounds[i] ?? `look ${i + 1}`}</Badge>
                           </div>
                         </button>
+                        {outfits[i] && (
+                          <p className="text-xs text-muted-foreground italic line-clamp-2 px-0.5" title={enToPtFashion(outfits[i])}>
+                            {enToPtFashion(outfits[i])}
+                          </p>
+                        )}
                         <Button variant="outline" size="sm" className="w-full" onClick={() => downloadPortrait(portrait, i)}>
                           <Download className="h-4 w-4 mr-1" />
                           Baixar
@@ -694,6 +709,12 @@ const PortraitGenerator = () => {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            <div className="flex items-start gap-2 rounded-md border border-border bg-muted/40 px-3 py-2">
+              <Info className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                O <strong>Look 1</strong> é um close-up (rosto e ombros). Para vestidos, decotes ou peças de corpo inteiro, use os <strong>Looks 2 e 3</strong>.
+              </p>
+            </div>
             {[0, 1, 2].map((i) => (
               <div key={i} className="space-y-1.5">
                 <Label htmlFor={`outfit-${i}`} className="text-sm">
