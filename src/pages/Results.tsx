@@ -40,9 +40,10 @@ const Results = () => {
   useEffect(() => {
     if (!user) return;
     const run = async () => {
+      let activeReportVersion: number | null = null;
       try {
         const { data: latestReport } = await supabase
-          .from("reports").select("status, version, content")
+          .from("reports").select("status, version, content, error_message")
           .eq("user_id", user.id)
           .order("version", { ascending: false }).limit(1).single();
 
@@ -64,6 +65,12 @@ const Results = () => {
 
         if (latestReport?.status === "completed" && latestReport?.content) {
           setStage("done");
+          return;
+        }
+
+        if (latestReport?.status === "error" && retryToken === 0) {
+          setErrorMsg(latestReport.error_message || "A geração anterior falhou. Tente novamente.");
+          setStage("error");
           return;
         }
 
@@ -95,16 +102,17 @@ const Results = () => {
         };
 
         let reportVersion: number;
-        if (latestReport && (latestReport.status === "pending" || latestReport.status === "generating")) {
+        if (latestReport && ["pending", "generating", "error"].includes(latestReport.status)) {
           reportVersion = latestReport.version;
-          await supabase.from("reports").update({ status: "generating" })
+          await supabase.from("reports").update({ status: "generating", content: null, error_message: null })
             .eq("user_id", user.id).eq("version", reportVersion);
         } else {
-          reportVersion = 1;
+          reportVersion = (latestReport?.version || 0) + 1;
           await supabase.from("reports").insert({
-            user_id: user.id, version: reportVersion, status: "generating",
+            user_id: user.id, version: reportVersion, status: "generating", error_message: null,
           });
         }
+        activeReportVersion = reportVersion;
 
         const { data: reportData, error: reportError } = await supabase.functions.invoke("generate-report", {
           body: { business: bqData, niche: profile?.niche || "", archetypes, gender: profile?.gender || "Não informado" },
@@ -125,12 +133,15 @@ const Results = () => {
         const rawMsg = (err?.message || "") + " " + (err?.context?.body ? JSON.stringify(err.context.body) : "");
         const lower = rawMsg.toLowerCase();
         const rateLimited = /rate limit|overloaded|429|529|alta demanda|temporariamente indispon/.test(lower);
+        const message = rateLimited
+          ? "A IA está com alta demanda agora. Aguarde alguns segundos e tente novamente."
+          : (err.message || "Erro desconhecido");
+        if (activeReportVersion) {
+          await supabase.from("reports").update({ status: "error", error_message: message })
+            .eq("user_id", user.id).eq("version", activeReportVersion);
+        }
         setIsRateLimited(rateLimited);
-        setErrorMsg(
-          rateLimited
-            ? "A IA está com alta demanda agora. Aguarde alguns segundos e tente novamente."
-            : (err.message || "Erro desconhecido")
-        );
+        setErrorMsg(message);
         setStage("error");
         toast({
           title: rateLimited ? "Alta demanda na IA" : "Erro",
