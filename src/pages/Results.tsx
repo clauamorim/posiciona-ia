@@ -176,7 +176,7 @@ const Results = () => {
             <div className="flex-1 min-w-0">
               <p className="font-medium text-sm">{STAGE_LABELS[stage]}</p>
               {stage === "error" && errorMsg && (
-                <p className="text-xs text-muted-foreground mt-0.5 truncate">{errorMsg}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{errorMsg}</p>
               )}
             </div>
             {stage === "done" && (
@@ -188,6 +188,16 @@ const Results = () => {
                   Narrativa
                 </Button>
               </div>
+            )}
+            {stage === "error" && (
+              <Button
+                size="sm"
+                variant={isRateLimited ? "default" : "outline"}
+                onClick={() => { setErrorMsg(""); setIsRateLimited(false); setStage("calculating"); setRetryToken(t => t + 1); }}
+                className="flex-shrink-0"
+              >
+                Tentar novamente
+              </Button>
             )}
           </CardContent>
         </Card>
