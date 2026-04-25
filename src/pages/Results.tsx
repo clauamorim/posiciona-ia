@@ -33,6 +33,8 @@ const Results = () => {
   const [scores, setScores] = useState<ArchetypeScore[]>([]);
   const [stage, setStage] = useState<Stage>("calculating");
   const [errorMsg, setErrorMsg] = useState("");
+  const [isRateLimited, setIsRateLimited] = useState(false);
+  const [retryToken, setRetryToken] = useState(0);
   const [archetypeDetails, setArchetypeDetails] = useState<Record<string, any>>({});
 
   useEffect(() => {
@@ -120,13 +122,25 @@ const Results = () => {
         toast({ title: "Estratégia gerada com sucesso!" });
       } catch (err: any) {
         console.error("Results error:", err);
-        setErrorMsg(err.message || "Erro desconhecido");
+        const rawMsg = (err?.message || "") + " " + (err?.context?.body ? JSON.stringify(err.context.body) : "");
+        const lower = rawMsg.toLowerCase();
+        const rateLimited = /rate limit|overloaded|429|529|alta demanda|temporariamente indispon/.test(lower);
+        setIsRateLimited(rateLimited);
+        setErrorMsg(
+          rateLimited
+            ? "A IA está com alta demanda agora. Aguarde alguns segundos e tente novamente."
+            : (err.message || "Erro desconhecido")
+        );
         setStage("error");
-        toast({ title: "Erro", description: err.message, variant: "destructive" });
+        toast({
+          title: rateLimited ? "Alta demanda na IA" : "Erro",
+          description: rateLimited ? "Tente novamente em alguns segundos." : err.message,
+          variant: "destructive",
+        });
       }
     };
     run();
-  }, [user]);
+  }, [user, retryToken]);
 
   const top3 = getTop3(scores);
   const maxScore = 30;
@@ -162,7 +176,7 @@ const Results = () => {
             <div className="flex-1 min-w-0">
               <p className="font-medium text-sm">{STAGE_LABELS[stage]}</p>
               {stage === "error" && errorMsg && (
-                <p className="text-xs text-muted-foreground mt-0.5 truncate">{errorMsg}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{errorMsg}</p>
               )}
             </div>
             {stage === "done" && (
@@ -174,6 +188,16 @@ const Results = () => {
                   Narrativa
                 </Button>
               </div>
+            )}
+            {stage === "error" && (
+              <Button
+                size="sm"
+                variant={isRateLimited ? "default" : "outline"}
+                onClick={() => { setErrorMsg(""); setIsRateLimited(false); setStage("calculating"); setRetryToken(t => t + 1); }}
+                className="flex-shrink-0"
+              >
+                Tentar novamente
+              </Button>
             )}
           </CardContent>
         </Card>

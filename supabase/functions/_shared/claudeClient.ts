@@ -51,7 +51,26 @@ export class ClaudeError extends Error {
  * Chama o Claude Messages API e retorna o texto completo da resposta.
  * Faz tratamento de erros amigável (timeout, 429, 402, JSON inválido).
  */
-export async function callClaude({
+export async function callClaude(opts: CallClaudeOptions): Promise<string> {
+  const RETRY_DELAYS_MS = [2000, 5000, 10000];
+  let lastError: any;
+  for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
+    try {
+      return await callClaudeOnce(opts);
+    } catch (e) {
+      lastError = e;
+      const status = e instanceof ClaudeError ? e.status : undefined;
+      const retriable = status === 429 || status === 529 || (status !== undefined && status >= 500 && status < 600);
+      if (!retriable || attempt === RETRY_DELAYS_MS.length) throw e;
+      const delay = RETRY_DELAYS_MS[attempt];
+      console.warn(`Claude ${status} — retry ${attempt + 1}/${RETRY_DELAYS_MS.length} em ${delay}ms`);
+      await new Promise((r) => setTimeout(r, delay));
+    }
+  }
+  throw lastError;
+}
+
+async function callClaudeOnce({
   systemPrompt,
   userText,
   pdfs = [],

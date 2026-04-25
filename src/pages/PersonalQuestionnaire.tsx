@@ -150,8 +150,8 @@ const PersonalQuestionnaire = () => {
     setSaving(false);
     if (complete) {
       setStatus("submitted");
-      toast({ title: "Sua história foi salva", description: "Agora a Linha Editorial será gerada com a sua voz." });
-      navigate("/editorial");
+      toast({ title: "Sua história foi salva", description: "Agora vamos mapear seus arquétipos." });
+      navigate("/archetype-questionnaire");
     } else {
       toast({ title: "Salvo automaticamente" });
     }
@@ -299,11 +299,11 @@ const PersonalQuestionnaire = () => {
                   </Button>
                 ) : !isSubmitted ? (
                   <Button size="sm" onClick={() => save(true)} disabled={!canFinish || saving}>
-                    <Sparkles className="h-3.5 w-3.5 mr-1" /> Concluir e liberar Linha Editorial
+                    <Sparkles className="h-3.5 w-3.5 mr-1" /> Concluir e ir para Arquétipos
                   </Button>
                 ) : (
-                  <Button size="sm" onClick={() => navigate("/editorial")}>
-                    Ir para Linha Editorial <ChevronRight className="h-4 w-4 ml-1" />
+                  <Button size="sm" onClick={() => navigate("/archetype-questionnaire")}>
+                    Ir para Arquétipos <ChevronRight className="h-4 w-4 ml-1" />
                   </Button>
                 )}
               </div>

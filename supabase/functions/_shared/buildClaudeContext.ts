@@ -20,8 +20,17 @@ function normalizeDocName(name: string): string {
 }
 
 const EDITORIAL_PDF_WHITELIST = ["storybrand", "madetostick", "obviouslyawesome"];
+const STRATEGY_PDF_WHITELIST = ["storybrand"];
+
+export async function fetchStrategyReferencePdfs(): Promise<ClaudePdfPart[]> {
+  return fetchReferencePdfsByWhitelist(STRATEGY_PDF_WHITELIST);
+}
 
 export async function fetchEditorialReferencePdfs(): Promise<ClaudePdfPart[]> {
+  return fetchReferencePdfsByWhitelist(EDITORIAL_PDF_WHITELIST);
+}
+
+async function fetchReferencePdfsByWhitelist(whitelist: string[]): Promise<ClaudePdfPart[]> {
   try {
     const admin = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -37,7 +46,7 @@ export async function fetchEditorialReferencePdfs(): Promise<ClaudePdfPart[]> {
 
     const filtered = docs.filter((d: any) => {
       const candidate = normalizeDocName(d.name || d.file_path?.split("/").pop() || "");
-      return EDITORIAL_PDF_WHITELIST.some((w) => candidate.includes(w));
+      return whitelist.some((w) => candidate.includes(w));
     });
     if (!filtered.length) return [];
 

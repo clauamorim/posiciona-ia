@@ -89,7 +89,7 @@ const BusinessQuestionnaire = () => {
       setStatus("submitted");
     }
     toast({ title: complete ? "Questionário enviado!" : "Salvo automaticamente" });
-    if (complete) navigate("/archetype-questionnaire");
+    if (complete) navigate("/personal-questionnaire");
   }, [user, answers, existingId, navigate, isLocked]);
 
   const handleReanalysis = async (mode: "edit" | "reset") => {
