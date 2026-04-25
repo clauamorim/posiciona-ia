@@ -562,9 +562,21 @@ serve(async (req) => {
       used_outfits: outfitsUsedThisRound,
     });
 
+    // Gera URLs assinadas (1h) para o front exibir os retratos imediatamente,
+    // sem precisar fazer um segundo round-trip ao Storage.
+    const signedUrls = await Promise.all(
+      finalPortraits.map(async (r) => {
+        const { data } = await supabaseAdmin.storage
+          .from(PORTRAIT_BUCKET)
+          .createSignedUrl(r.path, 60 * 60);
+        return data?.signedUrl ?? "";
+      }),
+    );
+
     return new Response(
       JSON.stringify({
-        portraits: finalPortraits.map((r) => r.dataUrl), // resposta imediata para o front
+        portraits: signedUrls, // URLs assinadas — leves e válidas por 1h
+        portrait_paths: finalPortraits.map((r) => r.path),
         backgrounds: finalPortraits.map((r) => r.background),
         outfits: finalPortraits.map((r) => r.outfit ?? ""),
         training_id: training.id,
