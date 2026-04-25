@@ -16,6 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { enToPtFashion } from "@/lib/portraitFashion";
+import { downloadAsBlob } from "@/lib/portraitUrl";
 import { Label } from "@/components/ui/label";
 import {
   Dialog,
