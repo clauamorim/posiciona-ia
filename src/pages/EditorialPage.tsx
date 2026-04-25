@@ -694,7 +694,7 @@ const EditorialPage = () => {
                       <CardContent className="py-4 flex-1 space-y-3">
                         <div className="flex items-center justify-between">
                           <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Dia {day.day || di + 1}</span>
-                          {dayOutdated && (
+                          {false && dayOutdated && (
                             <Badge variant="outline" className="text-[10px] gap-1 bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-900">
                               <AlertTriangle className="h-2.5 w-2.5" /> Desatualizado
                             </Badge>
