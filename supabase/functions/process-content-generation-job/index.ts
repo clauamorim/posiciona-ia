@@ -1,6 +1,9 @@
 // Worker em background — processa um job de geração de semana editorial.
 // Disparado via fire-and-forget pelo `generate-content-week` (enqueuer).
 // Aceita execuções longas (até ~150s) sem bloquear o cliente.
+//
+// 2026-04-25-v5: migrado de Gemini para Claude Sonnet 4.5 + injeção
+// obrigatória do contexto pessoal do criador (humanização).
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
@@ -8,111 +11,20 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { extractJsonFromLLM } from "../_shared/jsonExtract.ts";
 import { EDITORIAL_GENERATOR_VERSION } from "../_shared/generatorVersion.ts";
 import { sanitizeWeek, sanitizePost, countWeekLeaks, countFrameworkLeaks } from "../_shared/editorialSanitize.ts";
+import { callClaude, ClaudeError } from "../_shared/claudeClient.ts";
+import {
+  fetchEditorialReferencePdfs,
+  fetchPersonalQuestionnaire,
+  renderPersonalContext,
+  renderStorybrandBlock,
+  renderToneBlock,
+} from "../_shared/buildClaudeContext.ts";
 
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-const API_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-function normalizeDocName(name: string): string {
-  return (name || "")
-    .toLowerCase()
-    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-    .replace(/\.pdf$/i, "")
-    .replace(/[\s_\-.]+/g, "");
-}
-
-const EDITORIAL_PDF_WHITELIST = ["storybrand", "madetostick", "obviouslyawesome"];
-
-async function fetchReferencePdfs(): Promise<{ mime_type: string; data: string }[]> {
-  try {
-    const { data: docs } = await admin
-      .from("reference_documents")
-      .select("file_path, file_size, name")
-      .eq("is_active", true)
-      .order("created_at", { ascending: true });
-    if (!docs?.length) return [];
-
-    const filtered = docs.filter((d: any) => {
-      const candidate = normalizeDocName(d.name || d.file_path?.split("/").pop() || "");
-      return EDITORIAL_PDF_WHITELIST.some((w) => candidate.includes(w));
-    });
-    if (!filtered.length) return [];
-
-    const parts: { mime_type: string; data: string }[] = [];
-    let totalSize = 0;
-    const MAX_TOTAL = 8 * 1024 * 1024;
-
-    for (const doc of filtered) {
-      if (totalSize + doc.file_size > MAX_TOTAL) break;
-      const { data: fileData, error } = await admin.storage.from("reference-pdfs").download(doc.file_path);
-      if (error || !fileData) continue;
-      const arrayBuf = await fileData.arrayBuffer();
-      const bytes = new Uint8Array(arrayBuf);
-      let binary = "";
-      const CHUNK = 8192;
-      for (let i = 0; i < bytes.length; i += CHUNK) {
-        binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, Math.min(i + CHUNK, bytes.length))));
-      }
-      parts.push({ mime_type: "application/pdf", data: btoa(binary) });
-      totalSize += doc.file_size;
-    }
-    return parts;
-  } catch (e) {
-    console.error("Error fetching reference PDFs:", e);
-    return [];
-  }
-}
-
-async function callGemini(systemPrompt: string, userContent: any, timeoutMs = 120000): Promise<string> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-  let response: Response;
-  try {
-    response = await fetch(API_URL, {
-      method: "POST",
-      signal: controller.signal,
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${LOVABLE_API_KEY}` },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userContent },
-        ],
-        max_tokens: 6000,
-      }),
-    });
-  } catch (e: any) {
-    clearTimeout(timeoutId);
-    if (e?.name === "AbortError") {
-      const err = new Error("Tempo limite excedido na chamada à IA") as Error & { userMessage?: string };
-      err.userMessage = "A IA demorou para responder. Tente novamente em alguns segundos.";
-      throw err;
-    }
-    throw e;
-  } finally {
-    clearTimeout(timeoutId);
-  }
-
-  if (!response.ok) {
-    const errText = await response.text();
-    const err = new Error(`AI API error: ${response.status} - ${errText}`) as Error & { userMessage?: string };
-    if (response.status === 402) err.userMessage = "A geração de conteúdo está temporariamente indisponível. Tente novamente em alguns instantes.";
-    else if (response.status === 429) err.userMessage = "Muitas solicitações ao mesmo tempo. Aguarde um pouco e tente novamente.";
-    throw err;
-  }
-
-  const data = await response.json().catch(() => null);
-  const content = data?.choices?.[0]?.message?.content;
-  if (typeof content !== "string" || !content.trim()) {
-    const err = new Error("Conteúdo vazio da IA") as Error & { userMessage?: string };
-    err.userMessage = "A IA demorou para responder. Tente novamente em alguns segundos.";
-    throw err;
-  }
-  return content;
-}
 
 async function updateJob(jobId: string, patch: Record<string, any>) {
   await admin.from("content_generation_jobs").update(patch).eq("id", jobId);
