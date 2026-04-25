@@ -460,8 +460,8 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify({
-        portraits: successful.map((r) => r.portrait),
-        backgrounds: successful.map((r) => r.background),
+        portraits: finalPortraits.map((r) => r.dataUrl),
+        backgrounds: finalPortraits.map((r) => r.background),
         training_id: training.id,
         charged_credits: charge,
       }),
