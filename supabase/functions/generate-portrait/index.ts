@@ -27,28 +27,110 @@ function shuffle<T>(arr: T[]): T[] {
   return copy;
 }
 
+async function urlToDataUrl(imageUrl: string): Promise<{ ok: true; dataUrl: string } | { ok: false; reason: string }> {
+  const imgRes = await fetch(imageUrl);
+  if (!imgRes.ok) return { ok: false, reason: `download-${imgRes.status}` };
+  const buf = new Uint8Array(await imgRes.arrayBuffer());
+  let binary = "";
+  const chunk = 8192;
+  for (let i = 0; i < buf.length; i += chunk) {
+    binary += String.fromCharCode(...buf.subarray(i, i + chunk));
+  }
+  const b64 = btoa(binary);
+  const lower = imageUrl.toLowerCase();
+  const mime = lower.includes(".webp")
+    ? "image/webp"
+    : lower.includes(".jpg") || lower.includes(".jpeg")
+    ? "image/jpeg"
+    : "image/png";
+  return { ok: true, dataUrl: `data:${mime};base64,${b64}` };
+}
+
+/**
+ * Upscale 2x via nightmareai/real-esrgan com face_enhance.
+ * Recebe a URL hospedada da imagem do Flux e devolve a URL upscaled.
+ * Resiliente: em caso de qualquer erro/timeout, retorna { ok: false } e o
+ * caller mantém a imagem original 1MP.
+ */
+async function upscaleImage(params: {
+  token: string;
+  imageUrl: string;
+}): Promise<{ ok: true; imageUrl: string } | { ok: false; reason: string }> {
+  const { token, imageUrl } = params;
+  const start = Date.now();
+  try {
+    const createRes = await fetch("https://api.replicate.com/v1/predictions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        Prefer: "wait=5",
+      },
+      body: JSON.stringify({
+        version: UPSCALER_MODEL_VERSION.split(":")[1],
+        input: { image: imageUrl, scale: 2, face_enhance: true },
+      }),
+    });
+    if (!createRes.ok) {
+      const txt = await createRes.text();
+      return { ok: false, reason: `upscale-create-${createRes.status}:${txt.slice(0, 150)}` };
+    }
+    let prediction = await createRes.json();
+    const id = prediction.id;
+    if (!id) return { ok: false, reason: "upscale-no-id" };
+
+    const maxAttempts = 60;
+    let attempts = 0;
+    while (
+      prediction.status !== "succeeded" &&
+      prediction.status !== "failed" &&
+      prediction.status !== "canceled" &&
+      attempts < maxAttempts
+    ) {
+      await new Promise((r) => setTimeout(r, 1500));
+      attempts++;
+      const pollRes = await fetch(`https://api.replicate.com/v1/predictions/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!pollRes.ok) return { ok: false, reason: `upscale-poll-${pollRes.status}` };
+      prediction = await pollRes.json();
+    }
+
+    const latency = ((Date.now() - start) / 1000).toFixed(1);
+    if (prediction.status !== "succeeded") {
+      return { ok: false, reason: `upscale-status=${prediction.status} after ${latency}s` };
+    }
+    const output = prediction.output;
+    const upUrl = Array.isArray(output) ? output[0] : output;
+    if (!upUrl || typeof upUrl !== "string") return { ok: false, reason: "upscale-empty" };
+    console.log(`[generate-portrait] upscale 2x succeeded latency=${latency}s`);
+    return { ok: true, imageUrl: upUrl };
+  } catch (e) {
+    return { ok: false, reason: `upscale-exception:${e instanceof Error ? e.message : String(e)}` };
+  }
+}
+
 async function callFluxLora(params: {
   token: string;
   loraVersion: string;
   prompt: string;
   negative: string;
-}): Promise<{ ok: true; dataUrl: string } | { ok: false; reason: string }> {
-  const { token, loraVersion, prompt, negative } = params;
+  guidanceScale: number;
+}): Promise<{ ok: true; imageUrl: string } | { ok: false; reason: string }> {
+  const { token, loraVersion, prompt, negative, guidanceScale } = params;
   const start = Date.now();
   try {
     const input: Record<string, unknown> = {
       prompt,
-      // black-forest-labs/flux-dev-lora supports `lora_weights` (HF/Replicate model ref or .tar URL)
       lora_weights: loraVersion,
       lora_scale: 0.95,
       num_outputs: 1,
       aspect_ratio: "3:4",
-      guidance_scale: 3.5,
+      guidance_scale: guidanceScale,
       num_inference_steps: 40,
       output_format: "png",
       output_quality: 95,
       seed: Math.floor(Math.random() * 1000000),
-      // Some hosted versions accept negative_prompt; harmless if ignored
       negative_prompt: negative,
     };
 
@@ -100,19 +182,8 @@ async function callFluxLora(params: {
     const imageUrl = Array.isArray(output) ? output[0] : output;
     if (!imageUrl || typeof imageUrl !== "string") return { ok: false, reason: "empty-output" };
 
-    const imgRes = await fetch(imageUrl);
-    if (!imgRes.ok) return { ok: false, reason: `download-${imgRes.status}` };
-    const buf = new Uint8Array(await imgRes.arrayBuffer());
-    let binary = "";
-    const chunk = 8192;
-    for (let i = 0; i < buf.length; i += chunk) {
-      binary += String.fromCharCode(...buf.subarray(i, i + chunk));
-    }
-    const b64 = btoa(binary);
-    const lower = imageUrl.toLowerCase();
-    const mime = lower.includes(".webp") ? "image/webp" : lower.includes(".jpg") || lower.includes(".jpeg") ? "image/jpeg" : "image/png";
-    console.log(`[generate-portrait] flux-lora succeeded latency=${latency}s`);
-    return { ok: true, dataUrl: `data:${mime};base64,${b64}` };
+    console.log(`[generate-portrait] flux-lora succeeded latency=${latency}s guidance=${guidanceScale}`);
+    return { ok: true, imageUrl };
   } catch (e) {
     return { ok: false, reason: `exception:${e instanceof Error ? e.message : String(e)}` };
   }
