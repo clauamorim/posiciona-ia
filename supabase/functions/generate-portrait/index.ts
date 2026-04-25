@@ -19,6 +19,7 @@ const FLUX_LORA_MODEL = "black-forest-labs/flux-dev-lora";
 const CLARITY_UPSCALER_VERSION = "dfad41707589d68ecdccd1dfa600d55a208f9310748e44bfe35b4a6291453d5e";
 const GENERATE_COST_CREDITS = 3;
 const GUIDANCE_VARIATIONS = [3.0, 3.5, 4.0];
+const GUIDANCE_VARIATIONS_OVERRIDE = [4.0, 4.5, 4.5];
 const PORTRAIT_BUCKET = "portrait-outputs";
 
 /** Fisher–Yates shuffle não destrutivo. */
