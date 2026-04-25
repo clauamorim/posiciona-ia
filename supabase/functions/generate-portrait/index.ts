@@ -472,7 +472,6 @@ serve(async (req) => {
       pose?: string;
       outfit?: string;
       path: string;
-      dataUrl: string;
       upscaled: boolean;
     }> = [];
 
