@@ -1,52 +1,13 @@
+// 2026-04-25-v5: migrado de Gemini para Claude Sonnet 4.5.
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { extractJsonFromLLM, isValidReport } from "../_shared/jsonExtract.ts";
+import { callClaude, ClaudeError } from "../_shared/claudeClient.ts";
+import { fetchEditorialReferencePdfs, fetchPersonalQuestionnaire, renderPersonalContext } from "../_shared/buildClaudeContext.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-const API_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
-
-async function fetchReferencePdfs(): Promise<{ mime_type: string; data: string }[]> {
-  try {
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
-    const { data: docs } = await supabaseAdmin
-      .from("reference_documents")
-      .select("file_path, file_size")
-      .eq("is_active", true)
-      .order("created_at", { ascending: true })
-      .limit(5);
-    if (!docs?.length) return [];
-
-    const parts: { mime_type: string; data: string }[] = [];
-    let totalSize = 0;
-    const MAX_TOTAL = 8 * 1024 * 1024;
-
-    for (const doc of docs) {
-      if (totalSize + doc.file_size > MAX_TOTAL) break;
-      const { data: fileData, error } = await supabaseAdmin.storage
-        .from("reference-pdfs")
-        .download(doc.file_path);
-      if (error || !fileData) continue;
-      const arrayBuf = await fileData.arrayBuffer();
-      const bytes = new Uint8Array(arrayBuf);
-      let binary = "";
-      const CHUNK = 8192;
-      for (let i = 0; i < bytes.length; i += CHUNK) {
-        binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, Math.min(i + CHUNK, bytes.length))));
-      }
-      const b64 = btoa(binary);
-      parts.push({ mime_type: "application/pdf", data: b64 });
-      totalSize += doc.file_size;
-    }
-    return parts;
-  } catch (e) {
-    console.error("Error fetching reference PDFs:", e);
-    return [];
-  }
-}
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
