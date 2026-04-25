@@ -184,11 +184,13 @@ const EditorialPage = () => {
   const { contentObject, hasEditorial } = parseReportContent(report?.content);
   const content = contentObject ?? {};
   const structuredEditorial = Array.isArray(content.editorial) ? content.editorial : [];
-  const editorialWeeks: any[][] = Array.isArray(report?.editorial_weeks) ? report.editorial_weeks : [];
-  const allWeeks = [
+  const editorialWeeks: any[] = Array.isArray(report?.editorial_weeks) ? report.editorial_weeks : [];
+  const allWeeksRaw: any[] = [
     ...(hasEditorial && structuredEditorial.length > 0 ? [structuredEditorial] : []),
     ...editorialWeeks,
   ];
+  // Sempre normaliza para shape v6 antes de renderizar (tolerante a v5 antigo)
+  const allWeeks: WeekV6[] = allWeeksRaw.map((w) => normalizeWeekToV6(w));
 
   // Cleanup do polling ao desmontar (evita updates em componente desmontado)
   useEffect(() => {
