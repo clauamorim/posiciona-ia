@@ -228,7 +228,7 @@ const HistoryPage = () => {
             </TabsContent>
 
             <TabsContent value="portraits" className="mt-4">
-              {portraits.length === 0 ? (
+              {flatPortraits.length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground">
                   <Camera className="h-12 w-12 mx-auto mb-3 opacity-50" />
                   <p>Nenhum retrato gerado.</p>
