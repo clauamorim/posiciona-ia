@@ -536,25 +536,10 @@ const PortraitGenerator = () => {
                         {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageIcon className="h-4 w-4" />}
                         Gerar 3 retratos ({GENERATE_COST_CREDITS} créditos)
                       </Button>
-                      <Button onClick={() => setOverridesDialogOpen(true)} variant="outline" size="lg" className="gap-2">
-                        <Shirt className="h-4 w-4" />
-                        Personalizar figurinos
-                        {someOverridesFilled && <Badge variant="secondary" className="ml-1 text-[10px]">{outfitOverrides.filter(s => s.trim()).length}/3</Badge>}
-                      </Button>
                       <Button onClick={() => setTrainModalOpen(true)} variant="outline" size="lg">
                         Treinar novo Estúdio
                       </Button>
                     </div>
-                    {someOverridesFilled && !allOverridesFilled && (
-                      <p className="text-xs text-muted-foreground">
-                        Para usar figurinos personalizados, descreva os <strong>3 looks</strong>. Caso contrário, usaremos figurinos curados para o seu arquétipo.
-                      </p>
-                    )}
-                    {allOverridesFilled && (
-                      <p className="text-xs text-success">
-                        ✓ Figurinos personalizados ativos para a próxima geração.
-                      </p>
-                    )}
                     {generating && (
                       <div className="space-y-2">
                         <Progress value={undefined} className="animate-pulse" />
