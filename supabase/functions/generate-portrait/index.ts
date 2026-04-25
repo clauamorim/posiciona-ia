@@ -16,10 +16,9 @@ import { mapProfessionToCategory, pickOutfits } from "../_shared/outfitPool.ts";
 
 const FLUX_LORA_MODEL = "black-forest-labs/flux-dev-lora";
 const GENERATE_COST_CREDITS = 3;
-// Guidance recalibrado: valores mais baixos preservam melhor anatomia/proporção
-// e deixam o LoRA "respirar". Valores muito altos (>4) começam a induzir
-// distorção corporal mesmo com prompt limpo.
-const GUIDANCE_VARIATIONS = [3.0, 3.2, 3.4];
+// Guidance calibrado pra espelhar o que funcionou no Replicate UI manual (2.5).
+// Variamos sutilmente entre os 3 looks pra dar variedade sem fugir muito do ponto-doce.
+const GUIDANCE_VARIATIONS = [2.5, 2.7, 2.9];
 const PORTRAIT_BUCKET = "portrait-outputs";
 // Referência (logs apenas). FLUX LoRA usa aspect_ratio + megapixels — width/height
 // no input são ignorados silenciosamente e o modelo cai pra 1024x1024.
@@ -28,14 +27,14 @@ const PORTRAIT_HEIGHT = 1152;
 
 /**
  * Calibra a força do LoRA conforme o tamanho do dataset de selfies.
- * Recalibrado pra baixo: scales muito altas (>0.95) começam a "puxar" defeitos
- * de anatomia presentes nas selfies de treino (ângulos repetitivos, distorções
- * de close-up de smartphone). Mantemos rosto reconhecível com scales menores.
+ * Calibrado pra valores próximos do default do Replicate UI (~0.8), que produziu
+ * textura de pele e expressões mais naturais. Scales >0.9 começam a "endurecer"
+ * o resultado e suavizar pele em excesso.
  */
 function pickLoraScale(selfiesCount: number): number {
-  if (selfiesCount <= 12) return 0.86;
-  if (selfiesCount <= 20) return 0.90;
-  return 0.92;
+  if (selfiesCount <= 12) return 0.80;
+  if (selfiesCount <= 20) return 0.85;
+  return 0.88;
 }
 
 /** Fisher–Yates shuffle não destrutivo. */
