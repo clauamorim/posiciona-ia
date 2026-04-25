@@ -315,9 +315,10 @@ export function buildPortraitPrompt(params: BuildPromptParams): {
   const triggerWord = params.triggerWord
     || `USR${params.userId.replace(/-/g, "").slice(0, 12)}`;
 
-  // Trigger word como PRIMEIRO TOKEN ABSOLUTO do prompt — Flux dá mais peso
-  // aos primeiros tokens, e isso é crítico para o LoRA reconhecer a identidade.
-  let prompt = `${triggerWord}, ` + STUDIO_PREFIX + tpl.prompt;
+  // Trigger word DUPLICADO no início absoluto — Flux dá mais peso aos primeiros
+  // tokens. Duas menções logo de cara forçam atenção máxima ao LoRA, garantindo
+  // que o rosto gerado seja reconhecível como o da pessoa treinada.
+  let prompt = `${triggerWord}, portrait of ${triggerWord}, ` + STUDIO_PREFIX + tpl.prompt;
   // Negative base + reforço de mãos APENAS se este look mostra mãos.
   let negative = tpl.negative + STUDIO_NEGATIVE_BASE + (framing.showsHands ? HANDS_NEGATIVE_REINFORCE : "");
 
