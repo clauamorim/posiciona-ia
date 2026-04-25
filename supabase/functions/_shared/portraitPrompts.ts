@@ -410,10 +410,10 @@ export function buildPortraitPrompt(params: BuildPromptParams): {
   }
 
   // 3d. Quando vem de override do usuário, REPETE o outfit no final do prompt
-  // com peso ainda maior — duas menções aumentam a probabilidade do Flux
-  // respeitar a peça pedida em vez de usar o blazer das selfies de treino.
+  // com peso leve — duas menções (início + fim) ancoram a peça sem sufocar
+  // o LoRA de rosto. Peso final reduzido de 2.2 → 1.4 para preservar fidelidade.
   if (params.isUserOverride && outfitText) {
-    prompt = `${prompt}, (clearly wearing ${outfitText}:2.2), outfit visible: ${outfitText}`;
+    prompt = `${prompt}, (clearly wearing ${outfitText}:1.4)`;
   }
 
   // 4. Limpeza
