@@ -122,13 +122,25 @@ const Results = () => {
         toast({ title: "Estratégia gerada com sucesso!" });
       } catch (err: any) {
         console.error("Results error:", err);
-        setErrorMsg(err.message || "Erro desconhecido");
+        const rawMsg = (err?.message || "") + " " + (err?.context?.body ? JSON.stringify(err.context.body) : "");
+        const lower = rawMsg.toLowerCase();
+        const rateLimited = /rate limit|overloaded|429|529|alta demanda|temporariamente indispon/.test(lower);
+        setIsRateLimited(rateLimited);
+        setErrorMsg(
+          rateLimited
+            ? "A IA está com alta demanda agora. Aguarde alguns segundos e tente novamente."
+            : (err.message || "Erro desconhecido")
+        );
         setStage("error");
-        toast({ title: "Erro", description: err.message, variant: "destructive" });
+        toast({
+          title: rateLimited ? "Alta demanda na IA" : "Erro",
+          description: rateLimited ? "Tente novamente em alguns segundos." : err.message,
+          variant: "destructive",
+        });
       }
     };
     run();
-  }, [user]);
+  }, [user, retryToken]);
 
   const top3 = getTop3(scores);
   const maxScore = 30;
