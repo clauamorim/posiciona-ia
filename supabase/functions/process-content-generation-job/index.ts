@@ -200,11 +200,14 @@ Gere 7 novos dias de conteúdo em JSON.`;
       const enrichedSystemPrompt = systemPrompt + renderEditorialFrameworks();
 
       // Uma única chamada paga, sem retry automático (evita cobrança duplicada).
+      // max_tokens reduzido para 3500: 7 posts curtos cabem confortavelmente
+      // e a geração fica ~40% mais rápida, evitando timeouts.
+      // timeoutMs aumentado para 170s — margem segura dentro do limite do worker.
       const rawContent = await callClaude({
         systemPrompt: enrichedSystemPrompt,
         userText: userPrompt,
-        max_tokens: 8000,
-        timeoutMs: 140000,
+        max_tokens: 3500,
+        timeoutMs: 170000,
         disableRetries: true,
       });
 
