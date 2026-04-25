@@ -23,8 +23,13 @@
  *   edge functions de geração editorial (relatório, semana, post único).
  *   Inclui contexto pessoal do criador (questionário pessoal de 16
  *   campos) em todo prompt para humanização via storytelling.
+ * - 2026-04-25-v6: linha editorial dividida em Feed (4 posts/semana entre
+ *   carrossel, post único e reels) + Stories (7 sugestões/semana, com
+ *   espelhamento de tema nos dias com feed). Geração em 2 estágios para
+ *   evitar timeout/truncamento e parser robusto para JSON aninhado.
+ *   Regeneração granular por target (feed | story).
  */
-export const EDITORIAL_GENERATOR_VERSION = "2026-04-25-v5";
+export const EDITORIAL_GENERATOR_VERSION = "2026-04-25-v6";
 
 /**
  * Retorna true quando o dia/post foi gerado antes da versão atual,
