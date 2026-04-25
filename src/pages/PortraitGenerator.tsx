@@ -262,7 +262,11 @@ const PortraitGenerator = () => {
     setPortraits([]);
     setBackgrounds([]);
     try {
-      const { data, error } = await supabase.functions.invoke("generate-portrait", { body: {} });
+      const body: { outfit_overrides?: string[] } = {};
+      if (allOverridesFilled) {
+        body.outfit_overrides = outfitOverrides.map((s) => s.trim());
+      }
+      const { data, error } = await supabase.functions.invoke("generate-portrait", { body });
       if (error) throw error;
       if (data?.error) {
         toast({ title: "Erro", description: data.error, variant: "destructive" });
