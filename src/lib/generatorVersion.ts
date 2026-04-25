@@ -20,7 +20,7 @@
  *   "jornada do herói"). Regeneração de post único deixa de enviar
  *   captions dos posts vizinhos — só o tema, para evitar contaminação.
  */
-export const EDITORIAL_GENERATOR_VERSION = "2026-04-24-v4";
+export const EDITORIAL_GENERATOR_VERSION = "2026-04-25-v5";
 
 /**
  * Retorna true quando o dia/post foi gerado antes da versão atual,
