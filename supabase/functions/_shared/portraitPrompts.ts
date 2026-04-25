@@ -352,16 +352,16 @@ export function buildPortraitPrompt(params: BuildPromptParams): {
     traitPhrase = `, with ${t.hair_length} ${t.hair_style} ${t.hair_color} hair, ${t.skin_tone} skin, ${t.eye_color} eyes`;
   }
 
-  // 3b. Injeção do OUTFIT logo após USR<id> + traços, com peso BAIXO.
-  // Pesos altos (>1.4) competem com o LoRA pelo orçamento de atenção e
-  // degradam a fidelidade facial. Mantemos peso enxuto.
+  // 3b. Injeção do OUTFIT logo após USR<id> + traços, com peso BAIXÍSSIMO.
+  // Pesos altos competem com o LoRA pelo orçamento de atenção e degradam
+  // anatomia/proporção do corpo. Mantemos peso quase neutro (1.05).
   const outfitText = (params.outfit || "").trim();
-  const outfitWeight = 1.2;
+  const outfitWeight = 1.05;
   const outfitPhrase = outfitText ? `, (wearing ${outfitText}:${outfitWeight})` : "";
 
-  // 3b-bis. Injeção da POSE DE MÃOS — APENAS se este look mostra mãos.
-  const handPoseText = framing.showsHands ? (params.handPose || "").trim() : "";
-  const handPosePhrase = handPoseText ? `, (hands: ${handPoseText}:1.2)` : "";
+  // 3b-bis. Pose de mãos: IGNORADA. Todos os looks agora são "hands out of frame".
+  // Mantemos a variável só pra logs no chamador, mas não injetamos no prompt.
+  const handPosePhrase = "";
 
   // 3b-ter. Reforço explícito de identidade — ancora o Flux ao LoRA e
   // preserva texturas naturais de pele e cabelo. Crítico contra "rosto genérico".
