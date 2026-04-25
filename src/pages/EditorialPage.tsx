@@ -446,13 +446,13 @@ const EditorialPage = () => {
       const isFirstWeek = structuredEditorial.length > 0 && weekIndex === 0;
       if (isFirstWeek) {
         const newContent = { ...content, editorial: updatedWeek };
-        await supabase.from("reports").update({ content: newContent }).eq("user_id", user.id).eq("version", report.version);
+        await supabase.from("reports").update({ content: newContent as any }).eq("user_id", user.id).eq("version", report.version);
         setReport({ ...report, content: newContent });
       } else {
         const adjustedWeekIndex = structuredEditorial.length > 0 ? weekIndex - 1 : weekIndex;
         const newWeeks = [...editorialWeeks];
         newWeeks[adjustedWeekIndex] = updatedWeek;
-        await supabase.from("reports").update({ editorial_weeks: newWeeks }).eq("user_id", user.id).eq("version", report.version);
+        await supabase.from("reports").update({ editorial_weeks: newWeeks as any }).eq("user_id", user.id).eq("version", report.version);
         setReport({ ...report, editorial_weeks: newWeeks });
       }
 
