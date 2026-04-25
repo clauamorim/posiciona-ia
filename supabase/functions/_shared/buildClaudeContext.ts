@@ -9,7 +9,68 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import type { ClaudePdfPart } from "./claudeClient.ts";
 
-// ============ PDFs de referência ============
+// ============ Resumos de frameworks (substituem PDFs) ============
+//
+// Os PDFs de StoryBrand / Made to Stick / Obviously Awesome consumiam
+// 50-100k tokens por chamada — bem acima do limite de 30k tokens/min
+// da org Anthropic. Substituídos por resumos densos canônicos abaixo.
+// As funções de fetch ficam mantidas (deprecadas) caso o tier suba.
+
+export function renderBrandscriptFramework(): string {
+  return `
+
+# FRAMEWORK BRANDSCRIPT (StoryBrand — Donald Miller) — referência interna
+
+Toda marca clara segue 7 elementos narrativos. Use como espinha dorsal estratégica do relatório (NUNCA cite os rótulos no conteúdo visível para o cliente final).
+
+1. PERSONAGEM (Herói = o cliente, NUNCA a marca): o cliente quer algo. Defina o desejo concreto e a identidade aspiracional.
+2. PROBLEMA — em três camadas:
+   - Externo: o problema tangível e visível (ex.: "minha marca não vende").
+   - Interno: o sentimento ruim que o problema externo causa (ex.: "me sinto amador / impostor").
+   - Filosófico: por que é INJUSTO o cliente passar por isso (ex.: "todo profissional sério merece ser visto como referência").
+   - VILÃO: personifique a fonte do problema (procrastinação, ruído digital, "achismo", concorrência genérica). Vilão deve ser único, real e relacionável.
+3. GUIA (a marca): mostra empatia + autoridade. Empatia = "eu entendo o que você sente". Autoridade = prova (anos, clientes, método, resultados). NUNCA se posicione como herói.
+4. PLANO: passos simples (3 a 4) que removem ansiedade. Cliente precisa saber EXATAMENTE o que fazer agora.
+5. CHAMA À AÇÃO: direta (compre/agende) e transicional (baixe/assine algo de baixo compromisso para quem ainda não está pronto).
+6. SUCESSO: pinte o "depois" — como será a vida do cliente após resolver o problema. Concreto, sensorial.
+7. FRACASSO: o que está em jogo se ele NÃO agir. Sem isso a história não tem peso.
+
+REGRAS DE APLICAÇÃO:
+- Tudo deve ser específico e do cliente (linguagem dele, dores dele, vocabulário dele) — não jargão da marca.
+- Plano e CTA precisam reduzir a fricção mental do herói.
+- Sucesso e Fracasso são âncoras emocionais — NUNCA omita.`;
+}
+
+export function renderEditorialFrameworks(): string {
+  return `
+
+# FRAMEWORKS EDITORIAIS — referência interna densa
+(NUNCA cite os nomes ou rótulos abaixo nos campos visíveis: theme, caption, card_copy, cta, script.)
+
+## 1. STORYBRAND (Donald Miller) — narrativa
+Estrutura interna de TODO post: Herói (cliente) com um desejo → enfrenta um Problema (externo + interno + filosófico) → encontra um Guia (a marca, com empatia + autoridade) → recebe um Plano simples → é convocado por uma Chamada à Ação direta → vislumbra um Sucesso concreto e teme um Fracasso real. O BrandScript específico desta marca já está renderizado no prompt do usuário (bloco "ESTRATÉGIA STORYBRAND DA MARCA") — use-o como fonte da verdade.
+
+## 2. SUCCESs (Made to Stick — irmãos Heath) — ideias que grudam
+Toda mensagem memorável combina 6 atributos:
+- SIMPLE: uma única ideia central, descascada até o essencial. Evite múltiplas mensagens por post.
+- UNEXPECTED: quebra o padrão esperado — abra com um número incomum, contradição, cena estranha ou pergunta que ninguém faz. Gera "gap de curiosidade".
+- CONCRETE: imagens sensoriais e exemplos verificáveis. Substitua abstrações ("excelência", "qualidade") por cenas (uma audiência, um cliente, uma planilha).
+- CREDIBLE: prova interna (autoridade, números, casos) ou externa (testemunhos, dados, autoridade citada).
+- EMOTIONAL: fale de PESSOAS, não de categorias. Ative dor, orgulho, alívio, pertencimento.
+- STORIES: histórias curtas (vivência do criador, caso de cliente, mini-cena). Histórias prendem porque o leitor simula vivê-las.
+APLICAÇÃO POR POST: gancho (primeira frase) = SIMPLE + UNEXPECTED + CONCRETE. Corpo = CREDIBLE + EMOTIONAL. Fecho = STORY ou prova viva → CTA.
+
+## 3. POSITIONING (Obviously Awesome — April Dunford) — posicionamento
+5 componentes de um posicionamento forte:
+- ALTERNATIVAS COMPETITIVAS: o que o cliente faria se você não existisse (concorrente, planilha, "fazer sozinho", não fazer nada). Deixe claro o que a marca NÃO é.
+- ATRIBUTOS ÚNICOS: capacidades reais que só esta marca tem (método próprio, combinação rara de habilidades, contexto exclusivo).
+- VALOR DESSES ATRIBUTOS: o benefício concreto que esses atributos geram para o cliente — em outcomes mensuráveis ou emocionais.
+- MELHOR CLIENTE: o segmento específico que mais valoriza esse valor. Quanto mais nichado, mais forte.
+- CATEGORIA DE MERCADO: o frame de referência em que o cliente vai encaixar a marca. Categoria errada = comparação errada.
+APLICAÇÃO POR POST: pelo menos 1 vez por semana o conteúdo deve evidenciar categoria + alternativa rejeitada + valor único. Evite "somos diferentes" — mostre POR QUE e PARA QUEM.`;
+}
+
+// ============ PDFs de referência (DEPRECADO — manter para reativação futura) ============
 
 function normalizeDocName(name: string): string {
   return (name || "")
