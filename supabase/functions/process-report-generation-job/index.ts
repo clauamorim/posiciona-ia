@@ -398,13 +398,79 @@ async function processJob(jobId: string) {
   try {
     const payload = job.payload || {};
     const userId = job.user_id as string;
+    const business = payload?.business || {};
+    const niche = payload?.niche || "";
+    const archetypes = payload?.archetypes || {};
+    const genderLabel = payload?.gender || "Não informado";
 
-    await updateJob(jobId, { progress_message: "Gerando estratégia sem chamada paga à IA…" });
+    await updateJob(jobId, { progress_message: "Gerando estratégia com IA… pode levar até 2 minutos." });
 
-    // Modo de segurança: evita novas cobranças no Claude enquanto a API externa está
-    // demorando além do limite. Gera um relatório estruturado determinístico com os
-    // dados já preenchidos pelo usuário.
-    const reportContent = buildDeterministicReport(payload);
+    // Contexto pessoal do criador (humanização)
+    const personal = await fetchPersonalQuestionnaire(userId);
+    const personalContext = renderPersonalContext(personal);
+
+    const primaryName = getArchetypeName(archetypes.primary, "Explorador");
+    const secondaryName = getArchetypeName(archetypes.secondary, "Governante");
+    const tertiaryName = getArchetypeName(archetypes.tertiary, "Amante");
+
+    const userPrompt = `# DADOS DO NEGÓCIO
+Empresa: ${business.company_name || "—"}
+Serviços: ${business.services || "—"}
+Público-alvo: ${business.target_audience || "—"}
+Nicho: ${niche || "—"}
+Problemas externos: ${business.external_problems || "—"}
+Problemas internos: ${business.internal_problems || "—"}
+Declarações empáticas: ${business.empathic_statements || "—"}
+Provas de autoridade: ${business.authority_proofs || "—"}
+Passos para contratação: ${business.hiring_steps || "—"}
+Medos do cliente: ${business.client_fears || "—"}
+CTA principal: ${business.main_cta || "—"}
+Consequências negativas: ${business.negative_consequences || "—"}
+Transformações prometidas: ${business.promised_transformations || "—"}
+
+# ARQUÉTIPOS (já calculados pelo questionário)
+Primário: ${primaryName}
+Secundário: ${secondaryName}
+Terciário: ${tertiaryName}
+
+# GÊNERO DO CLIENTE (OBRIGATÓRIO seguir no figurino)
+${genderLabel}
+${personalContext}
+
+Gere o relatório estratégico completo em JSON conforme a estrutura exigida.`;
+
+    const systemPrompt = buildSystemPrompt(genderLabel) + renderBrandscriptFramework();
+
+    let reportContent: any = null;
+    let isFallback = false;
+
+    try {
+      // Uma única chamada paga, sem retry automático.
+      const rawContent = await callClaude({
+        systemPrompt,
+        userText: userPrompt,
+        max_tokens: 6000,
+        timeoutMs: 140000,
+        disableRetries: true,
+      });
+
+      const parsed = extractJsonFromLLM(rawContent);
+      if (parsed && isValidReport(parsed)) {
+        reportContent = parsed;
+      } else {
+        console.warn(`Report job ${jobId}: JSON inválido do Claude, usando fallback determinístico.`);
+        reportContent = buildDeterministicReport(payload);
+        isFallback = true;
+      }
+    } catch (claudeErr: any) {
+      console.warn(`Report job ${jobId}: Claude falhou (${claudeErr?.status || "?"}), usando fallback determinístico:`, claudeErr?.message);
+      reportContent = buildDeterministicReport(payload);
+      isFallback = true;
+    }
+
+    if (isFallback) {
+      reportContent.is_fallback = true;
+    }
 
     // Persistir no relatório
     await admin
@@ -419,13 +485,13 @@ async function processJob(jobId: string) {
 
     await updateJob(jobId, {
       status: "completed",
-      result: { report: reportContent },
-      progress_message: "Concluído!",
+      result: { report: reportContent, is_fallback: isFallback },
+      progress_message: isFallback ? "Concluído (modelo simplificado)." : "Concluído!",
       finished_at: new Date().toISOString(),
       error_message: null,
     });
 
-    console.log(`Report job ${jobId} concluído com sucesso.`);
+    console.log(`Report job ${jobId} concluído com sucesso (fallback=${isFallback}).`);
   } catch (err: any) {
     console.error(`Report job ${jobId} falhou:`, err);
     const userMessage = typeof err?.userMessage === "string" && err.userMessage.trim()
