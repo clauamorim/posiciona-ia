@@ -360,11 +360,11 @@ export function buildPortraitPrompt(params: BuildPromptParams): {
     traitPhrase = `, with ${t.hair_length} ${t.hair_style} ${t.hair_color} hair, ${t.skin_tone} skin, ${t.eye_color} eyes`;
   }
 
-  // 3b. Injeção do OUTFIT logo após USR<id> + traços, com peso moderado.
-  // Pesos altos (>1.6) competem com o LoRA pelo orçamento de atenção e
-  // degradam a fidelidade facial. Mantemos peso conservador.
+  // 3b. Injeção do OUTFIT logo após USR<id> + traços, com peso BAIXO.
+  // Pesos altos (>1.4) competem com o LoRA pelo orçamento de atenção e
+  // degradam a fidelidade facial. Mantemos peso enxuto.
   const outfitText = (params.outfit || "").trim();
-  const outfitWeight = params.isUserOverride ? 1.5 : 1.3;
+  const outfitWeight = 1.2;
   const outfitPhrase = outfitText ? `, (wearing ${outfitText}:${outfitWeight})` : "";
 
   // 3b-bis. Injeção da POSE DE MÃOS — APENAS se este look mostra mãos.
@@ -372,9 +372,8 @@ export function buildPortraitPrompt(params: BuildPromptParams): {
   const handPosePhrase = handPoseText ? `, (hands: ${handPoseText}:1.2)` : "";
 
   // 3b-ter. Reforço explícito de identidade — ancora o Flux ao LoRA e
-  // preserva texturas naturais de pele e cabelo (que tendem a ser perdidas
-  // quando o guidance sobe ou o outfit ganha peso demais).
-  const identityPhrase = ", preserve exact facial features, same person, identical face, recognizable individual, natural skin texture, authentic skin pores, fine hair strands";
+  // preserva texturas naturais de pele e cabelo. Crítico contra "rosto genérico".
+  const identityPhrase = ", preserve exact facial features, same person, identical face to reference, recognizable individual, distinctive facial structure, real person photograph, authentic skin pores, natural skin texture, unretouched skin, fine hair strands, individual hair fibers";
 
   prompt = prompt.replace(/(USR\S+)/, `$1${identityPhrase}${traitPhrase}${outfitPhrase}${handPosePhrase}`);
 
