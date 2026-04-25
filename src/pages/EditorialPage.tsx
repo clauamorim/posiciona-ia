@@ -158,6 +158,7 @@ const EditorialPage = () => {
 
   const [userNiche, setUserNiche] = useState<string>("");
   const [businessContext, setBusinessContext] = useState<string>("");
+  const [personalSubmitted, setPersonalSubmitted] = useState<boolean | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -174,6 +175,9 @@ const EditorialPage = () => {
           setBusinessContext(ctx);
         }
       });
+    supabase.from("personal_questionnaires").select("status")
+      .eq("user_id", user.id).order("version", { ascending: false }).limit(1).maybeSingle()
+      .then(({ data }) => { setPersonalSubmitted(data?.status === "submitted"); });
   }, [user]);
 
   const { contentObject, hasEditorial } = parseReportContent(report?.content);
@@ -195,6 +199,14 @@ const EditorialPage = () => {
   const handleGenerateWeek = async () => {
     if (!user || weeklyCycles < 1) {
       toast({ title: "Créditos insuficientes", description: "Você não tem ciclos semanais disponíveis.", variant: "destructive" });
+      return;
+    }
+    if (personalSubmitted === false) {
+      toast({
+        title: "Conte sua história primeiro",
+        description: "A Linha Editorial precisa do seu Questionário Pessoal para humanizar os posts.",
+      });
+      navigate("/personal-questionnaire");
       return;
     }
     setGeneratingWeek(true);
