@@ -10,9 +10,10 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { Search, Download, Ban, Coins, Crown, Trash2, MailCheck, Loader2, Eye, BarChart3 } from "lucide-react";
+import { Search, Download, Ban, Coins, Crown, Trash2, MailCheck, Loader2, Eye, BarChart3, MoreHorizontal } from "lucide-react";
 import { Link } from "react-router-dom";
 
 interface Plan {
