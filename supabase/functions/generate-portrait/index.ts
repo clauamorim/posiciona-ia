@@ -26,11 +26,11 @@ async function callFluxLora(params: {
       prompt,
       // black-forest-labs/flux-dev-lora supports `lora_weights` (HF/Replicate model ref or .tar URL)
       lora_weights: loraVersion,
-      lora_scale: 0.85,
+      lora_scale: 0.95,
       num_outputs: 1,
       aspect_ratio: "3:4",
-      guidance_scale: 3.0,
-      num_inference_steps: 35,
+      guidance_scale: 3.5,
+      num_inference_steps: 40,
       output_format: "png",
       output_quality: 95,
       seed: Math.floor(Math.random() * 1000000),
@@ -157,7 +157,7 @@ serve(async (req) => {
         .single(),
       supabaseAdmin
         .from("portrait_trainings")
-        .select("id, lora_weights_url, trigger_word, status")
+        .select("id, lora_weights_url, trigger_word, status, physical_traits")
         .eq("user_id", user.id)
         .eq("status", "ready")
         .order("created_at", { ascending: false })
