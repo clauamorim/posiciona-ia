@@ -103,12 +103,13 @@ async function callFluxLora(params: {
       lora_weights: loraVersion,
       lora_scale: loraScale,
       num_outputs: 1,
-      // Resolução fixa 896x1152 (3:4 vertical premium). Substitui aspect_ratio
-      // para garantir as dimensões exatas que tínhamos antes do upscaler.
-      width: PORTRAIT_WIDTH,
-      height: PORTRAIT_HEIGHT,
+      // FLUX LoRA: usar aspect_ratio + megapixels. width/height no input são
+      // ignorados silenciosamente e o modelo cai pra 1024x1024 quadrado.
+      // 3:4 com 1MP ≈ 896x1152 (resolução vertical premium nativa).
+      aspect_ratio: "3:4",
+      megapixels: "1",
       guidance_scale: guidanceScale,
-      num_inference_steps: 40,
+      num_inference_steps: 45,
       output_format: "png",
       output_quality: 95,
       seed: Math.floor(Math.random() * 1000000),
