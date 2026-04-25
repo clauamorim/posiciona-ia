@@ -462,7 +462,7 @@ serve(async (req) => {
     // Sequencial (não paralelo) para evitar 429 do Replicate em contas low-credit.
     // Delay de 11s entre upscales + retry com 30s em caso de 429.
     const generationId = crypto.randomUUID();
-    const UPSCALE_INTER_DELAY_MS = 11000;
+    const UPSCALE_INTER_DELAY_MS = 6000;
     const UPSCALE_RETRY_DELAY_MS = 30000;
 
     const finalPortraits: Array<{
