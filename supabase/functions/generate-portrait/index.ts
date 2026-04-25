@@ -15,12 +15,15 @@ import {
 import { mapProfessionToCategory, pickOutfits } from "../_shared/outfitPool.ts";
 
 const FLUX_LORA_MODEL = "black-forest-labs/flux-dev-lora";
-// Clarity Upscaler — qualidade significativamente superior ao Real-ESRGAN em rostos.
-const CLARITY_UPSCALER_VERSION = "dfad41707589d68ecdccd1dfa600d55a208f9310748e44bfe35b4a6291453d5e";
 const GENERATE_COST_CREDITS = 3;
-const GUIDANCE_VARIATIONS = [3.0, 3.5, 4.0];
-const GUIDANCE_VARIATIONS_OVERRIDE = [4.0, 4.5, 4.5];
+// Guidance baixo = mais peso no LoRA (rosto fiel). Quando há override de figurino,
+// subimos um pouco para o Flux respeitar a peça pedida — mas sem sufocar o LoRA.
+const GUIDANCE_VARIATIONS = [2.8, 3.0, 3.2];
+const GUIDANCE_VARIATIONS_OVERRIDE = [3.2, 3.5, 3.5];
 const PORTRAIT_BUCKET = "portrait-outputs";
+// Resolução vertical premium (mantida do fluxo anterior, sem upscaler).
+const PORTRAIT_WIDTH = 896;
+const PORTRAIT_HEIGHT = 1152;
 
 /** Fisher–Yates shuffle não destrutivo. */
 function shuffle<T>(arr: T[]): T[] {
