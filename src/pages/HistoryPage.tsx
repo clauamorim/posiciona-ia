@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { resolvePortraitUrls } from "@/lib/portraitUrl";
+import { resolvePortraitUrls, downloadAsBlob } from "@/lib/portraitUrl";
 import { History, FileText, Instagram, Camera, Download, Eye, ArrowRight, CheckCircle2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
@@ -76,11 +76,12 @@ const HistoryPage = () => {
   const formatDate = (d: string) =>
     new Date(d).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
 
-  const downloadPortrait = (url: string, index: number) => {
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `retrato-marca-${index + 1}.png`;
-    link.click();
+  const downloadPortrait = async (url: string, index: number) => {
+    try {
+      await downloadAsBlob(url, `retrato-marca-${index + 1}.png`);
+    } catch (e) {
+      console.warn("download falhou", e);
+    }
   };
 
   const downloadAnalysisPDF = (analysis: any) => {

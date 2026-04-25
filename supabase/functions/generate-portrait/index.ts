@@ -15,12 +15,15 @@ import {
 import { mapProfessionToCategory, pickOutfits } from "../_shared/outfitPool.ts";
 
 const FLUX_LORA_MODEL = "black-forest-labs/flux-dev-lora";
-// Clarity Upscaler — qualidade significativamente superior ao Real-ESRGAN em rostos.
-const CLARITY_UPSCALER_VERSION = "dfad41707589d68ecdccd1dfa600d55a208f9310748e44bfe35b4a6291453d5e";
 const GENERATE_COST_CREDITS = 3;
-const GUIDANCE_VARIATIONS = [3.0, 3.5, 4.0];
-const GUIDANCE_VARIATIONS_OVERRIDE = [4.0, 4.5, 4.5];
+// Guidance baixo = mais peso no LoRA (rosto fiel). Quando há override de figurino,
+// subimos um pouco para o Flux respeitar a peça pedida — mas sem sufocar o LoRA.
+const GUIDANCE_VARIATIONS = [2.8, 3.0, 3.2];
+const GUIDANCE_VARIATIONS_OVERRIDE = [3.2, 3.5, 3.5];
 const PORTRAIT_BUCKET = "portrait-outputs";
+// Resolução vertical premium (mantida do fluxo anterior, sem upscaler).
+const PORTRAIT_WIDTH = 896;
+const PORTRAIT_HEIGHT = 1152;
 
 /** Fisher–Yates shuffle não destrutivo. */
 function shuffle<T>(arr: T[]): T[] {
@@ -43,88 +46,9 @@ async function downloadImageBytes(imageUrl: string): Promise<{ ok: true; bytes: 
   }
 }
 
-/** Converte Uint8Array em data URL base64 (para resposta imediata ao frontend). */
-function bytesToDataUrl(bytes: Uint8Array, mime = "image/png"): string {
-  let binary = "";
-  const chunk = 8192;
-  for (let i = 0; i < bytes.length; i += chunk) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
-  }
-  return `data:${mime};base64,${btoa(binary)}`;
-}
-
-/**
- * Upscale via philz1337x/clarity-upscaler — superior em rostos.
- * Resiliente: em caso de qualquer erro/timeout, devolve { ok: false } e o
- * caller mantém a imagem original.
- */
-async function upscaleImage(params: {
-  token: string;
-  imageUrl: string;
-}): Promise<{ ok: true; imageUrl: string } | { ok: false; reason: string }> {
-  const { token, imageUrl } = params;
-  const start = Date.now();
-  console.log(`[upscale] start image=${imageUrl.slice(0, 80)}`);
-  try {
-    const createRes = await fetch("https://api.replicate.com/v1/predictions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-        Prefer: "wait=5",
-      },
-      body: JSON.stringify({
-        version: CLARITY_UPSCALER_VERSION,
-        input: {
-          image: imageUrl,
-          scale_factor: 2,
-          dynamic: 6,
-          creativity: 0.35,
-          resemblance: 0.6,
-          output_format: "png",
-        },
-      }),
-    });
-    console.log(`[upscale] create-status=${createRes.status}`);
-    if (!createRes.ok) {
-      const txt = await createRes.text();
-      return { ok: false, reason: `upscale-create-${createRes.status}:${txt.slice(0, 150)}` };
-    }
-    let prediction = await createRes.json();
-    const id = prediction.id;
-    if (!id) return { ok: false, reason: "upscale-no-id" };
-
-    const maxAttempts = 60; // ~90s
-    let attempts = 0;
-    while (
-      prediction.status !== "succeeded" &&
-      prediction.status !== "failed" &&
-      prediction.status !== "canceled" &&
-      attempts < maxAttempts
-    ) {
-      await new Promise((r) => setTimeout(r, 1500));
-      attempts++;
-      const pollRes = await fetch(`https://api.replicate.com/v1/predictions/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!pollRes.ok) return { ok: false, reason: `upscale-poll-${pollRes.status}` };
-      prediction = await pollRes.json();
-      if (attempts % 10 === 0) console.log(`[upscale] poll attempt=${attempts} status=${prediction.status}`);
-    }
-
-    const latency = ((Date.now() - start) / 1000).toFixed(1);
-    if (prediction.status !== "succeeded") {
-      return { ok: false, reason: `upscale-status=${prediction.status} after ${latency}s` };
-    }
-    const output = prediction.output;
-    const upUrl = Array.isArray(output) ? output[0] : output;
-    if (!upUrl || typeof upUrl !== "string") return { ok: false, reason: "upscale-empty" };
-    console.log(`[upscale] success latency=${latency}s`);
-    return { ok: true, imageUrl: upUrl };
-  } catch (e) {
-    return { ok: false, reason: `upscale-exception:${e instanceof Error ? e.message : String(e)}` };
-  }
-}
+// (helper bytesToDataUrl e upscaleImage removidos — não usamos mais Clarity Upscaler.
+// Trocamos resolução alta por fidelidade facial máxima: o LoRA gera direto em 896x1152
+// e os bytes vão direto ao Storage privado, sem etapa intermediária.)
 
 async function callFluxLora(params: {
   token: string;
@@ -142,7 +66,10 @@ async function callFluxLora(params: {
       lora_weights: loraVersion,
       lora_scale: loraScale,
       num_outputs: 1,
-      aspect_ratio: "3:4",
+      // Resolução fixa 896x1152 (3:4 vertical premium). Substitui aspect_ratio
+      // para garantir as dimensões exatas que tínhamos antes do upscaler.
+      width: PORTRAIT_WIDTH,
+      height: PORTRAIT_HEIGHT,
       guidance_scale: guidanceScale,
       num_inference_steps: 40,
       output_format: "png",
@@ -399,6 +326,7 @@ serve(async (req) => {
       const built = buildPortraitPrompt({
         archetype: archetypeName,
         userId: user.id,
+        triggerWord: training.trigger_word, // ← trigger REAL do treino (USR + 12 hex)
         gender,
         outfit,
         hair,
@@ -416,8 +344,10 @@ serve(async (req) => {
 
       console.log(
         `[generate-portrait] call ${i + 1}/3 background=${built.backgroundKey} archetype=${archetypeName} ` +
-        `outfit="${outfit}" pose="${i === 0 ? "(headshot, no hands)" : handPose}" ` +
-        `poseCat=${selectedPoseCategories[i]} guidance=${guidanceScale} loraScale=${loraScale} ` +
+        `trigger="${training.trigger_word}" trainingId=${training.id} ` +
+        `dims=${PORTRAIT_WIDTH}x${PORTRAIT_HEIGHT} outfit="${outfit}" ` +
+        `pose="${i === 0 ? "(headshot, no hands)" : handPose}" poseCat=${selectedPoseCategories[i]} ` +
+        `guidance=${guidanceScale} loraScale=${loraScale} ` +
         `override=${isUserOverride} hasTraits=${!!(training as any).physical_traits}`,
       );
       let r = await callFluxLora({
@@ -458,41 +388,21 @@ serve(async (req) => {
       );
     }
 
-    // ===== UPSCALE + UPLOAD PARALELO =====
-    // Os 3 upscales rodam em paralelo (3 req simultâneas, bem abaixo do limite de 10/min do Replicate).
-    // Cada pipeline: upscale → download → upload ao Storage.
-    // Em caso de 429, espera 30s e tenta de novo (1 retry).
+    // ===== DOWNLOAD + UPLOAD PARALELO (sem upscaler) =====
+    // Os 3 retratos vão direto do Replicate ao Storage privado em paralelo.
+    // Resolução nativa do FLUX = 896x1152, mantida sem reescalonamento.
     const generationId = crypto.randomUUID();
-    const UPSCALE_RETRY_DELAY_MS = 30000;
 
     const pipelineResults = await Promise.all(
       successful.map(async (r, i) => {
         try {
-          // 1. Upscale (com 1 retry em caso de 429)
-          let up = await upscaleImage({ token: REPLICATE_API_TOKEN, imageUrl: r.portraitUrl! });
-          if (!up.ok && up.reason.includes("429")) {
-            console.warn(`[upscale] background=${r.background} got 429, waiting ${UPSCALE_RETRY_DELAY_MS}ms`);
-            await new Promise((res) => setTimeout(res, UPSCALE_RETRY_DELAY_MS));
-            up = await upscaleImage({ token: REPLICATE_API_TOKEN, imageUrl: r.portraitUrl! });
-          }
-          const finalUrl = up.ok ? up.imageUrl : r.portraitUrl!;
-          if (!up.ok) {
-            console.warn(`[upscale] fallback (original 1MP) for background=${r.background}: ${up.reason}`);
-          }
-
-          // 2. Download bytes (fallback para original se o upscale baixou mal)
-          let dl = await downloadImageBytes(finalUrl);
+          const dl = await downloadImageBytes(r.portraitUrl!);
           if (!dl.ok) {
-            const orig = await downloadImageBytes(r.portraitUrl!);
-            if (!orig.ok) {
-              console.error(`[generate-portrait] failed to download for background=${r.background}`);
-              return null;
-            }
-            dl = orig;
+            console.error(`[generate-portrait] failed to download background=${r.background}: ${dl.reason}`);
+            return null;
           }
-          const bytes = (dl as { ok: true; bytes: Uint8Array }).bytes;
+          const bytes = dl.bytes;
 
-          // 3. Upload ao Storage privado
           const path = `${user.id}/${generationId}/${i}.png`;
           const upRes = await supabaseAdmin.storage
             .from(PORTRAIT_BUCKET)
@@ -501,8 +411,8 @@ serve(async (req) => {
             console.error(`[generate-portrait] storage upload failed background=${r.background}: ${upRes.error.message}`);
             return null;
           }
-          console.log(`[generate-portrait] uploaded background=${r.background} path=${path} bytes=${bytes.length} upscaled=${up.ok}`);
-          return { ...r, path, upscaled: up.ok };
+          console.log(`[generate-portrait] uploaded background=${r.background} path=${path} bytes=${bytes.length}`);
+          return { ...r, path };
         } catch (e) {
           console.error(`[generate-portrait] pipeline exception background=${r.background}:`, e);
           return null;
@@ -511,7 +421,7 @@ serve(async (req) => {
     );
 
     const finalPortraits = pipelineResults.filter(
-      (p): p is NonNullable<typeof p> & { path: string; upscaled: boolean } => p !== null,
+      (p): p is NonNullable<typeof p> & { path: string } => p !== null,
     );
 
     if (finalPortraits.length === 0) {
@@ -520,6 +430,7 @@ serve(async (req) => {
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
+
 
     // Debit credits — cobra apenas pelas imagens com sucesso (max GENERATE_COST_CREDITS)
     const charge = Math.min(GENERATE_COST_CREDITS, finalPortraits.length);
