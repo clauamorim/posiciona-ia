@@ -265,6 +265,7 @@ const PortraitGenerator = () => {
     setGenerating(true);
     setPortraits([]);
     setBackgrounds([]);
+    setOutfits([]);
     try {
       const body: { outfit_overrides?: string[] } = {};
       if (allOverridesFilled) {
