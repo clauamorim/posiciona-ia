@@ -46,7 +46,7 @@ async function fetchReferencePdfsByWhitelist(whitelist: string[]): Promise<Claud
 
     const filtered = docs.filter((d: any) => {
       const candidate = normalizeDocName(d.name || d.file_path?.split("/").pop() || "");
-      return EDITORIAL_PDF_WHITELIST.some((w) => candidate.includes(w));
+      return whitelist.some((w) => candidate.includes(w));
     });
     if (!filtered.length) return [];
 
