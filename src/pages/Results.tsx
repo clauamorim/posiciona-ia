@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { calculateScores, getTop3, ARCHETYPE_COLORS, type ArchetypeScore } from "@/lib/archetypes";
-import { Loader2, CheckCircle2, Sparkles, ArrowRight } from "lucide-react";
+import { Loader2, CheckCircle2, Sparkles, ArrowRight, AlertTriangle } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { normalizeReportContent } from "@/lib/reportParser";
 
@@ -38,7 +38,6 @@ const Results = () => {
   const [stage, setStage] = useState<Stage>("calculating");
   const [errorMsg, setErrorMsg] = useState("");
   const [isRateLimited, setIsRateLimited] = useState(false);
-  const [retryToken, setRetryToken] = useState(0);
   const [archetypeDetails, setArchetypeDetails] = useState<Record<string, any>>({});
   const [progressMessage, setProgressMessage] = useState<string>("");
 
@@ -74,7 +73,7 @@ const Results = () => {
           return;
         }
 
-        if (latestReport?.status === "error" && retryToken === 0) {
+        if (latestReport?.status === "error") {
           setErrorMsg(latestReport.error_message || "A geração anterior falhou. Tente novamente.");
           setStage("error");
           return;
@@ -109,7 +108,7 @@ const Results = () => {
 
         let reportVersion: number;
         let reportRowId: string | null = null;
-        if (latestReport && ["pending", "generating", "error"].includes(latestReport.status)) {
+        if (latestReport && ["pending", "generating"].includes(latestReport.status)) {
           reportVersion = latestReport.version;
           const { data: existing } = await supabase.from("reports")
             .update({ status: "generating", content: null, error_message: null })
@@ -199,7 +198,7 @@ const Results = () => {
     };
     run();
     return () => { cancelled = true; };
-  }, [user, retryToken]);
+  }, [user]);
 
   const top3 = getTop3(scores);
   const maxScore = 30;
