@@ -1,0 +1,1 @@
+ALTER TABLE public.portrait_trainings ADD COLUMN IF NOT EXISTS physical_traits jsonb;
