@@ -573,7 +573,25 @@ const EditorialPage = () => {
     );
   }
 
-  const generateButton = (
+  const needsPersonal = personalSubmitted === false;
+
+  const generateButton = needsPersonal ? (
+    <Card className="border-amber-200/50 bg-amber-500/5">
+      <CardContent className="py-5 flex flex-col items-center gap-3 text-center">
+        <Sparkles className="h-6 w-6 text-amber-600" />
+        <div>
+          <p className="text-sm font-semibold text-foreground">Conte sua história antes de gerar</p>
+          <p className="text-xs text-muted-foreground mt-1 max-w-sm">
+            A Linha Editorial usa suas respostas pessoais (hobbies, valores, memórias) para criar posts em formato storytelling — do tatame ao tribunal. Leva 5 minutos.
+          </p>
+        </div>
+        <Button onClick={() => navigate("/personal-questionnaire")} className="gap-2">
+          <Sparkles className="h-4 w-4" />
+          Preencher Sua História
+        </Button>
+      </CardContent>
+    </Card>
+  ) : (
     <Card className="border-border bg-card">
       <CardContent className="py-4 flex flex-col items-center gap-3">
         <div className="text-center">
@@ -581,7 +599,7 @@ const EditorialPage = () => {
             {weeklyCycles > 0 ? `${weeklyCycles} ciclo${weeklyCycles > 1 ? "s" : ""} disponível${weeklyCycles > 1 ? "is" : ""}` : "Sem ciclos disponíveis"}
           </p>
         </div>
-        <Button onClick={handleGenerateWeek} disabled={generatingWeek || weeklyCycles < 1} className="gap-2">
+        <Button onClick={handleGenerateWeek} disabled={generatingWeek || weeklyCycles < 1 || personalSubmitted === null} className="gap-2">
           {generatingWeek ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
           {generatingWeek ? "Gerando..." : allWeeks.length === 0 ? "Gerar primeira semana" : "Gerar +7 dias"}
         </Button>
