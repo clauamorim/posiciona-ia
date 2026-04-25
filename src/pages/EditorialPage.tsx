@@ -680,25 +680,8 @@ const EditorialPage = () => {
             const isRegenWeek = regeneratingFreeWeek === wi;
             return (
             <TabsContent key={wi} value={`week-${wi}`}>
-              {weekOutdated && (
-                <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-900/50 p-3 flex flex-col sm:flex-row sm:items-center gap-3">
-                  <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
-                  <div className="flex-1 text-xs text-amber-900 dark:text-amber-200 leading-relaxed">
-                    <strong className="font-semibold">Esta semana foi gerada antes da nova limpeza reforçada.</strong>{" "}
-                    Atualize sem custo para aplicar a sanitização blindada de rótulos estruturais (Herói, Problema Interno, Plano, CTA, Slide 1 etc.) direto no conteúdo salvo.
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-8 gap-1.5 border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-900/30"
-                    onClick={() => handleRegenerateWeekFree(wi)}
-                    disabled={isRegenWeek}
-                  >
-                    {isRegenWeek ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
-                    {isRegenWeek ? "Atualizando..." : "Atualizar semana (grátis)"}
-                  </Button>
-                </div>
-              )}
+              {/* Banner "Atualizar semana (grátis)" temporariamente oculto a pedido. */}
+              {false && weekOutdated && isRegenWeek && null}
               <div className="grid gap-3 sm:grid-cols-1 lg:grid-cols-2">
                 {week.days.map((day: DayV6, di: number) => {
                   const feed = day.feed;
