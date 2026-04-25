@@ -1,94 +1,98 @@
 ## Objetivo
 
-Aproximar nossos retratos do resultado manual do Replicate UI (textura de pele realista, iluminação cinematográfica, microexpressão autêntica). Fazer isso replicando exatamente a fórmula que funcionou: **prompt curto + steps 35 + guidance 2.5 + LoRA peso natural + sem instruções competindo**.
+Eliminar o aspecto **suavizado/aerografado** dos retratos atuais e alcançar a textura de pele com poros visíveis do retrato manual de referência. Atacar 3 vetores que estão empurrando o Flux para "modo revista": palavra `editorial`, maquiagem pesada injetada, e ausência de tokens positivos pró-textura.
 
-## Diagnóstico do que está degradando hoje
+## Diagnóstico (comparação visual)
 
-Comparando o prompt atual vs. o manual que deu certo:
-
-| Item | Atual (degradado) | Manual (funcionou) |
+| Aspecto | Retrato manual (bom) | Retratos atuais (suavizados) |
 |---|---|---|
-| Tamanho do prompt | ~80+ tokens, com weights | ~30 tokens, linguagem natural |
-| Trigger word | Duplicado (`USR..., portrait of USR...`) | 1 vez (`TOK woman`) |
-| Pesos numéricos | `(framing:1.5)`, `(outfit:1.05)` | nenhum |
-| Identity reinforce phrase | 100+ tokens (`preserve exact facial features, same person, identical face...`) | nenhum |
-| Negative prompt | ~60 tokens | nenhum |
-| Steps | 45 | 35 |
-| Guidance | 3.0–3.4 | 2.5 |
-| LoRA scale | 0.86–0.92 | (default ≈0.8) |
+| Poros | Visíveis em testa, nariz, queixo | Quase invisíveis, pele "lisa" |
+| Maquiagem | Discreta, natural | Pesada (cílios, contorno, batom marcados) |
+| Iluminação | Rembrandt lateral clara | Mais frontal, menos volume |
+| Vibe geral | Fotográfica/documental | Magazine/glossy |
 
-A combinação "trigger duplicado + identity reinforce + framing weight 1.5 + outfit weight 1.05 + steps 45 + guidance 3+" está empurrando o modelo pra renderização "plástica", suavizando textura natural de pele e travando expressões.
+Causas no nosso pipeline:
+1. **`STUDIO_PREFIX` contém "editorial"** — palavra-âncora que empurra Flux pra estética glossy.
+2. **`buildMakeupText` injeta maquiagem detalhada** — competindo com poros e simulando filtro de beleza.
+3. **Faltam tokens positivos pró-textura** no início do prompt. Só temos negativos (fracos no Flux).
+4. **Trait phrase (`with X skin`)** sem qualificador — Flux interpreta como pele uniforme.
 
 ## Mudanças propostas
 
-### 1. `supabase/functions/_shared/portraitPrompts.ts` — reescrita do `buildPortraitPrompt`
+### 1. `supabase/functions/_shared/portraitPrompts.ts`
 
-**Estrutura nova do prompt** (linguagem natural, na ordem que o Flux respeita):
-
+**a) Trocar `STUDIO_PREFIX`** — remover "editorial":
+```ts
+// Antes:
+const STUDIO_PREFIX = "professional editorial portrait, ";
+// Depois:
+const STUDIO_PREFIX = "professional portrait, ";
 ```
-{trigger} {gender}, {framing simples}, {expressão+iluminação do arquétipo},
-{traços físicos}, wearing {outfit}, {hair}, {makeup}, {fundo do arquétipo},
-fine skin pores, natural skin texture, photorealistic,
-shot on Sony A7, 85mm f/1.4, shallow depth of field
+
+**b) Reforçar `QUALITY_SUFFIX`** com tokens fortes pró-textura:
+```ts
+// Antes:
+const QUALITY_SUFFIX = "fine skin pores, natural skin texture, photorealistic, shot on Sony A7, 85mm f/1.4, shallow depth of field";
+// Depois:
+const QUALITY_SUFFIX = "visible skin pores, unretouched skin, natural skin imperfections, fine facial detail, raw photograph, photorealistic, shot on Sony A7, 85mm f/1.4, shallow depth of field, subtle film grain";
+```
+Mudanças-chave: `visible skin pores` (mais forte que "fine"), `unretouched`, `natural skin imperfections`, `raw photograph`, `subtle film grain` — todos puxam o modelo pra fora do modo retoque.
+
+**c) Reforçar `STUDIO_NEGATIVE_BASE`** com termos cosméticos:
+```ts
+const STUDIO_NEGATIVE_BASE = ", plastic skin, beauty filter, smoothed skin, airbrushed, retouched skin, instagram filter, heavy makeup, glossy skin, porcelain skin, deformed hands, extra fingers, deformed face, asymmetric eyes, multiple people, watermark, low quality, blurry";
+```
+Adições: `retouched skin`, `instagram filter`, `heavy makeup`, `glossy skin`, `porcelain skin`.
+
+**d) Ajustar trait phrase** para incluir qualificador de textura:
+```ts
+// Antes:
+traitPhrase = `, with ${t.hair_length} ${t.hair_style} ${t.hair_color} hair, ${t.skin_tone} skin, ${t.eye_color} eyes`;
+// Depois:
+traitPhrase = `, with ${t.hair_length} ${t.hair_style} ${t.hair_color} hair, ${t.skin_tone} skin with visible pores and natural texture, ${t.eye_color} eyes`;
 ```
 
-Mudanças concretas:
+### 2. `supabase/functions/generate-portrait/index.ts` — desligar maquiagem detalhada
 
-- **Remover trigger duplicado**: usar `${trigger} ${gender},` apenas uma vez no início. Sem `portrait of ${trigger}`.
-- **Remover `identityPhrase`** inteiro (as 11 frases de "preserve exact facial features..."). Era ruído e redundância. O LoRA já faz esse trabalho.
-- **Remover weights numéricos**: tirar `(framing:1.5)` e `(outfit:1.05)`. Substituir por linguagem natural ("tight head and shoulders portrait", "wearing tailored navy blazer").
-- **Encurtar `STUDIO_PREFIX`**: virar só `professional editorial portrait,` (4 tokens em vez de 8).
-- **Encurtar templates dos arquétipos**: hoje cada template tem ~20 tokens redundantes (`fine skin pores, sharp focus, photorealistic, shot on Sony A7...`). Mover esses tokens "de qualidade" para um sufixo único compartilhado, aplicado uma vez no fim. Cada template fica só com a *essência* do arquétipo (expressão + iluminação + fundo).
-- **Sufixo de qualidade único** (compartilhado por todos os arquétipos):
-  ```
-  fine skin pores, natural skin texture, photorealistic, shot on Sony A7, 85mm f/1.4, shallow depth of field
-  ```
-- **Negative enxuto** — substituir `STUDIO_NEGATIVE_BASE` (~60 tokens) por:
-  ```
-  plastic skin, beauty filter, smoothed skin, airbrushed, deformed hands, extra fingers, deformed face, asymmetric eyes, multiple people, watermark, low quality, blurry
-  ```
-  Manter as adições de gênero (`man, beard...` ou `woman, makeup...`) e os negatives específicos por outfit (vestido vs. blazer etc.) — esses funcionam.
-- **Manter `FRAMING_VARIATIONS`** e estratégia hands-out-of-frame, mas reescrever as instruções em linguagem natural sem peso numérico:
-  - Look 0: `tight head and shoulders crop`
-  - Look 1: `mid-chest editorial bust crop`
-  - Look 2: `chest-up editorial portrait, shoulders subtly turned`
-- **Manter `physicalTraits` injection** (`with X hair, Y skin, Z eyes`) — funciona bem e ancora identidade sem inflar prompt.
+**a) Stop injeção de maquiagem pesada**: trocar `buildMakeupText(figurino)` por string vazia (deixa o LoRA produzir makeup natural). Alternativa mais conservadora: trocar por uma versão minimalista (`"natural minimal makeup"`).
 
-### 2. `supabase/functions/generate-portrait/index.ts` — recalibrar parâmetros
+```ts
+// Antes:
+const makeup = buildMakeupText(figurino);
+// Depois:
+const makeup = effectiveGender === "woman" ? "natural minimal makeup, no heavy contouring" : "";
+```
 
-- `GUIDANCE_VARIATIONS = [2.5, 2.7, 2.9]` (era `[3.0, 3.2, 3.4]`)
-- `num_inference_steps: 35` (era `45`)
-- `pickLoraScale`:
-  - `≤ 12 selfies` → `0.80` (era 0.86)
-  - `13–20` → `0.85` (era 0.90)
-  - `≥ 21` → `0.88` (era 0.92)
-- Manter `aspect_ratio: "3:4"`, `megapixels: "1"`, `output_format: "png"`, `output_quality: 95`, `num_outputs: 1`.
-- Adicionar log do prompt completo enviado ao Replicate (truncado em ~500 chars) pra facilitar comparação manual:
-  ```ts
-  console.log(`[generate-portrait] PROMPT[${i}]: ${built.prompt.slice(0, 500)}`);
-  console.log(`[generate-portrait] NEGATIVE[${i}]: ${built.negative.slice(0, 300)}`);
-  ```
+(Nota: `effectiveGender` precisa ser calculado aqui também — pegar de `training.physical_traits?.gender ?? gender`.)
 
-### 3. Deploy e validação
+Justificativa: no manual de referência você não pediu maquiagem nenhuma, e o resultado ficou natural. Forçando "natural minimal" + negative `heavy makeup`, garantimos que o LoRA pare de produzir cílios postiços/contorno marcado.
 
-- Deploy de `generate-portrait` (a função `_shared/portraitPrompts.ts` é importada — não precisa redeploy isolado, vai junto).
-- Testar gerando uma rodada nova.
-- Comparar logs do prompt gerado vs. o manual que funcionou — devem estar parecidos em forma e tamanho.
+**b) Manter outros parâmetros como estão** (steps 35, guidance 2.5–2.9, lora_scale 0.80–0.88).
+
+### 3. Validação
+
+- Deploy de `generate-portrait`.
+- Gerar uma rodada nova.
+- Comparar com a referência manual: deve aparecer mais textura, makeup mais sutil, vibe mais documental.
+- Se ainda estiver suave: aumentar peso do `visible skin pores` movendo pro **início** do prompt (antes do trigger), em vez do sufixo.
 
 ## O que NÃO muda
 
-- Estratégia hands-out-of-frame (mantida — sem mãos = sem dedos deformados).
-- Memória curta de outfits/poses.
-- Sistema de pool curado de outfits por profissão.
-- Storage privado, signed URLs, débito de créditos.
+- Estratégia hands-out-of-frame.
+- Sistema de pool de outfits por profissão.
+- Memória curta de poses/outfits.
+- Trigger word real do treino.
+- Steps 35, guidance 2.5–2.9, lora_scale 0.80–0.88.
+- Aspect ratio 3:4, 1MP.
 - Não precisa retreinar LoRA.
 
 ## Risco e mitigação
 
-- **Risco**: prompt curto pode reduzir aderência ao arquétipo (ex.: "Governante" pode parecer só "executivo genérico"). Mitigação: cada template ainda tem 2–3 tokens identificadores fortes (ex.: "authoritative calm expression, hard directional lighting").
-- **Risco**: guidance 2.5 + LoRA scale 0.80 pode reduzir fidelidade facial em casos com poucas selfies. Mitigação: traços físicos extraídos (`physicalTraits`) continuam ancorando cabelo/pele/olhos via texto.
-- **Reversível**: se piorar, basta voltar os 2 arquivos ao estado atual via versão anterior.
+- **Risco**: tokens "unretouched, raw photograph" podem trazer aparência amadora demais. Mitigação: `subtle film grain` + manter "shot on Sony A7, 85mm f/1.4" como âncora profissional.
+- **Risco**: remover "editorial" pode reduzir percepção de "estúdio profissional". Mitigação: o `STUDIO_PREFIX` ainda diz "professional portrait" + cada arquétipo tem "studio background" no template.
+- **Risco**: maquiagem mínima pode parecer "sem make" demais em looks claros (Inocente, Cuidador). Mitigação: usar `"natural minimal makeup"` em vez de string vazia — o LoRA produz make leve naturalmente para mulheres.
+- **Reversível**: 2 arquivos, mudanças localizadas.
 
 ## Resultado esperado
 
-Retratos com a textura de pele, iluminação dramática e microexpressão do retrato manual de referência — preservando o sistema de 3 looks (Neutro/Claro/Escuro) e a identidade da pessoa via LoRA.
+Retratos com textura de pele visível (poros, leve brilho zonal natural), maquiagem discreta, vibe fotográfica documental — alinhado com o retrato manual de referência. Mantém os 3 looks (Neutro/Claro/Escuro), iluminação por arquétipo, identidade facial via LoRA.

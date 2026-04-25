@@ -16,14 +16,14 @@ export type ArchetypeName =
   | "Bobo-da-corte";
 
 // Reforço aplicado a todos os prompts: garante cenário de estúdio.
-// Encurtado pra liberar orçamento de atenção do Flux.
-const STUDIO_PREFIX = "professional editorial portrait, ";
-// Sufixo de qualidade — aplicado UMA VEZ no fim de todo prompt. Mantém densidade
-// fotográfica sem inflar cada template do arquétipo.
-const QUALITY_SUFFIX = "fine skin pores, natural skin texture, photorealistic, shot on Sony A7, 85mm f/1.4, shallow depth of field";
-// Negative base ENXUTO — só o essencial. Tokens demais competem pela atenção do
-// modelo e pioram qualidade visual. Mantemos só o que evita problemas reais.
-const STUDIO_NEGATIVE_BASE = ", plastic skin, beauty filter, smoothed skin, airbrushed, deformed hands, extra fingers, deformed face, asymmetric eyes, multiple people, watermark, low quality, blurry";
+// Sem "editorial" — essa palavra-âncora empurrava Flux pra estética glossy/magazine.
+const STUDIO_PREFIX = "professional portrait, ";
+// Sufixo de qualidade — aplicado UMA VEZ no fim de todo prompt. Tokens fortes
+// pró-textura (visible skin pores, unretouched, raw photograph) tiram o modelo
+// do "modo retoque" e trazem aspecto fotográfico documental.
+const QUALITY_SUFFIX = "visible skin pores, unretouched skin, natural skin imperfections, fine facial detail, raw photograph, photorealistic, shot on Sony A7, 85mm f/1.4, shallow depth of field, subtle film grain";
+// Negative base ENXUTO + termos cosméticos contra "modo revista".
+const STUDIO_NEGATIVE_BASE = ", plastic skin, beauty filter, smoothed skin, airbrushed, retouched skin, instagram filter, heavy makeup, glossy skin, porcelain skin, deformed hands, extra fingers, deformed face, asymmetric eyes, multiple people, watermark, low quality, blurry";
 // Reforço de anatomia de mãos — aplicado APENAS aos looks que mostram mãos
 // (atualmente nenhum, já que estamos em modo hands-out-of-frame).
 const HANDS_NEGATIVE_REINFORCE = ", extra fingers, deformed fingers, fused fingers, claw hands";
@@ -352,10 +352,11 @@ export function buildPortraitPrompt(params: BuildPromptParams): {
   }
 
   // 3. Injeção de traços físicos extraídos das selfies — ancora cabelo, pele, olhos.
+  // Qualificador de textura na pele força o Flux a renderizar poros em vez de superfície uniforme.
   let traitPhrase = "";
   if (params.physicalTraits) {
     const t = params.physicalTraits;
-    traitPhrase = `, with ${t.hair_length} ${t.hair_style} ${t.hair_color} hair, ${t.skin_tone} skin, ${t.eye_color} eyes`;
+    traitPhrase = `, with ${t.hair_length} ${t.hair_style} ${t.hair_color} hair, ${t.skin_tone} skin with visible pores and natural texture, ${t.eye_color} eyes`;
   }
 
   // 3b. OUTFIT em texto natural, sem peso. Linguagem que o Flux respeita melhor.

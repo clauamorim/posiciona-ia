@@ -284,8 +284,15 @@ serve(async (req) => {
     const gender = mapGender(profileRes.data?.gender);
     const profession = profileRes.data?.profession ?? "";
 
+    // Gênero efetivo: traços extraídos do treino sobrescrevem o cadastro.
+    const traitsGender = (training as any).physical_traits?.gender as "woman" | "man" | undefined;
+    const effectiveGender: "woman" | "man" | "none" = traitsGender ?? gender;
+
     const hair = buildHairText(figurino);
-    const makeup = buildMakeupText(figurino);
+    // Maquiagem detalhada do relatório era pesada (cílios postiços, contorno, batom marcado)
+    // e competia com poros, simulando filtro de beleza. Trocamos por instrução minimalista
+    // explícita — o LoRA produz make natural sozinho. Vazio para homens.
+    const makeup = effectiveGender === "woman" ? "natural minimal makeup, no heavy contouring" : "";
 
     // ===== MEMÓRIA CURTA: lê última geração =====
     const { data: lastGen } = await supabaseAdmin
