@@ -448,8 +448,8 @@ serve(async (req) => {
     }
 
 
-    // Debit credits — cobra apenas pelas imagens com sucesso (max GENERATE_COST_CREDITS)
-    const charge = Math.min(GENERATE_COST_CREDITS, finalPortraits.length);
+    // Debit credits — cobra apenas pelas imagens com sucesso (max requestedCount).
+    const charge = Math.min(requestedCount, finalPortraits.length);
     const fromIncluded = Math.min(included, charge);
     const fromExtra = charge - fromIncluded;
     await supabaseAdmin
