@@ -375,13 +375,14 @@ serve(async (req) => {
       });
 
       // loraScale calculado acima conforme tamanho do dataset (pickLoraScale).
+      // ESTRATÉGIA ATUAL: hands-out-of-frame em 100% dos looks. Variedade vem
+      // de distância de câmera (close / bust / 3-quarter cropped) + outfit + fundo.
       console.log(
-        `[generate-portrait] call ${i + 1}/3 background=${built.backgroundKey} archetype=${archetypeName} ` +
+        `[generate-portrait] call ${i + 1}/${requestedCount} background=${built.backgroundKey} archetype=${archetypeName} ` +
         `trigger="${training.trigger_word}" trainingId=${training.id} ` +
-        `dims=${PORTRAIT_WIDTH}x${PORTRAIT_HEIGHT}(3:4@1MP) outfit="${outfit}" ` +
-        `pose="${i === 0 ? "(headshot, no hands)" : handPose}" poseCat=${selectedPoseCategories[i]} ` +
-        `guidance=${guidanceScale} loraScale=${loraScale} selfiesCount=${selfiesCount} ` +
-        `hasTraits=${!!(training as any).physical_traits}`,
+        `framing=hands-out-of-frame dims=${PORTRAIT_WIDTH}x${PORTRAIT_HEIGHT}(3:4@1MP) ` +
+        `outfit="${outfit}" guidance=${guidanceScale} loraScale=${loraScale} ` +
+        `selfiesCount=${selfiesCount} hasTraits=${!!(training as any).physical_traits}`,
       );
       let r = await callFluxLora({
         token: REPLICATE_API_TOKEN,
