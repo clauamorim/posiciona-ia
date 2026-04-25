@@ -403,12 +403,18 @@ serve(async (req) => {
         backgroundIndex: i as 0 | 1 | 2,
         physicalTraits: (training as any).physical_traits ?? null,
         handPose,
+        isUserOverride,
       });
+
+      // Quando há override do usuário, reduz lora_scale para diminuir o viés do
+      // LoRA em business attire — abrindo espaço pro outfit pedido prevalecer.
+      const loraScale = isUserOverride ? 0.80 : 0.95;
 
       console.log(
         `[generate-portrait] call ${i + 1}/3 background=${built.backgroundKey} archetype=${archetypeName} ` +
-        `outfit="${outfit}" pose="${i === 0 ? "(headshot, no hands)" : handPose}" guidance=${guidanceScale} ` +
-        `hasTraits=${!!(training as any).physical_traits}`,
+        `outfit="${outfit}" pose="${i === 0 ? "(headshot, no hands)" : handPose}" ` +
+        `poseCat=${selectedPoseCategories[i]} guidance=${guidanceScale} loraScale=${loraScale} ` +
+        `override=${isUserOverride} hasTraits=${!!(training as any).physical_traits}`,
       );
       let r = await callFluxLora({
         token: REPLICATE_API_TOKEN,
@@ -416,6 +422,7 @@ serve(async (req) => {
         prompt: built.prompt,
         negative: built.negative,
         guidanceScale,
+        loraScale,
       });
 
       if (!r.ok && r.reason.includes("429")) {
@@ -427,6 +434,7 @@ serve(async (req) => {
           prompt: built.prompt,
           negative: built.negative,
           guidanceScale,
+          loraScale,
         });
       }
 
