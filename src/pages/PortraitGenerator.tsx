@@ -720,66 +720,6 @@ const PortraitGenerator = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Dialog: Personalizar figurinos */}
-      <Dialog open={overridesDialogOpen} onOpenChange={setOverridesDialogOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Shirt className="h-5 w-5" />
-              Personalizar figurinos
-            </DialogTitle>
-            <DialogDescription>
-              Descreva os 3 looks que você quer ver nos retratos. Para usar, preencha <strong>os três</strong> — caso contrário, manteremos os figurinos curados para o seu arquétipo.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="flex items-start gap-2 rounded-md border border-border bg-muted/40 px-3 py-2">
-              <Info className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                O <strong>Look 1</strong> é um close-up (rosto e ombros). Para vestidos, decotes ou peças de corpo inteiro, use os <strong>Looks 2 e 3</strong>.
-              </p>
-            </div>
-            {[0, 1, 2].map((i) => (
-              <div key={i} className="space-y-1.5">
-                <Label htmlFor={`outfit-${i}`} className="text-sm">
-                  Look {i + 1} {i === 0 ? "(close-up · sem mãos)" : i === 1 ? "(fundo claro)" : "(fundo escuro)"}
-                </Label>
-                <Textarea
-                  id={`outfit-${i}`}
-                  placeholder={
-                    i === 0
-                      ? "Ex: blazer bege oversized com blusa de seda branca"
-                      : i === 1
-                      ? "Ex: vestido midi terracota com cinto fino de couro"
-                      : "Ex: blazer preto alfaiataria com calça pantalona, brincos prata"
-                  }
-                  value={outfitOverrides[i]}
-                  onChange={(e) => {
-                    const next = [...outfitOverrides];
-                    next[i] = e.target.value;
-                    setOutfitOverrides(next);
-                  }}
-                  className="min-h-[60px] text-sm"
-                  maxLength={200}
-                />
-              </div>
-            ))}
-            <div className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">
-              Dica: descreva em poucas palavras peças, cores e tecidos. Termos em português são traduzidos automaticamente.
-            </div>
-            <div className="flex justify-between gap-2">
-              <Button variant="ghost" size="sm" onClick={clearOverrides} disabled={!someOverridesFilled}>
-                Limpar
-              </Button>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={() => setOverridesDialogOpen(false)}>Cancelar</Button>
-                <Button onClick={saveOverrides}>Salvar</Button>
-              </div>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
       <PortraitPreviewDialog
         open={previewIndex !== null}
         onOpenChange={(o) => !o && setPreviewIndex(null)}
