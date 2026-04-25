@@ -310,78 +310,72 @@ export function buildPortraitPrompt(params: BuildPromptParams): {
   const triggerWord = params.triggerWord
     || `USR${params.userId.replace(/-/g, "").slice(0, 12)}`;
 
-  // Trigger SÓ UMA VEZ no início — espelha o que funcionou no Replicate UI manual.
-  // Duplicar trigger ou inflar com "portrait of X, identical face..." só dilui atenção.
-  let prompt = `${triggerWord}, ` + STUDIO_PREFIX + tpl.prompt;
-  // Negative base + reforço de mãos APENAS se este look mostra mãos.
-  let negative = tpl.negative + STUDIO_NEGATIVE_BASE + (framing.showsHands ? HANDS_NEGATIVE_REINFORCE : "");
-
-  // Reforço de gênero no negative para evitar troca (técnica conhecida em Flux LoRA).
-  if (effectiveGender === "woman") {
-    negative += ", man, beard, mustache, masculine features, male body";
-  } else if (effectiveGender === "man") {
-    negative += ", woman, feminine features, makeup, lipstick, female body";
-  }
-
-  // 1. Substituir frase de fundo se Claro/Escuro.
+  // ===== TEMPLATE BASE: aplica fundo (claro/escuro) sobre a essência do arquétipo =====
+  let archetypeEssence = tpl.prompt;
   if (bg.replacement) {
-    if (BACKGROUND_REGEX.test(prompt)) {
-      prompt = prompt.replace(BACKGROUND_REGEX, `${bg.replacement}, `);
+    if (BACKGROUND_REGEX.test(archetypeEssence)) {
+      archetypeEssence = archetypeEssence.replace(BACKGROUND_REGEX, `${bg.replacement}`);
     } else {
-      console.log(`[portrait-prompt] background regex did not match for archetype=${archetypeKey} — using fallback prepend`);
-      prompt = `${bg.replacement}, ${prompt}`;
+      console.log(`[portrait-prompt] background regex did not match for archetype=${archetypeKey} — prepending`);
+      archetypeEssence = `${bg.replacement} ${archetypeEssence}`;
     }
   }
 
-  // 1b. Injeta a instrução de framing logo após o STUDIO_PREFIX, em texto natural
-  // (sem peso numérico). Estrutura final: "USR... professional editorial portrait, {framing}, ..."
-  prompt = prompt.replace(STUDIO_PREFIX, `${STUDIO_PREFIX}${framing.instruction}, `);
-
-  // 2. Substitui o placeholder USR[id] do template pelo trigger real.
-  prompt = prompt.replace(/USR\[id\]/g, triggerWord);
-
-  // Reforço de gênero: token simples, sem duplicação.
-  if (effectiveGender === "none") {
-    prompt = prompt.replace(/\[gender\]/g, "person");
-  } else {
-    prompt = prompt.replace(/\[gender\]/g, effectiveGender);
-  }
-
-  // 3. Injeção de traços físicos extraídos das selfies — ancora cabelo, pele, olhos.
-  // Qualificador de textura na pele força o Flux a renderizar poros em vez de superfície uniforme.
-  let traitPhrase = "";
+  // ===== TRAITS MÍNIMOS: só cabelo (cor + comprimento) =====
+  // Pele e olhos saem — o LoRA já sabe disso e tokens extras diluem atenção.
+  let hairDescriptor = "";
   if (params.physicalTraits) {
     const t = params.physicalTraits;
-    traitPhrase = `, with ${t.hair_length} ${t.hair_style} ${t.hair_color} hair, ${t.skin_tone} skin with visible pores and natural texture, ${t.eye_color} eyes`;
+    hairDescriptor = `${t.hair_length} ${t.hair_color} hair`;
+  } else if (effectiveGender === "woman" && params.hair) {
+    hairDescriptor = params.hair;
   }
 
-  // 3b. OUTFIT em texto natural, sem peso. Linguagem que o Flux respeita melhor.
+  // ===== OUTFIT em texto natural =====
   const outfitText = (params.outfit || "").trim();
-  const outfitPhrase = outfitText ? `, wearing ${outfitText}` : "";
 
-  // Injeta traços + outfit logo após o trigger USR<id>.
-  prompt = prompt.replace(/(USR\S+)/, `$1${traitPhrase}${outfitPhrase}`);
+  // ===== GÊNERO: token simples =====
+  const genderToken = effectiveGender === "none" ? "person" : effectiveGender;
 
-  // Esvazia o [outfit] do template original (já injetado acima).
-  prompt = prompt.replace(/\[outfit\]/g, "");
+  // ===== MONTAGEM FINAL — espelha estrutura do manual que funcionou =====
+  // {trigger} {gender}, {framing?}, {archetype_essence}, {hair?}, {outfit?}, {QUALITY_SUFFIX}
+  const parts: string[] = [
+    `${triggerWord} ${genderToken}`,
+  ];
+  if (framing.instruction) parts.push(framing.instruction);
+  parts.push(archetypeEssence);
+  if (hairDescriptor) parts.push(hairDescriptor);
+  if (outfitText) parts.push(outfitText);
+  parts.push(QUALITY_SUFFIX);
 
-  // 3c. Negative específico do look — impede o Flux de "voltar" ao blazer padrão
-  // das selfies de treino quando o look pede vestido/cardigan/coat etc.
+  let prompt = parts.join(", ");
+
+  // ===== NEGATIVE =====
+  let negative = tpl.negative + STUDIO_NEGATIVE_BASE + (framing.showsHands ? HANDS_NEGATIVE_REINFORCE : "");
+
+  // Reforço de gênero no negative (técnica padrão Flux LoRA contra troca).
+  if (effectiveGender === "woman") {
+    negative += ", man, beard, mustache, masculine features";
+  } else if (effectiveGender === "man") {
+    negative += ", woman, feminine features, lipstick";
+  }
+
+  // Negative específico por outfit — impede o Flux de "voltar" ao blazer das selfies.
   const outfitLower = outfitText.toLowerCase();
   if (/\bdress\b|\bgown\b|\bslip dress\b/.test(outfitLower)) {
-    negative += ", blazer, suit jacket, business suit, trousers, pants, formal suit, turtleneck, long sleeves, formal shirt, tie";
+    negative += ", blazer, suit jacket, trousers, formal suit, turtleneck, tie";
   }
   if (/\bcardigan\b|\bknit\b|\bknitwear\b|\bsweater\b/.test(outfitLower)) {
-    negative += ", blazer, suit jacket, formal suit, tie";
+    negative += ", blazer, suit jacket, tie";
   }
   if (/\bcoat\b|\btrench\b|\bovercoat\b/.test(outfitLower)) {
     negative += ", blazer underneath, formal suit";
   }
   if (/\bblazer\b|\bpantsuit\b|\bsuit\b/.test(outfitLower)) {
-    negative += ", dress, casual t-shirt, hoodie, sportswear";
+    negative += ", dress, t-shirt, hoodie, sportswear";
   }
   if (/\bathletic\b|\bsportswear\b|\blegging\b|\bgym\b|\bworkout\b|\bsports?\s*top\b|academia/.test(outfitLower)) {
-    negative += ", formal wear, blazer, suit, dress shirt, tie, business attire";
+    negative += ", formal wear, blazer, suit, tie";
   }
   if (/\bjumpsuit\b|macac/.test(outfitLower)) {
     negative += ", separate top and trousers, blazer";
@@ -390,23 +384,7 @@ export function buildPortraitPrompt(params: BuildPromptParams): {
     negative += ", formal trousers, suit pants";
   }
 
-  // Cabelo do figurino só é usado quando NÃO temos traços extraídos.
-  if (!params.physicalTraits && effectiveGender === "woman" && params.hair) {
-    prompt = prompt.replace(/\[hair\]/g, params.hair);
-  } else {
-    prompt = prompt.replace(/\[hair\]/g, "");
-  }
-
-  if (effectiveGender === "woman" && params.makeup) {
-    prompt = prompt.replace(/\[makeup\]/g, params.makeup);
-  } else {
-    prompt = prompt.replace(/\[makeup\]/g, "");
-  }
-
-  // 4. Sufixo de qualidade UMA VEZ no fim. Tokens fotográficos sem competir com LoRA.
-  prompt = `${prompt}, ${QUALITY_SUFFIX}`;
-
-  // 5. Limpeza.
+  // Limpeza final.
   prompt = cleanupPrompt(prompt);
 
   return { prompt, negative, backgroundKey: bg.key };
