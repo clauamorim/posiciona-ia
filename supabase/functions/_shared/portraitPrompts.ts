@@ -350,24 +350,23 @@ export function buildPortraitPrompt(params: BuildPromptParams): {
     traitPhrase = `, with ${t.hair_length} ${t.hair_style} ${t.hair_color} hair, ${t.skin_tone} skin, ${t.eye_color} eyes`;
   }
 
-  // 3b. Injeção do OUTFIT logo após USR<id> + traços, com peso 1.4 (sintaxe Flux).
-  // Quando vem de override do usuário, peso aumenta para 1.8 para forçar fidelidade
-  // contra o viés de business attire das selfies de treino.
+  // 3b. Injeção do OUTFIT logo após USR<id> + traços, com peso moderado.
+  // Pesos altos (>1.6) competem com o LoRA pelo orçamento de atenção e
+  // degradam a fidelidade facial. Mantemos peso conservador.
   const outfitText = (params.outfit || "").trim();
-  // Peso 1.4 (padrão) e 2.0 quando vem de override do usuário, com REPETIÇÃO
-  // do termo no final do prompt — duas menções ancoram melhor o Flux contra
-  // o viés de business attire das selfies de treino.
-  const outfitWeight = params.isUserOverride ? 2.0 : 1.4;
+  const outfitWeight = params.isUserOverride ? 1.5 : 1.3;
   const outfitPhrase = outfitText ? `, (wearing ${outfitText}:${outfitWeight})` : "";
 
   // 3b-bis. Injeção da POSE DE MÃOS — APENAS se este look mostra mãos.
-  // Para o look 0 (headshot), não injetamos pose porque mãos não estão no frame.
   const handPoseText = framing.showsHands ? (params.handPose || "").trim() : "";
   const handPosePhrase = handPoseText ? `, (hands: ${handPoseText}:1.2)` : "";
 
-  if (traitPhrase || outfitPhrase || handPosePhrase) {
-    prompt = prompt.replace(/(USR\S+)/, `$1${traitPhrase}${outfitPhrase}${handPosePhrase}`);
-  }
+  // 3b-ter. Reforço explícito de identidade — ancora o Flux ao LoRA e
+  // preserva texturas naturais de pele e cabelo (que tendem a ser perdidas
+  // quando o guidance sobe ou o outfit ganha peso demais).
+  const identityPhrase = ", preserve exact facial features, same person, identical face, recognizable individual, natural skin texture, authentic skin pores, fine hair strands";
+
+  prompt = prompt.replace(/(USR\S+)/, `$1${identityPhrase}${traitPhrase}${outfitPhrase}${handPosePhrase}`);
 
   // Esvazia o [outfit] do template original (já injetado acima com peso).
   prompt = prompt.replace(/\[outfit\]/g, "");
