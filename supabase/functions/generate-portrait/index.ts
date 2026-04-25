@@ -8,10 +8,24 @@ import {
   buildHairText,
   buildMakeupText,
   BACKGROUND_VARIATIONS,
+  HAND_POSE_POOLS,
+  getArchetypeFamily,
 } from "../_shared/portraitPrompts.ts";
 
 const FLUX_LORA_MODEL = "black-forest-labs/flux-dev-lora";
+const UPSCALER_MODEL_VERSION = "nightmareai/real-esrgan:f121d640bd286e1fdc67f9799164c1d5be36ff74576ee11c803ae5b665dd46aa";
 const GENERATE_COST_CREDITS = 3;
+const GUIDANCE_VARIATIONS = [3.0, 3.5, 4.0];
+
+/** Fisher–Yates shuffle não destrutivo. */
+function shuffle<T>(arr: T[]): T[] {
+  const copy = arr.slice();
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
 
 async function callFluxLora(params: {
   token: string;
