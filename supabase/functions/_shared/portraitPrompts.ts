@@ -352,10 +352,11 @@ export function buildPortraitPrompt(params: BuildPromptParams): {
   }
 
   // 3. Injeção de traços físicos extraídos das selfies — ancora cabelo, pele, olhos.
+  // Qualificador de textura na pele força o Flux a renderizar poros em vez de superfície uniforme.
   let traitPhrase = "";
   if (params.physicalTraits) {
     const t = params.physicalTraits;
-    traitPhrase = `, with ${t.hair_length} ${t.hair_style} ${t.hair_color} hair, ${t.skin_tone} skin, ${t.eye_color} eyes`;
+    traitPhrase = `, with ${t.hair_length} ${t.hair_style} ${t.hair_color} hair, ${t.skin_tone} skin with visible pores and natural texture, ${t.eye_color} eyes`;
   }
 
   // 3b. OUTFIT em texto natural, sem peso. Linguagem que o Flux respeita melhor.
