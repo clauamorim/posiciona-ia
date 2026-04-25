@@ -277,8 +277,39 @@ const AdminUsers = () => {
   const formatLastLogin = (userId: string) => {
     const dt = lastSignInMap[userId];
     if (!dt) return "—";
-    return new Date(dt).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" });
+    return new Date(dt).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" });
   };
+
+  const renderActionsMenu = (u: any) => (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" aria-label="Ações">
+          <MoreHorizontal className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-48">
+        <DropdownMenuItem onClick={() => setViewingUser(u)}>
+          <Eye className="h-4 w-4 mr-2" /> Ver detalhes
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => { setAssigningPlan({ userId: u.user_id, name: u.full_name }); setSelectedPlanId(u.subscription?.plan_id || ""); setPlanMonths("1"); }}>
+          <Crown className="h-4 w-4 mr-2" /> Atribuir plano
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => openCreditsDialog(u)}>
+          <Coins className="h-4 w-4 mr-2" /> Editar créditos
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => handleConfirmEmail(u.user_id)} disabled={actionLoading === u.user_id}>
+          {actionLoading === u.user_id ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <MailCheck className="h-4 w-4 mr-2" />} Confirmar e-mail
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => toggleBlock(u.user_id, u.is_blocked)}>
+          <Ban className="h-4 w-4 mr-2" /> {u.is_blocked ? "Desbloquear" : "Bloquear"}
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => setDeletingUser({ userId: u.user_id, name: u.full_name })}>
+          <Trash2 className="h-4 w-4 mr-2" /> Excluir usuário
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 
   const renderJourneyBadges = (journey: JourneyPhases) => {
     const keys = Object.keys(journey) as (keyof JourneyPhases)[];
