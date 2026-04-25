@@ -251,16 +251,22 @@ const PostEditorPage = () => {
           setBusinessContext(ctx);
         }
       });
-    supabase.from("portrait_generations").select("portraits").eq("user_id", user.id).order("created_at", { ascending: false })
-      .then(({ data }) => {
-        if (data) {
-          const urls: string[] = [];
-          data.forEach((row: any) => {
-            const p = row.portraits;
-            if (Array.isArray(p)) p.forEach((u: any) => { if (typeof u === "string") urls.push(u); });
-          });
-          setUserPortraits(urls);
-        }
+    supabase
+      .from("portrait_generations")
+      .select("portraits")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(12)
+      .then(async ({ data }) => {
+        if (!data) return;
+        const { resolvePortraitUrls } = await import("@/lib/portraitUrl");
+        const allRaw: string[] = [];
+        data.forEach((row: any) => {
+          const p = row.portraits;
+          if (Array.isArray(p)) p.forEach((u: any) => { if (typeof u === "string") allRaw.push(u); });
+        });
+        const resolved = await resolvePortraitUrls(allRaw);
+        setUserPortraits(resolved.filter(Boolean));
       });
   }, [user]);
 

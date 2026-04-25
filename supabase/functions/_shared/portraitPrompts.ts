@@ -17,9 +17,10 @@ export type ArchetypeName =
 
 // Reforço aplicado a todos os prompts: garante cenário de estúdio.
 const STUDIO_PREFIX = "professional photography studio, controlled studio lighting, ";
-// Reforço aplicado a todos os negatives: bloqueia vazamento de cenários externos das fotos de treino,
-// anatomia incorreta (mãos extras, membros duplicados), poses de mão rígidas e artefatos comuns do Flux.
-const STUDIO_NEGATIVE = ", outdoor, street, natural daylight, trees, buildings, sky, park, beach, low quality, blurry, deformed face, extra fingers, asymmetric eyes, extra arms, extra hands, three hands, four hands, mutated hands, deformed hands, extra limbs, missing limbs, fused fingers, disfigured, malformed, duplicate, two heads, cloned face, bad anatomy, multiple people, clenched fists, stiff claw hands, symmetrical fist pose, hands floating awkwardly, tense rigid fingers";
+// Negative base — aplicado a TODOS os looks (sem termos específicos de mãos).
+const STUDIO_NEGATIVE_BASE = ", outdoor, street, natural daylight, trees, buildings, sky, park, beach, low quality, blurry, deformed face, asymmetric eyes, extra arms, three hands, four hands, mutated hands, extra limbs, missing limbs, disfigured, malformed, duplicate, two heads, cloned face, bad anatomy, multiple people";
+// Reforço de anatomia de mãos — aplicado APENAS aos looks que mostram mãos (claro/escuro).
+const HANDS_NEGATIVE_REINFORCE = ", extra fingers, six fingers, seven fingers, four fingers, fused fingers, deformed fingers, disfigured fingers, misshapen hands, bent broken fingers, twisted fingers, clenched fists, stiff claw hands, symmetrical fist pose, hands floating awkwardly, tense rigid fingers";
 
 // ============================================================================
 // POOL DE POSES DE MÃOS — variedade fotogênica por família de arquétipo.
@@ -142,6 +143,19 @@ export const BACKGROUND_VARIATIONS = [
   { key: "escuro", label: "Escuro", replacement: "dark moody textured studio background, deep shadow tones" },
 ] as const;
 
+/**
+ * Framing por look. Estratégia mista para minimizar dedos deformados:
+ *   - Look 0 (Neutro): close-up enquadrando peito/ombros — mãos FORA do frame.
+ *     100% à prova de erro de mãos. Sempre teremos pelo menos 1 retrato perfeito.
+ *   - Look 1 (Claro): waist-up com pose de mãos sorteada (mãos visíveis).
+ *   - Look 2 (Escuro): waist-up com pose de mãos sorteada (mãos visíveis).
+ */
+export const FRAMING_VARIATIONS = [
+  { key: "headshot", showsHands: false, instruction: "head and shoulders portrait, framed at chest level, hands not visible in frame" },
+  { key: "waist-up", showsHands: true, instruction: "waist-up portrait, hands visible naturally in frame" },
+  { key: "waist-up", showsHands: true, instruction: "waist-up portrait, hands visible naturally in frame" },
+] as const;
+
 // Regex para localizar a "frase de fundo" no prompt do arquétipo.
 // Captura desde uma palavra-chave de iluminação/fundo até a vírgula imediatamente antes de "[outfit]".
 // Exemplos cobertos:
@@ -187,8 +201,12 @@ export function buildPortraitPrompt(params: BuildPromptParams): {
   const effectiveGender: "woman" | "man" | "none" =
     params.physicalTraits?.gender ?? params.gender;
 
+  // Framing por look — controla se mãos aparecem no frame.
+  const framing = FRAMING_VARIATIONS[params.backgroundIndex];
+
   let prompt = STUDIO_PREFIX + tpl.prompt;
-  let negative = tpl.negative + STUDIO_NEGATIVE;
+  // Negative base + reforço de mãos APENAS se este look mostra mãos.
+  let negative = tpl.negative + STUDIO_NEGATIVE_BASE + (framing.showsHands ? HANDS_NEGATIVE_REINFORCE : "");
 
   // Reforço de gênero no negative para evitar troca (técnica conhecida em Flux LoRA)
   if (effectiveGender === "woman") {
@@ -206,6 +224,10 @@ export function buildPortraitPrompt(params: BuildPromptParams): {
       prompt = `${bg.replacement}, ${prompt}`;
     }
   }
+
+  // 1b. Injeta a instrução de framing logo no início (após STUDIO_PREFIX) com peso forte.
+  // Para look 0 (headshot) isso garante que mãos não aparecem.
+  prompt = prompt.replace(STUDIO_PREFIX, `${STUDIO_PREFIX}(${framing.instruction}:1.5), `);
 
   // 2. Substituir marcadores
   prompt = prompt.replace(/USR\[id\]/g, `USR${params.userId}`);
@@ -226,15 +248,12 @@ export function buildPortraitPrompt(params: BuildPromptParams): {
   }
 
   // 3b. Injeção do OUTFIT logo após USR<id> + traços, com peso 1.4 (sintaxe Flux).
-  // Resolve dois problemas: (a) tokens cedo no prompt recebem muito mais atenção;
-  // (b) `(... :1.4)` força o Flux a respeitar a peça em vez de cair no padrão das selfies.
-  // O `[outfit]` no template original é esvaziado para evitar duplicação/diluição.
   const outfitText = (params.outfit || "").trim();
   const outfitPhrase = outfitText ? `, (wearing ${outfitText}:1.4)` : "";
 
-  // 3b-bis. Injeção da POSE DE MÃOS sorteada — peso 1.2 para não competir com o outfit.
-  // Aparece logo após o outfit, na zona de máxima atenção do Flux.
-  const handPoseText = (params.handPose || "").trim();
+  // 3b-bis. Injeção da POSE DE MÃOS — APENAS se este look mostra mãos.
+  // Para o look 0 (headshot), não injetamos pose porque mãos não estão no frame.
+  const handPoseText = framing.showsHands ? (params.handPose || "").trim() : "";
   const handPosePhrase = handPoseText ? `, (hands: ${handPoseText}:1.2)` : "";
 
   if (traitPhrase || outfitPhrase || handPosePhrase) {
@@ -367,7 +386,7 @@ const PT_EN_FASHION: Array<[RegExp, string]> = [
   [/marrom/gi, "brown"],
 ];
 
-function translateFashion(text: string): string {
+export function translateFashion(text: string): string {
   let out = text;
   for (const [re, en] of PT_EN_FASHION) {
     out = out.replace(re, en);

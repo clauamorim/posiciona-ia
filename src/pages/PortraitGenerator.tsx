@@ -8,10 +8,12 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
-import { Upload, X, Download, Loader2, ImageIcon, ShoppingCart, Camera, Maximize2, Sparkles, CheckCircle2, AlertCircle, Wand2 } from "lucide-react";
+import { Upload, X, Download, Loader2, ImageIcon, ShoppingCart, Camera, Maximize2, Sparkles, CheckCircle2, AlertCircle, Wand2, Shirt } from "lucide-react";
 import JSZip from "jszip";
 import { compressImage } from "@/lib/imageUtils";
 import { PortraitPreviewDialog } from "@/components/PortraitPreviewDialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -54,6 +56,45 @@ const PortraitGenerator = () => {
   const [portraits, setPortraits] = useState<string[]>([]);
   const [backgrounds, setBackgrounds] = useState<string[]>([]);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
+
+  // Overrides opcionais de figurino (persistidos em localStorage por usuário)
+  const overridesKey = user ? `portrait-outfit-overrides-${user.id}` : "";
+  const [outfitOverrides, setOutfitOverrides] = useState<string[]>(["", "", ""]);
+  const [overridesDialogOpen, setOverridesDialogOpen] = useState(false);
+
+  useEffect(() => {
+    if (!overridesKey) return;
+    try {
+      const raw = localStorage.getItem(overridesKey);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length === 3) setOutfitOverrides(parsed.map((s) => String(s ?? "")));
+      }
+    } catch {
+      // ignore
+    }
+  }, [overridesKey]);
+
+  const saveOverrides = () => {
+    if (!overridesKey) return;
+    try {
+      localStorage.setItem(overridesKey, JSON.stringify(outfitOverrides));
+    } catch {
+      // ignore
+    }
+    setOverridesDialogOpen(false);
+    toast({ title: "Figurinos personalizados salvos", description: "Serão usados na próxima geração." });
+  };
+
+  const clearOverrides = () => {
+    setOutfitOverrides(["", "", ""]);
+    if (overridesKey) {
+      try { localStorage.removeItem(overridesKey); } catch { /* ignore */ }
+    }
+  };
+
+  const allOverridesFilled = outfitOverrides.every((s) => s.trim().length > 0);
+  const someOverridesFilled = outfitOverrides.some((s) => s.trim().length > 0);
 
   const totalCredits = (balances?.portrait_credits_included ?? 0) + (balances?.portrait_credits_extra ?? 0);
 
@@ -221,7 +262,11 @@ const PortraitGenerator = () => {
     setPortraits([]);
     setBackgrounds([]);
     try {
-      const { data, error } = await supabase.functions.invoke("generate-portrait", { body: {} });
+      const body: { outfit_overrides?: string[] } = {};
+      if (allOverridesFilled) {
+        body.outfit_overrides = outfitOverrides.map((s) => s.trim());
+      }
+      const { data, error } = await supabase.functions.invoke("generate-portrait", { body });
       if (error) throw error;
       if (data?.error) {
         toast({ title: "Erro", description: data.error, variant: "destructive" });
@@ -437,10 +482,25 @@ const PortraitGenerator = () => {
                         {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageIcon className="h-4 w-4" />}
                         Gerar 3 retratos ({GENERATE_COST_CREDITS} créditos)
                       </Button>
+                      <Button onClick={() => setOverridesDialogOpen(true)} variant="outline" size="lg" className="gap-2">
+                        <Shirt className="h-4 w-4" />
+                        Personalizar figurinos
+                        {someOverridesFilled && <Badge variant="secondary" className="ml-1 text-[10px]">{outfitOverrides.filter(s => s.trim()).length}/3</Badge>}
+                      </Button>
                       <Button onClick={() => setTrainModalOpen(true)} variant="outline" size="lg">
                         Treinar novo Estúdio
                       </Button>
                     </div>
+                    {someOverridesFilled && !allOverridesFilled && (
+                      <p className="text-xs text-muted-foreground">
+                        Para usar figurinos personalizados, descreva os <strong>3 looks</strong>. Caso contrário, usaremos figurinos curados para o seu arquétipo.
+                      </p>
+                    )}
+                    {allOverridesFilled && (
+                      <p className="text-xs text-success">
+                        ✓ Figurinos personalizados ativos para a próxima geração.
+                      </p>
+                    )}
                     {generating && (
                       <div className="space-y-2">
                         <Progress value={undefined} className="animate-pulse" />
@@ -620,6 +680,60 @@ const PortraitGenerator = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Dialog: Personalizar figurinos */}
+      <Dialog open={overridesDialogOpen} onOpenChange={setOverridesDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Shirt className="h-5 w-5" />
+              Personalizar figurinos
+            </DialogTitle>
+            <DialogDescription>
+              Descreva os 3 looks que você quer ver nos retratos. Para usar, preencha <strong>os três</strong> — caso contrário, manteremos os figurinos curados para o seu arquétipo.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="space-y-1.5">
+                <Label htmlFor={`outfit-${i}`} className="text-sm">
+                  Look {i + 1} {i === 0 ? "(close-up · sem mãos)" : i === 1 ? "(fundo claro)" : "(fundo escuro)"}
+                </Label>
+                <Textarea
+                  id={`outfit-${i}`}
+                  placeholder={
+                    i === 0
+                      ? "Ex: blazer bege oversized com blusa de seda branca"
+                      : i === 1
+                      ? "Ex: vestido midi terracota com cinto fino de couro"
+                      : "Ex: blazer preto alfaiataria com calça pantalona, brincos prata"
+                  }
+                  value={outfitOverrides[i]}
+                  onChange={(e) => {
+                    const next = [...outfitOverrides];
+                    next[i] = e.target.value;
+                    setOutfitOverrides(next);
+                  }}
+                  className="min-h-[60px] text-sm"
+                  maxLength={200}
+                />
+              </div>
+            ))}
+            <div className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">
+              Dica: descreva em poucas palavras peças, cores e tecidos. Termos em português são traduzidos automaticamente.
+            </div>
+            <div className="flex justify-between gap-2">
+              <Button variant="ghost" size="sm" onClick={clearOverrides} disabled={!someOverridesFilled}>
+                Limpar
+              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setOverridesDialogOpen(false)}>Cancelar</Button>
+                <Button onClick={saveOverrides}>Salvar</Button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <PortraitPreviewDialog
         open={previewIndex !== null}

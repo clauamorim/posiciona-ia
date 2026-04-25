@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { resolvePortraitUrls } from "@/lib/portraitUrl";
 import { History, FileText, Instagram, Camera, Download, Eye, ArrowRight, CheckCircle2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
@@ -26,18 +27,12 @@ const HistoryPage = () => {
   const location = useLocation();
   const [reports, setReports] = useState<any[]>([]);
   const [analyses, setAnalyses] = useState<any[]>([]);
-  const [portraits, setPortraits] = useState<any[]>([]);
+  const [flatPortraits, setFlatPortraits] = useState<{ url: string; createdAt: string; parentId: string }[]>([]);
   const [selectedAnalysis, setSelectedAnalysis] = useState<any | null>(null);
   const [selectedReport, setSelectedReport] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [progress, setProgress] = useState(0);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
-
-  // Flatten portraits across generations for linear preview navigation
-  const flatPortraits = portraits.flatMap((p: any) => {
-    const imgs = Array.isArray(p.portraits) ? p.portraits : [];
-    return imgs.map((url: string) => ({ url, createdAt: p.created_at, parentId: p.id }));
-  });
 
   const fetchData = useCallback(async () => {
     if (!user) return;
@@ -46,12 +41,30 @@ const HistoryPage = () => {
     const [reportsRes, analysesRes, portraitsRes] = await Promise.all([
       supabase.from("reports").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
       supabase.from("instagram_analyses").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
-      supabase.from("portrait_generations").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
+      // Limit 12 + select explícito: evita carregar payloads enormes de gerações legadas (data URLs base64).
+      supabase
+        .from("portrait_generations")
+        .select("id, created_at, portraits")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(12),
     ]);
-    setProgress(80);
+    setProgress(60);
     setReports(reportsRes.data || []);
     setAnalyses(analysesRes.data || []);
-    setPortraits(portraitsRes.data || []);
+
+    // Resolve URLs (legado data: passa direto; novo path → signedUrl)
+    const portraitRows = portraitsRes.data || [];
+    const flat: { url: string; createdAt: string; parentId: string }[] = [];
+    for (const row of portraitRows) {
+      const imgs: string[] = Array.isArray(row.portraits) ? row.portraits.filter((p: any) => typeof p === "string") : [];
+      if (imgs.length === 0) continue;
+      const resolved = await resolvePortraitUrls(imgs);
+      for (const url of resolved) {
+        if (url) flat.push({ url, createdAt: row.created_at, parentId: row.id });
+      }
+    }
+    setFlatPortraits(flat);
     setProgress(100);
     setTimeout(() => setLoading(false), 300);
   }, [user]);
@@ -215,7 +228,7 @@ const HistoryPage = () => {
             </TabsContent>
 
             <TabsContent value="portraits" className="mt-4">
-              {portraits.length === 0 ? (
+              {flatPortraits.length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground">
                   <Camera className="h-12 w-12 mx-auto mb-3 opacity-50" />
                   <p>Nenhum retrato gerado.</p>
