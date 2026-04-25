@@ -393,7 +393,9 @@ serve(async (req) => {
       if (i > 0) await new Promise((r) => setTimeout(r, INTER_CALL_DELAY_MS));
       const outfit = outfitsForLooks[i] ?? "";
       const handPose = selectedPoses[i] ?? null;
-      const guidanceScale = GUIDANCE_VARIATIONS[i] ?? 3.5;
+      const guidanceScale = isUserOverride
+        ? (GUIDANCE_VARIATIONS_OVERRIDE[i] ?? 4.5)
+        : (GUIDANCE_VARIATIONS[i] ?? 3.5);
       const built = buildPortraitPrompt({
         archetype: archetypeName,
         userId: user.id,
@@ -407,9 +409,10 @@ serve(async (req) => {
         isUserOverride,
       });
 
-      // Quando há override do usuário, reduz lora_scale para diminuir o viés do
-      // LoRA em business attire — abrindo espaço pro outfit pedido prevalecer.
-      const loraScale = isUserOverride ? 0.80 : 0.95;
+      // Mantém lora_scale: 0.95 SEMPRE — reduzir esse valor degrada drasticamente
+      // a fidelidade facial. A pressão por respeitar o override de figurino vem
+      // do guidance_scale maior + outfit duplicado no prompt + negatives semânticos.
+      const loraScale = 0.95;
 
       console.log(
         `[generate-portrait] call ${i + 1}/3 background=${built.backgroundKey} archetype=${archetypeName} ` +
