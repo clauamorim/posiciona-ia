@@ -1,13 +1,20 @@
-// Regenera um único post da semana editorial usando Claude.
-// 2026-04-25-v5: migrado de Gemini para Claude Sonnet 4.5 + injeção
-// obrigatória do contexto pessoal do criador.
+// Regenera UM ÚNICO item da semana editorial:
+// - target="feed": regenera o post de feed do dia (formato: carrossel|post|reels)
+// - target="story": regenera o story do dia (3-5 frames)
+// Compatível com o shape v6 (semana = { days: [{day, feed, story}] }).
+// Se receber chamada legada (sem target), comporta-se como antes (regenera post inteiro).
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { extractJsonFromLLM } from "../_shared/jsonExtract.ts";
 import { EDITORIAL_GENERATOR_VERSION, isOutdatedVersion } from "../_shared/generatorVersion.ts";
-import { sanitizePost, countFrameworkLeaks } from "../_shared/editorialSanitize.ts";
+import {
+  sanitizePost,
+  sanitizeStory,
+  countFrameworkLeaks,
+  countStoryLeaks,
+} from "../_shared/editorialSanitize.ts";
 import { callClaude, ClaudeError } from "../_shared/claudeClient.ts";
 import {
   fetchPersonalQuestionnaire,
@@ -37,9 +44,23 @@ serve(async (req) => {
       userId = user?.id || null;
     }
 
-    const { format, theme, dayNumber, business, niche, existingPosts, storybrand, tone_of_voice, freeRegeneration, currentVersion } = await req.json();
+    const body = await req.json();
+    const {
+      target,                 // "feed" | "story" (novo) ou undefined (legado)
+      format,                 // legado / feed
+      theme,
+      dayNumber,
+      business,
+      niche,
+      existingPosts,
+      siblingFeed,            // contexto do post de feed do mesmo dia (para target=story espelhar)
+      storybrand,
+      tone_of_voice,
+      freeRegeneration,
+      currentVersion,
+    } = body;
 
-    if (!format || !business) {
+    if (!business) {
       return new Response(JSON.stringify({ error: "Missing required fields" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -47,7 +68,7 @@ serve(async (req) => {
     }
 
     if (freeRegeneration && !isOutdatedVersion(currentVersion)) {
-      return new Response(JSON.stringify({ error: "Este post já está atualizado." }), {
+      return new Response(JSON.stringify({ error: "Este item já está atualizado." }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -64,42 +85,137 @@ serve(async (req) => {
     const personal = userId ? await fetchPersonalQuestionnaire(userId) : null;
     const personalContext = renderPersonalContext(personal);
 
-    const systemPrompt = `Você é um especialista em copy para Instagram. Aplique de forma OBRIGATÓRIA três frameworks (descritos em detalhe ao final deste prompt):
+    // ====== Branch: regenerar STORY ======
+    if (target === "story") {
+      const mirrorBlock = siblingFeed
+        ? `\n\n# POST DE FEED DO MESMO DIA (espelhar tema, NÃO copiar copy)
+Tema: ${siblingFeed.theme || ""}
+Formato: ${siblingFeed.format || ""}
+Resumo: ${(siblingFeed.caption || "").slice(0, 200)}\n
+O story DEVE abordar o mesmo tema do post acima, em formato Stories (bastidor, enquete, dúvida, mini-prova, depoimento). NÃO repita a copy do feed.`
+        : `\n\nEste dia NÃO tem post no feed — o story é livre. Predominância: pessoal/cotidiano do criador.`;
+
+      const storySystem = `Você é um especialista em copy para Instagram Stories.
+
+Gere UM ÚNICO story para o dia ${dayNumber || 1} da semana.
+
+⚠️ FORMATO DE SAÍDA: começa com "{" e termina com "}". SEM \`\`\`. Sem texto extra.
+
+PROIBIDO escrever rótulos: "Problema Externo", "O Plano", "Chamada à Ação", "O Herói", "StoryBrand", "Framework", "Posicionamento", "Made to Stick", "Obviously Awesome".
+NUNCA prefixe frames com "Frame 1:", "Story 1:".
+
+ESTILO: linguagem direta, falada, primeira pessoa. 3 a 5 frames. Use formatos típicos de Stories (enquete, pergunta, slider, depoimento, bastidor).${mirrorBlock}
+
+OUTPUT:
+{
+  "day": ${dayNumber || 1},
+  "theme": "...",
+  "frames": ["frame 1", "frame 2", "frame 3"],
+  "is_personal": ${siblingFeed ? "false" : "true"},
+  "mirrors_feed": ${siblingFeed ? "true" : "false"}
+}
+
+Português brasileiro.`;
+
+      const storyUser = `# NEGÓCIO
+Empresa: ${business.company_name || ""}
+Serviços: ${business.services || ""}
+Público: ${business.target_audience || ""}
+Nicho: ${niche || ""}${storybrandContext}${toneContext}${personalContext}
+
+# OUTROS TEMAS DA SEMANA (não repetir)
+${existingTitles || "Nenhum"}
+
+Gere o story do dia ${dayNumber || 1}.`;
+
+      const enrichedStorySystem = storySystem + renderEditorialFrameworks();
+
+      let rawStory: string;
+      try {
+        rawStory = await callClaude({
+          systemPrompt: enrichedStorySystem,
+          userText: storyUser,
+          max_tokens: 1500,
+          timeoutMs: 60000,
+        });
+      } catch (e) {
+        const ce = e as ClaudeError;
+        return new Response(JSON.stringify({ error: ce.userMessage || "Não foi possível regenerar este story." }), {
+          status: ce.status || 502,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const parsed = extractJsonFromLLM(rawStory);
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        return new Response(JSON.stringify({ error: "Não foi possível regenerar este story agora." }), {
+          status: 502,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      let cleanedStory = sanitizeStory(parsed as Record<string, any>);
+      let leaks = countStoryLeaks(cleanedStory);
+      if (leaks > 0) {
+        const stricter = enrichedStorySystem +
+          `\n\n⚠️ ÚLTIMA TENTATIVA: a resposta anterior continha rótulos PROIBIDOS. REESCREVA tudo em copy direta.`;
+        try {
+          const retryRaw = await callClaude({ systemPrompt: stricter, userText: storyUser, max_tokens: 1500, timeoutMs: 50000 });
+          const retryParsed = extractJsonFromLLM(retryRaw);
+          if (retryParsed && typeof retryParsed === "object" && !Array.isArray(retryParsed)) {
+            const retryClean = sanitizeStory(retryParsed as Record<string, any>);
+            if (countStoryLeaks(retryClean) < leaks) {
+              cleanedStory = retryClean;
+              leaks = countStoryLeaks(retryClean);
+            }
+          }
+        } catch (retryErr) {
+          console.error("Stricter story retry failed:", retryErr);
+        }
+      }
+
+      const stamped = {
+        ...cleanedStory,
+        day: Number(dayNumber || 1),
+        mirrors_feed: !!siblingFeed,
+        is_personal: cleanedStory.is_personal ?? !siblingFeed,
+      };
+
+      return new Response(JSON.stringify({ story: stamped, free: !!freeRegeneration, generator_version: EDITORIAL_GENERATOR_VERSION }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ====== Branch: regenerar FEED (default — também atende chamadas legadas) ======
+    if (!format) {
+      return new Response(JSON.stringify({ error: "format é obrigatório para regenerar feed" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const systemPrompt = `Você é um especialista em copy para Instagram. Aplique de forma OBRIGATÓRIA três frameworks (descritos ao final):
 1) StoryBrand — clareza narrativa.
-2) Obviously Awesome (April Dunford) — posicionamento específico do nicho.
-3) Made to Stick — princípios SUCCESs (Simples, Inesperado, Concreto, Crível, Emocional, Histórias).
+2) Obviously Awesome — posicionamento específico.
+3) Made to Stick — princípios SUCCESs.
 
-Gere UM ÚNICO post novo, no formato pedido.
+Gere UM ÚNICO post de feed novo, no formato pedido.
 
-⚠️ CRÍTICO — FORMATO DE SAÍDA: Sua resposta DEVE começar com "{" e terminar com "}". NÃO use \`\`\` em hipótese alguma. NÃO escreva texto antes ou depois do JSON. Não use vírgula final antes de "}" ou "]".
+⚠️ FORMATO DE SAÍDA: começa com "{" e termina com "}". SEM \`\`\`. Sem texto extra. Sem vírgula final.
 
-REGRA DE LINGUAGEM (CRÍTICA):
-StoryBrand, Obviously Awesome e Made to Stick são camadas ESTRATÉGICAS INTERNAS. NUNCA escreva os rótulos do framework dentro de "theme", "caption", "card_copy", "cta" ou "script".
+REGRA DE LINGUAGEM:
+PROIBIDO escrever em campos visíveis: "Problema Externo", "Problema Interno", "Problema Filosófico", "O Plano", "Chamada à Ação", "Chamada para Ação", "O Sucesso", "O Fracasso", "O Guia", "O Herói", "StoryBrand", "Framework", "Posicionamento", "Categoria", "SUCCES", "Made to Stick", "Obviously Awesome".
+NUNCA prefixe card_copy com "Slide 1:", "Card 1:".
 
-PROIBIDO escrever literalmente: "Problema Externo", "Problema Interno", "Problema Filosófico", "O Plano", "Chamada à Ação", "Chamada para Ação", "O Sucesso", "O Fracasso", "O Guia", "O Herói", "StoryBrand", "Framework", "Posicionamento", "Categoria", "SUCCES", "Made to Stick", "Obviously Awesome".
+ESTRATÉGIA:
+- Gancho concreto e específico do nicho na primeira frase. PROIBIDO "Você sabia que…", "5 dicas para…", "A importância de…", "Vamos falar sobre…".
+- Posicionamento: deixe claro categoria, alternativa rejeitada, valor único.
+- Carrossel: Slide 1=gancho, Slide 2=problema, meio=insight/prova, último=CTA.
+- CTA verbal e direto.
 
-NUNCA prefixe os itens de "card_copy" com "Slide 1:", "Card 1:", "Página 1:". Cada item JÁ É um slide.
+HUMANIZAÇÃO: se o post for storytelling pessoal, use vivência REAL do criador (do bloco contexto pessoal). NUNCA invente fatos.
 
-ESTRATÉGIA DE COPY (OBRIGATÓRIA):
-- Gancho específico do NICHO do cliente na primeira frase da caption e no slide 1 do carrossel — concreto, com número, cena ou contradição. PROIBIDO abrir com "Você sabia que…", "5 dicas para…", "A importância de…", "Vamos falar sobre…", "Já parou para pensar…".
-- Posicionamento específico: deixe claro a categoria, o que a marca NÃO é e o valor único.
-- Carrossel: Slide 1 = gancho concreto. Slide 2 = problema sentido. Slides do meio = insight ou prova. Último = CTA verbal e direto.
-- CTA específico, com verbo de ação direto.
-
-HUMANIZAÇÃO (quando há contexto pessoal do criador):
-- Se este post for do tipo "storytelling pessoal", teça um paralelo entre uma vivência real do criador (do bloco de contexto pessoal) e a dor do cliente-alvo. Modelo: "do tatame ao tribunal".
-- Caso contrário, use detalhes pessoais como tempero sutil (vocabulário, exemplos, cenas).
-- NUNCA invente fatos pessoais.
-
-EXEMPLOS:
-- ERRADO: "Problema Externo: Desvendando o Conflito"
-- CERTO:  "Desvendando o Emaranhado do Conflito"
-- ERRADO em cta: "Chamada à Ação: Agende sua sessão hoje"
-- CERTO em cta: "Comente SESSÃO e te mando os horários disponíveis"
-- ERRADO em card_copy: ["Slide 1: Você também sente que o tempo voa?"]
-- CERTO: ["3 minutos. É o tempo médio que um cliente leva para decidir se você é amador ou referência."]
-
-O JSON deve seguir EXATAMENTE esta estrutura:
+OUTPUT:
 {
   "day": ${dayNumber || 1},
   "theme": "...",
@@ -107,17 +223,17 @@ O JSON deve seguir EXATAMENTE esta estrutura:
   "caption": "...",
   "card_copy": ["..."],
   "cta": "...",
-  "script": "..."
+  "script": "...",
+  "is_personal": false
 }
 
 Regras:
-- O tema e conteúdo devem ser COMPLETAMENTE DIFERENTES dos posts existentes listados abaixo
-- Para "carrossel": card_copy deve ter mínimo 5 slides
-- Para "post": card_copy deve ter 1 item com texto visual
-- Para "reels"/"stories": card_copy pode ser []
-- "script": APENAS para "reels" e "stories" deve ter roteiro completo. Para "post" e "carrossel", DEVE ser ""
-- "caption" é a legenda completa pronta para Instagram
-- Responda em português brasileiro`;
+- Tema completamente diferente dos posts existentes
+- Carrossel: card_copy ≥ 5 slides
+- Post: card_copy = 1 item
+- Reels: card_copy = []
+- script: apenas reels tem texto; post/carrossel = ""
+- Português brasileiro.`;
 
     const userPrompt = `# NEGÓCIO
 Empresa: ${business.company_name || ""}
@@ -128,9 +244,8 @@ Nicho: ${niche || ""}${storybrandContext}${toneContext}${personalContext}
 # POSTS JÁ EXISTENTES (NÃO REPETIR)
 ${existingTitles || "Nenhum"}
 
-Gere 1 novo post no formato "${format}" agora.`;
+Gere 1 novo post de feed no formato "${format}".`;
 
-    // Frameworks como texto denso (substitui PDFs para respeitar rate limit do Claude).
     const enrichedSystemPrompt = systemPrompt + renderEditorialFrameworks();
 
     let rawContent: string;
@@ -138,10 +253,9 @@ Gere 1 novo post no formato "${format}" agora.`;
       rawContent = await callClaude({ systemPrompt: enrichedSystemPrompt, userText: userPrompt, max_tokens: 3000, timeoutMs: 90000 });
     } catch (e) {
       const ce = e as ClaudeError;
-      const status = ce.status || 502;
-      const message = ce.userMessage || "Não foi possível regenerar este post agora. Tente novamente em alguns segundos.";
-      return new Response(JSON.stringify({ error: message }), {
-        status, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      return new Response(JSON.stringify({ error: ce.userMessage || "Não foi possível regenerar este post agora." }), {
+        status: ce.status || 502,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -160,7 +274,7 @@ Gere 1 novo post no formato "${format}" agora.`;
     if (leaks > 0) {
       console.warn(`Single-post framework leaks (${leaks}). Retrying stricter.`);
       const stricter = enrichedSystemPrompt +
-        `\n\n⚠️ ÚLTIMA TENTATIVA: a resposta anterior continha rótulos PROIBIDOS. REESCREVA tudo em copy direta. ZERO rótulos estruturais visíveis.`;
+        `\n\n⚠️ ÚLTIMA TENTATIVA: a resposta anterior continha rótulos PROIBIDOS. REESCREVA tudo em copy direta.`;
       try {
         const retryRaw = await callClaude({ systemPrompt: stricter, userText: userPrompt, max_tokens: 3000, timeoutMs: 60000 });
         const retryParsed = extractJsonFromLLM(retryRaw);
@@ -176,7 +290,11 @@ Gere 1 novo post no formato "${format}" agora.`;
       }
     }
 
-    const stampedPost = { ...cleaned, generator_version: EDITORIAL_GENERATOR_VERSION };
+    const stampedPost = {
+      ...cleaned,
+      day: Number(dayNumber || (cleaned as any).day || 1),
+      generator_version: EDITORIAL_GENERATOR_VERSION,
+    };
 
     return new Response(JSON.stringify({ post: stampedPost, free: !!freeRegeneration }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -186,7 +304,7 @@ Gere 1 novo post no formato "${format}" agora.`;
     const rawMessage = error instanceof Error ? error.message : "";
     const looksTechnical = /AI API error|fetch failed|JSON|TypeError|SyntaxError|Claude/i.test(rawMessage);
     const message = looksTechnical || !rawMessage
-      ? "Não foi possível regenerar este post agora. Tente novamente em alguns segundos."
+      ? "Não foi possível regenerar este item agora. Tente novamente em alguns segundos."
       : rawMessage;
     return new Response(JSON.stringify({ error: message }), {
       status: 500,
