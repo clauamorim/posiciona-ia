@@ -134,21 +134,29 @@ const Report = () => {
         secondary: { archetype_name: top3[1]?.archetype_name, score: top3[1]?.score },
         tertiary: { archetype_name: top3[2]?.archetype_name, score: top3[2]?.score },
       };
-      const { data: reportData, error } = await supabase.functions.invoke("generate-report", {
-        body: { business: bqData, niche: profile?.niche || "", archetypes, gender: profile?.gender || "Não informado" },
+      const newVersion = (report?.version || 1) + 1;
+      const { data: inserted, error: insertError } = await supabase.from("reports").insert({
+        user_id: user.id,
+        status: "generating",
+        error_message: null,
+        version: newVersion,
+      }).select("id, version, status").single();
+      if (insertError || !inserted) throw insertError || new Error("Não foi possível criar a nova versão do relatório.");
+
+      const { data: queueData, error } = await supabase.functions.invoke("generate-report", {
+        body: {
+          business: bqData,
+          niche: profile?.niche || "",
+          archetypes,
+          gender: profile?.gender || "Não informado",
+          reportId: inserted.id,
+          reportVersion: inserted.version,
+          force: true,
+        },
       });
       if (error) throw error;
-      const normalizedContent = normalizeReportContent(reportData?.report) as any;
-      // Create new version instead of updating existing
-      const newVersion = (report?.version || 1) + 1;
-      await supabase.from("reports").insert({
-        user_id: user.id,
-        content: normalizedContent,
-        status: "completed",
-        version: newVersion,
-      });
-      setReport({ ...report, content: normalizedContent, status: "completed", version: newVersion });
-      toast({ title: "Relatório regenerado com sucesso!" });
+      setReport({ ...report, id: inserted.id, status: "generating", version: inserted.version, error_message: null });
+      toast({ title: queueData?.jobId ? "Regeneração iniciada" : "Relatório enviado para geração" });
     } catch (err: any) {
       console.error("Regenerate error:", err);
       toast({ title: "Erro ao regenerar", description: err.message, variant: "destructive" });
