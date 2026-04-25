@@ -10,9 +10,10 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { Search, Download, Ban, Coins, Crown, Trash2, MailCheck, Loader2, Eye, BarChart3 } from "lucide-react";
+import { Search, Download, Ban, Coins, Crown, Trash2, MailCheck, Loader2, Eye, BarChart3, MoreHorizontal } from "lucide-react";
 import { Link } from "react-router-dom";
 
 interface Plan {
@@ -276,8 +277,39 @@ const AdminUsers = () => {
   const formatLastLogin = (userId: string) => {
     const dt = lastSignInMap[userId];
     if (!dt) return "—";
-    return new Date(dt).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" });
+    return new Date(dt).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" });
   };
+
+  const renderActionsMenu = (u: any) => (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" aria-label="Ações">
+          <MoreHorizontal className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-48">
+        <DropdownMenuItem onClick={() => setViewingUser(u)}>
+          <Eye className="h-4 w-4 mr-2" /> Ver detalhes
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => { setAssigningPlan({ userId: u.user_id, name: u.full_name }); setSelectedPlanId(u.subscription?.plan_id || ""); setPlanMonths("1"); }}>
+          <Crown className="h-4 w-4 mr-2" /> Atribuir plano
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => openCreditsDialog(u)}>
+          <Coins className="h-4 w-4 mr-2" /> Editar créditos
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => handleConfirmEmail(u.user_id)} disabled={actionLoading === u.user_id}>
+          {actionLoading === u.user_id ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <MailCheck className="h-4 w-4 mr-2" />} Confirmar e-mail
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => toggleBlock(u.user_id, u.is_blocked)}>
+          <Ban className="h-4 w-4 mr-2" /> {u.is_blocked ? "Desbloquear" : "Bloquear"}
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => setDeletingUser({ userId: u.user_id, name: u.full_name })}>
+          <Trash2 className="h-4 w-4 mr-2" /> Excluir usuário
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 
   const renderJourneyBadges = (journey: JourneyPhases) => {
     const keys = Object.keys(journey) as (keyof JourneyPhases)[];
@@ -328,10 +360,10 @@ const AdminUsers = () => {
   };
 
   return (
-    <DashboardLayout>
+    <DashboardLayout wide>
       <TooltipProvider>
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <h1 className="text-2xl font-bold font-display">Gerenciar Usuários</h1>
             <div className="flex items-center gap-2">
               <Button asChild variant="outline" size="sm" className="gap-2">
@@ -350,34 +382,37 @@ const AdminUsers = () => {
             <Input placeholder="Buscar por nome, e-mail, profissão ou nicho..." value={filter} onChange={e => setFilter(e.target.value)} className="pl-9" />
           </div>
 
-          <Card>
-            <CardContent className="p-0 overflow-x-auto">
+          {/* Desktop: tabela densa */}
+          <Card className="hidden lg:block">
+            <CardContent className="p-0">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>E-mail</TableHead>
-                    <TableHead>Plano</TableHead>
-                    <TableHead>Último Login</TableHead>
+                    <TableHead className="min-w-[180px]">Nome</TableHead>
+                    <TableHead className="min-w-[200px]">E-mail</TableHead>
+                    <TableHead className="whitespace-nowrap">Plano / Status</TableHead>
+                    <TableHead className="whitespace-nowrap">Último Login</TableHead>
                     <TableHead>Jornada</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
+                    <TableHead className="text-right w-[60px]">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filtered.map(u => (
                     <TableRow key={u.id}>
-                      <TableCell>
-                        <div className="font-medium">{u.full_name || "—"}</div>
-                        <div className="text-xs text-muted-foreground">{u.profession || ""}{u.niche ? ` · ${u.niche}` : ""}</div>
+                      <TableCell className="max-w-[220px]">
+                        <div className="font-medium truncate">{u.full_name || "—"}</div>
+                        <div className="text-xs text-muted-foreground truncate">{u.profession || ""}{u.niche ? ` · ${u.niche}` : ""}</div>
                       </TableCell>
-                      <TableCell className="text-xs">{emailMap[u.user_id] || "—"}</TableCell>
-                      <TableCell>
-                        {u.subscription ? (
-                          <Badge variant="default">{getPlanName(u.subscription.plan_id)}</Badge>
-                        ) : (
-                          <Badge variant="secondary">Nenhum</Badge>
-                        )}
+                      <TableCell className="text-xs max-w-[240px] truncate">{emailMap[u.user_id] || "—"}</TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        <div className="flex items-center gap-1.5">
+                          {u.subscription ? (
+                            <Badge variant="default" className="text-[10px]">{getPlanName(u.subscription.plan_id)}</Badge>
+                          ) : (
+                            <Badge variant="secondary" className="text-[10px]">Sem plano</Badge>
+                          )}
+                          {u.is_blocked && <Badge variant="destructive" className="text-[10px]">Bloqueado</Badge>}
+                        </div>
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
                         {formatLastLogin(u.user_id)}
@@ -385,42 +420,68 @@ const AdminUsers = () => {
                       <TableCell>
                         {renderJourneyBadges(u.journey)}
                       </TableCell>
-                      <TableCell>
-                        <Badge variant={u.is_blocked ? "destructive" : "default"}>
-                          {u.is_blocked ? "Bloqueado" : "Ativo"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right space-x-1">
-                        <Button variant="ghost" size="icon" title="Ver Detalhes" onClick={() => setViewingUser(u)}>
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" title="Atribuir Plano" onClick={() => { setAssigningPlan({ userId: u.user_id, name: u.full_name }); setSelectedPlanId(u.subscription?.plan_id || ""); setPlanMonths("1"); }}>
-                          <Crown className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" title="Editar Créditos" onClick={() => openCreditsDialog(u)}>
-                          <Coins className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" title="Confirmar E-mail" onClick={() => handleConfirmEmail(u.user_id)} disabled={actionLoading === u.user_id}>
-                          {actionLoading === u.user_id ? <Loader2 className="h-4 w-4 animate-spin" /> : <MailCheck className="h-4 w-4" />}
-                        </Button>
-                        <Button variant="ghost" size="icon" title={u.is_blocked ? "Desbloquear" : "Bloquear"} onClick={() => toggleBlock(u.user_id, u.is_blocked)}>
-                          <Ban className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" title="Excluir Usuário" className="text-destructive hover:text-destructive" onClick={() => setDeletingUser({ userId: u.user_id, name: u.full_name })}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                      <TableCell className="text-right">
+                        {renderActionsMenu(u)}
                       </TableCell>
                     </TableRow>
                   ))}
                   {filtered.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nenhum usuário encontrado</TableCell>
+                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Nenhum usuário encontrado</TableCell>
                     </TableRow>
                   )}
                 </TableBody>
               </Table>
             </CardContent>
           </Card>
+
+          {/* Mobile: cards */}
+          <div className="lg:hidden space-y-3">
+            {filtered.map(u => (
+              <Card key={u.id}>
+                <CardContent className="p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium truncate">{u.full_name || "—"}</div>
+                      <div className="text-xs text-muted-foreground truncate">
+                        {u.profession || ""}{u.niche ? ` · ${u.niche}` : ""}
+                      </div>
+                      <div className="text-xs text-muted-foreground truncate mt-0.5">
+                        {emailMap[u.user_id] || "—"}
+                      </div>
+                    </div>
+                    {renderActionsMenu(u)}
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {u.subscription ? (
+                      <Badge variant="default" className="text-[10px]">{getPlanName(u.subscription.plan_id)}</Badge>
+                    ) : (
+                      <Badge variant="secondary" className="text-[10px]">Sem plano</Badge>
+                    )}
+                    <Badge variant={u.is_blocked ? "destructive" : "outline"} className="text-[10px]">
+                      {u.is_blocked ? "Bloqueado" : "Ativo"}
+                    </Badge>
+                    <span className="text-[11px] text-muted-foreground ml-auto">
+                      Último login: {formatLastLogin(u.user_id)}
+                    </span>
+                  </div>
+
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-1.5">Jornada</p>
+                    {renderJourneyBadges(u.journey)}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+            {filtered.length === 0 && (
+              <Card>
+                <CardContent className="p-6 text-center text-muted-foreground text-sm">
+                  Nenhum usuário encontrado
+                </CardContent>
+              </Card>
+            )}
+          </div>
         </div>
 
         {/* Dialog: Ver Detalhes */}

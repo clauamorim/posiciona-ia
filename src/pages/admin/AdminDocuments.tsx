@@ -100,7 +100,7 @@ export default function AdminDocuments() {
   };
 
   return (
-    <DashboardLayout>
+    <DashboardLayout wide>
       <div className="space-y-6">
         <h1 className="text-2xl font-bold">Documentos de Referência (LLM)</h1>
         <p className="text-sm text-muted-foreground">
