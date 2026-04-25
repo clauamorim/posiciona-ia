@@ -226,7 +226,7 @@ serve(async (req) => {
         .single(),
       supabaseAdmin
         .from("portrait_trainings")
-        .select("id, lora_weights_url, trigger_word, status, physical_traits")
+        .select("id, lora_weights_url, trigger_word, status, physical_traits, selfies_count")
         .eq("user_id", user.id)
         .eq("status", "ready")
         .order("created_at", { ascending: false })
