@@ -130,7 +130,7 @@ const ImageGalleryPanel: React.FC<ImageGalleryPanelProps> = ({
   }, []);
 
   const handleAIConfirm = async () => {
-    if (!aiPrompt.trim()) return;
+    if (!aiPrompt.trim() || !selectedAiStyle) return;
     // Validação de saldo antes da chamada
     if (typeof regenerationCredits === "number" && regenerationCredits <= 0) {
       toast({
@@ -138,7 +138,7 @@ const ImageGalleryPanel: React.FC<ImageGalleryPanelProps> = ({
         description: "Compre mais créditos para gerar imagens por IA.",
         variant: "destructive",
       });
-      setAiPromptOpen(false);
+      closeAiDialog();
       return;
     }
     setGeneratingAI(true);
@@ -146,11 +146,13 @@ const ImageGalleryPanel: React.FC<ImageGalleryPanelProps> = ({
       const userTyped = aiPrompt.trim() && aiPrompt.trim() !== defaultQuery.trim()
         ? aiPrompt.trim()
         : undefined;
+      const styleOption = getAIStyleById(selectedAiStyle);
       const result = await generateAIImage({
         query: defaultQuery, format,
         niche, businessContext, caption,
         cardCopy: postBody, body: postBody,
         userQuery: userTyped,
+        aiStyleDirective: styleOption?.directive,
       });
       if (!result) {
         toast({ title: "Falha ao gerar imagem por IA", description: "Tente novamente em instantes — nenhum crédito foi debitado.", variant: "destructive" });
@@ -175,13 +177,28 @@ const ImageGalleryPanel: React.FC<ImageGalleryPanelProps> = ({
           ? "1 crédito de regeneração utilizado. A imagem já entrou na sua galeria."
           : "1 crédito de regeneração utilizado.",
       });
-      setAiPromptOpen(false);
+      closeAiDialog();
     } catch (err: any) {
       toast({ title: "Erro ao gerar IA", description: err?.message || "Nenhum crédito foi debitado.", variant: "destructive" });
     } finally {
       setGeneratingAI(false);
     }
   };
+
+  const closeAiDialog = () => {
+    setAiPromptOpen(false);
+    // Pequeno delay opcional não é necessário — reset imediato é OK.
+    setAiStep("prompt");
+    setSelectedAiStyle(null);
+  };
+
+  const openAiDialog = () => {
+    setAiStep("prompt");
+    setSelectedAiStyle(null);
+    setAiPrompt(defaultQuery);
+    setAiPromptOpen(true);
+  };
+
 
   return (
     <div className="space-y-3">
