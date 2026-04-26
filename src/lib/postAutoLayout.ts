@@ -478,6 +478,8 @@ export async function generateAIImage(opts: {
   body?: string;
   cardCopy?: string;
   userQuery?: string;
+  /** Diretiva estética em inglês a ser concatenada ao prompt do Gemini. */
+  aiStyleDirective?: string;
 }): Promise<{ url: string; source: "ai"; savedToGallery?: boolean } | null> {
   try {
     const nonce = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
@@ -488,6 +490,7 @@ export async function generateAIImage(opts: {
         cardCopy: opts.cardCopy, userQuery: opts.userQuery,
         allowAI: true, mode: "single",
         niche: opts.niche, businessContext: opts.businessContext,
+        aiStyleDirective: opts.aiStyleDirective,
         nonce,
       },
     });

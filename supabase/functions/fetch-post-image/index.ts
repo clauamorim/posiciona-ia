@@ -349,6 +349,7 @@ async function generateWithAI(
   mainMessage: string,
   format: "card" | "reels",
   nonce?: string,
+  aiStyleDirective?: string,
 ): Promise<string | null> {
   const lovableKey = Deno.env.get("LOVABLE_API_KEY");
   if (!lovableKey) return null;
@@ -359,8 +360,11 @@ async function generateWithAI(
   const messageBlock = mainMessage
     ? `\nMain message of the post (translate the FEELING, not the text — image must NOT contain any words): "${mainMessage}".`
     : "";
+  const styleBlock = aiStyleDirective && aiStyleDirective.trim()
+    ? `\nStyle direction: ${aiStyleDirective.trim()}.`
+    : "";
   const prompt = `Editorial photograph, premium magazine quality, soft natural lighting, shallow depth of field, ${aspect}.
-Visual subject: ${subject}.${messageBlock}
+Visual subject: ${subject}.${messageBlock}${styleBlock}
 The scene must visually illustrate the meaning above through concrete objects, environments or human gestures — not abstract shapes.
 Variation seed: ${seed}. Choose a fresh angle, lighting and composition different from any previous render.
 ABSOLUTELY NO TEXT, NO LETTERS, NO SIGNS, NO NEON, NO TYPOGRAPHY, NO WORDS, NO LOGOS, NO BRAND NAMES, NO WRITTEN CONTENT anywhere in the image.
@@ -403,6 +407,7 @@ Deno.serve(async (req) => {
       niche, businessContext,
       format: rawFormat, allowAI = false,
       mode = "single", query: customQuery, userQuery, page = 1,
+      aiStyleDirective,
       nonce,
     } = body;
 
@@ -456,8 +461,8 @@ Deno.serve(async (req) => {
         niche, businessContext,
         userQuery: effectiveUserQuery,
       });
-      console.log("AI prompt subject:", subject, "| message:", mainMessage.slice(0, 80), "| nonce:", nonce);
-      const url = await generateWithAI(subject, mainMessage, format, nonce);
+      console.log("AI prompt subject:", subject, "| message:", mainMessage.slice(0, 80), "| style:", (aiStyleDirective || "—").slice(0, 80), "| nonce:", nonce);
+      const url = await generateWithAI(subject, mainMessage, format, nonce, aiStyleDirective);
       if (url) {
         return new Response(JSON.stringify({ url, source: "ai", keywords }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },

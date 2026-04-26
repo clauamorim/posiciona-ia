@@ -1,77 +1,57 @@
-## Problema atual
+## Objetivo
+Após o usuário clicar em "Gerar imagem por IA" no editor de posts, abrir uma segunda janela com 5 estilos visuais nomeados em português. O estilo selecionado fica destacado, e o texto (em inglês, invisível ao usuário) correspondente é concatenado ao prompt enviado ao Gemini. Nenhum outro fluxo é alterado.
 
-Hoje, quando o usuário abre o painel "Buscar no Pexels" no editor:
+## Mapeamento dos estilos (frontend)
 
-1. O campo de busca chega pré-preenchido com `day.theme || day.caption` — texto bruto, em português, frequentemente longo e abstrato (ex: "como sair do cansaço sem culpa"). Pexels é em inglês e busca melhor por substantivos concretos.
-2. Quando o usuário clica em buscar, esse texto literal (`customQuery`) é enviado direto ao Pexels — **a tradução PT→EN e a extração de substantivos visuais (`extractKeywordsFromText`) que existem na edge function só rodam no fallback**, não na busca pedida pelo usuário.
-3. O `card_copy` do **slide atual** (a frase visível na imagem, que melhor representa o sentido daquela tela) **não entra** na construção da query — só `theme` e `caption` do dia inteiro são considerados.
-4. Em carrosséis, todos os slides acabam buscando a partir do mesmo tema/legenda do dia, então qualquer imagem trazida fica desconexa do conteúdo específico do slide.
-5. O prompt da IA (`buildAIPromptSubject`) também ignora o `card_copy` do slide atual e usa palavras genéricas, gerando imagens "editoriais bonitas" mas não conectadas ao tema.
+Criar um catálogo central com `id`, `label` (PT, visível) e `directive` (EN, oculto):
 
-Resultado: imagens vagas, descontextualizadas, mesmo padrão visual em todos os slides do carrossel.
+| ID | Label (PT) | Directive (EN, oculto) |
+|---|---|---|
+| `minimal` | Minimalista | Clean design, white background, single accent color, sans-serif typography, lots of white space, no clutter, corporate but approachable |
+| `editorial-luxury` | Editorial Luxo | High-end editorial aesthetic, dark background, gold or cream accents, elegant serif typography, sophisticated and exclusive feel |
+| `vibrant-modern` | Moderno Vibrante | Bold colors, dynamic composition, gradient accents, modern sans-serif, energetic and youthful, Instagram-native aesthetic |
+| `human-warm` | Humano e Acolhedor | Warm tones, organic textures, approachable design, rounded elements, friendly typography, trust-building aesthetic |
+| `technical-authority` | Autoridade Técnica | Data-driven look, structured layout, navy or dark green palette, precise typography, conveys expertise and credibility |
 
----
+## Mudanças
 
-## Solução proposta
+### 1. `src/components/post-editor/inspector/ImageGalleryPanel.tsx`
+- Substituir o `AlertDialog` atual ("Gerar imagem por IA") por um fluxo de duas etapas usando o mesmo `AlertDialog`/`Dialog`:
+  - **Etapa 1 (já existente):** input de descrição + botão "Continuar" (em vez de "Gerar"). Estado novo: `aiStep: "prompt" | "style"`.
+  - **Etapa 2 (nova):** grid responsivo de 5 cards (1 col mobile, 2-3 cols desktop) com label PT, ícone sutil e mini-preview estilizado (gradiente/cor que evoca o estilo). Card selecionado recebe `border-primary`, fundo `bg-primary/5` e ícone `Check`, alinhado ao padrão visual já usado em `StyleSelectionModal.tsx` (referência interna). Botões: "Voltar" e "Gerar (1 crédito)".
+- Estado adicional: `selectedAiStyle: AIStyleId | null`. Reset ao fechar o diálogo.
+- O directive **NUNCA** é exibido — apenas armazenado para envio.
+- Em `handleAIConfirm`, passar `aiStyleDirective` (string EN) para `generateAIImage`.
+- Tema escuro premium das diretrizes visuais (`bg-card`, `border-border`, sem fundos brancos).
 
-Levar o "sentido real do post" — entendido como **tema + card_copy do slide ativo + nicho** — até a montagem da query, com tradução PT→EN robusta e ranking por relevância.
+### 2. `src/lib/postAutoLayout.ts`
+- `generateAIImage(opts)`: adicionar campo opcional `aiStyleDirective?: string`.
+- Repassar como `aiStyleDirective` no body de `supabase.functions.invoke("fetch-post-image", ...)`.
 
-### 1. Edge function `supabase/functions/fetch-post-image/index.ts`
+### 3. `supabase/functions/fetch-post-image/index.ts`
+- Aceitar `aiStyleDirective?: string` no body.
+- Passar para `generateWithAI(subject, mainMessage, format, nonce, aiStyleDirective)`.
+- Em `generateWithAI`, quando presente, **concatenar** ao prompt como bloco extra antes da regra de "NO TEXT", ex.:
+  ```
+  Style direction: ${aiStyleDirective}.
+  ```
+  Não substitui as regras existentes (composição limpa, sem texto, sem rostos dominantes, etc.) — apenas soma orientação estética.
+- Logar `aiStyleDirective` (truncado) para auditoria.
 
-**a) Sempre passar pelo construtor inteligente, mesmo com `customQuery`:**
+### 4. Nenhuma alteração em
+- `StyleSelectionModal.tsx` (estilo de **layout** do post — coisa diferente).
+- Pipeline de Pexels / busca de imagens.
+- Débito de crédito, toasts de sucesso/erro, persistência na galeria.
+- `generatorVersion.ts` (não afeta conteúdo já gerado).
 
-Hoje, quando o usuário digita ou aceita o `defaultQuery`, esse texto vai cru ao Pexels. Vamos:
-- Manter `customQuery` apenas como **seed semântica** quando vier do input do usuário.
-- Sempre rodar `buildSearchQuery` por cima, combinando: `nicho + keywords-do-customQuery + keywords-do-card_copy + keywords-da-caption`.
-- Adicionar um parâmetro `userQuery` opcional para diferenciar "o que o usuário digitou" de "uma query já em inglês". Quando `userQuery` está presente, ele entra com peso maior na extração.
+## UX
+- O usuário vê apenas os nomes em português e a prévia visual de cada estilo.
+- O estilo selecionado fica claramente destacado (borda primary, check, leve fundo).
+- Clicar em "Voltar" mantém o prompt digitado.
+- Se o usuário fechar o diálogo, ambos os estados (prompt e estilo) são resetados.
+- Selecionar um estilo é **obrigatório** para habilitar "Gerar (1 crédito)" — garante intenção explícita.
 
-**b) Ampliar dicionário PT→EN** com mais 40-60 termos visuais comuns (ex: "cansaço/exaustão → tired exhausted", "rotina → routine lifestyle", "celular → smartphone", "reunião → meeting", "mesa → desk workspace", "café → coffee morning", etc.).
-
-**c) Priorizar `card_copy` na extração de keywords**:
-
-```ts
-// novo richText — card_copy do slide atual primeiro, com peso maior
-const richText = [
-  opts.cardCopy,        // NOVO: peso máximo (frase visível do slide)
-  opts.theme,
-  opts.body,
-  opts.caption?.slice(0, 200), // só o início da legenda
-].filter(Boolean).join(" ");
-```
-
-**d) Prompt da IA mais específico**: incluir no `subject` o `card_copy` traduzido como "main message context" para a IA gerar uma cena que ilustra a ideia do slide.
-
-### 2. Cliente `src/pages/PostEditorPage.tsx`
-
-Hoje passa apenas `imageSearchQuery`. Vamos:
-
-- Trocar `imageSearchQuery` por um objeto/props mais ricos: `imageContext` contendo `theme`, `cardCopy` (do slide ativo, normalizado), `caption`, `niche`, `businessContext`.
-- O `defaultQuery` mostrado no input passa a ser uma **versão curta e legível do tema do slide** (3-6 palavras), não a legenda inteira. O usuário pode continuar editando livremente.
-
-### 3. Helpers `src/lib/postAutoLayout.ts`
-
-- `fetchImageGallery` e `generateAIImage` já aceitam `caption` e `body`. Vamos adicionar `cardCopy` (slide atual) e `userQuery` para que a edge function diferencie "input cru do usuário" de "tema do slide".
-
-### 4. Painel `ImageGalleryPanel.tsx` e `AddElementPanel.tsx`
-
-- Receber o novo `imageContext` e repassar à edge function.
-- Mostrar abaixo do input uma label discreta: "Buscando por: <query traduzida>" para o usuário entender o que foi enviado e poder ajustar.
-
----
-
-## Arquivos afetados
-
-- `supabase/functions/fetch-post-image/index.ts` — dicionário ampliado, `buildSearchQuery` recebe `cardCopy`, sempre roda mesmo com `customQuery`, prompt IA enriquecido.
-- `src/lib/postAutoLayout.ts` — `fetchImageGallery` e `generateAIImage` aceitam `cardCopy` e `userQuery`.
-- `src/pages/PostEditorPage.tsx` — passa `cardCopy` do slide ativo + tema enxuto como `defaultQuery`.
-- `src/components/post-editor/inspector/ImageGalleryPanel.tsx` — repassa `cardCopy`, mostra "buscando por: …" com a query traduzida retornada pela edge.
-- `src/components/post-editor/inspector/AddElementPanel.tsx` — encaminha as novas props.
-- `src/components/post-editor/MobileEditorBar.tsx` — encaminha as novas props.
-- `src/components/post-editor/PostToolbar.tsx` — adiciona prop `cardCopy` na interface.
-
-## Resultado esperado
-
-- Em **carrosséis**, cada slide busca imagens conectadas ao texto **daquele slide**, não ao tema do dia inteiro.
-- Em **posts únicos**, a busca passa a usar substantivos concretos extraídos do tema + card_copy + nicho, traduzidos para inglês — Pexels devolve imagens visualmente coerentes.
-- A IA também recebe um `subject` mais rico, gerando cenas que ilustram a mensagem real do slide.
-- O usuário continua podendo digitar uma palavra-chave manual; ela é combinada com o contexto do post (não substitui).
+## Arquivos editados
+- `src/components/post-editor/inspector/ImageGalleryPanel.tsx`
+- `src/lib/postAutoLayout.ts`
+- `supabase/functions/fetch-post-image/index.ts` (deploy automático)

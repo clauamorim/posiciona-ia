@@ -1,16 +1,16 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Loader2, Sparkles, Image as ImageIcon } from "lucide-react";
+import { Search, Loader2, Sparkles, Image as ImageIcon, Check, ArrowLeft } from "lucide-react";
 import { fetchImageGallery, generateAIImage, type PhotographerInfo } from "@/lib/postAutoLayout";
 import { signedUserUploadUrl } from "@/lib/userGalleryUrl";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from "@/components/ui/dialog";
+import { AI_STYLE_OPTIONS, type AIStyleId, getAIStyleById } from "@/lib/aiImageStyles";
 
 interface ImageGalleryPanelProps {
   defaultQuery: string;
@@ -52,7 +52,9 @@ const ImageGalleryPanel: React.FC<ImageGalleryPanelProps> = ({
 
   // AI prompt dialog
   const [aiPromptOpen, setAiPromptOpen] = useState(false);
+  const [aiStep, setAiStep] = useState<"prompt" | "style">("prompt");
   const [aiPrompt, setAiPrompt] = useState(defaultQuery);
+  const [selectedAiStyle, setSelectedAiStyle] = useState<AIStyleId | null>(null);
   const [generatingAI, setGeneratingAI] = useState(false);
 
   useEffect(() => {
@@ -128,7 +130,7 @@ const ImageGalleryPanel: React.FC<ImageGalleryPanelProps> = ({
   }, []);
 
   const handleAIConfirm = async () => {
-    if (!aiPrompt.trim()) return;
+    if (!aiPrompt.trim() || !selectedAiStyle) return;
     // Validação de saldo antes da chamada
     if (typeof regenerationCredits === "number" && regenerationCredits <= 0) {
       toast({
@@ -136,7 +138,7 @@ const ImageGalleryPanel: React.FC<ImageGalleryPanelProps> = ({
         description: "Compre mais créditos para gerar imagens por IA.",
         variant: "destructive",
       });
-      setAiPromptOpen(false);
+      closeAiDialog();
       return;
     }
     setGeneratingAI(true);
@@ -144,11 +146,13 @@ const ImageGalleryPanel: React.FC<ImageGalleryPanelProps> = ({
       const userTyped = aiPrompt.trim() && aiPrompt.trim() !== defaultQuery.trim()
         ? aiPrompt.trim()
         : undefined;
+      const styleOption = getAIStyleById(selectedAiStyle);
       const result = await generateAIImage({
         query: defaultQuery, format,
         niche, businessContext, caption,
         cardCopy: postBody, body: postBody,
         userQuery: userTyped,
+        aiStyleDirective: styleOption?.directive,
       });
       if (!result) {
         toast({ title: "Falha ao gerar imagem por IA", description: "Tente novamente em instantes — nenhum crédito foi debitado.", variant: "destructive" });
@@ -173,13 +177,28 @@ const ImageGalleryPanel: React.FC<ImageGalleryPanelProps> = ({
           ? "1 crédito de regeneração utilizado. A imagem já entrou na sua galeria."
           : "1 crédito de regeneração utilizado.",
       });
-      setAiPromptOpen(false);
+      closeAiDialog();
     } catch (err: any) {
       toast({ title: "Erro ao gerar IA", description: err?.message || "Nenhum crédito foi debitado.", variant: "destructive" });
     } finally {
       setGeneratingAI(false);
     }
   };
+
+  const closeAiDialog = () => {
+    setAiPromptOpen(false);
+    // Pequeno delay opcional não é necessário — reset imediato é OK.
+    setAiStep("prompt");
+    setSelectedAiStyle(null);
+  };
+
+  const openAiDialog = () => {
+    setAiStep("prompt");
+    setSelectedAiStyle(null);
+    setAiPrompt(defaultQuery);
+    setAiPromptOpen(true);
+  };
+
 
   return (
     <div className="space-y-3">
@@ -275,7 +294,7 @@ const ImageGalleryPanel: React.FC<ImageGalleryPanelProps> = ({
         <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-1.5">Não gostou?</p>
         <Button
           variant="outline" size="sm"
-          onClick={() => setAiPromptOpen(true)}
+          onClick={openAiDialog}
           disabled={typeof regenerationCredits === "number" && regenerationCredits <= 0}
           className="gap-2 w-full h-8 text-xs"
         >
@@ -288,33 +307,127 @@ const ImageGalleryPanel: React.FC<ImageGalleryPanelProps> = ({
         </p>
       </div>
 
-      <AlertDialog open={aiPromptOpen} onOpenChange={setAiPromptOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Gerar imagem por IA</AlertDialogTitle>
-            <AlertDialogDescription>
-              Descreva o que você quer ver. Custo: 1 crédito de regeneração.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="space-y-2 py-2">
-            <Input
-              value={aiPrompt}
-              onChange={(e) => setAiPrompt(e.target.value)}
-              placeholder="ex: paisagem minimalista com tons quentes ao pôr do sol"
-              className="text-sm"
-            />
-          </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={generatingAI}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(e) => { e.preventDefault(); handleAIConfirm(); }}
-              disabled={generatingAI || !aiPrompt.trim()}
-            >
-              {generatingAI ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-2" /> Gerando…</> : "Gerar (1 crédito)"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <Dialog
+        open={aiPromptOpen}
+        onOpenChange={(open) => {
+          if (generatingAI) return;
+          if (!open) closeAiDialog();
+          else setAiPromptOpen(true);
+        }}
+      >
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader className="shrink-0">
+            <DialogTitle>
+              {aiStep === "prompt" ? "Gerar imagem por IA" : "Escolha o estilo visual"}
+            </DialogTitle>
+            <DialogDescription>
+              {aiStep === "prompt"
+                ? "Descreva o que você quer ver. Custo: 1 crédito de regeneração."
+                : "O estilo orienta a estética da imagem gerada. Selecione um para continuar."}
+            </DialogDescription>
+          </DialogHeader>
+
+          {aiStep === "prompt" && (
+            <div className="space-y-2 py-2">
+              <Input
+                value={aiPrompt}
+                onChange={(e) => setAiPrompt(e.target.value)}
+                placeholder="ex: paisagem minimalista com tons quentes ao pôr do sol"
+                className="text-sm"
+                autoFocus
+              />
+            </div>
+          )}
+
+          {aiStep === "style" && (
+            <div className="overflow-y-auto flex-1 min-h-0 -mx-1 px-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 py-2">
+                {AI_STYLE_OPTIONS.map((opt) => {
+                  const isSelected = selectedAiStyle === opt.id;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => setSelectedAiStyle(opt.id)}
+                      className={`group text-left rounded-lg border-2 transition-all p-3 space-y-2 ${
+                        isSelected
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:border-primary/50 bg-card"
+                      }`}
+                    >
+                      <div
+                        className="w-full h-24 rounded-md overflow-hidden relative flex items-end p-2"
+                        style={{ background: opt.previewGradient }}
+                      >
+                        <div className="space-y-1 w-full">
+                          <div
+                            className="h-1.5 w-3/4 rounded"
+                            style={{ background: opt.accent, opacity: 0.85 }}
+                          />
+                          <div
+                            className="h-1.5 w-1/2 rounded"
+                            style={{ background: opt.accent, opacity: 0.55 }}
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-0.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-semibold text-sm leading-tight">{opt.label}</span>
+                          {isSelected && <Check className="h-4 w-4 text-primary shrink-0" />}
+                        </div>
+                        <p className="text-[11px] text-muted-foreground leading-snug">{opt.blurb}</p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2 sm:justify-between shrink-0 pt-2">
+            {aiStep === "prompt" ? (
+              <>
+                <Button variant="ghost" size="sm" onClick={closeAiDialog} disabled={generatingAI}>
+                  Cancelar
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => setAiStep("style")}
+                  disabled={!aiPrompt.trim()}
+                  className="gap-2"
+                >
+                  Continuar
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setAiStep("prompt")}
+                  disabled={generatingAI}
+                  className="gap-1.5"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  Voltar
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleAIConfirm}
+                  disabled={generatingAI || !selectedAiStyle}
+                  className="gap-2"
+                >
+                  {generatingAI ? (
+                    <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Gerando…</>
+                  ) : (
+                    <><Sparkles className="h-3.5 w-3.5" /> Gerar (1 crédito)</>
+                  )}
+                </Button>
+              </>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
