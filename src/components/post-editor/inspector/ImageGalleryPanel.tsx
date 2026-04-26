@@ -200,12 +200,14 @@ const ImageGalleryPanel: React.FC<ImageGalleryPanelProps> = ({
 
   const goToStyleStep = () => {
     setAiPromptOpen(false);
-    setAiStyleOpen(true);
+    // Aguarda a animação de saída do primeiro dialog antes de abrir o segundo,
+    // evitando que o Radix UI bloqueie o overlay/scroll por sobreposição.
+    setTimeout(() => setAiStyleOpen(true), 200);
   };
 
   const backToPromptStep = () => {
     setAiStyleOpen(false);
-    setAiPromptOpen(true);
+    setTimeout(() => setAiPromptOpen(true), 200);
   };
 
 
