@@ -17,6 +17,7 @@ import { cleanMarkdown, extractAfterBold, cleanText, stripFrameworkLabels } from
 import { compressImage } from "@/lib/imageUtils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { buildAutoLayout, fetchBackgroundImage, type PostStyle, type PhotographerInfo } from "@/lib/postAutoLayout";
+import { getAIStyleById, type AIStyleId } from "@/lib/aiImageStyles";
 import { prepareSinglePostCardCopy, prepareCarouselCardCopy } from "@/lib/editorialCardCopy";
 
 import { Sparkles, X, Image as ImageIcon, Loader2 } from "lucide-react";
