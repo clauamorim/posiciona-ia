@@ -1,46 +1,44 @@
-## Diagnóstico
+Vou corrigir a causa real: existem dois fluxos diferentes chamados “estilo”. A alteração anterior foi feita no painel interno de troca de imagem, mas o problema relatado acontece antes de entrar no editor, na janela “Minimalista / Com foto / Com foto IA”. Hoje, ao escolher “Com foto IA”, o app navega direto para o editor com `style=ai`, e o auto-layout começa a gerar a imagem imediatamente, sem pedir o estilo visual.
 
-A implementação anterior usa **um único `Dialog`** que troca o conteúdo interno via `aiStep` (`"prompt"` → `"style"`). Quando o usuário clica em **Continuar**, o dialog não fecha e abre outro — apenas o conteúdo dentro do mesmo modal muda. Por isso a percepção foi de que "o dialog não abriu".
+Plano de correção:
 
-O pedido original diz literalmente: _"aparecer **outra janela** com uma seleção de estilos visuais"_. A solução correta é separar em **dois dialogs independentes**.
+1. Separar claramente os dois tipos de escolha
+   - Manter a primeira janela como escolha do tipo de post:
+     - Minimalista
+     - Com foto
+     - Com foto IA
+   - Quando o usuário escolher “Com foto IA” e clicar em “Abrir com este estilo”, não navegar ainda para o editor.
+   - Abrir uma segunda janela obrigatória para escolha do estilo visual da IA.
 
-## Mudanças (apenas em `src/components/post-editor/inspector/ImageGalleryPanel.tsx`)
+2. Adicionar a segunda janela no fluxo correto
+   - Na própria `StyleSelectionModal`, incluir um passo/janela de seleção com:
+     - Minimalista
+     - Editorial Luxo
+     - Moderno Vibrante
+     - Humano e Acolhedor
+     - Autoridade Técnica
+   - O estilo selecionado ficará destacado visualmente.
+   - Só depois da seleção o app navegará para o editor e iniciará a geração.
 
-### 1. Substituir o estado `aiStep` por dois flags independentes
-- Remover `aiStep`.
-- Adicionar `aiStyleOpen: boolean` (controla a segunda janela).
-- `aiPromptOpen` continua existindo e controla apenas a primeira janela.
+3. Passar o estilo visual até a geração inicial
+   - Ao confirmar o estilo visual, adicionar um parâmetro na navegação, por exemplo `aiVisualStyle=minimal`.
+   - No `PostEditorPage`, ler esse parâmetro e repassar a diretiva correspondente para `buildAutoLayout`.
+   - Em `buildAutoLayout`, quando `style === "ai"`, repassar essa diretiva para `generateAIImage`.
+   - A imagem inicial gerada por IA passará a receber o texto invisível correto no prompt do Gemini.
 
-### 2. Renderizar dois `<Dialog>` separados
+4. Evitar geração sem escolha de estilo
+   - Se o usuário chegar ao editor com `style=ai` sem um estilo visual válido, usar um fallback seguro ou impedir a geração automática até que o estilo seja definido.
+   - O objetivo é eliminar o comportamento atual de “clicou em Com foto IA e já começou a gerar”.
 
-**Dialog 1 — Prompt (já existe, simplificado):**
-- Mostra apenas o input de descrição.
-- Botões: **Cancelar** e **Continuar**.
-- Ao clicar em **Continuar**:
-  - `setAiPromptOpen(false)` (fecha a primeira janela)
-  - `setAiStyleOpen(true)` (abre a segunda janela)
-  - Mantém `aiPrompt` preservado para a próxima etapa.
+Arquivos que serão ajustados:
+- `src/components/post-editor/StyleSelectionModal.tsx`
+- `src/pages/EditorialPage.tsx`
+- `src/pages/PostEditorPage.tsx`
+- `src/lib/postAutoLayout.ts`
 
-**Dialog 2 — Seleção de estilo (novo, separado):**
-- Header: "Escolha o estilo visual".
-- Grid responsivo com os 5 cards (Minimalista, Editorial Luxo, Moderno Vibrante, Humano e Acolhedor, Autoridade Técnica) — mantém o visual já implementado (preview gradient + accent + Check ao selecionar + `border-primary`).
-- Botões: **Voltar** (fecha esta janela e reabre a anterior preservando o prompt) e **Gerar (1 crédito)** (chama `handleAIConfirm`, que já está pronto).
-
-### 3. Resets
-- Função `closeAiDialog()`: fecha **ambas** as janelas e zera `selectedAiStyle`.
-- Função `openAiDialog()`: abre apenas a primeira janela e zera `selectedAiStyle`.
-- Função `goToStyleStep()`: fecha a 1ª e abre a 2ª.
-- Função `backToPromptStep()`: fecha a 2ª e reabre a 1ª.
-
-### 4. Bloqueio durante geração
-- Enquanto `generatingAI === true`, `onOpenChange` da segunda janela ignora tentativa de fechar (mesmo padrão atual).
-
-## O que NÃO muda
-- `src/lib/aiImageStyles.ts` — catálogo já está correto.
-- `src/lib/postAutoLayout.ts` — assinatura com `aiStyleDirective` já está pronta.
-- `supabase/functions/fetch-post-image/index.ts` — concatenação de `Style direction` no prompt já está deployada.
-- Lógica de débito de crédito, toasts, salvamento na galeria.
-- Estética premium dark (`bg-card`, `border-border`, `border-primary` no selecionado).
-
-## Resultado esperado
-O usuário clica em **Gerar imagem por IA** → abre janela 1 (prompt) → digita e clica em **Continuar** → janela 1 fecha e janela 2 abre com os 5 estilos → seleciona um (fica destacado com borda primary + check) → clica em **Gerar (1 crédito)** → imagem é gerada com o directive concatenado ao prompt do Gemini, invisível ao usuário.
+Resultado esperado:
+- Clique em “Com foto IA” na primeira janela.
+- Clique em “Abrir com este estilo”.
+- Abre uma segunda janela com os 5 estilos visuais.
+- Usuário seleciona um estilo visual.
+- Só então o editor abre e a imagem IA começa a ser gerada com o estilo escolhido concatenado ao prompt.

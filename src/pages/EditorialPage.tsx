@@ -143,13 +143,14 @@ const EditorialPage = () => {
     });
   };
 
-  const handleStyleChosen = (style: PostStyle | null) => {
+  const handleStyleChosen = (style: PostStyle | null, aiVisualStyle?: string) => {
     if (!styleModal) return;
     const params = new URLSearchParams();
     params.set("week", String(styleModal.weekIndex));
     params.set("day", String(styleModal.dayIndex));
     if (styleModal.isReels) params.set("format", "reels");
     if (style) params.set("style", style);
+    if (style === "ai" && aiVisualStyle) params.set("aiVisualStyle", aiVisualStyle);
     navigate(`/post-editor?${params.toString()}`);
     setStyleModal(null);
   };

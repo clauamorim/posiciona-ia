@@ -17,6 +17,7 @@ import { cleanMarkdown, extractAfterBold, cleanText, stripFrameworkLabels } from
 import { compressImage } from "@/lib/imageUtils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { buildAutoLayout, fetchBackgroundImage, type PostStyle, type PhotographerInfo } from "@/lib/postAutoLayout";
+import { getAIStyleById, type AIStyleId } from "@/lib/aiImageStyles";
 import { prepareSinglePostCardCopy, prepareCarouselCardCopy } from "@/lib/editorialCardCopy";
 
 import { Sparkles, X, Image as ImageIcon, Loader2 } from "lucide-react";
@@ -173,6 +174,7 @@ const PostEditorPage = () => {
   const weekIndex = parseInt(searchParams.get("week") || "0", 10);
   const dayIndex = parseInt(searchParams.get("day") || "0", 10);
   const initialStyle = (searchParams.get("style") as PostStyle | null) || undefined;
+  const initialAiVisualStyle = (searchParams.get("aiVisualStyle") as AIStyleId | null) || undefined;
   const initialFormatParam = searchParams.get("format");
 
   const targetFormat: "square" | "reels" = initialFormatParam === "reels" ? "reels" : "square";
@@ -461,6 +463,7 @@ const PostEditorPage = () => {
           style: initialStyle,
           niche: userNiche,
           businessContext,
+          aiStyleDirective: initialStyle === "ai" ? getAIStyleById(initialAiVisualStyle)?.directive : undefined,
         });
         if (result.overlays.length > 0) {
           setOverlayImages(prev => {
