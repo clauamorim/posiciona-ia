@@ -44,6 +44,8 @@ const ImageGalleryPanel: React.FC<ImageGalleryPanelProps> = ({
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  /** Query final efetivamente enviada ao Pexels (após tradução PT→EN + contexto). */
+  const [appliedKeywords, setAppliedKeywords] = useState<string>("");
 
   // Saved images (Unsplash/AI/upload from this user's gallery, photo-only context)
   const [savedImages, setSavedImages] = useState<Array<{ url: string; name: string; source: string }>>([]);
@@ -90,11 +92,21 @@ const ImageGalleryPanel: React.FC<ImageGalleryPanelProps> = ({
     if (!query.trim()) return;
     setLoading(true);
     try {
-      const list = await fetchImageGallery({
-        query: query.trim(), format, page: p,
-        niche, businessContext, caption, body: postBody,
+      // Diferencia o input do usuário (userQuery) do tema do post (defaultQuery).
+      // Se ele não mexeu no input, manda só o contexto; se digitou algo
+      // diferente, isso vira a intenção principal e ainda combinamos com
+      // cardCopy (postBody) e nicho para ancorar visualmente.
+      const userTyped = query.trim() && query.trim() !== defaultQuery.trim()
+        ? query.trim()
+        : undefined;
+      const { results: list, keywords } = await fetchImageGallery({
+        query: defaultQuery, format, page: p,
+        niche, businessContext, caption,
+        cardCopy: postBody, body: postBody,
+        userQuery: userTyped,
       });
       setResults(prev => append ? [...prev, ...list] : list);
+      setAppliedKeywords(keywords);
       setPage(p);
       setHasSearched(true);
       if (list.length === 0 && !append) {
@@ -129,9 +141,14 @@ const ImageGalleryPanel: React.FC<ImageGalleryPanelProps> = ({
     }
     setGeneratingAI(true);
     try {
+      const userTyped = aiPrompt.trim() && aiPrompt.trim() !== defaultQuery.trim()
+        ? aiPrompt.trim()
+        : undefined;
       const result = await generateAIImage({
-        query: aiPrompt.trim(), format,
-        niche, businessContext, caption, body: postBody,
+        query: defaultQuery, format,
+        niche, businessContext, caption,
+        cardCopy: postBody, body: postBody,
+        userQuery: userTyped,
       });
       if (!result) {
         toast({ title: "Falha ao gerar imagem por IA", description: "Tente novamente em instantes — nenhum crédito foi debitado.", variant: "destructive" });
@@ -215,6 +232,11 @@ const ImageGalleryPanel: React.FC<ImageGalleryPanelProps> = ({
             {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
           </Button>
         </form>
+        {appliedKeywords && hasSearched && (
+          <p className="text-[10px] text-muted-foreground/70 mt-1.5 italic" title="Tradução automática a partir do tema do slide + nicho">
+            Buscando por: <span className="font-medium not-italic text-muted-foreground">{appliedKeywords}</span>
+          </p>
+        )}
       </div>
 
       {results.length > 0 && (

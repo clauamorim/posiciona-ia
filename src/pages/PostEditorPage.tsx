@@ -1343,7 +1343,7 @@ const PostEditorPage = () => {
               showRulers, onShowRulersChange: setShowRulers,
               onSwapBackgroundImage: handleSwapBackground,
               swappingBackground,
-              imageSearchQuery: (day?.theme || day?.caption || "").toString(),
+              imageSearchQuery: (day?.theme || "").toString().slice(0, 80),
               onPexelsPick: (photographer: PhotographerInfo) => setActivePhotographer(photographer),
               onSwapBackgroundUrl: (url: string, source?: "ai" | "pexels" | "saved") => {
                 setOverlayImages(prev => {

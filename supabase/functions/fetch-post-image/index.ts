@@ -4,16 +4,22 @@
 //   - "single" (default): retorna 1 imagem (Pexels → IA opcional). SEM cache, garante variedade.
 //   - "gallery": retorna até 12 imagens do Pexels com metadata de cada fotógrafo
 //
-// Body: { theme, caption?, body?, cta?, niche?, businessContext?,
+// Body: { theme, caption?, body?, cardCopy?, cta?, niche?, businessContext?,
 //         format?: "card"|"reels"|"square"|"portrait", allowAI?,
-//         mode?, query?, page?, nonce? }
+//         mode?, query?, userQuery?, page?, nonce? }
+//
+// Diferença entre query e userQuery:
+//   - userQuery: o que o usuário digitou no input (texto cru, geralmente PT) →
+//     sempre passa pelo construtor inteligente, traduz e combina com contexto do post.
+//   - query (legacy): se vier sem userQuery, é tratado como "já pronto" (passa direto).
+//     Mantido para compat com chamadas antigas; novas chamadas devem preferir userQuery.
 
 import { corsHeaders } from "../_shared/cors.ts";
 
 const PEXELS_URL = "https://api.pexels.com/v1/search";
 
 // =====================================================
-// Tradução PT->EN simples para nichos e termos comuns
+// Tradução PT->EN para nichos e termos visuais comuns
 // =====================================================
 const PT_EN_DICT: Record<string, string> = {
   // nichos
@@ -59,16 +65,50 @@ const PT_EN_DICT: Record<string, string> = {
   "familia": "family lifestyle",
   "relacionamento": "relationship couple",
   "amor": "love romantic",
-  "cansaco": "rest calm", "cansada": "rest calm", "cansado": "rest calm",
-  "descanso": "rest relaxation",
-  "rotina": "daily routine lifestyle",
-  "tempo": "time clock",
+  "cansaco": "tired exhausted", "cansada": "tired exhausted", "cansado": "tired exhausted",
+  "exausto": "exhausted overwhelm", "exausta": "exhausted overwhelm", "exaustao": "exhausted burnout",
+  "burnout": "burnout exhausted", "estresse": "stressed overwhelmed", "ansiedade": "anxiety mindfulness",
+  "descanso": "rest relaxation", "pausa": "pause break",
+  "rotina": "daily routine lifestyle", "manha": "morning routine", "noite": "evening night",
+  "tempo": "time clock", "agenda": "schedule planner", "calendario": "calendar planning",
   "saudavel": "healthy lifestyle",
   "alimentacao": "healthy food",
   "exercicio": "exercise fitness",
   "meditacao": "meditation calm",
   "mente": "mindfulness",
   "corpo": "wellness body",
+  // objetos / cenários visuais concretos
+  "celular": "smartphone hand", "telefone": "smartphone", "computador": "laptop workspace",
+  "notebook": "laptop desk", "laptop": "laptop workspace",
+  "mesa": "desk workspace", "escritorio": "office workspace", "escrivaninha": "desk",
+  "reuniao": "business meeting", "encontro": "meeting people",
+  "cafe": "coffee morning", "xicara": "coffee cup", "cha": "tea cup",
+  "livro": "book reading", "livros": "books library", "leitura": "reading book",
+  "agua": "water glass", "copo": "glass water",
+  "janela": "window light", "luz": "natural light", "sol": "sunlight",
+  "rua": "street city", "cidade": "city urban",
+  "carro": "car driving", "viagem": "travel suitcase",
+  "dinheiro": "money cash", "moeda": "coin currency", "cartao": "credit card",
+  "presente": "gift present",
+  "plano": "planning notebook", "planejamento": "planning notebook strategy",
+  "anotar": "writing notebook", "caderno": "notebook writing", "lista": "checklist notebook",
+  "ideia": "idea lightbulb", "criatividade": "creative workspace",
+  "decisao": "decision crossroads", "escolha": "choice path",
+  "duvida": "question doubt", "pergunta": "question mark",
+  "medo": "fear anxious",
+  "felicidade": "happy smile", "feliz": "happy joyful",
+  "tristeza": "sad melancholy", "triste": "sad pensive",
+  "raiva": "angry frustrated",
+  "venda": "sales business", "vendas": "sales business growth", "cliente": "customer client",
+  "negocio": "business professional", "empresa": "company office",
+  "social": "social media phone", "instagram": "social media phone", "post": "social media content",
+  "objetivo": "goal target", "meta": "target goal", "sonho": "dream aspiration",
+  "habito": "daily habit routine", "habitos": "habits routine",
+  "comunicacao": "communication conversation", "conversa": "conversation talking",
+  "escuta": "listening conversation", "voz": "voice speaking",
+  "casamento": "wedding marriage", "casal": "couple love",
+  "filho": "child family", "filha": "child family", "filhos": "family children",
+  "vida": "lifestyle living",
 };
 
 // Termos sensíveis a evitar quando o nicho não é infantil
@@ -108,6 +148,8 @@ function extractKeywordsFromText(text: string, max = 4): string[] {
     "the","of","and","or","for","with","to","in","on","an","is","are","be","this","that","you","your","we","our",
     "slide","capa","conteudo","conclusao","cta","post","dia","semana","tema","caption","legenda",
     "voce","seu","sua","gente","quando","onde","porque","mas","pode","vai","ainda","todo","toda","tudo","nada",
+    "isso","aquilo","esse","essa","aquele","aquela","aqui","ali","entao","tambem","apenas","hoje","ontem","amanha",
+    "ja","sim","nao","talvez","sempre","nunca","quem","qual","quais","quanto","quanta",
   ]);
   const tokens = deaccent(text || "")
     .replace(/[^a-z\s]/g, " ")
@@ -116,7 +158,7 @@ function extractKeywordsFromText(text: string, max = 4): string[] {
 
   const seen = new Set<string>();
   const out: string[] = [];
-  // Primeiro: priorizar palavras que TEM tradução (mais visualmente concretas)
+  // Primeiro: priorizar palavras que TÊM tradução (mais visualmente concretas)
   for (const w of tokens) {
     if (seen.has(w)) continue;
     const tr = translateWord(w);
@@ -137,30 +179,71 @@ function extractKeywordsFromText(text: string, max = 4): string[] {
   return out;
 }
 
+/** Traduz nicho para 1-2 palavras EN. */
+function translateNiche(niche?: string): string {
+  if (!niche) return "";
+  const tokens = deaccent(niche).replace(/[^a-z\s]/g, " ").split(/\s+/).filter(Boolean);
+  for (const t of tokens) {
+    const tr = translateWord(t);
+    if (tr) return tr;
+  }
+  return tokens.slice(0, 2).join(" ");
+}
+
+/** Filtra termos sensíveis quando o nicho não é infantil. */
+function filterSensitive(query: string, niche?: string): string {
+  const nicheIsKidFriendly = niche && KID_FRIENDLY_NICHES.some((k) => deaccent(niche).includes(k));
+  if (nicheIsKidFriendly) return query;
+  const tokens = query.split(/\s+/).filter((t) => !SENSITIVE_TERMS.includes(t));
+  return tokens.join(" ");
+}
+
 /**
- * Constrói query de busca:
- *   nicho (PT→EN) + 2-3 palavras-chave da copy/legenda (PT→EN) + (opcional) tema curto
+ * Constrói query de busca priorizando o "sentido real do post".
+ * Ordem de prioridade na extração de keywords:
+ *   1. cardCopy (frase visível do slide atual) — mais concreto
+ *   2. theme (tema do dia)
+ *   3. body (texto do post)
+ *   4. caption (só o início, evita ruído)
+ *
+ * Quando o usuário digita algo no input (userQuery), traduz e prioriza essa
+ * intenção, mas combina com nicho + cardCopy para manter contexto.
  */
 function buildSearchQuery(opts: {
-  theme: string; caption?: string; body?: string;
+  theme?: string; caption?: string; body?: string; cardCopy?: string;
   niche?: string; businessContext?: string;
+  userQuery?: string;
 }): string {
-  // 1) Nicho
-  let nicheEN = "";
-  if (opts.niche) {
-    const tokens = deaccent(opts.niche).replace(/[^a-z\s]/g, " ").split(/\s+/).filter(Boolean);
-    for (const t of tokens) {
-      const tr = translateWord(t);
-      if (tr) { nicheEN = tr; break; }
-    }
-    if (!nicheEN && tokens.length > 0) nicheEN = tokens.slice(0, 2).join(" ");
+  const nicheEN = translateNiche(opts.niche);
+
+  // Se o usuário digitou algo, ele lidera a intenção visual.
+  if (opts.userQuery && opts.userQuery.trim()) {
+    const userKeywords = extractKeywordsFromText(opts.userQuery, 4);
+    // Se a tradução não rendeu nada (texto muito abstrato/sem dicionário),
+    // mantém o input cru deaccentado como fallback.
+    const userPart = userKeywords.length > 0
+      ? userKeywords.join(" ")
+      : deaccent(opts.userQuery).replace(/[^a-z\s]/g, " ").trim();
+    // Adiciona 1-2 keywords do cardCopy/tema como contexto, sem dominar
+    const ctxText = [opts.cardCopy, opts.theme].filter(Boolean).join(" ");
+    const ctxKeywords = extractKeywordsFromText(ctxText, 2);
+    const parts = [nicheEN, userPart, ctxKeywords.join(" ")].filter(Boolean);
+    let q = parts.join(" ").trim();
+    q = filterSensitive(q, opts.niche);
+    if (!q.trim()) q = userPart || "minimal abstract editorial";
+    return q.slice(0, 90);
   }
 
-  // 2) Copy/legenda — fonte rica de assunto visual concreto
-  const richText = [opts.theme, opts.body, opts.caption].filter(Boolean).join(" ");
-  const richKeywords = extractKeywordsFromText(richText, 3);
+  // Sem userQuery: extrai do contexto do post.
+  // cardCopy primeiro (peso máximo — é a frase visível daquele slide).
+  const richText = [
+    opts.cardCopy,
+    opts.theme,
+    opts.body,
+    (opts.caption || "").slice(0, 200),
+  ].filter(Boolean).join(" ");
+  const richKeywords = extractKeywordsFromText(richText, 4);
 
-  // 3) Contexto de negócio (apenas como tie-breaker)
   let ctxEN = "";
   if (opts.businessContext) {
     const ctxTokens = deaccent(opts.businessContext).replace(/[^a-z\s]/g, " ").split(/\s+/).filter(Boolean);
@@ -172,33 +255,37 @@ function buildSearchQuery(opts: {
 
   const parts = [nicheEN, richKeywords.join(" "), ctxEN].filter(Boolean);
   let query = parts.join(" ").trim();
-
-  // Filtro de termos sensíveis se o nicho não for infantil
-  const nicheIsKidFriendly = opts.niche && KID_FRIENDLY_NICHES.some((k) => deaccent(opts.niche!).includes(k));
-  if (!nicheIsKidFriendly) {
-    const tokens = query.split(/\s+/).filter((t) => !SENSITIVE_TERMS.includes(t));
-    query = tokens.join(" ");
-  }
-
+  query = filterSensitive(query, opts.niche);
   if (!query.trim()) query = "minimal abstract editorial";
   return query.slice(0, 90);
 }
 
 /**
  * Constrói uma descrição rica para o prompt da IA, incluindo nicho,
- * intenção do post (extraída do tema), assunto central da copy e legenda.
+ * cardCopy do slide (mensagem central), tema e legenda.
  */
 function buildAIPromptSubject(opts: {
-  theme: string; caption?: string; body?: string;
+  theme?: string; caption?: string; body?: string; cardCopy?: string;
   niche?: string; businessContext?: string;
-}): string {
-  const nicheEN = opts.niche
-    ? buildSearchQuery({ theme: "", niche: opts.niche })
-    : "";
-  const themeKeywords = extractKeywordsFromText(opts.theme || "", 3).join(" ");
-  const bodyKeywords = extractKeywordsFromText(opts.body || opts.caption || "", 3).join(" ");
-  const subject = [nicheEN, themeKeywords, bodyKeywords].filter(Boolean).join(", ");
-  return subject.trim() || "minimal editorial scene";
+  userQuery?: string;
+}): { subject: string; mainMessage: string } {
+  const nicheEN = translateNiche(opts.niche);
+  // userQuery > cardCopy > theme > body para a descrição visual concreta
+  const primarySource = opts.userQuery || opts.cardCopy || opts.theme || "";
+  const primaryKeywords = extractKeywordsFromText(primarySource, 4).join(" ");
+  const secondarySource = opts.cardCopy && opts.userQuery
+    ? opts.cardCopy
+    : (opts.theme || opts.body || opts.caption || "");
+  const secondaryKeywords = extractKeywordsFromText(secondarySource, 3).join(" ");
+
+  const subject = [nicheEN, primaryKeywords, secondaryKeywords]
+    .filter(Boolean)
+    .join(", ")
+    .trim() || "minimal editorial scene";
+
+  // Mensagem central original (PT) — ajuda a IA a entender o sentido emocional.
+  const mainMessage = (opts.cardCopy || opts.theme || "").trim().slice(0, 240);
+  return { subject, mainMessage };
 }
 
 interface PexelsPhoto {
@@ -259,6 +346,7 @@ async function searchPexelsList(
 
 async function generateWithAI(
   subject: string,
+  mainMessage: string,
   format: "card" | "reels",
   nonce?: string,
 ): Promise<string | null> {
@@ -268,8 +356,12 @@ async function generateWithAI(
     ? "vertical 9:16 portrait orientation, framed for Instagram Reels cover (1080x1920)"
     : "vertical 4:5 portrait orientation, framed for Instagram feed card (1080x1350)";
   const seed = nonce || `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  const messageBlock = mainMessage
+    ? `\nMain message of the post (translate the FEELING, not the text — image must NOT contain any words): "${mainMessage}".`
+    : "";
   const prompt = `Editorial photograph, premium magazine quality, soft natural lighting, shallow depth of field, ${aspect}.
-Subject: ${subject}.
+Visual subject: ${subject}.${messageBlock}
+The scene must visually illustrate the meaning above through concrete objects, environments or human gestures — not abstract shapes.
 Variation seed: ${seed}. Choose a fresh angle, lighting and composition different from any previous render.
 ABSOLUTELY NO TEXT, NO LETTERS, NO SIGNS, NO NEON, NO TYPOGRAPHY, NO WORDS, NO LOGOS, NO BRAND NAMES, NO WRITTEN CONTENT anywhere in the image.
 NO TEXT. NO TEXT. NO TEXT.
@@ -307,15 +399,15 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json();
     const {
-      theme, caption, body: postBody, cta,
+      theme, caption, body: postBody, cardCopy, cta,
       niche, businessContext,
       format: rawFormat, allowAI = false,
-      mode = "single", query: customQuery, page = 1,
+      mode = "single", query: customQuery, userQuery, page = 1,
       nonce,
     } = body;
 
-    if (!theme && !customQuery) {
-      return new Response(JSON.stringify({ error: "theme or query required" }), {
+    if (!theme && !customQuery && !userQuery && !cardCopy) {
+      return new Response(JSON.stringify({ error: "theme, cardCopy, query or userQuery required" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -323,10 +415,21 @@ Deno.serve(async (req) => {
 
     const format = normalizeFormat(rawFormat);
 
-    const keywords = customQuery && customQuery.trim().length > 0
-      ? customQuery.trim()
-      : buildSearchQuery({ theme, caption, body: postBody, niche, businessContext });
-    console.log("Search query:", keywords, "(niche:", niche, "format:", format, "mode:", mode, ")");
+    // Hierarquia de construção de keywords:
+    //  1. userQuery (input do usuário) → buildSearchQuery prioriza, mas combina com contexto
+    //  2. customQuery legacy sem userQuery → tratado como input do usuário também
+    //     (chamadas antigas continuam funcionando, mas agora passam pela tradução)
+    //  3. Sem nada → constrói só do contexto (cardCopy + theme + body + caption)
+    const effectiveUserQuery = (userQuery && userQuery.trim())
+      ? userQuery
+      : (customQuery && customQuery.trim() ? customQuery : undefined);
+
+    const keywords = buildSearchQuery({
+      theme, caption, body: postBody, cardCopy,
+      niche, businessContext,
+      userQuery: effectiveUserQuery,
+    });
+    console.log("Search query:", keywords, "(niche:", niche, "format:", format, "mode:", mode, "userQuery:", effectiveUserQuery || "—", "cardCopy:", (cardCopy || "").slice(0, 60), ")");
 
     const pexelsKey = Deno.env.get("PEXELS_API_KEY");
 
@@ -348,9 +451,13 @@ Deno.serve(async (req) => {
 
     // ===== SINGLE MODE =====
     if (allowAI) {
-      const subject = buildAIPromptSubject({ theme, caption, body: postBody, niche, businessContext });
-      console.log("AI prompt subject:", subject, "nonce:", nonce);
-      const url = await generateWithAI(subject, format, nonce);
+      const { subject, mainMessage } = buildAIPromptSubject({
+        theme, caption, body: postBody, cardCopy,
+        niche, businessContext,
+        userQuery: effectiveUserQuery,
+      });
+      console.log("AI prompt subject:", subject, "| message:", mainMessage.slice(0, 80), "| nonce:", nonce);
+      const url = await generateWithAI(subject, mainMessage, format, nonce);
       if (url) {
         return new Response(JSON.stringify({ url, source: "ai", keywords }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
