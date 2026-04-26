@@ -92,11 +92,21 @@ const ImageGalleryPanel: React.FC<ImageGalleryPanelProps> = ({
     if (!query.trim()) return;
     setLoading(true);
     try {
-      const list = await fetchImageGallery({
-        query: query.trim(), format, page: p,
-        niche, businessContext, caption, body: postBody,
+      // Diferencia o input do usuário (userQuery) do tema do post (defaultQuery).
+      // Se ele não mexeu no input, manda só o contexto; se digitou algo
+      // diferente, isso vira a intenção principal e ainda combinamos com
+      // cardCopy (postBody) e nicho para ancorar visualmente.
+      const userTyped = query.trim() && query.trim() !== defaultQuery.trim()
+        ? query.trim()
+        : undefined;
+      const { results: list, keywords } = await fetchImageGallery({
+        query: defaultQuery, format, page: p,
+        niche, businessContext, caption,
+        cardCopy: postBody, body: postBody,
+        userQuery: userTyped,
       });
       setResults(prev => append ? [...prev, ...list] : list);
+      setAppliedKeywords(keywords);
       setPage(p);
       setHasSearched(true);
       if (list.length === 0 && !append) {
