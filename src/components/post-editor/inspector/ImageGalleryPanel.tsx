@@ -141,9 +141,14 @@ const ImageGalleryPanel: React.FC<ImageGalleryPanelProps> = ({
     }
     setGeneratingAI(true);
     try {
+      const userTyped = aiPrompt.trim() && aiPrompt.trim() !== defaultQuery.trim()
+        ? aiPrompt.trim()
+        : undefined;
       const result = await generateAIImage({
-        query: aiPrompt.trim(), format,
-        niche, businessContext, caption, body: postBody,
+        query: defaultQuery, format,
+        niche, businessContext, caption,
+        cardCopy: postBody, body: postBody,
+        userQuery: userTyped,
       });
       if (!result) {
         toast({ title: "Falha ao gerar imagem por IA", description: "Tente novamente em instantes — nenhum crédito foi debitado.", variant: "destructive" });
