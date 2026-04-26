@@ -174,6 +174,7 @@ const PostEditorPage = () => {
   const weekIndex = parseInt(searchParams.get("week") || "0", 10);
   const dayIndex = parseInt(searchParams.get("day") || "0", 10);
   const initialStyle = (searchParams.get("style") as PostStyle | null) || undefined;
+  const initialAiVisualStyle = (searchParams.get("aiVisualStyle") as AIStyleId | null) || undefined;
   const initialFormatParam = searchParams.get("format");
 
   const targetFormat: "square" | "reels" = initialFormatParam === "reels" ? "reels" : "square";
