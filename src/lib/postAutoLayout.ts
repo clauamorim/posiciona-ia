@@ -476,13 +476,16 @@ export async function generateAIImage(opts: {
   businessContext?: string;
   caption?: string;
   body?: string;
+  cardCopy?: string;
+  userQuery?: string;
 }): Promise<{ url: string; source: "ai"; savedToGallery?: boolean } | null> {
   try {
     const nonce = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     const { data, error } = await supabase.functions.invoke("fetch-post-image", {
       body: {
-        theme: opts.query, query: opts.query, format: opts.format,
+        theme: opts.query, format: opts.format,
         caption: opts.caption, body: opts.body,
+        cardCopy: opts.cardCopy, userQuery: opts.userQuery,
         allowAI: true, mode: "single",
         niche: opts.niche, businessContext: opts.businessContext,
         nonce,
