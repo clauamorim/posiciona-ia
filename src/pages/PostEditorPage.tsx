@@ -421,8 +421,12 @@ const PostEditorPage = () => {
   useEffect(() => {
     if (!day) return;
     if (textsInitializedRef.current) return;
-    const copies = (day.card_copy || [day.caption || ""]).map((t: string) => extractAfterBold(t));
-    setEditedTexts(copies);
+    const isCarouselDay = day?.format?.toLowerCase() === "carrossel";
+    const rawCopy = (day.card_copy || []).map((t: string) => extractAfterBold(t));
+    const copies = isCarouselDay
+      ? prepareCarouselCardCopy({ cardCopy: rawCopy, caption: day.caption })
+      : prepareSinglePostCardCopy({ cardCopy: rawCopy, caption: day.caption, theme: day.theme });
+    setEditedTexts(copies.length > 0 ? copies : [""]);
     setEditedTitle(cleanText(day.theme || ""));
     setCtaText(cleanText(day.cta || ""));
     textsInitializedRef.current = true;
