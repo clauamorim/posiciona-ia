@@ -15,8 +15,8 @@ import {
 interface ImageGalleryPanelProps {
   defaultQuery: string;
   format: "square" | "portrait";
-  /** Chamado quando usuário escolhe imagem; recebe URL, info do fotógrafo (Unsplash) e opcionalmente fonte ("ai" / "unsplash" / "saved"). */
-  onPickImage: (url: string, photographer?: PhotographerInfo, source?: "ai" | "unsplash" | "saved") => void;
+  /** Chamado quando usuário escolhe imagem; recebe URL, info do fotógrafo (Pexels) e opcionalmente fonte ("ai" / "pexels" / "saved"). */
+  onPickImage: (url: string, photographer?: PhotographerInfo, source?: "ai" | "pexels" | "saved") => void;
   /** Chamado após geração IA bem-sucedida; retorna false quando o débito falha. */
   onAIGenerated?: () => Promise<boolean | void> | boolean | void;
   /** Saldo atual de créditos de regeneração (para validar antes de chamar a IA). */
@@ -200,7 +200,7 @@ const ImageGalleryPanel: React.FC<ImageGalleryPanelProps> = ({
       )}
 
       <div>
-        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-2">Buscar no Unsplash</p>
+        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-2">Buscar no Pexels</p>
         <form
           onSubmit={(e) => { e.preventDefault(); runSearch(1, false); }}
           className="flex gap-1.5"
@@ -222,7 +222,7 @@ const ImageGalleryPanel: React.FC<ImageGalleryPanelProps> = ({
           {results.map((item, i) => (
             <button
               key={`${item.url}-${i}`}
-              onClick={() => onPickImage(item.url, item.photographer, "unsplash")}
+              onClick={() => onPickImage(item.url, item.photographer, "pexels")}
               className="aspect-square rounded-md border bg-muted/40 hover:ring-2 hover:ring-primary transition-all overflow-hidden"
               title={`Foto por ${item.photographer.name}`}
             >

@@ -102,12 +102,12 @@ interface AddElementPanelProps {
   onRecolorSelected?: (color: string) => void;
   /** Tema/palavra-chave para busca de imagens (default = tema do post). */
   imageSearchQuery?: string;
-  /** Formato do canvas para escolher orientação no Unsplash. */
+  /** Formato do canvas para escolher orientação no Pexels. */
   canvasFormat?: "square" | "reels";
-  /** Chamado quando usuário pega imagem do Unsplash (para mostrar atribuição). */
-  onUnsplashPick?: (photographer: PhotographerInfo) => void;
+  /** Chamado quando usuário pega imagem do Pexels (para metadados de fotógrafo). */
+  onPexelsPick?: (photographer: PhotographerInfo) => void;
   /** Chamado quando uma imagem precisa virar fundo (substitui bg atual). */
-  onSwapBackground?: (url: string, source?: "ai" | "unsplash" | "saved") => void;
+  onSwapBackground?: (url: string, source?: "ai" | "pexels" | "saved") => void;
   /** Chamado após geração IA bem-sucedida — retorna false quando o débito falha. */
   onAIGenerated?: () => Promise<boolean | void> | boolean | void;
   /** Saldo atual de créditos de regeneração (para validação). */
@@ -125,7 +125,7 @@ interface AddElementPanelProps {
 const AddElementPanel: React.FC<AddElementPanelProps> = ({
   palette, defaultElementColor, bodyFont, textColor, userPortraits = [], onAddImage, onPortraitsChanged,
   hasSelectedElement, onRecolorSelected,
-  imageSearchQuery = "", canvasFormat = "square", onUnsplashPick, onSwapBackground,
+  imageSearchQuery = "", canvasFormat = "square", onPexelsPick, onSwapBackground,
   onAIGenerated, regenerationCredits, niche, businessContext, caption, postBody,
 }) => {
   const { user } = useAuth();
@@ -153,7 +153,7 @@ const AddElementPanel: React.FC<AddElementPanelProps> = ({
 
   useEffect(() => { if (user && !userAssetsLoaded) loadUserAssets(); }, [user, userAssetsLoaded]);
 
-  // Atualiza a galeria pessoal quando uma nova imagem IA/Unsplash é salva pelo editor
+  // Atualiza a galeria pessoal quando uma nova imagem IA/Pexels é salva pelo editor
   useEffect(() => {
     const handler = () => { if (user) loadUserAssets(); };
     window.addEventListener("posiciona:gallery-updated", handler);
@@ -431,7 +431,7 @@ const AddElementPanel: React.FC<AddElementPanelProps> = ({
   return (
     <Tabs defaultValue="bgimages" className="w-full">
       <TabsList className="grid grid-cols-6 h-8 p-0.5">
-        <TabsTrigger value="bgimages" className="text-[10px] h-7 px-1" title="Banco de imagens (Unsplash + IA)"><Search className="h-3.5 w-3.5" /></TabsTrigger>
+        <TabsTrigger value="bgimages" className="text-[10px] h-7 px-1" title="Banco de imagens (Pexels + IA)"><Search className="h-3.5 w-3.5" /></TabsTrigger>
         <TabsTrigger value="upload" className="text-[10px] h-7 px-1" title="Upload"><ImagePlus className="h-3.5 w-3.5" /></TabsTrigger>
         <TabsTrigger value="gallery" className="text-[10px] h-7 px-1" title="Minha galeria"><ImageIcon className="h-3.5 w-3.5" /></TabsTrigger>
         <TabsTrigger value="portraits" className="text-[10px] h-7 px-1" title="Retratos"><Camera className="h-3.5 w-3.5" /></TabsTrigger>
@@ -439,10 +439,10 @@ const AddElementPanel: React.FC<AddElementPanelProps> = ({
         <TabsTrigger value="frames" className="text-[10px] h-7 px-1" title="Molduras"><Minus className="h-3.5 w-3.5" /></TabsTrigger>
       </TabsList>
 
-      {/* Banco de imagens (Unsplash + IA) */}
+      {/* Banco de imagens (Pexels + IA) */}
       <TabsContent value="bgimages" className="mt-3">
         <p className="text-[10px] text-muted-foreground/80 mb-2 leading-relaxed">
-          Pesquise no Unsplash ou gere uma imagem por IA. Ao escolher, ela substitui o fundo do card.
+          Pesquise no Pexels ou gere uma imagem por IA. Ao escolher, ela substitui o fundo do card.
         </p>
         <ImageGalleryPanel
           defaultQuery={imageSearchQuery}
@@ -454,7 +454,7 @@ const AddElementPanel: React.FC<AddElementPanelProps> = ({
           caption={caption}
           postBody={postBody}
           onPickImage={(url, photographer, source) => {
-            if (photographer) onUnsplashPick?.(photographer);
+            if (photographer) onPexelsPick?.(photographer);
             if (onSwapBackground) {
               onSwapBackground(url, source);
             } else {
@@ -483,7 +483,7 @@ const AddElementPanel: React.FC<AddElementPanelProps> = ({
           {!userAssetsLoaded ? (
             <p className="text-[11px] text-muted-foreground">Carregando…</p>
           ) : userAssets.length === 0 ? (
-            <p className="text-[11px] text-muted-foreground leading-relaxed">Suas imagens IA, Unsplash e uploads aparecem aqui automaticamente quando usadas em posts.</p>
+            <p className="text-[11px] text-muted-foreground leading-relaxed">Suas imagens IA, Pexels e uploads aparecem aqui automaticamente quando usadas em posts.</p>
           ) : (
             <div className="grid grid-cols-3 gap-1.5">
               {userAssets.map((a) => (

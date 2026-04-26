@@ -244,7 +244,7 @@ const MobileEditorBar: React.FC<MobileEditorBarProps> = (props) => {
                 onRecolorSelected={props.onRecolorElement}
                 imageSearchQuery={(props as any).imageSearchQuery}
                 canvasFormat={props.canvasFormat}
-                onUnsplashPick={(props as any).onUnsplashPick}
+                onPexelsPick={(props as any).onPexelsPick}
                 onSwapBackground={(props as any).onSwapBackgroundUrl}
                 onAIGenerated={(props as any).onAIGenerated}
                 regenerationCredits={(props as any).regenerationCredits}
