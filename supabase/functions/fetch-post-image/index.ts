@@ -1,8 +1,8 @@
 // Edge function: fetch-post-image
-// Busca imagens de fundo para um post.
+// Busca imagens de fundo para um post via Pexels (banco de imagens) + IA opcional.
 // Modes:
-//   - "single" (default): retorna 1 imagem (Unsplash → IA opcional). SEM cache, garante variedade.
-//   - "gallery": retorna até 12 imagens do Unsplash com metadata de cada fotógrafo
+//   - "single" (default): retorna 1 imagem (Pexels → IA opcional). SEM cache, garante variedade.
+//   - "gallery": retorna até 12 imagens do Pexels com metadata de cada fotógrafo
 //
 // Body: { theme, caption?, body?, cta?, niche?, businessContext?,
 //         format?: "card"|"reels"|"square"|"portrait", allowAI?,
@@ -10,8 +10,7 @@
 
 import { corsHeaders } from "../_shared/cors.ts";
 
-const UNSPLASH_URL = "https://api.unsplash.com/search/photos";
-const UTM = "utm_source=posiciona&utm_medium=referral";
+const PEXELS_URL = "https://api.pexels.com/v1/search";
 
 // =====================================================
 // Tradução PT->EN simples para nichos e termos comuns
@@ -139,7 +138,7 @@ function extractKeywordsFromText(text: string, max = 4): string[] {
 }
 
 /**
- * Constrói query de busca Unsplash:
+ * Constrói query de busca:
  *   nicho (PT→EN) + 2-3 palavras-chave da copy/legenda (PT→EN) + (opcional) tema curto
  */
 function buildSearchQuery(opts: {
@@ -202,46 +201,47 @@ function buildAIPromptSubject(opts: {
   return subject.trim() || "minimal editorial scene";
 }
 
-interface UnsplashPhoto {
+interface PexelsPhoto {
   url: string;
-  unsplashUrl: string;
+  /** Página da foto no Pexels (referência opcional). */
+  sourceUrl: string;
   photographer: { name: string; profileUrl: string };
   width?: number;
   height?: number;
 }
 
-async function searchUnsplashList(
+async function searchPexelsList(
   query: string,
   format: "card" | "reels",
   apiKey: string,
   perPage = 12,
   page = 1,
-): Promise<UnsplashPhoto[]> {
+): Promise<PexelsPhoto[]> {
   try {
     // Para card (4:5) e reels (9:16) usamos sempre orientation=portrait —
-    // o Unsplash não distingue entre 4:5 e 9:16, então pegamos portrait
+    // o Pexels não distingue entre 4:5 e 9:16, então pegamos portrait
     // e ranqueamos por proximidade de aspect ratio depois.
     const orientation = "portrait";
-    const url = `${UNSPLASH_URL}?query=${encodeURIComponent(query)}&orientation=${orientation}&per_page=${perPage}&page=${page}&content_filter=high&order_by=relevant`;
+    const url = `${PEXELS_URL}?query=${encodeURIComponent(query)}&orientation=${orientation}&per_page=${perPage}&page=${page}`;
     const resp = await fetch(url, {
-      headers: { "Authorization": `Client-ID ${apiKey}`, "Accept-Version": "v1" },
+      headers: { "Authorization": apiKey },
     });
     if (!resp.ok) {
-      console.error("Unsplash error", resp.status, await resp.text());
+      console.error("Pexels error", resp.status, await resp.text());
       return [];
     }
     const data = await resp.json();
-    if (!Array.isArray(data.results)) return [];
-    const list: UnsplashPhoto[] = data.results.map((p: any) => ({
-      url: p?.urls?.regular || p?.urls?.full || "",
-      unsplashUrl: `${p?.links?.html || ""}?${UTM}`,
+    if (!Array.isArray(data.photos)) return [];
+    const list: PexelsPhoto[] = data.photos.map((p: any) => ({
+      url: p?.src?.large2x || p?.src?.large || p?.src?.original || "",
+      sourceUrl: p?.url || "",
       photographer: {
-        name: p?.user?.name || "Unknown",
-        profileUrl: `${p?.user?.links?.html || ""}?${UTM}`,
+        name: p?.photographer || "Unknown",
+        profileUrl: p?.photographer_url || "",
       },
       width: p?.width,
       height: p?.height,
-    })).filter((x: UnsplashPhoto) => x.url && (x.width ?? 0) >= 1080);
+    })).filter((x: PexelsPhoto) => x.url && (x.width ?? 0) >= 1080);
 
     // Ranking: ordena por proximidade do aspect ratio alvo
     const targetRatio = format === "reels" ? 9 / 16 : 4 / 5; // largura/altura
@@ -252,7 +252,7 @@ async function searchUnsplashList(
     });
     return list;
   } catch (err) {
-    console.error("Unsplash fetch error", err);
+    console.error("Pexels fetch error", err);
     return [];
   }
 }
@@ -328,10 +328,10 @@ Deno.serve(async (req) => {
       : buildSearchQuery({ theme, caption, body: postBody, niche, businessContext });
     console.log("Search query:", keywords, "(niche:", niche, "format:", format, "mode:", mode, ")");
 
-    const unsplashKey = Deno.env.get("UNSPLASH_ACCESS_KEY");
+    const pexelsKey = Deno.env.get("PEXELS_API_KEY");
 
-    if (!unsplashKey && (mode === "gallery" || (!allowAI && mode !== "single"))) {
-      console.error("UNSPLASH_ACCESS_KEY missing — image search unavailable");
+    if (!pexelsKey && (mode === "gallery" || (!allowAI && mode !== "single"))) {
+      console.error("PEXELS_API_KEY missing — image search unavailable");
       return new Response(JSON.stringify({
         error: "Banco de imagens indisponível. Tente novamente mais tarde.",
         results: [],
@@ -340,7 +340,7 @@ Deno.serve(async (req) => {
 
     // ===== GALLERY MODE =====
     if (mode === "gallery") {
-      const results = await searchUnsplashList(keywords, format, unsplashKey!, 12, page);
+      const results = await searchPexelsList(keywords, format, pexelsKey!, 12, page);
       return new Response(JSON.stringify({ results, keywords, page }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -362,16 +362,16 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (unsplashKey) {
-      const list = await searchUnsplashList(keywords, format, unsplashKey, 12, 1);
+    if (pexelsKey) {
+      const list = await searchPexelsList(keywords, format, pexelsKey, 12, 1);
       if (list.length > 0) {
         // Top 6 já estão ranqueados por proximidade de aspect ratio + relevância.
         // Sorteia entre eles para variar entre chamadas.
         const topPool = list.slice(0, Math.min(6, list.length));
         const pick = topPool[Math.floor(Math.random() * topPool.length)];
         return new Response(JSON.stringify({
-          url: pick.url, source: "unsplash", keywords,
-          photographer: pick.photographer, unsplashUrl: pick.unsplashUrl,
+          url: pick.url, source: "pexels", keywords,
+          photographer: pick.photographer, sourceUrl: pick.sourceUrl,
         }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });

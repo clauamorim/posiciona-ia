@@ -101,8 +101,8 @@ interface PostToolbarProps {
   userPortraits?: string[];
   onAddImage: (img: OverlayImage) => void;
   imageSearchQuery?: string;
-  onUnsplashPick?: (photographer: { name: string; profileUrl: string; unsplashUrl: string }) => void;
-  onSwapBackgroundUrl?: (url: string, source?: "ai" | "unsplash" | "saved") => void;
+  onPexelsPick?: (photographer: { name: string; profileUrl: string; sourceUrl: string }) => void;
+  onSwapBackgroundUrl?: (url: string, source?: "ai" | "pexels" | "saved") => void;
   onAIGenerated?: () => Promise<boolean | void> | boolean | void;
   regenerationCredits?: number;
   niche?: string;
@@ -230,7 +230,7 @@ const PostToolbar: React.FC<PostToolbarProps> = (props) => {
           onRecolorSelected={props.onRecolorElement}
           imageSearchQuery={props.imageSearchQuery}
           canvasFormat={props.canvasFormat}
-          onUnsplashPick={props.onUnsplashPick}
+          onPexelsPick={props.onPexelsPick}
           onSwapBackground={props.onSwapBackgroundUrl}
           onAIGenerated={props.onAIGenerated}
           regenerationCredits={props.regenerationCredits}

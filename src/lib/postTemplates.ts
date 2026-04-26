@@ -168,11 +168,11 @@ export function pickSingleTemplate(opts: {
   dayIndex: number;
   format: CanvasFormat;
   hasCta?: boolean;
-  style?: "minimal" | "unsplash" | "ai";
+  style?: "minimal" | "pexels" | "ai";
 }): TemplateLayout {
   const set = opts.format === "reels" ? REELS_TEMPLATES : CARD_TEMPLATES;
   if (opts.style === "minimal") return set.minimal;
-  if (opts.style === "unsplash" || opts.style === "ai") return set.cover;
+  if (opts.style === "pexels" || opts.style === "ai") return set.cover;
   const hash = opts.weekIndex * 31 + opts.dayIndex * 7;
   return hash % 2 === 0 ? set.minimal : set.content;
 }

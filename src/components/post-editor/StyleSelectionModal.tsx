@@ -73,8 +73,8 @@ const StyleSelectionModal: React.FC<StyleSelectionModalProps> = ({
       ),
     },
     {
-      id: "unsplash",
-      title: "Com foto (Unsplash)",
+      id: "pexels",
+      title: "Com foto",
       subtitle: "Foto profissional relacionada ao tema.",
       cost: "Grátis",
       icon: <ImageIcon className="h-4 w-4" />,
@@ -85,7 +85,7 @@ const StyleSelectionModal: React.FC<StyleSelectionModalProps> = ({
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
             </div>
           ) : previewUrl ? (
-            <img src={previewUrl} alt="Preview Unsplash" className="w-full h-full object-cover" />
+            <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">
               Sem preview

@@ -1,7 +1,7 @@
 /**
  * postAutoLayout — orquestra a montagem inicial automática de um post.
  *
- * Combina template + estilo escolhido (minimal/unsplash/ai) + logo do usuário
+ * Combina template + estilo escolhido (minimal/pexels/ai) + logo do usuário
  * e devolve overlays + ajustes de layout.
  */
 
@@ -14,12 +14,13 @@ import {
 } from "./postTemplates";
 import type { OverlayImage } from "@/components/post-editor/PostToolbar";
 
-export type PostStyle = "minimal" | "unsplash" | "ai";
+export type PostStyle = "minimal" | "pexels" | "ai";
 
 export interface PhotographerInfo {
   name: string;
   profileUrl: string;
-  unsplashUrl: string;
+  /** Página da foto no banco de imagens (Pexels). */
+  sourceUrl: string;
 }
 
 export interface AutoLayoutInput {
@@ -39,7 +40,7 @@ export interface AutoLayoutInput {
   paletteHex: string[];
   bgPaletteHex: string;
   userId: string;
-  /** Estilo escolhido pelo usuário no modal. Default: "unsplash" se houver logo, senão "minimal". */
+  /** Estilo escolhido pelo usuário no modal. Default: "pexels" se houver logo, senão "minimal". */
   style?: PostStyle;
   /** Nicho do negócio (PT) — usado para melhorar busca de imagens. */
   niche?: string;
@@ -63,15 +64,15 @@ export interface AutoLayoutResult {
     showSlideNumber?: boolean;
     slideNumberSize?: number;
     backgroundImageUrl?: string;
-    backgroundSource?: "unsplash" | "ai" | "cache" | "none";
+    backgroundSource?: "pexels" | "ai" | "cache" | "none";
     /** Sugestão de gradiente (modo minimalista). */
     useGradient?: boolean;
     gradientColor2Index?: number;
     gradientDirection?: string;
   };
-  /** Metadados do fotógrafo (Unsplash) — usado para atribuição obrigatória. */
+  /** Metadados do fotógrafo (Pexels) — preservado nos metadados da galeria. */
   photographer?: PhotographerInfo;
-  /** Quando true, o estilo escolhido (unsplash/ai) falhou e usamos fallback de cor sólida. */
+  /** Quando true, o estilo escolhido (pexels/ai) falhou e usamos fallback de cor sólida. */
   styleFailed?: boolean;
   styleFailedReason?: string;
 }
@@ -356,14 +357,14 @@ export async function fetchBackgroundImage(opts: {
   query?: string;
   niche?: string;
   businessContext?: string;
-}): Promise<{ url: string; source: "unsplash" | "ai" | "cache"; photographer?: PhotographerInfo } | null> {
+}): Promise<{ url: string; source: "pexels" | "ai" | "cache"; photographer?: PhotographerInfo } | null> {
   try {
     const { data, error } = await supabase.functions.invoke("fetch-post-image", {
       body: { ...opts, mode: "single" },
     });
     if (error || !data?.url) return null;
     const photographer = data.photographer
-      ? { name: data.photographer.name, profileUrl: data.photographer.profileUrl, unsplashUrl: data.unsplashUrl || "" }
+      ? { name: data.photographer.name, profileUrl: data.photographer.profileUrl, sourceUrl: data.sourceUrl || "" }
       : undefined;
     return { url: data.url, source: data.source, photographer };
   } catch (err) {
@@ -372,7 +373,7 @@ export async function fetchBackgroundImage(opts: {
   }
 }
 
-/** Busca galeria de imagens (Unsplash) — até 12. */
+/** Busca galeria de imagens (Pexels) — até 12. */
 export async function fetchImageGallery(opts: {
   query: string;
   format: ImageFormat;
@@ -392,7 +393,7 @@ export async function fetchImageGallery(opts: {
       photographer: {
         name: r.photographer?.name || "Unknown",
         profileUrl: r.photographer?.profileUrl || "",
-        unsplashUrl: r.unsplashUrl || "",
+        sourceUrl: r.sourceUrl || "",
       },
     }));
   } catch (err) {
@@ -483,7 +484,7 @@ export async function generateAIImage(opts: {
 
 /** Monta a composição inicial completa para um slide. */
 export async function buildAutoLayout(input: AutoLayoutInput): Promise<AutoLayoutResult> {
-  const style: PostStyle = input.style ?? "unsplash";
+  const style: PostStyle = input.style ?? "pexels";
   const template = input.isCarousel
     ? pickTemplate({
         weekIndex: input.weekIndex,
@@ -504,13 +505,13 @@ export async function buildAutoLayout(input: AutoLayoutInput): Promise<AutoLayou
       });
 
   const overlays: OverlayImage[] = [];
-  let bgInfo: { url: string; source: "unsplash" | "ai" | "cache"; photographer?: PhotographerInfo } | null = null;
+  let bgInfo: { url: string; source: "pexels" | "ai" | "cache"; photographer?: PhotographerInfo } | null = null;
 
   let styleFailed = false;
   let styleFailedReason: string | undefined;
 
   // 1) Imagem de fundo segundo o estilo
-  if (style === "unsplash") {
+  if (style === "pexels") {
     bgInfo = await fetchBackgroundImage({
       theme: input.theme,
       caption: input.caption,
@@ -559,7 +560,7 @@ export async function buildAutoLayout(input: AutoLayoutInput): Promise<AutoLayou
   // 2) Decorações (moldura + linha + losango) — agora em TODOS os estilos
   const primary = input.paletteHex[0] || "#7c3aed";
   const accent = input.paletteHex[1] || input.paletteHex[0] || "#7c3aed";
-  const onPhoto = style === "unsplash" || style === "ai";
+  const onPhoto = style === "pexels" || style === "ai";
   overlays.push(
     ...buildMinimalDecorativeOverlays(template, primary, accent, { onPhoto, bodyBottomY }),
   );
@@ -579,9 +580,9 @@ export async function buildAutoLayout(input: AutoLayoutInput): Promise<AutoLayou
     dynTitleFontSize = Math.round(dynTitleFontSize * reductionFactor);
   }
 
-  // Se o estilo foi unsplash/ai mas falhou, ativa gradiente de cor sólida da paleta
+  // Se o estilo foi pexels/ai mas falhou, ativa gradiente de cor sólida da paleta
   // (em vez de cair sem aviso no fundo padrão, que se confundia com minimal)
-  const useGradientFallback = (style === "unsplash" || style === "ai") && styleFailed && input.paletteHex.length >= 2;
+  const useGradientFallback = (style === "pexels" || style === "ai") && styleFailed && input.paletteHex.length >= 2;
 
   // Slots iniciais (posição/largura/altura) para os blocos de texto do canvas
   // Altura é estimada com base em fontSize * 1.6 (line-height) * 3 linhas
