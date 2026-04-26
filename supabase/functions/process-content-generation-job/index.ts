@@ -100,7 +100,9 @@ REGRAS ESTRUTURAIS:
 - "script": apenas reels tem texto; post/carrossel = "".
 - Português brasileiro.
 
-REFORÇO ANTI META-NARRATIVA: NÃO escreva "a marca atua como guia", "jornada do herói", "plano de 3 passos", "fracasso iminente", "categoria de mercado".`;
+REFORÇO ANTI META-NARRATIVA: NÃO escreva "a marca atua como guia", "jornada do herói", "plano de 3 passos", "fracasso iminente", "categoria de mercado".
+
+CHECKLIST FINAL ANTES DE RESPONDER: você está retornando EXATAMENTE 4 objetos no array, um para cada um dos dias [${FEED_DAYS.join(", ")}]? Confirme que NENHUM desses dias está faltando antes de enviar.`;
 }
 
 function buildStoriesSystemPrompt(feedSummary: string, mirrorDays: number[]): string {
