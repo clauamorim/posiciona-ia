@@ -27,7 +27,7 @@ const plans = [
       "3 arquétipos principais",
       "Análise inicial do Instagram",
       "1 ciclo editorial de 7 dias",
-      "7 conteúdos prontos para publicar",
+      "Conteúdos prontos para publicar",
       "3 créditos de ajuste de conteúdo",
     ],
     notIncluded: ["Retratos não inclusos"],
