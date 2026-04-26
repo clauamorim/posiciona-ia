@@ -546,9 +546,12 @@ export async function buildAutoLayout(input: AutoLayoutInput): Promise<AutoLayou
   // style === "minimal" → sem imagem; usamos overlays decorativos próprios + gradient
 
   // Calcula bodyBottomY estimado (para posicionar decoração abaixo do texto)
+  // Usa 6 linhas (em vez de 4) para garantir folga quando o corpo do texto for longo
+  const isReelsFmt = template.format === "reels";
+  const lineCountEstimate = isReelsFmt ? 6 : 5;
   const estBodyHeight = template.bodySlot
-    ? Math.max(160, Math.round(template.bodySlot.fontSize * 1.6 * 4))
-    : 160;
+    ? Math.max(200, Math.round(template.bodySlot.fontSize * 1.6 * lineCountEstimate))
+    : 200;
   const bodyBottomY = template.bodySlot
     ? template.bodySlot.y + estBodyHeight
     : undefined;
