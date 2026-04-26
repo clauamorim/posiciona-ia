@@ -463,6 +463,7 @@ const PostEditorPage = () => {
           style: initialStyle,
           niche: userNiche,
           businessContext,
+          aiStyleDirective: initialStyle === "ai" ? getAIStyleById(initialAiVisualStyle)?.directive : undefined,
         });
         if (result.overlays.length > 0) {
           setOverlayImages(prev => {
