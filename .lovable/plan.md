@@ -1,31 +1,36 @@
-# Correção do erro "+7 dias" — truncamento da resposta do Claude
+# Eliminar o "Conteúdo a definir" — retry automático do Estágio A
 
-## Diagnóstico
+## Diagnóstico confirmado pelos logs
+Job `bd5835d9...` (último "+7 dias"):
+- Claude devolveu `stop_reason: "end_turn"` (resposta completa, NÃO truncada)
+- Mas trouxe apenas **3 dos 4 posts** pedidos (faltou o Dia 1)
+- O scanner balanceado recuperou os 3 corretamente
+- O sistema preencheu o Dia 1 com placeholder "Conteúdo a definir" para não falhar o job inteiro
 
-Os logs do worker `process-content-generation-job` mostram que o erro **não é de rede/Safari**. O Claude está atingindo o limite de `max_tokens: 6000` durante a geração do feed (Stage A — 4 posts com legendas longas e carrosséis), retornando um JSON **truncado** que o parser não consegue recuperar. Resultado: o job falha com "Incomplete AI response", o crédito é estornado e o usuário vê o erro genérico no celular (e provavelmente também aconteceria no desktop com a mesma frequência — só passou despercebido).
+A causa é variabilidade natural do modelo: às vezes ele "esquece" um item da lista mesmo recebendo instrução clara. Uma segunda tentativa do mesmo prompt quase sempre traz os 4 completos.
 
 ## Mudanças propostas
 
-### 1. `supabase/functions/_shared/claudeClient.ts`
-- Expor o `stop_reason` retornado pela API (`"end_turn"` vs `"max_tokens"`) junto com o texto, para o caller saber explicitamente quando a resposta foi cortada.
-- Manter retro-compatibilidade: a função continua retornando string por padrão, com uma variante `callClaudeWithMeta` que devolve `{ text, stopReason }`.
+### 1. `supabase/functions/process-content-generation-job/index.ts` — retry automático do Estágio A
+- Após a primeira chamada ao Claude no Estágio A, contar quantos dos 4 dias esperados (`FEED_DAYS = [1, 3, 5, 7]`) foram entregues.
+- **Se faltar 1 ou mais posts E a resposta NÃO foi truncada** (`stop_reason !== "max_tokens"`), disparar **uma única retentativa** do Estágio A com o mesmo prompt, atualizando a mensagem de progresso para *"Refinando seus posts de feed (ajuste fino)…"*.
+- Mesclar o resultado da retentativa com o primeiro: para cada dia faltante, usar o post da retentativa se houver; manter os posts que já vieram corretos na primeira chamada (não desperdiçar conteúdo bom).
+- Se mesmo após o retry ainda faltar algum dia, manter o comportamento atual (placeholder "Conteúdo a definir") como rede de segurança — o job não falha.
+- Se a primeira resposta veio truncada, manter o caminho atual (scanner parcial + placeholder se necessário) — retry não ajuda nesse caso, pois o problema é tamanho, não esquecimento.
 
-### 2. `supabase/functions/process-content-generation-job/index.ts`
-- **Aumentar `max_tokens`** de 6000 para **8500** no Stage A (feed) — margem confortável para 4 posts + carrosséis.
-- **Detectar truncamento** via `stop_reason === "max_tokens"` e logar com clareza.
-- **Recuperação parcial robusta**: usar um scanner de chaves balanceadas (já existe lógica similar em `_shared/jsonExtract.ts`) para extrair os posts completos do array, mesmo que o último esteja cortado.
-- **Sucesso parcial**: se ao menos **2 posts** forem recuperados, prosseguir para o Stage B (Stories) e preencher os posts faltantes com placeholders marcados, em vez de falhar o job inteiro e estornar o crédito.
-- Mensagem de progresso atualizada para refletir recuperação parcial quando ocorrer.
+### 2. Reforço leve do prompt do Estágio A (`buildFeedSystemPrompt`)
+- Adicionar uma linha curta no final, antes do bloco de frameworks: *"CHECKLIST FINAL ANTES DE RESPONDER: você está retornando exatamente 4 objetos no array, um para cada dia [1, 3, 5, 7]? Confirme antes de enviar."*
+- Pequeno custo, ajuda a reduzir a frequência do retry ser necessário.
 
-### 3. UX no cliente — `src/pages/EditorialPage.tsx`
-- No `catch` final do polling, detectar mensagens contendo "Incomplete AI response" / "max_tokens" e exibir um toast mais claro: *"A geração ficou densa demais e foi interrompida. Toque novamente em Gerar +7 dias — costuma funcionar na segunda tentativa."*
-- Sem mudanças na lógica de cobrança (o worker já estorna em falha real).
+## Custo e UX
+- Caso comum (4 posts já vêm na primeira): **zero custo extra**, zero latência extra.
+- Caso raro (faltou item): **+10–20s** de latência e ~1 chamada Claude extra. Usuário vê "Refinando…" e recebe os 4 posts completos sem placeholder.
+- Crédito continua sendo cobrado uma única vez por ciclo semanal (já está reservado antes do Estágio A).
 
 ## Fora de escopo
-- Não vou mexer em retries de rede/Safari nem em `ensureFreshSession` — os logs confirmam que o problema é backend, não cliente.
-- Não vou trocar o modelo Claude (sonnet-4-5 segue adequado).
+- Não vou mexer no caminho de truncamento real (`max_tokens`) — já está coberto pela mudança anterior.
+- Não vou adicionar auto-regeneração silenciosa pós-job (Opção 3) — o retry inline é mais simples e cobre o caso real observado.
+- Sem mudanças no frontend.
 
 ## Arquivos a editar
-- `supabase/functions/_shared/claudeClient.ts`
 - `supabase/functions/process-content-generation-job/index.ts`
-- `src/pages/EditorialPage.tsx`
