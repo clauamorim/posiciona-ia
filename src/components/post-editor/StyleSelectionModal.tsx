@@ -54,10 +54,9 @@ const StyleSelectionModal: React.FC<StyleSelectionModalProps> = ({
   const handleConfirm = () => {
     if (!selected) return;
     if (selected === "ai") {
-      // Em vez de confirmar, abre a segunda janela.
-      // Fecha a primeira primeiro para evitar sobreposição de overlays do Radix.
-      onOpenChange(false);
-      setTimeout(() => setAiStyleOpen(true), 200);
+      // Mantém o mesmo Dialog montado. Fechar aqui desmonta este componente no pai
+      // e impede a etapa de estilo visual de aparecer.
+      setAiStyleOpen(true);
       return;
     }
     onChoose(selected);
@@ -73,7 +72,6 @@ const StyleSelectionModal: React.FC<StyleSelectionModalProps> = ({
 
   const backToFirstStep = () => {
     setAiStyleOpen(false);
-    setTimeout(() => onOpenChange(true), 200);
   };
 
   const handleSkip = () => {
@@ -153,9 +151,18 @@ const StyleSelectionModal: React.FC<StyleSelectionModalProps> = ({
 
   return (
     <>
-      {/* Janela 1 — Tipo de post */}
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+      <Dialog
+        open={open}
+        onOpenChange={(o) => {
+          if (!o) {
+            setSelectedAiStyle(null);
+            setAiStyleOpen(false);
+          }
+          onOpenChange(o);
+        }}
+      >
+        <DialogContent className={`${aiStyleOpen ? "max-w-2xl" : "max-w-3xl"} max-h-[90vh] overflow-hidden flex flex-col`}>
+          {!aiStyleOpen ? <>
           <DialogHeader className="shrink-0">
             <DialogTitle>Escolha o estilo do post</DialogTitle>
             <DialogDescription>
@@ -204,20 +211,7 @@ const StyleSelectionModal: React.FC<StyleSelectionModalProps> = ({
               {selected === "ai" ? "Continuar" : "Abrir com este estilo"}
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Janela 2 — Estilo visual da IA */}
-      <Dialog
-        open={aiStyleOpen}
-        onOpenChange={(o) => {
-          if (!o) {
-            setAiStyleOpen(false);
-            setSelectedAiStyle(null);
-          }
-        }}
-      >
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+          </> : <>
           <DialogHeader className="shrink-0">
             <DialogTitle>Escolha o estilo visual</DialogTitle>
             <DialogDescription>
@@ -271,6 +265,7 @@ const StyleSelectionModal: React.FC<StyleSelectionModalProps> = ({
               Gerar (1 crédito)
             </Button>
           </DialogFooter>
+          </>}
         </DialogContent>
       </Dialog>
     </>
