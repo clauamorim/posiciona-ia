@@ -455,21 +455,23 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   };
 
   // Unified render order: all items (text boxes + overlays) share one z-index stack
-  // Forçamos ordem visual: foto de fundo (full-cover) → decorações (mframe/mline/mornament) → textos → demais overlays
+  // Ordem visual: foto de fundo → moldura → textos → barra/losango (sempre visíveis) → demais overlays
   const allIds = [...textBoxes.map(tb => tb.id), ...overlayImages.map(img => img.id)];
   const isFullPhoto = (id: string) => {
     const img = overlayImages.find(o => o.id === id);
     return !!img && img.type === "photo" && img.x <= 5 && img.y <= 5 && img.width >= canvasWidth - 10 && img.height >= canvasHeight - 10;
   };
-  const isDecoration = (id: string) => /^tpl-(mframe|mline|mornament)/.test(id);
+  const isFrame = (id: string) => /^tpl-mframe/.test(id);
+  const isAccentDecoration = (id: string) => /^tpl-(mline|mornament)/.test(id);
   const isTextBoxId = (id: string) => textBoxes.some(t => t.id === id);
   const sortByVisualLayer = (ids: string[]) => {
-    // 0 = fundo (foto full), 1 = decorações, 2 = textos, 3 = demais
+    // 0 = fundo (foto full), 1 = moldura, 2 = textos, 3 = barra/losango (na frente do texto), 4 = demais
     const rank = (id: string) => {
       if (isFullPhoto(id)) return 0;
-      if (isDecoration(id)) return 1;
+      if (isFrame(id)) return 1;
       if (isTextBoxId(id)) return 2;
-      return 3;
+      if (isAccentDecoration(id)) return 3;
+      return 4;
     };
     return [...ids].sort((a, b) => {
       const ra = rank(a), rb = rank(b);
