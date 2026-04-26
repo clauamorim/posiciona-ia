@@ -317,31 +317,29 @@ ${previousSummary || "Nenhum conteúdo anterior."}
 
 Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
 
-      const feedRaw = await callClaude({
+      const { text: feedRaw, stopReason: feedStop } = await callClaudeWithMeta({
         systemPrompt: feedSystem,
         userText: feedUser,
-        max_tokens: 6000,
+        max_tokens: 8500,
         timeoutMs: 130000,
         disableRetries: true,
       });
+      if (feedStop === "max_tokens") {
+        console.warn(`[job ${jobId}] Estágio A: resposta truncada (max_tokens). raw len=${feedRaw.length}. Iniciando recuperação parcial.`);
+      }
 
       let feedParsed: any = extractJsonFromLLM(feedRaw);
-      if (!Array.isArray(feedParsed) || feedParsed.length === 0) {
-        // tentativa de recuperação parcial
-        const partial: any[] = [];
-        const objRegex = /\{\s*"day"\s*:\s*\d+[\s\S]*?\n\s*\}/g;
-        const matches = (feedRaw || "").match(objRegex) || [];
-        for (const m of matches) {
-          try {
-            const obj = JSON.parse(m);
-            if (obj && typeof obj.day === "number") partial.push(obj);
-          } catch { /* ignora */ }
-        }
+      const feedTruncated = feedStop === "max_tokens";
+      if (!Array.isArray(feedParsed) || feedParsed.length === 0 || feedTruncated) {
+        // Recuperação parcial via scanner balanceado (tolera array cortado).
+        const partial = extractPartialDayObjects(feedRaw);
         if (partial.length >= 2) {
-          console.warn(`[job ${jobId}] Estágio A: recuperados ${partial.length} posts parciais.`);
+          console.warn(`[job ${jobId}] Estágio A: recuperados ${partial.length}/4 posts parciais (truncated=${feedTruncated}).`);
           feedParsed = partial;
+        } else if (Array.isArray(feedParsed) && feedParsed.length > 0) {
+          // mantém o que veio do extractJsonFromLLM
         } else {
-          console.error(`[job ${jobId}] Estágio A falhou. raw len=${feedRaw?.length || 0}. Início: ${(feedRaw||"").slice(0,300)}`);
+          console.error(`[job ${jobId}] Estágio A falhou. raw len=${feedRaw?.length || 0}. stop=${feedStop}. Início: ${(feedRaw||"").slice(0,300)}`);
           throw Object.assign(new Error("Estágio A inválido"), {
             userMessage: "A IA respondeu de forma incompleta na etapa do feed. Tente novamente — seu crédito foi devolvido.",
           });
