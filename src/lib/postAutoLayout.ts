@@ -563,6 +563,7 @@ export async function buildAutoLayout(input: AutoLayoutInput): Promise<AutoLayou
       format: input.format === "reels" ? "reels" : "card",
       niche: input.niche,
       businessContext: input.businessContext,
+      aiStyleDirective: input.aiStyleDirective,
     });
     if (ai) {
       bgInfo = { url: ai.url, source: ai.source };
