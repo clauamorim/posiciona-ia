@@ -113,7 +113,7 @@ async function callClaudeOnce({
   model = DEFAULT_CLAUDE_MODEL,
   max_tokens = 6000,
   timeoutMs = 120000,
-}: CallClaudeOptions): Promise<string> {
+}: CallClaudeOptions): Promise<ClaudeResponse> {
   if (!ANTHROPIC_API_KEY) {
     throw new ClaudeError(
       "ANTHROPIC_API_KEY não configurada",
