@@ -1,16 +1,16 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Loader2, Sparkles, Image as ImageIcon } from "lucide-react";
+import { Search, Loader2, Sparkles, Image as ImageIcon, Check, ArrowLeft } from "lucide-react";
 import { fetchImageGallery, generateAIImage, type PhotographerInfo } from "@/lib/postAutoLayout";
 import { signedUserUploadUrl } from "@/lib/userGalleryUrl";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from "@/components/ui/dialog";
+import { AI_STYLE_OPTIONS, type AIStyleId, getAIStyleById } from "@/lib/aiImageStyles";
 
 interface ImageGalleryPanelProps {
   defaultQuery: string;
