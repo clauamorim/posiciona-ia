@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Image as ImageIcon, Palette, Loader2, Check } from "lucide-react";
+import { Sparkles, Image as ImageIcon, Palette, Loader2, Check, ArrowLeft } from "lucide-react";
 import { fetchBackgroundImage, type PostStyle } from "@/lib/postAutoLayout";
+import { AI_STYLE_OPTIONS, type AIStyleId } from "@/lib/aiImageStyles";
 
 interface StyleSelectionModalProps {
   open: boolean;
@@ -14,7 +15,8 @@ interface StyleSelectionModalProps {
   paletteHex: string[];
   niche?: string;
   businessContext?: string;
-  onChoose: (style: PostStyle | null) => void;
+  /** Quando o usuário escolhe IA, recebe também o estilo visual selecionado. */
+  onChoose: (style: PostStyle | null, aiVisualStyle?: AIStyleId) => void;
 }
 
 const StyleSelectionModal: React.FC<StyleSelectionModalProps> = ({
@@ -24,7 +26,11 @@ const StyleSelectionModal: React.FC<StyleSelectionModalProps> = ({
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [selected, setSelected] = useState<PostStyle | null>(null);
 
-  // Pré-busca preview do Unsplash em background
+  // Segunda janela — estilo visual da IA
+  const [aiStyleOpen, setAiStyleOpen] = useState(false);
+  const [selectedAiStyle, setSelectedAiStyle] = useState<AIStyleId | null>(null);
+
+  // Pré-busca preview do Pexels em background
   useEffect(() => {
     if (!open || previewUrl) return;
     setLoadingPreview(true);
@@ -33,14 +39,41 @@ const StyleSelectionModal: React.FC<StyleSelectionModalProps> = ({
       .finally(() => setLoadingPreview(false));
   }, [open, theme, caption, format, previewUrl, niche, businessContext]);
 
+  // Resetar estilo IA sempre que o modal principal abre/fecha
+  useEffect(() => {
+    if (!open) {
+      setAiStyleOpen(false);
+      setSelectedAiStyle(null);
+    }
+  }, [open]);
+
   const c1 = paletteHex[0] || "#7c3aed";
   const c2 = paletteHex[1] || c1;
   const minimalGradient = `linear-gradient(135deg, ${c1}, ${c2})`;
 
   const handleConfirm = () => {
     if (!selected) return;
+    if (selected === "ai") {
+      // Em vez de confirmar, abre a segunda janela.
+      // Fecha a primeira primeiro para evitar sobreposição de overlays do Radix.
+      onOpenChange(false);
+      setTimeout(() => setAiStyleOpen(true), 200);
+      return;
+    }
     onChoose(selected);
     onOpenChange(false);
+  };
+
+  const handleAiStyleConfirm = () => {
+    if (!selectedAiStyle) return;
+    onChoose("ai", selectedAiStyle);
+    setAiStyleOpen(false);
+    setSelectedAiStyle(null);
+  };
+
+  const backToFirstStep = () => {
+    setAiStyleOpen(false);
+    setTimeout(() => onOpenChange(true), 200);
   };
 
   const handleSkip = () => {
@@ -119,58 +152,128 @@ const StyleSelectionModal: React.FC<StyleSelectionModalProps> = ({
   ];
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
-        <DialogHeader className="shrink-0">
-          <DialogTitle>Escolha o estilo do post</DialogTitle>
-          <DialogDescription>
-            Tudo continua editável depois — texto, cores, posições e imagens.
-          </DialogDescription>
-        </DialogHeader>
+    <>
+      {/* Janela 1 — Tipo de post */}
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader className="shrink-0">
+            <DialogTitle>Escolha o estilo do post</DialogTitle>
+            <DialogDescription>
+              Tudo continua editável depois — texto, cores, posições e imagens.
+            </DialogDescription>
+          </DialogHeader>
 
-        <div className="overflow-y-auto flex-1 min-h-0 -mx-1 px-1">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 py-2">
-          {cards.map(card => {
-            const isSelected = selected === card.id;
-            return (
-              <button
-                key={card.id}
-                onClick={() => setSelected(card.id)}
-                className={`group text-left rounded-lg border-2 transition-all p-3 space-y-2 ${
-                  isSelected
-                    ? "border-primary bg-primary/5"
-                    : "border-border hover:border-primary/50 bg-card"
-                }`}
-              >
-                {card.preview}
-                <div className="space-y-0.5">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5">
-                      {card.icon}
-                      <span className="font-semibold text-sm">{card.title}</span>
+          <div className="overflow-y-auto flex-1 min-h-0 -mx-1 px-1">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 py-2">
+              {cards.map(card => {
+                const isSelected = selected === card.id;
+                return (
+                  <button
+                    key={card.id}
+                    onClick={() => setSelected(card.id)}
+                    className={`group text-left rounded-lg border-2 transition-all p-3 space-y-2 ${
+                      isSelected
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:border-primary/50 bg-card"
+                    }`}
+                  >
+                    {card.preview}
+                    <div className="space-y-0.5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          {card.icon}
+                          <span className="font-semibold text-sm">{card.title}</span>
+                        </div>
+                        {isSelected && <Check className="h-4 w-4 text-primary" />}
+                      </div>
+                      <p className="text-[11px] text-muted-foreground leading-snug">{card.subtitle}</p>
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-gold">{card.cost}</p>
                     </div>
-                    {isSelected && <Check className="h-4 w-4 text-primary" />}
-                  </div>
-                  <p className="text-[11px] text-muted-foreground leading-snug">{card.subtitle}</p>
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-gold">{card.cost}</p>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-        </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
-        <DialogFooter className="gap-2 sm:justify-between shrink-0">
-          <Button variant="ghost" size="sm" onClick={handleSkip}>
-            Pular e abrir editor vazio
-          </Button>
-          <Button size="sm" onClick={handleConfirm} disabled={!selected} className="gap-2">
-            <Sparkles className="h-3.5 w-3.5" />
-            Abrir com este estilo
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          <DialogFooter className="gap-2 sm:justify-between shrink-0">
+            <Button variant="ghost" size="sm" onClick={handleSkip}>
+              Pular e abrir editor vazio
+            </Button>
+            <Button size="sm" onClick={handleConfirm} disabled={!selected} className="gap-2">
+              <Sparkles className="h-3.5 w-3.5" />
+              {selected === "ai" ? "Continuar" : "Abrir com este estilo"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Janela 2 — Estilo visual da IA */}
+      <Dialog
+        open={aiStyleOpen}
+        onOpenChange={(o) => {
+          if (!o) {
+            setAiStyleOpen(false);
+            setSelectedAiStyle(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader className="shrink-0">
+            <DialogTitle>Escolha o estilo visual</DialogTitle>
+            <DialogDescription>
+              O estilo orienta a estética da imagem gerada. Selecione um para continuar.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="overflow-y-auto flex-1 min-h-0 -mx-1 px-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 py-2">
+              {AI_STYLE_OPTIONS.map((opt) => {
+                const isSelected = selectedAiStyle === opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setSelectedAiStyle(opt.id)}
+                    className={`group text-left rounded-lg border-2 transition-all p-3 space-y-2 ${
+                      isSelected
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:border-primary/50 bg-card"
+                    }`}
+                  >
+                    <div
+                      className="w-full h-24 rounded-md overflow-hidden relative flex items-end p-2"
+                      style={{ background: opt.previewGradient }}
+                    >
+                      <div className="space-y-1 w-full">
+                        <div className="h-1.5 w-3/4 rounded" style={{ background: opt.accent, opacity: 0.85 }} />
+                        <div className="h-1.5 w-1/2 rounded" style={{ background: opt.accent, opacity: 0.55 }} />
+                      </div>
+                    </div>
+                    <div className="space-y-0.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-semibold text-sm leading-tight">{opt.label}</span>
+                        {isSelected && <Check className="h-4 w-4 text-primary shrink-0" />}
+                      </div>
+                      <p className="text-[11px] text-muted-foreground leading-snug">{opt.blurb}</p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:justify-between shrink-0 pt-2">
+            <Button variant="ghost" size="sm" onClick={backToFirstStep} className="gap-1.5">
+              <ArrowLeft className="h-3.5 w-3.5" /> Voltar
+            </Button>
+            <Button size="sm" onClick={handleAiStyleConfirm} disabled={!selectedAiStyle} className="gap-2">
+              <Sparkles className="h-3.5 w-3.5" />
+              Gerar (1 crédito)
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
 
