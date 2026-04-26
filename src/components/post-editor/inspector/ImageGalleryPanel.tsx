@@ -44,6 +44,8 @@ const ImageGalleryPanel: React.FC<ImageGalleryPanelProps> = ({
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  /** Query final efetivamente enviada ao Pexels (após tradução PT→EN + contexto). */
+  const [appliedKeywords, setAppliedKeywords] = useState<string>("");
 
   // Saved images (Unsplash/AI/upload from this user's gallery, photo-only context)
   const [savedImages, setSavedImages] = useState<Array<{ url: string; name: string; source: string }>>([]);
