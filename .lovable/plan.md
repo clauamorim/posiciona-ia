@@ -1,52 +1,26 @@
-Pelos prints, o problema principal é que o texto visual do card está recebendo uma versão longa, muito parecida com a legenda do Instagram. Isso deixa o card ilegível e repetitivo. A melhor solução é separar claramente as funções:
+## Problema
 
-- Card: texto curto, visual, escaneável.
-- Legenda: desenvolvimento completo da ideia, fora da imagem.
+Hoje a Linha Editorial (`src/pages/EditorialPage.tsx`) abre fixa na **Semana 1**, porque o `Tabs` usa `defaultValue="week-0"`. Quando o usuário já tem várias semanas geradas, ele precisa clicar manualmente na última toda vez que entra na página.
 
-Plano proposto:
+## Solução
 
-1. Criar uma camada de “copy visual” para o editor
-   - Antes de preencher o canvas, o sistema vai normalizar `card_copy` para texto de card.
-   - Para post único: limitar a uma versão curta, com gancho + insight, sem repetir a legenda inteira.
-   - Para carrossel: cada slide deve ficar enxuto e independente; se algum slide vier longo demais, será compactado automaticamente.
+Fazer com que a aba ativa inicial seja sempre a **última semana** disponível (`allWeeks.length - 1`), que corresponde à mais recente gerada (a ordem do array é cronológica: `editorial` da v1 + `editorial_weeks[]` na ordem de criação).
 
-2. Remover eco da legenda quando abrir o editor
-   - Ajustar `PostEditorPage.tsx`, onde hoje o editor inicializa `editedTexts` diretamente de `day.card_copy` ou `day.caption`.
-   - Evitar que `caption` vire corpo do card quando `card_copy` estiver ausente ou inadequado.
-   - Implementar heurística para detectar quando `card_copy` é praticamente igual à legenda e substituir por uma versão resumida.
+## Implementação
 
-3. Reforçar a geração futura na IA
-   - Atualizar os prompts das funções de geração de linha editorial e regeneração de post para instruir explicitamente:
-     - `card_copy` nunca deve repetir a legenda.
-     - `card_copy` deve ser texto de arte/card, curto.
-     - `caption` deve conter o desenvolvimento completo.
-   - Definir limites práticos:
-     - Post único: aproximadamente 12 a 24 palavras no card.
-     - Carrossel: aproximadamente 8 a 20 palavras por slide, com exceção moderada para slides explicativos.
+Arquivo único: **`src/pages/EditorialPage.tsx`**
 
-4. Sanitizar conteúdo gerado antes de salvar
-   - Ampliar `editorialSanitize.ts` para compactar `card_copy` excessivo e reduzir repetição direta com `caption`.
-   - Preservar a legenda completa no campo correto.
-   - Manter compatibilidade com conteúdos já gerados.
+1. **Tornar o Tabs controlado**, com estado `activeWeek: string`.
+2. Inicializar/atualizar esse estado assim que `allWeeks` for conhecido (após o `report` carregar do Supabase), apontando para `week-${allWeeks.length - 1}`.
+3. Preservar a aba escolhida pelo usuário durante a sessão (não "saltar" para a última toda vez que `report` muda por causa de polling/regeneração) — usar uma flag `hasInitializedTab` via `useRef` para definir a aba apenas na primeira vez que `allWeeks.length > 0`.
+4. Quando uma **nova semana é gerada** (handleGenerateWeek conclui com sucesso), forçar o salto para a recém-criada (`week-${allWeeks.length - 1}` após o reload do report) — isso já é o comportamento natural desejado e melhora a UX.
+5. Substituir `<Tabs defaultValue="week-0">` por `<Tabs value={activeWeek} onValueChange={setActiveWeek}>`.
 
-5. Melhorar a experiência no editor
-   - Se um card ainda estiver longo, aplicar uma redução inicial de tamanho de fonte e/ou caixa de texto mais adequada, mas sem depender disso como solução principal.
-   - O foco será corrigir a origem textual, não apenas “espremer” texto no layout.
+## Comportamento esperado
 
-Resultado esperado:
+- **Entrar na Linha Editorial com 3 semanas geradas** → abre direto na Semana 3.
+- **Usuário clica na Semana 1** para revisar → permanece na Semana 1 (não pula de volta).
+- **Usuário gera Semana 4** → salta automaticamente para a Semana 4 ao concluir.
+- **Sem semanas geradas** → não há tabs visíveis (já é o caso hoje, comportamento preservado).
 
-- Cards visualmente limpos e com texto curto.
-- Legenda completa continua disponível abaixo do editor para copiar.
-- Novas gerações e regenerações passam a vir com separação correta entre copy de card e legenda.
-- Conteúdos antigos ficam menos problemáticos ao abrir no editor, porque a camada de normalização reduz repetições evidentes.
-
-Detalhes técnicos:
-
-- Arquivos principais:
-  - `src/pages/PostEditorPage.tsx`
-  - `src/lib/textCleanup.ts` ou novo helper em `src/lib/editorialCardCopy.ts`
-  - `supabase/functions/process-content-generation-job/index.ts`
-  - `supabase/functions/regenerate-single-post/index.ts`
-  - `supabase/functions/_shared/editorialSanitize.ts`
-- Não será necessário alterar banco de dados.
-- Não será necessário perder ou apagar legendas existentes.
+Sem alterações de schema, edge functions ou outras telas.
