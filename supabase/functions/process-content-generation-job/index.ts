@@ -350,23 +350,63 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
 
       // Normaliza/sanitiza posts de feed e indexa por dia
       const feedByDay = new Map<number, FeedPost>();
-      for (const p of feedParsed) {
-        if (!p || typeof p !== "object") continue;
-        const dayN = Number((p as any).day);
-        if (!FEED_DAYS.includes(dayN)) continue;
-        const cleaned = sanitizePost(p as Record<string, any>) as FeedPost;
-        cleaned.day = dayN;
-        cleaned.format = (cleaned.format || "post").toString().toLowerCase();
-        if (cleaned.format === "stories") cleaned.format = "post";
-        cleaned.is_personal = Boolean((cleaned as any).is_personal);
-        feedByDay.set(dayN, cleaned);
+      const ingestFeedParsed = (arr: any[]) => {
+        for (const p of arr) {
+          if (!p || typeof p !== "object") continue;
+          const dayN = Number((p as any).day);
+          if (!FEED_DAYS.includes(dayN)) continue;
+          if (feedByDay.has(dayN)) continue; // mantém o primeiro válido
+          const cleaned = sanitizePost(p as Record<string, any>) as FeedPost;
+          cleaned.day = dayN;
+          cleaned.format = (cleaned.format || "post").toString().toLowerCase();
+          if (cleaned.format === "stories") cleaned.format = "post";
+          cleaned.is_personal = Boolean((cleaned as any).is_personal);
+          feedByDay.set(dayN, cleaned);
+        }
+      };
+      ingestFeedParsed(feedParsed);
+
+      // Retry automático: se faltam dias E a resposta NÃO foi truncada, pede só os dias faltantes.
+      // Truncamento real (max_tokens) não se beneficia de repetir o mesmo prompt.
+      const missingDays = FEED_DAYS.filter((d) => !feedByDay.has(d));
+      if (missingDays.length > 0 && !feedTruncated) {
+        console.warn(`[job ${jobId}] Estágio A: dias faltantes ${JSON.stringify(missingDays)}. Disparando retry direcionado.`);
+        await updateJob(jobId, { progress_message: "Refinando seus posts de feed (ajuste fino)…" });
+
+        const retryUser = `${feedUser}
+
+⚠️ ATENÇÃO: na resposta anterior, faltaram os posts dos dias ${missingDays.join(", ")}. Gere AGORA EXATAMENTE ${missingDays.length} post(s) — um para CADA UM dos dias ${missingDays.join(", ")}. Mantenha as MESMAS regras (formatos variados, frameworks internos, sem repetir temas já gerados). Retorne um array JSON com ${missingDays.length} objeto(s).`;
+
+        try {
+          const { text: retryRaw, stopReason: retryStop } = await callClaudeWithMeta({
+            systemPrompt: feedSystem,
+            userText: retryUser,
+            max_tokens: 4500,
+            timeoutMs: 90000,
+            disableRetries: true,
+          });
+          let retryParsed: any = extractJsonFromLLM(retryRaw);
+          if (!Array.isArray(retryParsed) || retryParsed.length === 0) {
+            retryParsed = extractPartialDayObjects(retryRaw);
+          }
+          if (Array.isArray(retryParsed) && retryParsed.length > 0) {
+            const before = feedByDay.size;
+            ingestFeedParsed(retryParsed);
+            console.log(`[job ${jobId}] Estágio A retry: recuperou ${feedByDay.size - before} post(s) extra(s) (stop=${retryStop}).`);
+          } else {
+            console.warn(`[job ${jobId}] Estágio A retry: não conseguiu extrair posts. stop=${retryStop}, raw len=${retryRaw?.length || 0}.`);
+          }
+        } catch (retryErr: any) {
+          // Não falha o job inteiro por causa do retry — segue com placeholder.
+          console.warn(`[job ${jobId}] Estágio A retry falhou:`, retryErr?.message || retryErr);
+        }
       }
 
       // Garante que existe um post para cada dia esperado; se faltar, cria placeholder mínimo
       const feedFinal: FeedPost[] = FEED_DAYS.map((d) => {
         const existing = feedByDay.get(d);
         if (existing) return existing;
-        console.warn(`[job ${jobId}] Estágio A: faltando post do dia ${d}, usando placeholder.`);
+        console.warn(`[job ${jobId}] Estágio A: faltando post do dia ${d} mesmo após retry, usando placeholder.`);
         return {
           day: d,
           format: "post",
