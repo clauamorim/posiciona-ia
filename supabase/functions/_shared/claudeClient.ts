@@ -54,10 +54,37 @@ export class ClaudeError extends Error {
 }
 
 /**
+ * Possible Anthropic stop_reason values: "end_turn", "max_tokens",
+ * "stop_sequence", "tool_use", or null/undefined.
+ */
+export type ClaudeStopReason =
+  | "end_turn"
+  | "max_tokens"
+  | "stop_sequence"
+  | "tool_use"
+  | string
+  | null;
+
+export interface ClaudeResponse {
+  text: string;
+  stopReason: ClaudeStopReason;
+}
+
+/**
  * Chama o Claude Messages API e retorna o texto completo da resposta.
  * Faz tratamento de erros amigável (timeout, 429, 402, JSON inválido).
  */
 export async function callClaude(opts: CallClaudeOptions): Promise<string> {
+  const { text } = await callClaudeWithMeta(opts);
+  return text;
+}
+
+/**
+ * Variante que devolve também o `stop_reason` da Anthropic. Útil para
+ * o caller detectar truncamento (`stop_reason === "max_tokens"`) e acionar
+ * recuperação parcial em vez de falhar o job inteiro.
+ */
+export async function callClaudeWithMeta(opts: CallClaudeOptions): Promise<ClaudeResponse> {
   if (opts.disableRetries) {
     return await callClaudeOnce(opts);
   }
