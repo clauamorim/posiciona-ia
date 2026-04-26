@@ -1,7 +1,7 @@
 /**
  * postAutoLayout — orquestra a montagem inicial automática de um post.
  *
- * Combina template + estilo escolhido (minimal/unsplash/ai) + logo do usuário
+ * Combina template + estilo escolhido (minimal/pexels/ai) + logo do usuário
  * e devolve overlays + ajustes de layout.
  */
 
@@ -14,12 +14,13 @@ import {
 } from "./postTemplates";
 import type { OverlayImage } from "@/components/post-editor/PostToolbar";
 
-export type PostStyle = "minimal" | "unsplash" | "ai";
+export type PostStyle = "minimal" | "pexels" | "ai";
 
 export interface PhotographerInfo {
   name: string;
   profileUrl: string;
-  unsplashUrl: string;
+  /** Página da foto no banco de imagens (Pexels). */
+  sourceUrl: string;
 }
 
 export interface AutoLayoutInput {
