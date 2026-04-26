@@ -199,6 +199,22 @@ const EditorialPage = () => {
     };
   }, []);
 
+  // Aba ativa do Tabs de semanas (controlado para abrir sempre na mais recente)
+  const [activeWeek, setActiveWeek] = useState<string>("week-0");
+  const tabInitializedRef = useRef(false);
+  const lastWeekCountRef = useRef(0);
+  useEffect(() => {
+    const count = allWeeks.length;
+    if (count === 0) return;
+    // 1ª vez que conhecemos as semanas → abrir na última gerada.
+    // Quando uma nova semana é adicionada (count cresce) → saltar para ela.
+    if (!tabInitializedRef.current || count > lastWeekCountRef.current) {
+      setActiveWeek(`week-${count - 1}`);
+      tabInitializedRef.current = true;
+    }
+    lastWeekCountRef.current = count;
+  }, [allWeeks.length]);
+
   const handleGenerateWeek = async () => {
     if (!user || weeklyCycles < 1) {
       toast({ title: "Créditos insuficientes", description: "Você não tem ciclos semanais disponíveis.", variant: "destructive" });
