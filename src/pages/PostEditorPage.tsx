@@ -17,7 +17,7 @@ import { cleanMarkdown, extractAfterBold, cleanText, stripFrameworkLabels } from
 import { compressImage } from "@/lib/imageUtils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { buildAutoLayout, fetchBackgroundImage, type PostStyle, type PhotographerInfo } from "@/lib/postAutoLayout";
-import UnsplashAttribution from "@/components/post-editor/UnsplashAttribution";
+
 import { Sparkles, X, Image as ImageIcon, Loader2 } from "lucide-react";
 import { useEditorHistory } from "@/hooks/useEditorHistory";
 import { normalizeWeekToV6 } from "@/lib/editorialShape";
@@ -226,7 +226,7 @@ const PostEditorPage = () => {
   const [activePhotographer, setActivePhotographer] = useState<PhotographerInfo | null>(null);
   const [initialTextBoxes, setInitialTextBoxes] = useState<{ title?: { x: number; y: number; width: number; height: number }; body?: { x: number; y: number; width: number; height: number } } | undefined>(undefined);
   const [initializingLayout, setInitializingLayout] = useState<string | null>(
-    !!draft || hasDesignParam ? null : (initialStyle === "ai" ? "Gerando imagem com IA…" : initialStyle === "unsplash" ? "Buscando foto editorial…" : "Preparando layout…")
+    !!draft || hasDesignParam ? null : (initialStyle === "ai" ? "Gerando imagem com IA…" : initialStyle === "pexels" ? "Buscando foto editorial…" : "Preparando layout…")
   );
   const singleCanvasRef = useRef<HTMLDivElement>(null);
   const slideRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -483,10 +483,10 @@ const PostEditorPage = () => {
           if (s.gradientDirection) setGradientDirection(s.gradientDirection);
         }
         if (result.photographer) setActivePhotographer(result.photographer);
-        // Salva imagem inicial do template (IA/Unsplash) automaticamente na galeria pessoal
+        // Salva imagem inicial do template (IA/Pexels) automaticamente na galeria pessoal
         const initialBgUrl = result.suggestions?.backgroundImageUrl;
         const initialSrc = result.suggestions?.backgroundSource;
-        if (initialBgUrl && (initialSrc === "unsplash" || initialSrc === "ai")) {
+        if (initialBgUrl && (initialSrc === "pexels" || initialSrc === "ai")) {
           console.log("Saving initial template bg to gallery:", initialSrc, initialBgUrl);
           saveSinglePhotoToGallery(initialBgUrl, initialSrc, result.photographer || null).catch(() => {});
         }
@@ -546,9 +546,9 @@ const PostEditorPage = () => {
         ];
       });
       if (result.photographer) setActivePhotographer(result.photographer);
-      // Salva automaticamente na galeria pessoal (Unsplash)
-      saveSinglePhotoToGallery(result.url, "unsplash", result.photographer || null).catch(() => {});
-      toast({ title: "Imagem atualizada", description: "Fonte: Unsplash (gratuita)." });
+      // Salva automaticamente na galeria pessoal (Pexels)
+      saveSinglePhotoToGallery(result.url, "pexels", result.photographer || null).catch(() => {});
+      toast({ title: "Imagem atualizada", description: "Fonte: Pexels (gratuita)." });
     } catch (err: any) {
       toast({ title: "Erro ao buscar imagem", description: err?.message, variant: "destructive" });
     } finally {
@@ -938,7 +938,7 @@ const PostEditorPage = () => {
 
   const saveSinglePhotoToGallery = useCallback(async (
     url: string,
-    sourceHint?: "unsplash" | "ai",
+    sourceHint?: "pexels" | "ai",
     photographer?: PhotographerInfo | null
   ): Promise<boolean> => {
     if (!user || !url) return false;
@@ -959,18 +959,18 @@ const PostEditorPage = () => {
       const ext = (normalizedType.split("/")[1] || "jpg").split(";")[0];
       const id = crypto.randomUUID();
       const path = `${user.id}/saved-${id}.${ext}`;
-      const isUnsplash = sourceHint === "unsplash" || /images\.unsplash\.com|plus\.unsplash\.com/.test(url);
-      const source = sourceHint || (isUnsplash ? "unsplash" : "ai");
+      const isPexels = sourceHint === "pexels" || /images\.pexels\.com/.test(url);
+      const source = sourceHint || (isPexels ? "pexels" : "ai");
       const { error: upErr } = await supabase.storage.from("user-uploads").upload(path, blob, { contentType: normalizedType, upsert: false });
       if (upErr) return false;
       const { error: insErr } = await supabase.from("user_gallery_assets").insert({
         user_id: user.id,
-        name: isUnsplash ? "Foto Unsplash salva" : (source === "ai" ? "Imagem gerada por IA" : "Imagem do post"),
+        name: isPexels ? "Foto Pexels salva" : (source === "ai" ? "Imagem gerada por IA" : "Imagem do post"),
         file_path: path,
         is_logo: false,
         bg_removed: false,
         source,
-        attribution: (photographer || (isUnsplash ? activePhotographer : null)) as any,
+        attribution: (photographer || (isPexels ? activePhotographer : null)) as any,
       });
       if (insErr) return false;
       window.dispatchEvent(new CustomEvent("posiciona:gallery-updated"));
@@ -1001,17 +1001,17 @@ const PostEditorPage = () => {
           const ext = (blob.type.split("/")[1] || "jpg").split(";")[0];
           const id = crypto.randomUUID();
           const path = `${user.id}/saved-${id}.${ext}`;
-          const isUnsplash = /images\.unsplash\.com|plus\.unsplash\.com/.test(ov.src);
+          const isPexels = /images\.pexels\.com/.test(ov.src);
           const { error: upErr } = await supabase.storage.from("user-uploads").upload(path, blob, { contentType: blob.type, upsert: false });
           if (upErr) continue;
           const { error: insErr } = await supabase.from("user_gallery_assets").insert({
             user_id: user.id,
-            name: isUnsplash ? "Foto Unsplash salva" : "Imagem do post",
+            name: isPexels ? "Foto Pexels salva" : "Imagem do post",
             file_path: path,
             is_logo: false,
             bg_removed: false,
-            source: isUnsplash ? "unsplash" : "ai",
-            attribution: activePhotographer && isUnsplash ? activePhotographer as any : null,
+            source: isPexels ? "pexels" : "ai",
+            attribution: activePhotographer && isPexels ? activePhotographer as any : null,
           });
           if (!insErr) added += 1;
         } catch {}
@@ -1335,8 +1335,8 @@ const PostEditorPage = () => {
               onSwapBackgroundImage: handleSwapBackground,
               swappingBackground,
               imageSearchQuery: (day?.theme || day?.caption || "").toString(),
-              onUnsplashPick: (photographer: PhotographerInfo) => setActivePhotographer(photographer),
-              onSwapBackgroundUrl: (url: string, source?: "ai" | "unsplash" | "saved") => {
+              onPexelsPick: (photographer: PhotographerInfo) => setActivePhotographer(photographer),
+              onSwapBackgroundUrl: (url: string, source?: "ai" | "pexels" | "saved") => {
                 setOverlayImages(prev => {
                   const idx = prev.findIndex(o => o.id.startsWith("tpl-bg-"));
                   if (idx >= 0) {
@@ -1355,8 +1355,8 @@ const PostEditorPage = () => {
                 // Salva automaticamente na galeria pessoal — só quando NÃO veio da própria galeria.
                 console.log("PostEditor: onSwapBackgroundUrl picked", { url, source });
                 if (source !== "saved") {
-                  const hint: "ai" | "unsplash" | undefined =
-                    source === "ai" ? "ai" : source === "unsplash" ? "unsplash" : undefined;
+                  const hint: "ai" | "pexels" | undefined =
+                    source === "ai" ? "ai" : source === "pexels" ? "pexels" : undefined;
                   saveSinglePhotoToGallery(url, hint)
                     .then((saved) => {
                       if (saved && source === "ai") {
@@ -1405,13 +1405,6 @@ const PostEditorPage = () => {
         </div>
       </div>
 
-      {activePhotographer && (
-        <UnsplashAttribution
-          photographer={activePhotographer}
-          onDismiss={() => setActivePhotographer(null)}
-          autoDismissMs={5000}
-        />
-      )}
     </DashboardLayout>
   );
 };

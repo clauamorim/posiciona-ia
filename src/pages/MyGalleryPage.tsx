@@ -15,7 +15,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-type Filter = "all" | "ai" | "unsplash" | "upload" | "logos";
+type Filter = "all" | "ai" | "pexels" | "upload" | "logos";
 
 interface GalleryRow {
   id: string;
@@ -31,7 +31,7 @@ interface GalleryRow {
 const FILTERS: { id: Filter; label: string; icon: any }[] = [
   { id: "all", label: "Todas", icon: ImageIcon },
   { id: "ai", label: "Geradas por IA", icon: Sparkles },
-  { id: "unsplash", label: "Unsplash", icon: Camera },
+  { id: "pexels", label: "Pexels", icon: Camera },
   { id: "upload", label: "Uploads", icon: Upload },
   { id: "logos", label: "Logos", icon: Star },
 ];
@@ -39,6 +39,7 @@ const FILTERS: { id: Filter; label: string; icon: any }[] = [
 const sourceBadge = (source: string, isLogo: boolean) => {
   if (isLogo) return { label: "Logo", className: "bg-primary/15 text-primary" };
   if (source === "ai") return { label: "IA", className: "bg-purple-500/15 text-purple-600 dark:text-purple-300" };
+  if (source === "pexels") return { label: "Pexels", className: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-300" };
   if (source === "unsplash") return { label: "Unsplash", className: "bg-blue-500/15 text-blue-600 dark:text-blue-300" };
   return { label: "Upload", className: "bg-muted text-muted-foreground" };
 };
@@ -76,7 +77,7 @@ const MyGalleryPage = () => {
 
   useEffect(() => {
     load();
-    // Recarrega quando uma nova imagem IA/Unsplash é salva pelo editor
+    // Recarrega quando uma nova imagem IA/Pexels é salva pelo editor
     const handler = () => load();
     window.addEventListener("posiciona:gallery-updated", handler);
     return () => window.removeEventListener("posiciona:gallery-updated", handler);
@@ -87,7 +88,7 @@ const MyGalleryPage = () => {
     if (filter === "all") return items;
     if (filter === "logos") return items.filter(i => i.is_logo);
     if (filter === "ai") return items.filter(i => i.source === "ai" && !i.is_logo);
-    if (filter === "unsplash") return items.filter(i => i.source === "unsplash" && !i.is_logo);
+    if (filter === "pexels") return items.filter(i => (i.source === "pexels" || i.source === "unsplash") && !i.is_logo);
     if (filter === "upload") return items.filter(i => i.source === "upload" && !i.is_logo);
     return items;
   }, [items, filter]);
@@ -95,7 +96,7 @@ const MyGalleryPage = () => {
   const counts = useMemo(() => ({
     all: items.length,
     ai: items.filter(i => i.source === "ai" && !i.is_logo).length,
-    unsplash: items.filter(i => i.source === "unsplash" && !i.is_logo).length,
+    pexels: items.filter(i => (i.source === "pexels" || i.source === "unsplash") && !i.is_logo).length,
     upload: items.filter(i => i.source === "upload" && !i.is_logo).length,
     logos: items.filter(i => i.is_logo).length,
   }), [items]);
@@ -197,7 +198,7 @@ const MyGalleryPage = () => {
             title={filter === "all" ? "Sua galeria está vazia" : "Nada por aqui ainda"}
             description={
               filter === "all"
-                ? "As imagens IA, Unsplash e uploads dos seus posts aparecerão automaticamente aqui ao salvar um design."
+                ? "As imagens IA, Pexels e uploads dos seus posts aparecerão automaticamente aqui ao salvar um design."
                 : "Mude o filtro ou crie um novo post para popular esta categoria."
             }
           >
@@ -236,7 +237,7 @@ const MyGalleryPage = () => {
                       <p className="text-xs font-medium truncate">{item.name}</p>
                       {photographerName && (
                         <p className="text-[10px] text-muted-foreground truncate">
-                          Foto por {photographerName} / Unsplash
+                          Foto por {photographerName} / {item.source === "unsplash" ? "Unsplash" : "Pexels"}
                         </p>
                       )}
                     </div>
