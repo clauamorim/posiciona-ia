@@ -1,57 +1,46 @@
-## Objetivo
-Após o usuário clicar em "Gerar imagem por IA" no editor de posts, abrir uma segunda janela com 5 estilos visuais nomeados em português. O estilo selecionado fica destacado, e o texto (em inglês, invisível ao usuário) correspondente é concatenado ao prompt enviado ao Gemini. Nenhum outro fluxo é alterado.
+## Diagnóstico
 
-## Mapeamento dos estilos (frontend)
+A implementação anterior usa **um único `Dialog`** que troca o conteúdo interno via `aiStep` (`"prompt"` → `"style"`). Quando o usuário clica em **Continuar**, o dialog não fecha e abre outro — apenas o conteúdo dentro do mesmo modal muda. Por isso a percepção foi de que "o dialog não abriu".
 
-Criar um catálogo central com `id`, `label` (PT, visível) e `directive` (EN, oculto):
+O pedido original diz literalmente: _"aparecer **outra janela** com uma seleção de estilos visuais"_. A solução correta é separar em **dois dialogs independentes**.
 
-| ID | Label (PT) | Directive (EN, oculto) |
-|---|---|---|
-| `minimal` | Minimalista | Clean design, white background, single accent color, sans-serif typography, lots of white space, no clutter, corporate but approachable |
-| `editorial-luxury` | Editorial Luxo | High-end editorial aesthetic, dark background, gold or cream accents, elegant serif typography, sophisticated and exclusive feel |
-| `vibrant-modern` | Moderno Vibrante | Bold colors, dynamic composition, gradient accents, modern sans-serif, energetic and youthful, Instagram-native aesthetic |
-| `human-warm` | Humano e Acolhedor | Warm tones, organic textures, approachable design, rounded elements, friendly typography, trust-building aesthetic |
-| `technical-authority` | Autoridade Técnica | Data-driven look, structured layout, navy or dark green palette, precise typography, conveys expertise and credibility |
+## Mudanças (apenas em `src/components/post-editor/inspector/ImageGalleryPanel.tsx`)
 
-## Mudanças
+### 1. Substituir o estado `aiStep` por dois flags independentes
+- Remover `aiStep`.
+- Adicionar `aiStyleOpen: boolean` (controla a segunda janela).
+- `aiPromptOpen` continua existindo e controla apenas a primeira janela.
 
-### 1. `src/components/post-editor/inspector/ImageGalleryPanel.tsx`
-- Substituir o `AlertDialog` atual ("Gerar imagem por IA") por um fluxo de duas etapas usando o mesmo `AlertDialog`/`Dialog`:
-  - **Etapa 1 (já existente):** input de descrição + botão "Continuar" (em vez de "Gerar"). Estado novo: `aiStep: "prompt" | "style"`.
-  - **Etapa 2 (nova):** grid responsivo de 5 cards (1 col mobile, 2-3 cols desktop) com label PT, ícone sutil e mini-preview estilizado (gradiente/cor que evoca o estilo). Card selecionado recebe `border-primary`, fundo `bg-primary/5` e ícone `Check`, alinhado ao padrão visual já usado em `StyleSelectionModal.tsx` (referência interna). Botões: "Voltar" e "Gerar (1 crédito)".
-- Estado adicional: `selectedAiStyle: AIStyleId | null`. Reset ao fechar o diálogo.
-- O directive **NUNCA** é exibido — apenas armazenado para envio.
-- Em `handleAIConfirm`, passar `aiStyleDirective` (string EN) para `generateAIImage`.
-- Tema escuro premium das diretrizes visuais (`bg-card`, `border-border`, sem fundos brancos).
+### 2. Renderizar dois `<Dialog>` separados
 
-### 2. `src/lib/postAutoLayout.ts`
-- `generateAIImage(opts)`: adicionar campo opcional `aiStyleDirective?: string`.
-- Repassar como `aiStyleDirective` no body de `supabase.functions.invoke("fetch-post-image", ...)`.
+**Dialog 1 — Prompt (já existe, simplificado):**
+- Mostra apenas o input de descrição.
+- Botões: **Cancelar** e **Continuar**.
+- Ao clicar em **Continuar**:
+  - `setAiPromptOpen(false)` (fecha a primeira janela)
+  - `setAiStyleOpen(true)` (abre a segunda janela)
+  - Mantém `aiPrompt` preservado para a próxima etapa.
 
-### 3. `supabase/functions/fetch-post-image/index.ts`
-- Aceitar `aiStyleDirective?: string` no body.
-- Passar para `generateWithAI(subject, mainMessage, format, nonce, aiStyleDirective)`.
-- Em `generateWithAI`, quando presente, **concatenar** ao prompt como bloco extra antes da regra de "NO TEXT", ex.:
-  ```
-  Style direction: ${aiStyleDirective}.
-  ```
-  Não substitui as regras existentes (composição limpa, sem texto, sem rostos dominantes, etc.) — apenas soma orientação estética.
-- Logar `aiStyleDirective` (truncado) para auditoria.
+**Dialog 2 — Seleção de estilo (novo, separado):**
+- Header: "Escolha o estilo visual".
+- Grid responsivo com os 5 cards (Minimalista, Editorial Luxo, Moderno Vibrante, Humano e Acolhedor, Autoridade Técnica) — mantém o visual já implementado (preview gradient + accent + Check ao selecionar + `border-primary`).
+- Botões: **Voltar** (fecha esta janela e reabre a anterior preservando o prompt) e **Gerar (1 crédito)** (chama `handleAIConfirm`, que já está pronto).
 
-### 4. Nenhuma alteração em
-- `StyleSelectionModal.tsx` (estilo de **layout** do post — coisa diferente).
-- Pipeline de Pexels / busca de imagens.
-- Débito de crédito, toasts de sucesso/erro, persistência na galeria.
-- `generatorVersion.ts` (não afeta conteúdo já gerado).
+### 3. Resets
+- Função `closeAiDialog()`: fecha **ambas** as janelas e zera `selectedAiStyle`.
+- Função `openAiDialog()`: abre apenas a primeira janela e zera `selectedAiStyle`.
+- Função `goToStyleStep()`: fecha a 1ª e abre a 2ª.
+- Função `backToPromptStep()`: fecha a 2ª e reabre a 1ª.
 
-## UX
-- O usuário vê apenas os nomes em português e a prévia visual de cada estilo.
-- O estilo selecionado fica claramente destacado (borda primary, check, leve fundo).
-- Clicar em "Voltar" mantém o prompt digitado.
-- Se o usuário fechar o diálogo, ambos os estados (prompt e estilo) são resetados.
-- Selecionar um estilo é **obrigatório** para habilitar "Gerar (1 crédito)" — garante intenção explícita.
+### 4. Bloqueio durante geração
+- Enquanto `generatingAI === true`, `onOpenChange` da segunda janela ignora tentativa de fechar (mesmo padrão atual).
 
-## Arquivos editados
-- `src/components/post-editor/inspector/ImageGalleryPanel.tsx`
-- `src/lib/postAutoLayout.ts`
-- `supabase/functions/fetch-post-image/index.ts` (deploy automático)
+## O que NÃO muda
+- `src/lib/aiImageStyles.ts` — catálogo já está correto.
+- `src/lib/postAutoLayout.ts` — assinatura com `aiStyleDirective` já está pronta.
+- `supabase/functions/fetch-post-image/index.ts` — concatenação de `Style direction` no prompt já está deployada.
+- Lógica de débito de crédito, toasts, salvamento na galeria.
+- Estética premium dark (`bg-card`, `border-border`, `border-primary` no selecionado).
+
+## Resultado esperado
+O usuário clica em **Gerar imagem por IA** → abre janela 1 (prompt) → digita e clica em **Continuar** → janela 1 fecha e janela 2 abre com os 5 estilos → seleciona um (fica destacado com borda primary + check) → clica em **Gerar (1 crédito)** → imagem é gerada com o directive concatenado ao prompt do Gemini, invisível ao usuário.

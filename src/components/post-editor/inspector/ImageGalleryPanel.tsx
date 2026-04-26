@@ -50,9 +50,9 @@ const ImageGalleryPanel: React.FC<ImageGalleryPanelProps> = ({
   // Saved images (Unsplash/AI/upload from this user's gallery, photo-only context)
   const [savedImages, setSavedImages] = useState<Array<{ url: string; name: string; source: string }>>([]);
 
-  // AI prompt dialog
+  // AI prompt dialog (duas janelas independentes)
   const [aiPromptOpen, setAiPromptOpen] = useState(false);
-  const [aiStep, setAiStep] = useState<"prompt" | "style">("prompt");
+  const [aiStyleOpen, setAiStyleOpen] = useState(false);
   const [aiPrompt, setAiPrompt] = useState(defaultQuery);
   const [selectedAiStyle, setSelectedAiStyle] = useState<AIStyleId | null>(null);
   const [generatingAI, setGeneratingAI] = useState(false);
