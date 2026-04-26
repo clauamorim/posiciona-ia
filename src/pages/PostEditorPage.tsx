@@ -20,6 +20,7 @@ import { buildAutoLayout, fetchBackgroundImage, type PostStyle, type Photographe
 import UnsplashAttribution from "@/components/post-editor/UnsplashAttribution";
 import { Sparkles, X, Image as ImageIcon, Loader2 } from "lucide-react";
 import { useEditorHistory } from "@/hooks/useEditorHistory";
+import { normalizeWeekToV6 } from "@/lib/editorialShape";
 
 function getContrastColor(hex: string): string {
   const r = parseInt(hex.slice(1, 3), 16);
@@ -274,12 +275,29 @@ const PostEditorPage = () => {
   const content = contentObject ?? {};
   const structuredEditorial = Array.isArray(content.editorial) ? content.editorial : [];
   const editorialWeeks: any[][] = Array.isArray(report?.editorial_weeks) ? report.editorial_weeks : [];
-  const allWeeks = [
+  const allWeeksRaw = [
     ...(hasEditorial && structuredEditorial.length > 0 ? [structuredEditorial] : []),
     ...editorialWeeks,
   ];
+  const allWeeks = allWeeksRaw.map((w) => normalizeWeekToV6(w));
 
-  const day = allWeeks[weekIndex]?.[dayIndex];
+  const dayV6 = allWeeks[weekIndex]?.days?.[dayIndex];
+  // Compat: o restante do editor ainda lê day.theme / day.caption / day.card_copy / day.cta / day.format
+  // como no shape v5. Expomos um objeto v5-like a partir do feed v6 para evitar
+  // refatorar centenas de linhas dependentes desses campos.
+  const day: any = dayV6
+    ? {
+        ...(dayV6.feed ?? {}),
+        day: dayV6.day,
+        theme: dayV6.feed?.theme || dayV6.story?.theme || "",
+        caption: dayV6.feed?.caption || "",
+        card_copy: dayV6.feed?.card_copy || [],
+        cta: dayV6.feed?.cta || "",
+        format: dayV6.feed?.format || "post",
+        script: dayV6.feed?.script || "",
+        generator_version: dayV6.feed?.generator_version || dayV6.generator_version,
+      }
+    : null;
   const palette = Array.isArray(content.visual_identity?.palette) ? content.visual_identity.palette : [];
   const typography = typeof content.visual_identity?.typography === "object" && content.visual_identity?.typography !== null
     ? content.visual_identity.typography
