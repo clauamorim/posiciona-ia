@@ -187,15 +187,24 @@ const ImageGalleryPanel: React.FC<ImageGalleryPanelProps> = ({
 
   const closeAiDialog = () => {
     setAiPromptOpen(false);
-    // Pequeno delay opcional não é necessário — reset imediato é OK.
-    setAiStep("prompt");
+    setAiStyleOpen(false);
     setSelectedAiStyle(null);
   };
 
   const openAiDialog = () => {
-    setAiStep("prompt");
     setSelectedAiStyle(null);
     setAiPrompt(defaultQuery);
+    setAiStyleOpen(false);
+    setAiPromptOpen(true);
+  };
+
+  const goToStyleStep = () => {
+    setAiPromptOpen(false);
+    setAiStyleOpen(true);
+  };
+
+  const backToPromptStep = () => {
+    setAiStyleOpen(false);
     setAiPromptOpen(true);
   };
 
