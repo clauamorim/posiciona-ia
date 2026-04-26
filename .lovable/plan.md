@@ -1,52 +1,63 @@
-## Problema
+# Guias dinâmicas de alinhamento no editor de posts
 
-No editor de posts, a **barra horizontal** (`tpl-mline`) e o **losango** (`tpl-mornament`) que aparecem nos designs ficam atrás das frases e acabam sobrescritos quando o texto é mais longo do que o estimado.
+## Objetivo
+Mostrar guias visuais **somente durante o arrasto** de um elemento, para auxiliar o posicionamento (centro do canvas, alinhamento com bordas e com outros elementos). Nada de toggle, nada de réguas fixas — comportamento idêntico ao Figma/Canva.
 
-## Causa raiz (duas camadas do problema)
+## Comportamento esperado
+- Quando o usuário **começa a arrastar** um elemento (imagem, ícone, caixa de texto ou botão CTA), linhas finas magenta aparecem instantaneamente quando suas bordas/centro se aproximam de:
+  - Centro horizontal do canvas
+  - Centro vertical do canvas
+  - Bordas do canvas
+  - Centro/bordas de outros elementos visíveis
+- As linhas **somem imediatamente** ao soltar o mouse.
+- Tolerância de snap: ~6px (no espaço do canvas) — suficiente para "grudar" sem atrapalhar o posicionamento livre.
+- Quando há snap, a posição do elemento é ajustada para alinhar perfeitamente.
 
-Investiguei `src/components/post-editor/PostCanvas.tsx` e `src/lib/postTemplates.ts` e identifiquei dois fatores combinados:
+## Arquivo afetado
+- `src/components/post-editor/PostCanvas.tsx` (único arquivo)
 
-1. **Ordem de camadas força decorações atrás do texto.** Em `PostCanvas.tsx` (linhas 466-480), há um `sortByVisualLayer` que atribui rank fixo:
-   - `0` = foto de fundo
-   - `1` = decorações (`mframe`, `mline`, `mornament`) ← barra e losango
-   - `2` = textos (título e corpo)
-   - `3` = demais overlays
-   
-   Ou seja, **o texto sempre é desenhado por cima** da barra e do losango, mesmo quando se sobrepõem visualmente.
+## Mudanças técnicas
 
-2. **Posição da barra/losango usa estimativa imprecisa.** Em `postAutoLayout.ts` (linhas 549-554), o `bodyBottomY` é calculado como `fontSize × 1.6 × 4 linhas` — uma estimativa fixa de 4 linhas. Quando o corpo do texto quebra em 5+ linhas (caption mais longa, fonte maior), o texto invade a região da barra/losango.
+### 1. Função utilitária `computeSnapAndGuides`
+Criar uma função pura que recebe:
+- Bounding box proposto do elemento sendo arrastado `{x, y, w, h}`
+- Lista de targets (canvas + outros elementos): `[{x, y, w, h}]`
 
-A moldura (`mframe`) raramente é afetada porque fica na borda; já a barra e o losango ficam logo abaixo do bloco de texto e são exatamente os que sofrem.
+E retorna:
+- `{ snappedX, snappedY, guides: { v: number[], h: number[] } }`
 
-## Solução proposta
+A função compara as 3 linhas-chave do elemento (start, center, end em cada eixo) com as 3 linhas-chave de cada target. Se a distância for ≤ 6px, aplica o snap e adiciona a coordenada da linha em `guides`.
 
-### 1. Mudar a ordem de camadas: barra e losango passam para a frente do texto
+### 2. Integrar no handler de `pointermove` (linhas 295-320)
+Após calcular `proposedX/proposedY`:
+- Montar a lista de targets: canvas inteiro + todos os `overlayImages` e `textBoxes` exceto o que está sendo arrastado.
+- Chamar `computeSnapAndGuides`.
+- Aplicar `snappedX/snappedY` em vez dos valores brutos.
+- `setActiveGuides(guides)`.
 
-Em `src/components/post-editor/PostCanvas.tsx`, ajustar `sortByVisualLayer` para separar a moldura (que deve continuar atrás) dos elementos pontuais (barra e losango), que devem ficar **acima do texto**:
+### 3. Limpar guias ao soltar
+No `handlePointerUp`: `setActiveGuides({ v: [], h: [] })`.
 
-- `0` = foto de fundo (full-cover)
-- `1` = moldura (`tpl-mframe`) — continua atrás de tudo
-- `2` = textos (título e corpo)
-- `3` = barra e losango (`tpl-mline`, `tpl-mornament`) — agora **na frente** do texto
-- `4` = demais overlays
+### 4. Renderizar as guias
+Adicionar dentro do canvas (camada absoluta acima de tudo, abaixo dos handles de seleção):
+```tsx
+{(activeGuides.v.length > 0 || activeGuides.h.length > 0) && (
+  <div className="absolute inset-0 pointer-events-none z-50">
+    {activeGuides.v.map((x, i) => (
+      <div key={`v${i}`} className="absolute top-0 bottom-0" style={{ left: x, width: 1, background: "#FF00FF" }} />
+    ))}
+    {activeGuides.h.map((y, i) => (
+      <div key={`h${i}`} className="absolute left-0 right-0" style={{ top: y, height: 1, background: "#FF00FF" }} />
+    ))}
+  </div>
+)}
+```
 
-Isso garante que a barra fina e o losango decorativo nunca sejam tampados por uma frase mais longa.
-
-### 2. Melhorar a estimativa de `bodyBottomY` para reduzir colisões
-
-Em `src/lib/postAutoLayout.ts`, ampliar a folga de linhas usada na estimativa (de 4 para 5-6 linhas, dependendo do formato), para que a barra já nasça em uma posição mais segura abaixo do bloco de corpo. Mesmo com o item 1 resolvendo o "tampar visual", manter a barra em posição limpa é importante para a estética.
-
-### 3. Preservar a possibilidade do usuário reorganizar manualmente
-
-A lógica de "trazer para frente / mandar para trás" no painel de seleção continua funcionando. A reordenação automática só é aplicada quando o usuário ainda não mexeu manualmente nas camadas (o código já preserva `externalRenderOrder` quando existe).
-
-## Arquivos afetados
-
-- `src/components/post-editor/PostCanvas.tsx` — ajustar ranks em `sortByVisualLayer` (separar `mframe` de `mline`/`mornament`).
-- `src/lib/postAutoLayout.ts` — aumentar a folga na estimativa de `bodyBottomY`.
+## Fora de escopo (não fazer)
+- Não adicionar toggle de réguas no `DocumentPanel` ou `MobileEditorBar`.
+- Não persistir nada em `localStorage`.
+- Não renderizar réguas com escala em pixels.
+- Não tocar em `PostEditorPage.tsx`, `PostToolbar.tsx`, `DocumentPanel.tsx` ou `MobileEditorBar.tsx`.
 
 ## Resultado esperado
-
-- A barra e o losango aparecem **sempre visíveis**, mesmo quando o texto é mais longo do que o esperado.
-- A moldura externa continua atrás (comportamento correto, ela emoldura tudo).
-- Designs já existentes que o usuário tenha customizado manualmente preservam a ordem que ele definiu.
+Ao arrastar qualquer elemento, linhas magenta finas aparecem no momento em que ele alinha com o centro do canvas ou outro elemento, e o item "encaixa" suavemente. Solte o mouse → as linhas somem. Sem nenhum controle visível na interface.
