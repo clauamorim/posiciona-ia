@@ -1,63 +1,99 @@
-# Guias dinâmicas de alinhamento no editor de posts
-
 ## Objetivo
-Mostrar guias visuais **somente durante o arrasto** de um elemento, para auxiliar o posicionamento (centro do canvas, alinhamento com bordas e com outros elementos). Nada de toggle, nada de réguas fixas — comportamento idêntico ao Figma/Canva.
+Substituir o **Unsplash** pelo **Pexels** como banco de imagens do Editor de Posts. Remover o banner de atribuição (Pexels não exige), mas preservar o nome do fotógrafo nos metadados da galeria pessoal.
 
-## Comportamento esperado
-- Quando o usuário **começa a arrastar** um elemento (imagem, ícone, caixa de texto ou botão CTA), linhas finas magenta aparecem instantaneamente quando suas bordas/centro se aproximam de:
-  - Centro horizontal do canvas
-  - Centro vertical do canvas
-  - Bordas do canvas
-  - Centro/bordas de outros elementos visíveis
-- As linhas **somem imediatamente** ao soltar o mouse.
-- Tolerância de snap: ~6px (no espaço do canvas) — suficiente para "grudar" sem atrapalhar o posicionamento livre.
-- Quando há snap, a posição do elemento é ajustada para alinhar perfeitamente.
+---
 
-## Arquivo afetado
-- `src/components/post-editor/PostCanvas.tsx` (único arquivo)
+## 1. Nova chave de API (Pexels)
 
-## Mudanças técnicas
+- Pedir ao usuário a secret **`PEXELS_API_KEY`** (gerada gratuitamente em pexels.com/api).
+- Manter `UNSPLASH_ACCESS_KEY` no projeto por ora (sem uso ativo) — pode ser removida depois.
 
-### 1. Função utilitária `computeSnapAndGuides`
-Criar uma função pura que recebe:
-- Bounding box proposto do elemento sendo arrastado `{x, y, w, h}`
-- Lista de targets (canvas + outros elementos): `[{x, y, w, h}]`
+## 2. Edge function `fetch-post-image`
 
-E retorna:
-- `{ snappedX, snappedY, guides: { v: number[], h: number[] } }`
+Arquivo: `supabase/functions/fetch-post-image/index.ts`
 
-A função compara as 3 linhas-chave do elemento (start, center, end em cada eixo) com as 3 linhas-chave de cada target. Se a distância for ≤ 6px, aplica o snap e adiciona a coordenada da linha em `guides`.
+- Substituir `UNSPLASH_URL` por endpoint Pexels:
+  - `https://api.pexels.com/v1/search?query=...&orientation=portrait&per_page=12&page=N`
+- Trocar header de auth: `Authorization: ${PEXELS_API_KEY}` (sem `Client-ID`).
+- Renomear `searchUnsplashList` → `searchPexelsList` e mapear o payload do Pexels:
+  - `url` ← `photo.src.large2x` (ou `large`)
+  - `width`/`height` ← `photo.width`/`height`
+  - `photographer.name` ← `photo.photographer`
+  - `photographer.profileUrl` ← `photo.photographer_url`
+  - Campo `unsplashUrl` vira `sourceUrl` ← `photo.url` (página do Pexels com a foto)
+- Atualizar variável de ambiente lida: `Deno.env.get("PEXELS_API_KEY")` (com fallback de erro claro).
+- Manter mesmo contrato de resposta (`results[]`, `url`, `source`, `photographer`), apenas trocando `unsplashUrl` por `sourceUrl` e `source: "unsplash"` por `source: "pexels"`.
 
-### 2. Integrar no handler de `pointermove` (linhas 295-320)
-Após calcular `proposedX/proposedY`:
-- Montar a lista de targets: canvas inteiro + todos os `overlayImages` e `textBoxes` exceto o que está sendo arrastado.
-- Chamar `computeSnapAndGuides`.
-- Aplicar `snappedX/snappedY` em vez dos valores brutos.
-- `setActiveGuides(guides)`.
+## 3. Tipos compartilhados no front
 
-### 3. Limpar guias ao soltar
-No `handlePointerUp`: `setActiveGuides({ v: [], h: [] })`.
+Arquivo: `src/lib/postAutoLayout.ts`
 
-### 4. Renderizar as guias
-Adicionar dentro do canvas (camada absoluta acima de tudo, abaixo dos handles de seleção):
-```tsx
-{(activeGuides.v.length > 0 || activeGuides.h.length > 0) && (
-  <div className="absolute inset-0 pointer-events-none z-50">
-    {activeGuides.v.map((x, i) => (
-      <div key={`v${i}`} className="absolute top-0 bottom-0" style={{ left: x, width: 1, background: "#FF00FF" }} />
-    ))}
-    {activeGuides.h.map((y, i) => (
-      <div key={`h${i}`} className="absolute left-0 right-0" style={{ top: y, height: 1, background: "#FF00FF" }} />
-    ))}
-  </div>
-)}
-```
+- Tipo `PhotographerInfo`: renomear `unsplashUrl` → `sourceUrl`.
+- Tipo `PostStyle`: `"minimal" | "pexels" | "ai"` (renomeado de `unsplash`).
+- Tipo de `backgroundSource`: `"pexels" | "ai" | "cache" | "none"`.
+- Adaptar todas as comparações `style === "unsplash"` para `style === "pexels"`.
+- Atualizar mapeamento do retorno da edge function.
 
-## Fora de escopo (não fazer)
-- Não adicionar toggle de réguas no `DocumentPanel` ou `MobileEditorBar`.
-- Não persistir nada em `localStorage`.
-- Não renderizar réguas com escala em pixels.
-- Não tocar em `PostEditorPage.tsx`, `PostToolbar.tsx`, `DocumentPanel.tsx` ou `MobileEditorBar.tsx`.
+## 4. Componentes do editor
 
-## Resultado esperado
-Ao arrastar qualquer elemento, linhas magenta finas aparecem no momento em que ele alinha com o centro do canvas ou outro elemento, e o item "encaixa" suavemente. Solte o mouse → as linhas somem. Sem nenhum controle visível na interface.
+Renomear/atualizar referências em:
+- `src/components/post-editor/inspector/ImageGalleryPanel.tsx` — texto "Buscar no Unsplash" → "Buscar no Pexels"; badge `"UN"` → `"PX"`; `source` literal `"unsplash"` → `"pexels"`.
+- `src/components/post-editor/inspector/AddElementPanel.tsx` — labels "Unsplash + IA" → "Pexels + IA"; tooltips e textos de ajuda.
+- `src/components/post-editor/PostToolbar.tsx` — props `onUnsplashPick` → `onPexelsPick` (e tipo do photographer).
+- `src/components/post-editor/MobileEditorBar.tsx` — repassar a nova prop.
+- `src/components/post-editor/StyleSelectionModal.tsx` — id `"unsplash"` → `"pexels"`, título "Com foto (Pexels)".
+- `src/components/post-editor/PostCanvas.tsx` — atualizar union de `postStyle`.
+- `src/lib/postTemplates.ts` — atualizar comparação de estilo.
+
+## 5. Página do editor
+
+`src/pages/PostEditorPage.tsx`:
+- Trocar `sourceHint` e literais `"unsplash"` por `"pexels"`.
+- Regex de detecção: trocar `images.unsplash.com|plus.unsplash.com` por `images.pexels.com`.
+- Toast pós-troca: "Imagem atualizada · Fonte: Pexels (gratuita)".
+- **Remover** importação e renderização de `<UnsplashAttribution />`.
+- Remover qualquer state relacionado ao banner (`pendingPhotographer` etc.).
+
+## 6. Remover o banner de atribuição
+
+- Excluir `src/components/post-editor/UnsplashAttribution.tsx`.
+- Garantir que o `photographer` ainda seja **persistido nos metadados** da galeria pessoal (`user_gallery_assets.attribution`) — só não é exibido em banner.
+
+## 7. Galeria pessoal (`MyGalleryPage`)
+
+`src/pages/MyGalleryPage.tsx`:
+- Filtro `"unsplash"` → `"pexels"` (label "Pexels").
+- Badge "Unsplash" → "Pexels".
+- Texto "Foto por X / Unsplash" → "Foto por X / Pexels" (mantido só na galeria, não no canvas).
+- Atualizar contagens e tooltips relacionados.
+
+## 8. Banco de dados
+
+Tabela `user_gallery_assets`:
+- O default da coluna `source` ainda é `'unsplash'` (migração antiga). Criar **nova migração** para alterar default para `'pexels'`. Linhas existentes ficam intocadas (continuam exibindo "Unsplash" na galeria, o que é correto historicamente).
+
+## 9. Limpeza final
+
+- Remover importações órfãs de `UnsplashAttribution`.
+- Verificar build TypeScript (sem referências a `unsplashUrl`).
+- Atualizar comentários no código que ainda mencionam Unsplash como fonte ativa.
+
+---
+
+## Arquivos afetados
+- `supabase/functions/fetch-post-image/index.ts`
+- `supabase/migrations/<nova>.sql`
+- `src/lib/postAutoLayout.ts`
+- `src/lib/postTemplates.ts`
+- `src/components/post-editor/inspector/ImageGalleryPanel.tsx`
+- `src/components/post-editor/inspector/AddElementPanel.tsx`
+- `src/components/post-editor/PostToolbar.tsx`
+- `src/components/post-editor/MobileEditorBar.tsx`
+- `src/components/post-editor/StyleSelectionModal.tsx`
+- `src/components/post-editor/PostCanvas.tsx`
+- `src/components/post-editor/UnsplashAttribution.tsx` (excluído)
+- `src/pages/PostEditorPage.tsx`
+- `src/pages/MyGalleryPage.tsx`
+
+## Pré-requisito
+Antes da implementação eu vou pedir a secret `PEXELS_API_KEY`. Pegue a chave grátis em **pexels.com/api** (precisa de conta Pexels — sem cartão).
