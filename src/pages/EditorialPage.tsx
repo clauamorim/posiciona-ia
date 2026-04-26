@@ -308,7 +308,10 @@ const EditorialPage = () => {
         navigate("/personal-questionnaire");
       } else {
         const isTimeout = /timeout|timed out|504|connection closed|failed to fetch|networkerror|aborted/i.test(raw);
-        const description = isTimeout
+        const isTruncated = /incomplete ai response|max[_ ]tokens|incompleta na etapa|respondeu de forma incompleta|est[áa]gio a inv[áa]lido/i.test(raw);
+        const description = isTruncated
+          ? "A geração ficou densa demais e foi interrompida. Toque novamente em Gerar +7 dias — costuma funcionar na segunda tentativa. Seu crédito foi devolvido."
+          : isTimeout
           ? "A geração demorou mais que o esperado. Tente novamente — geralmente funciona na segunda tentativa."
           : (raw || "Não foi possível gerar a semana. Tente novamente.");
         toast({ title: "Erro ao gerar conteúdo", description, variant: "destructive" });
