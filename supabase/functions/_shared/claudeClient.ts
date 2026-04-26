@@ -222,5 +222,6 @@ async function callClaudeOnce({
     );
   }
 
-  return text;
+  const stopReason: ClaudeStopReason = (data?.stop_reason ?? null) as ClaudeStopReason;
+  return { text, stopReason };
 }
