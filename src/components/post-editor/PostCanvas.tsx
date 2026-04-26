@@ -949,6 +949,24 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
             if (img) return renderOverlayItem(img);
             return null;
           })}
+
+          {/* Dynamic alignment guides — visible only while dragging */}
+          {(activeGuides.v.length > 0 || activeGuides.h.length > 0) && (
+            <div style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 99999 }}>
+              {activeGuides.v.map((x, i) => (
+                <div key={`gv${i}`} style={{
+                  position: "absolute", top: 0, bottom: 0, left: x,
+                  width: 2 / scale, background: "#FF00FF",
+                }} />
+              ))}
+              {activeGuides.h.map((y, i) => (
+                <div key={`gh${i}`} style={{
+                  position: "absolute", left: 0, right: 0, top: y,
+                  height: 2 / scale, background: "#FF00FF",
+                }} />
+              ))}
+            </div>
+          )}
         </div>
 
         </div>
