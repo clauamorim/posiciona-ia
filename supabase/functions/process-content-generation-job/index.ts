@@ -13,7 +13,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { extractJsonFromLLM } from "../_shared/jsonExtract.ts";
 import { EDITORIAL_GENERATOR_VERSION } from "../_shared/generatorVersion.ts";
 import { sanitizePost, sanitizeStory } from "../_shared/editorialSanitize.ts";
-import { callClaude } from "../_shared/claudeClient.ts";
+import { callClaude, callClaudeWithMeta } from "../_shared/claudeClient.ts";
 import {
   fetchPersonalQuestionnaire,
   renderPersonalContext,
@@ -172,6 +172,53 @@ interface DayV6 {
   generator_version: string;
 }
 
+/**
+ * Recuperação robusta de objetos JSON parciais de um array possivelmente
+ * truncado. Usa scanner balanceado de chaves (respeita strings/escapes)
+ * em vez de regex — captura objetos completos mesmo que o último esteja
+ * cortado no meio. Retorna apenas objetos com `day:number` válido.
+ */
+function extractPartialDayObjects(raw: string): any[] {
+  const out: any[] = [];
+  if (!raw) return out;
+  const len = raw.length;
+  let i = 0;
+  while (i < len) {
+    if (raw[i] !== "{") { i++; continue; }
+    // Scan balanced object starting at i
+    let depth = 0;
+    let inStr = false;
+    let escape = false;
+    let start = i;
+    let end = -1;
+    for (let j = i; j < len; j++) {
+      const c = raw[j];
+      if (escape) { escape = false; continue; }
+      if (c === "\\") { escape = true; continue; }
+      if (c === '"') { inStr = !inStr; continue; }
+      if (inStr) continue;
+      if (c === "{") depth++;
+      else if (c === "}") {
+        depth--;
+        if (depth === 0) { end = j; break; }
+      }
+    }
+    if (end === -1) {
+      // objeto não fechou — descarta resto
+      break;
+    }
+    const slice = raw.slice(start, end + 1);
+    try {
+      const obj = JSON.parse(slice);
+      if (obj && typeof obj === "object" && typeof obj.day === "number") {
+        out.push(obj);
+      }
+    } catch { /* ignora objeto malformado */ }
+    i = end + 1;
+  }
+  return out;
+}
+
 async function processJob(jobId: string) {
   const { data: job, error: jobErr } = await admin
     .from("content_generation_jobs")
@@ -270,31 +317,29 @@ ${previousSummary || "Nenhum conteúdo anterior."}
 
 Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
 
-      const feedRaw = await callClaude({
+      const { text: feedRaw, stopReason: feedStop } = await callClaudeWithMeta({
         systemPrompt: feedSystem,
         userText: feedUser,
-        max_tokens: 6000,
+        max_tokens: 8500,
         timeoutMs: 130000,
         disableRetries: true,
       });
+      if (feedStop === "max_tokens") {
+        console.warn(`[job ${jobId}] Estágio A: resposta truncada (max_tokens). raw len=${feedRaw.length}. Iniciando recuperação parcial.`);
+      }
 
       let feedParsed: any = extractJsonFromLLM(feedRaw);
-      if (!Array.isArray(feedParsed) || feedParsed.length === 0) {
-        // tentativa de recuperação parcial
-        const partial: any[] = [];
-        const objRegex = /\{\s*"day"\s*:\s*\d+[\s\S]*?\n\s*\}/g;
-        const matches = (feedRaw || "").match(objRegex) || [];
-        for (const m of matches) {
-          try {
-            const obj = JSON.parse(m);
-            if (obj && typeof obj.day === "number") partial.push(obj);
-          } catch { /* ignora */ }
-        }
+      const feedTruncated = feedStop === "max_tokens";
+      if (!Array.isArray(feedParsed) || feedParsed.length === 0 || feedTruncated) {
+        // Recuperação parcial via scanner balanceado (tolera array cortado).
+        const partial = extractPartialDayObjects(feedRaw);
         if (partial.length >= 2) {
-          console.warn(`[job ${jobId}] Estágio A: recuperados ${partial.length} posts parciais.`);
+          console.warn(`[job ${jobId}] Estágio A: recuperados ${partial.length}/4 posts parciais (truncated=${feedTruncated}).`);
           feedParsed = partial;
+        } else if (Array.isArray(feedParsed) && feedParsed.length > 0) {
+          // mantém o que veio do extractJsonFromLLM
         } else {
-          console.error(`[job ${jobId}] Estágio A falhou. raw len=${feedRaw?.length || 0}. Início: ${(feedRaw||"").slice(0,300)}`);
+          console.error(`[job ${jobId}] Estágio A falhou. raw len=${feedRaw?.length || 0}. stop=${feedStop}. Início: ${(feedRaw||"").slice(0,300)}`);
           throw Object.assign(new Error("Estágio A inválido"), {
             userMessage: "A IA respondeu de forma incompleta na etapa do feed. Tente novamente — seu crédito foi devolvido.",
           });
@@ -352,31 +397,29 @@ Nicho: ${niche || "Não informado"}${storybrandContext}${toneContext}${personalC
 
 Gere agora os 7 stories da semana.`;
 
-      const storiesRaw = await callClaude({
+      const { text: storiesRaw, stopReason: storiesStop } = await callClaudeWithMeta({
         systemPrompt: storiesSystem,
         userText: storiesUser,
-        max_tokens: 5000,
+        max_tokens: 7000,
         timeoutMs: 100000,
         disableRetries: true,
       });
+      if (storiesStop === "max_tokens") {
+        console.warn(`[job ${jobId}] Estágio B: resposta truncada (max_tokens). raw len=${storiesRaw.length}. Iniciando recuperação parcial.`);
+      }
 
       let storiesParsed: any = extractJsonFromLLM(storiesRaw);
-      if (!Array.isArray(storiesParsed) || storiesParsed.length === 0) {
-        const partial: any[] = [];
-        const objRegex = /\{\s*"day"\s*:\s*\d+[\s\S]*?\n\s*\}/g;
-        const matches = (storiesRaw || "").match(objRegex) || [];
-        for (const m of matches) {
-          try {
-            const obj = JSON.parse(m);
-            if (obj && typeof obj.day === "number") partial.push(obj);
-          } catch { /* ignora */ }
-        }
+      const storiesTruncated = storiesStop === "max_tokens";
+      if (!Array.isArray(storiesParsed) || storiesParsed.length === 0 || storiesTruncated) {
+        const partial = extractPartialDayObjects(storiesRaw);
         if (partial.length >= 4) {
-          console.warn(`[job ${jobId}] Estágio B: recuperados ${partial.length} stories parciais.`);
+          console.warn(`[job ${jobId}] Estágio B: recuperados ${partial.length}/7 stories parciais (truncated=${storiesTruncated}).`);
           storiesParsed = partial;
+        } else if (Array.isArray(storiesParsed) && storiesParsed.length > 0) {
+          // mantém o que veio
         } else {
           // Falha do B: persiste apenas o feed e marca completed_partial — usuário pode regenerar só os stories
-          console.error(`[job ${jobId}] Estágio B falhou. raw len=${storiesRaw?.length || 0}.`);
+          console.error(`[job ${jobId}] Estágio B falhou. raw len=${storiesRaw?.length || 0}. stop=${storiesStop}`);
           await persistWeek(job.report_id, feedFinal, [], jobId);
           await updateJob(jobId, {
             status: "completed",

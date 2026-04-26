@@ -1,34 +1,31 @@
-## Objetivo
-Remover o número "7" da feature do pacote **Semana de Conteúdo**, alterando "7 conteúdos prontos para publicar" para "Conteúdos prontos para publicar" em todas as páginas que descrevem o pacote e também na descrição do produto correspondente no Stripe.
+# Correção do erro "+7 dias" — truncamento da resposta do Claude
 
-## Alterações no código
+## Diagnóstico
 
-### 1. `src/pages/ChoosePlan.tsx` (linha 30)
-Dentro do array `features` do plano `semana_conteudo`, substituir:
-- Antes: `"7 conteúdos prontos para publicar"`
-- Depois: `"Conteúdos prontos para publicar"`
+Os logs do worker `process-content-generation-job` mostram que o erro **não é de rede/Safari**. O Claude está atingindo o limite de `max_tokens: 6000` durante a geração do feed (Stage A — 4 posts com legendas longas e carrosséis), retornando um JSON **truncado** que o parser não consegue recuperar. Resultado: o job falha com "Incomplete AI response", o crédito é estornado e o usuário vê o erro genérico no celular (e provavelmente também aconteceria no desktop com a mesma frequência — só passou despercebido).
 
-### 2. `src/pages/LandingPage.tsx` (linha 52)
-No bloco de features comerciais do plano Semana de Conteúdo, substituir:
-- Antes: `"7 conteúdos prontos para publicar"`
-- Depois: `"Conteúdos prontos para publicar"`
+## Mudanças propostas
 
-## Alteração no Stripe
+### 1. `supabase/functions/_shared/claudeClient.ts`
+- Expor o `stop_reason` retornado pela API (`"end_turn"` vs `"max_tokens"`) junto com o texto, para o caller saber explicitamente quando a resposta foi cortada.
+- Manter retro-compatibilidade: a função continua retornando string por padrão, com uma variante `callClaudeWithMeta` que devolve `{ text, stopReason }`.
 
-### 3. Produto `prod_UIQtEybwt7nigo` ("Semana de Conteúdo")
-Atualizar via `stripe_api_execute` (operação `PostProductsId`) o campo `description`:
-- **Antes:** `"Diagnóstico inicial completo: arquétipos, narrativa de marca, análise de Instagram, 1 ciclo editorial de 7 dias com 7 conteúdos prontos. Pagamento único."`
-- **Depois:** `"Diagnóstico inicial completo: arquétipos, narrativa de marca, análise de Instagram, 1 ciclo editorial de 7 dias com conteúdos prontos para publicar. Pagamento único."`
+### 2. `supabase/functions/process-content-generation-job/index.ts`
+- **Aumentar `max_tokens`** de 6000 para **8500** no Stage A (feed) — margem confortável para 4 posts + carrosséis.
+- **Detectar truncamento** via `stop_reason === "max_tokens"` e logar com clareza.
+- **Recuperação parcial robusta**: usar um scanner de chaves balanceadas (já existe lógica similar em `_shared/jsonExtract.ts`) para extrair os posts completos do array, mesmo que o último esteja cortado.
+- **Sucesso parcial**: se ao menos **2 posts** forem recuperados, prosseguir para o Stage B (Stories) e preencher os posts faltantes com placeholders marcados, em vez de falhar o job inteiro e estornar o crédito.
+- Mensagem de progresso atualizada para refletir recuperação parcial quando ocorrer.
 
-Nada será alterado no nome do produto, nos preços (`stripe_price_ids`) ou no produto separado `prod_UKX3WnVEKIbHUZ` ("Semana Extra de Conteúdo").
+### 3. UX no cliente — `src/pages/EditorialPage.tsx`
+- No `catch` final do polling, detectar mensagens contendo "Incomplete AI response" / "max_tokens" e exibir um toast mais claro: *"A geração ficou densa demais e foi interrompida. Toque novamente em Gerar +7 dias — costuma funcionar na segunda tentativa."*
+- Sem mudanças na lógica de cobrança (o worker já estorna em falha real).
 
-## Itens fora do escopo (não alterar)
-- `src/pages/HelpPage.tsx` — texto explicativo da Linha Editorial, não é a descrição do pacote.
-- `src/pages/TermosDeServico.tsx` — texto legal genérico.
-- `src/pages/MyDesignsPage.tsx` — refere-se a artes salvas no editor.
-- FAQ da `LandingPage.tsx` (linha 99) — resposta sobre formato dos conteúdos.
+## Fora de escopo
+- Não vou mexer em retries de rede/Safari nem em `ensureFreshSession` — os logs confirmam que o problema é backend, não cliente.
+- Não vou trocar o modelo Claude (sonnet-4-5 segue adequado).
 
-## Validação esperada
-- A página `/choose-plan` mostra "Conteúdos prontos para publicar" no card do plano Semana de Conteúdo.
-- A landing page mostra a mesma feature atualizada.
-- O dashboard do Stripe reflete a nova descrição do produto Semana de Conteúdo.
+## Arquivos a editar
+- `supabase/functions/_shared/claudeClient.ts`
+- `supabase/functions/process-content-generation-job/index.ts`
+- `src/pages/EditorialPage.tsx`
