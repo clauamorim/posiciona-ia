@@ -407,6 +407,7 @@ Deno.serve(async (req) => {
       niche, businessContext,
       format: rawFormat, allowAI = false,
       mode = "single", query: customQuery, userQuery, page = 1,
+      aiStyleDirective,
       nonce,
     } = body;
 
@@ -460,8 +461,8 @@ Deno.serve(async (req) => {
         niche, businessContext,
         userQuery: effectiveUserQuery,
       });
-      console.log("AI prompt subject:", subject, "| message:", mainMessage.slice(0, 80), "| nonce:", nonce);
-      const url = await generateWithAI(subject, mainMessage, format, nonce);
+      console.log("AI prompt subject:", subject, "| message:", mainMessage.slice(0, 80), "| style:", (aiStyleDirective || "—").slice(0, 80), "| nonce:", nonce);
+      const url = await generateWithAI(subject, mainMessage, format, nonce, aiStyleDirective);
       if (url) {
         return new Response(JSON.stringify({ url, source: "ai", keywords }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
