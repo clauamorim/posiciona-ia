@@ -46,6 +46,8 @@ export interface AutoLayoutInput {
   niche?: string;
   /** Contexto adicional do negócio (PT). */
   businessContext?: string;
+  /** Diretiva estética em inglês concatenada ao prompt do Gemini quando style === "ai". */
+  aiStyleDirective?: string;
 }
 
 export interface AutoLayoutResult {
