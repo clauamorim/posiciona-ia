@@ -373,7 +373,13 @@ export async function fetchBackgroundImage(opts: {
   }
 }
 
-/** Busca galeria de imagens (Pexels) — até 12. */
+/**
+ * Busca galeria de imagens (Pexels) — até 12.
+ * - `query` é o tema do dia (vem cru, em PT) — usado como theme/contexto.
+ * - `userQuery` é o que o usuário digitou no input — leva peso máximo na busca.
+ * - `cardCopy` é a frase visível do slide atual — peso máximo no contexto.
+ * Retorna também `keywords` (a query final enviada ao Pexels, para exibir ao usuário).
+ */
 export async function fetchImageGallery(opts: {
   query: string;
   format: ImageFormat;
@@ -382,13 +388,26 @@ export async function fetchImageGallery(opts: {
   businessContext?: string;
   caption?: string;
   body?: string;
-}): Promise<Array<{ url: string; photographer: PhotographerInfo }>> {
+  cardCopy?: string;
+  userQuery?: string;
+}): Promise<{ results: Array<{ url: string; photographer: PhotographerInfo }>; keywords: string }> {
   try {
     const { data, error } = await supabase.functions.invoke("fetch-post-image", {
-      body: { ...opts, theme: opts.query, mode: "gallery" },
+      body: {
+        theme: opts.query,
+        format: opts.format,
+        page: opts.page,
+        niche: opts.niche,
+        businessContext: opts.businessContext,
+        caption: opts.caption,
+        body: opts.body,
+        cardCopy: opts.cardCopy,
+        userQuery: opts.userQuery,
+        mode: "gallery",
+      },
     });
-    if (error || !Array.isArray(data?.results)) return [];
-    return data.results.map((r: any) => ({
+    if (error || !Array.isArray(data?.results)) return { results: [], keywords: "" };
+    const results = data.results.map((r: any) => ({
       url: r.url,
       photographer: {
         name: r.photographer?.name || "Unknown",
@@ -396,9 +415,10 @@ export async function fetchImageGallery(opts: {
         sourceUrl: r.sourceUrl || "",
       },
     }));
+    return { results, keywords: data.keywords || "" };
   } catch (err) {
     console.warn("fetchImageGallery failed", err);
-    return [];
+    return { results: [], keywords: "" };
   }
 }
 
