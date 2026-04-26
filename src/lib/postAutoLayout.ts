@@ -40,7 +40,7 @@ export interface AutoLayoutInput {
   paletteHex: string[];
   bgPaletteHex: string;
   userId: string;
-  /** Estilo escolhido pelo usuário no modal. Default: "unsplash" se houver logo, senão "minimal". */
+  /** Estilo escolhido pelo usuário no modal. Default: "pexels" se houver logo, senão "minimal". */
   style?: PostStyle;
   /** Nicho do negócio (PT) — usado para melhorar busca de imagens. */
   niche?: string;
@@ -64,15 +64,15 @@ export interface AutoLayoutResult {
     showSlideNumber?: boolean;
     slideNumberSize?: number;
     backgroundImageUrl?: string;
-    backgroundSource?: "unsplash" | "ai" | "cache" | "none";
+    backgroundSource?: "pexels" | "ai" | "cache" | "none";
     /** Sugestão de gradiente (modo minimalista). */
     useGradient?: boolean;
     gradientColor2Index?: number;
     gradientDirection?: string;
   };
-  /** Metadados do fotógrafo (Unsplash) — usado para atribuição obrigatória. */
+  /** Metadados do fotógrafo (Pexels) — preservado nos metadados da galeria. */
   photographer?: PhotographerInfo;
-  /** Quando true, o estilo escolhido (unsplash/ai) falhou e usamos fallback de cor sólida. */
+  /** Quando true, o estilo escolhido (pexels/ai) falhou e usamos fallback de cor sólida. */
   styleFailed?: boolean;
   styleFailedReason?: string;
 }
