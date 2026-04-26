@@ -172,6 +172,53 @@ interface DayV6 {
   generator_version: string;
 }
 
+/**
+ * Recuperação robusta de objetos JSON parciais de um array possivelmente
+ * truncado. Usa scanner balanceado de chaves (respeita strings/escapes)
+ * em vez de regex — captura objetos completos mesmo que o último esteja
+ * cortado no meio. Retorna apenas objetos com `day:number` válido.
+ */
+function extractPartialDayObjects(raw: string): any[] {
+  const out: any[] = [];
+  if (!raw) return out;
+  const len = raw.length;
+  let i = 0;
+  while (i < len) {
+    if (raw[i] !== "{") { i++; continue; }
+    // Scan balanced object starting at i
+    let depth = 0;
+    let inStr = false;
+    let escape = false;
+    let start = i;
+    let end = -1;
+    for (let j = i; j < len; j++) {
+      const c = raw[j];
+      if (escape) { escape = false; continue; }
+      if (c === "\\") { escape = true; continue; }
+      if (c === '"') { inStr = !inStr; continue; }
+      if (inStr) continue;
+      if (c === "{") depth++;
+      else if (c === "}") {
+        depth--;
+        if (depth === 0) { end = j; break; }
+      }
+    }
+    if (end === -1) {
+      // objeto não fechou — descarta resto
+      break;
+    }
+    const slice = raw.slice(start, end + 1);
+    try {
+      const obj = JSON.parse(slice);
+      if (obj && typeof obj === "object" && typeof obj.day === "number") {
+        out.push(obj);
+      }
+    } catch { /* ignora objeto malformado */ }
+    i = end + 1;
+  }
+  return out;
+}
+
 async function processJob(jobId: string) {
   const { data: job, error: jobErr } = await admin
     .from("content_generation_jobs")
