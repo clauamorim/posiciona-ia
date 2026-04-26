@@ -300,15 +300,95 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
       const dy = (e.clientY - dragging.startY) / scale;
       const proposedX = dragging.origX + dx;
       const proposedY = dragging.origY + dy;
+
+      // Determine bounding box of the dragged element (in canvas coords)
+      let bbox: { x: number; y: number; w: number; h: number } | null = null;
       if (dragging.isCta) {
-        onCtaMove?.(proposedX, proposedY);
+        const w = 240, h = 80;
+        bbox = { x: proposedX - w / 2, y: proposedY - h / 2, w, h };
       } else if (dragging.isText) {
-        setTextBoxes(prev => prev.map(t => t.id === dragging.id ? { ...t, x: proposedX, y: proposedY } : t));
+        const tb = textBoxes.find(t => t.id === dragging.id);
+        if (tb) bbox = { x: proposedX, y: proposedY, w: tb.width, h: tb.height };
       } else {
-        updateOverlay(dragging.id, { x: proposedX, y: proposedY });
+        const img = overlayImages.find(i => i.id === dragging.id);
+        if (img) bbox = { x: proposedX, y: proposedY, w: img.width, h: img.height };
+      }
+
+      // Build snap targets: canvas + other elements
+      const targets: Array<{ x: number; y: number; w: number; h: number }> = [
+        { x: 0, y: 0, w: canvasWidth, h: canvasHeight },
+      ];
+      if (bbox) {
+        for (const img of overlayImages) {
+          if (img.id === dragging.id) continue;
+          targets.push({ x: img.x, y: img.y, w: img.width, h: img.height });
+        }
+        for (const tb of textBoxes) {
+          if (tb.id === dragging.id) continue;
+          targets.push({ x: tb.x, y: tb.y, w: tb.width, h: tb.height });
+        }
+      }
+
+      const TOL = 6 / scale; // tolerance in canvas units (≈6 screen px)
+      let finalX = proposedX;
+      let finalY = proposedY;
+      const guidesV: number[] = [];
+      const guidesH: number[] = [];
+
+      if (bbox) {
+        const elLinesX = [bbox.x, bbox.x + bbox.w / 2, bbox.x + bbox.w];
+        const elLinesY = [bbox.y, bbox.y + bbox.h / 2, bbox.y + bbox.h];
+        let bestDX = TOL + 1, snapDX = 0, snapLineX: number | null = null;
+        let bestDY = TOL + 1, snapDY = 0, snapLineY: number | null = null;
+
+        for (const t of targets) {
+          const tLinesX = [t.x, t.x + t.w / 2, t.x + t.w];
+          const tLinesY = [t.y, t.y + t.h / 2, t.y + t.h];
+          for (let i = 0; i < 3; i++) {
+            for (let j = 0; j < 3; j++) {
+              const dxd = tLinesX[j] - elLinesX[i];
+              if (Math.abs(dxd) < bestDX) { bestDX = Math.abs(dxd); snapDX = dxd; snapLineX = tLinesX[j]; }
+              const dyd = tLinesY[j] - elLinesY[i];
+              if (Math.abs(dyd) < bestDY) { bestDY = Math.abs(dyd); snapDY = dyd; snapLineY = tLinesY[j]; }
+            }
+          }
+        }
+
+        if (snapLineX !== null && bestDX <= TOL) {
+          finalX = proposedX + snapDX;
+          // Collect every target line that ends up aligned after snap
+          const newElLinesX = [finalX + (bbox.x - proposedX), finalX + (bbox.x - proposedX) + bbox.w / 2, finalX + (bbox.x - proposedX) + bbox.w];
+          for (const t of targets) {
+            for (const tl of [t.x, t.x + t.w / 2, t.x + t.w]) {
+              if (newElLinesX.some(el => Math.abs(el - tl) < 0.5)) guidesV.push(tl);
+            }
+          }
+        }
+        if (snapLineY !== null && bestDY <= TOL) {
+          finalY = proposedY + snapDY;
+          const newElLinesY = [finalY + (bbox.y - proposedY), finalY + (bbox.y - proposedY) + bbox.h / 2, finalY + (bbox.y - proposedY) + bbox.h];
+          for (const t of targets) {
+            for (const tl of [t.y, t.y + t.h / 2, t.y + t.h]) {
+              if (newElLinesY.some(el => Math.abs(el - tl) < 0.5)) guidesH.push(tl);
+            }
+          }
+        }
+      }
+
+      setActiveGuides({ v: Array.from(new Set(guidesV)), h: Array.from(new Set(guidesH)) });
+
+      if (dragging.isCta) {
+        onCtaMove?.(finalX, finalY);
+      } else if (dragging.isText) {
+        setTextBoxes(prev => prev.map(t => t.id === dragging.id ? { ...t, x: finalX, y: finalY } : t));
+      } else {
+        updateOverlay(dragging.id, { x: finalX, y: finalY });
       }
     };
-    const handlePointerUp = () => { setDragging(null); };
+    const handlePointerUp = () => {
+      setDragging(null);
+      setActiveGuides({ v: [], h: [] });
+    };
     window.addEventListener("pointermove", handlePointerMove, { passive: false });
     window.addEventListener("pointerup", handlePointerUp);
     window.addEventListener("pointercancel", handlePointerUp);
@@ -869,6 +949,24 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
             if (img) return renderOverlayItem(img);
             return null;
           })}
+
+          {/* Dynamic alignment guides — visible only while dragging */}
+          {(activeGuides.v.length > 0 || activeGuides.h.length > 0) && (
+            <div style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 99999 }}>
+              {activeGuides.v.map((x, i) => (
+                <div key={`gv${i}`} style={{
+                  position: "absolute", top: 0, bottom: 0, left: x,
+                  width: 2 / scale, background: "#FF00FF",
+                }} />
+              ))}
+              {activeGuides.h.map((y, i) => (
+                <div key={`gh${i}`} style={{
+                  position: "absolute", left: 0, right: 0, top: y,
+                  height: 2 / scale, background: "#FF00FF",
+                }} />
+              ))}
+            </div>
+          )}
         </div>
 
         </div>
