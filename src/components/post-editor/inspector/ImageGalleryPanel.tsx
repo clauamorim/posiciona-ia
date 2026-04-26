@@ -52,7 +52,9 @@ const ImageGalleryPanel: React.FC<ImageGalleryPanelProps> = ({
 
   // AI prompt dialog
   const [aiPromptOpen, setAiPromptOpen] = useState(false);
+  const [aiStep, setAiStep] = useState<"prompt" | "style">("prompt");
   const [aiPrompt, setAiPrompt] = useState(defaultQuery);
+  const [selectedAiStyle, setSelectedAiStyle] = useState<AIStyleId | null>(null);
   const [generatingAI, setGeneratingAI] = useState(false);
 
   useEffect(() => {
