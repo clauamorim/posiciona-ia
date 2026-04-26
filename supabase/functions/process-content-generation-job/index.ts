@@ -13,7 +13,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { extractJsonFromLLM } from "../_shared/jsonExtract.ts";
 import { EDITORIAL_GENERATOR_VERSION } from "../_shared/generatorVersion.ts";
 import { sanitizePost, sanitizeStory } from "../_shared/editorialSanitize.ts";
-import { callClaude } from "../_shared/claudeClient.ts";
+import { callClaude, callClaudeWithMeta } from "../_shared/claudeClient.ts";
 import {
   fetchPersonalQuestionnaire,
   renderPersonalContext,
