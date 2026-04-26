@@ -397,31 +397,29 @@ Nicho: ${niche || "Não informado"}${storybrandContext}${toneContext}${personalC
 
 Gere agora os 7 stories da semana.`;
 
-      const storiesRaw = await callClaude({
+      const { text: storiesRaw, stopReason: storiesStop } = await callClaudeWithMeta({
         systemPrompt: storiesSystem,
         userText: storiesUser,
-        max_tokens: 5000,
+        max_tokens: 7000,
         timeoutMs: 100000,
         disableRetries: true,
       });
+      if (storiesStop === "max_tokens") {
+        console.warn(`[job ${jobId}] Estágio B: resposta truncada (max_tokens). raw len=${storiesRaw.length}. Iniciando recuperação parcial.`);
+      }
 
       let storiesParsed: any = extractJsonFromLLM(storiesRaw);
-      if (!Array.isArray(storiesParsed) || storiesParsed.length === 0) {
-        const partial: any[] = [];
-        const objRegex = /\{\s*"day"\s*:\s*\d+[\s\S]*?\n\s*\}/g;
-        const matches = (storiesRaw || "").match(objRegex) || [];
-        for (const m of matches) {
-          try {
-            const obj = JSON.parse(m);
-            if (obj && typeof obj.day === "number") partial.push(obj);
-          } catch { /* ignora */ }
-        }
+      const storiesTruncated = storiesStop === "max_tokens";
+      if (!Array.isArray(storiesParsed) || storiesParsed.length === 0 || storiesTruncated) {
+        const partial = extractPartialDayObjects(storiesRaw);
         if (partial.length >= 4) {
-          console.warn(`[job ${jobId}] Estágio B: recuperados ${partial.length} stories parciais.`);
+          console.warn(`[job ${jobId}] Estágio B: recuperados ${partial.length}/7 stories parciais (truncated=${storiesTruncated}).`);
           storiesParsed = partial;
+        } else if (Array.isArray(storiesParsed) && storiesParsed.length > 0) {
+          // mantém o que veio
         } else {
           // Falha do B: persiste apenas o feed e marca completed_partial — usuário pode regenerar só os stories
-          console.error(`[job ${jobId}] Estágio B falhou. raw len=${storiesRaw?.length || 0}.`);
+          console.error(`[job ${jobId}] Estágio B falhou. raw len=${storiesRaw?.length || 0}. stop=${storiesStop}`);
           await persistWeek(job.report_id, feedFinal, [], jobId);
           await updateJob(jobId, {
             status: "completed",
