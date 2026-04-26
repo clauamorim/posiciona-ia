@@ -780,7 +780,7 @@ const EditorialPage = () => {
           </Button>
         </div>
 
-        <Tabs defaultValue="week-0" className="w-full">
+        <Tabs value={activeWeek} onValueChange={setActiveWeek} className="w-full">
           {allWeeks.length > 1 && (
             <TabsList className="mb-4 flex-wrap h-auto bg-muted/50">
               {allWeeks.map((_, i) => (
