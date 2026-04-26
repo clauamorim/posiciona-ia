@@ -232,6 +232,11 @@ const ImageGalleryPanel: React.FC<ImageGalleryPanelProps> = ({
             {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
           </Button>
         </form>
+        {appliedKeywords && hasSearched && (
+          <p className="text-[10px] text-muted-foreground/70 mt-1.5 italic" title="Tradução automática a partir do tema do slide + nicho">
+            Buscando por: <span className="font-medium not-italic text-muted-foreground">{appliedKeywords}</span>
+          </p>
+        )}
       </div>
 
       {results.length > 0 && (
