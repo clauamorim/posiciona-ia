@@ -53,6 +53,32 @@ PROIBIDO escrever literalmente em "theme", "caption", "card_copy", "cta" ou "scr
 
 NUNCA prefixe os itens de "card_copy" com "Slide 1:", "Card 1:", "Página 1:". Cada item já É um slide.
 
+🟥 SEPARAÇÃO OBRIGATÓRIA — CARD vs LEGENDA (LEIA COM ATENÇÃO):
+"caption" e "card_copy" NÃO PODEM ter o mesmo texto. São coisas diferentes:
+
+- "caption" = LEGENDA do Instagram. Texto longo, fora da imagem, posta junto com o post. Pode ter parágrafos, storytelling, hashtags. Limite ~700-1500 caracteres.
+- "card_copy" = TEXTO DA ARTE (o que aparece DENTRO da imagem do card). É CURTO, visual, escaneável. Pessoas leem em 2 segundos passando o feed.
+
+REGRAS RÍGIDAS para "card_copy":
+- POST ÚNICO (format="post"): card_copy = [1 string CURTA]. Máximo ~22 palavras / 200 caracteres / 2 frases curtas.
+- CARROSSEL: cada slide tem ~8 a 18 palavras / 140 caracteres / no máx. 2 frases.
+- REELS: card_copy = [].
+- NUNCA copie a legenda (ou as primeiras frases dela) dentro de card_copy.
+- NUNCA repita o mesmo conteúdo entre slides do carrossel.
+- Use frases nominais, perguntas curtas, dados, antíteses, comandos. Evite parágrafos.
+
+EXEMPLO BOM (post único):
+{
+  "caption": "Toda manhã, antes de qualquer reunião, eu nado. Não é ritual motivacional. É necessidade operacional. Porque descobri que análise de posicionamento profunda exige o mesmo tipo de clareza mental que nadar exige de técnica… [continua por mais 800 caracteres]",
+  "card_copy": ["40 minutos de natação me ensinaram mais sobre posicionamento do que 18 anos de carreira."]
+}
+
+EXEMPLO RUIM (PROIBIDO — card repete a legenda):
+{
+  "caption": "Toda manhã, antes de qualquer reunião, eu nado…",
+  "card_copy": ["Toda manhã, antes de qualquer reunião, eu nado. Não é ritual motivacional. É necessidade operacional…"]
+}
+
 ESTRATÉGIA DE COPY (OBRIGATÓRIA):
 A) Gancho específico do nicho (Made to Stick — Inesperado + Concreto):
 - Primeira frase de toda caption e slide 1 de todo carrossel: detalhe concreto, número, cena, dado contraintuitivo ou pergunta inesperada — específicos para o NICHO.
@@ -67,7 +93,7 @@ C) StoryBrand interno: distribua facetas pelos 4 dias sem CITÁ-LAS:
 - 1 post de prova/autoridade ou storytelling pessoal
 
 D) Estrutura de carrossel (mínimo 5 slides):
-- Slide 1: GANCHO. Slide 2: PROBLEMA SENTIDO. Slides do meio: INSIGHT + PROVA ou PASSOS. Último: CTA verbal e direto.
+- Slide 1: GANCHO (frase curta, máximo 12 palavras). Slide 2: PROBLEMA SENTIDO. Slides do meio: INSIGHT + PROVA ou PASSOS (1 ideia por slide). Último: CTA verbal e direto.
 
 E) Humanização (storytelling pessoal):
 - Reserve 1 dos 4 posts para storytelling pessoal (marque is_personal=true). Use vivência REAL do criador (do bloco "CONTEXTO PESSOAL DO CRIADOR") como metáfora para a dor do cliente. Modelo "do tatame ao tribunal".
@@ -86,8 +112,8 @@ OUTPUT — array com EXATAMENTE 4 objetos, na ordem dos dias ${FEED_DAYS.join(",
     "day": 1,
     "format": "carrossel" | "post" | "reels",
     "theme": "...",
-    "caption": "LEGENDA COMPLETA pronta para postar",
-    "card_copy": ["slide 1", "slide 2", ...],
+    "caption": "LEGENDA COMPLETA pronta para postar (longa, com storytelling)",
+    "card_copy": ["texto curto do card (NÃO igual à legenda)"],
     "cta": "CTA verbal e direto",
     "script": "ROTEIRO COMPLETO se for reels; string vazia para post/carrossel",
     "is_personal": false
@@ -97,12 +123,13 @@ OUTPUT — array com EXATAMENTE 4 objetos, na ordem dos dias ${FEED_DAYS.join(",
 REGRAS ESTRUTURAIS:
 - "day" deve ser exatamente um dos valores ${FEED_DAYS.join(", ")}, na ordem.
 - "card_copy": carrossel ≥ 5 itens; post = 1 item; reels = [].
+- Cada item de card_copy: até ~180 caracteres (carrossel) ou ~200 (post único). NUNCA igual à caption.
 - "script": apenas reels tem texto; post/carrossel = "".
 - Português brasileiro.
 
 REFORÇO ANTI META-NARRATIVA: NÃO escreva "a marca atua como guia", "jornada do herói", "plano de 3 passos", "fracasso iminente", "categoria de mercado".
 
-CHECKLIST FINAL ANTES DE RESPONDER: você está retornando EXATAMENTE 4 objetos no array, um para cada um dos dias [${FEED_DAYS.join(", ")}]? Confirme que NENHUM desses dias está faltando antes de enviar.`;
+CHECKLIST FINAL ANTES DE RESPONDER: você está retornando EXATAMENTE 4 objetos no array, um para cada um dos dias [${FEED_DAYS.join(", ")}]? Cada card_copy é DIFERENTE da caption correspondente? Confirme antes de enviar.`;
 }
 
 function buildStoriesSystemPrompt(feedSummary: string, mirrorDays: number[]): string {

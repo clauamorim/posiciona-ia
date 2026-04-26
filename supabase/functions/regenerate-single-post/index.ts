@@ -207,10 +207,19 @@ REGRA DE LINGUAGEM:
 PROIBIDO escrever em campos visíveis: "Problema Externo", "Problema Interno", "Problema Filosófico", "O Plano", "Chamada à Ação", "Chamada para Ação", "O Sucesso", "O Fracasso", "O Guia", "O Herói", "StoryBrand", "Framework", "Posicionamento", "Categoria", "SUCCES", "Made to Stick", "Obviously Awesome".
 NUNCA prefixe card_copy com "Slide 1:", "Card 1:".
 
+🟥 SEPARAÇÃO OBRIGATÓRIA — CARD vs LEGENDA:
+"caption" e "card_copy" NÃO PODEM ter o mesmo texto.
+- "caption" = LEGENDA do Instagram. Longa, com storytelling, ~700-1500 chars.
+- "card_copy" = TEXTO DA ARTE (dentro da imagem). CURTO, escaneável.
+  • POST: card_copy = [1 string], máx ~22 palavras / 200 chars / 2 frases.
+  • CARROSSEL: cada slide ~8 a 18 palavras / 140 chars / máx 2 frases. Mínimo 5 slides.
+  • REELS: card_copy = [].
+- NUNCA copie a legenda dentro de card_copy.
+
 ESTRATÉGIA:
 - Gancho concreto e específico do nicho na primeira frase. PROIBIDO "Você sabia que…", "5 dicas para…", "A importância de…", "Vamos falar sobre…".
 - Posicionamento: deixe claro categoria, alternativa rejeitada, valor único.
-- Carrossel: Slide 1=gancho, Slide 2=problema, meio=insight/prova, último=CTA.
+- Carrossel: Slide 1=gancho curto (≤12 palavras), Slide 2=problema, meio=insight/prova (1 ideia por slide), último=CTA.
 - CTA verbal e direto.
 
 HUMANIZAÇÃO: se o post for storytelling pessoal, use vivência REAL do criador (do bloco contexto pessoal). NUNCA invente fatos.
@@ -220,8 +229,8 @@ OUTPUT:
   "day": ${dayNumber || 1},
   "theme": "...",
   "format": "${format}",
-  "caption": "...",
-  "card_copy": ["..."],
+  "caption": "LEGENDA COMPLETA, longa (≠ card_copy)",
+  "card_copy": ["texto curto do card (NÃO igual à caption)"],
   "cta": "...",
   "script": "...",
   "is_personal": false
@@ -229,8 +238,8 @@ OUTPUT:
 
 Regras:
 - Tema completamente diferente dos posts existentes
-- Carrossel: card_copy ≥ 5 slides
-- Post: card_copy = 1 item
+- Carrossel: card_copy ≥ 5 slides curtos
+- Post: card_copy = 1 item curto (≠ caption)
 - Reels: card_copy = []
 - script: apenas reels tem texto; post/carrossel = ""
 - Português brasileiro.`;

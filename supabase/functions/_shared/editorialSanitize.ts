@@ -86,8 +86,100 @@ export function cleanEditorialText(text: unknown): string {
 }
 
 /**
+ * Limites de copy visual para o card. Card é arte: curto, escaneável.
+ * Legenda completa fica em `caption`.
+ */
+const SLIDE_MAX_CHARS = 180;
+const SLIDE_MAX_SENTENCES = 2;
+const SINGLE_MAX_CHARS = 220;
+const SINGLE_MAX_SENTENCES = 2;
+
+function splitSentencesPT(text: string): string[] {
+  return (text || "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .split(/(?<=[.!?…])\s+(?=[A-ZÀ-ÚÇ"'(¿¡])/u)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function takeShortBackend(text: string, maxChars: number, maxSentences: number): string {
+  const cleaned = (text || "").trim();
+  if (!cleaned) return "";
+  if (cleaned.length <= maxChars) return cleaned;
+  const sents = splitSentencesPT(cleaned);
+  let out = "";
+  let used = 0;
+  for (const s of sents) {
+    if (used >= maxSentences) break;
+    const candidate = out ? `${out} ${s}` : s;
+    if (candidate.length > maxChars && out) break;
+    out = candidate;
+    used++;
+    if (out.length >= maxChars) break;
+  }
+  if (!out) out = sents[0] || cleaned;
+  if (out.length > maxChars) {
+    const slice = out.slice(0, maxChars);
+    const lastSpace = slice.lastIndexOf(" ");
+    out = (lastSpace > 40 ? slice.slice(0, lastSpace) : slice).trim();
+    if (!/[.!?…]$/.test(out)) out = out.replace(/[,;:\-—–]+$/, "") + "…";
+  }
+  return out;
+}
+
+function normalizeForEcho(s: string, takeWords = 12): string {
+  const lower = (s || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return lower.split(" ").filter(Boolean).slice(0, takeWords).join(" ");
+}
+
+function isCaptionEcho(card: string, caption: string): boolean {
+  if (!card || !caption) return false;
+  const a = normalizeForEcho(card, 10);
+  const b = normalizeForEcho(caption, 10);
+  if (!a || !b) return false;
+  if (a === b) return true;
+  const aw = a.split(" ");
+  const bw = b.split(" ");
+  let same = 0;
+  for (let i = 0; i < Math.min(aw.length, bw.length); i++) {
+    if (aw[i] === bw[i]) same++;
+    else break;
+  }
+  return same >= 8;
+}
+
+/**
+ * Normaliza `card_copy` para texto de arte: compacta itens longos e
+ * remove eco direto da legenda. Mantém o número de slides para carrossel.
+ */
+function normalizeCardCopy(items: string[], caption: string, format: string): string[] {
+  if (!Array.isArray(items) || items.length === 0) return items;
+  const isCarousel = (format || "").toLowerCase() === "carrossel";
+  const maxChars = isCarousel ? SLIDE_MAX_CHARS : SINGLE_MAX_CHARS;
+  const maxSents = isCarousel ? SLIDE_MAX_SENTENCES : SINGLE_MAX_SENTENCES;
+  return items.map((raw) => {
+    const cleaned = cleanEditorialText(raw);
+    if (!cleaned) return "";
+    let short = takeShortBackend(cleaned, maxChars, maxSents);
+    if (isCaptionEcho(short, caption)) {
+      const first = splitSentencesPT(short)[0] || short;
+      short = takeShortBackend(first, maxChars, 1);
+    }
+    return short;
+  }).filter((s) => s.length > 0);
+}
+
+/**
  * Aplica `cleanEditorialText` em todos os campos visíveis de um post,
  * incluindo cada item de `card_copy`. Mantém demais propriedades intactas.
+ * Também compacta `card_copy` para evitar eco da legenda no card visual.
  */
 export function sanitizePost<T extends Record<string, any>>(post: T): T {
   if (!post || typeof post !== "object") return post;
@@ -98,9 +190,11 @@ export function sanitizePost<T extends Record<string, any>>(post: T): T {
     }
   }
   if (Array.isArray(cleaned.card_copy)) {
-    cleaned.card_copy = cleaned.card_copy
-      .map((item: unknown) => cleanEditorialText(item))
-      .filter((s: string) => s.length > 0);
+    cleaned.card_copy = normalizeCardCopy(
+      cleaned.card_copy,
+      typeof cleaned.caption === "string" ? cleaned.caption : "",
+      typeof cleaned.format === "string" ? cleaned.format : "",
+    );
   }
   return cleaned as T;
 }

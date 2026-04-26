@@ -1,99 +1,52 @@
-## Objetivo
-Substituir o **Unsplash** pelo **Pexels** como banco de imagens do Editor de Posts. Remover o banner de atribuição (Pexels não exige), mas preservar o nome do fotógrafo nos metadados da galeria pessoal.
+Pelos prints, o problema principal é que o texto visual do card está recebendo uma versão longa, muito parecida com a legenda do Instagram. Isso deixa o card ilegível e repetitivo. A melhor solução é separar claramente as funções:
 
----
+- Card: texto curto, visual, escaneável.
+- Legenda: desenvolvimento completo da ideia, fora da imagem.
 
-## 1. Nova chave de API (Pexels)
+Plano proposto:
 
-- Pedir ao usuário a secret **`PEXELS_API_KEY`** (gerada gratuitamente em pexels.com/api).
-- Manter `UNSPLASH_ACCESS_KEY` no projeto por ora (sem uso ativo) — pode ser removida depois.
+1. Criar uma camada de “copy visual” para o editor
+   - Antes de preencher o canvas, o sistema vai normalizar `card_copy` para texto de card.
+   - Para post único: limitar a uma versão curta, com gancho + insight, sem repetir a legenda inteira.
+   - Para carrossel: cada slide deve ficar enxuto e independente; se algum slide vier longo demais, será compactado automaticamente.
 
-## 2. Edge function `fetch-post-image`
+2. Remover eco da legenda quando abrir o editor
+   - Ajustar `PostEditorPage.tsx`, onde hoje o editor inicializa `editedTexts` diretamente de `day.card_copy` ou `day.caption`.
+   - Evitar que `caption` vire corpo do card quando `card_copy` estiver ausente ou inadequado.
+   - Implementar heurística para detectar quando `card_copy` é praticamente igual à legenda e substituir por uma versão resumida.
 
-Arquivo: `supabase/functions/fetch-post-image/index.ts`
+3. Reforçar a geração futura na IA
+   - Atualizar os prompts das funções de geração de linha editorial e regeneração de post para instruir explicitamente:
+     - `card_copy` nunca deve repetir a legenda.
+     - `card_copy` deve ser texto de arte/card, curto.
+     - `caption` deve conter o desenvolvimento completo.
+   - Definir limites práticos:
+     - Post único: aproximadamente 12 a 24 palavras no card.
+     - Carrossel: aproximadamente 8 a 20 palavras por slide, com exceção moderada para slides explicativos.
 
-- Substituir `UNSPLASH_URL` por endpoint Pexels:
-  - `https://api.pexels.com/v1/search?query=...&orientation=portrait&per_page=12&page=N`
-- Trocar header de auth: `Authorization: ${PEXELS_API_KEY}` (sem `Client-ID`).
-- Renomear `searchUnsplashList` → `searchPexelsList` e mapear o payload do Pexels:
-  - `url` ← `photo.src.large2x` (ou `large`)
-  - `width`/`height` ← `photo.width`/`height`
-  - `photographer.name` ← `photo.photographer`
-  - `photographer.profileUrl` ← `photo.photographer_url`
-  - Campo `unsplashUrl` vira `sourceUrl` ← `photo.url` (página do Pexels com a foto)
-- Atualizar variável de ambiente lida: `Deno.env.get("PEXELS_API_KEY")` (com fallback de erro claro).
-- Manter mesmo contrato de resposta (`results[]`, `url`, `source`, `photographer`), apenas trocando `unsplashUrl` por `sourceUrl` e `source: "unsplash"` por `source: "pexels"`.
+4. Sanitizar conteúdo gerado antes de salvar
+   - Ampliar `editorialSanitize.ts` para compactar `card_copy` excessivo e reduzir repetição direta com `caption`.
+   - Preservar a legenda completa no campo correto.
+   - Manter compatibilidade com conteúdos já gerados.
 
-## 3. Tipos compartilhados no front
+5. Melhorar a experiência no editor
+   - Se um card ainda estiver longo, aplicar uma redução inicial de tamanho de fonte e/ou caixa de texto mais adequada, mas sem depender disso como solução principal.
+   - O foco será corrigir a origem textual, não apenas “espremer” texto no layout.
 
-Arquivo: `src/lib/postAutoLayout.ts`
+Resultado esperado:
 
-- Tipo `PhotographerInfo`: renomear `unsplashUrl` → `sourceUrl`.
-- Tipo `PostStyle`: `"minimal" | "pexels" | "ai"` (renomeado de `unsplash`).
-- Tipo de `backgroundSource`: `"pexels" | "ai" | "cache" | "none"`.
-- Adaptar todas as comparações `style === "unsplash"` para `style === "pexels"`.
-- Atualizar mapeamento do retorno da edge function.
+- Cards visualmente limpos e com texto curto.
+- Legenda completa continua disponível abaixo do editor para copiar.
+- Novas gerações e regenerações passam a vir com separação correta entre copy de card e legenda.
+- Conteúdos antigos ficam menos problemáticos ao abrir no editor, porque a camada de normalização reduz repetições evidentes.
 
-## 4. Componentes do editor
+Detalhes técnicos:
 
-Renomear/atualizar referências em:
-- `src/components/post-editor/inspector/ImageGalleryPanel.tsx` — texto "Buscar no Unsplash" → "Buscar no Pexels"; badge `"UN"` → `"PX"`; `source` literal `"unsplash"` → `"pexels"`.
-- `src/components/post-editor/inspector/AddElementPanel.tsx` — labels "Unsplash + IA" → "Pexels + IA"; tooltips e textos de ajuda.
-- `src/components/post-editor/PostToolbar.tsx` — props `onUnsplashPick` → `onPexelsPick` (e tipo do photographer).
-- `src/components/post-editor/MobileEditorBar.tsx` — repassar a nova prop.
-- `src/components/post-editor/StyleSelectionModal.tsx` — id `"unsplash"` → `"pexels"`, título "Com foto (Pexels)".
-- `src/components/post-editor/PostCanvas.tsx` — atualizar union de `postStyle`.
-- `src/lib/postTemplates.ts` — atualizar comparação de estilo.
-
-## 5. Página do editor
-
-`src/pages/PostEditorPage.tsx`:
-- Trocar `sourceHint` e literais `"unsplash"` por `"pexels"`.
-- Regex de detecção: trocar `images.unsplash.com|plus.unsplash.com` por `images.pexels.com`.
-- Toast pós-troca: "Imagem atualizada · Fonte: Pexels (gratuita)".
-- **Remover** importação e renderização de `<UnsplashAttribution />`.
-- Remover qualquer state relacionado ao banner (`pendingPhotographer` etc.).
-
-## 6. Remover o banner de atribuição
-
-- Excluir `src/components/post-editor/UnsplashAttribution.tsx`.
-- Garantir que o `photographer` ainda seja **persistido nos metadados** da galeria pessoal (`user_gallery_assets.attribution`) — só não é exibido em banner.
-
-## 7. Galeria pessoal (`MyGalleryPage`)
-
-`src/pages/MyGalleryPage.tsx`:
-- Filtro `"unsplash"` → `"pexels"` (label "Pexels").
-- Badge "Unsplash" → "Pexels".
-- Texto "Foto por X / Unsplash" → "Foto por X / Pexels" (mantido só na galeria, não no canvas).
-- Atualizar contagens e tooltips relacionados.
-
-## 8. Banco de dados
-
-Tabela `user_gallery_assets`:
-- O default da coluna `source` ainda é `'unsplash'` (migração antiga). Criar **nova migração** para alterar default para `'pexels'`. Linhas existentes ficam intocadas (continuam exibindo "Unsplash" na galeria, o que é correto historicamente).
-
-## 9. Limpeza final
-
-- Remover importações órfãs de `UnsplashAttribution`.
-- Verificar build TypeScript (sem referências a `unsplashUrl`).
-- Atualizar comentários no código que ainda mencionam Unsplash como fonte ativa.
-
----
-
-## Arquivos afetados
-- `supabase/functions/fetch-post-image/index.ts`
-- `supabase/migrations/<nova>.sql`
-- `src/lib/postAutoLayout.ts`
-- `src/lib/postTemplates.ts`
-- `src/components/post-editor/inspector/ImageGalleryPanel.tsx`
-- `src/components/post-editor/inspector/AddElementPanel.tsx`
-- `src/components/post-editor/PostToolbar.tsx`
-- `src/components/post-editor/MobileEditorBar.tsx`
-- `src/components/post-editor/StyleSelectionModal.tsx`
-- `src/components/post-editor/PostCanvas.tsx`
-- `src/components/post-editor/UnsplashAttribution.tsx` (excluído)
-- `src/pages/PostEditorPage.tsx`
-- `src/pages/MyGalleryPage.tsx`
-
-## Pré-requisito
-Antes da implementação eu vou pedir a secret `PEXELS_API_KEY`. Pegue a chave grátis em **pexels.com/api** (precisa de conta Pexels — sem cartão).
+- Arquivos principais:
+  - `src/pages/PostEditorPage.tsx`
+  - `src/lib/textCleanup.ts` ou novo helper em `src/lib/editorialCardCopy.ts`
+  - `supabase/functions/process-content-generation-job/index.ts`
+  - `supabase/functions/regenerate-single-post/index.ts`
+  - `supabase/functions/_shared/editorialSanitize.ts`
+- Não será necessário alterar banco de dados.
+- Não será necessário perder ou apagar legendas existentes.
