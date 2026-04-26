@@ -54,7 +54,7 @@ interface PostCanvasProps {
   /** @deprecated Coordenadas foram removidas do canvas. Mantido para compat. */
   showCoordinates?: boolean;
   /** Estilo escolhido na criação do post (minimal força centralização horizontal). */
-  postStyle?: "minimal" | "unsplash" | "ai" | string;
+  postStyle?: "minimal" | "pexels" | "ai" | string;
   /** Posições iniciais de título/corpo definidas pelo template (sobrescrevem os cálculos genéricos). */
   initialTextBoxes?: {
     title?: { x: number; y: number; width: number; height: number };
