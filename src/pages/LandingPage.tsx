@@ -496,8 +496,8 @@ const LandingPage = () => {
                     <s.icon className="h-4 w-4 text-landing-purple" />
                   </div>
                 </div>
-                <h3 className="text-base font-semibold">{s.title}</h3>
-                <p className="text-sm text-landing-text-secondary leading-relaxed">{s.desc}</p>
+                <h3 className="text-base md:text-lg font-semibold">{s.title}</h3>
+                <p className="text-sm md:text-base text-landing-text-secondary leading-relaxed">{s.desc}</p>
               </div>
             ))}
           </div>
