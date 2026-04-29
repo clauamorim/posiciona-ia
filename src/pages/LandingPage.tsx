@@ -720,10 +720,10 @@ const LandingPage = () => {
           <Accordion type="single" collapsible className="w-full space-y-2">
             {faqItems.map((item, i) => (
               <AccordionItem key={i} value={`faq-${i}`} className="border border-landing-border/40 rounded-lg px-4 bg-landing-bg-secondary/20">
-                <AccordionTrigger className="text-left text-sm font-medium text-landing-text hover:no-underline py-4">
+                <AccordionTrigger className="text-left text-base md:text-lg font-medium text-landing-text hover:no-underline py-4">
                   {item.q}
                 </AccordionTrigger>
-                <AccordionContent className="text-sm text-landing-text-secondary pb-4 leading-relaxed">
+                <AccordionContent className="text-sm md:text-base text-landing-text-secondary pb-4 leading-relaxed">
                   {item.a}
                 </AccordionContent>
               </AccordionItem>
