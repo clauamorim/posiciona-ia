@@ -399,8 +399,8 @@ const LandingPage = () => {
       {/* ── HERO ── */}
       <section className="pt-12 pb-16 md:pt-20 md:pb-24 px-4">
         <div className="max-w-3xl mx-auto text-center space-y-6">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-landing-border bg-landing-bg-secondary/50 text-xs text-landing-text-secondary">
-            <img src={posicionaLogo} alt="Posiciona" className="h-5 w-5" />
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-landing-border bg-landing-bg-secondary/50 text-xs md:text-sm text-landing-text-secondary">
+            <img src={posicionaLogo} alt="Posiciona" className="h-6 w-6" />
             Posicionamento estratégico com IA para profissionais que vendem expertise
           </div>
 
