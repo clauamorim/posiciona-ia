@@ -921,13 +921,13 @@ const EditorialPage = () => {
                             </div>
                             {story.theme || story.frames?.length ? (
                               <>
-                                <h4 className="text-sm font-semibold leading-tight">{cleanText(story.theme || "")}</h4>
+                                <h4 className="text-base lg:text-lg font-semibold leading-tight">{cleanText(story.theme || "")}</h4>
                                 {story.frames?.length > 0 && (
                                   <div className="space-y-1.5">
                                     {story.frames.map((f: string, idx: number) => (
                                       <div key={idx} className="flex gap-2 items-start">
                                         <span className="text-[10px] font-semibold text-amber-600 mt-0.5">{idx + 1}.</span>
-                                        <p className="text-xs text-foreground/70 leading-relaxed">{cleanText(f)}</p>
+                                        <p className="text-sm lg:text-[15px] text-foreground/80 leading-relaxed">{cleanText(f)}</p>
                                       </div>
                                     ))}
                                   </div>
