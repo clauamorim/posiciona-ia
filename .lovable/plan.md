@@ -1,41 +1,63 @@
-## Adicionar seção de Depoimentos na Landing Page
+## Objetivo
 
-### Onde inserir
-Nova seção **"Depoimentos"** posicionada **logo após a seção "Veja o que o Posiciona entrega na prática"** (linha 580) e **antes de "Planos"** (linha 583).
+Melhorar a legibilidade no desktop em duas frentes:
 
-Esse é o ponto ideal de prova social: o visitante acabou de ver os entregáveis e, antes de avaliar preço, lê a validação de quem já usou. Padrão consagrado em landing pages premium.
+1. **Logo e marca "Posiciona"** — aumentar o ícone e o texto da marca no header da landing page, no header/sidebar do app (DashboardLayout) e no badge do hero.
+2. **Fontes pequenas** — revisar áreas onde `text-xs` (12px) e `text-sm` (14px) prejudicam a leitura no desktop, subindo um degrau em pontos-chave (navegação, parágrafos, labels de cards e descrições).
 
-### Estilo visual (alinhado ao Dark Premium da landing)
+Mantém-se mobile inalterado quando possível, usando breakpoints `md:` para crescer só no desktop e não comprometer telas pequenas.
 
-- Fundo: `bg-landing-bg` (alterna com a faixa secundária dos planos logo abaixo, criando ritmo visual).
-- Container: `max-w-6xl mx-auto`.
-- Cabeçalho centralizado:
-  - Eyebrow dourado em caps: **"Quem já usou"**.
-  - Título serifado (Cormorant): *"Resultados que falam por si — em palavras de quem confiou no processo."* (com a parte itálica em `text-landing-gold`).
-- Grid de 3 cards (`md:grid-cols-3`, empilha em mobile).
-- Cada card:
-  - Borda sutil `border-landing-border/40`, fundo `bg-landing-bg-secondary/30`, cantos `rounded-xl`, padding `p-6`.
-  - Aspas decorativas grandes em dourado no topo (símbolo " em Cormorant Garamond, opacidade ~30%).
-  - Texto do depoimento em Inter, `text-sm leading-relaxed text-landing-text/90`. **Sem foto** (mantém sobriedade editorial; evita o efeito "stock photo").
-  - Linha divisória fina dourada (`w-8 h-px bg-landing-gold/50`) separando depoimento da assinatura.
-  - Nome em Inter semibold + cargo em `text-xs text-landing-text-secondary`.
-- Sem CTA dentro da seção (o CTA dos Planos vem logo abaixo).
+---
 
-### Tratamento dos textos
-- Manter os depoimentos **na íntegra**, apenas com pequenos ajustes tipográficos (aspas curvas " ", traço em "Girlaydy Costa — Fotógrafa").
-- O depoimento da Mariana é o mais longo. Duas opções:
-  1. **Manter completo** nos 3 cards (cards de altura desigual, alinhados pelo topo). Recomendado — preserva profundidade e autoridade do depoimento mais técnico.
-  2. Encurtar a versão exibida e mostrar "ler mais" expansível. Não recomendado nessa landing por adicionar interação desnecessária.
+## Escopo das mudanças
 
-Recomendação: **opção 1**, com `items-start` no grid, deixando o card da Mariana naturalmente mais alto.
+### 1. Logo e marca "Posiciona"
 
-### Assinaturas finais
-- Girlaydy Costa — Fotógrafa
-- Júnior Sales — Gestor de tráfego
-- Mariana Bertoldo — Estrategista de conteúdo
+**Landing page (`src/pages/LandingPage.tsx`)**
+- Header: ícone passa de `h-8 w-8` para `h-10 w-10`; texto "Posiciona" passa de `text-lg` para `text-xl`; altura do header ajustada de `h-14` para `h-16` para acomodar.
+- Badge do hero: ícone passa de `h-5 w-5` para `h-6 w-6`; badge ganha um pouco mais de padding vertical.
 
-### Arquivos afetados
-- `src/pages/LandingPage.tsx` — inserir nova `<section>` entre as linhas 580 e 583. Nenhum outro arquivo precisa ser modificado.
+**App (`src/components/DashboardLayout.tsx`)**
+- Logo do header mobile e da sidebar passa de `h-5 w-5` para `h-7 w-7`.
+- Texto "Posiciona" (quando presente ao lado da logo) sobe um degrau (`text-base` → `text-lg`, ou equivalente conforme uso atual).
 
-### Pergunta antes de implementar
-Você prefere a **opção 1** (manter os 3 depoimentos na íntegra, cards de alturas levemente diferentes) ou prefere que eu **encurte** o da Mariana para os 3 ficarem visualmente equilibrados?
+### 2. Legibilidade no desktop
+
+**Landing page**
+- Navegação do header: `text-sm` → `md:text-base`.
+- Parágrafo do hero: já `md:text-lg`, manter; revisar parágrafos secundários (features, depoimentos, FAQ) que estão em `text-sm` para `md:text-base`.
+- Microcopy de cards (features, "veja na prática", planos): subir `text-xs` para `text-sm` no desktop quando for texto descritivo (não label/etiqueta).
+
+**Dashboard / áreas do app**
+- Descrições de cards e textos auxiliares em `text-xs` no desktop sobem para `text-sm` (mantendo `text-xs` em chips, badges e labels de status, que são intencionalmente menores).
+- Navegação lateral mantém hierarquia, mas labels passam para tamanho confortável no desktop.
+
+**Limites**
+- Não alterar fontes dentro do **editor de posts** (toolbar, painéis de inspetor) — esse contexto exige UI compacta.
+- Não alterar tamanhos dentro de **PDFs/relatórios exportados** (`ReportPdfDocument.tsx`) para preservar layout impresso.
+- Não tocar em badges, chips, tags e contadores — devem permanecer pequenos por design.
+
+---
+
+## Arquivos a editar
+
+- `src/pages/LandingPage.tsx` — logo, marca, navegação, microcopy de seções.
+- `src/components/DashboardLayout.tsx` — logo e marca no app.
+- `src/pages/Dashboard.tsx` — descrições e textos auxiliares.
+- `src/pages/EditorialPage.tsx` — descrições dos cards de semana (sem tocar no editor).
+- `src/pages/Report.tsx` — textos de apoio na visualização web (não no PDF).
+
+## Fora de escopo
+
+- Editor de posts e seus painéis.
+- Componentes de PDF.
+- Badges, chips, contadores numéricos.
+- Mudanças em mobile (mantém como está; só cresce em `md:`+).
+
+## Pergunta antes de implementar
+
+Você prefere:
+- **(A) Ajuste conservador** — aumento sutil só na logo/marca e em parágrafos de leitura corrida. Mantém densidade atual em listas e cards.
+- **(B) Ajuste mais amplo** — além do conservador, sobe também microcopy de cards, navegação e descrições secundárias para `text-sm`/`text-base` no desktop.
+
+Vou aguardar sua escolha (A ou B) antes de implementar.
