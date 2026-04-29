@@ -204,13 +204,13 @@ export const DashboardLayout = ({ children, wide = false }: { children: React.Re
                 to={item.href}
                 onClick={() => setMobileOpen(false)}
                 className={cn(
-                  "flex items-center gap-2.5 px-3 py-2 min-h-[40px] rounded-lg text-[13px] font-medium transition-colors",
+                  "flex items-center gap-2.5 px-3 py-2 min-h-[40px] rounded-lg text-sm lg:text-[15px] font-medium transition-colors",
                   active
                     ? "bg-primary text-primary-foreground"
                     : "text-muted-foreground hover:bg-card hover:text-foreground"
                 )}
               >
-                <item.icon className="h-4 w-4 flex-shrink-0" />
+                <item.icon className="h-[18px] w-[18px] flex-shrink-0" />
                 {item.label}
               </Link>
             );
