@@ -570,8 +570,8 @@ const LandingPage = () => {
                   <div className="w-10 h-10 rounded-lg bg-landing-bg-secondary flex items-center justify-center">
                     <item.icon className={`h-5 w-5 ${item.color}`} />
                   </div>
-                  <h3 className="font-semibold text-sm">{item.title}</h3>
-                  <p className="text-xs text-landing-text-secondary leading-relaxed">{item.desc}</p>
+                  <h3 className="font-semibold text-sm md:text-base">{item.title}</h3>
+                  <p className="text-xs md:text-sm text-landing-text-secondary leading-relaxed">{item.desc}</p>
                 </div>
               );
             })}
