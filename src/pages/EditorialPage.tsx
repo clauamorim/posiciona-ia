@@ -831,28 +831,28 @@ const EditorialPage = () => {
                             </div>
                             {feed ? (
                               <>
-                                <h3 className="text-sm font-semibold leading-tight">{cleanText(feed.theme || "")}</h3>
+                                <h3 className="text-base lg:text-lg font-semibold leading-tight">{cleanText(feed.theme || "")}</h3>
                                 {feed.caption && (
                                   <div>
                                     <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Legenda</p>
-                                    <p className="text-xs text-foreground/70 leading-relaxed line-clamp-3">{cleanText(feed.caption)}</p>
+                                    <p className="text-sm lg:text-[15px] text-foreground/80 leading-relaxed line-clamp-3">{cleanText(feed.caption)}</p>
                                   </div>
                                 )}
                                 {feed.cta && (
                                   <div>
                                     <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-0.5">CTA</p>
-                                    <p className="text-xs font-medium text-primary">{cleanText(feed.cta)}</p>
+                                    <p className="text-sm lg:text-[15px] font-medium text-primary">{cleanText(feed.cta)}</p>
                                   </div>
                                 )}
                                 {feed.card_copy && feed.card_copy.length > 0 && (
                                   <Collapsible>
-                                    <CollapsibleTrigger className="flex items-center gap-1 text-[11px] font-medium text-primary hover:underline">
+                                    <CollapsibleTrigger className="flex items-center gap-1 text-xs font-medium text-primary hover:underline">
                                       <ChevronDown className="h-3 w-3" /> Ver slides
                                     </CollapsibleTrigger>
                                     <CollapsibleContent>
                                       <div className="mt-2 space-y-1.5 p-3 rounded-lg bg-muted/30 border">
                                         {feed.card_copy.map((copy: string, idx: number) => (
-                                          <p key={idx} className="text-xs text-foreground/70 leading-relaxed">{cleanText(copy)}</p>
+                                          <p key={idx} className="text-sm lg:text-[15px] text-foreground/80 leading-relaxed">{cleanText(copy)}</p>
                                         ))}
                                       </div>
                                     </CollapsibleContent>
@@ -860,11 +860,11 @@ const EditorialPage = () => {
                                 )}
                                 {feed.script && feed.format === "reels" && (
                                   <Collapsible>
-                                    <CollapsibleTrigger className="flex items-center gap-1 text-[11px] font-medium text-primary hover:underline">
+                                    <CollapsibleTrigger className="flex items-center gap-1 text-xs font-medium text-primary hover:underline">
                                       <ChevronDown className="h-3 w-3" /> Ver roteiro
                                     </CollapsibleTrigger>
                                     <CollapsibleContent>
-                                      <div className="mt-2 p-3 rounded-lg bg-muted/30 border text-xs leading-relaxed whitespace-pre-wrap">
+                                      <div className="mt-2 p-3 rounded-lg bg-muted/30 border text-sm lg:text-[15px] leading-relaxed whitespace-pre-wrap">
                                         {feed.script}
                                       </div>
                                     </CollapsibleContent>
