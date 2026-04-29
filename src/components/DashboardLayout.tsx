@@ -143,11 +143,11 @@ export const DashboardLayout = ({ children, wide = false }: { children: React.Re
       )}>
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-primary/15 flex items-center justify-center">
-              <img src={posicionaLogo} alt="Posiciona" className="h-5 w-5" />
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-primary/15 flex items-center justify-center">
+              <img src={posicionaLogo} alt="Posiciona" className="h-7 w-7" />
             </div>
-            <span className="text-base font-display font-semibold tracking-tight">Posiciona</span>
+            <span className="text-xl font-display font-semibold tracking-tight">Posiciona</span>
           </div>
           <button
             onClick={() => setMobileOpen(false)}
