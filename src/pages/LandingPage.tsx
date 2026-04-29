@@ -345,13 +345,13 @@ const LandingPage = () => {
     <div className="min-h-screen bg-landing-bg text-landing-text">
       {/* ── HEADER ── */}
       <header className="sticky top-0 z-50 border-b border-landing-border/60 bg-landing-bg/90 backdrop-blur-md">
-        <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-            <img src={posicionaLogo} alt="Posiciona" className="h-8 w-8" />
-            <span className="text-lg font-semibold tracking-tight">Posiciona</span>
+        <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
+          <Link to="/" className="flex items-center gap-2.5 hover:opacity-80 transition-opacity">
+            <img src={posicionaLogo} alt="Posiciona" className="h-10 w-10" />
+            <span className="text-xl md:text-2xl font-semibold tracking-tight">Posiciona</span>
           </Link>
 
-          <nav className="hidden md:flex items-center gap-6 text-sm text-landing-text-secondary">
+          <nav className="hidden md:flex items-center gap-6 text-sm md:text-base text-landing-text-secondary">
             <button onClick={() => scrollTo("como-funciona")} className="hover:text-landing-text transition-colors">Como funciona</button>
             <button onClick={() => scrollTo("resultados")} className="hover:text-landing-text transition-colors">Resultados</button>
             <button onClick={() => scrollTo("planos")} className="hover:text-landing-text transition-colors">Planos</button>
