@@ -345,13 +345,13 @@ const LandingPage = () => {
     <div className="min-h-screen bg-landing-bg text-landing-text">
       {/* ── HEADER ── */}
       <header className="sticky top-0 z-50 border-b border-landing-border/60 bg-landing-bg/90 backdrop-blur-md">
-        <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-            <img src={posicionaLogo} alt="Posiciona" className="h-8 w-8" />
-            <span className="text-lg font-semibold tracking-tight">Posiciona</span>
+        <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
+          <Link to="/" className="flex items-center gap-2.5 hover:opacity-80 transition-opacity">
+            <img src={posicionaLogo} alt="Posiciona" className="h-10 w-10" />
+            <span className="text-xl md:text-2xl font-semibold tracking-tight">Posiciona</span>
           </Link>
 
-          <nav className="hidden md:flex items-center gap-6 text-sm text-landing-text-secondary">
+          <nav className="hidden md:flex items-center gap-6 text-sm md:text-base text-landing-text-secondary">
             <button onClick={() => scrollTo("como-funciona")} className="hover:text-landing-text transition-colors">Como funciona</button>
             <button onClick={() => scrollTo("resultados")} className="hover:text-landing-text transition-colors">Resultados</button>
             <button onClick={() => scrollTo("planos")} className="hover:text-landing-text transition-colors">Planos</button>
@@ -399,8 +399,8 @@ const LandingPage = () => {
       {/* ── HERO ── */}
       <section className="pt-12 pb-16 md:pt-20 md:pb-24 px-4">
         <div className="max-w-3xl mx-auto text-center space-y-6">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-landing-border bg-landing-bg-secondary/50 text-xs text-landing-text-secondary">
-            <img src={posicionaLogo} alt="Posiciona" className="h-5 w-5" />
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-landing-border bg-landing-bg-secondary/50 text-xs md:text-sm text-landing-text-secondary">
+            <img src={posicionaLogo} alt="Posiciona" className="h-6 w-6" />
             Posicionamento estratégico com IA para profissionais que vendem expertise
           </div>
 
@@ -496,8 +496,8 @@ const LandingPage = () => {
                     <s.icon className="h-4 w-4 text-landing-purple" />
                   </div>
                 </div>
-                <h3 className="text-base font-semibold">{s.title}</h3>
-                <p className="text-sm text-landing-text-secondary leading-relaxed">{s.desc}</p>
+                <h3 className="text-base md:text-lg font-semibold">{s.title}</h3>
+                <p className="text-sm md:text-base text-landing-text-secondary leading-relaxed">{s.desc}</p>
               </div>
             ))}
           </div>
@@ -529,8 +529,8 @@ const LandingPage = () => {
                   <b.icon className="h-4 w-4 text-landing-purple" />
                 </div>
                 <div>
-                  <p className="font-semibold text-sm">{b.title}</p>
-                  <p className="text-xs text-landing-text-secondary mt-1 leading-relaxed">{b.desc}</p>
+                  <p className="font-semibold text-sm md:text-base">{b.title}</p>
+                  <p className="text-xs md:text-sm text-landing-text-secondary mt-1 leading-relaxed">{b.desc}</p>
                 </div>
               </div>
             ))}
@@ -570,8 +570,8 @@ const LandingPage = () => {
                   <div className="w-10 h-10 rounded-lg bg-landing-bg-secondary flex items-center justify-center">
                     <item.icon className={`h-5 w-5 ${item.color}`} />
                   </div>
-                  <h3 className="font-semibold text-sm">{item.title}</h3>
-                  <p className="text-xs text-landing-text-secondary leading-relaxed">{item.desc}</p>
+                  <h3 className="font-semibold text-sm md:text-base">{item.title}</h3>
+                  <p className="text-xs md:text-sm text-landing-text-secondary leading-relaxed">{item.desc}</p>
                 </div>
               );
             })}
@@ -621,14 +621,14 @@ const LandingPage = () => {
                 >
                   &ldquo;
                 </span>
-                <blockquote className="text-sm leading-relaxed text-landing-text/90">
+                <blockquote className="text-sm md:text-base leading-relaxed text-landing-text/90">
                   {t.quote}
                 </blockquote>
                 <div className="mt-5 pt-5 border-t border-landing-border/30 flex items-center gap-3">
                   <span className="block w-8 h-px bg-landing-gold/50" aria-hidden="true" />
                   <figcaption className="space-y-0.5">
-                    <p className="text-sm font-semibold text-landing-text">{t.name}</p>
-                    <p className="text-xs text-landing-text-secondary">{t.role}</p>
+                    <p className="text-sm md:text-base font-semibold text-landing-text">{t.name}</p>
+                    <p className="text-xs md:text-sm text-landing-text-secondary">{t.role}</p>
                   </figcaption>
                 </div>
               </figure>
@@ -665,24 +665,24 @@ const LandingPage = () => {
                   </span>
                 )}
                 <div className="space-y-3 mb-5">
-                  <h3 className="text-base font-semibold">{p.name}</h3>
+                  <h3 className="text-base md:text-lg font-semibold">{p.name}</h3>
                   <div className="flex items-baseline gap-1">
                     <span className="text-xs text-landing-text-secondary">R$</span>
                     <span className="text-3xl font-bold">{p.price}</span>
                     <span className="text-xs text-landing-text-secondary">{p.period}</span>
                   </div>
-                  <p className="text-xs text-landing-text-secondary leading-relaxed">{p.description}</p>
+                  <p className="text-xs md:text-sm text-landing-text-secondary leading-relaxed">{p.description}</p>
                 </div>
 
                 <ul className="space-y-2 flex-1 mb-6">
                   {p.features.map((f, i) => (
-                    <li key={i} className="flex items-start gap-2 text-xs">
-                      <Check className="h-3.5 w-3.5 text-landing-purple flex-shrink-0 mt-0.5" />
+                    <li key={i} className="flex items-start gap-2 text-xs md:text-sm">
+                      <Check className="h-3.5 w-3.5 md:h-4 md:w-4 text-landing-purple flex-shrink-0 mt-0.5" />
                       <span className="text-landing-text/80">{f}</span>
                     </li>
                   ))}
                   {p.notIncluded.map((f, i) => (
-                    <li key={i} className="flex items-start gap-2 text-xs text-landing-text-secondary/50">
+                    <li key={i} className="flex items-start gap-2 text-xs md:text-sm text-landing-text-secondary/50">
                       <span className="w-3.5 text-center flex-shrink-0">—</span>
                       <span>{f}</span>
                     </li>
@@ -720,10 +720,10 @@ const LandingPage = () => {
           <Accordion type="single" collapsible className="w-full space-y-2">
             {faqItems.map((item, i) => (
               <AccordionItem key={i} value={`faq-${i}`} className="border border-landing-border/40 rounded-lg px-4 bg-landing-bg-secondary/20">
-                <AccordionTrigger className="text-left text-sm font-medium text-landing-text hover:no-underline py-4">
+                <AccordionTrigger className="text-left text-base md:text-lg font-medium text-landing-text hover:no-underline py-4">
                   {item.q}
                 </AccordionTrigger>
-                <AccordionContent className="text-sm text-landing-text-secondary pb-4 leading-relaxed">
+                <AccordionContent className="text-sm md:text-base text-landing-text-secondary pb-4 leading-relaxed">
                   {item.a}
                 </AccordionContent>
               </AccordionItem>

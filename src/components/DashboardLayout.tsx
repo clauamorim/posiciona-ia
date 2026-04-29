@@ -143,11 +143,11 @@ export const DashboardLayout = ({ children, wide = false }: { children: React.Re
       )}>
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-primary/15 flex items-center justify-center">
-              <img src={posicionaLogo} alt="Posiciona" className="h-5 w-5" />
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-primary/15 flex items-center justify-center">
+              <img src={posicionaLogo} alt="Posiciona" className="h-7 w-7" />
             </div>
-            <span className="text-base font-display font-semibold tracking-tight">Posiciona</span>
+            <span className="text-xl font-display font-semibold tracking-tight">Posiciona</span>
           </div>
           <button
             onClick={() => setMobileOpen(false)}
@@ -175,7 +175,7 @@ export const DashboardLayout = ({ children, wide = false }: { children: React.Re
                       to={item.href}
                       onClick={() => setMobileOpen(false)}
                       className={cn(
-                        "flex items-center gap-2.5 px-3 py-2 min-h-[40px] rounded-lg text-[13px] font-medium transition-all duration-150",
+                        "flex items-center gap-2.5 px-3 py-2 min-h-[40px] rounded-lg text-sm lg:text-[15px] font-medium transition-all duration-150",
                         active
                           ? "bg-primary text-primary-foreground"
                           : item.status === "blocked"
@@ -183,7 +183,7 @@ export const DashboardLayout = ({ children, wide = false }: { children: React.Re
                             : "text-muted-foreground hover:bg-card hover:text-foreground"
                       )}
                     >
-                      <item.icon className="h-4 w-4 flex-shrink-0" />
+                      <item.icon className="h-[18px] w-[18px] flex-shrink-0" />
                       <span className="flex-1 truncate">{item.label}</span>
                       {!active && statusDot(item.status)}
                     </Link>
@@ -204,28 +204,28 @@ export const DashboardLayout = ({ children, wide = false }: { children: React.Re
                 to={item.href}
                 onClick={() => setMobileOpen(false)}
                 className={cn(
-                  "flex items-center gap-2.5 px-3 py-2 min-h-[40px] rounded-lg text-[13px] font-medium transition-colors",
+                  "flex items-center gap-2.5 px-3 py-2 min-h-[40px] rounded-lg text-sm lg:text-[15px] font-medium transition-colors",
                   active
                     ? "bg-primary text-primary-foreground"
                     : "text-muted-foreground hover:bg-card hover:text-foreground"
                 )}
               >
-                <item.icon className="h-4 w-4 flex-shrink-0" />
+                <item.icon className="h-[18px] w-[18px] flex-shrink-0" />
                 {item.label}
               </Link>
             );
           })}
           {!isAdmin && (
-            <div className="flex items-center gap-3 px-3 pt-2 text-[11px] text-muted-foreground/50">
+            <div className="flex items-center gap-3 px-3 pt-2 text-xs text-muted-foreground/60">
               <Link to="/termos-de-servico" className="hover:text-muted-foreground transition-colors">Termos</Link>
               <Link to="/politica-de-privacidade" className="hover:text-muted-foreground transition-colors">Privacidade</Link>
             </div>
           )}
           <div className="pt-2 pb-1 px-3">
-            <p className="text-[11px] text-muted-foreground/50 truncate mb-2">{user?.email}</p>
+            <p className="text-xs text-muted-foreground/60 truncate mb-2">{user?.email}</p>
             <button
               onClick={signOut}
-              className="flex items-center gap-2 text-[13px] text-muted-foreground/60 hover:text-foreground transition-colors w-full py-1.5 min-h-[40px]"
+              className="flex items-center gap-2 text-sm text-muted-foreground/70 hover:text-foreground transition-colors w-full py-1.5 min-h-[40px]"
             >
               <LogOut className="h-4 w-4" /> Sair
             </button>
@@ -251,8 +251,8 @@ export const DashboardLayout = ({ children, wide = false }: { children: React.Re
             <Menu className="h-5 w-5 text-muted-foreground" />
           </button>
           <div className="flex items-center gap-2 ml-2">
-            <img src={posicionaLogo} alt="Posiciona" className="h-5 w-5" />
-            <span className="text-sm font-display font-semibold tracking-tight">Posiciona</span>
+            <img src={posicionaLogo} alt="Posiciona" className="h-7 w-7" />
+            <span className="text-base font-display font-semibold tracking-tight">Posiciona</span>
           </div>
         </header>
         <div className={cn("flex-1 px-4 py-5 lg:px-8 lg:py-8 mx-auto w-full pb-[calc(1.5rem+env(safe-area-inset-bottom))]", wide ? "max-w-[1400px]" : "max-w-4xl")}>
