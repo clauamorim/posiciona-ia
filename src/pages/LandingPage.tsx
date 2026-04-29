@@ -621,14 +621,14 @@ const LandingPage = () => {
                 >
                   &ldquo;
                 </span>
-                <blockquote className="text-sm leading-relaxed text-landing-text/90">
+                <blockquote className="text-sm md:text-base leading-relaxed text-landing-text/90">
                   {t.quote}
                 </blockquote>
                 <div className="mt-5 pt-5 border-t border-landing-border/30 flex items-center gap-3">
                   <span className="block w-8 h-px bg-landing-gold/50" aria-hidden="true" />
                   <figcaption className="space-y-0.5">
-                    <p className="text-sm font-semibold text-landing-text">{t.name}</p>
-                    <p className="text-xs text-landing-text-secondary">{t.role}</p>
+                    <p className="text-sm md:text-base font-semibold text-landing-text">{t.name}</p>
+                    <p className="text-xs md:text-sm text-landing-text-secondary">{t.role}</p>
                   </figcaption>
                 </div>
               </figure>
