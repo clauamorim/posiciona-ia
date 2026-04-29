@@ -579,6 +579,64 @@ const LandingPage = () => {
         </div>
       </section>
 
+      {/* ── DEPOIMENTOS ── */}
+      <section id="depoimentos" className="py-12 md:py-16 px-4 bg-landing-bg">
+        <div className="max-w-6xl mx-auto space-y-10">
+          <div className="text-center space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-widest text-landing-gold">Quem já usou</p>
+            <h2 className="text-2xl md:text-3xl font-display font-semibold leading-tight">
+              Resultados que falam por si —{" "}
+              <span className="italic text-landing-gold">em palavras de quem confiou no processo.</span>
+            </h2>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-5 items-start">
+            {[
+              {
+                quote:
+                  "Fui afortunada com o sistema Posiciona.ia.br e ele trouxe muita clareza para o meu posicionamento. O relatório de nicho e arquétipo direciona bem, e o plano de conteúdo facilita a execução com qualidade. É uma ferramenta essencial para quem busca consistência e um processo contínuo na comunicação profissional.",
+                name: "Girlaydy Costa",
+                role: "Fotógrafa",
+              },
+              {
+                quote:
+                  "Estou gostando muito do Posiciona. Achei demais a funcionalidade dos arquétipos, e a elaboração do calendário editorial está me ajudando muito a manter a constância na produção de conteúdo. Por fim, a geração de retratos foi um diferencial que me auxiliou a ter novas fotos profissionais para utilizar nas minhas publicações.",
+                name: "Júnior Sales",
+                role: "Gestor de tráfego",
+              },
+              {
+                quote:
+                  "Eu trabalho com estratégia de conteúdo para profissionais, então sou extremamente criteriosa com tudo que envolve esse tema. Usei a ferramenta Posiciona e o que mais me chamou atenção foi a objetividade e clareza na construção do posicionamento. Ela organiza toda a comunicação, direciona ajustes práticos que impactam diretamente na forma como o profissional é percebido no mercado de forma muito completa. Para quem precisa comunicar valor e sair do genérico, é uma ferramenta que acelera muito esse processo. Hoje, recomendo com segurança, principalmente para profissionais que querem ser vistos com mais autoridade e intenção no digital.",
+                name: "Mariana Bertoldo",
+                role: "Estrategista de conteúdo",
+              },
+            ].map((t) => (
+              <figure
+                key={t.name}
+                className="relative flex flex-col rounded-xl border border-landing-border/40 bg-landing-bg-secondary/30 p-6 pt-8"
+              >
+                <span
+                  aria-hidden="true"
+                  className="absolute top-2 left-5 font-display text-6xl leading-none text-landing-gold/30 select-none"
+                >
+                  &ldquo;
+                </span>
+                <blockquote className="text-sm leading-relaxed text-landing-text/90">
+                  {t.quote}
+                </blockquote>
+                <div className="mt-5 pt-5 border-t border-landing-border/30 flex items-center gap-3">
+                  <span className="block w-8 h-px bg-landing-gold/50" aria-hidden="true" />
+                  <figcaption className="space-y-0.5">
+                    <p className="text-sm font-semibold text-landing-text">{t.name}</p>
+                    <p className="text-xs text-landing-text-secondary">{t.role}</p>
+                  </figcaption>
+                </div>
+              </figure>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* ── PLANOS ── */}
       <section id="planos" className="py-12 md:py-16 px-4 bg-landing-bg-secondary/40">
         <div className="max-w-5xl mx-auto space-y-10">
