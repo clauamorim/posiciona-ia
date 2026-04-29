@@ -665,24 +665,24 @@ const LandingPage = () => {
                   </span>
                 )}
                 <div className="space-y-3 mb-5">
-                  <h3 className="text-base font-semibold">{p.name}</h3>
+                  <h3 className="text-base md:text-lg font-semibold">{p.name}</h3>
                   <div className="flex items-baseline gap-1">
                     <span className="text-xs text-landing-text-secondary">R$</span>
                     <span className="text-3xl font-bold">{p.price}</span>
                     <span className="text-xs text-landing-text-secondary">{p.period}</span>
                   </div>
-                  <p className="text-xs text-landing-text-secondary leading-relaxed">{p.description}</p>
+                  <p className="text-xs md:text-sm text-landing-text-secondary leading-relaxed">{p.description}</p>
                 </div>
 
                 <ul className="space-y-2 flex-1 mb-6">
                   {p.features.map((f, i) => (
-                    <li key={i} className="flex items-start gap-2 text-xs">
-                      <Check className="h-3.5 w-3.5 text-landing-purple flex-shrink-0 mt-0.5" />
+                    <li key={i} className="flex items-start gap-2 text-xs md:text-sm">
+                      <Check className="h-3.5 w-3.5 md:h-4 md:w-4 text-landing-purple flex-shrink-0 mt-0.5" />
                       <span className="text-landing-text/80">{f}</span>
                     </li>
                   ))}
                   {p.notIncluded.map((f, i) => (
-                    <li key={i} className="flex items-start gap-2 text-xs text-landing-text-secondary/50">
+                    <li key={i} className="flex items-start gap-2 text-xs md:text-sm text-landing-text-secondary/50">
                       <span className="w-3.5 text-center flex-shrink-0">—</span>
                       <span>{f}</span>
                     </li>
