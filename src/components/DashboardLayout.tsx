@@ -216,16 +216,16 @@ export const DashboardLayout = ({ children, wide = false }: { children: React.Re
             );
           })}
           {!isAdmin && (
-            <div className="flex items-center gap-3 px-3 pt-2 text-[11px] text-muted-foreground/50">
+            <div className="flex items-center gap-3 px-3 pt-2 text-xs text-muted-foreground/60">
               <Link to="/termos-de-servico" className="hover:text-muted-foreground transition-colors">Termos</Link>
               <Link to="/politica-de-privacidade" className="hover:text-muted-foreground transition-colors">Privacidade</Link>
             </div>
           )}
           <div className="pt-2 pb-1 px-3">
-            <p className="text-[11px] text-muted-foreground/50 truncate mb-2">{user?.email}</p>
+            <p className="text-xs text-muted-foreground/60 truncate mb-2">{user?.email}</p>
             <button
               onClick={signOut}
-              className="flex items-center gap-2 text-[13px] text-muted-foreground/60 hover:text-foreground transition-colors w-full py-1.5 min-h-[40px]"
+              className="flex items-center gap-2 text-sm text-muted-foreground/70 hover:text-foreground transition-colors w-full py-1.5 min-h-[40px]"
             >
               <LogOut className="h-4 w-4" /> Sair
             </button>
