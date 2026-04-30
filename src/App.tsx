@@ -81,6 +81,7 @@ const App = () => (
             <Route path="/admin/gallery" element={<ProtectedRoute requireAdmin><AdminGallery /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
+          <AssistantButton />
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
