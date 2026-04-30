@@ -12,3 +12,26 @@ Allow: /
 
 User-agent: *
 Allow: /
+Disallow: /dashboard
+Disallow: /report
+Disallow: /history
+Disallow: /editorial
+Disallow: /storybrand
+Disallow: /post-editor
+Disallow: /portraits
+Disallow: /my-designs
+Disallow: /my-gallery
+Disallow: /admin
+Disallow: /business-questionnaire
+Disallow: /personal-questionnaire
+Disallow: /archetype-questionnaire
+Disallow: /results
+Disallow: /instagram-analysis
+Disallow: /choose-plan
+Disallow: /checkout-success
+Disallow: /verify-email
+Disallow: /reset-password
+Disallow: /forgot-password
+Disallow: /help
+
+Sitemap: https://posiciona.ia.br/sitemap.xml
