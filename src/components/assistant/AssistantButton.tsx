@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
-import { Sparkles } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { AssistantPanel } from "./AssistantPanel";
 import { getRouteLabel } from "@/lib/assistantJourney";
 import { cn } from "@/lib/utils";
+import posicionaLogo from "@/assets/posiciona-logo.png";
 
 const HIDDEN_ROUTES = ["/", "/login", "/signup", "/verify-email", "/forgot-password", "/reset-password", "/sobre", "/termos-de-servico", "/politica-de-privacidade", "/checkout-success"];
 const HINT_DISMISS_KEY = "posiciona.assistant.hint.dismissed";
@@ -58,7 +58,7 @@ export function AssistantButton() {
           onClick={handleOpen}
           aria-label="Abrir assistente"
           className={cn(
-            "relative h-13 w-13 rounded-full bg-primary text-primary-foreground shadow-xl",
+            "relative rounded-full bg-card border border-border shadow-xl overflow-hidden",
             "flex items-center justify-center hover:scale-105 transition-transform",
             "h-12 w-12 sm:h-14 sm:w-14"
           )}
@@ -66,7 +66,11 @@ export function AssistantButton() {
           {showHint && (
             <span className="absolute inset-0 rounded-full bg-primary/40 animate-ping" />
           )}
-          <Sparkles className="h-5 w-5 sm:h-6 sm:w-6 relative z-10" />
+          <img
+            src={posicionaLogo}
+            alt="Posiciona"
+            className="h-7 w-7 sm:h-8 sm:w-8 object-contain relative z-10"
+          />
         </button>
       </div>
 
