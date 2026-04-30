@@ -36,6 +36,7 @@ import NotFound from "./pages/NotFound";
 import SobrePage from "./pages/SobrePage";
 import TermosDeServico from "./pages/TermosDeServico";
 import PoliticaDePrivacidade from "./pages/PoliticaDePrivacidade";
+import { AssistantButton } from "./components/assistant/AssistantButton";
 
 const queryClient = new QueryClient();
 
