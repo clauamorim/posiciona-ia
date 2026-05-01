@@ -19,7 +19,7 @@ export type ArchetypeName =
 // "retrato editorial real". Combinado com o LoRA de realismo de pele empilhado
 // (Canopus-Face-Realism), elimina o look airbrushed sem perder nitidez.
 const QUALITY_SUFFIX =
-  "natural editorial portrait, real human skin texture, fine pores and natural facial lines, soft realistic skin not glossy, natural makeup no beauty retouching, true-to-life face texture, photographed not rendered, sharp focus on eyes, crisp eyelashes, defined facial bone structure, preserved facial proportions";
+  "natural editorial portrait, unretouched skin, visible skin pores, fine facial hair peach fuzz, subtle skin imperfections, natural skin shine only on T-zone, real human skin texture, fine pores and natural facial lines, matte realistic skin not glossy, natural makeup no beauty retouching, true-to-life face texture, photographed not rendered, sharp focus on eyes, crisp eyelashes, defined facial bone structure, preserved facial proportions, raw unedited photograph, kodak portra film grain";
 // Negative ampliado: bloqueia vocabulário de pele artificial E distorção de proporções
 // faciais (rosto largo, queixo curto, morphing). Termos redundantes em inglês reforçam o sinal.
 const STUDIO_NEGATIVE_BASE =
