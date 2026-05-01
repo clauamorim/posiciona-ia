@@ -1151,6 +1151,7 @@ const PostEditorPage = () => {
     if (typography.display) setDisplayFont(typography.display);
     if (typography.body) setBodyFont(typography.body);
     setUploadedImages([]);
+    setSlideTextBoxes({});
     // Clear all draft keys including image refs
     const keysToRemove = [DRAFT_KEY];
     for (let i = 0; i < sessionStorage.length; i++) {
