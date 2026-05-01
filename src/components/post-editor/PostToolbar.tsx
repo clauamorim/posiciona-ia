@@ -257,19 +257,21 @@ const PostToolbar: React.FC<PostToolbarProps> = (props) => {
             <Undo2 className="h-3.5 w-3.5" /> Desfazer
           </Button>
         )}
-        {props.onSaveDesign && (
-          <Button variant="outline" size="sm" className="gap-2 w-full h-8 text-xs" onClick={props.onSaveDesign} disabled={props.saving}>
-            <Save className="h-3.5 w-3.5" /> {props.saving ? "Salvando…" : "Salvar design"}
+        <div className="flex gap-1.5">
+          {props.onSaveDesign && (
+            <Button variant="outline" size="sm" className="gap-2 flex-1 h-9 text-xs" onClick={props.onSaveDesign} disabled={props.saving}>
+              <Save className="h-3.5 w-3.5" /> {props.saving ? "Salvando…" : "Salvar design"}
+            </Button>
+          )}
+          <Button onClick={props.onDownload} className="gap-2 flex-1 h-9 text-xs">
+            <Download className="h-3.5 w-3.5" /> Baixar PNG
           </Button>
-        )}
+        </div>
         {props.onSaveAsTemplate && (
           <Button variant="outline" size="sm" className="gap-2 w-full h-8 text-xs" onClick={props.onSaveAsTemplate} disabled={props.saving}>
             <BookmarkPlus className="h-3.5 w-3.5" /> Salvar como modelo
           </Button>
         )}
-        <Button onClick={props.onDownload} className="gap-2 w-full h-9 text-xs">
-          <Download className="h-3.5 w-3.5" /> Baixar PNG
-        </Button>
       </div>
     </div>
   );
