@@ -360,9 +360,6 @@ async function generateWithAI(
   const messageBlock = mainMessage
     ? `\nMain message of the post (translate the FEELING, not the text — image must NOT contain any words): "${mainMessage}".`
     : "";
-  const styleBlock = aiStyleDirective && aiStyleDirective.trim()
-    ? `\nStyle direction: ${aiStyleDirective.trim()}.`
-    : "";
   const hasStyle = !!(aiStyleDirective && aiStyleDirective.trim());
 
   // Quando o usuário escolhe um estilo, ele DOMINA a estética (substitui os
