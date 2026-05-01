@@ -752,7 +752,7 @@ export function buildGeminiPortraitPrompt(params: GeminiPromptParams): {
   );
 
   sceneParts.push(
-    `AVOID at all costs: plastic skin, doll-like appearance, waxy texture, oversaturated colors, render look, CGI, cartoon, anime, illustration, beauty filter, Instagram filter, skin smoothing, blurred skin, perfect symmetry, idealized features, age regression, younger-looking face, generic AI face.`,
+    `AVOID at all costs: morphed face, averaged face, generic AI face, beautified face, idealized features, perfectly symmetrical face, different person, lookalike, instagram-model face, face that does not match the references, age regression, younger-looking face; plastic skin, doll-like appearance, waxy texture, skin smoothing, blurred skin, beauty filter, Instagram filter, oversaturated colors, render look, CGI, cartoon, anime, illustration; helmet hair, wig-like hair, plastic hair, painted hair, blocky hair, smooth uniform hair, lacquered hair, doll hair, missing flyaway hairs, fake hairline.`,
   );
 
   const prompt = sceneParts.join(" ");
