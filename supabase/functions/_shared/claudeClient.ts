@@ -193,8 +193,28 @@ async function callClaudeOnce({
   if (!response.ok) {
     const errText = await response.text().catch(() => "");
     let userMessage: string | undefined;
+    let retryAfterMs: number | undefined;
     if (response.status === 429) {
-      userMessage = "Muitas solicitações ao mesmo tempo. Aguarde um pouco e tente novamente.";
+      userMessage = "O serviço de IA está com muita demanda agora. Aguarde cerca de 1 minuto e tente novamente — seu crédito não foi consumido.";
+      // Anthropic envia retry-after em segundos. Também há
+      // anthropic-ratelimit-*-reset (ISO timestamp) para janelas específicas.
+      const ra = response.headers.get("retry-after");
+      if (ra) {
+        const seconds = Number(ra);
+        if (Number.isFinite(seconds) && seconds > 0) {
+          retryAfterMs = Math.round(seconds * 1000);
+        }
+      }
+      if (retryAfterMs === undefined) {
+        const reset = response.headers.get("anthropic-ratelimit-input-tokens-reset")
+          || response.headers.get("anthropic-ratelimit-requests-reset");
+        if (reset) {
+          const t = Date.parse(reset);
+          if (Number.isFinite(t)) {
+            retryAfterMs = Math.max(0, t - Date.now());
+          }
+        }
+      }
     } else if (response.status === 402 || response.status === 401) {
       userMessage = "A geração está temporariamente indisponível. Tente novamente em alguns minutos.";
     } else if (response.status >= 500) {
@@ -204,7 +224,8 @@ async function callClaudeOnce({
     throw new ClaudeError(
       `Claude API error: ${response.status} - ${errText.substring(0, 200)}`,
       response.status,
-      userMessage
+      userMessage,
+      retryAfterMs,
     );
   }
 
