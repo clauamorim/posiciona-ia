@@ -1,57 +1,36 @@
-## Três correções nos retratos
+## Plano para corrigir o histórico de retratos
 
-### 1. Microcopy — remover "Nano Banana Pro"
+### Diagnóstico
+- As gerações existem no banco e têm 3 retratos salvos em `portrait_generations`.
+- Os arquivos também existem no bucket privado `portrait-outputs`.
+- O problema provável está na resolução das URLs assinadas no front: o histórico tenta gerar signed URLs diretamente pelo cliente. Como os objetos foram gravados pela função de backend, aparecem com `owner_id` nulo no storage; isso pode fazer a política de acesso do storage bloquear a geração/uso das URLs no navegador.
 
-Em `src/pages/PortraitGenerator.tsx`:
-- **Linha 438** (durante geração): *"Gerando seu(s) N retrato(s) com Nano Banana Pro. Leva cerca de 1 minuto — não feche esta aba."* → *"Gerando seu(s) N retrato(s). Leva cerca de 1 minuto — não feche esta aba."*
-- **Linha 530** (antes de gerar): *"Vamos gerar N retrato(s) usando Nano Banana Pro com as suas referências..."* → *"Vamos gerar N retrato(s) a partir das suas referências..."*
+### Correção proposta
+1. **Criar uma função de backend para listar retratos do histórico**
+   - Nova função `portrait-history`.
+   - Ela valida o usuário logado.
+   - Busca `portrait_generations` do próprio usuário.
+   - Extrai retratos nos dois formatos:
+     - legado: string/base64/path
+     - novo: objeto com `storage_path` e metadados
+   - Gera signed URLs com credencial de backend, evitando falha por política de storage.
 
-### 2. Histórico não mostra retratos novos
+2. **Atualizar `HistoryPage.tsx`**
+   - Trocar a leitura direta de `portrait_generations` + `resolvePortraitUrls` por chamada à função `portrait-history`.
+   - Manter relatórios e análises como estão.
+   - Renderizar os retratos retornados já com URL válida.
+   - Se a função falhar, mostrar o estado vazio sem quebrar a página.
 
-**Causa raiz**: o novo `generate-portrait` salva `portraits` como array de **objetos** `{ storage_path, url, background, outfit, pose }`, mas `HistoryPage.tsx` (linha 60) ainda filtra apenas strings:
-```ts
-const imgs: string[] = Array.isArray(row.portraits) 
-  ? row.portraits.filter((p: any) => typeof p === "string") : [];
-```
-Por isso as gerações novas são descartadas e somem do histórico.
+3. **Atualizar também o editor de posts**
+   - O editor (`PostEditorPage.tsx`) tem o mesmo padrão antigo: só pega strings e ignora objetos novos.
+   - Reutilizar `portrait-history` ali para que os retratos gerados também apareçam no seletor de imagens do editor.
 
-**Correção** em `src/pages/HistoryPage.tsx` (linhas 56–67): aceitar ambos os formatos.
-```ts
-for (const item of row.portraits ?? []) {
-  if (typeof item === "string") {
-    legacyStrings.push(item);                     // legado: string
-  } else if (item?.url) {
-    flat.push({ url: item.url, ... });            // novo: já tem signed URL fresca? não — regerar
-  } else if (item?.storage_path) {
-    pathsToResolve.push(item.storage_path);       // novo: gera signedUrl on-demand
-  }
-}
-```
-Como as signed URLs salvas no banco expiram em 7 dias, sempre regerar via `resolvePortraitUrl(storage_path)` para o histórico — garante que continua funcionando depois de semanas.
-
-### 3. Resultado parece artificial — refinar prompt do Nano Banana Pro
-
-Em `supabase/functions/_shared/portraitPrompts.ts`, função `buildGeminiPortraitPrompt`:
-
-**Adicionar/reforçar**:
-- *"PHOTOGRAPHIC REALISM ONLY — this must look like a real photograph captured by a professional camera (Canon R5, 85mm f/1.4). Absolutely NOT 3D render, NOT CGI, NOT digital painting, NOT AI-stylized."*
-- *"Skin: visible pores, fine lines, micro-tonal variations, natural asymmetry. Preserve every freckle, mole, mark, scar, and skin imperfection visible in the reference photos. Do NOT smooth, do NOT airbrush, do NOT beautify."*
-- *"Facial geometry: copy EXACTLY from references — same nose shape and width, same eye shape and spacing, same jawline, same lip shape, same forehead proportions. Do NOT idealize features."*
-- *"Age preservation: match exact apparent age in references — preserve eye creases, neck texture, expression lines. Do NOT regress age, do NOT make younger."*
-- *"Lighting: soft natural studio lighting (large softbox, key + subtle fill), gentle falloff, realistic shadow density on neck and under jaw."*
-- *"Negative prompt: plastic skin, doll-like, waxy texture, oversaturated, render look, cartoon, anime, illustration, beauty filter, Instagram filter, smoothing, blurred skin, perfect symmetry."*
-
-Manter o IDENTITY LOCK existente, apenas reforçando esses pontos.
-
-### Arquivos alterados
-
-- `src/pages/PortraitGenerator.tsx` — duas trocas de string.
-- `src/pages/HistoryPage.tsx` — corrige parser de `portraits` (suporta string legado + objeto novo).
-- `supabase/functions/_shared/portraitPrompts.ts` — prompt mais detalhado para fotorrealismo e fidelidade às referências.
+4. **Ajuste complementar de estabilidade**
+   - Criar um pequeno normalizador compartilhado no front, se necessário, para evitar duplicar parsing.
+   - Preservar downloads e preview como estão.
 
 ### O que não muda
-
-- Schema do banco (já tem `engine`, `portraits` é JSONB flexível).
-- Edge function `generate-portrait` (a estrutura salva continua correta).
-- Modelo (continua Nano Banana Pro com fallback Nano Banana 2).
-- Sem custos extras — só refinamento de prompt e correção de leitura no front.
+- Não altera schema do banco.
+- Não apaga nem migra retratos existentes.
+- Não mexe na geração dos retratos nem nos créditos.
+- Não expõe bucket publicamente; continua privado.

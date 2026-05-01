@@ -255,22 +255,14 @@ const PostEditorPage = () => {
           setBusinessContext(ctx);
         }
       });
-    supabase
-      .from("portrait_generations")
-      .select("portraits")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(12)
-      .then(async ({ data }) => {
-        if (!data) return;
-        const { resolvePortraitUrls } = await import("@/lib/portraitUrl");
-        const allRaw: string[] = [];
-        data.forEach((row: any) => {
-          const p = row.portraits;
-          if (Array.isArray(p)) p.forEach((u: any) => { if (typeof u === "string") allRaw.push(u); });
-        });
-        const resolved = await resolvePortraitUrls(allRaw);
-        setUserPortraits(resolved.filter(Boolean));
+    supabase.functions
+      .invoke("portrait-history", { method: "GET" })
+      .then(({ data }) => {
+        const items: any[] = (data as any)?.portraits ?? [];
+        const urls = items
+          .map((p) => (p && typeof p.url === "string" ? p.url : ""))
+          .filter(Boolean);
+        setUserPortraits(urls);
       });
   }, [user]);
 

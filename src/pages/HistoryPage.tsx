@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { resolvePortraitUrls, downloadAsBlob } from "@/lib/portraitUrl";
+import { downloadAsBlob } from "@/lib/portraitUrl";
 import { History, FileText, Instagram, Camera, Download, Eye, ArrowRight, CheckCircle2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
@@ -41,37 +41,17 @@ const HistoryPage = () => {
     const [reportsRes, analysesRes, portraitsRes] = await Promise.all([
       supabase.from("reports").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
       supabase.from("instagram_analyses").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
-      // Limit 12 + select explícito: evita carregar payloads enormes de gerações legadas (data URLs base64).
-      supabase
-        .from("portrait_generations")
-        .select("id, created_at, portraits")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(12),
+      // Histórico de retratos resolvido no backend para gerar signed URLs com service role.
+      supabase.functions.invoke("portrait-history", { method: "GET" }),
     ]);
     setProgress(60);
     setReports(reportsRes.data || []);
     setAnalyses(analysesRes.data || []);
 
-    // Resolve URLs (legado: string base64/path; novo: objeto com storage_path).
-    const portraitRows = portraitsRes.data || [];
-    const flat: { url: string; createdAt: string; parentId: string }[] = [];
-    for (const row of portraitRows) {
-      const items: any[] = Array.isArray(row.portraits) ? row.portraits : [];
-      // Normaliza: extrai string (legado) ou storage_path (novo formato Gemini).
-      const refs: string[] = items
-        .map((p) => {
-          if (typeof p === "string") return p;
-          if (p && typeof p === "object") return p.storage_path || p.url || "";
-          return "";
-        })
-        .filter(Boolean);
-      if (refs.length === 0) continue;
-      const resolved = await resolvePortraitUrls(refs);
-      for (const url of resolved) {
-        if (url) flat.push({ url, createdAt: row.created_at, parentId: row.id });
-      }
-    }
+    const portraitItems: any[] = (portraitsRes as any)?.data?.portraits ?? [];
+    const flat = portraitItems
+      .filter((p) => p && typeof p.url === "string" && p.url)
+      .map((p) => ({ url: p.url as string, createdAt: p.created_at as string, parentId: p.parent_id as string }));
     setFlatPortraits(flat);
     setProgress(100);
     setTimeout(() => setLoading(false), 300);
