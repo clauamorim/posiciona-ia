@@ -152,12 +152,12 @@ export const DashboardLayout = ({ children, wide = false }: { children: React.Re
       )}>
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-          <div className="flex items-center gap-3">
+          <Link to="/" onClick={() => setMobileOpen(false)} className="flex items-center gap-3 hover:opacity-80 transition-opacity">
             <div className="w-10 h-10 rounded-lg bg-primary/15 flex items-center justify-center">
               <img src={posicionaLogo} alt="Posiciona" className="h-7 w-7" />
             </div>
             <span className="text-xl font-display font-semibold tracking-tight">Posiciona</span>
-          </div>
+          </Link>
           <button
             onClick={() => setMobileOpen(false)}
             className="p-2 -mr-2 lg:hidden min-h-[44px] min-w-[44px] flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
@@ -238,10 +238,10 @@ export const DashboardLayout = ({ children, wide = false }: { children: React.Re
           <button onClick={() => setMobileOpen(true)} className="p-2 -ml-2 min-h-[44px] min-w-[44px] flex items-center justify-center">
             <Menu className="h-5 w-5 text-muted-foreground" />
           </button>
-          <div className="flex items-center gap-2 ml-2">
+          <Link to="/" className="flex items-center gap-2 ml-2 hover:opacity-80 transition-opacity">
             <img src={posicionaLogo} alt="Posiciona" className="h-7 w-7" />
             <span className="text-base font-display font-semibold tracking-tight">Posiciona</span>
-          </div>
+          </Link>
         </header>
         <div className={cn("flex-1 px-4 py-5 lg:px-8 lg:py-8 mx-auto w-full pb-[calc(1.5rem+env(safe-area-inset-bottom))]", wide ? "max-w-[1400px]" : "max-w-4xl")}>
           {children}
