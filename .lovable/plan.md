@@ -1,41 +1,49 @@
-## Objetivo
+# Refinamento do Pipeline de Retratos
 
-Eliminar distorções faciais (olhos assimétricos, rosto inflado, pescoço inexistente) que apareceram no retrato escuro-14, mantendo a nitidez tipo Gemini conquistada na rodada anterior.
-
-## Diagnóstico
-
-O retrato problemático foi gerado com guidance 3.6 + LoRA cliente 1.05 — combinação no limite superior do FLUX-dev, propensa a colapsar em assimetria facial. Os outros dois looks (guidance 2.8 e 3.2) ficaram bons. Solução: descer ambos os tetos um degrau e reforçar o negative.
+Aplicar ajustes pontuais nos prompts e parâmetros de inferência para reforçar realismo de pele, reduzir distorções faciais e tratar corretamente cabelos grisalhos. Nenhum outro fluxo, componente ou estilo visual será modificado.
 
 ## Mudanças
 
-### 1. `supabase/functions/generate-portrait/index.ts`
+### 1. `supabase/functions/_shared/portraitPrompts.ts`
 
-| Constante | Atual | Novo |
-|---|---|---|
-| `GUIDANCE_VARIATIONS` | `[2.8, 3.2, 3.6]` | `[2.6, 3.0, 3.4]` |
-| `pickLoraScale` ≤12 | `0.95` | `0.90` |
-| `pickLoraScale` 13–20 | `1.00` | `0.95` |
-| `pickLoraScale` >20 | `1.05` | `1.00` |
+**a) Substituir `QUALITY_SUFFIX` (linha 21-22)** pelo novo bloco fornecido, que adiciona descritores de microrelevo de pele, translucência, subsurface scattering e troca o grain de "kodak portra" por "fujifilm pro 400h" + "photographic skin grain".
 
-`FACE_REALISM_SCALE` (0.25), `NUM_INFERENCE_STEPS` (35) permanecem.
+**b) Substituir `STUDIO_NEGATIVE_BASE` (linha 25-26)** pelo novo bloco, que adiciona bloqueios para tom de pele alaranjado/amarelado, "warm skin cast", borrões dérmicos e efeito de "frequency separation".
 
-### 2. `supabase/functions/_shared/portraitPrompts.ts`
+### 2. `supabase/functions/generate-portrait/index.ts`
 
-Adicionar ao `STUDIO_NEGATIVE_BASE`:
-```
-, asymmetric eyes, uneven eyes, crooked eyes, tilted eye line, asymmetric eyebrows, no neck, missing neck, distorted facial proportions, inflated cheeks, wide jaw
-```
+**a) Parâmetros globais:**
+- `NUM_INFERENCE_STEPS`: 35 → **40**
+- `FACE_REALISM_SCALE`: 0.40 → **0.30**
+- `GUIDANCE_VARIATIONS`: `[2.6, 3.0, 3.4]` → **`[2.6, 3.0, 3.1]`**
 
-### 3. `.lovable/memory/funcionalidades/retratos-marca.md`
+**b) Função `pickLoraScale` (escalas do LoRA da cliente):**
+- ≤ 12 selfies: 0.90 → **0.82**
+- 13–20 selfies: 0.95 → **0.88**
+- > 20 selfies: 1.00 → **0.95**
 
-Atualizar valores documentados (escalas LoRA, guidance) e a justificativa (descida feita após distorção em guidance 3.6 + LoRA 1.05).
+**c) Tratamento condicional para cabelo grisalho:**
 
-## Validação
+O campo no banco é `physical_traits.hair_color` (não existe `hair_descriptor`). A detecção será feita lendo `(training as any).physical_traits?.hair_color` e fazendo match case-insensitive contra `gray`, `grey`, `silver` ou `white`.
 
-Após deploy, gerar nova rodada de 3 retratos e conferir:
-- Eixo horizontal dos olhos alinhado em todos os looks.
-- Sobrancelhas com densidade equivalente.
-- Transição visível entre queixo e gola (pescoço não "engolido").
-- Nitidez de pele/olhos preservada (não voltar ao "lavado").
+Quando positivo, antes da chamada de `buildPortraitPrompt`, calcular sufixos:
+- Positivo a anexar: `, natural salt-and-pepper highlights, not fully gray`
+- Negativo a anexar: `, fully gray hair, white hair, elderly appearance`
 
-Se a nitidez cair perceptivelmente, próximo passo é subir steps para 40 (sem mexer em guidance).
+Esses sufixos serão concatenados ao `built.prompt` e `built.negative` retornados pelo builder, antes de enviar ao `callFluxLora`. Isso evita alterar a assinatura de `buildPortraitPrompt` e mantém o tratamento isolado em `generate-portrait/index.ts`, conforme pedido.
+
+### 3. Deploy e validação
+
+- Deploy da edge function `generate-portrait`.
+- Solicitar ao usuário que rode 1 geração (3 retratos) para validação visual antes de liberar para usuários finais.
+
+## Não será alterado
+
+- Pool de figurinos, poses, lógica de arquétipos/famílias.
+- Modelo (`flux-dev-multi-lora`), versão, LoRA de realismo (apenas a escala muda).
+- Nenhum componente de UI, rota, fluxo de créditos ou layout.
+- `portraitPrompts.ts` só recebe a substituição das duas constantes — nenhuma função é tocada.
+
+## Observação técnica
+
+O usuário descreveu o campo como `hair_descriptor`, mas o schema real do treino (`portrait-train/index.ts`) usa `hair_color` dentro de `physical_traits`. Vou usar `hair_color` para fazer o match — semanticamente equivalente ao que foi pedido.

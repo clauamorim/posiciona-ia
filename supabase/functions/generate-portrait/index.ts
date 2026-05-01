@@ -25,14 +25,14 @@ const FACE_REALISM_LORA = "prithivMLmods/Canopus-LoRA-Flux-FaceRealism";
 // Subimos de 0.25 → 0.40: com client LoRA em 0.90–1.00, 0.25 era abafado e a
 // pele voltava a ficar plástica/airbrushed. 0.40 reintroduz poros e textura
 // real sem competir com a identidade facial (testado seguro até ~0.45).
-const FACE_REALISM_SCALE = 0.40;
+const FACE_REALISM_SCALE = 0.30;
 const GENERATE_COST_CREDITS = 3;
 // Guidance um degrau abaixo do teto anterior: 3.6 + LoRA 1.05 colapsava em
 // assimetria facial (olhos tortos, rosto inflado). Faixa atual mantém nitidez
-// sem o risco. 2.6 (documental) / 3.0 (equilibrado) / 3.4 (editorial).
-const GUIDANCE_VARIATIONS = [2.6, 3.0, 3.4];
+// sem o risco. 2.6 (documental) / 3.0 (equilibrado) / 3.1 (editorial leve).
+const GUIDANCE_VARIATIONS = [2.6, 3.0, 3.1];
 // Mais steps = mais detalhe fino (poros, cílios, brilho dos olhos).
-const NUM_INFERENCE_STEPS = 35;
+const NUM_INFERENCE_STEPS = 40;
 const PORTRAIT_BUCKET = "portrait-outputs";
 // Referência (logs apenas). FLUX LoRA usa aspect_ratio + megapixels — width/height
 // no input são ignorados silenciosamente e o modelo cai pra 1024x1024.
@@ -46,9 +46,9 @@ const PORTRAIT_HEIGHT = 1152;
  * proporções faciais.
  */
 function pickLoraScale(selfiesCount: number): number {
-  if (selfiesCount <= 12) return 0.90;
-  if (selfiesCount <= 20) return 0.95;
-  return 1.00;
+  if (selfiesCount <= 12) return 0.82;
+  if (selfiesCount <= 20) return 0.88;
+  return 0.95;
 }
 
 /** Fisher–Yates shuffle não destrutivo. */
@@ -380,6 +380,17 @@ serve(async (req) => {
     // Geração sequencial — Replicate low-credit accounts (<$5) tem rate limit 6/min.
     const INTER_CALL_DELAY_MS = 11000;
     const RETRY_DELAY_MS = 30000;
+
+    // Tratamento condicional para cabelos grisalhos: o LoRA tende a envelhecer
+    // demais a cliente quando ela tem fios brancos no dataset. Reforçamos
+    // "salt-and-pepper" no positivo e bloqueamos "fully gray/white" no negativo.
+    const hairColorRaw = String(((training as any).physical_traits?.hair_color ?? "")).toLowerCase();
+    const isGrayHair = /\b(gray|grey|silver|white)\b/.test(hairColorRaw);
+    const grayPositiveSuffix = isGrayHair ? ", natural salt-and-pepper highlights, not fully gray" : "";
+    const grayNegativeSuffix = isGrayHair ? ", fully gray hair, white hair, elderly appearance" : "";
+    if (isGrayHair) {
+      console.log(`[generate-portrait] gray-hair handling enabled (hair_color="${hairColorRaw}")`);
+    }
     const results: { background: string; portraitUrl: string | null; error?: string; pose?: string; outfit?: string }[] = [];
     for (let i = 0; i < requestedCount; i++) {
       if (i > 0) await new Promise((r) => setTimeout(r, INTER_CALL_DELAY_MS));
@@ -399,10 +410,14 @@ serve(async (req) => {
         handPose,
       });
 
+      // Aplica sufixos condicionais (cabelo grisalho).
+      const finalPrompt = built.prompt + grayPositiveSuffix;
+      const finalNegative = built.negative + grayNegativeSuffix;
+
       // MODO MANUAL PURO: prompt mínimo (~12 tokens), lora_scale moderado (0.68-0.75),
       // guidance baixo (2.0/2.4/2.8), steps reduzidos (28). Tudo afinado pra
       // priorizar textura natural de pele em vez de polimento.
-      const promptTokens = built.prompt.split(",").length;
+      const promptTokens = finalPrompt.split(",").length;
       console.log(
         `[generate-portrait] call ${i + 1}/${requestedCount} background=${built.backgroundKey} archetype=${archetypeName} ` +
         `trigger="${training.trigger_word}" trainingId=${training.id} ` +
@@ -411,13 +426,13 @@ serve(async (req) => {
         `selfiesCount=${selfiesCount} hasTraits=${!!(training as any).physical_traits} ` +
         `promptTokens=${promptTokens} outfitMeta=${JSON.stringify(outfitsMeta[i] ?? null)}`,
       );
-      console.log(`[generate-portrait] PROMPT[${i}]: ${built.prompt}`);
-      console.log(`[generate-portrait] NEGATIVE[${i}]: ${built.negative}`);
+      console.log(`[generate-portrait] PROMPT[${i}]: ${finalPrompt}`);
+      console.log(`[generate-portrait] NEGATIVE[${i}]: ${finalNegative}`);
       let r = await callFluxLora({
         token: REPLICATE_API_TOKEN,
         loraVersion: training.lora_weights_url,
-        prompt: built.prompt,
-        negative: built.negative,
+        prompt: finalPrompt,
+        negative: finalNegative,
         guidanceScale,
         loraScale,
       });
@@ -428,8 +443,8 @@ serve(async (req) => {
         r = await callFluxLora({
           token: REPLICATE_API_TOKEN,
           loraVersion: training.lora_weights_url,
-          prompt: built.prompt,
-          negative: built.negative,
+          prompt: finalPrompt,
+          negative: finalNegative,
           guidanceScale,
           loraScale,
         });
