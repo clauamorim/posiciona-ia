@@ -53,7 +53,7 @@ serve(async (req) => {
 
     const { data: rows, error } = await supabaseAdmin
       .from("portrait_generations")
-      .select("id, created_at, portraits")
+      .select("id, created_at, portraits, kept_indices")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .limit(limit);
@@ -69,6 +69,7 @@ serve(async (req) => {
       url: string;
       created_at: string;
       parent_id: string;
+      parent_index: number;
       background?: string | null;
       outfit?: string | null;
       pose?: string | null;
@@ -78,18 +79,29 @@ serve(async (req) => {
 
     for (const row of rows ?? []) {
       const items: any[] = Array.isArray(row.portraits) ? row.portraits : [];
-      for (const item of items) {
+      const keptRaw = (row as any).kept_indices;
+      const allIndices = items.map((_, i) => i);
+      const kept: number[] = Array.isArray(keptRaw)
+        ? keptRaw.filter((i: any) => Number.isInteger(i))
+        : allIndices;
+      // Geração inteira oculta
+      if (kept.length === 0) continue;
+      const keptSet = new Set(kept);
+
+      for (let idx = 0; idx < items.length; idx++) {
+        if (!keptSet.has(idx)) continue;
+        const item = items[idx];
         // Legado: string
         if (typeof item === "string") {
           if (!item) continue;
           if (item.startsWith("data:") || item.startsWith("http")) {
-            flat.push({ url: item, created_at: row.created_at, parent_id: row.id });
+            flat.push({ url: item, created_at: row.created_at, parent_id: row.id, parent_index: idx });
           } else {
             const { data: signed } = await supabaseAdmin.storage
               .from(PORTRAIT_BUCKET)
               .createSignedUrl(item, SIGNED_URL_TTL);
             if (signed?.signedUrl) {
-              flat.push({ url: signed.signedUrl, created_at: row.created_at, parent_id: row.id });
+              flat.push({ url: signed.signedUrl, created_at: row.created_at, parent_id: row.id, parent_index: idx });
             }
           }
           continue;
@@ -106,6 +118,7 @@ serve(async (req) => {
                 url: signed.signedUrl,
                 created_at: row.created_at,
                 parent_id: row.id,
+                parent_index: idx,
                 background: item.background ?? null,
                 outfit: item.outfit ?? null,
                 pose: item.pose ?? null,
@@ -119,6 +132,7 @@ serve(async (req) => {
               url: item.url,
               created_at: row.created_at,
               parent_id: row.id,
+              parent_index: idx,
               background: item.background ?? null,
               outfit: item.outfit ?? null,
               pose: item.pose ?? null,

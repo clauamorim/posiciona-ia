@@ -8,7 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
-import { Upload, X, Download, Loader2, ImageIcon, ShoppingCart, Camera, Maximize2, Sparkles } from "lucide-react";
+import { Upload, X, Download, Loader2, ImageIcon, ShoppingCart, Camera, Maximize2, Sparkles, Trash2 } from "lucide-react";
 import JSZip from "jszip";
 import { compressImage } from "@/lib/imageUtils";
 import { PortraitPreviewDialog } from "@/components/PortraitPreviewDialog";
@@ -57,6 +57,9 @@ const PortraitGenerator = () => {
   const [confirmGenerateOpen, setConfirmGenerateOpen] = useState(false);
   const [portraits, setPortraits] = useState<string[]>([]);
   const [backgrounds, setBackgrounds] = useState<string[]>([]);
+  const [originalIndices, setOriginalIndices] = useState<number[]>([]);
+  const [generationId, setGenerationId] = useState<string | null>(null);
+  const [discardingIndex, setDiscardingIndex] = useState<number | null>(null);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
 
   const totalCredits = (balances?.portrait_credits_included ?? 0) + (balances?.portrait_credits_extra ?? 0);
@@ -211,6 +214,8 @@ const PortraitGenerator = () => {
     setGenerating(true);
     setPortraits([]);
     setBackgrounds([]);
+    setOriginalIndices([]);
+    setGenerationId(null);
 
     try {
       const { data, error } = await supabase.functions.invoke("generate-portrait", {
@@ -231,6 +236,8 @@ const PortraitGenerator = () => {
 
       setPortraits(generated.map((g) => g.url));
       setBackgrounds(generated.map((g) => g.background));
+      setOriginalIndices(generated.map((_, i) => i));
+      setGenerationId(data?.generation_id ?? null);
       await refreshSubscription();
 
       toast({
@@ -276,6 +283,39 @@ const PortraitGenerator = () => {
       URL.revokeObjectURL(link.href);
     } catch (e: any) {
       toast({ title: "Erro ao baixar ZIP", description: e?.message, variant: "destructive" });
+    }
+  };
+
+  const handleDiscard = async (index: number) => {
+    const removeLocal = () => {
+      setPortraits((prev) => prev.filter((_, i) => i !== index));
+      setBackgrounds((prev) => prev.filter((_, i) => i !== index));
+      setOriginalIndices((prev) => prev.filter((_, i) => i !== index));
+      if (previewIndex !== null) setPreviewIndex(null);
+    };
+    if (!generationId) {
+      removeLocal();
+      return;
+    }
+    if (!confirm("Descartar este retrato do histórico? Essa ação não pode ser desfeita.")) return;
+    const originalIdx = originalIndices[index];
+    if (originalIdx === undefined) {
+      removeLocal();
+      return;
+    }
+    setDiscardingIndex(index);
+    try {
+      const { data, error } = await supabase.functions.invoke("portrait-discard", {
+        body: { generation_id: generationId, index: originalIdx },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      removeLocal();
+      toast({ title: "Retrato removido do histórico" });
+    } catch (e: any) {
+      toast({ title: "Erro ao descartar", description: e?.message, variant: "destructive" });
+    } finally {
+      setDiscardingIndex(null);
     }
   };
 
@@ -505,10 +545,26 @@ const PortraitGenerator = () => {
                             <Badge variant="secondary" className="capitalize text-xs">{backgrounds[i] ?? `look ${i + 1}`}</Badge>
                           </div>
                         </button>
-                        <Button variant="outline" size="sm" className="w-full" onClick={() => downloadPortrait(portrait, i)}>
-                          <Download className="h-4 w-4 mr-1" />
-                          Baixar
-                        </Button>
+                        <div className="grid grid-cols-2 gap-2">
+                          <Button variant="outline" size="sm" onClick={() => downloadPortrait(portrait, i)}>
+                            <Download className="h-4 w-4 mr-1" />
+                            Baixar
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDiscard(i)}
+                            disabled={discardingIndex === i}
+                            className="text-muted-foreground hover:text-destructive"
+                          >
+                            {discardingIndex === i ? (
+                              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-4 w-4 mr-1" />
+                            )}
+                            Descartar
+                          </Button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -546,7 +602,7 @@ const PortraitGenerator = () => {
         index={previewIndex ?? 0}
         onIndexChange={(i) => setPreviewIndex(i)}
         onDownload={(url, i) => downloadPortrait(url, i)}
-        downloadHint="Salvo no histórico · Download gratuito"
+        downloadHint="Salvo no histórico · Você pode descartar a qualquer momento"
         downloadLabel="Baixar"
       />
     </DashboardLayout>

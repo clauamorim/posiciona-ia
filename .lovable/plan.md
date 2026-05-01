@@ -1,49 +1,83 @@
-## Diagnóstico (corrigido após nova análise)
+## Diagnóstico
 
-Confirmações:
+### Fundos com elementos de cenário
+Os prompts dos arquétipos (em `_shared/portraitPrompts.ts`, `ARCHETYPE_PROMPTS`) descrevem fundos variados que **não são fundo de estúdio**:
+- Criador: **"weathered artistic background"** ← cenário
+- Herói: **"dark stone background"** ← cenário (pedra)
+- Explorador: **"earthy textured background"** ← cenário/exterior
+- Amante: **"deep warm terracotta background"**
+- Rebelde: **"raw industrial background"** ← cenário industrial
+- Bobo-da-corte: **"warm colorful background"**
+- demais: "dark background", "warm beige background", "mysterious dark background", etc.
 
-1. **PDFs**: Já foram removidos — o job `process-content-generation-job` **não envia mais PDFs em base64** ao Claude. Só os princípios narrativos por texto inline.
-2. **Tendências de mercado**: Ativas. Chama `fetch-market-trends` antes do prompt e injeta um bloco em feed e stories.
-3. **Regras éticas advogado/médico**: **Funcionando.** Tinha errado na resposta anterior; `detectProfession` + `getEthicalRulesBlock` são chamados nas linhas 347-348 e injetados nos system prompts do feed (linha 372) e stories (linha 500). Cobre advogados, ramos do direito, médicos e várias especialidades.
+Daí o Gemini interpreta "industrial", "stone", "weathered", "artistic" como autorização para encher o fundo de paredes de tijolo, equipamentos, móveis, plantas etc.
 
-### Causa real do 429 ("Muitas solicitações ao mesmo tempo")
+A variação `BACKGROUND_VARIATIONS` (Neutro/Claro/Escuro) também usa termos vagos ("warm light background", "dark moody background") — não é estúdio.
 
-O `claudeClient.ts` já tem backoff (2s → 5s → 10s) para 429/5xx, **mas** as duas chamadas no job passam `disableRetries: true` (linhas 392 e 517). Resultado: na primeira resposta 429 da Anthropic, o job estoura imediatamente sem tentar de novo. Os 25-30s que o job leva para falhar são só tempo de prompt + resposta, não retries.
+### Histórico
+Investigado: `generate-portrait` salva em `portrait_generations.portraits` **exatamente os mesmos retratos retornados à tela** — não há retratos "extras" gerados ocultamente. O que acontece é que cada clique em "Gerar" cria uma nova linha, e o histórico empilha tudo, inclusive gerações antigas com alucinações. Hoje não existe forma de a usuária descartar um retrato ruim do histórico.
 
-A flag foi colocada provavelmente para evitar custo duplicado em truncamento (`max_tokens`), mas 429 não consome tokens — o retry é seguro nesse caso.
+## Mudanças propostas
 
-## Mudanças
+### 1. Substituir TODOS os fundos por "paper backdrop" de estúdio em paleta neutra
 
-### 1. `supabase/functions/_shared/claudeClient.ts`
+Em `supabase/functions/_shared/portraitPrompts.ts`:
 
-- Tornar a granularidade do retry mais inteligente: criar opção `disableRetriesOn` (default: nada) e manter `disableRetries` só como atalho. Ou, mais simples e suficiente: **sempre permitir retry em 429** mesmo quando `disableRetries: true` — porque 429 é retorno antes do consumo de tokens e é exatamente o caso em que retry é seguro e desejado.
-- Quando 429, ler o header `retry-after` (segundos) ou `anthropic-ratelimit-input-tokens-reset` se presente, e usar como delay (clamp 5s..60s). Senão, usar tabela de fallback `[3000, 8000, 20000, 40000]`.
-- Ajustar `userMessage` do 429 para: `"O serviço de IA está com muita demanda agora. Aguarde cerca de 1 minuto e tente novamente — seu crédito não foi consumido."`.
+**Restrição cromática (regra universal):** APENAS tons de **cinza** (claro, médio, grafite, carvão), **marrom** (taupe, café, mocha, sépia) e **preto**. Sem terracota, sem mostarda, sem rosa, sem verde, sem azul, sem creme/marfim quente, sem qualquer cor saturada.
 
-### 2. `supabase/functions/process-content-generation-job/index.ts`
+**a)** Reescrever `ARCHETYPE_PROMPTS` para que o fundo seja sempre **seamless paper studio backdrop**, variando apenas dentro da paleta neutra:
+- Governante: `"deep charcoal seamless paper studio backdrop with subtle paper texture"`
+- Sábio: `"dark grey seamless paper studio backdrop with subtle paper texture"`
+- Cuidador: `"warm taupe seamless paper studio backdrop with subtle paper texture"`
+- Criador: `"sepia brown seamless paper studio backdrop with subtle paper texture"`
+- Herói: `"black seamless paper studio backdrop with subtle paper texture"`
+- Explorador: `"mocha brown seamless paper studio backdrop with subtle paper texture"`
+- Inocente: `"light grey seamless paper studio backdrop with subtle paper texture"`
+- Cara-comum: `"medium grey seamless paper studio backdrop with subtle paper texture"`
+- Mago: `"deep black seamless paper studio backdrop with subtle paper texture"`
+- Amante: `"warm dark brown seamless paper studio backdrop with subtle paper texture"`
+- Rebelde: `"matte black seamless paper studio backdrop with subtle paper texture"` (sem "industrial")
+- Bobo-da-corte: `"warm grey seamless paper studio backdrop with subtle paper texture"` (sem "colorful")
 
-- Manter `disableRetries: true` (proteção contra cobrança em loop por truncamento), mas confiar na nova lógica do client que **continua tentando em 429** mesmo com `disableRetries`.
-- Adicionar pausa curta (~2s) entre o estágio A (feed) e o estágio B (stories) para reduzir picos no input-TPM da Anthropic.
-- Padronizar o `console.error` de cada estágio falho com o status HTTP, para ficar fácil distinguir 429 de falha de parsing nos logs.
+**b)** Reescrever `BACKGROUND_VARIATIONS`:
+- Neutro: mantém o paper do arquétipo
+- Claro: `"light grey seamless paper studio backdrop with subtle paper texture,"`
+- Escuro: `"deep charcoal seamless paper studio backdrop with subtle paper texture,"`
 
-### 3. `src/pages/EditorialPage.tsx`
+**c)** No `buildGeminiPortraitPrompt`, adicionar bloco **STUDIO BACKDROP LOCK** logo antes do "Scene direction":
+```
+### STUDIO BACKDROP LOCK ###
+Background must be a clean professional photo studio with a seamless paper backdrop only. Subtle paper texture and a soft light gradient are allowed. Color palette is STRICTLY neutral: shades of grey, brown and black only. ABSOLUTELY NO saturated colors, NO terracotta, NO mustard, NO pink, NO green, NO blue, NO cream, NO ivory. ABSOLUTELY NO props, NO furniture, NO brick walls, NO concrete, NO wood panels, NO windows, NO plants, NO bookshelves, NO studio equipment in frame (no softboxes, no light stands, no tripods, no cables, no reflectors), NO outdoor scenery, NO architectural elements, NO patterns, NO text. Just the subject in front of a clean neutral textured paper backdrop.
+```
 
-- Quando o job retornar `failed` com `error_message` começando com "Muitas solicitações" ou "O serviço de IA está com muita demanda", trocar o card vermelho fixo por um card neutro com:
-  - Mensagem clara
-  - Botão "Tentar novamente" (reusa o handler já existente de gerar semana)
-  - Subtítulo: "Seu crédito não foi consumido."
+**d)** Reforçar no bloco "AVOID at all costs":
+`"; colorful background, saturated background, terracotta background, mustard background, pink background, green background, blue background, cream background, ivory background, visible studio equipment, softbox in frame, light stand, tripod, cables, reflector, brick wall, concrete wall, wood panel, bookshelf, furniture, props, plants, window, outdoor scenery, architectural background, busy background, patterned background"`.
+
+### 2. Permitir descartar retratos com alucinação do histórico
+
+Hoje o histórico mostra tudo. Ajuste para a usuária **escolher quais ficam salvos**.
+
+**a)** Migration: adicionar coluna `kept_indices INTEGER[]` em `portrait_generations` (default = todos os índices). Descartar = remover o índice desse array (oculta no histórico; arquivo permanece no storage por enquanto).
+
+**b)** Edge function `portrait-history`: filtrar para retornar só retratos cujo índice está em `kept_indices`. Se vazio, esconder a geração inteira.
+
+**c)** Nova edge function `portrait-discard`: recebe `{ generation_id, index }`, valida ownership, remove o índice de `kept_indices`.
+
+**d)** UI `src/pages/PortraitGenerator.tsx` — na grade "Retratos Gerados" e no `PortraitPreviewDialog`, adicionar botão **"Descartar do histórico"** com confirmação. Após descartar: remove da tela, chama `portrait-discard`, exibe toast "Retrato removido do histórico".
+
+**e)** Página de histórico (`HistoryPage.tsx`): mesmo botão "Descartar" em cada thumbnail.
+
+### 3. Microcopy
+
+Atualizar `"Salvo no histórico · Download gratuito"` em `PortraitPreviewDialog` para `"Salvo no histórico · Você pode descartar a qualquer momento"`.
 
 ## Não muda
 
-- Modelo Claude, prompts, conjunto de frameworks (StoryBrand / Made to Stick / Obviously Awesome)
-- Lógica de detecção de profissão e regras éticas (já está OK)
-- `fetch-market-trends` (já está OK)
-- Devolução de crédito em falha (já funciona — confirmado no banco: usuário ainda tem 3 ciclos)
-- Estrutura assíncrona com `content_generation_jobs` e polling
+- Modelo (Gemini 3 Pro Image), cobrança de créditos, identidade/cabelo/poses/figurino, fluxo de upload de selfies.
+- Retratos já no histórico continuam visíveis até a usuária descartar.
 
 ## Validação
 
-Após o deploy:
-1. Disparar a primeira semana com a conta atual
-2. Conferir nos logs do `process-content-generation-job`: se ocorrer 429, deve aparecer `Claude 429 — retry 1/4 em Xms` e o job deve concluir
-3. Conferir o card de erro no front se o limite persistir, com botão "Tentar novamente" funcionando
+1. Gerar nova série para arquétipos "problema" (Rebelde, Explorador, Criador, Amante) e confirmar fundo paper neutro (cinza/marrom/preto), sem cenário, sem equipamento, sem cor saturada.
+2. Descartar um retrato do histórico e recarregar: o retrato não aparece mais.
+3. Descartar todos de uma geração: a geração some do histórico.

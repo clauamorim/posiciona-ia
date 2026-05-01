@@ -186,54 +186,56 @@ export function getArchetypeFamily(archetype: string): ArchetypeFamily {
 
 // Templates MÍNIMOS por arquétipo. Apenas a essência: expressão + iluminação + fundo.
 // O builder monta: {trigger} {gender}, {essência}, {hair}, {outfit}, {QUALITY_SUFFIX}
+// Fundo SEMPRE estúdio (seamless paper backdrop) em paleta neutra:
+// apenas tons de cinza, marrom e preto. Sem cor saturada, sem cenário.
 export const ARCHETYPE_PROMPTS: Record<ArchetypeName, { prompt: string; negative: string }> = {
   "Governante": {
-    prompt: "authoritative calm expression, hard directional lighting, dark background, no smile",
+    prompt: "authoritative calm expression, hard directional lighting, deep charcoal seamless paper studio backdrop with subtle paper texture, no smile",
     negative: "casual, smiling, soft lighting",
   },
   "Sábio": {
-    prompt: "calm contemplative expression, soft Rembrandt lighting, deep dark background, no smile",
+    prompt: "calm contemplative expression, soft Rembrandt lighting, dark grey seamless paper studio backdrop with subtle paper texture, no smile",
     negative: "casual, wide smile, harsh lighting",
   },
   "Cuidador": {
-    prompt: "gentle approachable expression, soft diffused lighting, warm beige background, slight natural smile",
-    negative: "harsh lighting, dark background, cold expression",
+    prompt: "gentle approachable expression, soft diffused lighting, warm taupe seamless paper studio backdrop with subtle paper texture, slight natural smile",
+    negative: "harsh lighting, cold expression",
   },
   "Criador": {
-    prompt: "expressive authentic expression, dramatic side lighting, weathered artistic background, intense gaze",
+    prompt: "expressive authentic expression, dramatic side lighting, sepia brown seamless paper studio backdrop with subtle paper texture, intense gaze",
     negative: "corporate look, flat lighting, stiff pose",
   },
   "Herói": {
-    prompt: "determined strong expression, high contrast dramatic lighting, dark stone background, intense direct gaze",
+    prompt: "determined strong expression, high contrast dramatic lighting, black seamless paper studio backdrop with subtle paper texture, intense direct gaze",
     negative: "soft lighting, casual relaxed expression",
   },
   "Explorador": {
-    prompt: "free confident expression, natural warm lighting, earthy textured background, subtle smile",
-    negative: "stiff corporate pose, dark moody background",
+    prompt: "free confident expression, natural warm lighting, mocha brown seamless paper studio backdrop with subtle paper texture, subtle smile",
+    negative: "stiff corporate pose",
   },
   "Inocente": {
-    prompt: "genuine warm expression, soft bright lighting, light pale background, natural smile",
-    negative: "serious heavy expression, dark background",
+    prompt: "genuine warm expression, soft bright lighting, light grey seamless paper studio backdrop with subtle paper texture, natural smile",
+    negative: "serious heavy expression",
   },
   "Cara-comum": {
-    prompt: "approachable relatable expression, soft natural lighting, neutral mid-tone background, light smile",
+    prompt: "approachable relatable expression, soft natural lighting, medium grey seamless paper studio backdrop with subtle paper texture, light smile",
     negative: "dramatic lighting, intense expression",
   },
   "Mago": {
-    prompt: "intense magnetic expression, dramatic chiaroscuro lighting, mysterious dark background, no smile",
+    prompt: "intense magnetic expression, dramatic chiaroscuro lighting, deep black seamless paper studio backdrop with subtle paper texture, no smile",
     negative: "flat lighting, casual cheerful expression",
   },
   "Amante": {
-    prompt: "warm sophisticated expression, soft golden hour lighting, deep warm terracotta background, subtle smile",
+    prompt: "warm sophisticated expression, soft golden hour lighting, warm dark brown seamless paper studio backdrop with subtle paper texture, subtle smile",
     negative: "harsh cold lighting, washed out tones",
   },
   "Rebelde": {
-    prompt: "bold unconventional expression, high contrast dramatic lighting, raw industrial background, direct challenging gaze",
+    prompt: "bold unconventional expression, high contrast dramatic lighting, matte black seamless paper studio backdrop with subtle paper texture, direct challenging gaze",
     negative: "corporate look, soft polished lighting",
   },
   "Bobo-da-corte": {
-    prompt: "playful authentic expression, bright dynamic lighting, warm colorful background, natural smile",
-    negative: "serious heavy expression, dark moody background",
+    prompt: "playful authentic expression, bright dynamic lighting, warm grey seamless paper studio backdrop with subtle paper texture, natural smile",
+    negative: "serious heavy expression",
   },
 };
 
@@ -242,9 +244,9 @@ export const ARCHETYPE_PROMPTS: Record<ArchetypeName, { prompt: string; negative
 // Mapeamento de fundo para os 3 looks (Neutro / Claro / Escuro).
 // O regex captura "...background[...],"  — replacement já inclui a vírgula final.
 export const BACKGROUND_VARIATIONS = [
-  { key: "neutro", label: "Neutro", replacement: null }, // mantém o fundo do arquétipo
-  { key: "claro", label: "Claro", replacement: "warm light background, soft warm tones," },
-  { key: "escuro", label: "Escuro", replacement: "dark moody background, deep shadow tones," },
+  { key: "neutro", label: "Neutro", replacement: null }, // mantém o paper backdrop do arquétipo
+  { key: "claro", label: "Claro", replacement: "light grey seamless paper studio backdrop with subtle paper texture," },
+  { key: "escuro", label: "Escuro", replacement: "deep charcoal seamless paper studio backdrop with subtle paper texture," },
 ] as const;
 
 /**
@@ -259,14 +261,11 @@ export const FRAMING_VARIATIONS = [
 ] as const;
 
 // Regex para localizar a frase de fundo nos templates mínimos.
-// Os novos templates terminam com "...background, no smile" OU "...background, intense gaze" etc.
-// Captura desde a palavra-chave de fundo até a primeira vírgula.
-// Exemplos cobertos:
-//   "dark background, no smile"
-//   "deep dark background, no smile"
-//   "warm beige background, slight natural smile"
-//   "earthy textured background, subtle smile"
-const BACKGROUND_REGEX = /[a-z\s-]*background[^,]*,/i;
+// Os novos templates terminam com "...seamless paper studio backdrop with subtle paper texture, no smile" etc.
+// Captura desde a primeira palavra-chave de cor (charcoal/grey/brown/black/etc) ou a expressão "seamless paper studio backdrop"
+// até a primeira vírgula APÓS "paper texture".
+// Estratégia simples: captura "<algo> seamless paper studio backdrop with subtle paper texture," — backdrop sempre termina assim.
+const BACKGROUND_REGEX = /[a-z\s-]*seamless paper studio backdrop with subtle paper texture,/i;
 
 export interface PhysicalTraits {
   gender: "woman" | "man";
@@ -729,6 +728,10 @@ export function buildGeminiPortraitPrompt(params: GeminiPromptParams): {
     `Preserve EXACTLY the hair color, length, density, parting and natural texture (straight, wavy, curly or coily) visible in the references — including any grey strands, roots, or color variation. Do NOT change the haircut, do NOT add volume that isn't there, do NOT straighten or curl beyond what the references show.`,
     `Eyelashes and eyebrows must show individual hairs, not painted shapes.`,
 
+    // ===== STUDIO BACKDROP LOCK — fundo SEMPRE estúdio neutro =====
+    `### STUDIO BACKDROP LOCK ###`,
+    `Background MUST be a clean professional photo studio with a seamless paper backdrop only. Subtle paper texture and a soft light gradient are allowed. Color palette is STRICTLY neutral: shades of grey, brown and black only. ABSOLUTELY NO saturated colors, NO terracotta, NO mustard, NO pink, NO green, NO blue, NO cream, NO ivory, NO yellow, NO red, NO orange. ABSOLUTELY NO props, NO furniture, NO brick walls, NO concrete walls, NO wood panels, NO windows, NO plants, NO bookshelves, NO studio equipment in frame (no softboxes, no light stands, no tripods, no cables, no reflectors, no umbrellas), NO outdoor scenery, NO architectural elements, NO patterns, NO text. Just the subject in front of a clean neutral textured paper backdrop.`,
+
     // ===== SCENE =====
     `Scene direction: ${archetypeEssence}.`,
   ];
@@ -752,7 +755,7 @@ export function buildGeminiPortraitPrompt(params: GeminiPromptParams): {
   );
 
   sceneParts.push(
-    `AVOID at all costs: morphed face, averaged face, generic AI face, beautified face, idealized features, perfectly symmetrical face, different person, lookalike, instagram-model face, face that does not match the references, age regression, younger-looking face; plastic skin, doll-like appearance, waxy texture, skin smoothing, blurred skin, beauty filter, Instagram filter, oversaturated colors, render look, CGI, cartoon, anime, illustration; helmet hair, wig-like hair, plastic hair, painted hair, blocky hair, smooth uniform hair, lacquered hair, doll hair, missing flyaway hairs, fake hairline.`,
+    `AVOID at all costs: morphed face, averaged face, generic AI face, beautified face, idealized features, perfectly symmetrical face, different person, lookalike, instagram-model face, face that does not match the references, age regression, younger-looking face; plastic skin, doll-like appearance, waxy texture, skin smoothing, blurred skin, beauty filter, Instagram filter, oversaturated colors, render look, CGI, cartoon, anime, illustration; helmet hair, wig-like hair, plastic hair, painted hair, blocky hair, smooth uniform hair, lacquered hair, doll hair, missing flyaway hairs, fake hairline; colorful background, saturated background, terracotta background, mustard background, pink background, green background, blue background, cream background, ivory background, yellow background, red background, orange background, visible studio equipment, softbox in frame, light stand, tripod, cables, reflector, umbrella reflector, brick wall, concrete wall, wood panel, bookshelf, furniture, props, plants, window, outdoor scenery, architectural background, busy background, patterned background.`,
   );
 
   const prompt = sceneParts.join(" ");
