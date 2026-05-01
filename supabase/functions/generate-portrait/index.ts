@@ -410,10 +410,14 @@ serve(async (req) => {
         handPose,
       });
 
+      // Aplica sufixos condicionais (cabelo grisalho).
+      const finalPrompt = built.prompt + grayPositiveSuffix;
+      const finalNegative = built.negative + grayNegativeSuffix;
+
       // MODO MANUAL PURO: prompt mínimo (~12 tokens), lora_scale moderado (0.68-0.75),
       // guidance baixo (2.0/2.4/2.8), steps reduzidos (28). Tudo afinado pra
       // priorizar textura natural de pele em vez de polimento.
-      const promptTokens = built.prompt.split(",").length;
+      const promptTokens = finalPrompt.split(",").length;
       console.log(
         `[generate-portrait] call ${i + 1}/${requestedCount} background=${built.backgroundKey} archetype=${archetypeName} ` +
         `trigger="${training.trigger_word}" trainingId=${training.id} ` +
