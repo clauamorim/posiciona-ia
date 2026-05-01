@@ -62,6 +62,9 @@ interface PostCanvasProps {
   };
   /** Chave que dispara reset de posições do canvas (style/format/slide). */
   resetKey?: string;
+  /** Posições controladas das caixas de título/corpo (para persistência por slide). */
+  textBoxes?: TextBox[];
+  onTextBoxesChange?: (boxes: TextBox[]) => void;
   // Legacy compat
   onImageMove?: (id: string, x: number, y: number) => void;
   onImageResize?: (id: string, width: number, height: number) => void;
@@ -76,7 +79,7 @@ const CURSORS: Record<Corner, string> = {
   t: "ns-resize", b: "ns-resize", l: "ew-resize", r: "ew-resize",
 };
 
-interface TextBox {
+export interface TextBox {
   id: string;
   type: "title" | "body";
   x: number;
