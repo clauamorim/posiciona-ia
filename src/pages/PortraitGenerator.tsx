@@ -435,7 +435,7 @@ const PortraitGenerator = () => {
                   <div className="space-y-2">
                     <Progress value={undefined} className="animate-pulse" />
                     <p className="text-xs text-muted-foreground">
-                      Gerando seu{requestedCount > 1 ? "s" : ""} {requestedCount} retrato{requestedCount > 1 ? "s" : ""} com Nano Banana Pro. Leva cerca de 1 minuto — não feche esta aba.
+                      Gerando seu{requestedCount > 1 ? "s" : ""} {requestedCount} retrato{requestedCount > 1 ? "s" : ""}. Leva cerca de 1 minuto — não feche esta aba.
                     </p>
                   </div>
                 )}
