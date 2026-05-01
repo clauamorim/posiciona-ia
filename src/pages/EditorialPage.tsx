@@ -19,6 +19,7 @@ import { cleanText } from "@/lib/textCleanup";
 import { isOutdated, isWeekOutdated, EDITORIAL_GENERATOR_VERSION } from "@/lib/generatorVersion";
 import { normalizeWeekToV6, type WeekV6, type DayV6, type FeedPostV6 } from "@/lib/editorialShape";
 import StyleSelectionModal from "@/components/post-editor/StyleSelectionModal";
+import { MarketTrendsSection } from "@/components/editorial/MarketTrendsSection";
 import type { PostStyle } from "@/lib/postAutoLayout";
 
 // Escape HTML to prevent injection in raw innerHTML strings used for PDF
