@@ -11,81 +11,30 @@ import {
 } from "../_shared/portraitPrompts.ts";
 import { mapProfessionToCategory, pickOutfits, lookupOutfitMeta } from "../_shared/outfitPool.ts";
 
-// Provider: Fal.ai
-// Modelo de inferência: FLUX.1 Krea [dev] com suporte oficial a LoRA.
-// Krea foi treinado por BFL especificamente para combater o "look de IA"
-// (pele plástica, oversaturação). Dispensa LoRA secundária de realismo.
+// Provider: Fal.ai async queue.
+// Esta função apenas ENFILEIRA os 3 jobs Krea+LoRA na fila da Fal e devolve
+// rapidamente (em ~3s). O front faz polling em `portrait-poll` que finaliza
+// download, upload e cobrança quando todos os jobs concluírem (~3min depois).
 const FAL_INFERENCE_PATH = "fal-ai/flux-krea-lora";
 
 const GENERATE_COST_CREDITS = 3;
-// Defaults Krea: prompt curto, 1 LoRA, scale 1.0, guidance 3.0, 28 steps.
 const DEFAULT_GUIDANCE = 3.0;
 const NUM_INFERENCE_STEPS = 28;
 const DEFAULT_LORA_SCALE = 1.0;
-const PORTRAIT_BUCKET = "portrait-outputs";
 
-/** Fisher–Yates shuffle não destrutivo. */
-function shuffle<T>(arr: T[]): T[] {
-  const copy = arr.slice();
-  for (let i = copy.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [copy[i], copy[j]] = [copy[j], copy[i]];
-  }
-  return copy;
-}
-
-async function downloadImageBytes(
-  imageUrl: string,
-  maxAttempts = 4,
-): Promise<{ ok: true; bytes: Uint8Array } | { ok: false; reason: string }> {
-  let lastReason = "unknown";
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    try {
-      const r = await fetch(imageUrl);
-      if (!r.ok) {
-        lastReason = `download-${r.status}`;
-      } else {
-        const ct = r.headers.get("content-type") ?? "";
-        if (!ct.startsWith("image/")) {
-          await r.body?.cancel();
-          lastReason = `bad-content-type:${ct}`;
-        } else {
-          return { ok: true, bytes: new Uint8Array(await r.arrayBuffer()) };
-        }
-      }
-    } catch (e) {
-      lastReason = `download-exception:${e instanceof Error ? e.message : String(e)}`;
-    }
-    if (attempt < maxAttempts) {
-      const delay = 500 * Math.pow(2, attempt - 1);
-      console.warn(`[generate-portrait] download attempt ${attempt}/${maxAttempts} failed (${lastReason}), retrying in ${delay}ms`);
-      await new Promise((r) => setTimeout(r, delay));
-    }
-  }
-  return { ok: false, reason: lastReason };
-}
-
-/**
- * Chama o endpoint síncrono da Fal (`https://fal.run/...`). Para Krea-LoRA isso
- * resolve em ~10-25s. Sem polling explícito — Fal segura a conexão até o resultado
- * (ou retorna 408 em timeout, que tratamos como falha pra retry).
- */
-async function callFluxKreaLora(params: {
+/** Submete um único job pra fila Fal e retorna o request_id. */
+async function enqueueFalJob(params: {
   falKey: string;
   loraUrl: string;
   loraScale: number;
   prompt: string;
   guidanceScale: number;
-}): Promise<{ ok: true; imageUrl: string } | { ok: false; reason: string }> {
+}): Promise<{ ok: true; requestId: string } | { ok: false; reason: string }> {
   const { falKey, loraUrl, loraScale, prompt, guidanceScale } = params;
-  const start = Date.now();
   try {
     const input: Record<string, unknown> = {
       prompt,
-      // Krea não usa negative prompt — modelo é treinado pra dispensar.
-      // Mantém apenas o LoRA da identidade da cliente.
       loras: [{ path: loraUrl, scale: loraScale }],
-      // 3:4 retrato, ~896x1184 (1MP). Krea aceita image_size enum + custom.
       image_size: { width: 896, height: 1152 },
       num_inference_steps: NUM_INFERENCE_STEPS,
       guidance_scale: guidanceScale,
@@ -95,7 +44,7 @@ async function callFluxKreaLora(params: {
       seed: Math.floor(Math.random() * 1_000_000),
     };
 
-    const res = await fetch(`https://fal.run/${FAL_INFERENCE_PATH}`, {
+    const res = await fetch(`https://queue.fal.run/${FAL_INFERENCE_PATH}`, {
       method: "POST",
       headers: {
         Authorization: `Key ${falKey}`,
@@ -106,17 +55,12 @@ async function callFluxKreaLora(params: {
 
     if (!res.ok) {
       const txt = await res.text();
-      return { ok: false, reason: `fal-${res.status}:${txt.slice(0, 200)}` };
+      return { ok: false, reason: `fal-enqueue-${res.status}:${txt.slice(0, 200)}` };
     }
-
     const data = await res.json();
-    // Fal retorna { images: [{ url, content_type, width, height }], seed, ... }
-    const imageUrl: string | undefined = data?.images?.[0]?.url;
-    if (!imageUrl) return { ok: false, reason: "empty-output" };
-
-    const latency = ((Date.now() - start) / 1000).toFixed(1);
-    console.log(`[generate-portrait] fal-krea-lora succeeded latency=${latency}s guidance=${guidanceScale} loraScale=${loraScale}`);
-    return { ok: true, imageUrl };
+    const requestId: string | undefined = data?.request_id;
+    if (!requestId) return { ok: false, reason: "no-request-id" };
+    return { ok: true, requestId };
   } catch (e) {
     return { ok: false, reason: `exception:${e instanceof Error ? e.message : String(e)}` };
   }
@@ -225,10 +169,6 @@ serve(async (req) => {
       );
     }
 
-    // ===== MIGRAÇÃO LEGACY =====
-    // LoRAs treinadas no provider antigo (Replicate/flux-dev) não rodam no
-    // endpoint Fal Krea. Bloqueia a geração e instrui o front a oferecer
-    // retreino gratuito (canUseFree forçado em portrait-train com migrate_legacy).
     if (training.lora_provider !== "fal") {
       return new Response(
         JSON.stringify({
@@ -246,13 +186,11 @@ serve(async (req) => {
     const profession = profileRes.data?.profession ?? "";
 
     const traitsGender = training.physical_traits?.gender as "woman" | "man" | undefined;
-    const effectiveGender: "woman" | "man" | "none" = traitsGender ?? gender;
+    const _effectiveGender: "woman" | "man" | "none" = traitsGender ?? gender;
 
     const hair = buildHairText(figurino);
-    // Krea entrega textura/maquiagem natural por default — sem reforço.
     const makeup = "";
 
-    // ===== MEMÓRIA CURTA =====
     const { data: lastGen } = await supabaseAdmin
       .from("portrait_generations")
       .select("used_hand_poses, used_outfits")
@@ -262,11 +200,9 @@ serve(async (req) => {
       .maybeSingle();
 
     const recentlyUsedPoses: string[] = Array.isArray((lastGen as any)?.used_hand_poses)
-      ? (lastGen as any).used_hand_poses
-      : [];
+      ? (lastGen as any).used_hand_poses : [];
     const recentlyUsedOutfits: string[] = Array.isArray((lastGen as any)?.used_outfits)
-      ? (lastGen as any).used_outfits
-      : [];
+      ? (lastGen as any).used_outfits : [];
 
     const family = getArchetypeFamily(archetypeName);
     const numPoses = Math.max(0, requestedCount - 1);
@@ -275,11 +211,6 @@ serve(async (req) => {
       null,
       posesForLooks12[0]?.pose ?? null,
       posesForLooks12[1]?.pose ?? null,
-    ];
-    const selectedPoseCategories = [
-      "headshot",
-      posesForLooks12[0]?.category ?? "—",
-      posesForLooks12[1]?.category ?? "—",
     ];
 
     const profCategory = mapProfessionToCategory(profession);
@@ -296,20 +227,15 @@ serve(async (req) => {
       }
     }
 
-    const selfiesCount = training.selfies_count ?? 0;
     const outfitsMeta = outfitsForLooks.map((t) => lookupOutfitMeta(t) ?? { anchor: "?", color: "?" });
     console.log(
-      `[generate-portrait] provider=fal model=${FAL_INFERENCE_PATH} archetype=${archetypeName} family=${family} ` +
-      `profession="${profession}" category=${profCategory} requestedCount=${requestedCount} outfitSource=${outfitSource} ` +
-      `selfiesCount=${selfiesCount} loraScale=${DEFAULT_LORA_SCALE} guidance=${DEFAULT_GUIDANCE} steps=${NUM_INFERENCE_STEPS} ` +
-      `outfitsMeta=${JSON.stringify(outfitsMeta)} outfits=${JSON.stringify(outfitsForLooks)} ` +
-      `poses=${JSON.stringify(selectedPoses)} poseCats=${JSON.stringify(selectedPoseCategories)}`,
+      `[generate-portrait] ENQUEUE provider=fal model=${FAL_INFERENCE_PATH} archetype=${archetypeName} family=${family} ` +
+      `profession="${profession}" requestedCount=${requestedCount} outfitSource=${outfitSource} ` +
+      `outfitsMeta=${JSON.stringify(outfitsMeta)}`,
     );
 
-    // ===== GERAÇÃO PARALELA =====
-    // Fal aceita várias chamadas concorrentes sem rate-limit agressivo (diferente
-    // do Replicate). Geramos os 3 em paralelo — corta latência de ~75s pra ~25s.
-    const callResults = await Promise.all(
+    // ===== ENFILEIRA OS 3 JOBS EM PARALELO =====
+    const enqueueResults = await Promise.all(
       Array.from({ length: requestedCount }, async (_, i) => {
         const outfit = outfitsForLooks[i] ?? "";
         const handPose = selectedPoses[i] ?? null;
@@ -325,127 +251,72 @@ serve(async (req) => {
           physicalTraits: training.physical_traits ?? null,
           handPose,
         });
-
-        const promptTokens = built.prompt.split(",").length;
-        console.log(
-          `[generate-portrait] call ${i + 1}/${requestedCount} background=${built.backgroundKey} ` +
-          `archetype=${archetypeName} trigger="${training.trigger_word}" trainingId=${training.id} ` +
-          `promptTokens=${promptTokens} outfitMeta=${JSON.stringify(outfitsMeta[i] ?? null)}`,
-        );
-        console.log(`[generate-portrait] PROMPT[${i}]: ${built.prompt}`);
-
-        const r = await callFluxKreaLora({
+        const r = await enqueueFalJob({
           falKey: FAL_KEY,
           loraUrl: training.lora_weights_url,
           loraScale: DEFAULT_LORA_SCALE,
           prompt: built.prompt,
           guidanceScale: DEFAULT_GUIDANCE,
         });
-
-        if (r.ok) {
-          return { background: built.backgroundKey, portraitUrl: r.imageUrl, pose: handPose ?? undefined, outfit, error: undefined };
-        }
-        console.error(`[generate-portrait] background=${built.backgroundKey} failed: ${r.reason}`);
-        return { background: built.backgroundKey, portraitUrl: null as string | null, pose: handPose ?? undefined, outfit, error: r.reason };
+        return {
+          background: built.backgroundKey,
+          outfit,
+          pose: handPose,
+          prompt: built.prompt,
+          ...r,
+        };
       }),
     );
 
-    const successful = callResults.filter((r) => r.portraitUrl) as Array<typeof callResults[number] & { portraitUrl: string }>;
-    if (successful.length === 0) {
+    const successfullyEnqueued = enqueueResults.filter((r) => r.ok) as Array<
+      typeof enqueueResults[number] & { ok: true; requestId: string }
+    >;
+    if (successfullyEnqueued.length === 0) {
       return new Response(
-        JSON.stringify({ error: "Falha ao gerar retratos. Tente novamente.", details: callResults.map((r) => r.error) }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        JSON.stringify({
+          error: "Falha ao enfileirar geração na Fal. Tente novamente.",
+          details: enqueueResults.map((r) => (r.ok ? null : r.reason)),
+        }),
+        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    // ===== DOWNLOAD + UPLOAD PARALELO =====
     const generationId = crypto.randomUUID();
-    const pipelineResults = await Promise.allSettled(
-      successful.map(async (r, i) => {
-        try {
-          const dl = await downloadImageBytes(r.portraitUrl);
-          if (!dl.ok) {
-            console.error(`[generate-portrait] failed to download background=${r.background}: ${dl.reason}`);
-            return null;
-          }
-          const path = `${user.id}/${generationId}/${i}.png`;
-          const upRes = await supabaseAdmin.storage
-            .from(PORTRAIT_BUCKET)
-            .upload(path, dl.bytes, { contentType: "image/png", upsert: true });
-          if (upRes.error) {
-            console.error(`[generate-portrait] storage upload failed background=${r.background}: ${upRes.error.message}`);
-            return null;
-          }
-          console.log(`[generate-portrait] uploaded background=${r.background} path=${path} bytes=${dl.bytes.length}`);
-          return { ...r, path };
-        } catch (e) {
-          console.error(`[generate-portrait] pipeline exception background=${r.background}:`, e);
-          return null;
-        }
-      }),
-    );
+    const promptsMeta = successfullyEnqueued.map((r) => ({
+      background: r.background,
+      outfit: r.outfit,
+      pose: r.pose,
+      prompt: r.prompt,
+    }));
 
-    const finalPortraits = pipelineResults
-      .map((res) => (res.status === "fulfilled" ? res.value : null))
-      .filter((p): p is NonNullable<typeof p> & { path: string } => p !== null);
-
-    if (finalPortraits.length === 0) {
-      return new Response(
-        JSON.stringify({ error: "Falha ao processar retratos finais. Tente novamente." }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
-
-    // Cobra apenas pelas imagens com sucesso.
-    const charge = Math.min(requestedCount, finalPortraits.length);
-    const fromIncluded = Math.min(included, charge);
-    const fromExtra = charge - fromIncluded;
-    await supabaseAdmin
-      .from("user_balances")
-      .update({
-        portrait_credits_included: included - fromIncluded,
-        portrait_credits_extra: extra - fromExtra,
-      })
-      .eq("user_id", user.id);
-
-    await supabaseAdmin.from("credit_logs").insert(
-      finalPortraits.map((r) => ({
-        user_id: user.id,
-        credit_type: "portrait",
-        amount: -1,
-        description: `Retrato gerado (LoRA ${training.trigger_word}, fundo ${r.background})`,
-      })),
-    );
-
-    const posesUsedThisRound = finalPortraits.map((r) => r.pose).filter((p): p is string => !!p);
-    const outfitsUsedThisRound = finalPortraits.map((r) => r.outfit).filter((o): o is string => !!o);
-
-    await supabaseAdmin.from("portrait_generations").insert({
+    const { error: insErr } = await supabaseAdmin.from("portrait_generations").insert({
       id: generationId,
       user_id: user.id,
-      portraits: finalPortraits.map((r) => r.path),
+      status: "processing",
+      portraits: [],
       style_index: 0,
-      used_hand_poses: posesUsedThisRound,
-      used_outfits: outfitsUsedThisRound,
+      used_hand_poses: successfullyEnqueued.map((r) => r.pose).filter((p): p is string => !!p),
+      used_outfits: successfullyEnqueued.map((r) => r.outfit).filter((o): o is string => !!o),
+      fal_request_ids: successfullyEnqueued.map((r) => r.requestId),
+      prompts_meta: promptsMeta,
     });
 
-    const signedUrls = await Promise.all(
-      finalPortraits.map(async (r) => {
-        const { data } = await supabaseAdmin.storage
-          .from(PORTRAIT_BUCKET)
-          .createSignedUrl(r.path, 60 * 60);
-        return data?.signedUrl ?? "";
-      }),
-    );
+    if (insErr) {
+      console.error("[generate-portrait] insert generation failed", insErr);
+      return new Response(
+        JSON.stringify({ error: "Falha ao registrar geração." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    console.log(`[generate-portrait] enqueued generation=${generationId} jobs=${successfullyEnqueued.length}`);
 
     return new Response(
       JSON.stringify({
-        portraits: signedUrls,
-        portrait_paths: finalPortraits.map((r) => r.path),
-        backgrounds: finalPortraits.map((r) => r.background),
-        outfits: finalPortraits.map((r) => r.outfit ?? ""),
-        training_id: training.id,
-        charged_credits: charge,
+        generation_id: generationId,
+        status: "processing",
+        job_count: successfullyEnqueued.length,
+        estimated_seconds: 200,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
