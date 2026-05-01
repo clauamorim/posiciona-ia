@@ -25,7 +25,7 @@ const QUALITY_SUFFIX =
 // Negative enxuto: só o estrutural. Krea não responde bem a negative longo —
 // preferimos confiar no modelo e bloquear apenas defeitos catastróficos.
 const STUDIO_NEGATIVE_BASE =
-  ", plastic skin, airbrushed, cgi, deformed, asymmetric eyes, distorted proportions";
+  ", plastic skin, airbrushed, cgi, deformed, asymmetric eyes, distorted proportions, aged skin, deep wrinkles, sagging skin, elderly, much older than reference";
 // Reforço de anatomia de mãos — aplicado APENAS aos looks que mostram mãos
 // (atualmente nenhum, hands-out-of-frame em todos).
 const HANDS_NEGATIVE_REINFORCE = ", extra fingers, deformed fingers, fused fingers, claw hands";
