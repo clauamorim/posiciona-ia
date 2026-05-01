@@ -168,8 +168,9 @@ export const DashboardLayout = ({ children, wide = false }: { children: React.Re
 
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto py-3 px-3 space-y-3">
-          {groups.map((group) => (
-            <div key={group.label || "top"}>
+          {groups.map((group, gi) => (
+            <div key={group.label || `top-${gi}`}>
+              {gi > 0 && <div className="border-t border-border/60 my-2 mx-1" />}
               {group.label && (
                 <p className="px-3 mb-1.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50">
                   {group.label}
@@ -198,50 +199,28 @@ export const DashboardLayout = ({ children, wide = false }: { children: React.Re
                     </Link>
                   );
                 })}
+                {/* Sair: ação dentro do grupo Conta */}
+                {!isAdmin && group.label === "Conta" && (
+                  <button
+                    onClick={signOut}
+                    className="flex items-center gap-2.5 px-3 py-2 min-h-[40px] rounded-lg text-sm lg:text-[15px] font-medium transition-colors w-full text-muted-foreground hover:bg-card hover:text-foreground"
+                  >
+                    <LogOut className="h-[18px] w-[18px] flex-shrink-0" />
+                    <span className="flex-1 truncate text-left">Sair</span>
+                  </button>
+                )}
               </div>
             </div>
           ))}
         </nav>
 
-        {/* Footer */}
-        <div className="px-3 py-3 border-t border-border space-y-0.5">
-          {footerItems.map(item => {
-            const active = location.pathname === item.href;
-            return (
-              <Link
-                key={item.href}
-                to={item.href}
-                onClick={() => setMobileOpen(false)}
-                className={cn(
-                  "flex items-center gap-2.5 px-3 py-2 min-h-[40px] rounded-lg text-sm lg:text-[15px] font-medium transition-colors",
-                  active
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-card hover:text-foreground"
-                )}
-              >
-                <item.icon className="h-[18px] w-[18px] flex-shrink-0" />
-                {item.label}
-              </Link>
-            );
-          })}
-          {!isAdmin && (
-            <div className="flex items-center gap-3 px-3 pt-2 text-xs text-muted-foreground/60">
-              <Link to="/termos-de-servico" className="hover:text-muted-foreground transition-colors">Termos</Link>
-              <Link to="/politica-de-privacidade" className="hover:text-muted-foreground transition-colors">Privacidade</Link>
-            </div>
-          )}
-          <div className="pt-2 pb-1 px-3">
-            <p className="text-xs text-muted-foreground/60 truncate mb-2">{user?.email}</p>
-            <button
-              onClick={signOut}
-              className="flex items-center gap-2 text-sm text-muted-foreground/70 hover:text-foreground transition-colors w-full py-1.5 min-h-[40px]"
-            >
-              <LogOut className="h-4 w-4" /> Sair
-            </button>
+        {/* Footer — apenas e-mail do usuário */}
+        {!isAdmin && (
+          <div className="px-5 py-3 border-t border-border">
+            <p className="text-xs text-muted-foreground/60 truncate">{user?.email}</p>
+            <div className="pb-[env(safe-area-inset-bottom)]" />
           </div>
-          {/* Safari safe area padding */}
-          <div className="pb-[env(safe-area-inset-bottom)]" />
-        </div>
+        )}
       </aside>
 
       {/* Mobile overlay */}
