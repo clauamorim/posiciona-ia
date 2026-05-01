@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { MousePointer2, Type, Plus, Sliders, Download, Undo2 } from "lucide-react";
+import { MousePointer2, Type, Plus, Sliders, Download, Undo2, Save } from "lucide-react";
 import { Drawer as DrawerPrimitive } from "vaul";
 import { Drawer, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
@@ -90,6 +90,8 @@ export interface MobileEditorBarProps {
   // Actions
   onDownload: () => void;
   onReset: () => void;
+  onSaveDesign?: () => void;
+  saving?: boolean;
   onUndo?: () => void;
   canUndo?: boolean;
 }
