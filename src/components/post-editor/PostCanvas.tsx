@@ -216,8 +216,13 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   }, [layout, title, isCoverSlide]);
 
   useEffect(() => {
+    if (isControlled) {
+      // Pai controla: marca como inicializado se já tem valores; senão deixa o effect default popular.
+      textBoxesInitialized.current = (controlledTextBoxes as TextBox[]).length > 0;
+      return;
+    }
     textBoxesInitialized.current = false;
-  }, [isCoverSlide, isLastSlide]);
+  }, [isCoverSlide, isLastSlide, isControlled, controlledTextBoxes]);
 
   // Reset quando muda formato/estilo: força recálculo a partir dos novos slots do template
   const lastResetKey = useRef<string | undefined>(resetKey);
