@@ -234,6 +234,7 @@ const PortraitGenerator = () => {
 
       setPortraits(generated.map((g) => g.url));
       setBackgrounds(generated.map((g) => g.background));
+      setGenerationId(data?.generation_id ?? null);
       await refreshSubscription();
 
       toast({
