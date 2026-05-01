@@ -435,7 +435,7 @@ const PortraitGenerator = () => {
                   <div className="space-y-2">
                     <Progress value={undefined} className="animate-pulse" />
                     <p className="text-xs text-muted-foreground">
-                      Gerando seu{requestedCount > 1 ? "s" : ""} {requestedCount} retrato{requestedCount > 1 ? "s" : ""} com Nano Banana Pro. Leva cerca de 1 minuto — não feche esta aba.
+                      Gerando seu{requestedCount > 1 ? "s" : ""} {requestedCount} retrato{requestedCount > 1 ? "s" : ""}. Leva cerca de 1 minuto — não feche esta aba.
                     </p>
                   </div>
                 )}
@@ -527,7 +527,7 @@ const PortraitGenerator = () => {
               Gerar {requestedCount} retrato{requestedCount > 1 ? "s" : ""} — {requestedCount} crédito{requestedCount > 1 ? "s" : ""}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Vamos gerar {requestedCount} retrato{requestedCount > 1 ? "s" : ""} usando Nano Banana Pro com as suas referências. Cada um custa 1 crédito — só cobramos os que ficam prontos.
+              Vamos gerar {requestedCount} retrato{requestedCount > 1 ? "s" : ""} a partir das suas referências. Cada um custa 1 crédito — só cobramos os que ficam prontos.
               <br /><br />
               Saldo atual: <strong>{totalCredits} crédito{totalCredits !== 1 ? "s" : ""}</strong>.
             </AlertDialogDescription>
