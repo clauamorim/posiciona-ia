@@ -14,7 +14,12 @@ import {
 } from "../_shared/portraitPrompts.ts";
 import { mapProfessionToCategory, pickOutfits, lookupOutfitMeta } from "../_shared/outfitPool.ts";
 
-const FLUX_LORA_MODEL = "black-forest-labs/flux-dev-lora";
+// Modelo multi-LoRA: empilha LoRA da cliente + LoRA público de realismo de pele.
+// Mantém a semelhança facial do treino e força textura natural (poros, linhas finas).
+const FLUX_LORA_MODEL = "lucataco/flux-dev-multi-lora";
+// LoRA público de realismo facial (carregado direto do HF pelo Replicate).
+const FACE_REALISM_LORA = "prithivMLmods/Canopus-LoRA-Flux-FaceRealism";
+const FACE_REALISM_SCALE = 0.45;
 const GENERATE_COST_CREDITS = 3;
 // Guidance MAIS BAIXO pra reduzir polimento artificial. Faixa testada:
 // 2.0 (super documental) / 2.4 (equilibrado) / 2.8 (definido sem virar plástico).
@@ -28,15 +33,14 @@ const PORTRAIT_WIDTH = 896;
 const PORTRAIT_HEIGHT = 1152;
 
 /**
- * Calibra a força do LoRA conforme o tamanho do dataset de selfies.
- * Reduzido em -0.02 versus versão anterior pra dar mais espaço ao modelo
- * base (FLUX) preservar textura natural da pele em vez de copiar a maquiagem
- * lisa que o LoRA decora das selfies.
+ * Calibra a força do LoRA da cliente conforme o tamanho do dataset.
+ * Subimos a faixa (vs single-LoRA) porque o LoRA de realismo (0.45) puxa
+ * textura natural — sem reforçar o LoRA da cliente, perderíamos semelhança.
  */
 function pickLoraScale(selfiesCount: number): number {
-  if (selfiesCount <= 12) return 0.68;
-  if (selfiesCount <= 20) return 0.72;
-  return 0.75;
+  if (selfiesCount <= 12) return 0.78;
+  if (selfiesCount <= 20) return 0.82;
+  return 0.85;
 }
 
 /** Fisher–Yates shuffle não destrutivo. */
