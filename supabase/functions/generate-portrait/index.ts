@@ -102,13 +102,15 @@ async function callFluxLora(params: {
   guidanceScale: number;
   loraScale?: number;
 }): Promise<{ ok: true; imageUrl: string } | { ok: false; reason: string }> {
-  const { token, loraVersion, prompt, negative, guidanceScale, loraScale = 0.95 } = params;
+  const { token, loraVersion, prompt, negative, guidanceScale, loraScale = 0.82 } = params;
   const start = Date.now();
   try {
+    // Multi-LoRA stack: LoRA da cliente + LoRA público de realismo de pele.
+    // O modelo lucataco/flux-dev-multi-lora aceita arrays paralelos hf_loras + lora_scales.
     const input: Record<string, unknown> = {
       prompt,
-      lora_weights: loraVersion,
-      lora_scale: loraScale,
+      hf_loras: [loraVersion, FACE_REALISM_LORA],
+      lora_scales: [loraScale, FACE_REALISM_SCALE],
       num_outputs: 1,
       // FLUX LoRA: usar aspect_ratio + megapixels. width/height no input são
       // ignorados silenciosamente e o modelo cai pra 1024x1024 quadrado.
