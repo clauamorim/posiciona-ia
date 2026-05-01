@@ -275,7 +275,27 @@ export interface PhysicalTraits {
   hair_style: string;
   skin_tone: string;
   eye_color: string;
+  /** Faixa etária aparente. Opcional pra retrocompat com treinos antigos. */
+  apparent_age_range?: "20s" | "30s" | "40s" | "50s" | "60s+";
+  /** True quando há fios brancos visíveis mas o cabelo NÃO é totalmente grisalho. */
+  hair_has_grey?: boolean;
 }
+
+const AGE_RANGE_TO_TOKEN: Record<NonNullable<PhysicalTraits["apparent_age_range"]>, string> = {
+  "20s": "in her 20s",
+  "30s": "in her 30s",
+  "40s": "in her 40s",
+  "50s": "in her 50s",
+  "60s+": "in her 60s",
+};
+
+const AGE_RANGE_TO_TOKEN_MALE: Record<NonNullable<PhysicalTraits["apparent_age_range"]>, string> = {
+  "20s": "in his 20s",
+  "30s": "in his 30s",
+  "40s": "in his 40s",
+  "50s": "in his 50s",
+  "60s+": "in his 60s",
+};
 
 export interface BuildPromptParams {
   archetype: ArchetypeName | string;
