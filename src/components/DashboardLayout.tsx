@@ -199,28 +199,25 @@ export const DashboardLayout = ({ children, wide = false }: { children: React.Re
                     </Link>
                   );
                 })}
-                {/* Sair: ação dentro do grupo Conta */}
-                {!isAdmin && group.label === "Conta" && (
-                  <button
-                    onClick={signOut}
-                    className="flex items-center gap-2.5 px-3 py-2 min-h-[40px] rounded-lg text-sm lg:text-[15px] font-medium transition-colors w-full text-muted-foreground hover:bg-card hover:text-foreground"
-                  >
-                    <LogOut className="h-[18px] w-[18px] flex-shrink-0" />
-                    <span className="flex-1 truncate text-left">Sair</span>
-                  </button>
-                )}
               </div>
             </div>
           ))}
         </nav>
 
-        {/* Footer — apenas e-mail do usuário */}
-        {!isAdmin && (
-          <div className="px-5 py-3 border-t border-border">
-            <p className="text-xs text-muted-foreground/60 truncate">{user?.email}</p>
-            <div className="pb-[env(safe-area-inset-bottom)]" />
-          </div>
-        )}
+        {/* Footer — e-mail + botão Sair (sempre visível) */}
+        <div className="px-3 py-3 border-t border-border space-y-2">
+          <button
+            onClick={() => { setMobileOpen(false); signOut(); }}
+            className="flex items-center gap-2.5 px-3 py-2 min-h-[44px] rounded-lg text-sm lg:text-[15px] font-medium transition-colors w-full text-muted-foreground hover:bg-card hover:text-foreground"
+          >
+            <LogOut className="h-[18px] w-[18px] flex-shrink-0" />
+            <span className="flex-1 truncate text-left">Sair</span>
+          </button>
+          {!isAdmin && user?.email && (
+            <p className="px-3 text-xs text-muted-foreground/60 truncate">{user.email}</p>
+          )}
+          <div className="pb-[env(safe-area-inset-bottom)]" />
+        </div>
       </aside>
 
       {/* Mobile overlay */}
