@@ -1,83 +1,48 @@
-## Diagnóstico
+# Plano: Geração resiliente em background + CTA pós-relatório
 
-### Fundos com elementos de cenário
-Os prompts dos arquétipos (em `_shared/portraitPrompts.ts`, `ARCHETYPE_PROMPTS`) descrevem fundos variados que **não são fundo de estúdio**:
-- Criador: **"weathered artistic background"** ← cenário
-- Herói: **"dark stone background"** ← cenário (pedra)
-- Explorador: **"earthy textured background"** ← cenário/exterior
-- Amante: **"deep warm terracotta background"**
-- Rebelde: **"raw industrial background"** ← cenário industrial
-- Bobo-da-corte: **"warm colorful background"**
-- demais: "dark background", "warm beige background", "mysterious dark background", etc.
+## Problemas identificados
 
-Daí o Gemini interpreta "industrial", "stone", "weathered", "artistic" como autorização para encher o fundo de paredes de tijolo, equipamentos, móveis, plantas etc.
+**1. Geração para quando muda de aba**
+- **Relatório**: a edge function `generate-report` enfileira um job assíncrono no servidor (status persistido em `reports.status`), então a geração de fato **não para** quando você sai da aba. Mas a página `Report.tsx` só lê o status uma única vez no `useEffect` inicial (sem polling nem realtime). Resultado: ao voltar, a tela continua mostrando "Gerando seu relatório..." mesmo já tendo terminado, dando impressão de travamento.
+- **Retratos**: a função `generate-portrait` é chamada com `supabase.functions.invoke(...)` de forma **síncrona**. A edge function continua executando no servidor (e salvando em `portrait_generations`), mas se o usuário sai da página `PortraitGenerator`, o `useState` (`generating`, `portraits`, `generationId`) é perdido. Ao voltar, a UI volta ao estado inicial e o usuário acha que "parou".
 
-A variação `BACKGROUND_VARIATIONS` (Neutro/Claro/Escuro) também usa termos vagos ("warm light background", "dark moody background") — não é estúdio.
+**2. Falta de direção pós-relatório**
+- Quando o relatório termina e o usuário cai em `/report`, não há um CTA claro indicando o próximo passo (gerar a Linha Editorial). O usuário se perde.
 
-### Histórico
-Investigado: `generate-portrait` salva em `portrait_generations.portraits` **exatamente os mesmos retratos retornados à tela** — não há retratos "extras" gerados ocultamente. O que acontece é que cada clique em "Gerar" cria uma nova linha, e o histórico empilha tudo, inclusive gerações antigas com alucinações. Hoje não existe forma de a usuária descartar um retrato ruim do histórico.
+## O que será feito
 
-## Mudanças propostas
+### A. Relatório: polling enquanto está "generating"
+Em `src/pages/Report.tsx`:
+- Após o fetch inicial, se `report.status === "generating" || "pending"`, iniciar um `setInterval` (a cada 4s) que re-consulta apenas `status`, `content`, `editorial_weeks`, `error_message` e `updated_at` da última versão do relatório.
+- Quando o status virar `completed` ou `failed`, parar o polling, atualizar o estado e exibir um toast ("Relatório pronto!").
+- Limpar o interval no unmount.
+- Isso garante que ao voltar para a aba o usuário sempre vê o estado real, mesmo que tenha saído e voltado várias vezes.
 
-### 1. Substituir TODOS os fundos por "paper backdrop" de estúdio em paleta neutra
+### B. Retratos: persistir estado e retomar geração em andamento
+Em `src/pages/PortraitGenerator.tsx`:
+- Ao montar a página, antes de mostrar o estado vazio, consultar `portrait_generations` do usuário ordenado por `created_at desc limit 1`.
+- Se a geração mais recente foi criada há menos de ~5 minutos e ainda não foi exibida nesta sessão, hidratar o grid com aqueles retratos (URLs do bucket) — assim o usuário que saiu durante a geração volta e encontra o resultado salvo.
+- Marcar `generating = true` apenas quando a invocação está realmente em curso na sessão atual; ao voltar à aba sem invocação ativa, mostrar o último resultado salvo (se houver) com um aviso suave "Resultado da última geração — clique em Gerar para criar novos".
+- Não é necessário polling porque a função salva atomicamente no DB ao terminar.
 
-Em `supabase/functions/_shared/portraitPrompts.ts`:
+### C. CTA "Gere agora sua Linha Editorial" no fim do relatório
+Em `src/pages/Report.tsx`, ao final do bloco renderizado quando `report.status === "completed"`:
+- Adicionar uma seção destacada (Card editorial premium, fora do PDF via `data-hide-pdf`) com:
+  - Título: "Próximo passo: sua Linha Editorial"
+  - Texto curto: "Transforme sua estratégia em 6 semanas de conteúdo prontas para postar."
+  - Botão primário: "Gerar Linha Editorial" → navega para `/editorial`.
+- Se `editorial_weeks` já existe e tem conteúdo, trocar o CTA para "Acessar sua Linha Editorial" (mesmo destino).
+- Esconder a seção quando estiver gerando ou em fallback.
 
-**Restrição cromática (regra universal):** APENAS tons de **cinza** (claro, médio, grafite, carvão), **marrom** (taupe, café, mocha, sépia) e **preto**. Sem terracota, sem mostarda, sem rosa, sem verde, sem azul, sem creme/marfim quente, sem qualquer cor saturada.
+## Arquivos afetados
 
-**a)** Reescrever `ARCHETYPE_PROMPTS` para que o fundo seja sempre **seamless paper studio backdrop**, variando apenas dentro da paleta neutra:
-- Governante: `"deep charcoal seamless paper studio backdrop with subtle paper texture"`
-- Sábio: `"dark grey seamless paper studio backdrop with subtle paper texture"`
-- Cuidador: `"warm taupe seamless paper studio backdrop with subtle paper texture"`
-- Criador: `"sepia brown seamless paper studio backdrop with subtle paper texture"`
-- Herói: `"black seamless paper studio backdrop with subtle paper texture"`
-- Explorador: `"mocha brown seamless paper studio backdrop with subtle paper texture"`
-- Inocente: `"light grey seamless paper studio backdrop with subtle paper texture"`
-- Cara-comum: `"medium grey seamless paper studio backdrop with subtle paper texture"`
-- Mago: `"deep black seamless paper studio backdrop with subtle paper texture"`
-- Amante: `"warm dark brown seamless paper studio backdrop with subtle paper texture"`
-- Rebelde: `"matte black seamless paper studio backdrop with subtle paper texture"` (sem "industrial")
-- Bobo-da-corte: `"warm grey seamless paper studio backdrop with subtle paper texture"` (sem "colorful")
+- `src/pages/Report.tsx` — polling de status + CTA Linha Editorial
+- `src/pages/PortraitGenerator.tsx` — hidratação da última geração ao montar
+- (Sem mudanças em edge functions ou banco — a infra de persistência já existe)
 
-**b)** Reescrever `BACKGROUND_VARIATIONS`:
-- Neutro: mantém o paper do arquétipo
-- Claro: `"light grey seamless paper studio backdrop with subtle paper texture,"`
-- Escuro: `"deep charcoal seamless paper studio backdrop with subtle paper texture,"`
+## Detalhes técnicos
 
-**c)** No `buildGeminiPortraitPrompt`, adicionar bloco **STUDIO BACKDROP LOCK** logo antes do "Scene direction":
-```
-### STUDIO BACKDROP LOCK ###
-Background must be a clean professional photo studio with a seamless paper backdrop only. Subtle paper texture and a soft light gradient are allowed. Color palette is STRICTLY neutral: shades of grey, brown and black only. ABSOLUTELY NO saturated colors, NO terracotta, NO mustard, NO pink, NO green, NO blue, NO cream, NO ivory. ABSOLUTELY NO props, NO furniture, NO brick walls, NO concrete, NO wood panels, NO windows, NO plants, NO bookshelves, NO studio equipment in frame (no softboxes, no light stands, no tripods, no cables, no reflectors), NO outdoor scenery, NO architectural elements, NO patterns, NO text. Just the subject in front of a clean neutral textured paper backdrop.
-```
-
-**d)** Reforçar no bloco "AVOID at all costs":
-`"; colorful background, saturated background, terracotta background, mustard background, pink background, green background, blue background, cream background, ivory background, visible studio equipment, softbox in frame, light stand, tripod, cables, reflector, brick wall, concrete wall, wood panel, bookshelf, furniture, props, plants, window, outdoor scenery, architectural background, busy background, patterned background"`.
-
-### 2. Permitir descartar retratos com alucinação do histórico
-
-Hoje o histórico mostra tudo. Ajuste para a usuária **escolher quais ficam salvos**.
-
-**a)** Migration: adicionar coluna `kept_indices INTEGER[]` em `portrait_generations` (default = todos os índices). Descartar = remover o índice desse array (oculta no histórico; arquivo permanece no storage por enquanto).
-
-**b)** Edge function `portrait-history`: filtrar para retornar só retratos cujo índice está em `kept_indices`. Se vazio, esconder a geração inteira.
-
-**c)** Nova edge function `portrait-discard`: recebe `{ generation_id, index }`, valida ownership, remove o índice de `kept_indices`.
-
-**d)** UI `src/pages/PortraitGenerator.tsx` — na grade "Retratos Gerados" e no `PortraitPreviewDialog`, adicionar botão **"Descartar do histórico"** com confirmação. Após descartar: remove da tela, chama `portrait-discard`, exibe toast "Retrato removido do histórico".
-
-**e)** Página de histórico (`HistoryPage.tsx`): mesmo botão "Descartar" em cada thumbnail.
-
-### 3. Microcopy
-
-Atualizar `"Salvo no histórico · Download gratuito"` em `PortraitPreviewDialog` para `"Salvo no histórico · Você pode descartar a qualquer momento"`.
-
-## Não muda
-
-- Modelo (Gemini 3 Pro Image), cobrança de créditos, identidade/cabelo/poses/figurino, fluxo de upload de selfies.
-- Retratos já no histórico continuam visíveis até a usuária descartar.
-
-## Validação
-
-1. Gerar nova série para arquétipos "problema" (Rebelde, Explorador, Criador, Amante) e confirmar fundo paper neutro (cinza/marrom/preto), sem cenário, sem equipamento, sem cor saturada.
-2. Descartar um retrato do histórico e recarregar: o retrato não aparece mais.
-3. Descartar todos de uma geração: a geração some do histórico.
+- Polling: 4s de intervalo, `useEffect` com cleanup, condicional ao status atual.
+- Hidratação de retratos: SELECT em `portrait_generations` filtrando por `kept_indices` (respeitando o sistema de descarte já implementado).
+- CTA usa `useNavigate` do `react-router-dom` (já importado no projeto).
+- Microcopy alinhado à memória do projeto (sem emojis, tom editorial).
