@@ -1,119 +1,39 @@
-## Escopo
+# Correções: download em post único + estilos de IA não diferenciados
 
-Apenas ajustes de UI/UX nos arquivos listados. Identidade visual preservada (dark navy, roxo `#7C3AED`, dourado, serifa nos headlines). Nenhuma mudança de fluxo, regra de negócio ou backend.
+## Problema 1 — Botão de download some em posts únicos
 
----
+No modo carrossel, `CarouselEditor.tsx` renderiza, logo abaixo do canvas, dois botões grandes: **"Baixar slide N"** e **"Baixar todos (ZIP)"**. No modo single, o `PostCanvas` é renderizado direto em `PostEditorPage.tsx` sem nenhum botão equivalente ao redor — o usuário só consegue baixar pelo botão "Baixar PNG" da sidebar de ferramentas (ou pela `MobileEditorBar` no mobile). Quando a sidebar não está rolada até o fim, o botão fica fora de vista.
 
-### 1. FAB do Assistente — `src/components/assistant/AssistantButton.tsx`
+### Solução
+Adicionar, em `PostEditorPage.tsx`, uma barra de ação imediatamente abaixo do `PostCanvas` (apenas quando `!isCarousel`), espelhando o padrão visual do carrossel, com um único botão **"Baixar PNG"** (chama `handleDownloadSlide(0)`).
 
-- Ao montar em qualquer rota visível, iniciar em estado **expandido**, mostrando o ícone ✦ + rótulo "Assistente IA" lado a lado, dentro de uma pílula arredondada (`rounded-full`, `bg-primary`, `text-primary-foreground`, padding horizontal maior).
-- Após **3s**, animar para o estado colapsado (apenas o ícone circular atual). Animação de largura suave (transition-all, duration ~400ms).
-- Manter cor, sombra, animação de hover e o `pulse` de hint atual.
-- **Mobile (lg:hidden)**: subir o FAB para `bottom-20` (acima do `BackToTopButton` que fica em `bottom-6`) para não sobrepor. No desktop manter `bottom-5`.
-- Ajustar também o offset do `showHint` chip para acompanhar o novo posicionamento mobile.
+## Problema 2 — Todos os estilos de IA devolvem fotos claras e parecidas
 
----
+Em `supabase/functions/fetch-post-image/index.ts`, função `generateWithAI`, o prompt fixo já dita uma estética muito forte:
 
-### 2. Dashboard — `src/pages/Dashboard.tsx`
+> *"Editorial photograph, premium magazine quality, soft natural lighting, shallow depth of field… Soft palette, calm contrast. Style: minimal, calm, professional, contemporary photography. Avoid people's faces dominating the frame."*
 
-- Remover o parágrafo de subtítulo (`<p>` com `${completedSteps} de ${journeySteps.length} etapas concluídas` / "Sua estratégia está completa…") logo abaixo do `Olá, {nome}` (linhas 206–210).
-- Manter o card "Próximo Passo" intacto — ele já contém a frase equivalente.
-- O `<h1>` de saudação permanece.
+A `Style direction` extra (vinda do estilo escolhido) é apenas concatenada no meio, então **nunca consegue contradizer** o tom "editorial / soft / minimal / calm / contemporary photography". Resultado: independente de o usuário escolher "Editorial Luxo", "Moderno Vibrante" ou "Autoridade Técnica", o modelo segue a estética padrão (foto clara, luz natural). Além disso, "pure photography only" elimina qualquer estética gráfica/ilustrativa que o estilo poderia sugerir.
 
----
+### Solução
+Reformular `generateWithAI` para que, quando `aiStyleDirective` estiver presente:
+1. **Substituir** (não acumular) os adjetivos estéticos. O prompt passa a ter dois ramos:
+   - **Sem estilo selecionado:** mantém o prompt editorial atual (compatibilidade).
+   - **Com estilo selecionado:** monta o prompt usando a `aiStyleDirective` como descritor estético principal, removendo os termos conflitantes ("soft natural lighting", "soft palette, calm contrast", "minimal, calm, professional, contemporary photography", "pure photography only").
+2. Trocar `"pure photography only"` por uma instrução mais neutra: a estética (fotografia, ilustração editorial, design gráfico) passa a ser determinada pelo estilo.
+3. Manter as restrições universais que **não** afetam estilo: sem texto/letras/logos, área segura para overlay, aspect ratio, semente de variação.
+4. Subir a temperatura/variação por estilo: incluir o `id` do estilo na semente para que o modelo entenda que cada estilo é um pedido diferente.
 
-### 3. Retratos de Marca — `src/pages/PortraitGenerator.tsx`
+Adicionalmente, encurtar/reescrever as `directive` em `src/lib/aiImageStyles.ts` para que sejam **mais imperativas e mutuamente exclusivas** (ex.: "Editorial Luxo" hoje diz "dark background, gold or cream accents" — mas o prompt base força "soft palette" e ganha; após o fix, a directive vira o descritor dominante).
 
-Reordenar a região superior da página:
+### Sobre "fora de contexto"
+O subject é construído a partir de `cardCopy + theme + niche` (já inclui contexto). O problema reportado de "alguma foto fora do contexto" tende a desaparecer junto com o fix #2: hoje, como o prompt força "editorial photograph com pessoa de costas/objeto neutro", a IA tende a gerar cenas genéricas que se distanciam do tema. Com a directive dominando, o subject ganha mais peso relativo.
 
-1. **1º** — Card "Saldo de Retratos" (mover o bloco atual das linhas 430–445 para logo abaixo do título).
-2. **2º** — Card "Estúdio Pessoal" com botão de gerar (já existe nas linhas 461+, permanece em sequência).
-3. **3º** — Botão "Comprar Retratos" como ação secundária, abaixo do Estúdio Pessoal, em variante mais discreta:
-   - Remover do header (sair do flex `justify-between` na linha 392).
-   - Re-renderizar o `<Dialog>` "Comprar Retratos" como bloco isolado depois do card Estúdio Pessoal, com `variant="outline"`, tamanho `sm`, alinhado à esquerda ou em um wrapper centralizado, opacidade levemente reduzida (`text-muted-foreground` no rótulo) para deixar claro que é ação secundária.
-- O header passa a conter apenas título + descrição (sem o botão à direita).
+## Arquivos afetados
 
----
+- `src/pages/PostEditorPage.tsx` — adicionar barra com botão "Baixar PNG" abaixo do `PostCanvas` no modo single.
+- `supabase/functions/fetch-post-image/index.ts` — refatorar `generateWithAI` para que `aiStyleDirective`, quando presente, substitua os adjetivos estéticos do prompt-base.
+- `src/lib/aiImageStyles.ts` — reforçar as `directive` (mais curtas, mais imperativas, sem ambiguidade).
 
-### 4. Sidebar — `src/components/DashboardLayout.tsx`
-
-Reorganizar `userGroups` e `footerItems` em 3 grupos com separador visual entre eles:
-
-- **SUA JORNADA** (já existe, mantido): Diagnóstico, Sua História, Arquétipos, Resultados, Narrativa da Marca, Relatório, Instagram, Linha Editorial, Retratos de Marca.
-- **CONTEÚDO** (novo grupo dentro de `userGroups`): Meus Designs, Minha Galeria, Histórico.
-- **CONTA** (novo grupo, substitui o footer atual): Plano e Créditos, Ajuda, Termos, Privacidade, Sair.
-
-Mudanças concretas:
-- Adicionar os dois novos grupos ao array `userGroups` com o mesmo padrão de `label` em uppercase já usado.
-- Mover Termos / Privacidade (hoje em link inline) e Sair (hoje botão dedicado) para o grupo CONTA, como itens de menu normais (Sair com ícone `LogOut` e `onClick={signOut}`; Termos / Privacidade como `<Link>` para suas rotas).
-- Esvaziar o footer: manter apenas o e-mail do usuário e o `safe-area` padding. Ou remover também o e-mail do footer e exibi-lo acima do grupo CONTA — manter o e-mail no rodapé é ok para preservar UX atual.
-- Inserir um `<Separator>` (`@/components/ui/separator`) ou `border-t border-border my-2` entre cada grupo para reforçar a divisão.
-- O grupo Dashboard (label vazio) permanece como está, no topo.
-
----
-
-### 5. Landing Page — `src/pages/LandingPage.tsx` (linhas 420–427)
-
-Atualizar o botão "Ver como funciona":
-
-```tsx
-className="bg-white/10 border border-white/30 text-white hover:bg-white/15 text-base h-12 px-8 backdrop-blur-sm"
-```
-
-Remover as classes `border-landing-purple/50 text-landing-purple hover:bg-landing-purple/10 hover:text-landing-text`. Manter `variant="outline"` e o tamanho.
-
----
-
-### 6. Login — `src/pages/Login.tsx`
-
-- **Centralização vertical**: o container já usa `flex min-h-screen items-center justify-center`. O excesso de espaço vem do `<CardHeader>` com logo + título grandes e do botão "Página inicial" absoluto. Ajuste:
-  - Reduzir `space-y` do `CardHeader` (de `space-y-2` para `space-y-1`) e o `mb-2` do bloco do logo para `mb-1`.
-  - Diminuir o tamanho da logo (`h-12 w-12` → `h-10 w-10`) e do título "Posiciona" (`text-3xl` → `text-2xl`) para reduzir altura total do card.
-- **Bordas dos inputs**: aumentar contraste alterando o componente local — adicionar `className="border-white/25 focus-visible:border-white/40"` aos `<Input>` de e-mail e senha. Manter o restante do estilo do `Input` global.
-
----
-
-### 7. Modal de seleção de estilo — `src/components/post-editor/StyleSelectionModal.tsx`
-
-Três ajustes na primeira etapa (cards Minimalista / Com foto / Com foto IA):
-
-a. **Altura uniforme dos previews no mobile**:
-   - Reduzir o padding interno dos cards de `p-3` para `p-2.5`.
-   - Trocar o cálculo de `previewSize` para alturas menores e iguais no mobile, mantendo o aspect-ratio no desktop:
-     - portrait: `h-24 sm:h-auto sm:aspect-[9/16]`
-     - square: `h-24 sm:h-auto sm:aspect-square`
-   - Reduzir os ícones internos do preview Minimalista (avatar `w-10 h-10` → `w-8 h-8`, barras com `mb-1` ao invés de `mb-1.5`) para caber melhor.
-   - Resultado: no mobile os 3 cards têm preview no topo, título abaixo, sem scroll dentro do card.
-
-b. **Micro-copy quando nada selecionado**: no `DialogFooter` da primeira etapa, abaixo do botão "Abrir com este estilo", renderizar condicionalmente quando `!selected`:
-
-```tsx
-{!selected && (
-  <p className="text-[11px] text-muted-foreground/60 text-right sm:absolute sm:right-6 sm:-bottom-5">
-    Selecione um estilo acima para continuar
-  </p>
-)}
-```
-
-Solução mais simples: posicionar o texto dentro do mesmo footer, abaixo do conjunto de botões, com `w-full text-right` ou em um wrapper que envolva botão + caption.
-
-c. **Reduzir destaque do "Pular e abrir editor vazio"**: trocar classes do `<Button variant="ghost" size="sm">` para incluir `text-xs opacity-50 hover:opacity-80`.
-
----
-
-## Detalhes técnicos
-
-- Nenhuma alteração em hooks, queries, edge functions, schema ou regras de negócio.
-- Tokens semânticos (`bg-card`, `text-muted-foreground`, `border-border`, `text-primary`) preservados; cores landing usam `landing-*` ou os utilitários `white/10` no caso do botão secundário do hero conforme pedido.
-- `BackToTopButton` permanece intacto; somente o offset do FAB do assistente sobe no mobile.
-- Sidebar mantém `BackToTopButton` e demais comportamentos — mudança é puramente de agrupamento de itens.
-
-## Arquivos a editar
-
-- `src/components/assistant/AssistantButton.tsx`
-- `src/pages/Dashboard.tsx`
-- `src/pages/PortraitGenerator.tsx`
-- `src/components/DashboardLayout.tsx`
-- `src/pages/LandingPage.tsx`
-- `src/pages/Login.tsx`
-- `src/components/post-editor/StyleSelectionModal.tsx`
+## Fora do escopo
+Sem mudanças no fluxo de débito de créditos, na busca Pexels, na UI de seleção de estilo ou em qualquer outra parte do editor.

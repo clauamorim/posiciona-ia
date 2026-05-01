@@ -20,7 +20,7 @@ import { buildAutoLayout, fetchBackgroundImage, type PostStyle, type Photographe
 import { getAIStyleById, type AIStyleId } from "@/lib/aiImageStyles";
 import { prepareSinglePostCardCopy, prepareCarouselCardCopy } from "@/lib/editorialCardCopy";
 
-import { Sparkles, X, Image as ImageIcon, Loader2 } from "lucide-react";
+import { Sparkles, X, Image as ImageIcon, Loader2, Download } from "lucide-react";
 import { useEditorHistory } from "@/hooks/useEditorHistory";
 import { normalizeWeekToV6 } from "@/lib/editorialShape";
 
@@ -1279,6 +1279,17 @@ const PostEditorPage = () => {
                 initialTextBoxes={initialTextBoxes}
                 resetKey={`${initialStyle || "minimal"}-${canvasFormat}`}
               />
+            )}
+            {!isCarousel && (
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10">
+                <Button
+                  size="sm"
+                  className="gap-2 shadow-lg"
+                  onClick={() => handleDownloadSlide(0)}
+                >
+                  <Download className="h-3.5 w-3.5" /> Baixar PNG
+                </Button>
+              </div>
             )}
           </div>
 
