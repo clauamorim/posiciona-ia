@@ -488,6 +488,7 @@ export type Database = {
           error_message: string | null
           fal_request_ids: Json
           id: string
+          kept_indices: number[] | null
           portraits: Json
           prompts_meta: Json
           status: string
@@ -503,6 +504,7 @@ export type Database = {
           error_message?: string | null
           fal_request_ids?: Json
           id?: string
+          kept_indices?: number[] | null
           portraits?: Json
           prompts_meta?: Json
           status?: string
@@ -518,6 +520,7 @@ export type Database = {
           error_message?: string | null
           fal_request_ids?: Json
           id?: string
+          kept_indices?: number[] | null
           portraits?: Json
           prompts_meta?: Json
           status?: string
