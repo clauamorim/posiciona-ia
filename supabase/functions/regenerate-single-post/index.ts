@@ -23,6 +23,13 @@ import {
   renderToneBlock,
   renderEditorialFrameworks,
 } from "../_shared/buildClaudeContext.ts";
+import { NARRATIVE_PRINCIPLES_BLOCK } from "../_shared/narrativePrinciples.ts";
+import {
+  detectProfession,
+  getEthicalRulesBlock,
+  renderMarketTrendsBlock,
+  type MarketTrend,
+} from "../_shared/professionRules.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -58,6 +65,8 @@ serve(async (req) => {
       tone_of_voice,
       freeRegeneration,
       currentVersion,
+      themeOverride,          // novo: tema sugerido por tendência de mercado (opcional)
+      marketTrends,           // novo: tendências já salvas na semana (opcional)
     } = body;
 
     if (!business) {
@@ -84,6 +93,31 @@ serve(async (req) => {
     const toneContext = renderToneBlock(tone_of_voice);
     const personal = userId ? await fetchPersonalQuestionnaire(userId) : null;
     const personalContext = renderPersonalContext(personal);
+
+    // Detecta profissão regulamentada para injetar regras éticas (OAB / CFM)
+    let professionCategory: ReturnType<typeof detectProfession> = "outro";
+    if (userId) {
+      try {
+        const adminClient = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+        const { data: profileRow } = await adminClient
+          .from("profiles")
+          .select("profession, niche")
+          .eq("user_id", userId)
+          .maybeSingle();
+        professionCategory = detectProfession(profileRow);
+      } catch (_e) { /* ignora — fallback "outro" */ }
+    }
+    const ethicalBlock = getEthicalRulesBlock(professionCategory);
+    const marketTrendsBlock = renderMarketTrendsBlock(
+      Array.isArray(marketTrends) ? (marketTrends as MarketTrend[]) : [],
+    );
+
+    // Tema sugerido por tendência (override opcional)
+    const themeOverrideBlock = (typeof themeOverride === "string" && themeOverride.trim().length > 0)
+      ? `\n\n# TEMA OBRIGATÓRIO DESTE POST
+Use este ângulo de tendência atual como tema: "${themeOverride.trim()}"
+Comente com voz própria do criador (não copie). Mantenha posicionamento, ética e estilo da marca.`
+      : "";
 
     // ====== Branch: regenerar STORY ======
     if (target === "story") {
@@ -121,14 +155,15 @@ Português brasileiro.`;
 Empresa: ${business.company_name || ""}
 Serviços: ${business.services || ""}
 Público: ${business.target_audience || ""}
-Nicho: ${niche || ""}${storybrandContext}${toneContext}${personalContext}
+Nicho: ${niche || ""}${storybrandContext}${toneContext}${personalContext}${marketTrendsBlock}${themeOverrideBlock}
 
 # OUTROS TEMAS DA SEMANA (não repetir)
 ${existingTitles || "Nenhum"}
 
 Gere o story do dia ${dayNumber || 1}.`;
 
-      const enrichedStorySystem = storySystem + renderEditorialFrameworks();
+      const enrichedStorySystem =
+        NARRATIVE_PRINCIPLES_BLOCK + ethicalBlock + "\n\n" + storySystem + renderEditorialFrameworks();
 
       let rawStory: string;
       try {
@@ -248,14 +283,15 @@ Regras:
 Empresa: ${business.company_name || ""}
 Serviços: ${business.services || ""}
 Público: ${business.target_audience || ""}
-Nicho: ${niche || ""}${storybrandContext}${toneContext}${personalContext}
+Nicho: ${niche || ""}${storybrandContext}${toneContext}${personalContext}${marketTrendsBlock}${themeOverrideBlock}
 
 # POSTS JÁ EXISTENTES (NÃO REPETIR)
 ${existingTitles || "Nenhum"}
 
 Gere 1 novo post de feed no formato "${format}".`;
 
-    const enrichedSystemPrompt = systemPrompt + renderEditorialFrameworks();
+    const enrichedSystemPrompt =
+      NARRATIVE_PRINCIPLES_BLOCK + ethicalBlock + "\n\n" + systemPrompt + renderEditorialFrameworks();
 
     let rawContent: string;
     try {

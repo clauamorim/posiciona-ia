@@ -1,39 +1,114 @@
-# Correções: download em post único + estilos de IA não diferenciados
+## Objetivo
 
-## Problema 1 — Botão de download some em posts únicos
+Adicionar três camadas obrigatórias ao pipeline de geração de conteúdo do Posiciona, **somando** ao contexto existente (questionários de negócio + história + StoryBrand + tom de voz + arquétipos), sem alterar fluxos, visual ou funcionalidades já em produção.
 
-No modo carrossel, `CarouselEditor.tsx` renderiza, logo abaixo do canvas, dois botões grandes: **"Baixar slide N"** e **"Baixar todos (ZIP)"**. No modo single, o `PostCanvas` é renderizado direto em `PostEditorPage.tsx` sem nenhum botão equivalente ao redor — o usuário só consegue baixar pelo botão "Baixar PNG" da sidebar de ferramentas (ou pela `MobileEditorBar` no mobile). Quando a sidebar não está rolada até o fim, o botão fica fora de vista.
+```text
+Ordem final do prompt enviado ao Claude:
+  [Parte 0] Princípios narrativos (sempre)
+  [Parte 1] Regras éticas da profissão (quando aplicável)
+  [Contexto existente] Negócio + História + StoryBrand + Tom + Arquétipos + Temas publicados
+  [Parte 2] Contexto atual do mercado (quando disponível)
+  [Instrução final de geração]
+```
 
-### Solução
-Adicionar, em `PostEditorPage.tsx`, uma barra de ação imediatamente abaixo do `PostCanvas` (apenas quando `!isCarousel`), espelhando o padrão visual do carrossel, com um único botão **"Baixar PNG"** (chama `handleDownloadSlide(0)`).
+---
 
-## Problema 2 — Todos os estilos de IA devolvem fotos claras e parecidas
+## 1. Princípios narrativos obrigatórios (Parte 0)
 
-Em `supabase/functions/fetch-post-image/index.ts`, função `generateWithAI`, o prompt fixo já dita uma estética muito forte:
+**Arquivo novo:** `supabase/functions/_shared/narrativePrinciples.ts`
+- Exporta `NARRATIVE_PRINCIPLES_BLOCK` (string) com os princípios obrigatórios:
+  - StoryBrand (cliente como herói, marca como guia)
+  - Made to Stick / SUCCESs (simples, inesperado, concreto, credível, emocional, com história)
+  - Obviously Awesome (categoria clara, contexto antes de produto)
+  - Anti-padrões: nada de jargão vazio, nada de "venha conhecer", nada de listas genéricas sem narrativa
+  - Tom: editorial, específico, voz humana
 
-> *"Editorial photograph, premium magazine quality, soft natural lighting, shallow depth of field… Soft palette, calm contrast. Style: minimal, calm, professional, contemporary photography. Avoid people's faces dominating the frame."*
+Aplicado **sempre**, em qualquer geração (semana, regeneração de post único, capa de reels com legenda etc.).
 
-A `Style direction` extra (vinda do estilo escolhido) é apenas concatenada no meio, então **nunca consegue contradizer** o tom "editorial / soft / minimal / calm / contemporary photography". Resultado: independente de o usuário escolher "Editorial Luxo", "Moderno Vibrante" ou "Autoridade Técnica", o modelo segue a estética padrão (foto clara, luz natural). Além disso, "pure photography only" elimina qualquer estética gráfica/ilustrativa que o estilo poderia sugerir.
+---
 
-### Solução
-Reformular `generateWithAI` para que, quando `aiStyleDirective` estiver presente:
-1. **Substituir** (não acumular) os adjetivos estéticos. O prompt passa a ter dois ramos:
-   - **Sem estilo selecionado:** mantém o prompt editorial atual (compatibilidade).
-   - **Com estilo selecionado:** monta o prompt usando a `aiStyleDirective` como descritor estético principal, removendo os termos conflitantes ("soft natural lighting", "soft palette, calm contrast", "minimal, calm, professional, contemporary photography", "pure photography only").
-2. Trocar `"pure photography only"` por uma instrução mais neutra: a estética (fotografia, ilustração editorial, design gráfico) passa a ser determinada pelo estilo.
-3. Manter as restrições universais que **não** afetam estilo: sem texto/letras/logos, área segura para overlay, aspect ratio, semente de variação.
-4. Subir a temperatura/variação por estilo: incluir o `id` do estilo na semente para que o modelo entenda que cada estilo é um pedido diferente.
+## 2. Regras éticas por profissão (Parte 1)
 
-Adicionalmente, encurtar/reescrever as `directive` em `src/lib/aiImageStyles.ts` para que sejam **mais imperativas e mutuamente exclusivas** (ex.: "Editorial Luxo" hoje diz "dark background, gold or cream accents" — mas o prompt base força "soft palette" e ganha; após o fix, a directive vira o descritor dominante).
+**Arquivo novo:** `supabase/functions/_shared/professionRules.ts`
+- Função `detectProfession(profile)` lê `profession` + `niche` do `profiles` (cadastro) e classifica em:
+  - `advogado` (palavras: advog, jurídic, direito, OAB)
+  - `medico` (médic, medic, doutor, CFM, saúde)
+  - `outro` (sem restrições adicionais)
+- Exporta `getEthicalRulesBlock(category)` retornando:
+  - **OAB (Provimento 205/2021)**: proibido auto-promoção sensacionalista, captação de clientela, garantia de resultado, comparação com colegas, divulgação de valores fora do permitido, casos específicos identificáveis. Permitido: informação técnica, prevenção, esclarecimento.
+  - **CFM (Resolução 2.336/2023)**: proibido antes/depois, garantia de cura, sensacionalismo, autopromoção, exposição de pacientes, divulgação de equipamentos como diferencial. Permitido: educação em saúde, prevenção.
+  - `outro`: bloco vazio.
 
-### Sobre "fora de contexto"
-O subject é construído a partir de `cardCopy + theme + niche` (já inclui contexto). O problema reportado de "alguma foto fora do contexto" tende a desaparecer junto com o fix #2: hoje, como o prompt força "editorial photograph com pessoa de costas/objeto neutro", a IA tende a gerar cenas genéricas que se distanciam do tema. Com a directive dominando, o subject ganha mais peso relativo.
+---
+
+## 3. Contexto de mercado em tempo real (Parte 2)
+
+**Edge Function nova:** `supabase/functions/fetch-market-trends/index.ts`
+- Input: `{ profession, niche, userId }`
+- Usa Claude com tool `web_search_20250305` para buscar 2–3 tendências/notícias recentes (últimos 14 dias) no nicho.
+- Retorna JSON: `[{ title, summary, source_url, published_at, angle_suggestion }]`
+- Cache em memória por `(profession+niche)` com TTL de 24h dentro da função (Map simples).
+
+**Persistência:** as tendências usadas na geração são salvas dentro de cada item de `reports.editorial_weeks[i].market_trends` (JSON), garantindo consistência entre exibição e regenerações futuras.
+
+---
+
+## 4. Integração no pipeline existente
+
+**Arquivo:** `supabase/functions/_shared/buildClaudeContext.ts`
+- Adicionar parâmetros opcionais `professionCategory` e `marketTrends` na função builder.
+- Montar o `systemText` final concatenando, nesta ordem:
+  1. `NARRATIVE_PRINCIPLES_BLOCK`
+  2. `getEthicalRulesBlock(professionCategory)` (se existir)
+  3. Sistema atual (intacto)
+- Adicionar bloco `# CONTEXTO ATUAL DO MERCADO` no final do `userText` quando `marketTrends` vier preenchido. Os blocos atuais (`# NEGÓCIO`, `# HISTÓRIA PESSOAL`, `# ESTRATÉGIA STORYBRAND DA MARCA`, `# TOM DE VOZ DA MARCA`, `# CONTEXTO PESSOAL DO CRIADOR`, `# TEMAS JÁ PUBLICADOS`) permanecem inalterados.
+
+**Arquivo:** `supabase/functions/process-content-generation-job/index.ts`
+- Antes de chamar Claude:
+  1. Carregar `profiles` do usuário (já disponível) → `detectProfession`.
+  2. Invocar `fetch-market-trends` (best-effort, com timeout 15s; falha silenciosa não bloqueia geração).
+  3. Passar `professionCategory` e `marketTrends` para `buildClaudeContext`.
+  4. Salvar `marketTrends` em `editorial_weeks[weekIndex].market_trends`.
+
+**Arquivo:** `supabase/functions/regenerate-single-post/index.ts`
+- Mesma lógica: detectar profissão, reaproveitar `market_trends` já salvas na semana (não refaz busca para manter consistência), passar para o builder.
+
+---
+
+## 5. UI — cards de tendências dentro de cada semana
+
+**Arquivo:** `src/pages/EditorialPage.tsx`
+- Dentro do bloco de cada semana renderizada, **acima da grade de posts**, adicionar seção:
+  - Título: *"Baseado no que está acontecendo na sua área"*
+  - Subtítulo discreto: data da última atualização
+  - Cards (até 3) com: título da tendência, resumo curto, fonte (link discreto), botão **"Criar post sobre isso"**
+- O botão chama o fluxo atual de regeneração de post único, passando o `angle_suggestion` da tendência como tema pré-preenchido (parâmetro novo opcional `themeOverride` no `regenerate-single-post`).
+- Visual segue o sistema light premium do workspace (Cormorant + Inter, sem emojis, sem cores novas).
+- Renderização condicional: se `week.market_trends` estiver vazio, seção não aparece (zero impacto visual).
+
+---
+
+## 6. Garantias de não-regressão
+
+- Nenhum arquivo de UI fora de `EditorialPage.tsx` é tocado.
+- Nenhum schema de tabela é alterado (tendências vivem dentro do JSONB já existente `reports.editorial_weeks`).
+- Falha em `fetch-market-trends` é silenciosa: geração continua com Partes 0+1+contexto atual.
+- Profissões fora de "advogado/médico" recebem bloco ético vazio — comportamento idêntico ao atual para esses usuários.
+- Toda a lógica nova é aditiva ao prompt; nada é removido ou substituído.
+
+---
 
 ## Arquivos afetados
 
-- `src/pages/PostEditorPage.tsx` — adicionar barra com botão "Baixar PNG" abaixo do `PostCanvas` no modo single.
-- `supabase/functions/fetch-post-image/index.ts` — refatorar `generateWithAI` para que `aiStyleDirective`, quando presente, substitua os adjetivos estéticos do prompt-base.
-- `src/lib/aiImageStyles.ts` — reforçar as `directive` (mais curtas, mais imperativas, sem ambiguidade).
+**Novos:**
+- `supabase/functions/_shared/narrativePrinciples.ts`
+- `supabase/functions/_shared/professionRules.ts`
+- `supabase/functions/fetch-market-trends/index.ts`
 
-## Fora do escopo
-Sem mudanças no fluxo de débito de créditos, na busca Pexels, na UI de seleção de estilo ou em qualquer outra parte do editor.
+**Modificados:**
+- `supabase/functions/_shared/buildClaudeContext.ts`
+- `supabase/functions/process-content-generation-job/index.ts`
+- `supabase/functions/regenerate-single-post/index.ts`
+- `src/pages/EditorialPage.tsx`
+
+Sem migrations. Sem novos secrets (usa `ANTHROPIC_API_KEY` existente).

@@ -21,6 +21,13 @@ import {
   renderToneBlock,
   renderEditorialFrameworks,
 } from "../_shared/buildClaudeContext.ts";
+import { NARRATIVE_PRINCIPLES_BLOCK } from "../_shared/narrativePrinciples.ts";
+import {
+  detectProfession,
+  getEthicalRulesBlock,
+  renderMarketTrendsBlock,
+  type MarketTrend,
+} from "../_shared/professionRules.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -331,10 +338,41 @@ async function processJob(jobId: string) {
       const personal = await fetchPersonalQuestionnaire(userId);
       const personalContext = renderPersonalContext(personal);
 
+      // Profissão regulamentada (OAB / CFM) e tendências de mercado
+      const { data: profileRow } = await admin
+        .from("profiles")
+        .select("profession, niche")
+        .eq("user_id", userId)
+        .maybeSingle();
+      const professionCategory = detectProfession(profileRow);
+      const ethicalBlock = getEthicalRulesBlock(professionCategory);
+
+      let marketTrends: MarketTrend[] = [];
+      try {
+        const trendsRes = await admin.functions.invoke("fetch-market-trends", {
+          body: {
+            profession: profileRow?.profession || "",
+            niche: profileRow?.niche || niche || "",
+          },
+        });
+        const trendsData = trendsRes?.data as any;
+        if (trendsData && Array.isArray(trendsData.trends)) {
+          marketTrends = trendsData.trends as MarketTrend[];
+        }
+      } catch (trendsErr) {
+        console.warn(`[job ${jobId}] fetch-market-trends falhou (ignorando):`, trendsErr);
+      }
+      const marketTrendsBlock = renderMarketTrendsBlock(marketTrends);
+
       // ==== ESTÁGIO A: Feed (4 posts) ====
       await updateJob(jobId, { progress_message: "Gerando seus 4 posts de feed (etapa 1 de 2)…" });
 
-      const feedSystem = buildFeedSystemPrompt() + renderEditorialFrameworks();
+      const feedSystem =
+        NARRATIVE_PRINCIPLES_BLOCK +
+        ethicalBlock +
+        "\n\n" +
+        buildFeedSystemPrompt() +
+        renderEditorialFrameworks();
       const feedUser = `# NEGÓCIO
 Empresa: ${business?.company_name || "Não informado"}
 Serviços: ${business?.services || "Não informado"}
@@ -342,7 +380,7 @@ Público-alvo: ${business?.target_audience || "Não informado"}
 Nicho: ${niche || "Não informado"}${storybrandContext}${toneContext}${personalContext}
 
 # TEMAS JÁ PUBLICADOS (NÃO REPETIR)
-${previousSummary || "Nenhum conteúdo anterior."}
+${previousSummary || "Nenhum conteúdo anterior."}${marketTrendsBlock}
 
 Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
 
@@ -457,12 +495,17 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
         .map((p) => `Dia ${p.day} (${p.format}${p.is_personal ? ", pessoal" : ""}): ${p.theme}`)
         .join("\n");
 
-      const storiesSystem = buildStoriesSystemPrompt(feedSummaryForStories, FEED_DAYS) + renderEditorialFrameworks();
+      const storiesSystem =
+        NARRATIVE_PRINCIPLES_BLOCK +
+        ethicalBlock +
+        "\n\n" +
+        buildStoriesSystemPrompt(feedSummaryForStories, FEED_DAYS) +
+        renderEditorialFrameworks();
       const storiesUser = `# NEGÓCIO
 Empresa: ${business?.company_name || "Não informado"}
 Serviços: ${business?.services || "Não informado"}
 Público-alvo: ${business?.target_audience || "Não informado"}
-Nicho: ${niche || "Não informado"}${storybrandContext}${toneContext}${personalContext}
+Nicho: ${niche || "Não informado"}${storybrandContext}${toneContext}${personalContext}${marketTrendsBlock}
 
 Gere agora os 7 stories da semana.`;
 
@@ -489,7 +532,7 @@ Gere agora os 7 stories da semana.`;
         } else {
           // Falha do B: persiste apenas o feed e marca completed_partial — usuário pode regenerar só os stories
           console.error(`[job ${jobId}] Estágio B falhou. raw len=${storiesRaw?.length || 0}. stop=${storiesStop}`);
-          await persistWeek(job.report_id, feedFinal, [], jobId);
+          await persistWeek(job.report_id, feedFinal, [], jobId, marketTrends);
           await updateJob(jobId, {
             status: "completed",
             result: {
@@ -534,7 +577,7 @@ Gere agora os 7 stories da semana.`;
 
       // Persiste a semana completa
       await updateJob(jobId, { progress_message: "Salvando conteúdo…" });
-      const weekObj = await persistWeek(job.report_id, feedFinal, storiesFinal, jobId);
+      const weekObj = await persistWeek(job.report_id, feedFinal, storiesFinal, jobId, marketTrends);
 
       await updateJob(jobId, {
         status: "completed",
@@ -590,7 +633,8 @@ async function persistWeek(
   feed: FeedPost[],
   stories: StoryDay[],
   jobId: string,
-): Promise<{ days: DayV6[] }> {
+  marketTrends: MarketTrend[] = [],
+): Promise<{ days: DayV6[]; market_trends?: MarketTrend[] }> {
   const feedByDay = new Map(feed.map((f) => [f.day, f]));
   const storyByDay = new Map(stories.map((s) => [s.day, s]));
 
@@ -607,7 +651,10 @@ async function persistWeek(
     generator_version: EDITORIAL_GENERATOR_VERSION,
   }));
 
-  const weekObj = { days };
+  const weekObj: { days: DayV6[]; market_trends?: MarketTrend[] } = { days };
+  if (marketTrends && marketTrends.length > 0) {
+    weekObj.market_trends = marketTrends;
+  }
 
   const { data: reportRow } = await admin
     .from("reports")
