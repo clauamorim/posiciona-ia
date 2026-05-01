@@ -246,12 +246,13 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
     if (key === lastInitialKey.current) return;
     if (key === "{}") return; // sem slots ainda
     lastInitialKey.current = key;
+    if (isControlled && (controlledTextBoxes as TextBox[]).length > 0) return;
     const boxes = computeTextBoxPositions(layout, !!title, !!isCoverSlide);
     if (boxes.length > 0) {
       setTextBoxes(boxes);
       textBoxesInitialized.current = true;
     }
-  }, [initialTextBoxes, layout, title, isCoverSlide]);
+  }, [initialTextBoxes, layout, title, isCoverSlide, isControlled, controlledTextBoxes]);
 
   useEffect(() => {
     const updateScale = () => {
