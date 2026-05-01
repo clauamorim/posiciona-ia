@@ -484,6 +484,7 @@ export type Database = {
         Row: {
           completed_at: string | null
           created_at: string
+          engine: string
           error_message: string | null
           fal_request_ids: Json
           id: string
@@ -498,6 +499,7 @@ export type Database = {
         Insert: {
           completed_at?: string | null
           created_at?: string
+          engine?: string
           error_message?: string | null
           fal_request_ids?: Json
           id?: string
@@ -512,6 +514,7 @@ export type Database = {
         Update: {
           completed_at?: string | null
           created_at?: string
+          engine?: string
           error_message?: string | null
           fal_request_ids?: Json
           id?: string
@@ -555,6 +558,33 @@ export type Database = {
           price_cents?: number
           stripe_price_id?: string | null
           stripe_price_ids?: Json
+        }
+        Relationships: []
+      }
+      portrait_references: {
+        Row: {
+          created_at: string
+          file_path: string
+          id: string
+          is_active: boolean
+          position: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          file_path: string
+          id?: string
+          is_active?: boolean
+          position?: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          file_path?: string
+          id?: string
+          is_active?: boolean
+          position?: number
+          user_id?: string
         }
         Relationships: []
       }
