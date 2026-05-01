@@ -549,6 +549,7 @@ export type Database = {
           created_at: string
           error_message: string | null
           id: string
+          lora_provider: string
           lora_weights_url: string | null
           physical_traits: Json | null
           replicate_training_id: string | null
@@ -564,6 +565,7 @@ export type Database = {
           created_at?: string
           error_message?: string | null
           id?: string
+          lora_provider?: string
           lora_weights_url?: string | null
           physical_traits?: Json | null
           replicate_training_id?: string | null
@@ -579,6 +581,7 @@ export type Database = {
           created_at?: string
           error_message?: string | null
           id?: string
+          lora_provider?: string
           lora_weights_url?: string | null
           physical_traits?: Json | null
           replicate_training_id?: string | null

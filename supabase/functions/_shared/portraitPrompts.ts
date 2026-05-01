@@ -15,15 +15,17 @@ export type ArchetypeName =
   | "Rebelde"
   | "Bobo-da-corte";
 
-// MODO EDITORIAL DOCUMENTAL: vocabulário deslocado de "studio polido" pra
-// "retrato editorial real". Combinado com o LoRA de realismo de pele empilhado
-// (Canopus-Face-Realism), elimina o look airbrushed sem perder nitidez.
+// FLUX.1 Krea [dev] entrega textura natural de pele NATIVAMENTE — não precisa
+// de prompt longo brigando com o modelo. Suffix mínimo: lente + luz + DOF.
+// Tudo que era "unretouched skin / visible pores / no airbrush / kodak portra"
+// foi removido — Krea já cumpre isso por default. Prompt curto = menos
+// interferência na semelhança facial entregue pelo LoRA.
 const QUALITY_SUFFIX =
-  "natural editorial portrait, unretouched skin, visible skin pores, fine facial hair peach fuzz, subtle skin imperfections, natural skin shine only on T-zone, real human skin texture, fine pores and natural facial lines, matte realistic skin not glossy, natural makeup no beauty retouching, true-to-life face texture, photographed not rendered, sharp focus on eyes, crisp eyelashes, defined facial bone structure, preserved facial proportions, raw unedited photograph, kodak portra film grain";
-// Negative ampliado: bloqueia vocabulário de pele artificial E distorção de proporções
-// faciais (rosto largo, queixo curto, morphing). Termos redundantes em inglês reforçam o sinal.
+  "editorial portrait photograph, natural skin texture, soft daylight, shallow depth of field, 50mm lens";
+// Negative enxuto: só o estrutural. Krea não responde bem a negative longo —
+// preferimos confiar no modelo e bloquear apenas defeitos catastróficos.
 const STUDIO_NEGATIVE_BASE =
-  ", plastic skin, glossy skin, overly smooth face, perfect skin, skin smoothing, face smoothing, airbrushed skin, waxy skin, porcelain skin, beauty filter, AI beauty filter, instagram filter, glamour retouching, overprocessed portrait, CGI skin, 3d render skin, synthetic skin texture, doll-like skin, over-retouched face, heavy makeup, deformed face, deformed hands, wide face, round face, short chin, altered face shape, different person, face morph, soft focus, blurry skin, washed out details, asymmetric eyes, uneven eyes, crooked eyes, tilted eye line, asymmetric eyebrows, no neck, missing neck, distorted facial proportions, inflated cheeks, wide jaw";
+  ", plastic skin, airbrushed, cgi, deformed, asymmetric eyes, distorted proportions";
 // Reforço de anatomia de mãos — aplicado APENAS aos looks que mostram mãos
 // (atualmente nenhum, hands-out-of-frame em todos).
 const HANDS_NEGATIVE_REINFORCE = ", extra fingers, deformed fingers, fused fingers, claw hands";

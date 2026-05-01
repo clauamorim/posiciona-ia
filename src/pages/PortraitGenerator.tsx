@@ -147,7 +147,7 @@ const PortraitGenerator = () => {
     queryFn: async () => {
       const { data } = await supabase
         .from("portrait_trainings")
-        .select("id, status, trigger_word, created_at, completed_at, error_message, was_free")
+        .select("id, status, trigger_word, created_at, completed_at, error_message, was_free, lora_provider")
         .eq("user_id", user!.id)
         .order("created_at", { ascending: false })
         .limit(1)
@@ -175,7 +175,10 @@ const PortraitGenerator = () => {
 
   const hasPrerequisites = (archetypes?.length ?? 0) > 0 && !!report;
   const trainingStatus = latestTraining?.status as "training" | "ready" | "failed" | "expired" | undefined;
-  const hasReadyStudio = trainingStatus === "ready";
+  // LoRAs treinadas no provider antigo (Replicate) não são compatíveis com o
+  // novo motor (Fal Krea). Forçamos retreino gratuito antes de liberar geração.
+  const isLegacyLora = trainingStatus === "ready" && (latestTraining as any)?.lora_provider && (latestTraining as any).lora_provider !== "fal";
+  const hasReadyStudio = trainingStatus === "ready" && !isLegacyLora;
   const isTraining = trainingStatus === "training";
 
   const fileToBase64 = (file: File): Promise<string> =>
@@ -452,6 +455,22 @@ const PortraitGenerator = () => {
                     <Button onClick={() => setTrainModalOpen(true)} size="lg" className="gap-2">
                       <Wand2 className="h-4 w-4" />
                       Treinar meu Estúdio Pessoal
+                    </Button>
+                  </div>
+                )}
+
+                {isLegacyLora && (
+                  <div className="space-y-3 rounded-lg border border-amber-500/40 bg-amber-50 dark:bg-amber-950/20 p-4">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4 text-amber-600" />
+                      <p className="font-medium">Atualização do Estúdio Pessoal</p>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Migramos o motor de retratos para uma versão com pele substancialmente mais natural. Para gerar novos retratos, refaça o treino — sem custo, não consome o treino gratuito do mês nem créditos.
+                    </p>
+                    <Button onClick={() => setTrainModalOpen(true)} className="gap-2">
+                      <Wand2 className="h-4 w-4" />
+                      Refazer treino (gratuito)
                     </Button>
                   </div>
                 )}

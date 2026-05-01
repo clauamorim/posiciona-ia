@@ -22,6 +22,23 @@ function safeEqual(a: string, b: string): boolean {
   return diff === 0;
 }
 
+/**
+ * Extrai a URL do .safetensors da LoRA do payload da Fal.
+ * O trainer fal-ai/flux-lora-portrait-trainer retorna:
+ *   { diffusers_lora_file: { url, file_name, ... }, config_file: {...} }
+ * Mantemos fallback pro shape antigo (Replicate) por se um webhook em voo chegar
+ * durante a transição.
+ */
+function extractLoraUrl(output: any): string | null {
+  if (!output || typeof output !== "object") return null;
+  // Fal portrait trainer
+  if (output.diffusers_lora_file?.url) return output.diffusers_lora_file.url;
+  // Replicate (legacy, idempotência durante migração)
+  if (typeof output.weights === "string") return output.weights;
+  if (typeof output.version === "string") return output.version;
+  return null;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -51,11 +68,31 @@ serve(async (req) => {
     );
 
     const payload = await req.json().catch(() => ({}));
-    const status = String(payload?.status ?? "");
-    const output = payload?.output ?? null;
-    const error = payload?.error ?? null;
+    // Fal envia { request_id, gateway_request_id, status: "OK"|"ERROR", payload, error? }
+    // Replicate envia { status: "succeeded"|"failed"|"canceled", output, error }
+    // Detectamos o shape e normalizamos.
+    const isFal = "request_id" in payload || "gateway_request_id" in payload;
+    let normalizedStatus: "succeeded" | "failed" | "other";
+    let output: any = null;
+    let error: any = null;
 
-    console.log(`[portrait-webhook] training=${trainingId} replicate_status=${status}`);
+    if (isFal) {
+      const falStatus = String(payload?.status ?? "").toUpperCase();
+      output = payload?.payload ?? null;
+      error = payload?.error ?? null;
+      if (falStatus === "OK") normalizedStatus = "succeeded";
+      else if (falStatus === "ERROR") normalizedStatus = "failed";
+      else normalizedStatus = "other";
+    } else {
+      const repStatus = String(payload?.status ?? "");
+      output = payload?.output ?? null;
+      error = payload?.error ?? null;
+      if (repStatus === "succeeded") normalizedStatus = "succeeded";
+      else if (repStatus === "failed" || repStatus === "canceled") normalizedStatus = "failed";
+      else normalizedStatus = "other";
+    }
+
+    console.log(`[portrait-webhook] training=${trainingId} provider=${isFal ? "fal" : "replicate"} status=${normalizedStatus}`);
 
     const { data: training } = await supabaseAdmin
       .from("portrait_trainings")
@@ -67,20 +104,26 @@ serve(async (req) => {
       return new Response("Not Found", { status: 404, headers: corsHeaders });
     }
 
-    if (status === "succeeded") {
-      // Replicate trainer returns { weights: "https://...tar", version: "owner/name:hash" } in output
-      const weights = output?.weights ?? null;
-      const version = output?.version ?? null;
-      await supabaseAdmin
-        .from("portrait_trainings")
-        .update({
-          status: "ready",
-          lora_weights_url: weights || version,
-          completed_at: new Date().toISOString(),
-        })
-        .eq("id", trainingId);
-      console.log(`[portrait-webhook] training=${trainingId} READY weights=${(weights || version || "").slice(0, 80)}`);
-    } else if (status === "failed" || status === "canceled") {
+    if (normalizedStatus === "succeeded") {
+      const loraUrl = extractLoraUrl(output);
+      if (!loraUrl) {
+        console.error(`[portrait-webhook] training=${trainingId} succeeded but no LoRA URL in output:`, JSON.stringify(output).slice(0, 400));
+        await supabaseAdmin
+          .from("portrait_trainings")
+          .update({ status: "failed", error_message: "no-lora-url-in-output", completed_at: new Date().toISOString() })
+          .eq("id", trainingId);
+      } else {
+        await supabaseAdmin
+          .from("portrait_trainings")
+          .update({
+            status: "ready",
+            lora_weights_url: loraUrl,
+            completed_at: new Date().toISOString(),
+          })
+          .eq("id", trainingId);
+        console.log(`[portrait-webhook] training=${trainingId} READY lora=${loraUrl.slice(0, 80)}`);
+      }
+    } else if (normalizedStatus === "failed") {
       await supabaseAdmin
         .from("portrait_trainings")
         .update({
@@ -90,7 +133,6 @@ serve(async (req) => {
         })
         .eq("id", trainingId);
 
-      // Refund credits if it wasn't free
       if (!training.was_free) {
         const { data: bal } = await supabaseAdmin
           .from("user_balances")
