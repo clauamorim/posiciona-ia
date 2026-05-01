@@ -391,6 +391,7 @@ const PostEditorPage = () => {
     setRenderOrder(snap.renderOrder);
     setDisplayFont(snap.displayFont);
     setBodyFont(snap.bodyFont);
+    if (snap.slideTextBoxes) setSlideTextBoxes(snap.slideTextBoxes);
   }, []);
 
   const { undo, canUndo } = useEditorHistory(historyState as any, applyUndoSnapshot as any);
