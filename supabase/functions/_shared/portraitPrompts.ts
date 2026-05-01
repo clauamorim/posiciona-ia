@@ -728,6 +728,10 @@ export function buildGeminiPortraitPrompt(params: GeminiPromptParams): {
     `Preserve EXACTLY the hair color, length, density, parting and natural texture (straight, wavy, curly or coily) visible in the references — including any grey strands, roots, or color variation. Do NOT change the haircut, do NOT add volume that isn't there, do NOT straighten or curl beyond what the references show.`,
     `Eyelashes and eyebrows must show individual hairs, not painted shapes.`,
 
+    // ===== STUDIO BACKDROP LOCK — fundo SEMPRE estúdio neutro =====
+    `### STUDIO BACKDROP LOCK ###`,
+    `Background MUST be a clean professional photo studio with a seamless paper backdrop only. Subtle paper texture and a soft light gradient are allowed. Color palette is STRICTLY neutral: shades of grey, brown and black only. ABSOLUTELY NO saturated colors, NO terracotta, NO mustard, NO pink, NO green, NO blue, NO cream, NO ivory, NO yellow, NO red, NO orange. ABSOLUTELY NO props, NO furniture, NO brick walls, NO concrete walls, NO wood panels, NO windows, NO plants, NO bookshelves, NO studio equipment in frame (no softboxes, no light stands, no tripods, no cables, no reflectors, no umbrellas), NO outdoor scenery, NO architectural elements, NO patterns, NO text. Just the subject in front of a clean neutral textured paper backdrop.`,
+
     // ===== SCENE =====
     `Scene direction: ${archetypeEssence}.`,
   ];
