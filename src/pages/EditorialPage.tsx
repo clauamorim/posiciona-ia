@@ -799,10 +799,25 @@ const EditorialPage = () => {
           {allWeeks.map((week, wi) => {
             const weekOutdated = isWeekOutdated(week.days as any);
             const isRegenWeek = regeneratingFreeWeek === wi;
+            const weekTrends = Array.isArray((week as any).market_trends) ? (week as any).market_trends : [];
+            const feedDaysForTrends = week.days
+              .map((d: DayV6, di: number) => d.feed ? { dayIndex: di, dayNumber: d.day || di + 1, theme: d.feed.theme || "" } : null)
+              .filter(Boolean) as { dayIndex: number; dayNumber: number; theme: string }[];
             return (
             <TabsContent key={wi} value={`week-${wi}`}>
               {/* Banner "Atualizar semana (grátis)" temporariamente oculto a pedido. */}
               {false && weekOutdated && isRegenWeek && null}
+              {weekTrends.length > 0 && (
+                <MarketTrendsSection
+                  trends={weekTrends}
+                  feedDays={feedDaysForTrends}
+                  disabled={regenerationCredits < 1 || regeneratingPost !== null}
+                  onCreatePost={async (trend, dayIndex) => {
+                    const angle = trend.angle_suggestion || trend.title;
+                    await handleRegenerateItem(wi, dayIndex, "feed", false, angle);
+                  }}
+                />
+              )}
               <div className="grid gap-3 sm:grid-cols-1 lg:grid-cols-2">
                 {week.days.map((day: DayV6, di: number) => {
                   const feed = day.feed;
