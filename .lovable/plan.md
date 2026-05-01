@@ -1,97 +1,86 @@
-## Diagnóstico
+## Migração para Nano Banana Pro
 
-Olhei a imagem dos 3 retratos gerados e o pipeline. A usuária aparece **claramente envelhecida** — pele mais marcada, traços mais maduros, cabelo grisalho marcante — vs. o que o LoRA deveria reproduzir das selfies.
+Substituir o motor Fal.ai (Krea + LoRA) por **Nano Banana Pro** (`google/gemini-3-pro-image-preview`) via Lovable AI Gateway. O Nano Banana Pro recebe as selfies de referência diretamente em cada geração (sem treino), preservando identidade com fidelidade muito superior, pele natural, sem o viés de "envelhecimento" do Krea.
 
-### Causas (em ordem de impacto)
+### O que muda para a usuária
 
-1. **Prompt sem âncora etária.** O builder hoje monta `{trigger} woman, {arquétipo}, {hair}, {outfit}, editorial portrait...`. Não existe nenhum token de idade. O Krea tem viés forte para gerar "mulher madura/sofisticada" quando o contexto é `editorial portrait + authoritative + Governante + coat camel + advogada`. Sem nada puxando pra idade real, ele defaulta pra ~50-60 anos.
+- O card "Estúdio Pessoal" some da página `/portraits`.
+- Em vez disso, aparece um card **"Suas referências"**: pedimos 3 a 5 selfies (frontal, lateral, sorrindo, luz natural). Sem espera de 20min, sem custo de treino — as selfies ficam guardadas e são reutilizadas em toda geração.
+- O botão "Gerar retratos" funciona igual: 1 crédito por retrato, até 3 por geração (Neutro/Claro/Escuro).
+- Tempo de geração esperado: ~40–80s (vs. ~3min do Fal). E você só é cobrada quando o retrato sai pronto.
 
-2. **`extractPhysicalTraits` não captura idade.** O schema só tem hair/skin/eye. Mesmo se quiséssemos injetar idade no prompt, ela não está armazenada. As selfies têm essa informação mas a estamos jogando fora.
+### Fluxo técnico novo
 
-3. **Hair descriptor pode reforçar envelhecimento.** Se Gemini classificou cabelo como `grey` ou `white` nas selfies (caso a pessoa tenha alguns fios brancos), o prompt fica `medium grey hair` — o Krea então generaliza pra "senhora grisalha completa". Vi exatamente isso no retrato 1 e 3.
-
-4. **Termo "sophisticated/authoritative" no template Governante** combinado com lente 50mm + DOF raso + luz dura → estética que o modelo associa a maturidade. Reforça o efeito.
-
-5. **LoRA scale 1.0 fixo.** Se a identidade está fraca (poucas selfies, ou selfies muito variadas em idade), 1.0 pode não ser suficiente pra "puxar" o rosto real contra o viés de envelhecimento do prompt.
-
-## Recomendação
-
-**Combinação de 3 correções**, na ordem de quem dá mais retorno:
-
-### Correção A — Capturar e injetar idade (essencial)
-
-Estender `PhysicalTraits` com:
-- `apparent_age_range`: `"20s" | "30s" | "40s" | "50s" | "60s+"` (faixas, não número exato — Gemini é mais confiável assim)
-- `hair_has_grey`: `boolean` (separar "tem alguns fios brancos" de "cabelo todo grisalho")
-
-Atualizar `extractPhysicalTraits` para pedir esses campos. Atualizar `buildPortraitPrompt` para incluir token de idade no início:
-
-```
-{trigger} woman in her 30s, {arquétipo}, ...
-```
-
-E ajustar hair descriptor: se `hair_has_grey=true` mas `hair_color != grey`, escrever `"medium dark brown hair with subtle grey strands"` em vez de classificar tudo como grey.
-
-### Correção B — Negative prompt anti-envelhecimento
-
-Adicionar ao `STUDIO_NEGATIVE_BASE`:
-```
-, aged skin, deep wrinkles, sagging skin, elderly, much older than reference, fully grey hair (when not actually grey)
+```text
+[Usuária envia 3-5 selfies]
+        ↓
+[portrait-references upload] → bucket portrait-inputs/{user_id}/ref_*.jpg
+        ↓ grava metadata em portrait_references
+[Usuária clica "Gerar"]
+        ↓
+[generate-portrait v2] → Lovable AI Gateway
+   model: google/gemini-3-pro-image-preview
+   messages: [
+     { system: identidade + estilo + arquétipo + figurino + pose + fundo },
+     { user: text + 3-5 image_url (selfies) }
+   ]
+        ↓ resposta síncrona (~40-80s/imagem)
+[upload portrait-outputs + cobra 1 crédito por imagem entregue]
+        ↓
+[grava em portrait_generations e exibe]
 ```
 
-### Correção C — Subir LoRA scale para 1.05-1.1
+### Mudanças no banco
 
-Krea+LoRA tolera bem scale levemente acima de 1.0 — puxa identidade com mais força contra o viés do prompt. Não passar de 1.15 (deforma o rosto).
+Nova tabela `portrait_references` (selfies persistentes da usuária):
+- `user_id`, `file_path` (no bucket `portrait-inputs`), `is_active`, `position` (ordem)
+- RLS: usuária CRUD nas próprias; admin lê tudo.
 
-### O que NÃO vou mexer
+`portrait_trainings` **mantida intacta** no banco (dados antigos preservados, só some da UI).
 
-- Templates de arquétipo (Governante etc.) — o problema não é o estilo, é a falta de âncora etária.
-- Modelo/parâmetros do Fal — Krea entrega boa pele, o problema é semântico no prompt.
-- Pipeline async — está funcionando.
+`portrait_generations` ganha coluna opcional `engine` (`'fal' | 'gemini'`) para distinguir histórico legado vs novo. `fal_request_ids` continua opcional (não usado no novo motor).
 
-## Plano detalhado
+### Mudanças nas Edge Functions
 
-### 1. Migração DB
+1. **Nova `portrait-references`** — upload/listagem/deleção das selfies (substitui o papel do `portrait-train` na UI).
+2. **`generate-portrait` reescrita** — chama Lovable AI Gateway com Nano Banana Pro, envia selfies como `image_url` (data URL), recebe imagem(ns) base64, sobe no bucket, cobra créditos só pelos sucessos. Síncrona — não usa mais fila.
+3. **`portrait-poll`** — desativada/removida (não tem mais polling).
+4. **`portrait-train`, `portrait-webhook`, `portrait-fix-weights`, `portrait-recover`** — mantidas no repo mas sem chamadas (legado).
 
-Não precisa. `physical_traits` já é `jsonb`, basta adicionar campos novos no objeto.
+### Mudanças na UI (`PortraitGenerator.tsx`)
 
-### 2. `_shared/portraitPrompts.ts`
+- Remover renderização do card "Estúdio Pessoal" (todo o bloco entre linhas ~456–566), incluindo dialog de treino (linhas ~646+).
+- Novo card **"Suas referências"**: dropzone para 3-5 selfies, lista com previews e botão de excluir individual; mostra contagem `n/5`. Persiste imediatamente no upload.
+- Card "Gerar retratos" passa a depender de `references.length >= 3` em vez de `hasReadyStudio`.
+- Microcopy:
+  - Título: *"Suas referências"*
+  - Subtítulo: *"Envie de 3 a 5 selfies nítidas (frontal, lateral e sorrindo, luz natural). Elas guiam a fidelidade do seu rosto em cada geração."*
+  - Botão: *"Gerar 3 retratos (3 créditos)"*
 
-- Estender `interface PhysicalTraits` com `apparent_age_range?` e `hair_has_grey?` (opcionais pra não quebrar treinos antigos).
-- Em `buildPortraitPrompt`:
-  - Mapear `apparent_age_range` → token: `"20s"` → `"in her 20s"`, `"30s"` → `"in her 30s"`, etc.
-  - Default se ausente: `"in her 30s"` (faixa segura — Krea tende a envelhecer, não rejuvenescer demais).
-  - Concatenar no genderToken: `${triggerWord} ${genderToken} ${ageToken}`.
-  - Refinar `hairDescriptor`: se `hair_has_grey` e cor base não é grey/white, usar `"${length} ${color} hair with some grey strands"`.
-- Adicionar termos anti-envelhecimento no `STUDIO_NEGATIVE_BASE`.
+### Compensação e tratamento do legado
 
-### 3. `portrait-train/index.ts`
+- A usuária que já tinha `portrait_trainings.status = 'ready'` no Fal: na primeira visita à página `/portraits` após o deploy, exibir banner discreto: *"Atualizamos o motor de retratos para uma versão mais fiel. Suas selfies anteriores foram migradas — confira em 'Suas referências'."* — extrair as imagens do ZIP de treino antigo (bucket `portrait-inputs`) e popular `portrait_references` automaticamente via migration/script.
+- Crédito de cortesia: **+3 retratos extras** para a usuária 481caf41 testar o novo motor sem custo.
 
-- Atualizar prompt de `extractPhysicalTraits` para pedir os 2 campos novos.
-- Atualizar schema no JSON e validação.
-- Salvar tudo em `physical_traits` (já é jsonb, só estender o objeto).
+### Prompt do Nano Banana Pro
 
-### 4. `generate-portrait/index.ts`
+System prompt enfatiza:
+- *"preserve exact facial identity, age, ethnicity, and hair from the reference images"*
+- *"natural skin texture with visible pores; no smoothing, no age regression, no aging"*
+- *"editorial portrait, soft studio lighting, ambient depth"*
 
-- Subir `DEFAULT_LORA_SCALE` de `1.0` → `1.05`.
+User content combina: descrição do arquétipo, figurino, pose de mãos, fundo (3 variações), proporção retrato 4:5 + as N selfies como `image_url`.
 
-### 5. Recuperação para esta usuária
+### Custos / risco
 
-A geração atual já consumiu créditos? Olhando o log: `enqueued generation=9b75df68... jobs=3`. A função `portrait-poll` finalizou e cobrou. **Vou propor refazer a geração gratuitamente** após você aprovar o plano — adicionar 3 créditos de cortesia ao saldo + nota explicativa em `credit_logs`. Você dispara nova geração e os retratos saem na faixa etária correta.
+- Nano Banana Pro é o modelo de imagem mais caro do gateway, mas **só cobra quando entrega**. Sem mais "queima" como no Fal.
+- Sem custo de treino mensal.
+- Identidade muito mais fiel (testes internos da Google mostram preservação superior em retratos com referências múltiplas).
+- Plano B: se Nano Banana Pro estiver indisponível, fallback automático para Nano Banana 2 (`google/gemini-3.1-flash-image-preview`).
 
-Mas pra isso funcionar bem, **preciso re-extrair traits da training atual** (via uma chamada ao Gemini com as selfies já no Storage) ou pedir pra você refazer só a extração (sem refazer treino — usa o mesmo LoRA).
+### Resumo de arquivos
 
-## Validação
-
-1. Treino novo (de teste) → verificar `physical_traits.apparent_age_range` salvo corretamente.
-2. Geração → verificar log do prompt: deve conter `"in her Xs"` e hair descriptor refinado.
-3. Inspecionar 3 retratos → idade aparente compatível com selfies.
-4. Caso de borda: usuária com cabelo realmente todo grisalho → não rejuvenescer artificialmente.
-
-## Risco
-
-Baixo-médio. Mudanças isoladas em prompt/schema. Treinos antigos continuam funcionando (campos opcionais → defaults seguros). Reversível: basta tirar o token de idade do builder.
-
-## Pergunta antes de implementar
-
-Você quer que eu também **re-extraia os traits da sua training atual** (sem refazer o treino — só roda Gemini de novo nas selfies que já estão no bucket) pra você gerar de novo já com a faixa etária correta? Ou prefere refazer o treino do zero?
+- **Novo**: `supabase/functions/portrait-references/index.ts`, migration para `portrait_references` + coluna `engine` + script de migração de selfies legadas.
+- **Reescrito**: `supabase/functions/generate-portrait/index.ts`, `supabase/functions/_shared/portraitPrompts.ts` (novo builder Gemini).
+- **Editado**: `src/pages/PortraitGenerator.tsx` (remove card de treino, adiciona card de referências), tipo `portrait_references` em `types.ts` (auto-gerado).
+- **Sem mudança/legado**: `portrait-train`, `portrait-poll`, `portrait-webhook`, `portrait-recover`, `portrait-fix-weights`.
