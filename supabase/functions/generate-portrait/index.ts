@@ -25,14 +25,14 @@ const FACE_REALISM_LORA = "prithivMLmods/Canopus-LoRA-Flux-FaceRealism";
 // Subimos de 0.25 → 0.40: com client LoRA em 0.90–1.00, 0.25 era abafado e a
 // pele voltava a ficar plástica/airbrushed. 0.40 reintroduz poros e textura
 // real sem competir com a identidade facial (testado seguro até ~0.45).
-const FACE_REALISM_SCALE = 0.40;
+const FACE_REALISM_SCALE = 0.30;
 const GENERATE_COST_CREDITS = 3;
 // Guidance um degrau abaixo do teto anterior: 3.6 + LoRA 1.05 colapsava em
 // assimetria facial (olhos tortos, rosto inflado). Faixa atual mantém nitidez
-// sem o risco. 2.6 (documental) / 3.0 (equilibrado) / 3.4 (editorial).
-const GUIDANCE_VARIATIONS = [2.6, 3.0, 3.4];
+// sem o risco. 2.6 (documental) / 3.0 (equilibrado) / 3.1 (editorial leve).
+const GUIDANCE_VARIATIONS = [2.6, 3.0, 3.1];
 // Mais steps = mais detalhe fino (poros, cílios, brilho dos olhos).
-const NUM_INFERENCE_STEPS = 35;
+const NUM_INFERENCE_STEPS = 40;
 const PORTRAIT_BUCKET = "portrait-outputs";
 // Referência (logs apenas). FLUX LoRA usa aspect_ratio + megapixels — width/height
 // no input são ignorados silenciosamente e o modelo cai pra 1024x1024.
