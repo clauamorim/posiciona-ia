@@ -459,6 +459,22 @@ const PortraitGenerator = () => {
                   </div>
                 )}
 
+                {isLegacyLora && (
+                  <div className="space-y-3 rounded-lg border border-amber-500/40 bg-amber-50 dark:bg-amber-950/20 p-4">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4 text-amber-600" />
+                      <p className="font-medium">Atualização do Estúdio Pessoal</p>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Migramos o motor de retratos para uma versão com pele substancialmente mais natural. Para gerar novos retratos, refaça o treino — sem custo, não consome o treino gratuito do mês nem créditos.
+                    </p>
+                    <Button onClick={() => setTrainModalOpen(true)} className="gap-2">
+                      <Wand2 className="h-4 w-4" />
+                      Refazer treino (gratuito)
+                    </Button>
+                  </div>
+                )}
+
                 {isTraining && (
                   <div className="space-y-3 rounded-lg border border-primary/30 bg-primary/5 p-4">
                     <div className="flex items-center gap-2">
