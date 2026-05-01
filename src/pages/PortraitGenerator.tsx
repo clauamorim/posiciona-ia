@@ -527,7 +527,38 @@ const PortraitGenerator = () => {
               </CardContent>
             </Card>
 
-            {/* Resultados */}
+            {/* 3º — Comprar Retratos (ação secundária) */}
+            <div className="flex justify-center">
+              <Dialog open={packDialogOpen} onOpenChange={setPackDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-2 text-muted-foreground hover:text-foreground border-border/60">
+                    <ShoppingCart className="h-3.5 w-3.5" />
+                    Comprar Retratos
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Pacotes de Retrato</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-3">
+                    {(packs || []).map((pack: any) => (
+                      <Card key={pack.id} className="border-border/50">
+                        <CardContent className="flex items-center justify-between py-4">
+                          <div>
+                            <p className="font-semibold">{pack.name}</p>
+                            <p className="text-sm text-muted-foreground">{pack.credits} retratos</p>
+                          </div>
+                          <Button size="sm" onClick={() => handleBuyPack(pack.id)} disabled={loadingPack === pack.id}>
+                            {loadingPack === pack.id ? <Loader2 className="h-4 w-4 animate-spin" /> : `R$ ${(pack.price_cents / 100).toFixed(0)}`}
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+
             {portraits.length > 0 && (
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
