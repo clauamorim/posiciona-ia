@@ -494,6 +494,16 @@ serve(async (req) => {
       );
     }
 
+    // Tratamento condicional para cabelos grisalhos: o LoRA tende a envelhecer
+    // demais a cliente quando ela tem fios brancos no dataset. Reforçamos
+    // "salt-and-pepper" no positivo e bloqueamos "fully gray/white" no negativo.
+    const hairColorRaw = String(((training as any).physical_traits?.hair_color ?? "")).toLowerCase();
+    const isGrayHair = /\b(gray|grey|silver|white)\b/.test(hairColorRaw);
+    const grayPositiveSuffix = isGrayHair ? ", natural salt-and-pepper highlights, not fully gray" : "";
+    const grayNegativeSuffix = isGrayHair ? ", fully gray hair, white hair, elderly appearance" : "";
+    if (isGrayHair) {
+      console.log(`[generate-portrait] gray-hair handling enabled (hair_color="${hairColorRaw}")`);
+    }
 
     // Debit credits — cobra apenas pelas imagens com sucesso (max requestedCount).
     const charge = Math.min(requestedCount, finalPortraits.length);
