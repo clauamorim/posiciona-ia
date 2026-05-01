@@ -346,6 +346,7 @@ const EditorialPage = () => {
     dayIndex: number,
     target: "feed" | "story",
     freeMode = false,
+    themeOverride?: string,
   ) => {
     if (!user) return;
     if (!freeMode && regenerationCredits < 1) {
