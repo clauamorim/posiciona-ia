@@ -144,6 +144,8 @@ interface PhysicalTraits {
   hair_style: string;
   skin_tone: string;
   eye_color: string;
+  apparent_age_range: "20s" | "30s" | "40s" | "50s" | "60s+";
+  hair_has_grey: boolean;
 }
 
 async function extractPhysicalTraits(
@@ -161,14 +163,20 @@ async function extractPhysicalTraits(
       {
         type: "text",
         text:
-          "Analise as fotos da MESMA pessoa e devolva APENAS um JSON com as características físicas observadas. Não inclua texto fora do JSON. Schema:\n" +
+          "Analise as fotos da MESMA pessoa e devolva APENAS um JSON com as características físicas observadas. " +
+          "Para 'apparent_age_range', escolha a faixa etária aparente da pessoa (não chute pra mais velha — se hesitar entre duas, escolha a mais jovem). " +
+          "Para 'hair_has_grey', marque true APENAS se houver fios brancos visíveis MAS o cabelo NÃO for predominantemente grisalho. " +
+          "Se o cabelo for majoritariamente grisalho/branco, defina hair_color = 'grey' (ou 'white') e hair_has_grey = false. " +
+          "Não inclua texto fora do JSON. Schema:\n" +
           `{
   "gender": "woman" | "man",
   "hair_color": "brown | dark brown | blonde | dark blonde | black | red | auburn | grey | white",
   "hair_length": "short | medium | long | very long",
   "hair_style": "straight | wavy | curly | coily",
   "skin_tone": "fair | light | medium | olive | tan | brown | dark brown | deep",
-  "eye_color": "brown | dark brown | hazel | green | blue | grey"
+  "eye_color": "brown | dark brown | hazel | green | blue | grey",
+  "apparent_age_range": "20s | 30s | 40s | 50s | 60s+",
+  "hair_has_grey": true | false
 }`,
       },
       ...sample.map((dataUrl) => ({ type: "image_url", image_url: { url: dataUrl } })),
@@ -198,6 +206,14 @@ async function extractPhysicalTraits(
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (parsed.gender !== "woman" && parsed.gender !== "man") return null;
+    // Validação leve dos campos novos — se vier inválido, aplica defaults seguros
+    const validAges = ["20s", "30s", "40s", "50s", "60s+"];
+    if (!validAges.includes(parsed.apparent_age_range)) {
+      parsed.apparent_age_range = "30s";
+    }
+    if (typeof parsed.hair_has_grey !== "boolean") {
+      parsed.hair_has_grey = false;
+    }
     return parsed as PhysicalTraits;
   } catch (e) {
     console.warn(`[portrait-train] traits extraction exception: ${e instanceof Error ? e.message : String(e)}`);

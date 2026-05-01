@@ -25,7 +25,7 @@ const QUALITY_SUFFIX =
 // Negative enxuto: só o estrutural. Krea não responde bem a negative longo —
 // preferimos confiar no modelo e bloquear apenas defeitos catastróficos.
 const STUDIO_NEGATIVE_BASE =
-  ", plastic skin, airbrushed, cgi, deformed, asymmetric eyes, distorted proportions";
+  ", plastic skin, airbrushed, cgi, deformed, asymmetric eyes, distorted proportions, aged skin, deep wrinkles, sagging skin, elderly, much older than reference";
 // Reforço de anatomia de mãos — aplicado APENAS aos looks que mostram mãos
 // (atualmente nenhum, hands-out-of-frame em todos).
 const HANDS_NEGATIVE_REINFORCE = ", extra fingers, deformed fingers, fused fingers, claw hands";
@@ -275,7 +275,27 @@ export interface PhysicalTraits {
   hair_style: string;
   skin_tone: string;
   eye_color: string;
+  /** Faixa etária aparente. Opcional pra retrocompat com treinos antigos. */
+  apparent_age_range?: "20s" | "30s" | "40s" | "50s" | "60s+";
+  /** True quando há fios brancos visíveis mas o cabelo NÃO é totalmente grisalho. */
+  hair_has_grey?: boolean;
 }
+
+const AGE_RANGE_TO_TOKEN: Record<NonNullable<PhysicalTraits["apparent_age_range"]>, string> = {
+  "20s": "in her 20s",
+  "30s": "in her 30s",
+  "40s": "in her 40s",
+  "50s": "in her 50s",
+  "60s+": "in her 60s",
+};
+
+const AGE_RANGE_TO_TOKEN_MALE: Record<NonNullable<PhysicalTraits["apparent_age_range"]>, string> = {
+  "20s": "in his 20s",
+  "30s": "in his 30s",
+  "40s": "in his 40s",
+  "50s": "in his 50s",
+  "60s+": "in his 60s",
+};
 
 export interface BuildPromptParams {
   archetype: ArchetypeName | string;
@@ -325,12 +345,20 @@ export function buildPortraitPrompt(params: BuildPromptParams): {
     }
   }
 
-  // ===== TRAITS MÍNIMOS: só cabelo (cor + comprimento) =====
+  // ===== TRAITS MÍNIMOS: cabelo (cor + comprimento, com nuance de fios brancos) =====
   // Pele e olhos saem — o LoRA já sabe disso e tokens extras diluem atenção.
   let hairDescriptor = "";
   if (params.physicalTraits) {
     const t = params.physicalTraits;
-    hairDescriptor = `${t.hair_length} ${t.hair_color} hair`;
+    const baseColor = (t.hair_color || "").toLowerCase();
+    const isAlreadyGrey = /grey|gray|white|silver/.test(baseColor);
+    if (t.hair_has_grey && !isAlreadyGrey) {
+      // Tem alguns fios brancos mas o cabelo NÃO é grisalho — descreve com nuance
+      // pra evitar que o Flux generalize pra "senhora totalmente grisalha".
+      hairDescriptor = `${t.hair_length} ${t.hair_color} hair with subtle grey strands`;
+    } else {
+      hairDescriptor = `${t.hair_length} ${t.hair_color} hair`;
+    }
   } else if (effectiveGender === "woman" && params.hair) {
     hairDescriptor = params.hair;
   }
@@ -341,11 +369,22 @@ export function buildPortraitPrompt(params: BuildPromptParams): {
   // ===== GÊNERO: token simples =====
   const genderToken = effectiveGender === "none" ? "person" : effectiveGender;
 
+  // ===== ÂNCORA DE IDADE — Krea tende a envelhecer; sem âncora vai pra 50-60 =====
+  // Default seguro: 30s (faixa neutra que o modelo respeita bem com LoRA).
+  let ageToken = "";
+  const ageRange = params.physicalTraits?.apparent_age_range;
+  if (effectiveGender === "woman") {
+    ageToken = ageRange ? AGE_RANGE_TO_TOKEN[ageRange] : "in her 30s";
+  } else if (effectiveGender === "man") {
+    ageToken = ageRange ? AGE_RANGE_TO_TOKEN_MALE[ageRange] : "in his 30s";
+  }
+
   // ===== MONTAGEM FINAL — espelha estrutura do manual que funcionou =====
-  // {trigger} {gender}, {framing?}, {archetype_essence}, {hair?}, {outfit?}, {QUALITY_SUFFIX}
-  const parts: string[] = [
-    `${triggerWord} ${genderToken}`,
-  ];
+  // {trigger} {gender} {ageToken}, {framing?}, {archetype_essence}, {hair?}, {outfit?}, {QUALITY_SUFFIX}
+  const headToken = ageToken
+    ? `${triggerWord} ${genderToken} ${ageToken}`
+    : `${triggerWord} ${genderToken}`;
+  const parts: string[] = [headToken];
   if (framing.instruction) parts.push(framing.instruction);
   parts.push(archetypeEssence);
   if (hairDescriptor) parts.push(hairDescriptor);
