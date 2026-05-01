@@ -2,6 +2,7 @@ import React from "react";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, ArrowRight, Download, Package } from "lucide-react";
 import PostCanvas from "./PostCanvas";
+import type { TextBox } from "./PostCanvas";
 import type { OverlayImage } from "./PostToolbar";
 
 interface CarouselEditorProps {
@@ -59,6 +60,8 @@ interface CarouselEditorProps {
     body?: { x: number; y: number; width: number; height: number };
   };
   resetKey?: string;
+  slideTextBoxes?: Record<number, TextBox[]>;
+  onSlideTextBoxesChange?: (slideIndex: number, boxes: TextBox[]) => void;
 }
 
 const CarouselEditor: React.FC<CarouselEditorProps> = ({
@@ -74,6 +77,7 @@ const CarouselEditor: React.FC<CarouselEditorProps> = ({
   onSelectedTextChange, renderOrder, onRenderOrderChange,
   showRulers, postStyle,
   initialTextBoxes, resetKey,
+  slideTextBoxes, onSlideTextBoxesChange,
 }) => {
   const total = slides.length;
   const isCover = currentSlide === 0;
@@ -114,6 +118,8 @@ const CarouselEditor: React.FC<CarouselEditorProps> = ({
         postStyle={postStyle}
         initialTextBoxes={initialTextBoxes}
         resetKey={resetKey ? `${resetKey}-${currentSlide}` : undefined}
+        textBoxes={slideTextBoxes?.[currentSlide]}
+        onTextBoxesChange={onSlideTextBoxesChange ? (boxes) => onSlideTextBoxesChange(currentSlide, boxes) : undefined}
       />
 
       <div className="flex items-center gap-4">

@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from "@/components/ui/slider";
 import { Toggle } from "@/components/ui/toggle";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import ColorPicker, { PaletteColor } from "./ColorPicker";
 import type { OverlayImage } from "../PostToolbar";
 
@@ -259,7 +260,14 @@ const SelectionPanel: React.FC<SelectionPanelProps> = (props) => {
           <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Botão CTA</p>
           <div>
             <label className="text-[11px] text-muted-foreground">Texto</label>
-            <Input value={props.ctaText || ""} onChange={(e) => props.onCtaTextChange!(e.target.value)} className="h-8 text-xs mt-1" placeholder="CTA" />
+            <Textarea
+              value={props.ctaText || ""}
+              onChange={(e) => props.onCtaTextChange!(e.target.value)}
+              rows={2}
+              className="text-xs mt-1 min-h-[48px] resize-none"
+              placeholder={"CTA\n(Enter para quebrar linha)"}
+            />
+            <p className="text-[10px] text-muted-foreground/70 mt-1">Use Enter para quebrar em duas linhas.</p>
           </div>
           <div>
             <label className="text-[11px] text-muted-foreground">Tamanho: {props.ctaFontSize || 28}px</label>

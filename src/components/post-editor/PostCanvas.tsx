@@ -62,6 +62,9 @@ interface PostCanvasProps {
   };
   /** Chave que dispara reset de posições do canvas (style/format/slide). */
   resetKey?: string;
+  /** Posições controladas das caixas de título/corpo (para persistência por slide). */
+  textBoxes?: TextBox[];
+  onTextBoxesChange?: (boxes: TextBox[]) => void;
   // Legacy compat
   onImageMove?: (id: string, x: number, y: number) => void;
   onImageResize?: (id: string, width: number, height: number) => void;
@@ -76,7 +79,7 @@ const CURSORS: Record<Corner, string> = {
   t: "ns-resize", b: "ns-resize", l: "ew-resize", r: "ew-resize",
 };
 
-interface TextBox {
+export interface TextBox {
   id: string;
   type: "title" | "body";
   x: number;
@@ -100,6 +103,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   onSelectedTextChange, renderOrder: externalRenderOrder, onRenderOrderChange,
   showRulers = false, postStyle,
   initialTextBoxes, resetKey,
+  textBoxes: controlledTextBoxes, onTextBoxesChange,
 }) => {
   const isMobile = useIsMobile();
   const handleVisualSize = isMobile ? 22 : RESIZE_HANDLE_SIZE;
@@ -117,8 +121,19 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   const [editingTextId, setEditingTextId] = useState<string | null>(null);
   const [activeGuides, setActiveGuides] = useState<{ v: number[]; h: number[] }>({ v: [], h: [] });
 
-  const [textBoxes, setTextBoxes] = useState<TextBox[]>([]);
-  const textBoxesInitialized = useRef(false);
+  const [localTextBoxes, setLocalTextBoxes] = useState<TextBox[]>([]);
+  const isControlled = Array.isArray(controlledTextBoxes);
+  const textBoxes = isControlled ? (controlledTextBoxes as TextBox[]) : localTextBoxes;
+  const setTextBoxes = (updater: TextBox[] | ((prev: TextBox[]) => TextBox[])) => {
+    const next = typeof updater === "function" ? (updater as (p: TextBox[]) => TextBox[])(textBoxes) : updater;
+    if (isControlled) {
+      onTextBoxesChange?.(next);
+    } else {
+      setLocalTextBoxes(next);
+      onTextBoxesChange?.(next);
+    }
+  };
+  const textBoxesInitialized = useRef(isControlled && (controlledTextBoxes as TextBox[]).length > 0);
   const lastLayout = useRef(layout);
 
   const updateOverlay = (id: string, updates: Partial<OverlayImage>) => {
@@ -201,8 +216,13 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   }, [layout, title, isCoverSlide]);
 
   useEffect(() => {
+    if (isControlled) {
+      // Pai controla: marca como inicializado se já tem valores; senão deixa o effect default popular.
+      textBoxesInitialized.current = (controlledTextBoxes as TextBox[]).length > 0;
+      return;
+    }
     textBoxesInitialized.current = false;
-  }, [isCoverSlide, isLastSlide]);
+  }, [isCoverSlide, isLastSlide, isControlled, controlledTextBoxes]);
 
   // Reset quando muda formato/estilo: força recálculo a partir dos novos slots do template
   const lastResetKey = useRef<string | undefined>(resetKey);
@@ -210,12 +230,14 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
     if (resetKey === undefined) return;
     if (lastResetKey.current === resetKey) return;
     lastResetKey.current = resetKey;
+    // Quando o pai controla e já há boxes salvos, NÃO sobrescrever (preserva edições).
+    if (isControlled && (controlledTextBoxes as TextBox[]).length > 0) return;
     const boxes = computeTextBoxPositions(layout, !!title, !!isCoverSlide);
     if (boxes.length > 0) {
       setTextBoxes(boxes);
       textBoxesInitialized.current = true;
     }
-  }, [resetKey, layout, title, isCoverSlide]);
+  }, [resetKey, layout, title, isCoverSlide, isControlled, controlledTextBoxes]);
 
   // Quando initialTextBoxes muda (novo layout do template), aplica imediatamente
   const lastInitialKey = useRef<string>("");
@@ -224,12 +246,13 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
     if (key === lastInitialKey.current) return;
     if (key === "{}") return; // sem slots ainda
     lastInitialKey.current = key;
+    if (isControlled && (controlledTextBoxes as TextBox[]).length > 0) return;
     const boxes = computeTextBoxPositions(layout, !!title, !!isCoverSlide);
     if (boxes.length > 0) {
       setTextBoxes(boxes);
       textBoxesInitialized.current = true;
     }
-  }, [initialTextBoxes, layout, title, isCoverSlide]);
+  }, [initialTextBoxes, layout, title, isCoverSlide, isControlled, controlledTextBoxes]);
 
   useEffect(() => {
     const updateScale = () => {
@@ -917,8 +940,8 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
               onPointerDown={handleCtaPointerDown}
               onClick={(e) => { e.stopPropagation(); setSelectedTextId("cta"); onSelectImage?.(null); }}
             >
-              <div className="px-12 py-5 rounded-2xl font-bold whitespace-nowrap"
-                style={{ backgroundColor: resolvedCtaBg, color: resolvedCtaText2, fontFamily: `'${displayFont}', sans-serif`, fontSize: resolvedCtaFontSize }}>
+              <div className="px-12 py-5 rounded-2xl font-bold"
+                style={{ backgroundColor: resolvedCtaBg, color: resolvedCtaText2, fontFamily: `'${displayFont}', sans-serif`, fontSize: resolvedCtaFontSize, whiteSpace: "pre-line", textAlign: "center", lineHeight: 1.15 }}>
                 {resolvedCtaText}
               </div>
             </div>
@@ -934,8 +957,8 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
               onPointerDown={handleCtaPointerDown}
               onClick={(e) => { e.stopPropagation(); setSelectedTextId("cta"); onSelectImage?.(null); }}
             >
-              <div className="font-semibold whitespace-nowrap"
-                style={{ color: resolvedCtaBg, fontSize: Math.max(18, resolvedCtaFontSize - 6), opacity: 0.8 }}>
+              <div className="font-semibold"
+                style={{ color: resolvedCtaBg, fontSize: Math.max(18, resolvedCtaFontSize - 6), opacity: 0.8, whiteSpace: "pre-line", lineHeight: 1.2 }}>
                 {resolvedCtaText}
               </div>
             </div>

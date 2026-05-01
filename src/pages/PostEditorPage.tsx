@@ -12,6 +12,7 @@ import CarouselEditor from "@/components/post-editor/CarouselEditor";
 import PostToolbar from "@/components/post-editor/PostToolbar";
 import MobileEditorBar from "@/components/post-editor/MobileEditorBar";
 import type { OverlayImage } from "@/components/post-editor/PostToolbar";
+import type { TextBox } from "@/components/post-editor/PostCanvas";
 import { parseReportContent } from "@/lib/reportParser";
 import { cleanMarkdown, extractAfterBold, cleanText, stripFrameworkLabels } from "@/lib/textCleanup";
 import { compressImage } from "@/lib/imageUtils";
@@ -90,6 +91,7 @@ interface EditorDraft {
   slideNumberSize: number;
   displayFont: string;
   bodyFont: string;
+  slideTextBoxes?: Record<number, TextBox[]>;
 }
 
 function loadDraft(weekIdx: number, dayIdx: number, style: string | undefined, format: string): EditorDraft | null {
@@ -224,6 +226,17 @@ const PostEditorPage = () => {
   const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
   const [renderOrder, setRenderOrder] = useState<string[]>([]);
   const [showRulers, setShowRulers] = useState(false);
+  const [slideTextBoxes, setSlideTextBoxes] = useState<Record<number, TextBox[]>>(draft?.slideTextBoxes ?? {});
+  const handleSlideTextBoxesChange = useCallback((slideIndex: number, boxes: TextBox[]) => {
+    setSlideTextBoxes((prev) => {
+      const existing = prev[slideIndex];
+      if (existing && existing.length === boxes.length && existing.every((b, i) => {
+        const n = boxes[i];
+        return b.id === n.id && b.x === n.x && b.y === n.y && b.width === n.width && b.height === n.height;
+      })) return prev;
+      return { ...prev, [slideIndex]: boxes };
+    });
+  }, []);
   const [autoLayoutBanner, setAutoLayoutBanner] = useState(false);
   const [swappingBackground, setSwappingBackground] = useState(false);
   const [activePhotographer, setActivePhotographer] = useState<PhotographerInfo | null>(null);
@@ -340,6 +353,7 @@ const PostEditorPage = () => {
     renderOrder,
     displayFont,
     bodyFont,
+    slideTextBoxes,
   };
 
   const applyUndoSnapshot = useCallback((snap: typeof historyState) => {
@@ -377,6 +391,7 @@ const PostEditorPage = () => {
     setRenderOrder(snap.renderOrder);
     setDisplayFont(snap.displayFont);
     setBodyFont(snap.bodyFont);
+    if (snap.slideTextBoxes) setSlideTextBoxes(snap.slideTextBoxes);
   }, []);
 
   const { undo, canUndo } = useEditorHistory(historyState as any, applyUndoSnapshot as any);
@@ -931,6 +946,7 @@ const PostEditorPage = () => {
         if (typeof s.slideNumberSize === "number") setSlideNumberSize(s.slideNumberSize);
         if (s.displayFont) { loadGoogleFont(s.displayFont); setDisplayFont(s.displayFont); }
         if (s.bodyFont) { loadGoogleFont(s.bodyFont); setBodyFont(s.bodyFont); }
+        if (s.slideTextBoxes && typeof s.slideTextBoxes === "object") setSlideTextBoxes(s.slideTextBoxes);
         textsInitializedRef.current = true;
         bgInitializedRef.current = true;
       });
@@ -1056,6 +1072,7 @@ const PostEditorPage = () => {
         canvasFormat, showSlideNumber, slideNumberPosition,
         slideNumberBgColor, slideNumberTextColor, slideNumberSize,
         displayFont, bodyFont,
+        slideTextBoxes,
       };
       const baseTitle = `Dia ${day?.day || dayIndex + 1} — ${cleanMarkdown(editedTitle || day?.theme || "Sem título").slice(0, 60)}`;
       const title = asTemplate ? `Modelo · ${baseTitle}` : baseTitle;
@@ -1091,7 +1108,7 @@ const PostEditorPage = () => {
       useGradient, gradientColor2Index, customGradientColor2, gradientDirection, textAlign, customTextColor, customBgColor,
       titleFontSize, titleColor, titleFontFamily, ctaText, ctaBgColor, ctaTextColor, ctaFontSize, ctaPosition,
       canvasFormat, showSlideNumber, slideNumberPosition, slideNumberBgColor, slideNumberTextColor, slideNumberSize,
-      displayFont, bodyFont, titleTextAlign, persistPostPhotosToGallery]);
+      displayFont, bodyFont, titleTextAlign, persistPostPhotosToGallery, slideTextBoxes]);
 
   const handleSaveDesign = useCallback(() => doSaveDesign(false), [doSaveDesign]);
   const handleSaveAsTemplate = useCallback(() => doSaveDesign(true), [doSaveDesign]);
@@ -1134,6 +1151,7 @@ const PostEditorPage = () => {
     if (typography.display) setDisplayFont(typography.display);
     if (typography.body) setBodyFont(typography.body);
     setUploadedImages([]);
+    setSlideTextBoxes({});
     // Clear all draft keys including image refs
     const keysToRemove = [DRAFT_KEY];
     for (let i = 0; i < sessionStorage.length; i++) {
@@ -1248,6 +1266,8 @@ const PostEditorPage = () => {
                 onRenderOrderChange={setRenderOrder}
                 showRulers={showRulers}
                 postStyle={initialStyle || undefined}
+                slideTextBoxes={slideTextBoxes}
+                onSlideTextBoxesChange={handleSlideTextBoxesChange}
               />
             ) : (
               <PostCanvas
@@ -1273,6 +1293,8 @@ const PostEditorPage = () => {
                 postStyle={initialStyle || undefined}
                 initialTextBoxes={initialTextBoxes}
                 resetKey={`${initialStyle || "minimal"}-${canvasFormat}`}
+                textBoxes={slideTextBoxes[0]}
+                onTextBoxesChange={(boxes) => handleSlideTextBoxesChange(0, boxes)}
               />
             )}
             {!isCarousel && (
