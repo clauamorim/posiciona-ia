@@ -203,11 +203,6 @@ const Dashboard = () => {
           <h1 className="text-xl md:text-2xl font-display font-semibold tracking-tight">
             Olá, {profile?.full_name || "Usuário"}
           </h1>
-          <p className="text-muted-foreground text-sm">
-            {completedSteps === journeySteps.length
-              ? "Sua estratégia está completa. Continue produzindo."
-              : `${completedSteps} de ${journeySteps.length} etapas concluídas`}
-          </p>
         </div>
 
         {/* NEXT STEP — Hero block */}

@@ -113,10 +113,10 @@ const Login = () => {
         <ArrowLeft className="h-4 w-4" /> Página inicial
       </Button>
       <Card className="w-full max-w-md border-border/50 shadow-xl">
-        <CardHeader className="text-center space-y-2">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <img src={posicionaLogo} alt="Posiciona" className="h-12 w-12" />
-            <h1 className="text-3xl font-bold font-display text-primary">Posiciona</h1>
+        <CardHeader className="text-center space-y-1">
+          <div className="flex items-center justify-center gap-2 mb-1">
+            <img src={posicionaLogo} alt="Posiciona" className="h-10 w-10" />
+            <h1 className="text-2xl font-bold font-display text-primary">Posiciona</h1>
           </div>
           <CardTitle className="text-xl font-display">Entrar na sua conta</CardTitle>
           <CardDescription>Preencha seus dados para acessar a plataforma</CardDescription>
@@ -125,7 +125,7 @@ const Login = () => {
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">E-mail</Label>
-              <Input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="seu@email.com" />
+              <Input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="seu@email.com" className="border-white/25 focus-visible:border-white/40" />
             </div>
             <div className="space-y-2">
               <div className="flex items-center justify-between">
@@ -134,7 +134,7 @@ const Login = () => {
                   Esqueci minha senha
                 </Link>
               </div>
-              <Input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} required placeholder="••••••••" />
+              <Input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} required placeholder="••••••••" className="border-white/25 focus-visible:border-white/40" />
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "Entrando..." : "Entrar"}

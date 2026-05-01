@@ -15,6 +15,16 @@ export function AssistantButton() {
   const [open, setOpen] = useState(false);
   const [showHint, setShowHint] = useState(false);
   const [pulseRoute, setPulseRoute] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(true);
+
+  // Auto-collapse the FAB label after 3s on every route change.
+  useEffect(() => {
+    if (!user) return;
+    if (HIDDEN_ROUTES.includes(location.pathname)) return;
+    setExpanded(true);
+    const t = setTimeout(() => setExpanded(false), 3000);
+    return () => clearTimeout(t);
+  }, [location.pathname, user]);
 
   // Show hint pulse when entering a known journey route (once per route per session)
   useEffect(() => {
@@ -42,8 +52,11 @@ export function AssistantButton() {
 
   return (
     <>
-      <div className="fixed bottom-5 right-5 z-50 flex items-end gap-2">
-        {showHint && (
+      <div
+        className="fixed right-5 z-50 flex items-end gap-2 bottom-20 lg:bottom-5"
+        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+      >
+        {showHint && !expanded && (
           <button
             onClick={handleOpen}
             className={cn(
@@ -59,14 +72,23 @@ export function AssistantButton() {
           aria-label="Abrir assistente"
           className={cn(
             "relative rounded-full bg-primary text-primary-foreground shadow-xl",
-            "flex items-center justify-center hover:scale-105 transition-transform",
-            "h-12 w-12 sm:h-14 sm:w-14"
+            "flex items-center justify-center hover:scale-105 overflow-hidden",
+            "h-12 lg:h-14 transition-all duration-500 ease-out",
+            expanded ? "pl-4 pr-5 gap-2" : "w-12 lg:w-14"
           )}
         >
-          {showHint && (
+          {showHint && !expanded && (
             <span className="absolute inset-0 rounded-full bg-primary/40 animate-ping" />
           )}
-          <Sparkles className="h-5 w-5 sm:h-6 sm:w-6 relative z-10" />
+          <Sparkles className="h-5 w-5 lg:h-6 lg:w-6 relative z-10 flex-shrink-0" />
+          <span
+            className={cn(
+              "relative z-10 text-sm font-medium whitespace-nowrap transition-all duration-300",
+              expanded ? "max-w-[140px] opacity-100" : "max-w-0 opacity-0"
+            )}
+          >
+            Assistente IA
+          </span>
         </button>
       </div>
 

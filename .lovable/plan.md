@@ -1,72 +1,119 @@
-# Assistente Posiciona — Plano de Implementação
+## Escopo
 
-## Visão geral
+Apenas ajustes de UI/UX nos arquivos listados. Identidade visual preservada (dark navy, roxo `#7C3AED`, dourado, serifa nos headlines). Nenhuma mudança de fluxo, regra de negócio ou backend.
 
-Criar uma assistente conversacional dentro da plataforma, alimentada por **Lovable AI (Gemini 2.5 Flash Lite)**, que guia o usuário pelas etapas da jornada com tom premium e conhecimento profundo da metodologia (arquétipos + StoryBrand). A conversa será persistida no banco e a assistente conhecerá a etapa atual da jornada do usuário.
+---
 
-## Como funciona para o usuário
+### 1. FAB do Assistente — `src/components/assistant/AssistantButton.tsx`
 
-1. **Botão flutuante** discreto no canto inferior direito de todas as páginas autenticadas (oculto na landing, login, signup).
-2. Ao clicar, abre um **painel lateral** com chat em estilo editorial (alinhado ao Light Premium Workspace: bege #F5F4F1, roxo #6E3FE6, fontes Cormorant Garamond + Inter).
-3. **Sugestão contextual**: ao entrar em uma etapa nova (ex.: arquétipos, relatório, editor), o botão exibe um pulso sutil + tooltip curto ("Posso explicar essa etapa?"). Se o usuário ignorar, fica quieto.
-4. **Histórico persistente**: o usuário retoma a conversa de onde parou em qualquer dispositivo.
-5. **Mensagem inicial** automática na primeira abertura: a frase de abertura sugerida no prompt.
+- Ao montar em qualquer rota visível, iniciar em estado **expandido**, mostrando o ícone ✦ + rótulo "Assistente IA" lado a lado, dentro de uma pílula arredondada (`rounded-full`, `bg-primary`, `text-primary-foreground`, padding horizontal maior).
+- Após **3s**, animar para o estado colapsado (apenas o ícone circular atual). Animação de largura suave (transition-all, duration ~400ms).
+- Manter cor, sombra, animação de hover e o `pulse` de hint atual.
+- **Mobile (lg:hidden)**: subir o FAB para `bottom-20` (acima do `BackToTopButton` que fica em `bottom-6`) para não sobrepor. No desktop manter `bottom-5`.
+- Ajustar também o offset do `showHint` chip para acompanhar o novo posicionamento mobile.
 
-## Comportamento da assistente
+---
 
-- **Modelo**: `google/gemini-2.5-flash-lite` via Lovable AI Gateway (sem API key adicional).
-- **System prompt**: o texto completo que você forneceu (metodologia + 12 arquétipos + StoryBrand + regras de tom), injetado no backend.
-- **Contexto da etapa atual**: antes de cada resposta, o backend acrescenta ao system prompt um bloco com a etapa em que o usuário está (ex.: *"O usuário está atualmente em: Linha Editorial. Já concluiu: Diagnóstico, Sua História, Arquétipos, Relatório."*). Isso permite respostas precisas sem inventar dados.
-- **Streaming**: respostas aparecem token-a-token (SSE), renderizadas em Markdown.
-- **Sem dados sensíveis**: a assistente não lê arquétipos, profissão ou conteúdo de questionários — apenas a etapa da jornada (decisão sua na pergunta de contexto).
+### 2. Dashboard — `src/pages/Dashboard.tsx`
 
-## Estrutura técnica
+- Remover o parágrafo de subtítulo (`<p>` com `${completedSteps} de ${journeySteps.length} etapas concluídas` / "Sua estratégia está completa…") logo abaixo do `Olá, {nome}` (linhas 206–210).
+- Manter o card "Próximo Passo" intacto — ele já contém a frase equivalente.
+- O `<h1>` de saudação permanece.
 
-### Banco de dados (2 tabelas novas, com RLS)
+---
 
-- **`assistant_conversations`** — uma conversa por usuário (mantém histórico contínuo).
-  - Campos: usuário, título, timestamps.
-- **`assistant_messages`** — mensagens individuais.
-  - Campos: conversa, papel (`user` / `assistant`), conteúdo, timestamp.
-- **RLS**: cada usuário só lê/escreve suas próprias conversas e mensagens.
+### 3. Retratos de Marca — `src/pages/PortraitGenerator.tsx`
 
-### Edge Function: `assistant-chat`
+Reordenar a região superior da página:
 
-- Recebe: histórico de mensagens + etapa atual da jornada (calculada no frontend a partir dos mesmos sinais que o `Dashboard` já usa).
-- Monta o system prompt + bloco de contexto da etapa.
-- Chama `https://ai.gateway.lovable.dev/v1/chat/completions` com `stream: true`.
-- Trata erros 429 (rate limit) e 402 (créditos esgotados) com mensagens claras.
-- Retorna o stream SSE direto para o cliente.
+1. **1º** — Card "Saldo de Retratos" (mover o bloco atual das linhas 430–445 para logo abaixo do título).
+2. **2º** — Card "Estúdio Pessoal" com botão de gerar (já existe nas linhas 461+, permanece em sequência).
+3. **3º** — Botão "Comprar Retratos" como ação secundária, abaixo do Estúdio Pessoal, em variante mais discreta:
+   - Remover do header (sair do flex `justify-between` na linha 392).
+   - Re-renderizar o `<Dialog>` "Comprar Retratos" como bloco isolado depois do card Estúdio Pessoal, com `variant="outline"`, tamanho `sm`, alinhado à esquerda ou em um wrapper centralizado, opacidade levemente reduzida (`text-muted-foreground` no rótulo) para deixar claro que é ação secundária.
+- O header passa a conter apenas título + descrição (sem o botão à direita).
 
-### Frontend
+---
 
-- **`src/components/assistant/AssistantButton.tsx`** — botão flutuante global, montado no `App.tsx` dentro do `AuthProvider` (renderiza apenas quando há usuário logado).
-- **`src/components/assistant/AssistantPanel.tsx`** — painel lateral (Sheet do shadcn) com lista de mensagens, input e estado de streaming.
-- **`src/components/assistant/MessageBubble.tsx`** — renderização com `react-markdown`.
-- **`src/hooks/useAssistantChat.ts`** — gerencia conversa, fetch streaming, persistência em tempo real.
-- **`src/lib/assistantJourney.ts`** — função reutilizável que calcula a etapa atual do usuário (extrai a lógica que já existe no `Dashboard.tsx`).
+### 4. Sidebar — `src/components/DashboardLayout.tsx`
 
-## Premissas e limites da v1
+Reorganizar `userGroups` e `footerItems` em 3 grupos com separador visual entre eles:
 
-- **Não executa ações** (não preenche questionários, não navega por você). Apenas explica e orienta.
-- **Não acessa o conteúdo** dos questionários, relatório ou Instagram do usuário — só sabe em qual etapa ele está.
-- **Sem upload de imagem** no chat.
-- **Custo controlado**: Flash Lite é o modelo mais econômico do Gemini; o histórico é limitado às últimas ~20 mensagens enviadas ao modelo (o resto fica salvo, mas não vai no contexto, evitando custos crescentes).
+- **SUA JORNADA** (já existe, mantido): Diagnóstico, Sua História, Arquétipos, Resultados, Narrativa da Marca, Relatório, Instagram, Linha Editorial, Retratos de Marca.
+- **CONTEÚDO** (novo grupo dentro de `userGroups`): Meus Designs, Minha Galeria, Histórico.
+- **CONTA** (novo grupo, substitui o footer atual): Plano e Créditos, Ajuda, Termos, Privacidade, Sair.
 
-## O que fica fora desta v1 (possíveis evoluções futuras)
+Mudanças concretas:
+- Adicionar os dois novos grupos ao array `userGroups` com o mesmo padrão de `label` em uppercase já usado.
+- Mover Termos / Privacidade (hoje em link inline) e Sair (hoje botão dedicado) para o grupo CONTA, como itens de menu normais (Sair com ícone `LogOut` e `onClick={signOut}`; Termos / Privacidade como `<Link>` para suas rotas).
+- Esvaziar o footer: manter apenas o e-mail do usuário e o `safe-area` padding. Ou remover também o e-mail do footer e exibi-lo acima do grupo CONTA — manter o e-mail no rodapé é ok para preservar UX atual.
+- Inserir um `<Separator>` (`@/components/ui/separator`) ou `border-t border-border my-2` entre cada grupo para reforçar a divisão.
+- O grupo Dashboard (label vazio) permanece como está, no topo.
 
-- Acesso aos arquétipos dominantes do usuário para personalizar exemplos.
-- Ações automáticas ("Levar até o editor", "Iniciar reanálise").
-- Botão de "Iniciar nova conversa" / múltiplas conversas paralelas.
-- Avaliação de respostas (👍/👎) para melhorar o prompt.
+---
 
-## Resumo do fluxo de implementação
+### 5. Landing Page — `src/pages/LandingPage.tsx` (linhas 420–427)
 
-1. Migração: criar `assistant_conversations` + `assistant_messages` com RLS.
-2. Edge function `assistant-chat` com streaming e Gemini 2.5 Flash Lite.
-3. Hook `useAssistantChat` + helper `assistantJourney`.
-4. Componentes `AssistantButton` + `AssistantPanel` + `MessageBubble`.
-5. Montagem global no `App.tsx`, com pulso contextual ao mudar de rota.
-6. Validação visual (tom premium, sem emojis, fontes corretas).
+Atualizar o botão "Ver como funciona":
 
-Pronto para implementar? Posso seguir com a migração e o código.
+```tsx
+className="bg-white/10 border border-white/30 text-white hover:bg-white/15 text-base h-12 px-8 backdrop-blur-sm"
+```
+
+Remover as classes `border-landing-purple/50 text-landing-purple hover:bg-landing-purple/10 hover:text-landing-text`. Manter `variant="outline"` e o tamanho.
+
+---
+
+### 6. Login — `src/pages/Login.tsx`
+
+- **Centralização vertical**: o container já usa `flex min-h-screen items-center justify-center`. O excesso de espaço vem do `<CardHeader>` com logo + título grandes e do botão "Página inicial" absoluto. Ajuste:
+  - Reduzir `space-y` do `CardHeader` (de `space-y-2` para `space-y-1`) e o `mb-2` do bloco do logo para `mb-1`.
+  - Diminuir o tamanho da logo (`h-12 w-12` → `h-10 w-10`) e do título "Posiciona" (`text-3xl` → `text-2xl`) para reduzir altura total do card.
+- **Bordas dos inputs**: aumentar contraste alterando o componente local — adicionar `className="border-white/25 focus-visible:border-white/40"` aos `<Input>` de e-mail e senha. Manter o restante do estilo do `Input` global.
+
+---
+
+### 7. Modal de seleção de estilo — `src/components/post-editor/StyleSelectionModal.tsx`
+
+Três ajustes na primeira etapa (cards Minimalista / Com foto / Com foto IA):
+
+a. **Altura uniforme dos previews no mobile**:
+   - Reduzir o padding interno dos cards de `p-3` para `p-2.5`.
+   - Trocar o cálculo de `previewSize` para alturas menores e iguais no mobile, mantendo o aspect-ratio no desktop:
+     - portrait: `h-24 sm:h-auto sm:aspect-[9/16]`
+     - square: `h-24 sm:h-auto sm:aspect-square`
+   - Reduzir os ícones internos do preview Minimalista (avatar `w-10 h-10` → `w-8 h-8`, barras com `mb-1` ao invés de `mb-1.5`) para caber melhor.
+   - Resultado: no mobile os 3 cards têm preview no topo, título abaixo, sem scroll dentro do card.
+
+b. **Micro-copy quando nada selecionado**: no `DialogFooter` da primeira etapa, abaixo do botão "Abrir com este estilo", renderizar condicionalmente quando `!selected`:
+
+```tsx
+{!selected && (
+  <p className="text-[11px] text-muted-foreground/60 text-right sm:absolute sm:right-6 sm:-bottom-5">
+    Selecione um estilo acima para continuar
+  </p>
+)}
+```
+
+Solução mais simples: posicionar o texto dentro do mesmo footer, abaixo do conjunto de botões, com `w-full text-right` ou em um wrapper que envolva botão + caption.
+
+c. **Reduzir destaque do "Pular e abrir editor vazio"**: trocar classes do `<Button variant="ghost" size="sm">` para incluir `text-xs opacity-50 hover:opacity-80`.
+
+---
+
+## Detalhes técnicos
+
+- Nenhuma alteração em hooks, queries, edge functions, schema ou regras de negócio.
+- Tokens semânticos (`bg-card`, `text-muted-foreground`, `border-border`, `text-primary`) preservados; cores landing usam `landing-*` ou os utilitários `white/10` no caso do botão secundário do hero conforme pedido.
+- `BackToTopButton` permanece intacto; somente o offset do FAB do assistente sobe no mobile.
+- Sidebar mantém `BackToTopButton` e demais comportamentos — mudança é puramente de agrupamento de itens.
+
+## Arquivos a editar
+
+- `src/components/assistant/AssistantButton.tsx`
+- `src/pages/Dashboard.tsx`
+- `src/pages/PortraitGenerator.tsx`
+- `src/components/DashboardLayout.tsx`
+- `src/pages/LandingPage.tsx`
+- `src/pages/Login.tsx`
+- `src/components/post-editor/StyleSelectionModal.tsx`
