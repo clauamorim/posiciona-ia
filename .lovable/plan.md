@@ -1,111 +1,62 @@
-## Objetivo
+## Diagnóstico
 
-Eliminar a "pele plástica" migrando o pipeline de retratos para **Fal.ai**, usando dois endpoints especializados:
+O treino na Fal **completou com sucesso** (você foi cobrado os ~$2.40), mas o nosso registro `portrait_trainings` continua `status: training` porque **o webhook nunca chegou**.
 
-- **Treino:** `fal-ai/flux-lora-portrait-trainer` (trainer otimizado pra rosto — brilho de olho, semelhança, detalhe).
-- **Inferência:** `fal-ai/flux-krea-lora` (Krea = modelo BFL anti-"look de IA", com suporte oficial a LoRA).
+Evidências:
+- `portrait-webhook` tem **zero logs** (nem 401, nem 403, nem erro) — Fal nem tentou chamar.
+- `verify_jwt = false` já está configurado, então não é problema de auth.
+- O treino existe no banco com `replicate_training_id = 019de2a1-0d3e-7b72-9539-f457a970833a` (request_id da Fal).
 
-Aproveitar a migração para simplificar prompts e parâmetros.
+**Causa raiz:** no `portrait-train/index.ts` estamos passando o webhook via header HTTP (`"fal-webhook": webhookUrl`). A API da Fal Queue **não reconhece esse header** — o webhook precisa ir como **query param `?fal_webhook=<URL_ENCODED>`** na chamada de submit. Como não foi reconhecido, o job rodou em modo "fire and forget" e nunca nos avisou.
 
-## Por que Fal.ai (e não Replicate)
+## Correção
 
-A pesquisa anterior travou no Replicate porque **Krea + LoRA não tem endpoint oficial lá** — exigiria wrapper Cog custom (semanas de trabalho). Na Fal isso já existe pronto, em produção, e ainda por cima:
+### 1. `portrait-train/index.ts` — usar query param
 
-- Custo menor: **$0.035/MP** (vs ~$0.047 hoje no Replicate).
-- **Trainer especializado em portrait** — nosso uso é literalmente isso.
-- API estável, webhook nativo, SDK simples.
+Trocar:
+```ts
+const trainRes = await fetch(`https://queue.fal.run/${FAL_TRAINER_PATH}`, {
+  method: "POST",
+  headers: {
+    Authorization: `Key ${FAL_KEY}`,
+    "Content-Type": "application/json",
+    "fal-webhook": webhookUrl,  // ❌ ignorado
+  },
+  body: JSON.stringify(trainBody),
+});
+```
 
-Trade-off honesto: precisamos adicionar `FAL_KEY` como secret, e migrar a integração de Replicate → Fal em duas funções. Sem migração de banco complexa.
+Por:
+```ts
+const submitUrl = `https://queue.fal.run/${FAL_TRAINER_PATH}?fal_webhook=${encodeURIComponent(webhookUrl)}`;
+const trainRes = await fetch(submitUrl, {
+  method: "POST",
+  headers: {
+    Authorization: `Key ${FAL_KEY}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify(trainBody),
+});
+```
 
-## Decisão sobre LoRAs existentes
+Mesmo ajuste vale pra `generate-portrait/index.ts` (que também está usando o header errado, ou seja, as gerações também rodariam sem callback).
 
-Retreino para todas as clientes (você liberou). Trainer novo é **melhor que o atual em portrait**, então o retreino entrega valor — não é só custo de migração. Custo Fal de treino: ~$2.40 por cliente (1000 steps × $0.0024).
+### 2. Recuperar o treino atual (`6d454014-...`) sem cobrar de novo
 
-## Mudanças
+Como a LoRA já existe na Fal, podemos buscar o resultado direto pela API e gravar no banco — sem retreinar e sem novo custo. Duas opções:
 
-### 1. Secret novo
+**Opção A — recuperação manual via curl edge function (recomendado, 1 clique).** Adicionar uma função `portrait-recover` (ou uma rota dentro de `portrait-train`) que: pega `replicate_training_id`, faz `GET https://queue.fal.run/fal-ai/flux-lora-portrait-trainer/requests/<id>`, extrai `diffusers_lora_file.url`, e marca o treino como `ready`. Roda só pra esse training_id.
 
-- Adicionar `FAL_KEY` (pedimos via tool de secrets antes de começar a codar).
+**Opção B — UI**: botão "Verificar treino na Fal" no `PortraitGenerator` quando `status === "training"` há mais de X minutos, chamando essa função.
 
-### 2. `supabase/functions/portrait-train/index.ts`
+Sugiro **Opção A primeiro** (resolve seu caso agora), e depois considerar B como melhoria.
 
-Trocar provider de Replicate para Fal:
+### 3. Validação
 
-- Endpoint: `https://queue.fal.run/fal-ai/flux-lora-portrait-trainer`
-- Input: zip de selfies (mesmo formato que já montamos hoje).
-- Webhook: Fal suporta webhook nativo via header `fal-webhook` — apontar pra `portrait-webhook` (já existe).
-- Output: URL do `.safetensors` da LoRA — salvar em `replicate_lora_url` (mantém nome da coluna pra evitar churn; é só um identificador).
+1. Recuperar o treino atual via Opção A → confirmar `status: ready` e `lora_weights_url` populado.
+2. Gerar um retrato pra validar o pipeline Krea + LoRA Fal end-to-end.
+3. (Próximo treino que você fizer já usará a URL com `?fal_webhook=` corrigida e vai entregar callback automaticamente.)
 
-Sem mudanças no fluxo de créditos ou no zip builder.
+## Risco
 
-### 3. `supabase/functions/portrait-webhook/index.ts`
-
-Adaptar parser do payload pra formato Fal (campo `diffusers_lora_file.url` em vez do shape Replicate). Continuar gravando na mesma coluna.
-
-### 4. `supabase/functions/generate-portrait/index.ts`
-
-Trocar endpoint de inferência:
-
-- Endpoint: `https://queue.fal.run/fal-ai/flux-krea-lora`
-- Input principal: `prompt`, `loras: [{ path: <url da LoRA da cliente>, scale: 1.0 }]`, `image_size`, `num_inference_steps`, `guidance_scale`.
-
-Simplificar parâmetros:
-
-| Constante | Atual | Novo |
-|---|---|---|
-| Provider | Replicate | Fal.ai |
-| Modelo | `lucataco/flux-dev-multi-lora` | `fal-ai/flux-krea-lora` |
-| `FACE_REALISM_LORA` | `Canopus-LoRA-Flux-FaceRealism` | **removido** |
-| `FACE_REALISM_SCALE` | `0.40` | **removido** |
-| `pickLoraScale` | `0.90 / 0.95 / 1.00` | `1.0` fixo |
-| `GUIDANCE_VARIATIONS` | `[2.6, 3.0, 3.4]` | `[3.0]` (default Krea) |
-| `NUM_INFERENCE_STEPS` | `35` | `28` |
-
-Mantém: aspect ratio 3:4, output png, custo de 3 créditos, fluxo de download/upload pro Storage privado.
-
-### 5. `supabase/functions/_shared/portraitPrompts.ts`
-
-Encurtar drasticamente — Krea entrega textura nativa, prompt longo só atrapalha:
-
-- **`STUDIO_PREFIX`**: `"editorial portrait photograph"`.
-- **`QUALITY_SUFFIX`**: `"natural skin texture, soft daylight, shallow depth of field, 50mm lens"` (~10 tokens).
-- **`STUDIO_NEGATIVE_BASE`**: `"plastic skin, airbrushed, cgi, deformed, asymmetric eyes, distorted proportions"`.
-- **Templates de arquétipo**: manter só descrição de cena (look + pose + ambiente). Sem reforço de textura.
-
-### 6. Migração de dados
-
-Adicionar coluna `lora_provider` (`text`, default `'fal'`, valor `'replicate'` para registros existentes). Cliente com `lora_provider = 'replicate'` precisa retreinar antes de gerar.
-
-Subtarefas:
-- Migration: nova coluna + backfill.
-- `generate-portrait` rejeita LoRAs `replicate` com mensagem clara.
-- UI no `PortraitGenerator`: detecta legacy e oferece "Reanalisar selfies (gratuito)" em 1 clique.
-
-### 7. `.lovable/memory/funcionalidades/retratos-marca.md`
-
-Reescrever:
-- Provider: Fal.ai.
-- Treino: `fal-ai/flux-lora-portrait-trainer` (otimizado pra rosto).
-- Inferência: `fal-ai/flux-krea-lora` (1 LoRA, scale 1.0, sem stacking).
-- Filosofia: "Krea entrega textura, trainer entrega semelhança — prompt fica fora do caminho".
-- Migração legacy documentada.
-
-## Validação
-
-Antes de marcar concluído:
-
-1. **Smoke test curl** no `flux-krea-lora` com uma LoRA Fal recém-treinada.
-2. **Treino de teste**: rodar `portrait-train` numa selfie set conhecida e confirmar webhook + URL da LoRA.
-3. **Comparativo lado a lado**: 3 retratos da mesma cliente (Krea+Fal novo vs Replicate atual). Critérios:
-   - Pele com poros visíveis em zoom 100%, sem brilho de cera.
-   - Identidade preservada.
-   - Estrutura facial estável.
-4. **Fluxo legacy**: simular cliente com LoRA `replicate` e confirmar que UI bloqueia geração e oferece retreino.
-
-## Rollback
-
-- Reverter constantes de provider/endpoint/parâmetros volta ao estado atual.
-- Coluna `lora_provider` fica — não atrapalha o estado anterior (default cobre).
-- LoRAs Fal treinadas ficariam órfãs, mas são minoria nesse cenário.
-
-Risco geral: **baixo**. Maior incerteza é estética opinionada do Krea — só validando lado a lado.
+Baixo. A correção do query param é a forma documentada da Fal e já é o padrão do SDK oficial deles. A recuperação não cobra nada — é só um GET de status.
