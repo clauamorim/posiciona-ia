@@ -23,6 +23,13 @@ import {
   renderToneBlock,
   renderEditorialFrameworks,
 } from "../_shared/buildClaudeContext.ts";
+import { NARRATIVE_PRINCIPLES_BLOCK } from "../_shared/narrativePrinciples.ts";
+import {
+  detectProfession,
+  getEthicalRulesBlock,
+  renderMarketTrendsBlock,
+  type MarketTrend,
+} from "../_shared/professionRules.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
