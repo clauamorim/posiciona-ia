@@ -186,54 +186,56 @@ export function getArchetypeFamily(archetype: string): ArchetypeFamily {
 
 // Templates MÍNIMOS por arquétipo. Apenas a essência: expressão + iluminação + fundo.
 // O builder monta: {trigger} {gender}, {essência}, {hair}, {outfit}, {QUALITY_SUFFIX}
+// Fundo SEMPRE estúdio (seamless paper backdrop) em paleta neutra:
+// apenas tons de cinza, marrom e preto. Sem cor saturada, sem cenário.
 export const ARCHETYPE_PROMPTS: Record<ArchetypeName, { prompt: string; negative: string }> = {
   "Governante": {
-    prompt: "authoritative calm expression, hard directional lighting, dark background, no smile",
+    prompt: "authoritative calm expression, hard directional lighting, deep charcoal seamless paper studio backdrop with subtle paper texture, no smile",
     negative: "casual, smiling, soft lighting",
   },
   "Sábio": {
-    prompt: "calm contemplative expression, soft Rembrandt lighting, deep dark background, no smile",
+    prompt: "calm contemplative expression, soft Rembrandt lighting, dark grey seamless paper studio backdrop with subtle paper texture, no smile",
     negative: "casual, wide smile, harsh lighting",
   },
   "Cuidador": {
-    prompt: "gentle approachable expression, soft diffused lighting, warm beige background, slight natural smile",
-    negative: "harsh lighting, dark background, cold expression",
+    prompt: "gentle approachable expression, soft diffused lighting, warm taupe seamless paper studio backdrop with subtle paper texture, slight natural smile",
+    negative: "harsh lighting, cold expression",
   },
   "Criador": {
-    prompt: "expressive authentic expression, dramatic side lighting, weathered artistic background, intense gaze",
+    prompt: "expressive authentic expression, dramatic side lighting, sepia brown seamless paper studio backdrop with subtle paper texture, intense gaze",
     negative: "corporate look, flat lighting, stiff pose",
   },
   "Herói": {
-    prompt: "determined strong expression, high contrast dramatic lighting, dark stone background, intense direct gaze",
+    prompt: "determined strong expression, high contrast dramatic lighting, black seamless paper studio backdrop with subtle paper texture, intense direct gaze",
     negative: "soft lighting, casual relaxed expression",
   },
   "Explorador": {
-    prompt: "free confident expression, natural warm lighting, earthy textured background, subtle smile",
-    negative: "stiff corporate pose, dark moody background",
+    prompt: "free confident expression, natural warm lighting, mocha brown seamless paper studio backdrop with subtle paper texture, subtle smile",
+    negative: "stiff corporate pose",
   },
   "Inocente": {
-    prompt: "genuine warm expression, soft bright lighting, light pale background, natural smile",
-    negative: "serious heavy expression, dark background",
+    prompt: "genuine warm expression, soft bright lighting, light grey seamless paper studio backdrop with subtle paper texture, natural smile",
+    negative: "serious heavy expression",
   },
   "Cara-comum": {
-    prompt: "approachable relatable expression, soft natural lighting, neutral mid-tone background, light smile",
+    prompt: "approachable relatable expression, soft natural lighting, medium grey seamless paper studio backdrop with subtle paper texture, light smile",
     negative: "dramatic lighting, intense expression",
   },
   "Mago": {
-    prompt: "intense magnetic expression, dramatic chiaroscuro lighting, mysterious dark background, no smile",
+    prompt: "intense magnetic expression, dramatic chiaroscuro lighting, deep black seamless paper studio backdrop with subtle paper texture, no smile",
     negative: "flat lighting, casual cheerful expression",
   },
   "Amante": {
-    prompt: "warm sophisticated expression, soft golden hour lighting, deep warm terracotta background, subtle smile",
+    prompt: "warm sophisticated expression, soft golden hour lighting, warm dark brown seamless paper studio backdrop with subtle paper texture, subtle smile",
     negative: "harsh cold lighting, washed out tones",
   },
   "Rebelde": {
-    prompt: "bold unconventional expression, high contrast dramatic lighting, raw industrial background, direct challenging gaze",
+    prompt: "bold unconventional expression, high contrast dramatic lighting, matte black seamless paper studio backdrop with subtle paper texture, direct challenging gaze",
     negative: "corporate look, soft polished lighting",
   },
   "Bobo-da-corte": {
-    prompt: "playful authentic expression, bright dynamic lighting, warm colorful background, natural smile",
-    negative: "serious heavy expression, dark moody background",
+    prompt: "playful authentic expression, bright dynamic lighting, warm grey seamless paper studio backdrop with subtle paper texture, natural smile",
+    negative: "serious heavy expression",
   },
 };
 
