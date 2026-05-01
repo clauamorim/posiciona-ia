@@ -946,6 +946,7 @@ const PostEditorPage = () => {
         if (typeof s.slideNumberSize === "number") setSlideNumberSize(s.slideNumberSize);
         if (s.displayFont) { loadGoogleFont(s.displayFont); setDisplayFont(s.displayFont); }
         if (s.bodyFont) { loadGoogleFont(s.bodyFont); setBodyFont(s.bodyFont); }
+        if (s.slideTextBoxes && typeof s.slideTextBoxes === "object") setSlideTextBoxes(s.slideTextBoxes);
         textsInitializedRef.current = true;
         bgInitializedRef.current = true;
       });
