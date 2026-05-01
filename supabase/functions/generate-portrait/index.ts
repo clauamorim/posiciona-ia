@@ -6,50 +6,23 @@ import {
   mapGender,
   buildOutfitTextForLook,
   buildHairText,
-  buildMakeupText,
-  translateFashion,
-  BACKGROUND_VARIATIONS,
   pickPosesForLooks,
   getArchetypeFamily,
 } from "../_shared/portraitPrompts.ts";
 import { mapProfessionToCategory, pickOutfits, lookupOutfitMeta } from "../_shared/outfitPool.ts";
 
-// Modelo multi-LoRA: empilha LoRA da cliente + LoRA público de realismo de pele.
-// Mantém a semelhança facial do treino e força textura natural (poros, linhas finas).
-// É um modelo da COMUNIDADE — precisa ser chamado em /v1/predictions com version hash
-// (o endpoint /v1/models/{owner}/{name}/predictions só funciona pra modelos oficiais).
-const FLUX_LORA_MODEL = "lucataco/flux-dev-multi-lora"; // mantido só pra logs
-const FLUX_LORA_VERSION = "ad0314563856e714367fdc7244b19b160d25926d305fec270c9e00f64665d352";
-// LoRA público de realismo facial (carregado direto do HF pelo Replicate).
-const FACE_REALISM_LORA = "prithivMLmods/Canopus-LoRA-Flux-FaceRealism";
-// Subimos de 0.25 → 0.40: com client LoRA em 0.90–1.00, 0.25 era abafado e a
-// pele voltava a ficar plástica/airbrushed. 0.40 reintroduz poros e textura
-// real sem competir com a identidade facial (testado seguro até ~0.45).
-const FACE_REALISM_SCALE = 0.40;
-const GENERATE_COST_CREDITS = 3;
-// Guidance um degrau abaixo do teto anterior: 3.6 + LoRA 1.05 colapsava em
-// assimetria facial (olhos tortos, rosto inflado). Faixa atual mantém nitidez
-// sem o risco. 2.6 (documental) / 3.0 (equilibrado) / 3.4 (editorial).
-const GUIDANCE_VARIATIONS = [2.6, 3.0, 3.4];
-// Mais steps = mais detalhe fino (poros, cílios, brilho dos olhos).
-const NUM_INFERENCE_STEPS = 35;
-const PORTRAIT_BUCKET = "portrait-outputs";
-// Referência (logs apenas). FLUX LoRA usa aspect_ratio + megapixels — width/height
-// no input são ignorados silenciosamente e o modelo cai pra 1024x1024.
-const PORTRAIT_WIDTH = 896;
-const PORTRAIT_HEIGHT = 1152;
+// Provider: Fal.ai
+// Modelo de inferência: FLUX.1 Krea [dev] com suporte oficial a LoRA.
+// Krea foi treinado por BFL especificamente para combater o "look de IA"
+// (pele plástica, oversaturação). Dispensa LoRA secundária de realismo.
+const FAL_INFERENCE_PATH = "fal-ai/flux-krea-lora";
 
-/**
- * Calibra a força do LoRA da cliente conforme o tamanho do dataset.
- * Escalas elevadas (~1.0) garantem que a IDENTIDADE/estrutura óssea da cliente
- * domine o stack. O LoRA de realismo (0.25) só tempera textura sem capturar
- * proporções faciais.
- */
-function pickLoraScale(selfiesCount: number): number {
-  if (selfiesCount <= 12) return 0.90;
-  if (selfiesCount <= 20) return 0.95;
-  return 1.00;
-}
+const GENERATE_COST_CREDITS = 3;
+// Defaults Krea: prompt curto, 1 LoRA, scale 1.0, guidance 3.0, 28 steps.
+const DEFAULT_GUIDANCE = 3.0;
+const NUM_INFERENCE_STEPS = 28;
+const DEFAULT_LORA_SCALE = 1.0;
+const PORTRAIT_BUCKET = "portrait-outputs";
 
 /** Fisher–Yates shuffle não destrutivo. */
 function shuffle<T>(arr: T[]): T[] {
@@ -61,11 +34,6 @@ function shuffle<T>(arr: T[]): T[] {
   return copy;
 }
 
-/**
- * Faz download bruto da URL e devolve um Uint8Array (PNG).
- * Replicate's CDN às vezes retorna HTML 503 transitório — fazemos retry com backoff
- * e validamos content-type para não tratar HTML como bytes de imagem.
- */
 async function downloadImageBytes(
   imageUrl: string,
   maxAttempts = 4,
@@ -79,7 +47,6 @@ async function downloadImageBytes(
       } else {
         const ct = r.headers.get("content-type") ?? "";
         if (!ct.startsWith("image/")) {
-          // Replicate CDN devolveu HTML/erro em vez do PNG — descarta e tenta de novo.
           await r.body?.cancel();
           lastReason = `bad-content-type:${ct}`;
         } else {
@@ -90,7 +57,7 @@ async function downloadImageBytes(
       lastReason = `download-exception:${e instanceof Error ? e.message : String(e)}`;
     }
     if (attempt < maxAttempts) {
-      const delay = 500 * Math.pow(2, attempt - 1); // 500, 1000, 2000ms
+      const delay = 500 * Math.pow(2, attempt - 1);
       console.warn(`[generate-portrait] download attempt ${attempt}/${maxAttempts} failed (${lastReason}), retrying in ${delay}ms`);
       await new Promise((r) => setTimeout(r, delay));
     }
@@ -98,90 +65,57 @@ async function downloadImageBytes(
   return { ok: false, reason: lastReason };
 }
 
-// (helper bytesToDataUrl e upscaleImage removidos — não usamos mais Clarity Upscaler.
-// Trocamos resolução alta por fidelidade facial máxima: o LoRA gera direto em 896x1152
-// e os bytes vão direto ao Storage privado, sem etapa intermediária.)
-
-async function callFluxLora(params: {
-  token: string;
-  loraVersion: string;
+/**
+ * Chama o endpoint síncrono da Fal (`https://fal.run/...`). Para Krea-LoRA isso
+ * resolve em ~10-25s. Sem polling explícito — Fal segura a conexão até o resultado
+ * (ou retorna 408 em timeout, que tratamos como falha pra retry).
+ */
+async function callFluxKreaLora(params: {
+  falKey: string;
+  loraUrl: string;
+  loraScale: number;
   prompt: string;
-  negative: string;
   guidanceScale: number;
-  loraScale?: number;
 }): Promise<{ ok: true; imageUrl: string } | { ok: false; reason: string }> {
-  const { token, loraVersion, prompt, negative, guidanceScale, loraScale = 0.82 } = params;
+  const { falKey, loraUrl, loraScale, prompt, guidanceScale } = params;
   const start = Date.now();
   try {
-    // Multi-LoRA stack: LoRA da cliente + LoRA público de realismo de pele.
-    // O modelo lucataco/flux-dev-multi-lora aceita arrays paralelos hf_loras + lora_scales.
     const input: Record<string, unknown> = {
       prompt,
-      hf_loras: [loraVersion, FACE_REALISM_LORA],
-      lora_scales: [loraScale, FACE_REALISM_SCALE],
-      num_outputs: 1,
-      // FLUX LoRA: usar aspect_ratio + megapixels. width/height no input são
-      // ignorados silenciosamente e o modelo cai pra 1024x1024 quadrado.
-      // 3:4 com 1MP ≈ 896x1152 (resolução vertical premium nativa).
-      aspect_ratio: "3:4",
-      megapixels: "1",
-      guidance_scale: guidanceScale,
+      // Krea não usa negative prompt — modelo é treinado pra dispensar.
+      // Mantém apenas o LoRA da identidade da cliente.
+      loras: [{ path: loraUrl, scale: loraScale }],
+      // 3:4 retrato, ~896x1184 (1MP). Krea aceita image_size enum + custom.
+      image_size: { width: 896, height: 1152 },
       num_inference_steps: NUM_INFERENCE_STEPS,
+      guidance_scale: guidanceScale,
+      num_images: 1,
+      enable_safety_checker: true,
       output_format: "png",
-      output_quality: 95,
-      seed: Math.floor(Math.random() * 1000000),
-      negative_prompt: negative,
+      seed: Math.floor(Math.random() * 1_000_000),
     };
 
-    const createRes = await fetch(
-      `https://api.replicate.com/v1/predictions`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-          Prefer: "wait=5",
-        },
-        body: JSON.stringify({ version: FLUX_LORA_VERSION, input }),
+    const res = await fetch(`https://fal.run/${FAL_INFERENCE_PATH}`, {
+      method: "POST",
+      headers: {
+        Authorization: `Key ${falKey}`,
+        "Content-Type": "application/json",
       },
-    );
+      body: JSON.stringify(input),
+    });
 
-    if (!createRes.ok) {
-      const txt = await createRes.text();
-      return { ok: false, reason: `create-${createRes.status}:${txt.slice(0, 200)}` };
+    if (!res.ok) {
+      const txt = await res.text();
+      return { ok: false, reason: `fal-${res.status}:${txt.slice(0, 200)}` };
     }
 
-    let prediction = await createRes.json();
-    const id = prediction.id;
-    if (!id) return { ok: false, reason: "no-prediction-id" };
-
-    const maxAttempts = 80;
-    let attempts = 0;
-    while (
-      prediction.status !== "succeeded" &&
-      prediction.status !== "failed" &&
-      prediction.status !== "canceled" &&
-      attempts < maxAttempts
-    ) {
-      await new Promise((r) => setTimeout(r, 1500));
-      attempts++;
-      const pollRes = await fetch(`https://api.replicate.com/v1/predictions/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!pollRes.ok) return { ok: false, reason: `poll-${pollRes.status}` };
-      prediction = await pollRes.json();
-    }
+    const data = await res.json();
+    // Fal retorna { images: [{ url, content_type, width, height }], seed, ... }
+    const imageUrl: string | undefined = data?.images?.[0]?.url;
+    if (!imageUrl) return { ok: false, reason: "empty-output" };
 
     const latency = ((Date.now() - start) / 1000).toFixed(1);
-    if (prediction.status !== "succeeded") {
-      return { ok: false, reason: `status=${prediction.status} after ${latency}s ${prediction.error ?? ""}` };
-    }
-
-    const output = prediction.output;
-    const imageUrl = Array.isArray(output) ? output[0] : output;
-    if (!imageUrl || typeof imageUrl !== "string") return { ok: false, reason: "empty-output" };
-
-    console.log(`[generate-portrait] flux-multi-lora succeeded latency=${latency}s guidance=${guidanceScale} loraStack=[client:${loraScale},realism:${FACE_REALISM_SCALE}]`);
+    console.log(`[generate-portrait] fal-krea-lora succeeded latency=${latency}s guidance=${guidanceScale} loraScale=${loraScale}`);
     return { ok: true, imageUrl };
   } catch (e) {
     return { ok: false, reason: `exception:${e instanceof Error ? e.message : String(e)}` };
@@ -220,11 +154,9 @@ serve(async (req) => {
       });
     }
 
-
-
-    const REPLICATE_API_TOKEN = Deno.env.get("REPLICATE_API_TOKEN");
-    if (!REPLICATE_API_TOKEN) {
-      return new Response(JSON.stringify({ error: "REPLICATE_API_TOKEN não configurado" }), {
+    const FAL_KEY = Deno.env.get("FAL_KEY");
+    if (!FAL_KEY) {
+      return new Response(JSON.stringify({ error: "FAL_KEY não configurado" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -243,7 +175,7 @@ serve(async (req) => {
         .single(),
       supabaseAdmin
         .from("portrait_trainings")
-        .select("id, lora_weights_url, trigger_word, status, physical_traits, selfies_count")
+        .select("id, lora_weights_url, trigger_word, status, physical_traits, selfies_count, lora_provider")
         .eq("user_id", user.id)
         .eq("status", "ready")
         .order("created_at", { ascending: false })
@@ -280,10 +212,9 @@ serve(async (req) => {
       );
     }
 
-    // Quantos retratos serão gerados nesta rodada (1, 2 ou 3 dependendo do saldo).
     const requestedCount = Math.min(totalCredits, GENERATE_COST_CREDITS);
 
-    const training = trainingRes.data;
+    const training = trainingRes.data as any;
     if (!training?.lora_weights_url) {
       return new Response(
         JSON.stringify({
@@ -294,24 +225,34 @@ serve(async (req) => {
       );
     }
 
+    // ===== MIGRAÇÃO LEGACY =====
+    // LoRAs treinadas no provider antigo (Replicate/flux-dev) não rodam no
+    // endpoint Fal Krea. Bloqueia a geração e instrui o front a oferecer
+    // retreino gratuito (canUseFree forçado em portrait-train com migrate_legacy).
+    if (training.lora_provider !== "fal") {
+      return new Response(
+        JSON.stringify({
+          error: "Seu Estúdio Pessoal foi treinado em uma versão anterior. Refaça o treino (gratuito) para gerar retratos no novo motor.",
+          needs_legacy_migration: true,
+        }),
+        { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     const archetypeName = archetypesRes.data?.archetype_name || "Cara-comum";
     const reportContent = reportRes.data?.content as Record<string, any> | null;
     const figurino = reportContent?.figurino || {};
     const gender = mapGender(profileRes.data?.gender);
     const profession = profileRes.data?.profession ?? "";
 
-    // Gênero efetivo: traços extraídos do treino sobrescrevem o cadastro.
-    const traitsGender = (training as any).physical_traits?.gender as "woman" | "man" | undefined;
+    const traitsGender = training.physical_traits?.gender as "woman" | "man" | undefined;
     const effectiveGender: "woman" | "man" | "none" = traitsGender ?? gender;
 
     const hair = buildHairText(figurino);
-    // Maquiagem REMOVIDA do prompt. O LoRA aprendeu makeup das selfies — qualquer
-    // instrução positiva ou negativa colide com o que ele decorou. Estratégia atual:
-    // reduzir lora_scale (0.70-0.78) pra atenuar make pesada, e usar negative
-    // "heavy makeup" no STUDIO_NEGATIVE_BASE.
+    // Krea entrega textura/maquiagem natural por default — sem reforço.
     const makeup = "";
 
-    // ===== MEMÓRIA CURTA: lê última geração =====
+    // ===== MEMÓRIA CURTA =====
     const { data: lastGen } = await supabaseAdmin
       .from("portrait_generations")
       .select("used_hand_poses, used_outfits")
@@ -327,14 +268,9 @@ serve(async (req) => {
       ? (lastGen as any).used_outfits
       : [];
 
-    // ===== POSES DE MÃOS por CATEGORIA gestual =====
-    // Look 0 (close-up) não usa pose. Looks 1 e 2 vêm de categorias DIFERENTES,
-    // evitando o problema de "duas poses parecidas" na mesma rodada.
     const family = getArchetypeFamily(archetypeName);
-    // Look 0 (close-up) não usa pose. Pega poses para os looks 1+ (até requestedCount-1 poses).
     const numPoses = Math.max(0, requestedCount - 1);
     const posesForLooks12 = pickPosesForLooks(family, recentlyUsedPoses, numPoses);
-    // Array indexado por look: [null, pose1?, pose2?]
     const selectedPoses: (string | null)[] = [
       null,
       posesForLooks12[0]?.pose ?? null,
@@ -346,135 +282,101 @@ serve(async (req) => {
       posesForLooks12[1]?.category ?? "—",
     ];
 
-    // ===== FIGURINOS — pool curado por profissão > buildOutfitTextForLook(figurino) =====
     const profCategory = mapProfessionToCategory(profession);
     let outfitsForLooks: string[] = [];
     let outfitSource = "report-figurino";
-
     {
-      // Pool curado da profissão. Se vazio (ex: family sem matriz), volta ao figurino do relatório.
       const fromPool = pickOutfits(family, profCategory, recentlyUsedOutfits, requestedCount);
       if (fromPool.length === requestedCount) {
         outfitsForLooks = fromPool;
         outfitSource = `pool:${family}/${profCategory}`;
       } else {
-        // Fallback: figurino do relatório (comportamento anterior).
         outfitsForLooks = Array.from({ length: requestedCount }, (_, i) => buildOutfitTextForLook(figurino, i));
         outfitSource = "report-figurino-fallback";
       }
     }
 
-    const selfiesCount = (training as any).selfies_count ?? 0;
-    const loraScale = pickLoraScale(selfiesCount);
-
+    const selfiesCount = training.selfies_count ?? 0;
     const outfitsMeta = outfitsForLooks.map((t) => lookupOutfitMeta(t) ?? { anchor: "?", color: "?" });
     console.log(
-      `[generate-portrait] archetype=${archetypeName} family=${family} profession="${profession}" ` +
-      `category=${profCategory} requestedCount=${requestedCount} outfitSource=${outfitSource} ` +
-      `selfiesCount=${selfiesCount} loraScale=${loraScale} steps=${NUM_INFERENCE_STEPS} ` +
-      `outfitsMeta=${JSON.stringify(outfitsMeta)} ` +
-      `outfits=${JSON.stringify(outfitsForLooks)} poses=${JSON.stringify(selectedPoses)} ` +
-      `poseCats=${JSON.stringify(selectedPoseCategories)}`,
+      `[generate-portrait] provider=fal model=${FAL_INFERENCE_PATH} archetype=${archetypeName} family=${family} ` +
+      `profession="${profession}" category=${profCategory} requestedCount=${requestedCount} outfitSource=${outfitSource} ` +
+      `selfiesCount=${selfiesCount} loraScale=${DEFAULT_LORA_SCALE} guidance=${DEFAULT_GUIDANCE} steps=${NUM_INFERENCE_STEPS} ` +
+      `outfitsMeta=${JSON.stringify(outfitsMeta)} outfits=${JSON.stringify(outfitsForLooks)} ` +
+      `poses=${JSON.stringify(selectedPoses)} poseCats=${JSON.stringify(selectedPoseCategories)}`,
     );
 
-    // Geração sequencial — Replicate low-credit accounts (<$5) tem rate limit 6/min.
-    const INTER_CALL_DELAY_MS = 11000;
-    const RETRY_DELAY_MS = 30000;
-    const results: { background: string; portraitUrl: string | null; error?: string; pose?: string; outfit?: string }[] = [];
-    for (let i = 0; i < requestedCount; i++) {
-      if (i > 0) await new Promise((r) => setTimeout(r, INTER_CALL_DELAY_MS));
-      const outfit = outfitsForLooks[i] ?? "";
-      const handPose = selectedPoses[i] ?? null;
-      const guidanceScale = GUIDANCE_VARIATIONS[i] ?? 3.0;
-      const built = buildPortraitPrompt({
-        archetype: archetypeName,
-        userId: user.id,
-        triggerWord: training.trigger_word, // ← trigger REAL do treino (USR + 12 hex)
-        gender,
-        outfit,
-        hair,
-        makeup,
-        backgroundIndex: i as 0 | 1 | 2,
-        physicalTraits: (training as any).physical_traits ?? null,
-        handPose,
-      });
-
-      // MODO MANUAL PURO: prompt mínimo (~12 tokens), lora_scale moderado (0.68-0.75),
-      // guidance baixo (2.0/2.4/2.8), steps reduzidos (28). Tudo afinado pra
-      // priorizar textura natural de pele em vez de polimento.
-      const promptTokens = built.prompt.split(",").length;
-      console.log(
-        `[generate-portrait] call ${i + 1}/${requestedCount} background=${built.backgroundKey} archetype=${archetypeName} ` +
-        `trigger="${training.trigger_word}" trainingId=${training.id} ` +
-        `dims=${PORTRAIT_WIDTH}x${PORTRAIT_HEIGHT}(3:4@1MP) model=${FLUX_LORA_MODEL} ` +
-        `guidance=${guidanceScale} loraStack=[{anchor:client,scale:${loraScale}},{anchor:realism,scale:${FACE_REALISM_SCALE}}] steps=${NUM_INFERENCE_STEPS} ` +
-        `selfiesCount=${selfiesCount} hasTraits=${!!(training as any).physical_traits} ` +
-        `promptTokens=${promptTokens} outfitMeta=${JSON.stringify(outfitsMeta[i] ?? null)}`,
-      );
-      console.log(`[generate-portrait] PROMPT[${i}]: ${built.prompt}`);
-      console.log(`[generate-portrait] NEGATIVE[${i}]: ${built.negative}`);
-      let r = await callFluxLora({
-        token: REPLICATE_API_TOKEN,
-        loraVersion: training.lora_weights_url,
-        prompt: built.prompt,
-        negative: built.negative,
-        guidanceScale,
-        loraScale,
-      });
-
-      if (!r.ok && r.reason.includes("429")) {
-        console.warn(`[generate-portrait] background=${built.backgroundKey} got 429, waiting ${RETRY_DELAY_MS}ms`);
-        await new Promise((res) => setTimeout(res, RETRY_DELAY_MS));
-        r = await callFluxLora({
-          token: REPLICATE_API_TOKEN,
-          loraVersion: training.lora_weights_url,
-          prompt: built.prompt,
-          negative: built.negative,
-          guidanceScale,
-          loraScale,
+    // ===== GERAÇÃO PARALELA =====
+    // Fal aceita várias chamadas concorrentes sem rate-limit agressivo (diferente
+    // do Replicate). Geramos os 3 em paralelo — corta latência de ~75s pra ~25s.
+    const callResults = await Promise.all(
+      Array.from({ length: requestedCount }, async (_, i) => {
+        const outfit = outfitsForLooks[i] ?? "";
+        const handPose = selectedPoses[i] ?? null;
+        const built = buildPortraitPrompt({
+          archetype: archetypeName,
+          userId: user.id,
+          triggerWord: training.trigger_word,
+          gender,
+          outfit,
+          hair,
+          makeup,
+          backgroundIndex: i as 0 | 1 | 2,
+          physicalTraits: training.physical_traits ?? null,
+          handPose,
         });
-      }
 
-      if (r.ok) {
-        results.push({ background: built.backgroundKey, portraitUrl: r.imageUrl, pose: handPose ?? undefined, outfit });
-      } else {
+        const promptTokens = built.prompt.split(",").length;
+        console.log(
+          `[generate-portrait] call ${i + 1}/${requestedCount} background=${built.backgroundKey} ` +
+          `archetype=${archetypeName} trigger="${training.trigger_word}" trainingId=${training.id} ` +
+          `promptTokens=${promptTokens} outfitMeta=${JSON.stringify(outfitsMeta[i] ?? null)}`,
+        );
+        console.log(`[generate-portrait] PROMPT[${i}]: ${built.prompt}`);
+
+        const r = await callFluxKreaLora({
+          falKey: FAL_KEY,
+          loraUrl: training.lora_weights_url,
+          loraScale: DEFAULT_LORA_SCALE,
+          prompt: built.prompt,
+          guidanceScale: DEFAULT_GUIDANCE,
+        });
+
+        if (r.ok) {
+          return { background: built.backgroundKey, portraitUrl: r.imageUrl, pose: handPose ?? undefined, outfit, error: undefined };
+        }
         console.error(`[generate-portrait] background=${built.backgroundKey} failed: ${r.reason}`);
-        results.push({ background: built.backgroundKey, portraitUrl: null, error: r.reason, pose: handPose ?? undefined, outfit });
-      }
-    }
+        return { background: built.backgroundKey, portraitUrl: null as string | null, pose: handPose ?? undefined, outfit, error: r.reason };
+      }),
+    );
 
-    const successful = results.filter((r) => r.portraitUrl);
+    const successful = callResults.filter((r) => r.portraitUrl) as Array<typeof callResults[number] & { portraitUrl: string }>;
     if (successful.length === 0) {
       return new Response(
-        JSON.stringify({ error: "Falha ao gerar retratos. Tente novamente.", details: results.map((r) => r.error) }),
+        JSON.stringify({ error: "Falha ao gerar retratos. Tente novamente.", details: callResults.map((r) => r.error) }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    // ===== DOWNLOAD + UPLOAD PARALELO (sem upscaler) =====
-    // Os 3 retratos vão direto do Replicate ao Storage privado em paralelo.
-    // Resolução nativa do FLUX = 896x1152, mantida sem reescalonamento.
+    // ===== DOWNLOAD + UPLOAD PARALELO =====
     const generationId = crypto.randomUUID();
-
     const pipelineResults = await Promise.allSettled(
       successful.map(async (r, i) => {
         try {
-          const dl = await downloadImageBytes(r.portraitUrl!);
+          const dl = await downloadImageBytes(r.portraitUrl);
           if (!dl.ok) {
             console.error(`[generate-portrait] failed to download background=${r.background}: ${dl.reason}`);
             return null;
           }
-          const bytes = dl.bytes;
-
           const path = `${user.id}/${generationId}/${i}.png`;
           const upRes = await supabaseAdmin.storage
             .from(PORTRAIT_BUCKET)
-            .upload(path, bytes, { contentType: "image/png", upsert: true });
+            .upload(path, dl.bytes, { contentType: "image/png", upsert: true });
           if (upRes.error) {
             console.error(`[generate-portrait] storage upload failed background=${r.background}: ${upRes.error.message}`);
             return null;
           }
-          console.log(`[generate-portrait] uploaded background=${r.background} path=${path} bytes=${bytes.length}`);
+          console.log(`[generate-portrait] uploaded background=${r.background} path=${path} bytes=${dl.bytes.length}`);
           return { ...r, path };
         } catch (e) {
           console.error(`[generate-portrait] pipeline exception background=${r.background}:`, e);
@@ -494,8 +396,7 @@ serve(async (req) => {
       );
     }
 
-
-    // Debit credits — cobra apenas pelas imagens com sucesso (max requestedCount).
+    // Cobra apenas pelas imagens com sucesso.
     const charge = Math.min(requestedCount, finalPortraits.length);
     const fromIncluded = Math.min(included, charge);
     const fromExtra = charge - fromIncluded;
@@ -516,21 +417,18 @@ serve(async (req) => {
       })),
     );
 
-    // Persiste paths + memória curta para próxima rodada.
     const posesUsedThisRound = finalPortraits.map((r) => r.pose).filter((p): p is string => !!p);
     const outfitsUsedThisRound = finalPortraits.map((r) => r.outfit).filter((o): o is string => !!o);
 
     await supabaseAdmin.from("portrait_generations").insert({
       id: generationId,
       user_id: user.id,
-      portraits: finalPortraits.map((r) => r.path), // ← agora salva PATHS, não data URLs
+      portraits: finalPortraits.map((r) => r.path),
       style_index: 0,
       used_hand_poses: posesUsedThisRound,
       used_outfits: outfitsUsedThisRound,
     });
 
-    // Gera URLs assinadas (1h) para o front exibir os retratos imediatamente,
-    // sem precisar fazer um segundo round-trip ao Storage.
     const signedUrls = await Promise.all(
       finalPortraits.map(async (r) => {
         const { data } = await supabaseAdmin.storage
@@ -542,7 +440,7 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify({
-        portraits: signedUrls, // URLs assinadas — leves e válidas por 1h
+        portraits: signedUrls,
         portrait_paths: finalPortraits.map((r) => r.path),
         backgrounds: finalPortraits.map((r) => r.background),
         outfits: finalPortraits.map((r) => r.outfit ?? ""),
