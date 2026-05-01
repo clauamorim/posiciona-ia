@@ -12,13 +12,15 @@ import {
   pickPosesForLooks,
   getArchetypeFamily,
 } from "../_shared/portraitPrompts.ts";
-import { mapProfessionToCategory, pickOutfits } from "../_shared/outfitPool.ts";
+import { mapProfessionToCategory, pickOutfits, lookupOutfitMeta } from "../_shared/outfitPool.ts";
 
 const FLUX_LORA_MODEL = "black-forest-labs/flux-dev-lora";
 const GENERATE_COST_CREDITS = 3;
-// Guidance variado: 2.5 (documental) / 3.0 (equilibrado) / 3.5 (definido).
-// Range maior pra você ver na prática qual valor funciona melhor.
-const GUIDANCE_VARIATIONS = [2.5, 3.0, 3.5];
+// Guidance MAIS BAIXO pra reduzir polimento artificial. Faixa testada:
+// 2.0 (super documental) / 2.4 (equilibrado) / 2.8 (definido sem virar plástico).
+const GUIDANCE_VARIATIONS = [2.0, 2.4, 2.8];
+// Steps reduzidos: 35 estava enfatizando demais detalhes lisos.
+const NUM_INFERENCE_STEPS = 28;
 const PORTRAIT_BUCKET = "portrait-outputs";
 // Referência (logs apenas). FLUX LoRA usa aspect_ratio + megapixels — width/height
 // no input são ignorados silenciosamente e o modelo cai pra 1024x1024.
@@ -27,15 +29,14 @@ const PORTRAIT_HEIGHT = 1152;
 
 /**
  * Calibra a força do LoRA conforme o tamanho do dataset de selfies.
- * AGRESSIVAMENTE BAIXO: a 0.80+ o LoRA dominava e sobrescrevia textura/anatomia
- * naturais do FLUX base (pele lisa decorada, maquiagem pesada, rosto inflado).
- * A 0.70-0.78 o modelo base respira — perde-se ~10% fidelidade facial mas ganha-se
- * textura, anatomia correta e atenuação de artefatos do treino.
+ * Reduzido em -0.02 versus versão anterior pra dar mais espaço ao modelo
+ * base (FLUX) preservar textura natural da pele em vez de copiar a maquiagem
+ * lisa que o LoRA decora das selfies.
  */
 function pickLoraScale(selfiesCount: number): number {
-  if (selfiesCount <= 12) return 0.70;
-  if (selfiesCount <= 20) return 0.75;
-  return 0.78;
+  if (selfiesCount <= 12) return 0.68;
+  if (selfiesCount <= 20) return 0.72;
+  return 0.75;
 }
 
 /** Fisher–Yates shuffle não destrutivo. */
@@ -111,7 +112,7 @@ async function callFluxLora(params: {
       aspect_ratio: "3:4",
       megapixels: "1",
       guidance_scale: guidanceScale,
-      num_inference_steps: 35,
+      num_inference_steps: NUM_INFERENCE_STEPS,
       output_format: "png",
       output_quality: 95,
       seed: Math.floor(Math.random() * 1000000),
@@ -352,10 +353,12 @@ serve(async (req) => {
     const selfiesCount = (training as any).selfies_count ?? 0;
     const loraScale = pickLoraScale(selfiesCount);
 
+    const outfitsMeta = outfitsForLooks.map((t) => lookupOutfitMeta(t) ?? { anchor: "?", color: "?" });
     console.log(
       `[generate-portrait] archetype=${archetypeName} family=${family} profession="${profession}" ` +
       `category=${profCategory} requestedCount=${requestedCount} outfitSource=${outfitSource} ` +
-      `selfiesCount=${selfiesCount} loraScale=${loraScale} ` +
+      `selfiesCount=${selfiesCount} loraScale=${loraScale} steps=${NUM_INFERENCE_STEPS} ` +
+      `outfitsMeta=${JSON.stringify(outfitsMeta)} ` +
       `outfits=${JSON.stringify(outfitsForLooks)} poses=${JSON.stringify(selectedPoses)} ` +
       `poseCats=${JSON.stringify(selectedPoseCategories)}`,
     );
@@ -382,17 +385,17 @@ serve(async (req) => {
         handPose,
       });
 
-      // MODO MANUAL PURO: prompt mínimo (~12 tokens), lora_scale agressivo (0.70-0.78),
-      // guidance variado (2.5/3.0/3.5). Logamos prompt completo + contagem de tokens
-      // pra você poder colar 1:1 no Replicate UI e comparar.
+      // MODO MANUAL PURO: prompt mínimo (~12 tokens), lora_scale moderado (0.68-0.75),
+      // guidance baixo (2.0/2.4/2.8), steps reduzidos (28). Tudo afinado pra
+      // priorizar textura natural de pele em vez de polimento.
       const promptTokens = built.prompt.split(",").length;
       console.log(
         `[generate-portrait] call ${i + 1}/${requestedCount} background=${built.backgroundKey} archetype=${archetypeName} ` +
         `trigger="${training.trigger_word}" trainingId=${training.id} ` +
         `dims=${PORTRAIT_WIDTH}x${PORTRAIT_HEIGHT}(3:4@1MP) ` +
-        `guidance=${guidanceScale} loraScale=${loraScale} steps=35 ` +
+        `guidance=${guidanceScale} loraScale=${loraScale} steps=${NUM_INFERENCE_STEPS} ` +
         `selfiesCount=${selfiesCount} hasTraits=${!!(training as any).physical_traits} ` +
-        `promptTokens=${promptTokens}`,
+        `promptTokens=${promptTokens} outfitMeta=${JSON.stringify(outfitsMeta[i] ?? null)}`,
       );
       console.log(`[generate-portrait] PROMPT[${i}]: ${built.prompt}`);
       console.log(`[generate-portrait] NEGATIVE[${i}]: ${built.negative}`);
