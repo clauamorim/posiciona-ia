@@ -147,7 +147,7 @@ const PortraitGenerator = () => {
     queryFn: async () => {
       const { data } = await supabase
         .from("portrait_trainings")
-        .select("id, status, trigger_word, created_at, completed_at, error_message, was_free")
+        .select("id, status, trigger_word, created_at, completed_at, error_message, was_free, lora_provider")
         .eq("user_id", user!.id)
         .order("created_at", { ascending: false })
         .limit(1)
@@ -175,7 +175,10 @@ const PortraitGenerator = () => {
 
   const hasPrerequisites = (archetypes?.length ?? 0) > 0 && !!report;
   const trainingStatus = latestTraining?.status as "training" | "ready" | "failed" | "expired" | undefined;
-  const hasReadyStudio = trainingStatus === "ready";
+  // LoRAs treinadas no provider antigo (Replicate) não são compatíveis com o
+  // novo motor (Fal Krea). Forçamos retreino gratuito antes de liberar geração.
+  const isLegacyLora = trainingStatus === "ready" && (latestTraining as any)?.lora_provider && (latestTraining as any).lora_provider !== "fal";
+  const hasReadyStudio = trainingStatus === "ready" && !isLegacyLora;
   const isTraining = trainingStatus === "training";
 
   const fileToBase64 = (file: File): Promise<string> =>
