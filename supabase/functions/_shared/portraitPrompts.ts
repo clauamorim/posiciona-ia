@@ -18,10 +18,13 @@ export type ArchetypeName =
 // MODO MANUAL PURO: prompt mínimo espelhando exatamente o que funcionou no
 // Replicate UI. Cada token a mais dilui o peso dos críticos de textura/pele.
 //
-// QUALITY_SUFFIX = fórmula exata do manual que funcionou.
-const QUALITY_SUFFIX = "fine skin pores, photorealistic, shot on Sony A7, 85mm f/1.4, shallow depth of field";
-// Negative MÍNIMO — só os 6 itens críticos. Negatives longos competem por atenção.
-const STUDIO_NEGATIVE_BASE = ", plastic skin, beauty filter, smoothed skin, heavy makeup, deformed face, deformed hands";
+// QUALITY_SUFFIX reforçado contra "pele plástica" — descrições redundantes
+// de textura natural ajudam o modelo a NÃO escorregar para o look airbrushed.
+const QUALITY_SUFFIX =
+  "natural skin texture, visible fine pores, subtle skin imperfections, no retouching, photographed not rendered, shot on Sony A7, 85mm f/1.4, shallow depth of field";
+// Negative ampliado contra todos os termos comuns que descrevem pele plastificada.
+const STUDIO_NEGATIVE_BASE =
+  ", plastic skin, beauty filter, smoothed skin, airbrushed skin, waxy skin, porcelain skin, over-retouched face, AI beauty filter, doll-like skin, heavy makeup, deformed face, deformed hands";
 // Reforço de anatomia de mãos — aplicado APENAS aos looks que mostram mãos
 // (atualmente nenhum, hands-out-of-frame em todos).
 const HANDS_NEGATIVE_REINFORCE = ", extra fingers, deformed fingers, fused fingers, claw hands";
