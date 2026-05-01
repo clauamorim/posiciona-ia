@@ -338,10 +338,41 @@ async function processJob(jobId: string) {
       const personal = await fetchPersonalQuestionnaire(userId);
       const personalContext = renderPersonalContext(personal);
 
+      // Profissão regulamentada (OAB / CFM) e tendências de mercado
+      const { data: profileRow } = await admin
+        .from("profiles")
+        .select("profession, niche")
+        .eq("user_id", userId)
+        .maybeSingle();
+      const professionCategory = detectProfession(profileRow);
+      const ethicalBlock = getEthicalRulesBlock(professionCategory);
+
+      let marketTrends: MarketTrend[] = [];
+      try {
+        const trendsRes = await admin.functions.invoke("fetch-market-trends", {
+          body: {
+            profession: profileRow?.profession || "",
+            niche: profileRow?.niche || niche || "",
+          },
+        });
+        const trendsData = trendsRes?.data as any;
+        if (trendsData && Array.isArray(trendsData.trends)) {
+          marketTrends = trendsData.trends as MarketTrend[];
+        }
+      } catch (trendsErr) {
+        console.warn(`[job ${jobId}] fetch-market-trends falhou (ignorando):`, trendsErr);
+      }
+      const marketTrendsBlock = renderMarketTrendsBlock(marketTrends);
+
       // ==== ESTÁGIO A: Feed (4 posts) ====
       await updateJob(jobId, { progress_message: "Gerando seus 4 posts de feed (etapa 1 de 2)…" });
 
-      const feedSystem = buildFeedSystemPrompt() + renderEditorialFrameworks();
+      const feedSystem =
+        NARRATIVE_PRINCIPLES_BLOCK +
+        ethicalBlock +
+        "\n\n" +
+        buildFeedSystemPrompt() +
+        renderEditorialFrameworks();
       const feedUser = `# NEGÓCIO
 Empresa: ${business?.company_name || "Não informado"}
 Serviços: ${business?.services || "Não informado"}
@@ -349,7 +380,7 @@ Público-alvo: ${business?.target_audience || "Não informado"}
 Nicho: ${niche || "Não informado"}${storybrandContext}${toneContext}${personalContext}
 
 # TEMAS JÁ PUBLICADOS (NÃO REPETIR)
-${previousSummary || "Nenhum conteúdo anterior."}
+${previousSummary || "Nenhum conteúdo anterior."}${marketTrendsBlock}
 
 Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
 
