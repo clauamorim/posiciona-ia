@@ -103,6 +103,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   onSelectedTextChange, renderOrder: externalRenderOrder, onRenderOrderChange,
   showRulers = false, postStyle,
   initialTextBoxes, resetKey,
+  textBoxes: controlledTextBoxes, onTextBoxesChange,
 }) => {
   const isMobile = useIsMobile();
   const handleVisualSize = isMobile ? 22 : RESIZE_HANDLE_SIZE;
