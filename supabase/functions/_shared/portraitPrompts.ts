@@ -709,9 +709,12 @@ export function buildGeminiPortraitPrompt(params: GeminiPromptParams): {
   const possessive = params.gender === "man" ? "his" : "her";
 
   const sceneParts: string[] = [
-    `Editorial portrait photograph of ${subject} shown in the reference images.`,
-    `IDENTITY LOCK: preserve ${possessive} EXACT facial identity, age, ethnicity, hair color, hair length, hair style, eye color, and natural skin tone from the reference photos. Do NOT age the subject. Do NOT make the subject look older. Do NOT change ethnicity. Do NOT alter hair color or length.`,
-    `Skin must show natural texture with visible pores and subtle imperfections — no airbrushing, no plastic smoothing, no beauty filter, no age regression, no aging.`,
+    `PHOTOGRAPHIC REALISM ONLY. This must look like a real photograph captured by a professional photographer with a Canon EOS R5 and an 85mm f/1.4 lens. Absolutely NOT a 3D render, NOT CGI, NOT a digital painting, NOT AI-stylized, NOT a beauty-app filter.`,
+    `Editorial portrait of ${subject} shown in the reference images.`,
+    `IDENTITY LOCK — copy facial geometry EXACTLY from the reference photos: same nose shape and width, same eye shape and spacing, same eyebrow shape, same jawline and chin, same lip shape and thickness, same forehead proportions, same ear shape. Do NOT idealize, do NOT prettify, do NOT make features more symmetric. Reproduce ${possessive} face as it actually is in the references.`,
+    `Age preservation — match the EXACT apparent age visible in the references. Preserve eye creases, fine lines around the eyes and mouth, neck texture, expression lines, and any visible signs of age. Do NOT regress age, do NOT make ${possessive} look younger, do NOT smooth away wrinkles.`,
+    `Skin — natural human skin with visible pores, micro-tonal variations, fine surface texture, subtle redness in cheeks and around the nose, faint asymmetries. Preserve every freckle, mole, beauty mark, scar, blemish, vein and skin imperfection visible in the references. Do NOT smooth, do NOT airbrush, do NOT beautify, do NOT apply any filter. Skin must read as REAL human skin under a magazine loupe.`,
+    `Ethnicity, hair color, hair length, hair style, eye color and natural skin tone — copied EXACTLY from the references.`,
     `Scene direction: ${archetypeEssence}.`,
   ];
 
@@ -727,7 +730,13 @@ export function buildGeminiPortraitPrompt(params: GeminiPromptParams): {
     sceneParts.push(`Framing: editorial close-up headshot, vertical 4:5 aspect ratio.`);
   }
   sceneParts.push(
-    `Technical: 50mm lens, soft natural studio lighting, shallow depth of field, photorealistic, magazine cover quality.`
+    `Lighting: soft natural studio lighting from a large softbox (key light) with a subtle fill, gentle falloff, realistic shadow density under the jaw and on the neck, catchlights in the eyes consistent with a real softbox.`,
+  );
+  sceneParts.push(
+    `Technical: 85mm f/1.4 lens, shallow but realistic depth of field, accurate color science, fine film-like grain, photorealistic, magazine cover quality.`,
+  );
+  sceneParts.push(
+    `AVOID at all costs: plastic skin, doll-like appearance, waxy texture, oversaturated colors, render look, CGI, cartoon, anime, illustration, beauty filter, Instagram filter, skin smoothing, blurred skin, perfect symmetry, idealized features, age regression, younger-looking face, generic AI face.`,
   );
 
   const prompt = sceneParts.join(" ");
