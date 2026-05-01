@@ -353,6 +353,7 @@ const PostEditorPage = () => {
     renderOrder,
     displayFont,
     bodyFont,
+    slideTextBoxes,
   };
 
   const applyUndoSnapshot = useCallback((snap: typeof historyState) => {
