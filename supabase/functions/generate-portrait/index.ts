@@ -16,9 +16,11 @@ import { mapProfessionToCategory, pickOutfits } from "../_shared/outfitPool.ts";
 
 const FLUX_LORA_MODEL = "black-forest-labs/flux-dev-lora";
 const GENERATE_COST_CREDITS = 3;
-// Guidance variado: 2.5 (documental) / 3.0 (equilibrado) / 3.5 (definido).
-// Range maior pra você ver na prática qual valor funciona melhor.
-const GUIDANCE_VARIATIONS = [2.5, 3.0, 3.5];
+// Guidance MAIS BAIXO pra reduzir polimento artificial. Faixa testada:
+// 2.0 (super documental) / 2.4 (equilibrado) / 2.8 (definido sem virar plástico).
+const GUIDANCE_VARIATIONS = [2.0, 2.4, 2.8];
+// Steps reduzidos: 35 estava enfatizando demais detalhes lisos.
+const NUM_INFERENCE_STEPS = 28;
 const PORTRAIT_BUCKET = "portrait-outputs";
 // Referência (logs apenas). FLUX LoRA usa aspect_ratio + megapixels — width/height
 // no input são ignorados silenciosamente e o modelo cai pra 1024x1024.
@@ -27,15 +29,14 @@ const PORTRAIT_HEIGHT = 1152;
 
 /**
  * Calibra a força do LoRA conforme o tamanho do dataset de selfies.
- * AGRESSIVAMENTE BAIXO: a 0.80+ o LoRA dominava e sobrescrevia textura/anatomia
- * naturais do FLUX base (pele lisa decorada, maquiagem pesada, rosto inflado).
- * A 0.70-0.78 o modelo base respira — perde-se ~10% fidelidade facial mas ganha-se
- * textura, anatomia correta e atenuação de artefatos do treino.
+ * Reduzido em -0.02 versus versão anterior pra dar mais espaço ao modelo
+ * base (FLUX) preservar textura natural da pele em vez de copiar a maquiagem
+ * lisa que o LoRA decora das selfies.
  */
 function pickLoraScale(selfiesCount: number): number {
-  if (selfiesCount <= 12) return 0.70;
-  if (selfiesCount <= 20) return 0.75;
-  return 0.78;
+  if (selfiesCount <= 12) return 0.68;
+  if (selfiesCount <= 20) return 0.72;
+  return 0.75;
 }
 
 /** Fisher–Yates shuffle não destrutivo. */
