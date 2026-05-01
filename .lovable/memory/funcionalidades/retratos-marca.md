@@ -1,27 +1,33 @@
 ---
 name: Retratos de Marca
-description: Pay-per-download portrait generation with multi-LoRA stack (client dominant + light face realism)
-type: feature
+description: Pay-per-download portrait generation on Fal.ai using FLUX.1 Krea [dev] + portrait-trained LoRA
 ---
 
-Retratos gerados via Replicate com **stack de 2 LoRAs**:
+Retratos gerados via **Fal.ai** com pipeline em duas pontas:
 
-- Modelo: `lucataco/flux-dev-multi-lora` (community, requer version hash em `/v1/predictions`)
-- LoRA 1 (DOMINANTE — identidade): `replicate_lora_url` da cliente, escala **0.90 / 0.95 / 1.00** (cresce com `selfies_count`). Mantém estrutura óssea e proporções faciais. Teto descido de 1.05 → 1.00 após 1.05+guidance 3.6 produzir assimetria (olhos tortos, rosto inflado).
-- LoRA 2 (TEMPERO — textura): `prithivMLmods/Canopus-LoRA-Flux-FaceRealism`, escala fixa **0.25**. Só puxa textura natural de pele.
+- **Treino:** `fal-ai/flux-lora-portrait-trainer` — trainer da Fal otimizado pra rosto humano (brilho de olho, semelhança, detalhe fino). Edge function `portrait-train` chama `https://queue.fal.run/...` com webhook nativo (header `fal-webhook`) apontando pra `portrait-webhook`. Custo Fal ~$2.40/treino (1000 steps × $0.0024). Trigger phrase: `USR<12hex>` (+ `<gender>` quando há traits).
+- **Inferência:** `fal-ai/flux-krea-lora` — FLUX.1 Krea [dev] com suporte oficial a LoRA. Krea é a resposta da BFL ao "look de IA" do FLUX-dev base; entrega textura natural de pele NATIVAMENTE. Custo $0.035/MP. Endpoint síncrono `https://fal.run/...`, ~10-25s por imagem, paralelizável.
 
-Parâmetros de inferência:
-- `guidance_scale`: **[2.6, 3.0, 3.4]** por look — descido um degrau (era [2.8, 3.2, 3.6]) porque 3.6 estava forçando colapso facial em algumas seeds.
-- `num_inference_steps`: **35** — detalhe fino (poros, cílios, brilho de olho).
-- `aspect_ratio` 3:4 @ 1MP, `output_format` png @ 95.
+**Stack de LoRAs:** APENAS 1 LoRA (identidade da cliente, escala fixa **1.0**). Sem realism stacking — Krea entrega isso sozinho.
 
-Prompt (`_shared/portraitPrompts.ts`):
-- `QUALITY_SUFFIX`: editorial-documental + reforço de identidade (`sharp focus on eyes, crisp eyelashes, defined facial bone structure, preserved facial proportions`).
-- `STUDIO_NEGATIVE_BASE`: bloqueia plástico/airbrush + distorção de proporções + **assimetria facial** (`asymmetric eyes, uneven eyes, crooked eyes, tilted eye line, asymmetric eyebrows, no neck, missing neck, distorted facial proportions, inflated cheeks, wide jaw`).
+**Parâmetros de inferência:**
+- `guidance_scale`: **3.0** fixo (default Krea).
+- `num_inference_steps`: **28** (default Krea).
+- `image_size`: 896×1152 (3:4 @ 1MP).
+- `num_images`: 1 por chamada; 3 chamadas em paralelo por geração.
+- Sem negative prompt (Krea não responde bem a negative longo).
 
-Figurino: pool por profissão (`outfitPool.ts`) com diversidade de peças-âncora dentro da rodada de 3.
-Mãos: estratégia "sempre escondidas" — 4 categorias gestuais (`HAND_POSE_POOLS_BY_CATEGORY`).
+**Prompt (`_shared/portraitPrompts.ts`):** drasticamente enxuto.
+- `QUALITY_SUFFIX`: `"editorial portrait photograph, natural skin texture, soft daylight, shallow depth of field, 50mm lens"`.
+- `STUDIO_NEGATIVE_BASE`: `", plastic skin, airbrushed, cgi, deformed, asymmetric eyes, distorted proportions"`. (Mantido por compat — não enviado ao endpoint Fal.)
+- Templates de arquétipo: descrição mínima de cena (expressão + luz + fundo). Sem reforço de textura/realismo.
 
-Pós-processamento: chroma-key despill via Gemini (legado, fluxos auxiliares). Geração principal não usa upscaler — bytes do Replicate vão direto ao Storage privado.
+**Migração legacy:** Coluna `portrait_trainings.lora_provider` (`'fal'` default, `'replicate'` para registros pré-migração). LoRAs `replicate` são bloqueadas na geração — `generate-portrait` retorna `409 needs_legacy_migration`. UI no `PortraitGenerator` detecta `isLegacyLora` e oferece **"Refazer treino (gratuito)"** — flag `migrate_legacy: true` no `portrait-train` força `canUseFree` sem consumir o slot mensal nem créditos.
 
-Sem retreino necessário ao trocar parâmetros de inferência. Treinos antigos continuam válidos.
+**Figurino e poses:** inalterados — pool por profissão (`outfitPool.ts`), 4 categorias gestuais com mãos sempre fora do frame (`HAND_POSE_POOLS_BY_CATEGORY`).
+
+**Pós-processamento:** nenhum no fluxo principal. Bytes vão direto da Fal pro Storage privado `portrait-outputs`. Chroma-key despill via Gemini permanece em fluxos auxiliares.
+
+**Secrets:** `FAL_KEY` (Fal.ai), `WEBHOOK_SECRET` (HMAC do webhook). `REPLICATE_API_TOKEN` mantido por enquanto pra não quebrar fluxos auxiliares; pode ser removido após validação completa.
+
+Coluna DB `replicate_training_id` foi reaproveitada como "external request id" genérico — agora guarda `request_id` da Fal.
