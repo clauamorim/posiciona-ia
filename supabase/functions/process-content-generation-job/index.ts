@@ -532,7 +532,7 @@ Gere agora os 7 stories da semana.`;
         } else {
           // Falha do B: persiste apenas o feed e marca completed_partial — usuário pode regenerar só os stories
           console.error(`[job ${jobId}] Estágio B falhou. raw len=${storiesRaw?.length || 0}. stop=${storiesStop}`);
-          await persistWeek(job.report_id, feedFinal, [], jobId);
+          await persistWeek(job.report_id, feedFinal, [], jobId, marketTrends);
           await updateJob(jobId, {
             status: "completed",
             result: {
@@ -577,7 +577,7 @@ Gere agora os 7 stories da semana.`;
 
       // Persiste a semana completa
       await updateJob(jobId, { progress_message: "Salvando conteúdo…" });
-      const weekObj = await persistWeek(job.report_id, feedFinal, storiesFinal, jobId);
+      const weekObj = await persistWeek(job.report_id, feedFinal, storiesFinal, jobId, marketTrends);
 
       await updateJob(jobId, {
         status: "completed",
