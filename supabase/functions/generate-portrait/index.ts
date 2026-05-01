@@ -24,10 +24,10 @@ const FLUX_LORA_VERSION = "ad0314563856e714367fdc7244b19b160d25926d305fec270c9e0
 const FACE_REALISM_LORA = "prithivMLmods/Canopus-LoRA-Flux-FaceRealism";
 const FACE_REALISM_SCALE = 0.25;
 const GENERATE_COST_CREDITS = 3;
-// Guidance recalibrado pra cima após reduzir o FaceRealism: faixa que recupera
-// nitidez tipo Gemini sem voltar ao "plástico".
-// 2.8 (documental nítido) / 3.2 (equilibrado) / 3.6 (definido editorial).
-const GUIDANCE_VARIATIONS = [2.8, 3.2, 3.6];
+// Guidance um degrau abaixo do teto anterior: 3.6 + LoRA 1.05 colapsava em
+// assimetria facial (olhos tortos, rosto inflado). Faixa atual mantém nitidez
+// sem o risco. 2.6 (documental) / 3.0 (equilibrado) / 3.4 (editorial).
+const GUIDANCE_VARIATIONS = [2.6, 3.0, 3.4];
 // Mais steps = mais detalhe fino (poros, cílios, brilho dos olhos).
 const NUM_INFERENCE_STEPS = 35;
 const PORTRAIT_BUCKET = "portrait-outputs";
@@ -43,9 +43,9 @@ const PORTRAIT_HEIGHT = 1152;
  * proporções faciais.
  */
 function pickLoraScale(selfiesCount: number): number {
-  if (selfiesCount <= 12) return 0.95;
-  if (selfiesCount <= 20) return 1.00;
-  return 1.05;
+  if (selfiesCount <= 12) return 0.90;
+  if (selfiesCount <= 20) return 0.95;
+  return 1.00;
 }
 
 /** Fisher–Yates shuffle não destrutivo. */
