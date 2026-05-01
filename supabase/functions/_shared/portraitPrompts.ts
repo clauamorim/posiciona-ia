@@ -244,9 +244,9 @@ export const ARCHETYPE_PROMPTS: Record<ArchetypeName, { prompt: string; negative
 // Mapeamento de fundo para os 3 looks (Neutro / Claro / Escuro).
 // O regex captura "...background[...],"  — replacement já inclui a vírgula final.
 export const BACKGROUND_VARIATIONS = [
-  { key: "neutro", label: "Neutro", replacement: null }, // mantém o fundo do arquétipo
-  { key: "claro", label: "Claro", replacement: "warm light background, soft warm tones," },
-  { key: "escuro", label: "Escuro", replacement: "dark moody background, deep shadow tones," },
+  { key: "neutro", label: "Neutro", replacement: null }, // mantém o paper backdrop do arquétipo
+  { key: "claro", label: "Claro", replacement: "light grey seamless paper studio backdrop with subtle paper texture," },
+  { key: "escuro", label: "Escuro", replacement: "deep charcoal seamless paper studio backdrop with subtle paper texture," },
 ] as const;
 
 /**
