@@ -79,6 +79,24 @@ const HistoryPage = () => {
     }
   };
 
+  const handleDiscardHistory = async (parentId: string, parentIndex: number) => {
+    if (!confirm("Descartar este retrato do histórico? Essa ação não pode ser desfeita.")) return;
+    const key = `${parentId}-${parentIndex}`;
+    setDiscardingKey(key);
+    try {
+      const { data, error } = await supabase.functions.invoke("portrait-discard", {
+        body: { generation_id: parentId, index: parentIndex },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      setFlatPortraits((prev) => prev.filter((p) => !(p.parentId === parentId && p.parentIndex === parentIndex)));
+    } catch (e) {
+      console.warn("descarte falhou", e);
+    } finally {
+      setDiscardingKey(null);
+    }
+  };
+
   const downloadAnalysisPDF = (analysis: any) => {
     const items: AnalysisItem[] = Array.isArray(analysis.analysis) ? analysis.analysis : [];
     if (items.length === 0) return;
