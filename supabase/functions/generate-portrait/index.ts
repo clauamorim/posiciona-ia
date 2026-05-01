@@ -22,7 +22,10 @@ const FLUX_LORA_MODEL = "lucataco/flux-dev-multi-lora"; // mantido só pra logs
 const FLUX_LORA_VERSION = "ad0314563856e714367fdc7244b19b160d25926d305fec270c9e00f64665d352";
 // LoRA público de realismo facial (carregado direto do HF pelo Replicate).
 const FACE_REALISM_LORA = "prithivMLmods/Canopus-LoRA-Flux-FaceRealism";
-const FACE_REALISM_SCALE = 0.25;
+// Subimos de 0.25 → 0.40: com client LoRA em 0.90–1.00, 0.25 era abafado e a
+// pele voltava a ficar plástica/airbrushed. 0.40 reintroduz poros e textura
+// real sem competir com a identidade facial (testado seguro até ~0.45).
+const FACE_REALISM_SCALE = 0.40;
 const GENERATE_COST_CREDITS = 3;
 // Guidance um degrau abaixo do teto anterior: 3.6 + LoRA 1.05 colapsava em
 // assimetria facial (olhos tortos, rosto inflado). Faixa atual mantém nitidez
