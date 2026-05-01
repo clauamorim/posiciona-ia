@@ -710,11 +710,26 @@ export function buildGeminiPortraitPrompt(params: GeminiPromptParams): {
 
   const sceneParts: string[] = [
     `PHOTOGRAPHIC REALISM ONLY. This must look like a real photograph captured by a professional photographer with a Canon EOS R5 and an 85mm f/1.4 lens. Absolutely NOT a 3D render, NOT CGI, NOT a digital painting, NOT AI-stylized, NOT a beauty-app filter.`,
-    `Editorial portrait of ${subject} shown in the reference images.`,
-    `IDENTITY LOCK — copy facial geometry EXACTLY from the reference photos: same nose shape and width, same eye shape and spacing, same eyebrow shape, same jawline and chin, same lip shape and thickness, same forehead proportions, same ear shape. Do NOT idealize, do NOT prettify, do NOT make features more symmetric. Reproduce ${possessive} face as it actually is in the references.`,
-    `Age preservation — match the EXACT apparent age visible in the references. Preserve eye creases, fine lines around the eyes and mouth, neck texture, expression lines, and any visible signs of age. Do NOT regress age, do NOT make ${possessive} look younger, do NOT smooth away wrinkles.`,
+
+    // ===== IDENTITY LOCK — TOPO ABSOLUTO, MÁXIMO PESO =====
+    `### IDENTITY LOCK — HIGHEST PRIORITY ###`,
+    `The FIRST reference image is the PRIMARY identity reference (ground truth). The other reference images are auxiliary angles only — use them only to understand 3D structure, never to average or blend features.`,
+    `Reproduce ${possessive} face EXACTLY as it appears in the primary reference. Treat this as a forensic facial reconstruction, not an artistic portrait.`,
+    `Copy with photographic precision: distance between the eyes, natural asymmetries, eyelid shape and position, eye shape and tilt, eyebrow shape and thickness, exact nose length and width, nose tip and nostril shape, mouth width and curvature at rest, upper and lower lip shape and thickness, philtrum, forehead height and width, hairline position and shape, cheekbone structure, jaw angle, chin shape and projection, ear shape and angle, neck proportions.`,
+    `Do NOT average features across references. Do NOT create a generalized, idealized, prettified or symmetric version. Do NOT beautify. Do NOT make ${subject} look like a different person, a lookalike, or an Instagram model. If references differ, ALWAYS anchor to the first reference.`,
+    `Age preservation — match the EXACT apparent age visible in the references. Preserve eye creases, fine lines around the eyes and mouth, neck texture, expression lines, and any visible signs of age. Do NOT regress age, do NOT make ${subject} look younger, do NOT smooth away wrinkles.`,
+    `Ethnicity, natural skin tone, eye color and any distinctive marks — copied EXACTLY from the references.`,
+
+    // ===== SKIN =====
     `Skin — natural human skin with visible pores, micro-tonal variations, fine surface texture, subtle redness in cheeks and around the nose, faint asymmetries. Preserve every freckle, mole, beauty mark, scar, blemish, vein and skin imperfection visible in the references. Do NOT smooth, do NOT airbrush, do NOT beautify, do NOT apply any filter. Skin must read as REAL human skin under a magazine loupe.`,
-    `Ethnicity, hair color, hair length, hair style, eye color and natural skin tone — copied EXACTLY from the references.`,
+
+    // ===== HAIR TEXTURE LOCK =====
+    `### HAIR TEXTURE LOCK ###`,
+    `Hair must be PHOTOREAL, never blocky or wig-like. Render INDIVIDUAL strands clearly visible along the hairline, temples, parting and nape. Show natural flyaway hairs and gentle frizz at the perimeter. Shine must be IRREGULAR and realistic — soft highlights breaking across uneven strands, never a uniform glossy band.`,
+    `Preserve EXACTLY the hair color, length, density, parting and natural texture (straight, wavy, curly or coily) visible in the references — including any grey strands, roots, or color variation. Do NOT change the haircut, do NOT add volume that isn't there, do NOT straighten or curl beyond what the references show.`,
+    `Eyelashes and eyebrows must show individual hairs, not painted shapes.`,
+
+    // ===== SCENE =====
     `Scene direction: ${archetypeEssence}.`,
   ];
 
@@ -730,13 +745,14 @@ export function buildGeminiPortraitPrompt(params: GeminiPromptParams): {
     sceneParts.push(`Framing: editorial close-up headshot, vertical 4:5 aspect ratio.`);
   }
   sceneParts.push(
-    `Lighting: soft natural studio lighting from a large softbox (key light) with a subtle fill, gentle falloff, realistic shadow density under the jaw and on the neck, catchlights in the eyes consistent with a real softbox.`,
+    `Lighting: soft natural studio lighting from a large softbox (key light) with a subtle fill, gentle falloff, realistic shadow density under the jaw and on the neck, catchlights in the eyes consistent with a real softbox. Add a subtle rim light on the hair to reveal individual strands and natural shine without flattening the hair into a uniform block.`,
   );
   sceneParts.push(
-    `Technical: 85mm f/1.4 lens, shallow but realistic depth of field, accurate color science, fine film-like grain, photorealistic, magazine cover quality.`,
+    `Technical: 85mm f/1.4 lens, shallow but realistic depth of field, accurate color science, fine 35mm film grain, sharp micro-detail on hair strands, eyelashes, eyebrows and skin pores, photorealistic, magazine cover quality.`,
   );
+
   sceneParts.push(
-    `AVOID at all costs: plastic skin, doll-like appearance, waxy texture, oversaturated colors, render look, CGI, cartoon, anime, illustration, beauty filter, Instagram filter, skin smoothing, blurred skin, perfect symmetry, idealized features, age regression, younger-looking face, generic AI face.`,
+    `AVOID at all costs: morphed face, averaged face, generic AI face, beautified face, idealized features, perfectly symmetrical face, different person, lookalike, instagram-model face, face that does not match the references, age regression, younger-looking face; plastic skin, doll-like appearance, waxy texture, skin smoothing, blurred skin, beauty filter, Instagram filter, oversaturated colors, render look, CGI, cartoon, anime, illustration; helmet hair, wig-like hair, plastic hair, painted hair, blocky hair, smooth uniform hair, lacquered hair, doll hair, missing flyaway hairs, fake hairline.`,
   );
 
   const prompt = sceneParts.join(" ");
