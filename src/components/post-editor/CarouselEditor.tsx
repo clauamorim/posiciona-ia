@@ -2,6 +2,7 @@ import React from "react";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, ArrowRight, Download, Package } from "lucide-react";
 import PostCanvas from "./PostCanvas";
+import type { TextBox } from "./PostCanvas";
 import type { OverlayImage } from "./PostToolbar";
 
 interface CarouselEditorProps {
@@ -59,6 +60,8 @@ interface CarouselEditorProps {
     body?: { x: number; y: number; width: number; height: number };
   };
   resetKey?: string;
+  slideTextBoxes?: Record<number, TextBox[]>;
+  onSlideTextBoxesChange?: (slideIndex: number, boxes: TextBox[]) => void;
 }
 
 const CarouselEditor: React.FC<CarouselEditorProps> = ({
