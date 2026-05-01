@@ -380,6 +380,17 @@ serve(async (req) => {
     // Geração sequencial — Replicate low-credit accounts (<$5) tem rate limit 6/min.
     const INTER_CALL_DELAY_MS = 11000;
     const RETRY_DELAY_MS = 30000;
+
+    // Tratamento condicional para cabelos grisalhos: o LoRA tende a envelhecer
+    // demais a cliente quando ela tem fios brancos no dataset. Reforçamos
+    // "salt-and-pepper" no positivo e bloqueamos "fully gray/white" no negativo.
+    const hairColorRaw = String(((training as any).physical_traits?.hair_color ?? "")).toLowerCase();
+    const isGrayHair = /\b(gray|grey|silver|white)\b/.test(hairColorRaw);
+    const grayPositiveSuffix = isGrayHair ? ", natural salt-and-pepper highlights, not fully gray" : "";
+    const grayNegativeSuffix = isGrayHair ? ", fully gray hair, white hair, elderly appearance" : "";
+    if (isGrayHair) {
+      console.log(`[generate-portrait] gray-hair handling enabled (hair_color="${hairColorRaw}")`);
+    }
     const results: { background: string; portraitUrl: string | null; error?: string; pose?: string; outfit?: string }[] = [];
     for (let i = 0; i < requestedCount; i++) {
       if (i > 0) await new Promise((r) => setTimeout(r, INTER_CALL_DELAY_MS));
