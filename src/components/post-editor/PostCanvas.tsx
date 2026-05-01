@@ -121,8 +121,19 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   const [editingTextId, setEditingTextId] = useState<string | null>(null);
   const [activeGuides, setActiveGuides] = useState<{ v: number[]; h: number[] }>({ v: [], h: [] });
 
-  const [textBoxes, setTextBoxes] = useState<TextBox[]>([]);
-  const textBoxesInitialized = useRef(false);
+  const [localTextBoxes, setLocalTextBoxes] = useState<TextBox[]>([]);
+  const isControlled = Array.isArray(controlledTextBoxes);
+  const textBoxes = isControlled ? (controlledTextBoxes as TextBox[]) : localTextBoxes;
+  const setTextBoxes = (updater: TextBox[] | ((prev: TextBox[]) => TextBox[])) => {
+    const next = typeof updater === "function" ? (updater as (p: TextBox[]) => TextBox[])(textBoxes) : updater;
+    if (isControlled) {
+      onTextBoxesChange?.(next);
+    } else {
+      setLocalTextBoxes(next);
+      onTextBoxesChange?.(next);
+    }
+  };
+  const textBoxesInitialized = useRef(isControlled && (controlledTextBoxes as TextBox[]).length > 0);
   const lastLayout = useRef(layout);
 
   const updateOverlay = (id: string, updates: Partial<OverlayImage>) => {
