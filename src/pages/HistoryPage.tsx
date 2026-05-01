@@ -249,28 +249,42 @@ const HistoryPage = () => {
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                  {flatPortraits.map((fp, idx) => (
-                    <div key={`${fp.parentId}-${idx}`} className="space-y-2 group">
-                      <button
-                        type="button"
-                        onClick={() => setPreviewIndex(idx)}
-                        className="aspect-square w-full rounded-lg overflow-hidden border border-border bg-muted relative cursor-zoom-in"
-                        aria-label="Pré-visualizar retrato"
-                      >
-                        <img src={fp.url} alt="Retrato" className="w-full h-full object-cover" loading="lazy" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                        <span
-                          role="button"
-                          tabIndex={0}
-                          onClick={(e) => { e.stopPropagation(); downloadPortrait(fp.url, idx); }}
-                          onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); downloadPortrait(fp.url, idx); } }}
-                          className="absolute bottom-2 right-2 bg-background/80 backdrop-blur-sm border border-border rounded-full p-2 opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center justify-center"
+                  {flatPortraits.map((fp, idx) => {
+                    const dKey = `${fp.parentId}-${fp.parentIndex}`;
+                    return (
+                      <div key={`${fp.parentId}-${idx}`} className="space-y-2 group">
+                        <button
+                          type="button"
+                          onClick={() => setPreviewIndex(idx)}
+                          className="aspect-square w-full rounded-lg overflow-hidden border border-border bg-muted relative cursor-zoom-in"
+                          aria-label="Pré-visualizar retrato"
                         >
-                          <Download className="h-4 w-4" />
-                        </span>
-                      </button>
-                      <p className="text-xs text-center text-muted-foreground">{formatDate(fp.createdAt)}</p>
-                    </div>
-                  ))}
+                          <img src={fp.url} alt="Retrato" className="w-full h-full object-cover" loading="lazy" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                          <span
+                            role="button"
+                            tabIndex={0}
+                            onClick={(e) => { e.stopPropagation(); downloadPortrait(fp.url, idx); }}
+                            onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); downloadPortrait(fp.url, idx); } }}
+                            className="absolute bottom-2 right-2 bg-background/80 backdrop-blur-sm border border-border rounded-full p-2 opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center justify-center"
+                          >
+                            <Download className="h-4 w-4" />
+                          </span>
+                          <span
+                            role="button"
+                            tabIndex={0}
+                            onClick={(e) => { e.stopPropagation(); handleDiscardHistory(fp.parentId, fp.parentIndex); }}
+                            onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); handleDiscardHistory(fp.parentId, fp.parentIndex); } }}
+                            className="absolute top-2 right-2 bg-background/80 backdrop-blur-sm border border-border rounded-full p-2 opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center justify-center text-muted-foreground hover:text-destructive"
+                            aria-label="Descartar retrato"
+                            title="Descartar do histórico"
+                          >
+                            {discardingKey === dKey ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                          </span>
+                        </button>
+                        <p className="text-xs text-center text-muted-foreground">{formatDate(fp.createdAt)}</p>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </TabsContent>
