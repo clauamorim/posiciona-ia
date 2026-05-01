@@ -12,7 +12,7 @@ import {
   pickPosesForLooks,
   getArchetypeFamily,
 } from "../_shared/portraitPrompts.ts";
-import { mapProfessionToCategory, pickOutfits } from "../_shared/outfitPool.ts";
+import { mapProfessionToCategory, pickOutfits, lookupOutfitMeta } from "../_shared/outfitPool.ts";
 
 const FLUX_LORA_MODEL = "black-forest-labs/flux-dev-lora";
 const GENERATE_COST_CREDITS = 3;
