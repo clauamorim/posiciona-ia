@@ -226,6 +226,17 @@ const PostEditorPage = () => {
   const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
   const [renderOrder, setRenderOrder] = useState<string[]>([]);
   const [showRulers, setShowRulers] = useState(false);
+  const [slideTextBoxes, setSlideTextBoxes] = useState<Record<number, TextBox[]>>(draft?.slideTextBoxes ?? {});
+  const handleSlideTextBoxesChange = useCallback((slideIndex: number, boxes: TextBox[]) => {
+    setSlideTextBoxes((prev) => {
+      const existing = prev[slideIndex];
+      if (existing && existing.length === boxes.length && existing.every((b, i) => {
+        const n = boxes[i];
+        return b.id === n.id && b.x === n.x && b.y === n.y && b.width === n.width && b.height === n.height;
+      })) return prev;
+      return { ...prev, [slideIndex]: boxes };
+    });
+  }, []);
   const [autoLayoutBanner, setAutoLayoutBanner] = useState(false);
   const [swappingBackground, setSwappingBackground] = useState(false);
   const [activePhotographer, setActivePhotographer] = useState<PhotographerInfo | null>(null);
