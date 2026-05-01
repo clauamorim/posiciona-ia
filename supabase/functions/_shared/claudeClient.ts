@@ -46,10 +46,13 @@ export interface CallClaudeOptions {
 export class ClaudeError extends Error {
   status?: number;
   userMessage?: string;
-  constructor(message: string, status?: number, userMessage?: string) {
+  /** Delay sugerido pela API (em ms) extraído de headers tipo retry-after. */
+  retryAfterMs?: number;
+  constructor(message: string, status?: number, userMessage?: string, retryAfterMs?: number) {
     super(message);
     this.status = status;
     this.userMessage = userMessage;
+    this.retryAfterMs = retryAfterMs;
   }
 }
 
@@ -85,10 +88,15 @@ export async function callClaude(opts: CallClaudeOptions): Promise<string> {
  * recuperação parcial em vez de falhar o job inteiro.
  */
 export async function callClaudeWithMeta(opts: CallClaudeOptions): Promise<ClaudeResponse> {
-  if (opts.disableRetries) {
-    return await callClaudeOnce(opts);
-  }
-  const RETRY_DELAYS_MS = [2000, 5000, 10000];
+  // 429 é retorno ANTES do consumo de tokens — sempre seguro de retry.
+  // Mesmo quando o caller passa `disableRetries: true` (proteção contra
+  // cobrança em loop por truncamento), continuamos retentando em 429.
+  const RETRY_DELAYS_MS = opts.disableRetries
+    ? [5000, 15000, 30000]   // só usado para 429 quando retries estão "desativados"
+    : [3000, 8000, 20000, 40000];
+
+  const clampDelay = (ms: number) => Math.min(60000, Math.max(3000, ms));
+
   let lastError: any;
   for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
     try {
@@ -96,10 +104,14 @@ export async function callClaudeWithMeta(opts: CallClaudeOptions): Promise<Claud
     } catch (e) {
       lastError = e;
       const status = e instanceof ClaudeError ? e.status : undefined;
-      const retriable = status === 429 || status === 529 || (status !== undefined && status >= 500 && status < 600);
+      const is429 = status === 429;
+      const isOther5xx = status === 529 || (status !== undefined && status >= 500 && status < 600);
+      // Quando disableRetries está ligado, só retenta em 429 (não consome tokens).
+      const retriable = opts.disableRetries ? is429 : (is429 || isOther5xx);
       if (!retriable || attempt === RETRY_DELAYS_MS.length) throw e;
-      const delay = RETRY_DELAYS_MS[attempt];
-      console.warn(`Claude ${status} — retry ${attempt + 1}/${RETRY_DELAYS_MS.length} em ${delay}ms`);
+      const suggested = e instanceof ClaudeError && typeof e.retryAfterMs === "number" ? e.retryAfterMs : undefined;
+      const delay = clampDelay(suggested ?? RETRY_DELAYS_MS[attempt]);
+      console.warn(`Claude ${status} — retry ${attempt + 1}/${RETRY_DELAYS_MS.length} em ${delay}ms${suggested ? " (sugerido pela API)" : ""}`);
       await new Promise((r) => setTimeout(r, delay));
     }
   }
@@ -181,8 +193,28 @@ async function callClaudeOnce({
   if (!response.ok) {
     const errText = await response.text().catch(() => "");
     let userMessage: string | undefined;
+    let retryAfterMs: number | undefined;
     if (response.status === 429) {
-      userMessage = "Muitas solicitações ao mesmo tempo. Aguarde um pouco e tente novamente.";
+      userMessage = "O serviço de IA está com muita demanda agora. Aguarde cerca de 1 minuto e tente novamente — seu crédito não foi consumido.";
+      // Anthropic envia retry-after em segundos. Também há
+      // anthropic-ratelimit-*-reset (ISO timestamp) para janelas específicas.
+      const ra = response.headers.get("retry-after");
+      if (ra) {
+        const seconds = Number(ra);
+        if (Number.isFinite(seconds) && seconds > 0) {
+          retryAfterMs = Math.round(seconds * 1000);
+        }
+      }
+      if (retryAfterMs === undefined) {
+        const reset = response.headers.get("anthropic-ratelimit-input-tokens-reset")
+          || response.headers.get("anthropic-ratelimit-requests-reset");
+        if (reset) {
+          const t = Date.parse(reset);
+          if (Number.isFinite(t)) {
+            retryAfterMs = Math.max(0, t - Date.now());
+          }
+        }
+      }
     } else if (response.status === 402 || response.status === 401) {
       userMessage = "A geração está temporariamente indisponível. Tente novamente em alguns minutos.";
     } else if (response.status >= 500) {
@@ -192,7 +224,8 @@ async function callClaudeOnce({
     throw new ClaudeError(
       `Claude API error: ${response.status} - ${errText.substring(0, 200)}`,
       response.status,
-      userMessage
+      userMessage,
+      retryAfterMs,
     );
   }
 

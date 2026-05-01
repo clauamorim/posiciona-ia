@@ -327,12 +327,21 @@ const EditorialPage = () => {
       } else {
         const isTimeout = /timeout|timed out|504|connection closed|failed to fetch|networkerror|aborted/i.test(raw);
         const isTruncated = /incomplete ai response|max[_ ]tokens|incompleta na etapa|respondeu de forma incompleta|est[áa]gio a inv[áa]lido/i.test(raw);
-        const description = isTruncated
-          ? "A geração ficou densa demais e foi interrompida. Toque novamente em Gerar +7 dias — costuma funcionar na segunda tentativa. Seu crédito foi devolvido."
-          : isTimeout
-          ? "A geração demorou mais que o esperado. Tente novamente — geralmente funciona na segunda tentativa."
-          : (raw || "Não foi possível gerar a semana. Tente novamente.");
-        toast({ title: "Erro ao gerar conteúdo", description, variant: "destructive" });
+        const isRateLimit = /muita demanda|muitas solicita|rate.?limit|429/i.test(raw);
+        if (isRateLimit) {
+          toast({
+            title: "Serviço de IA com muita demanda",
+            description: "Aguarde cerca de 1 minuto e toque novamente em gerar. Seu crédito não foi consumido.",
+            variant: "destructive",
+          });
+        } else {
+          const description = isTruncated
+            ? "A geração ficou densa demais e foi interrompida. Toque novamente em Gerar +7 dias — costuma funcionar na segunda tentativa. Seu crédito foi devolvido."
+            : isTimeout
+            ? "A geração demorou mais que o esperado. Tente novamente — geralmente funciona na segunda tentativa."
+            : (raw || "Não foi possível gerar a semana. Tente novamente.");
+          toast({ title: "Erro ao gerar conteúdo", description, variant: "destructive" });
+        }
       }
     }
     setGeneratingWeek(false);

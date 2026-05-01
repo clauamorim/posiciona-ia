@@ -490,6 +490,10 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
         result: { stage: "feed_done", feed: feedFinal, generator_version: EDITORIAL_GENERATOR_VERSION },
       });
 
+      // Pausa curta entre estágios para reduzir picos no input-TPM da Anthropic
+      // e evitar 429 quando duas chamadas grandes acontecem na mesma janela.
+      await new Promise((r) => setTimeout(r, 2000));
+
       // ==== ESTÁGIO B: Stories (7) ====
       const feedSummaryForStories = feedFinal
         .map((p) => `Dia ${p.day} (${p.format}${p.is_personal ? ", pessoal" : ""}): ${p.theme}`)
