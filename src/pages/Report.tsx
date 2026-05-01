@@ -280,6 +280,40 @@ const Report = () => {
           </div>
         </div>
 
+        {/* CTA: Linha Editorial — próximo passo */}
+        {!report?.content?.is_fallback && (
+          <div data-hide-pdf>
+            <Card className="relative overflow-hidden border-2 border-primary/30 bg-gradient-to-br from-primary/5 via-background to-accent/5">
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary to-accent" />
+              <CardContent className="pt-6 pb-6 flex flex-col md:flex-row md:items-center gap-4 md:gap-6">
+                <div className="flex items-start gap-3 flex-1">
+                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                    <Calendar className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-display text-lg font-semibold tracking-tight">
+                      {(report?.editorial_weeks?.length ?? 0) > 0 ? "Sua Linha Editorial está pronta" : "Próximo passo: sua Linha Editorial"}
+                    </h3>
+                    <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
+                      {(report?.editorial_weeks?.length ?? 0) > 0
+                        ? "Acesse as 6 semanas de conteúdo construídas a partir desta estratégia."
+                        : "Transforme sua estratégia em 6 semanas de conteúdo prontas para postar."}
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  onClick={() => navigate("/editorial")}
+                  size="lg"
+                  className="gap-2 shrink-0 w-full md:w-auto"
+                >
+                  {(report?.editorial_weeks?.length ?? 0) > 0 ? "Acessar Linha Editorial" : "Gerar Linha Editorial"}
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
         {/* Fallback (modelo simplificado) */}
         {report?.content?.is_fallback && (
           <div data-hide-pdf>
