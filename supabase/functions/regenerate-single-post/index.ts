@@ -155,14 +155,15 @@ Português brasileiro.`;
 Empresa: ${business.company_name || ""}
 Serviços: ${business.services || ""}
 Público: ${business.target_audience || ""}
-Nicho: ${niche || ""}${storybrandContext}${toneContext}${personalContext}
+Nicho: ${niche || ""}${storybrandContext}${toneContext}${personalContext}${marketTrendsBlock}${themeOverrideBlock}
 
 # OUTROS TEMAS DA SEMANA (não repetir)
 ${existingTitles || "Nenhum"}
 
 Gere o story do dia ${dayNumber || 1}.`;
 
-      const enrichedStorySystem = storySystem + renderEditorialFrameworks();
+      const enrichedStorySystem =
+        NARRATIVE_PRINCIPLES_BLOCK + ethicalBlock + "\n\n" + storySystem + renderEditorialFrameworks();
 
       let rawStory: string;
       try {
