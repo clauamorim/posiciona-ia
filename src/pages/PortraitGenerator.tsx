@@ -287,23 +287,30 @@ const PortraitGenerator = () => {
   };
 
   const handleDiscard = async (index: number) => {
-    if (!generationId) {
+    const removeLocal = () => {
       setPortraits((prev) => prev.filter((_, i) => i !== index));
       setBackgrounds((prev) => prev.filter((_, i) => i !== index));
+      setOriginalIndices((prev) => prev.filter((_, i) => i !== index));
       if (previewIndex !== null) setPreviewIndex(null);
+    };
+    if (!generationId) {
+      removeLocal();
       return;
     }
     if (!confirm("Descartar este retrato do histórico? Essa ação não pode ser desfeita.")) return;
+    const originalIdx = originalIndices[index];
+    if (originalIdx === undefined) {
+      removeLocal();
+      return;
+    }
     setDiscardingIndex(index);
     try {
       const { data, error } = await supabase.functions.invoke("portrait-discard", {
-        body: { generation_id: generationId, index },
+        body: { generation_id: generationId, index: originalIdx },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      setPortraits((prev) => prev.filter((_, i) => i !== index));
-      setBackgrounds((prev) => prev.filter((_, i) => i !== index));
-      if (previewIndex !== null) setPreviewIndex(null);
+      removeLocal();
       toast({ title: "Retrato removido do histórico" });
     } catch (e: any) {
       toast({ title: "Erro ao descartar", description: e?.message, variant: "destructive" });
