@@ -545,10 +545,26 @@ const PortraitGenerator = () => {
                             <Badge variant="secondary" className="capitalize text-xs">{backgrounds[i] ?? `look ${i + 1}`}</Badge>
                           </div>
                         </button>
-                        <Button variant="outline" size="sm" className="w-full" onClick={() => downloadPortrait(portrait, i)}>
-                          <Download className="h-4 w-4 mr-1" />
-                          Baixar
-                        </Button>
+                        <div className="grid grid-cols-2 gap-2">
+                          <Button variant="outline" size="sm" onClick={() => downloadPortrait(portrait, i)}>
+                            <Download className="h-4 w-4 mr-1" />
+                            Baixar
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDiscard(i)}
+                            disabled={discardingIndex === i}
+                            className="text-muted-foreground hover:text-destructive"
+                          >
+                            {discardingIndex === i ? (
+                              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-4 w-4 mr-1" />
+                            )}
+                            Descartar
+                          </Button>
+                        </div>
                       </div>
                     ))}
                   </div>
