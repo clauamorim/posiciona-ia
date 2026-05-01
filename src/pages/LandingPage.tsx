@@ -421,7 +421,7 @@ const LandingPage = () => {
               size="lg"
               variant="outline"
               onClick={() => scrollTo("como-funciona")}
-              className="border-landing-purple/50 text-landing-purple hover:bg-landing-purple/10 hover:text-landing-text text-base h-12 px-8"
+              className="bg-white/10 border border-white/30 text-white hover:bg-white/15 hover:text-white text-base h-12 px-8 backdrop-blur-sm"
             >
               Ver como funciona
             </Button>
