@@ -23,7 +23,7 @@ const QUALITY_SUFFIX =
 // Negative ampliado: bloqueia vocabulário de pele artificial E distorção de proporções
 // faciais (rosto largo, queixo curto, morphing). Termos redundantes em inglês reforçam o sinal.
 const STUDIO_NEGATIVE_BASE =
-  ", plastic skin, glossy skin, overly smooth face, perfect skin, skin smoothing, face smoothing, airbrushed skin, waxy skin, porcelain skin, beauty filter, AI beauty filter, instagram filter, glamour retouching, overprocessed portrait, CGI skin, 3d render skin, synthetic skin texture, doll-like skin, over-retouched face, heavy makeup, deformed face, deformed hands, wide face, round face, short chin, altered face shape, different person, face morph, soft focus, blurry skin, washed out details";
+  ", plastic skin, glossy skin, overly smooth face, perfect skin, skin smoothing, face smoothing, airbrushed skin, waxy skin, porcelain skin, beauty filter, AI beauty filter, instagram filter, glamour retouching, overprocessed portrait, CGI skin, 3d render skin, synthetic skin texture, doll-like skin, over-retouched face, heavy makeup, deformed face, deformed hands, wide face, round face, short chin, altered face shape, different person, face morph, soft focus, blurry skin, washed out details, asymmetric eyes, uneven eyes, crooked eyes, tilted eye line, asymmetric eyebrows, no neck, missing neck, distorted facial proportions, inflated cheeks, wide jaw";
 // Reforço de anatomia de mãos — aplicado APENAS aos looks que mostram mãos
 // (atualmente nenhum, hands-out-of-frame em todos).
 const HANDS_NEGATIVE_REINFORCE = ", extra fingers, deformed fingers, fused fingers, claw hands";
