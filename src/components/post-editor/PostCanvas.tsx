@@ -230,12 +230,14 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
     if (resetKey === undefined) return;
     if (lastResetKey.current === resetKey) return;
     lastResetKey.current = resetKey;
+    // Quando o pai controla e já há boxes salvos, NÃO sobrescrever (preserva edições).
+    if (isControlled && (controlledTextBoxes as TextBox[]).length > 0) return;
     const boxes = computeTextBoxPositions(layout, !!title, !!isCoverSlide);
     if (boxes.length > 0) {
       setTextBoxes(boxes);
       textBoxesInitialized.current = true;
     }
-  }, [resetKey, layout, title, isCoverSlide]);
+  }, [resetKey, layout, title, isCoverSlide, isControlled, controlledTextBoxes]);
 
   // Quando initialTextBoxes muda (novo layout do template), aplica imediatamente
   const lastInitialKey = useRef<string>("");
