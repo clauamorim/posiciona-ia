@@ -1266,6 +1266,8 @@ const PostEditorPage = () => {
                 onRenderOrderChange={setRenderOrder}
                 showRulers={showRulers}
                 postStyle={initialStyle || undefined}
+                slideTextBoxes={slideTextBoxes}
+                onSlideTextBoxesChange={handleSlideTextBoxesChange}
               />
             ) : (
               <PostCanvas
@@ -1291,6 +1293,8 @@ const PostEditorPage = () => {
                 postStyle={initialStyle || undefined}
                 initialTextBoxes={initialTextBoxes}
                 resetKey={`${initialStyle || "minimal"}-${canvasFormat}`}
+                textBoxes={slideTextBoxes[0]}
+                onTextBoxesChange={(boxes) => handleSlideTextBoxesChange(0, boxes)}
               />
             )}
             {!isCarousel && (
