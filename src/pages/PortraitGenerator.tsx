@@ -283,6 +283,32 @@ const PortraitGenerator = () => {
     }
   };
 
+  const handleDiscard = async (index: number) => {
+    if (!generationId) {
+      setPortraits((prev) => prev.filter((_, i) => i !== index));
+      setBackgrounds((prev) => prev.filter((_, i) => i !== index));
+      if (previewIndex !== null) setPreviewIndex(null);
+      return;
+    }
+    if (!confirm("Descartar este retrato do histórico? Essa ação não pode ser desfeita.")) return;
+    setDiscardingIndex(index);
+    try {
+      const { data, error } = await supabase.functions.invoke("portrait-discard", {
+        body: { generation_id: generationId, index },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      setPortraits((prev) => prev.filter((_, i) => i !== index));
+      setBackgrounds((prev) => prev.filter((_, i) => i !== index));
+      if (previewIndex !== null) setPreviewIndex(null);
+      toast({ title: "Retrato removido do histórico" });
+    } catch (e: any) {
+      toast({ title: "Erro ao descartar", description: e?.message, variant: "destructive" });
+    } finally {
+      setDiscardingIndex(null);
+    }
+  };
+
   const handleBuyPack = async (packId: string) => {
     setLoadingPack(packId);
     try {
