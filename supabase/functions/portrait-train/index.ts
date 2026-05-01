@@ -2,8 +2,11 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { corsHeaders } from "../_shared/cors.ts";
 
-const TRAINER_OWNER = "ostris";
-const TRAINER_NAME = "flux-dev-lora-trainer";
+// Provider: Fal.ai
+// Trainer: fal-ai/flux-lora-portrait-trainer (otimizado para rosto humano —
+// brilho de olho, semelhança facial, detalhe fino). Treina LoRA FLUX.1 [dev]
+// compatível com o endpoint de inferência fal-ai/flux-krea-lora.
+const FAL_TRAINER_PATH = "fal-ai/flux-lora-portrait-trainer";
 const TRAIN_COST_CREDITS = 4;
 
 async function hmacHex(secret: string, data: string): Promise<string> {
@@ -34,7 +37,6 @@ function dataUrlToBytes(dataUrl: string): { bytes: Uint8Array; mime: string } {
 
 // Minimal ZIP builder (store-only, no compression). Sufficient for ~10–20 small JPEGs.
 function buildZip(files: { name: string; data: Uint8Array }[]): Uint8Array {
-  // CRC-32
   const crcTable = (() => {
     const t = new Uint32Array(256);
     for (let n = 0; n < 256; n++) {
@@ -61,15 +63,14 @@ function buildZip(files: { name: string; data: Uint8Array }[]): Uint8Array {
     const crc = crc32(f.data);
     const size = f.data.length;
 
-    // Local file header
     const lfh = new Uint8Array(30 + nameBytes.length);
     const dv = new DataView(lfh.buffer);
     dv.setUint32(0, 0x04034b50, true);
-    dv.setUint16(4, 20, true); // version
-    dv.setUint16(6, 0, true); // flags
-    dv.setUint16(8, 0, true); // method (store)
-    dv.setUint16(10, 0, true); // mtime
-    dv.setUint16(12, 0, true); // mdate
+    dv.setUint16(4, 20, true);
+    dv.setUint16(6, 0, true);
+    dv.setUint16(8, 0, true);
+    dv.setUint16(10, 0, true);
+    dv.setUint16(12, 0, true);
     dv.setUint32(14, crc, true);
     dv.setUint32(18, size, true);
     dv.setUint32(22, size, true);
@@ -79,7 +80,6 @@ function buildZip(files: { name: string; data: Uint8Array }[]): Uint8Array {
 
     localParts.push(lfh, f.data);
 
-    // Central directory
     const cdh = new Uint8Array(46 + nameBytes.length);
     const cdv = new DataView(cdh.buffer);
     cdv.setUint32(0, 0x02014b50, true);
@@ -146,17 +146,11 @@ interface PhysicalTraits {
   eye_color: string;
 }
 
-/**
- * Extrai características físicas das selfies usando Gemini Vision.
- * Usa 3 selfies aleatórias para reduzir custo/latência.
- * Retorna null em caso de falha — chamador deve usar fallback.
- */
 async function extractPhysicalTraits(
   selfies: string[],
   apiKey: string,
 ): Promise<PhysicalTraits | null> {
   try {
-    // Pega 3 selfies espalhadas pelo array
     const sample: string[] = [];
     const step = Math.max(1, Math.floor(selfies.length / 3));
     for (let i = 0; i < selfies.length && sample.length < 3; i += step) {
@@ -243,18 +237,17 @@ serve(async (req) => {
       });
     }
 
-    const REPLICATE_API_TOKEN = Deno.env.get("REPLICATE_API_TOKEN");
+    const FAL_KEY = Deno.env.get("FAL_KEY");
     const WEBHOOK_SECRET = Deno.env.get("WEBHOOK_SECRET");
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-    if (!REPLICATE_API_TOKEN || !WEBHOOK_SECRET) {
+    if (!FAL_KEY || !WEBHOOK_SECRET) {
       return new Response(JSON.stringify({ error: "Configuração do servidor incompleta" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Body: { selfies: string[] (data URLs), force_paid?: boolean }
     const body = await req.json().catch(() => ({}));
     const selfies: string[] = Array.isArray(body.selfies) ? body.selfies : [];
     if (selfies.length < 10 || selfies.length > 20) {
@@ -292,7 +285,25 @@ serve(async (req) => {
     const sub = subRes.data as any;
     const isMonthly = sub?.status === "active" && sub?.plans?.billing_type === "monthly";
     const alreadyUsedFreeThisMonth = !!lastFreeRes.data;
-    const canUseFree = isMonthly && !alreadyUsedFreeThisMonth && !body.force_paid;
+    // Migração legacy: se o último treino READY do usuário é Replicate, oferecer
+    // um retreino GRATUITO (não consome o slot do mês nem créditos) — chamador
+    // deve passar { migrate_legacy: true }.
+    const migrateLegacy = body.migrate_legacy === true;
+    let canUseFree = isMonthly && !alreadyUsedFreeThisMonth && !body.force_paid;
+
+    if (migrateLegacy) {
+      const { data: lastReady } = await supabaseAdmin
+        .from("portrait_trainings")
+        .select("id, lora_provider")
+        .eq("user_id", user.id)
+        .eq("status", "ready")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (lastReady && (lastReady as any).lora_provider === "replicate") {
+        canUseFree = true; // migração é sempre grátis
+      }
+    }
 
     const included = balanceRes.data?.portrait_credits_included ?? 0;
     const extra = balanceRes.data?.portrait_credits_extra ?? 0;
@@ -322,8 +333,6 @@ serve(async (req) => {
       });
     }
 
-    // Extrair traços físicos das selfies (gênero/cabelo/pele/olhos) via Gemini Vision.
-    // Usado tanto para o caption_prefix do treino quanto para ancorar a inferência.
     let physicalTraits: PhysicalTraits | null = null;
     if (LOVABLE_API_KEY) {
       physicalTraits = await extractPhysicalTraits(selfies, LOVABLE_API_KEY);
@@ -336,7 +345,6 @@ serve(async (req) => {
       console.warn(`[portrait-train] LOVABLE_API_KEY not set — skipping traits extraction`);
     }
 
-    // Create training row first to get an ID for the storage path
     const triggerWord = `USR${user.id.replace(/-/g, "").slice(0, 12)}`;
     const { data: training, error: trainErr } = await supabaseAdmin
       .from("portrait_trainings")
@@ -347,6 +355,7 @@ serve(async (req) => {
         selfies_count: selfies.length,
         was_free: canUseFree,
         physical_traits: physicalTraits,
+        lora_provider: "fal",
       })
       .select("id")
       .single();
@@ -380,7 +389,7 @@ serve(async (req) => {
       });
     }
 
-    // Signed URL valid for 24h (training takes ~20 min, plenty of margin)
+    // Signed URL valid for 24h
     const { data: signed } = await supabaseAdmin.storage
       .from("portrait-inputs")
       .createSignedUrl(zipPath, 60 * 60 * 24);
@@ -393,107 +402,42 @@ serve(async (req) => {
       });
     }
 
-    // Build webhook URL with HMAC token
+    // Webhook URL (HMAC token assinado)
     const token = await hmacHex(WEBHOOK_SECRET, training.id);
     const webhookUrl = `${SUPABASE_URL}/functions/v1/portrait-webhook?training_id=${training.id}&token=${token}`;
 
-    // Resolve trainer model latest version
-    const modelRes = await fetch(`https://api.replicate.com/v1/models/${TRAINER_OWNER}/${TRAINER_NAME}`, {
-      headers: { Authorization: `Bearer ${REPLICATE_API_TOKEN}` },
-    });
-    if (!modelRes.ok) {
-      const txt = await modelRes.text();
-      console.error("[portrait-train] model lookup failed", modelRes.status, txt);
-      await supabaseAdmin.from("portrait_trainings").update({ status: "failed", error_message: `model-lookup-${modelRes.status}` }).eq("id", training.id);
-      return new Response(JSON.stringify({ error: "Falha ao localizar treinador" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    const modelJson = await modelRes.json();
-    const versionId = modelJson?.latest_version?.id;
-    if (!versionId) {
-      await supabaseAdmin.from("portrait_trainings").update({ status: "failed", error_message: "no-trainer-version" }).eq("id", training.id);
-      return new Response(JSON.stringify({ error: "Versão do treinador indisponível" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Destination model: write LoRA into a per-user model under the authenticated Replicate account.
-    // Using replicate_user/posiciona-USR<short> style; we let Replicate auto-create on training.
-    // For simplicity and to follow Replicate's required `destination` field, use a fixed prefix.
-    const destinationOwner = (await fetch("https://api.replicate.com/v1/account", {
-      headers: { Authorization: `Bearer ${REPLICATE_API_TOKEN}` },
-    }).then((r) => r.ok ? r.json() : null))?.username;
-
-    if (!destinationOwner) {
-      await supabaseAdmin.from("portrait_trainings").update({ status: "failed", error_message: "no-replicate-account" }).eq("id", training.id);
-      return new Response(JSON.stringify({ error: "Conta Replicate inválida" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    const destinationName = `posiciona-${triggerWord.toLowerCase()}`;
-    const destination = `${destinationOwner}/${destinationName}`;
-
-    // Ensure destination model exists (create if missing — idempotent)
-    await fetch("https://api.replicate.com/v1/models", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${REPLICATE_API_TOKEN}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        owner: destinationOwner,
-        name: destinationName,
-        visibility: "private",
-        hardware: "gpu-h100",
-        description: `Posiciona LoRA for ${triggerWord}`,
-      }),
-    }).catch(() => {});
-
-    // Kick off training
-    // Quando temos os traços extraídos, usamos autocaption_prefix para ancorar o LoRA
-    // em uma descrição consistente (gênero + cabelo + pele). Sem prefix, o autocaption
-    // do trainer varia entre as fotos e o LoRA não fixa características.
-    const trainInput: Record<string, unknown> = {
-      input_images: zipUrl,
-      trigger_word: triggerWord,
-      steps: 1000,
-      learning_rate: 0.0004,
-      batch_size: 1,
-      lora_rank: 16,
-      caption_dropout_rate: 0.05,
-      autocaption: true,
-    };
-
+    // Trigger phrase: o trainer da Fal já injeta isso no caption; manda explicit
+    // pra ancorar identidade. Usamos o triggerWord como identificador único.
+    let triggerPhrase = triggerWord;
     if (physicalTraits) {
       const t = physicalTraits;
-      trainInput.autocaption_prefix =
-        `a photo of ${triggerWord}, a ${t.gender} with ${t.hair_length} ${t.hair_style} ${t.hair_color} hair, ${t.skin_tone} skin, ${t.eye_color} eyes,`;
+      triggerPhrase = `${triggerWord} ${t.gender}`;
     }
 
-    const trainBody = {
-      destination,
-      input: trainInput,
-      webhook: webhookUrl,
-      webhook_events_filter: ["completed"],
+    const trainBody: Record<string, unknown> = {
+      images_data_url: zipUrl,
+      trigger_phrase: triggerPhrase,
+      // 1000 steps é o default e o sweet spot do trainer Fal pra portrait.
+      steps: 1000,
+      // Subject crop ON: o trainer detecta o rosto e corta — ideal pra identidade.
+      subject_crop: true,
+      // Caption automático focado em rosto (default true do portrait trainer).
+      create_masks: true,
     };
 
-    console.log(`[portrait-train] starting training=${training.id} trigger=${triggerWord} destination=${destination}`);
+    console.log(`[portrait-train] starting training=${training.id} trigger="${triggerPhrase}" provider=fal endpoint=${FAL_TRAINER_PATH}`);
 
-    const trainRes = await fetch(
-      `https://api.replicate.com/v1/models/${TRAINER_OWNER}/${TRAINER_NAME}/versions/${versionId}/trainings`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${REPLICATE_API_TOKEN}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(trainBody),
+    // Fal queue API. O webhook é entregue via header `fal-webhook` (sem assinatura
+    // própria — protegido pelo HMAC token na nossa URL).
+    const trainRes = await fetch(`https://queue.fal.run/${FAL_TRAINER_PATH}`, {
+      method: "POST",
+      headers: {
+        Authorization: `Key ${FAL_KEY}`,
+        "Content-Type": "application/json",
+        "fal-webhook": webhookUrl,
       },
-    );
+      body: JSON.stringify(trainBody),
+    });
 
     if (!trainRes.ok) {
       const txt = await trainRes.text();
@@ -502,21 +446,21 @@ serve(async (req) => {
         .from("portrait_trainings")
         .update({ status: "failed", error_message: `start-${trainRes.status}: ${txt.slice(0, 200)}` })
         .eq("id", training.id);
-      return new Response(JSON.stringify({ error: "Falha ao iniciar treino no Replicate" }), {
+      return new Response(JSON.stringify({ error: "Falha ao iniciar treino na Fal.ai" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     const trainJson = await trainRes.json();
-    const replicateTrainingId = trainJson.id;
+    // Fal queue retorna { request_id, status, response_url, status_url, cancel_url }.
+    const falRequestId = trainJson.request_id;
 
     await supabaseAdmin
       .from("portrait_trainings")
-      .update({ replicate_training_id: replicateTrainingId })
+      .update({ replicate_training_id: falRequestId }) // coluna mantida — só é "external request id"
       .eq("id", training.id);
 
-    // Debit credits if not free
     if (!canUseFree) {
       const newIncluded = Math.max(0, included - Math.min(included, TRAIN_COST_CREDITS));
       const remainingToTake = TRAIN_COST_CREDITS - (included - newIncluded);
@@ -536,14 +480,16 @@ serve(async (req) => {
         user_id: user.id,
         credit_type: "portrait",
         amount: 0,
-        description: `Treino mensal grátis (LoRA ${triggerWord})`,
+        description: migrateLegacy
+          ? `Migração gratuita de Estúdio Pessoal (LoRA ${triggerWord})`
+          : `Treino mensal grátis (LoRA ${triggerWord})`,
       });
     }
 
     return new Response(
       JSON.stringify({
         training_id: training.id,
-        replicate_training_id: replicateTrainingId,
+        replicate_training_id: falRequestId,
         was_free: canUseFree,
         cost_credits: canUseFree ? 0 : TRAIN_COST_CREDITS,
       }),
