@@ -2,67 +2,104 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { corsHeaders } from "../_shared/cors.ts";
 import {
-  buildPortraitPrompt,
+  buildGeminiPortraitPrompt,
   mapGender,
   buildOutfitTextForLook,
-  buildHairText,
   pickPosesForLooks,
   getArchetypeFamily,
 } from "../_shared/portraitPrompts.ts";
 import { mapProfessionToCategory, pickOutfits, lookupOutfitMeta } from "../_shared/outfitPool.ts";
 
-// Provider: Fal.ai async queue.
-// Esta função apenas ENFILEIRA os 3 jobs Krea+LoRA na fila da Fal e devolve
-// rapidamente (em ~3s). O front faz polling em `portrait-poll` que finaliza
-// download, upload e cobrança quando todos os jobs concluírem (~3min depois).
-const FAL_INFERENCE_PATH = "fal-ai/flux-krea-lora";
+// Motor: Nano Banana Pro (google/gemini-3-pro-image-preview) via Lovable AI Gateway.
+// Recebe as selfies de referência da usuária em cada chamada — sem treino, sem LoRA.
+// Cobra 1 crédito por imagem efetivamente entregue (até 3 por geração).
 
-const GENERATE_COST_CREDITS = 3;
-const DEFAULT_GUIDANCE = 3.0;
-const NUM_INFERENCE_STEPS = 28;
-const DEFAULT_LORA_SCALE = 1.05;
+const PRIMARY_MODEL = "google/gemini-3-pro-image-preview";
+const FALLBACK_MODEL = "google/gemini-3.1-flash-image-preview";
+const PORTRAIT_BUCKET = "portrait-outputs";
+const REFERENCE_BUCKET = "portrait-inputs";
+const MAX_PORTRAITS = 3;
+const MIN_REFERENCES = 3;
 
-/** Submete um único job pra fila Fal e retorna o request_id. */
-async function enqueueFalJob(params: {
-  falKey: string;
-  loraUrl: string;
-  loraScale: number;
+interface GeneratedImage {
+  storage_path: string;
+  background: string;
+  outfit: string;
+  pose: string | null;
   prompt: string;
-  guidanceScale: number;
-}): Promise<{ ok: true; requestId: string } | { ok: false; reason: string }> {
-  const { falKey, loraUrl, loraScale, prompt, guidanceScale } = params;
-  try {
-    const input: Record<string, unknown> = {
-      prompt,
-      loras: [{ path: loraUrl, scale: loraScale }],
-      image_size: { width: 896, height: 1152 },
-      num_inference_steps: NUM_INFERENCE_STEPS,
-      guidance_scale: guidanceScale,
-      num_images: 1,
-      enable_safety_checker: true,
-      output_format: "png",
-      seed: Math.floor(Math.random() * 1_000_000),
-    };
+  model: string;
+}
 
-    const res = await fetch(`https://queue.fal.run/${FAL_INFERENCE_PATH}`, {
+async function downloadReferenceAsDataUrl(
+  supabaseAdmin: any,
+  filePath: string,
+): Promise<{ ok: true; dataUrl: string } | { ok: false; reason: string }> {
+  try {
+    const { data, error } = await supabaseAdmin.storage.from(REFERENCE_BUCKET).download(filePath);
+    if (error || !data) return { ok: false, reason: error?.message ?? "no-data" };
+    const buf = new Uint8Array(await data.arrayBuffer());
+    // base64 em chunks pra evitar stack overflow
+    let bin = "";
+    const CHUNK = 0x8000;
+    for (let i = 0; i < buf.length; i += CHUNK) {
+      bin += String.fromCharCode(...buf.subarray(i, i + CHUNK));
+    }
+    const b64 = btoa(bin);
+    const mime = data.type || "image/jpeg";
+    return { ok: true, dataUrl: `data:${mime};base64,${b64}` };
+  } catch (e) {
+    return { ok: false, reason: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+async function generateOnePortrait(params: {
+  apiKey: string;
+  prompt: string;
+  referenceDataUrls: string[];
+  model: string;
+}): Promise<{ ok: true; pngBytes: Uint8Array } | { ok: false; status: number; reason: string }> {
+  const { apiKey, prompt, referenceDataUrls, model } = params;
+
+  const userContent: any[] = [{ type: "text", text: prompt }];
+  for (const url of referenceDataUrls) {
+    userContent.push({ type: "image_url", image_url: { url } });
+  }
+
+  try {
+    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Key ${falKey}`,
+        Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(input),
+      body: JSON.stringify({
+        model,
+        messages: [{ role: "user", content: userContent }],
+        modalities: ["image", "text"],
+      }),
     });
 
-    if (!res.ok) {
-      const txt = await res.text();
-      return { ok: false, reason: `fal-enqueue-${res.status}:${txt.slice(0, 200)}` };
+    if (!resp.ok) {
+      const text = await resp.text();
+      return { ok: false, status: resp.status, reason: text.slice(0, 300) };
     }
-    const data = await res.json();
-    const requestId: string | undefined = data?.request_id;
-    if (!requestId) return { ok: false, reason: "no-request-id" };
-    return { ok: true, requestId };
+
+    const data = await resp.json();
+    const imageUrl: string | undefined = data?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+    if (!imageUrl) {
+      return { ok: false, status: 500, reason: "no-image-in-response" };
+    }
+
+    // Decodifica data URL base64 → bytes
+    const m = imageUrl.match(/^data:image\/[a-zA-Z0-9.+-]+;base64,(.+)$/);
+    if (!m) return { ok: false, status: 500, reason: "bad-image-url-format" };
+    const b64 = m[1];
+    const bin = atob(b64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return { ok: true, pngBytes: bytes };
   } catch (e) {
-    return { ok: false, reason: `exception:${e instanceof Error ? e.message : String(e)}` };
+    return { ok: false, status: 500, reason: e instanceof Error ? e.message : String(e) };
   }
 }
 
@@ -98,15 +135,15 @@ serve(async (req) => {
       });
     }
 
-    const FAL_KEY = Deno.env.get("FAL_KEY");
-    if (!FAL_KEY) {
-      return new Response(JSON.stringify({ error: "FAL_KEY não configurado" }), {
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) {
+      return new Response(JSON.stringify({ error: "LOVABLE_API_KEY não configurado" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const [balanceRes, profileRes, trainingRes, archetypesRes, reportRes] = await Promise.all([
+    const [balanceRes, profileRes, referencesRes, archetypesRes, reportRes] = await Promise.all([
       supabaseAdmin
         .from("user_balances")
         .select("portrait_credits_included, portrait_credits_extra")
@@ -118,13 +155,11 @@ serve(async (req) => {
         .eq("user_id", user.id)
         .single(),
       supabaseAdmin
-        .from("portrait_trainings")
-        .select("id, lora_weights_url, trigger_word, status, physical_traits, selfies_count, lora_provider")
+        .from("portrait_references")
+        .select("id, file_path, position")
         .eq("user_id", user.id)
-        .eq("status", "ready")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
+        .eq("is_active", true)
+        .order("position", { ascending: true }),
       supabaseAdmin
         .from("user_top_archetypes")
         .select("archetype_name, rank")
@@ -156,28 +191,18 @@ serve(async (req) => {
       );
     }
 
-    const requestedCount = Math.min(totalCredits, GENERATE_COST_CREDITS);
-
-    const training = trainingRes.data as any;
-    if (!training?.lora_weights_url) {
+    const references = referencesRes.data ?? [];
+    if (references.length < MIN_REFERENCES) {
       return new Response(
         JSON.stringify({
-          error: "Treine seu Estúdio Pessoal antes de gerar retratos.",
-          needs_training: true,
+          error: `Envie pelo menos ${MIN_REFERENCES} selfies de referência antes de gerar retratos.`,
+          needs_references: true,
         }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    if (training.lora_provider !== "fal") {
-      return new Response(
-        JSON.stringify({
-          error: "Seu Estúdio Pessoal foi treinado em uma versão anterior. Refaça o treino (gratuito) para gerar retratos no novo motor.",
-          needs_legacy_migration: true,
-        }),
-        { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
+    const requestedCount = Math.min(totalCredits, MAX_PORTRAITS);
 
     const archetypeName = archetypesRes.data?.archetype_name || "Cara-comum";
     const reportContent = reportRes.data?.content as Record<string, any> | null;
@@ -185,12 +210,24 @@ serve(async (req) => {
     const gender = mapGender(profileRes.data?.gender);
     const profession = profileRes.data?.profession ?? "";
 
-    const traitsGender = training.physical_traits?.gender as "woman" | "man" | undefined;
-    const _effectiveGender: "woman" | "man" | "none" = traitsGender ?? gender;
+    // Baixa selfies como data URLs (paralelo)
+    const refDownloads = await Promise.all(
+      references.map((r) => downloadReferenceAsDataUrl(supabaseAdmin, r.file_path)),
+    );
+    const referenceDataUrls = refDownloads
+      .filter((d): d is { ok: true; dataUrl: string } => d.ok)
+      .map((d) => d.dataUrl);
 
-    const hair = buildHairText(figurino);
-    const makeup = "";
+    if (referenceDataUrls.length < MIN_REFERENCES) {
+      return new Response(
+        JSON.stringify({
+          error: "Falha ao carregar suas referências. Tente reenviar as selfies.",
+        }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
 
+    // Variedade: pega últimas poses/outfits usadas
     const { data: lastGen } = await supabaseAdmin
       .from("portrait_generations")
       .select("used_hand_poses, used_outfits")
@@ -215,108 +252,199 @@ serve(async (req) => {
 
     const profCategory = mapProfessionToCategory(profession);
     let outfitsForLooks: string[] = [];
-    let outfitSource = "report-figurino";
     {
       const fromPool = pickOutfits(family, profCategory, recentlyUsedOutfits, requestedCount);
       if (fromPool.length === requestedCount) {
         outfitsForLooks = fromPool;
-        outfitSource = `pool:${family}/${profCategory}`;
       } else {
         outfitsForLooks = Array.from({ length: requestedCount }, (_, i) => buildOutfitTextForLook(figurino, i));
-        outfitSource = "report-figurino-fallback";
       }
     }
 
-    const outfitsMeta = outfitsForLooks.map((t) => lookupOutfitMeta(t) ?? { anchor: "?", color: "?" });
     console.log(
-      `[generate-portrait] ENQUEUE provider=fal model=${FAL_INFERENCE_PATH} archetype=${archetypeName} family=${family} ` +
-      `profession="${profession}" requestedCount=${requestedCount} outfitSource=${outfitSource} ` +
-      `outfitsMeta=${JSON.stringify(outfitsMeta)}`,
+      `[generate-portrait] START provider=gemini model=${PRIMARY_MODEL} archetype=${archetypeName} ` +
+      `requestedCount=${requestedCount} references=${referenceDataUrls.length}`,
     );
 
-    // ===== ENFILEIRA OS 3 JOBS EM PARALELO =====
-    const enqueueResults = await Promise.all(
+    // Gera as N imagens em paralelo
+    const results = await Promise.all(
       Array.from({ length: requestedCount }, async (_, i) => {
         const outfit = outfitsForLooks[i] ?? "";
         const handPose = selectedPoses[i] ?? null;
-        const built = buildPortraitPrompt({
+        const built = buildGeminiPortraitPrompt({
           archetype: archetypeName,
-          userId: user.id,
-          triggerWord: training.trigger_word,
-          gender,
           outfit,
-          hair,
-          makeup,
           backgroundIndex: i as 0 | 1 | 2,
-          physicalTraits: training.physical_traits ?? null,
           handPose,
+          gender,
         });
-        const r = await enqueueFalJob({
-          falKey: FAL_KEY,
-          loraUrl: training.lora_weights_url,
-          loraScale: DEFAULT_LORA_SCALE,
+
+        // Tenta primário; se falhar (rate-limit/payment/etc), tenta fallback uma vez
+        let r = await generateOnePortrait({
+          apiKey: LOVABLE_API_KEY,
           prompt: built.prompt,
-          guidanceScale: DEFAULT_GUIDANCE,
+          referenceDataUrls,
+          model: PRIMARY_MODEL,
         });
+        let usedModel = PRIMARY_MODEL;
+        if (!r.ok && r.status !== 402 && r.status !== 429) {
+          console.log(`[generate-portrait] primary failed (status=${r.status}), trying fallback`);
+          const fb = await generateOnePortrait({
+            apiKey: LOVABLE_API_KEY,
+            prompt: built.prompt,
+            referenceDataUrls,
+            model: FALLBACK_MODEL,
+          });
+          if (fb.ok) {
+            r = fb;
+            usedModel = FALLBACK_MODEL;
+          }
+        }
+
         return {
+          index: i,
           background: built.backgroundKey,
           outfit,
           pose: handPose,
           prompt: built.prompt,
-          ...r,
+          model: usedModel,
+          result: r,
         };
       }),
     );
 
-    const successfullyEnqueued = enqueueResults.filter((r) => r.ok) as Array<
-      typeof enqueueResults[number] & { ok: true; requestId: string }
-    >;
-    if (successfullyEnqueued.length === 0) {
+    // Verifica payment/rate-limit globais
+    const paymentError = results.find((x) => !x.result.ok && (x.result as any).status === 402);
+    if (paymentError) {
       return new Response(
         JSON.stringify({
-          error: "Falha ao enfileirar geração na Fal. Tente novamente.",
-          details: enqueueResults.map((r) => (r.ok ? null : r.reason)),
+          error: "Créditos do gateway de IA insuficientes. Adicione fundos em Workspace > Usage.",
+          needs_credits: true,
+        }),
+        { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+    const rateLimitError = results.find((x) => !x.result.ok && (x.result as any).status === 429);
+    if (rateLimitError) {
+      return new Response(
+        JSON.stringify({
+          error: "Muitas gerações em pouco tempo. Aguarde 1 minuto e tente novamente.",
+        }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    const successes = results.filter((x) => x.result.ok);
+    if (successes.length === 0) {
+      const reasons = results.map((x) => (x.result.ok ? null : (x.result as any).reason)).filter(Boolean);
+      console.error(`[generate-portrait] ALL FAILED: ${reasons.join(" | ")}`);
+      return new Response(
+        JSON.stringify({
+          error: "Falha ao gerar retratos. Tente novamente em alguns minutos.",
+          details: reasons,
         }),
         { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
+    // Sobe imagens no bucket
     const generationId = crypto.randomUUID();
-    const promptsMeta = successfullyEnqueued.map((r) => ({
-      background: r.background,
-      outfit: r.outfit,
-      pose: r.pose,
-      prompt: r.prompt,
-    }));
+    const uploaded: GeneratedImage[] = [];
+    for (const s of successes) {
+      const r = s.result as { ok: true; pngBytes: Uint8Array };
+      const path = `${user.id}/${generationId}/${s.index}_${s.background}.png`;
+      const { error: upErr } = await supabaseAdmin.storage
+        .from(PORTRAIT_BUCKET)
+        .upload(path, r.pngBytes, { contentType: "image/png", upsert: false });
+      if (upErr) {
+        console.error(`[generate-portrait] upload failed for ${path}: ${upErr.message}`);
+        continue;
+      }
+      uploaded.push({
+        storage_path: path,
+        background: s.background,
+        outfit: s.outfit,
+        pose: s.pose,
+        prompt: s.prompt,
+        model: s.model,
+      });
+    }
 
-    const { error: insErr } = await supabaseAdmin.from("portrait_generations").insert({
-      id: generationId,
-      user_id: user.id,
-      status: "processing",
-      portraits: [],
-      style_index: 0,
-      used_hand_poses: successfullyEnqueued.map((r) => r.pose).filter((p): p is string => !!p),
-      used_outfits: successfullyEnqueued.map((r) => r.outfit).filter((o): o is string => !!o),
-      fal_request_ids: successfullyEnqueued.map((r) => r.requestId),
-      prompts_meta: promptsMeta,
-    });
-
-    if (insErr) {
-      console.error("[generate-portrait] insert generation failed", insErr);
+    if (uploaded.length === 0) {
       return new Response(
-        JSON.stringify({ error: "Falha ao registrar geração." }),
+        JSON.stringify({ error: "Falha ao salvar retratos gerados." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    console.log(`[generate-portrait] enqueued generation=${generationId} jobs=${successfullyEnqueued.length}`);
+    // Cobra créditos: included primeiro, depois extra
+    const charged = uploaded.length;
+    const useIncluded = Math.min(included, charged);
+    const useExtra = charged - useIncluded;
+    await supabaseAdmin
+      .from("user_balances")
+      .update({
+        portrait_credits_included: included - useIncluded,
+        portrait_credits_extra: extra - useExtra,
+      })
+      .eq("user_id", user.id);
+
+    await supabaseAdmin.from("credit_logs").insert({
+      user_id: user.id,
+      credit_type: "portrait",
+      amount: -charged,
+      description: `Geração de ${charged} retrato(s) — Nano Banana Pro`,
+    });
+
+    // Signed URLs pra retornar ao front
+    const portraitsWithUrls = await Promise.all(
+      uploaded.map(async (u) => {
+        const { data: signed } = await supabaseAdmin.storage
+          .from(PORTRAIT_BUCKET)
+          .createSignedUrl(u.storage_path, 60 * 60 * 24 * 7); // 7d
+        return {
+          storage_path: u.storage_path,
+          url: signed?.signedUrl ?? null,
+          background: u.background,
+          outfit: u.outfit,
+          pose: u.pose,
+        };
+      }),
+    );
+
+    const { error: insErr } = await supabaseAdmin.from("portrait_generations").insert({
+      id: generationId,
+      user_id: user.id,
+      status: "ready",
+      portraits: portraitsWithUrls,
+      style_index: 0,
+      used_hand_poses: uploaded.map((u) => u.pose).filter((p): p is string => !!p),
+      used_outfits: uploaded.map((u) => u.outfit).filter((o): o is string => !!o),
+      fal_request_ids: [],
+      prompts_meta: uploaded.map((u) => ({
+        background: u.background,
+        outfit: u.outfit,
+        pose: u.pose,
+        prompt: u.prompt,
+        model: u.model,
+      })),
+      engine: "gemini",
+      completed_at: new Date().toISOString(),
+    });
+
+    if (insErr) {
+      console.error("[generate-portrait] insert generation failed", insErr);
+    }
+
+    console.log(`[generate-portrait] DONE generation=${generationId} delivered=${uploaded.length}/${requestedCount}`);
 
     return new Response(
       JSON.stringify({
         generation_id: generationId,
-        status: "processing",
-        job_count: successfullyEnqueued.length,
-        estimated_seconds: 200,
+        status: "ready",
+        portraits: portraitsWithUrls,
+        delivered: uploaded.length,
+        requested: requestedCount,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
