@@ -22,13 +22,14 @@ const FLUX_LORA_MODEL = "lucataco/flux-dev-multi-lora"; // mantido só pra logs
 const FLUX_LORA_VERSION = "ad0314563856e714367fdc7244b19b160d25926d305fec270c9e00f64665d352";
 // LoRA público de realismo facial (carregado direto do HF pelo Replicate).
 const FACE_REALISM_LORA = "prithivMLmods/Canopus-LoRA-Flux-FaceRealism";
-const FACE_REALISM_SCALE = 0.45;
+const FACE_REALISM_SCALE = 0.25;
 const GENERATE_COST_CREDITS = 3;
-// Guidance MAIS BAIXO pra reduzir polimento artificial. Faixa testada:
-// 2.0 (super documental) / 2.4 (equilibrado) / 2.8 (definido sem virar plástico).
-const GUIDANCE_VARIATIONS = [2.0, 2.4, 2.8];
-// Steps reduzidos: 35 estava enfatizando demais detalhes lisos.
-const NUM_INFERENCE_STEPS = 28;
+// Guidance recalibrado pra cima após reduzir o FaceRealism: faixa que recupera
+// nitidez tipo Gemini sem voltar ao "plástico".
+// 2.8 (documental nítido) / 3.2 (equilibrado) / 3.6 (definido editorial).
+const GUIDANCE_VARIATIONS = [2.8, 3.2, 3.6];
+// Mais steps = mais detalhe fino (poros, cílios, brilho dos olhos).
+const NUM_INFERENCE_STEPS = 35;
 const PORTRAIT_BUCKET = "portrait-outputs";
 // Referência (logs apenas). FLUX LoRA usa aspect_ratio + megapixels — width/height
 // no input são ignorados silenciosamente e o modelo cai pra 1024x1024.
@@ -37,13 +38,14 @@ const PORTRAIT_HEIGHT = 1152;
 
 /**
  * Calibra a força do LoRA da cliente conforme o tamanho do dataset.
- * Subimos a faixa (vs single-LoRA) porque o LoRA de realismo (0.45) puxa
- * textura natural — sem reforçar o LoRA da cliente, perderíamos semelhança.
+ * Escalas elevadas (~1.0) garantem que a IDENTIDADE/estrutura óssea da cliente
+ * domine o stack. O LoRA de realismo (0.25) só tempera textura sem capturar
+ * proporções faciais.
  */
 function pickLoraScale(selfiesCount: number): number {
-  if (selfiesCount <= 12) return 0.78;
-  if (selfiesCount <= 20) return 0.82;
-  return 0.85;
+  if (selfiesCount <= 12) return 0.95;
+  if (selfiesCount <= 20) return 1.00;
+  return 1.05;
 }
 
 /** Fisher–Yates shuffle não destrutivo. */

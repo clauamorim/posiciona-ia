@@ -1,62 +1,74 @@
 ## Diagnóstico
 
-Os 3 retratos falharam com **HTTP 404** do Replicate:
+Comparando selfies de treino (1, 2, 6) × novos retratos (escuro-13, neutro-14, claro-16) × o retrato do Gemini (45-2) que era a referência boa:
 
+**Problema 1 — Proporções faciais alteradas:**
+- Selfie real: rosto oval, queixo definido e alongado, nariz fino, maçãs altas.
+- Novos retratos: rosto **mais largo e arredondado**, queixo curto, nariz mais largo, lábios mais cheios. Parece "outra pessoa" da mesma família.
+- Causa provável: a combinação **LoRA cliente em 0.78–0.85 + LoRA de realismo facial em 0.45** está empurrando a estrutura óssea para a média do FaceRealism LoRA (que tem viés próprio de rosto). A soma efetiva passou de 1.2 e está dominando a identidade.
+
+**Problema 2 — Qualidade de pele inferior à do Gemini:**
+- Retrato do Gemini (45-2): pele **nítida, com microcontraste**, textura natural, olhos cristalinos.
+- Novos retratos: pele **lavada/borrada**, falta de definição em poros, olhos sem brilho. O FaceRealism LoRA está suavizando demais quando combinado com guidance baixo (2.0–2.8) e 28 steps.
+- Causa provável: a redução agressiva de guidance + steps (feita para tirar o "plástico") cortou também a definição que a Gemini entregava.
+
+**Não precisa retreinar o LoRA.** O treino está bom (semelhança geral preservada). O problema está na **inferência** (escala dos LoRAs + guidance + steps).
+
+---
+
+## Plano de correção
+
+### 1. Reequilibrar o stack de LoRAs (`supabase/functions/generate-portrait/index.ts`)
+
+Reduzir o peso combinado para preservar a estrutura óssea original da cliente:
+
+| Parâmetro | Atual | Novo | Razão |
+|---|---|---|---|
+| LoRA cliente (≤12 selfies) | 0.78 | **0.95** | Devolve o controle da identidade ao LoRA da pessoa |
+| LoRA cliente (13–20) | 0.82 | **1.00** | Idem |
+| LoRA cliente (>20) | 0.85 | **1.05** | Idem |
+| FaceRealism LoRA | 0.45 | **0.25** | Mantém só um toque de textura, sem capturar a estrutura |
+
+### 2. Recuperar nitidez tipo Gemini
+
+| Parâmetro | Atual | Novo | Razão |
+|---|---|---|---|
+| `num_inference_steps` | 28 | **35** | Mais steps = mais detalhe fino (poros, cílios, brilho do olho) |
+| `guidance_scale` (3 looks) | [2.0, 2.4, 2.8] | **[2.8, 3.2, 3.6]** | Guidance maior melhora definição sem voltar ao "plástico" porque o FaceRealism caiu para 0.25 |
+| `megapixels` | "1" | **"1"** (mantém) | Já no máximo do FLUX |
+
+### 3. Refinar prompt/negative (`supabase/functions/_shared/portraitPrompts.ts`)
+
+- Adicionar ao `QUALITY_SUFFIX`: `sharp focus on eyes, crisp eyelashes, defined facial bone structure, preserved facial proportions`.
+- Adicionar ao `STUDIO_NEGATIVE_BASE`: `wide face, round face, short chin, altered face shape, different person, face morph, soft focus, blurry skin, washed out details`.
+
+### 4. Logs de validação
+
+Atualizar o log existente em `callFluxLora` para incluir o novo stack:
 ```
-create-404: {"detail":"The requested resource could not be found."}
+loraStack=[client:1.00, realism:0.25] steps=35 guidance=3.2
 ```
+Permite confirmar nas próximas gerações que os parâmetros chegaram corretamente ao Replicate.
 
-O endpoint atual no código:
+### 5. Atualizar memória
 
-```
-POST https://api.replicate.com/v1/models/lucataco/flux-dev-multi-lora/predictions
-```
+Ajustar `.lovable/memory/funcionalidades/retratos-marca.md` com os novos valores e a justificativa (LoRA da cliente domina identidade; FaceRealism só tempera textura).
 
-Esse formato (`/v1/models/{owner}/{name}/predictions`) só funciona para **modelos oficiais** do Replicate (ex.: `black-forest-labs/flux-dev-lora`). O `lucataco/flux-dev-multi-lora` é um modelo da **comunidade** — precisa ser chamado pelo endpoint genérico `/v1/predictions` passando o **hash da versão**.
+---
 
-Confirmei via API:
-- Modelo existe ✓
-- `latest_version.id` = `ad0314563856e714367fdc7244b19b160d25926d305fec270c9e00f64665d352`
-- 1.8M runs (modelo estável e ativo)
+## Arquivos modificados
 
-## Fix
+- `supabase/functions/generate-portrait/index.ts` — escalas, steps, guidance
+- `supabase/functions/_shared/portraitPrompts.ts` — quality suffix + negative
+- `.lovable/memory/funcionalidades/retratos-marca.md` — documentação
 
-Em `supabase/functions/generate-portrait/index.ts`, ajustar **apenas** a função `callFluxLora` para usar o endpoint correto da versão:
+## Validação
 
-**Antes:**
-```ts
-const FLUX_LORA_MODEL = "lucataco/flux-dev-multi-lora";
-// ...
-fetch(`https://api.replicate.com/v1/models/${FLUX_LORA_MODEL}/predictions`, {
-  body: JSON.stringify({ input }),
-});
-```
+Após deploy, gerar uma rodada de 3 retratos e comparar:
+1. Estrutura facial bate com as selfies de treino (queixo, nariz, formato do rosto).
+2. Nitidez de pele/olhos próxima ao retrato do Gemini.
+3. Sem volta do efeito "plástico" (a redução do FaceRealism para 0.25 é a margem de segurança).
 
-**Depois:**
-```ts
-const FLUX_LORA_MODEL = "lucataco/flux-dev-multi-lora"; // mantido só para logs
-const FLUX_LORA_VERSION = "ad0314563856e714367fdc7244b19b160d25926d305fec270c9e00f64665d352";
-// ...
-fetch(`https://api.replicate.com/v1/predictions`, {
-  body: JSON.stringify({ version: FLUX_LORA_VERSION, input }),
-});
-```
+Se ainda houver leve borrão, próximo passo é subir steps para 40. Se voltar plástico, baixar FaceRealism para 0.20.
 
-## O que NÃO muda
-
-- Stack de 2 LoRAs (`hf_loras` + `lora_scales`) — já está correto, é o formato esperado pelo `flux-dev-multi-lora`.
-- Prompts, negative, guidance, steps, escalas — tudo permanece como decidido.
-- Treino, banco, créditos, storage, fluxo de download/upload — intocados.
-
-## Verificação
-
-Após o deploy, gerar uma rodada de teste e confirmar nos logs:
-- `flux-multi-lora succeeded latency=...s loraStack=[client:0.78,realism:0.45]`
-- 3 imagens chegam ao bucket `portrait-outputs`
-
-Se algum 404/422 voltar, capturar o `detail` exato para ajustar o payload (campos esperados pela versão).
-
-## Arquivos
-
-- `supabase/functions/generate-portrait/index.ts` — única mudança real
-- `.lovable/memory/funcionalidades/retratos-marca.md` — adicionar nota: "modelo chamado via `/v1/predictions` com version hash (modelo da comunidade)"
+**Sem retreino do LoRA.** Apenas ajuste de inferência.

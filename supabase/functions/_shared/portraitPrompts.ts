@@ -19,11 +19,11 @@ export type ArchetypeName =
 // "retrato editorial real". Combinado com o LoRA de realismo de pele empilhado
 // (Canopus-Face-Realism), elimina o look airbrushed sem perder nitidez.
 const QUALITY_SUFFIX =
-  "natural editorial portrait, real human skin texture, fine pores and natural facial lines, soft realistic skin not glossy, natural makeup no beauty retouching, true-to-life face texture, photographed not rendered";
-// Negative ampliado: bloqueia TODO vocabulário de pele artificial — render, filtro,
-// retoque de glamour, suavização. Termos redundantes em inglês reforçam o sinal.
+  "natural editorial portrait, real human skin texture, fine pores and natural facial lines, soft realistic skin not glossy, natural makeup no beauty retouching, true-to-life face texture, photographed not rendered, sharp focus on eyes, crisp eyelashes, defined facial bone structure, preserved facial proportions";
+// Negative ampliado: bloqueia vocabulário de pele artificial E distorção de proporções
+// faciais (rosto largo, queixo curto, morphing). Termos redundantes em inglês reforçam o sinal.
 const STUDIO_NEGATIVE_BASE =
-  ", plastic skin, glossy skin, overly smooth face, perfect skin, skin smoothing, face smoothing, airbrushed skin, waxy skin, porcelain skin, beauty filter, AI beauty filter, instagram filter, glamour retouching, overprocessed portrait, CGI skin, 3d render skin, synthetic skin texture, doll-like skin, over-retouched face, heavy makeup, deformed face, deformed hands";
+  ", plastic skin, glossy skin, overly smooth face, perfect skin, skin smoothing, face smoothing, airbrushed skin, waxy skin, porcelain skin, beauty filter, AI beauty filter, instagram filter, glamour retouching, overprocessed portrait, CGI skin, 3d render skin, synthetic skin texture, doll-like skin, over-retouched face, heavy makeup, deformed face, deformed hands, wide face, round face, short chin, altered face shape, different person, face morph, soft focus, blurry skin, washed out details";
 // Reforço de anatomia de mãos — aplicado APENAS aos looks que mostram mãos
 // (atualmente nenhum, hands-out-of-frame em todos).
 const HANDS_NEGATIVE_REINFORCE = ", extra fingers, deformed fingers, fused fingers, claw hands";
