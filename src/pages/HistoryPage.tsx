@@ -53,13 +53,21 @@ const HistoryPage = () => {
     setReports(reportsRes.data || []);
     setAnalyses(analysesRes.data || []);
 
-    // Resolve URLs (legado data: passa direto; novo path → signedUrl)
+    // Resolve URLs (legado: string base64/path; novo: objeto com storage_path).
     const portraitRows = portraitsRes.data || [];
     const flat: { url: string; createdAt: string; parentId: string }[] = [];
     for (const row of portraitRows) {
-      const imgs: string[] = Array.isArray(row.portraits) ? row.portraits.filter((p: any) => typeof p === "string") : [];
-      if (imgs.length === 0) continue;
-      const resolved = await resolvePortraitUrls(imgs);
+      const items: any[] = Array.isArray(row.portraits) ? row.portraits : [];
+      // Normaliza: extrai string (legado) ou storage_path (novo formato Gemini).
+      const refs: string[] = items
+        .map((p) => {
+          if (typeof p === "string") return p;
+          if (p && typeof p === "object") return p.storage_path || p.url || "";
+          return "";
+        })
+        .filter(Boolean);
+      if (refs.length === 0) continue;
+      const resolved = await resolvePortraitUrls(refs);
       for (const url of resolved) {
         if (url) flat.push({ url, createdAt: row.created_at, parentId: row.id });
       }
