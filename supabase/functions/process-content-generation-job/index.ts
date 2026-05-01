@@ -495,12 +495,17 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
         .map((p) => `Dia ${p.day} (${p.format}${p.is_personal ? ", pessoal" : ""}): ${p.theme}`)
         .join("\n");
 
-      const storiesSystem = buildStoriesSystemPrompt(feedSummaryForStories, FEED_DAYS) + renderEditorialFrameworks();
+      const storiesSystem =
+        NARRATIVE_PRINCIPLES_BLOCK +
+        ethicalBlock +
+        "\n\n" +
+        buildStoriesSystemPrompt(feedSummaryForStories, FEED_DAYS) +
+        renderEditorialFrameworks();
       const storiesUser = `# NEGÓCIO
 Empresa: ${business?.company_name || "Não informado"}
 Serviços: ${business?.services || "Não informado"}
 Público-alvo: ${business?.target_audience || "Não informado"}
-Nicho: ${niche || "Não informado"}${storybrandContext}${toneContext}${personalContext}
+Nicho: ${niche || "Não informado"}${storybrandContext}${toneContext}${personalContext}${marketTrendsBlock}
 
 Gere agora os 7 stories da semana.`;
 
