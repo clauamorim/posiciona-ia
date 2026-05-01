@@ -111,6 +111,23 @@ export const DashboardLayout = ({ children, wide = false }: { children: React.Re
         { label: "Retratos de Marca", href: "/portraits", icon: Camera, status: journeyStatus["/portraits"] },
       ],
     },
+    {
+      label: "Conteúdo",
+      items: [
+        { label: "Meus Designs", href: "/my-designs", icon: Layers },
+        { label: "Minha Galeria", href: "/my-gallery", icon: ImageIcon },
+        { label: "Histórico", href: "/history", icon: History },
+      ],
+    },
+    {
+      label: "Conta",
+      items: [
+        { label: "Plano e Créditos", href: "/choose-plan", icon: CreditCard },
+        { label: "Ajuda", href: "/help", icon: HelpCircle },
+        { label: "Termos", href: "/termos-de-servico", icon: FileText },
+        { label: "Privacidade", href: "/politica-de-privacidade", icon: Shield },
+      ],
+    },
   ];
 
   const groups = isAdmin ? adminGroups : userGroups;
@@ -125,14 +142,6 @@ export const DashboardLayout = ({ children, wide = false }: { children: React.Re
     };
     return <span className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", colors[status] || "bg-disabled")} />;
   };
-
-  const footerItems: NavItem[] = isAdmin ? [] : [
-    { label: "Meus Designs", href: "/my-designs", icon: Layers },
-    { label: "Minha galeria", href: "/my-gallery", icon: ImageIcon },
-    { label: "Histórico", href: "/history", icon: History },
-    { label: "Plano e Créditos", href: "/choose-plan", icon: CreditCard },
-    { label: "Ajuda", href: "/help", icon: HelpCircle },
-  ];
 
   return (
     <div className="min-h-screen flex bg-background">
