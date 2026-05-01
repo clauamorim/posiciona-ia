@@ -385,17 +385,17 @@ serve(async (req) => {
         handPose,
       });
 
-      // MODO MANUAL PURO: prompt mínimo (~12 tokens), lora_scale agressivo (0.70-0.78),
-      // guidance variado (2.5/3.0/3.5). Logamos prompt completo + contagem de tokens
-      // pra você poder colar 1:1 no Replicate UI e comparar.
+      // MODO MANUAL PURO: prompt mínimo (~12 tokens), lora_scale moderado (0.68-0.75),
+      // guidance baixo (2.0/2.4/2.8), steps reduzidos (28). Tudo afinado pra
+      // priorizar textura natural de pele em vez de polimento.
       const promptTokens = built.prompt.split(",").length;
       console.log(
         `[generate-portrait] call ${i + 1}/${requestedCount} background=${built.backgroundKey} archetype=${archetypeName} ` +
         `trigger="${training.trigger_word}" trainingId=${training.id} ` +
         `dims=${PORTRAIT_WIDTH}x${PORTRAIT_HEIGHT}(3:4@1MP) ` +
-        `guidance=${guidanceScale} loraScale=${loraScale} steps=35 ` +
+        `guidance=${guidanceScale} loraScale=${loraScale} steps=${NUM_INFERENCE_STEPS} ` +
         `selfiesCount=${selfiesCount} hasTraits=${!!(training as any).physical_traits} ` +
-        `promptTokens=${promptTokens}`,
+        `promptTokens=${promptTokens} outfitMeta=${JSON.stringify(outfitsMeta[i] ?? null)}`,
       );
       console.log(`[generate-portrait] PROMPT[${i}]: ${built.prompt}`);
       console.log(`[generate-portrait] NEGATIVE[${i}]: ${built.negative}`);
