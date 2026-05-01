@@ -27,7 +27,8 @@ const HistoryPage = () => {
   const location = useLocation();
   const [reports, setReports] = useState<any[]>([]);
   const [analyses, setAnalyses] = useState<any[]>([]);
-  const [flatPortraits, setFlatPortraits] = useState<{ url: string; createdAt: string; parentId: string }[]>([]);
+  const [flatPortraits, setFlatPortraits] = useState<{ url: string; createdAt: string; parentId: string; parentIndex: number }[]>([]);
+  const [discardingKey, setDiscardingKey] = useState<string | null>(null);
   const [selectedAnalysis, setSelectedAnalysis] = useState<any | null>(null);
   const [selectedReport, setSelectedReport] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
