@@ -173,7 +173,7 @@ async function callFluxLora(params: {
     const imageUrl = Array.isArray(output) ? output[0] : output;
     if (!imageUrl || typeof imageUrl !== "string") return { ok: false, reason: "empty-output" };
 
-    console.log(`[generate-portrait] flux-lora succeeded latency=${latency}s guidance=${guidanceScale}`);
+    console.log(`[generate-portrait] flux-multi-lora succeeded latency=${latency}s guidance=${guidanceScale} loraStack=[client:${loraScale},realism:${FACE_REALISM_SCALE}]`);
     return { ok: true, imageUrl };
   } catch (e) {
     return { ok: false, reason: `exception:${e instanceof Error ? e.message : String(e)}` };
@@ -398,8 +398,8 @@ serve(async (req) => {
       console.log(
         `[generate-portrait] call ${i + 1}/${requestedCount} background=${built.backgroundKey} archetype=${archetypeName} ` +
         `trigger="${training.trigger_word}" trainingId=${training.id} ` +
-        `dims=${PORTRAIT_WIDTH}x${PORTRAIT_HEIGHT}(3:4@1MP) ` +
-        `guidance=${guidanceScale} loraScale=${loraScale} steps=${NUM_INFERENCE_STEPS} ` +
+        `dims=${PORTRAIT_WIDTH}x${PORTRAIT_HEIGHT}(3:4@1MP) model=${FLUX_LORA_MODEL} ` +
+        `guidance=${guidanceScale} loraStack=[{anchor:client,scale:${loraScale}},{anchor:realism,scale:${FACE_REALISM_SCALE}}] steps=${NUM_INFERENCE_STEPS} ` +
         `selfiesCount=${selfiesCount} hasTraits=${!!(training as any).physical_traits} ` +
         `promptTokens=${promptTokens} outfitMeta=${JSON.stringify(outfitsMeta[i] ?? null)}`,
       );
