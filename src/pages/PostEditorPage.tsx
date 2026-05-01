@@ -1427,7 +1427,13 @@ const PostEditorPage = () => {
                     saving={savingDesign}
                   />
                 </div>
-                {isMobile && <MobileEditorBar {...sharedToolbarProps} />}
+                {isMobile && (
+                  <MobileEditorBar
+                    {...sharedToolbarProps}
+                    onSaveDesign={handleSaveDesign}
+                    saving={savingDesign}
+                  />
+                )}
               </>
             );
           })()}
