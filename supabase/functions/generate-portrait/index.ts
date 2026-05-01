@@ -353,10 +353,12 @@ serve(async (req) => {
     const selfiesCount = (training as any).selfies_count ?? 0;
     const loraScale = pickLoraScale(selfiesCount);
 
+    const outfitsMeta = outfitsForLooks.map((t) => lookupOutfitMeta(t) ?? { anchor: "?", color: "?" });
     console.log(
       `[generate-portrait] archetype=${archetypeName} family=${family} profession="${profession}" ` +
       `category=${profCategory} requestedCount=${requestedCount} outfitSource=${outfitSource} ` +
-      `selfiesCount=${selfiesCount} loraScale=${loraScale} ` +
+      `selfiesCount=${selfiesCount} loraScale=${loraScale} steps=${NUM_INFERENCE_STEPS} ` +
+      `outfitsMeta=${JSON.stringify(outfitsMeta)} ` +
       `outfits=${JSON.stringify(outfitsForLooks)} poses=${JSON.stringify(selectedPoses)} ` +
       `poseCats=${JSON.stringify(selectedPoseCategories)}`,
     );
