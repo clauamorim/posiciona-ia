@@ -261,14 +261,11 @@ export const FRAMING_VARIATIONS = [
 ] as const;
 
 // Regex para localizar a frase de fundo nos templates mínimos.
-// Os novos templates terminam com "...background, no smile" OU "...background, intense gaze" etc.
-// Captura desde a palavra-chave de fundo até a primeira vírgula.
-// Exemplos cobertos:
-//   "dark background, no smile"
-//   "deep dark background, no smile"
-//   "warm beige background, slight natural smile"
-//   "earthy textured background, subtle smile"
-const BACKGROUND_REGEX = /[a-z\s-]*background[^,]*,/i;
+// Os novos templates terminam com "...seamless paper studio backdrop with subtle paper texture, no smile" etc.
+// Captura desde a primeira palavra-chave de cor (charcoal/grey/brown/black/etc) ou a expressão "seamless paper studio backdrop"
+// até a primeira vírgula APÓS "paper texture".
+// Estratégia simples: captura "<algo> seamless paper studio backdrop with subtle paper texture," — backdrop sempre termina assim.
+const BACKGROUND_REGEX = /[a-z\s-]*seamless paper studio backdrop with subtle paper texture,/i;
 
 export interface PhysicalTraits {
   gender: "woman" | "man";
