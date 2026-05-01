@@ -42,7 +42,13 @@ const HistoryPage = () => {
       supabase.from("reports").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
       supabase.from("instagram_analyses").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
       // Histórico de retratos resolvido no backend para gerar signed URLs com service role.
-      supabase.functions.invoke("portrait-history", { method: "GET" }),
+      // Catch evita que 401 (sessão expirada) ou erros transitórios quebrem a página inteira.
+      supabase.functions
+        .invoke("portrait-history", { method: "GET" })
+        .catch((err) => {
+          console.warn("[HistoryPage] portrait-history failed", err);
+          return { data: null, error: err };
+        }),
     ]);
     setProgress(60);
     setReports(reportsRes.data || []);
