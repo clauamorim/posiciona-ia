@@ -46,10 +46,13 @@ export interface CallClaudeOptions {
 export class ClaudeError extends Error {
   status?: number;
   userMessage?: string;
-  constructor(message: string, status?: number, userMessage?: string) {
+  /** Delay sugerido pela API (em ms) extraído de headers tipo retry-after. */
+  retryAfterMs?: number;
+  constructor(message: string, status?: number, userMessage?: string, retryAfterMs?: number) {
     super(message);
     this.status = status;
     this.userMessage = userMessage;
+    this.retryAfterMs = retryAfterMs;
   }
 }
 
