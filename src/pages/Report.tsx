@@ -41,6 +41,7 @@ function getContrastColor(hex: string): string {
 
 const Report = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [report, setReport] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [topArchetypes, setTopArchetypes] = useState<any[]>([]);
@@ -61,6 +62,34 @@ const Report = () => {
       setLoading(false);
     });
   }, [user]);
+
+  // Poll while report is being generated, so the user sees updates after switching tabs
+  useEffect(() => {
+    if (!user || !report) return;
+    if (report.status !== "generating" && report.status !== "pending") return;
+
+    let cancelled = false;
+    const interval = setInterval(async () => {
+      const { data } = await supabase
+        .from("reports")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("version", { ascending: false })
+        .limit(1)
+        .single();
+      if (cancelled || !data) return;
+      if (data.status !== report.status || data.updated_at !== report.updated_at) {
+        setReport(data);
+        if (data.status === "completed") {
+          toast({ title: "Relatório pronto", description: "Sua estratégia acabou de ficar disponível." });
+        } else if (data.status === "failed") {
+          toast({ title: "Falha na geração", description: data.error_message || "Tente regenerar.", variant: "destructive" });
+        }
+      }
+    }, 4000);
+
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [user, report?.status, report?.updated_at]);
 
   const { contentObject, isStructuredReport, hasEditorial, hasFigurino, hasSimbolos } = parseReportContent(report?.content);
   const content = contentObject ?? {};
