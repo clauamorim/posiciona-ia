@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,7 +12,7 @@ import {
   Loader2, Download, FileText, Palette, Type, MessageSquare,
   Target, Crown, Shield, Heart,
   Users, Zap, BookOpen, Compass, Star, Megaphone,
-  Shirt, Gem, Scissors, Eye, Ban, AlertTriangle, RefreshCw
+  Shirt, Gem, Scissors, Eye, Ban, AlertTriangle, RefreshCw, Calendar, ArrowRight
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getReportFallbackText, parseReportContent } from "@/lib/reportParser";
