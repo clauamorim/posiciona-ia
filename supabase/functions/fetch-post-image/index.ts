@@ -363,13 +363,24 @@ async function generateWithAI(
   const styleBlock = aiStyleDirective && aiStyleDirective.trim()
     ? `\nStyle direction: ${aiStyleDirective.trim()}.`
     : "";
-  const prompt = `Editorial photograph, premium magazine quality, soft natural lighting, shallow depth of field, ${aspect}.
-Visual subject: ${subject}.${messageBlock}${styleBlock}
-The scene must visually illustrate the meaning above through concrete objects, environments or human gestures — not abstract shapes.
+  const hasStyle = !!(aiStyleDirective && aiStyleDirective.trim());
+
+  // Quando o usuário escolhe um estilo, ele DOMINA a estética (substitui os
+  // adjetivos do prompt-base). Sem estilo, mantemos o tom editorial padrão.
+  const aestheticBlock = hasStyle
+    ? `PRIMARY AESTHETIC (must dominate the entire image — override any default look):
+${aiStyleDirective!.trim()}.
+Commit fully to this aesthetic: color palette, lighting mood, composition style, medium (photo / illustration / graphic / 3D / collage as implied by the aesthetic) must all reflect it. Do NOT default to soft natural-light editorial photography unless the aesthetic explicitly asks for it.`
+    : `Editorial photograph, premium magazine quality, soft natural lighting, shallow depth of field, soft palette, calm contrast. Style: minimal, calm, professional, contemporary photography. Pure photography — no collage, no illustration.`;
+
+  const prompt = `${aestheticBlock}
+Format: ${aspect}.
+Visual subject (what the image must depict): ${subject}.${messageBlock}
+The scene must visually illustrate the meaning above through concrete objects, environments, gestures or graphic motifs that fit the aesthetic — not generic stock imagery.
 Variation seed: ${seed}. Choose a fresh angle, lighting and composition different from any previous render.
 ABSOLUTELY NO TEXT, NO LETTERS, NO SIGNS, NO NEON, NO TYPOGRAPHY, NO WORDS, NO LOGOS, NO BRAND NAMES, NO WRITTEN CONTENT anywhere in the image.
 NO TEXT. NO TEXT. NO TEXT.
-Composition: clean, off-center subject leaving generous negative space at top AND bottom for text overlay later (safe area for headlines and captions). Soft palette, calm contrast. Style: minimal, calm, professional, contemporary photography. Avoid people's faces dominating the frame. Avoid children. No collage, no illustration — pure photography only.`;
+Composition: clean, off-center subject leaving generous negative space at top AND bottom for text overlay later (safe area for headlines and captions). Avoid people's faces dominating the frame. Avoid children.`;
 
   try {
     const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
