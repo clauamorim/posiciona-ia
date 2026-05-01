@@ -263,6 +263,9 @@ const PostEditorPage = () => {
           .map((p) => (p && typeof p.url === "string" ? p.url : ""))
           .filter(Boolean);
         setUserPortraits(urls);
+      })
+      .catch((err) => {
+        console.warn("[PostEditor] portrait-history failed", err);
       });
   }, [user]);
 
