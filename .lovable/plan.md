@@ -1,62 +1,82 @@
 ## Diagnóstico
 
-O treino na Fal **completou com sucesso** (você foi cobrado os ~$2.40), mas o nosso registro `portrait_trainings` continua `status: training` porque **o webhook nunca chegou**.
+Os retratos **foram gerados com sucesso** (3 imagens, ~3 min cada). Os logs confirmam:
 
-Evidências:
-- `portrait-webhook` tem **zero logs** (nem 401, nem 403, nem erro) — Fal nem tentou chamar.
-- `verify_jwt = false` já está configurado, então não é problema de auth.
-- O treino existe no banco com `replicate_training_id = 019de2a1-0d3e-7b72-9539-f457a970833a` (request_id da Fal).
-
-**Causa raiz:** no `portrait-train/index.ts` estamos passando o webhook via header HTTP (`"fal-webhook": webhookUrl`). A API da Fal Queue **não reconhece esse header** — o webhook precisa ir como **query param `?fal_webhook=<URL_ENCODED>`** na chamada de submit. Como não foi reconhecido, o job rodou em modo "fire and forget" e nunca nos avisou.
-
-## Correção
-
-### 1. `portrait-train/index.ts` — usar query param
-
-Trocar:
-```ts
-const trainRes = await fetch(`https://queue.fal.run/${FAL_TRAINER_PATH}`, {
-  method: "POST",
-  headers: {
-    Authorization: `Key ${FAL_KEY}`,
-    "Content-Type": "application/json",
-    "fal-webhook": webhookUrl,  // ❌ ignorado
-  },
-  body: JSON.stringify(trainBody),
-});
+```
+08:41:50  fal-krea-lora succeeded latency=172.4s
+08:41:53  fal-krea-lora succeeded latency=176.3s
+08:41:57  fal-krea-lora succeeded latency=180.1s
+08:42:00  uploaded background=neutro/claro/escuro
+08:42:02  Http: connection closed before message completed  ← timeout 504
 ```
 
-Por:
-```ts
-const submitUrl = `https://queue.fal.run/${FAL_TRAINER_PATH}?fal_webhook=${encodeURIComponent(webhookUrl)}`;
-const trainRes = await fetch(submitUrl, {
-  method: "POST",
-  headers: {
-    Authorization: `Key ${FAL_KEY}`,
-    "Content-Type": "application/json",
-  },
-  body: JSON.stringify(trainBody),
-});
-```
+A função levou **~185s totais** e o edge runtime mata em **150s**. Resultado: imagens prontas no Storage, mas o cliente recebeu erro, não foi cobrado, e nada foi salvo em `portrait_generations`.
 
-Mesmo ajuste vale pra `generate-portrait/index.ts` (que também está usando o header errado, ou seja, as gerações também rodariam sem callback).
+### Causa raiz
 
-### 2. Recuperar o treino atual (`6d454014-...`) sem cobrar de novo
+1. **Krea+LoRA no Fal é mais lento que esperado**: ~170-180s por imagem (vs ~30s no Replicate flux-dev).
+2. Estamos chamando `fal.run/...` (endpoint **síncrono** — espera o resultado bloqueado). Mesmo em paralelo, somos limitados pela imagem mais lenta.
+3. Edge function tem teto de 150s.
 
-Como a LoRA já existe na Fal, podemos buscar o resultado direto pela API e gravar no banco — sem retreinar e sem novo custo. Duas opções:
+A migração simplificou prompt/parâmetros mas a inferência Krea ficou **6x mais lenta** que o pipeline anterior — só descobrimos rodando.
 
-**Opção A — recuperação manual via curl edge function (recomendado, 1 clique).** Adicionar uma função `portrait-recover` (ou uma rota dentro de `portrait-train`) que: pega `replicate_training_id`, faz `GET https://queue.fal.run/fal-ai/flux-lora-portrait-trainer/requests/<id>`, extrai `diffusers_lora_file.url`, e marca o treino como `ready`. Roda só pra esse training_id.
+## Opções de correção
 
-**Opção B — UI**: botão "Verificar treino na Fal" no `PortraitGenerator` quando `status === "training"` há mais de X minutos, chamando essa função.
+**Opção A — Async via fila Fal + polling (recomendado).** Trocar `fal.run/` (sync) por `queue.fal.run/` (async): a função enfileira os 3 jobs (instantâneo, ~2s), salva `portrait_generations` com status `processing` e os 3 `request_id`, e devolve resposta em <5s. Front faz polling. Quando todos prontos, baixa, sobe no Storage e marca `ready`. Vantagens: nunca mais estoura timeout, suporta retratos mais lentos no futuro, UX mostra progresso real. Custo: 1 nova função `portrait-poll` + nova coluna `status` em `portrait_generations`.
 
-Sugiro **Opção A primeiro** (resolve seu caso agora), e depois considerar B como melhoria.
+**Opção B — Reduzir tempo do Krea.** Cair `num_inference_steps` de 28 → 20 (~30% mais rápido, ~120s) e gerar só **2 retratos** por chamada em vez de 3 (cobre 2 créditos, dispara segunda chamada se quiser 3). Cabe no timeout. Trade-off: qualidade ligeiramente menor + UX pior (2 cliques pra 3 retratos).
 
-### 3. Validação
+**Opção C — Modelo mais rápido.** Trocar `fal-ai/flux-krea-lora` por `fal-ai/flux-lora` (FLUX dev sem Krea, mais rápido ~40s). Volta o problema da pele plástica que motivou toda a migração — não recomendo.
 
-1. Recuperar o treino atual via Opção A → confirmar `status: ready` e `lora_weights_url` populado.
-2. Gerar um retrato pra validar o pipeline Krea + LoRA Fal end-to-end.
-3. (Próximo treino que você fizer já usará a URL com `?fal_webhook=` corrigida e vai entregar callback automaticamente.)
+## Recomendação
+
+**Opção A** — é a única correção definitiva. Krea é lento por design (modelo BFL anti-IA roda mais cálculos), e qualquer crescimento de qualidade futura vai bater nesse teto. Async + polling resolve de vez.
+
+## Plano detalhado (Opção A)
+
+### 1. Banco
+
+Adicionar em `portrait_generations`:
+- `status` text NOT NULL DEFAULT `'ready'` (legado: `'processing'`, `'ready'`, `'failed'`)
+- `fal_request_ids` jsonb DEFAULT `'[]'` (lista de request_ids da Fal pra polling)
+- `prompts_meta` jsonb DEFAULT `'[]'` (outfits, poses, backgrounds — pra reconstruir o resultado)
+
+### 2. `generate-portrait/index.ts`
+
+- Submeter os 3 jobs em paralelo via `POST queue.fal.run/fal-ai/flux-krea-lora` → recebe `request_id` em ~1s cada.
+- Inserir `portrait_generations` com `status: 'processing'`, salvando `fal_request_ids` e `prompts_meta`.
+- **Não cobra crédito ainda** (cobrança só quando ficar pronto, igual hoje).
+- Devolve `{ generation_id, status: 'processing', estimated_seconds: 180 }`.
+
+### 3. Nova função `portrait-poll`
+
+Recebe `generation_id`. Para cada `fal_request_id`:
+- `GET queue.fal.run/.../requests/<id>/status` — se algum ainda em `IN_QUEUE`/`IN_PROGRESS`, devolve `{ status: 'processing', progress: x/3 }`.
+- Quando todos `COMPLETED`: busca resultado, baixa, sobe no Storage, atualiza `portrait_generations` com `portraits`, `status: 'ready'`, cobra créditos, registra `credit_logs`. Devolve URLs assinadas.
+
+### 4. `PortraitGenerator.tsx`
+
+Após o POST inicial, se vier `status: 'processing'`:
+- Mostra progresso "Gerando retratos… (~3 min)" com barra/contador.
+- Faz `portrait-poll` a cada 8s até `status: 'ready'` ou `'failed'` (timeout client-side: 6 min).
+- Renderiza retratos quando prontos. Mesma UX final.
+
+### 5. Recuperação do erro atual
+
+A geração de hoje (`a45b4b0a-d3ab-4c88-8503-10857f1e0fcb`) tem 3 imagens no Storage mas nenhum `portrait_generations`. Vou:
+- Criar registro `portrait_generations` apontando pros 3 paths já existentes.
+- Cobrar os 3 créditos retroativamente (com nota explicativa em `credit_logs`).
+
+Você não precisa pagar de novo nem ficar sem os retratos.
+
+## Validação
+
+1. Rodar geração de teste no preview → ver toast "Gerando retratos…" + polling visível em network.
+2. Confirmar resposta em <5s no POST inicial.
+3. Confirmar 3 retratos aparecendo após ~3min.
+4. Verificar `portrait_generations` tem status `ready` e cobrança aplicada.
+5. Verificar geração recuperada aparece no histórico.
 
 ## Risco
 
-Baixo. A correção do query param é a forma documentada da Fal e já é o padrão do SDK oficial deles. A recuperação não cobra nada — é só um GET de status.
+Médio. Mexe em fluxo crítico. Mitigação: manter código atual em comentário até validar, e testar com 1 retrato antes de partir pros 3.

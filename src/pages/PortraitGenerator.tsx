@@ -282,54 +282,73 @@ const PortraitGenerator = () => {
     setBackgrounds([]);
     setOutfits([]);
 
-    // Edge function pode levar até ~3min (3 gerações + 3 upscales sequenciais).
-    // O cliente padrão da SDK aborta antes — usamos fetch nativo com 240s.
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 240000);
-
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-      if (!token) throw new Error("Sessão expirada — faça login novamente.");
-
-      const fnUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-portrait`;
-      const res = await fetch(fnUrl, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({}),
-        signal: controller.signal,
+      // 1) Enfileira a geração (resposta rápida — só submete os jobs).
+      const { data, error } = await supabase.functions.invoke("generate-portrait", {
+        body: {},
       });
-
-      const data = await res.json().catch(() => ({} as any));
-      if (!res.ok || data?.error) {
-        const msg = data?.error || `Erro HTTP ${res.status}`;
-        toast({ title: "Erro", description: msg, variant: "destructive" });
-        if (data?.needs_credits) setPackDialogOpen(true);
+      if (error) throw error;
+      if (data?.error) {
+        toast({ title: "Erro", description: data.error, variant: "destructive" });
+        if (data.needs_credits) setPackDialogOpen(true);
         return;
       }
-      setPortraits(data.portraits || []);
-      setBackgrounds(data.backgrounds || []);
-      setOutfits(data.outfits || []);
-      await refreshSubscription();
+
+      const generationId: string | undefined = data?.generation_id;
+      if (!generationId) throw new Error("Resposta inválida do servidor.");
+
       toast({
-        title: "Retratos gerados",
-        description: `${data.charged_credits ?? 3} créditos debitados. Salvos no histórico.`,
+        title: "Gerando retratos…",
+        description: "A geração leva cerca de 3 minutos. Pode deixar essa aba aberta.",
+      });
+
+      // 2) Polling até concluir (timeout client-side: 6 min).
+      const startedAt = Date.now();
+      const MAX_MS = 6 * 60 * 1000;
+      const POLL_INTERVAL_MS = 8000;
+
+      while (Date.now() - startedAt < MAX_MS) {
+        await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+        const { data: poll, error: pollErr } = await supabase.functions.invoke("portrait-poll", {
+          body: { generation_id: generationId },
+        });
+        if (pollErr) {
+          console.warn("[portrait-poll] erro transitório", pollErr);
+          continue;
+        }
+        if (poll?.status === "ready") {
+          setPortraits(poll.portraits || []);
+          setBackgrounds(poll.backgrounds || []);
+          setOutfits(poll.outfits || []);
+          await refreshSubscription();
+          toast({
+            title: "Retratos prontos",
+            description: `${poll.charged_credits ?? (poll.portraits?.length ?? 0)} créditos debitados.`,
+          });
+          return;
+        }
+        if (poll?.status === "failed") {
+          toast({
+            title: "Falha na geração",
+            description: poll.error ?? "Tente novamente.",
+            variant: "destructive",
+          });
+          return;
+        }
+        // status === 'processing' — segue o loop
+      }
+
+      toast({
+        title: "Geração demorando",
+        description: "Os retratos podem aparecer no histórico em instantes. Recarregue a página.",
       });
     } catch (err: any) {
-      const isAbort = err?.name === "AbortError";
       toast({
         title: "Erro ao gerar retratos",
-        description: isAbort
-          ? "A geração demorou mais do que o esperado. Verifique seu histórico — os retratos podem já ter sido salvos."
-          : (err?.message ?? "Falha desconhecida"),
+        description: err?.message ?? "Falha desconhecida",
         variant: "destructive",
       });
     } finally {
-      clearTimeout(timeoutId);
       setGenerating(false);
     }
   };

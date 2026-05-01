@@ -482,27 +482,42 @@ export type Database = {
       }
       portrait_generations: {
         Row: {
+          completed_at: string | null
           created_at: string
+          error_message: string | null
+          fal_request_ids: Json
           id: string
           portraits: Json
+          prompts_meta: Json
+          status: string
           style_index: number | null
           used_hand_poses: Json
           used_outfits: Json
           user_id: string
         }
         Insert: {
+          completed_at?: string | null
           created_at?: string
+          error_message?: string | null
+          fal_request_ids?: Json
           id?: string
           portraits?: Json
+          prompts_meta?: Json
+          status?: string
           style_index?: number | null
           used_hand_poses?: Json
           used_outfits?: Json
           user_id: string
         }
         Update: {
+          completed_at?: string | null
           created_at?: string
+          error_message?: string | null
+          fal_request_ids?: Json
           id?: string
           portraits?: Json
+          prompts_meta?: Json
+          status?: string
           style_index?: number | null
           used_hand_poses?: Json
           used_outfits?: Json
