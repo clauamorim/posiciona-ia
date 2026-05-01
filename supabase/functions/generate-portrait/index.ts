@@ -16,7 +16,10 @@ import { mapProfessionToCategory, pickOutfits, lookupOutfitMeta } from "../_shar
 
 // Modelo multi-LoRA: empilha LoRA da cliente + LoRA público de realismo de pele.
 // Mantém a semelhança facial do treino e força textura natural (poros, linhas finas).
-const FLUX_LORA_MODEL = "lucataco/flux-dev-multi-lora";
+// É um modelo da COMUNIDADE — precisa ser chamado em /v1/predictions com version hash
+// (o endpoint /v1/models/{owner}/{name}/predictions só funciona pra modelos oficiais).
+const FLUX_LORA_MODEL = "lucataco/flux-dev-multi-lora"; // mantido só pra logs
+const FLUX_LORA_VERSION = "ad0314563856e714367fdc7244b19b160d25926d305fec270c9e00f64665d352";
 // LoRA público de realismo facial (carregado direto do HF pelo Replicate).
 const FACE_REALISM_LORA = "prithivMLmods/Canopus-LoRA-Flux-FaceRealism";
 const FACE_REALISM_SCALE = 0.45;
@@ -126,7 +129,7 @@ async function callFluxLora(params: {
     };
 
     const createRes = await fetch(
-      `https://api.replicate.com/v1/models/${FLUX_LORA_MODEL}/predictions`,
+      `https://api.replicate.com/v1/predictions`,
       {
         method: "POST",
         headers: {
@@ -134,7 +137,7 @@ async function callFluxLora(params: {
           "Content-Type": "application/json",
           Prefer: "wait=5",
         },
-        body: JSON.stringify({ input }),
+        body: JSON.stringify({ version: FLUX_LORA_VERSION, input }),
       },
     );
 
