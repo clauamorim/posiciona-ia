@@ -80,8 +80,8 @@ const StyleSelectionModal: React.FC<StyleSelectionModalProps> = ({
   };
 
   const previewSize = format === "portrait"
-    ? "h-32 sm:h-auto sm:aspect-[9/16]"
-    : "h-28 sm:h-auto sm:aspect-square";
+    ? "h-24 sm:h-auto sm:aspect-[9/16]"
+    : "h-24 sm:h-auto sm:aspect-square";
 
   const cards: Array<{
     id: PostStyle; title: string; subtitle: string; cost: string; icon: React.ReactNode;
@@ -95,10 +95,10 @@ const StyleSelectionModal: React.FC<StyleSelectionModalProps> = ({
       icon: <Palette className="h-4 w-4" />,
       preview: (
         <div className={`w-full ${previewSize} rounded-md overflow-hidden`} style={{ background: minimalGradient }}>
-          <div className="w-full h-full flex flex-col items-center justify-center p-4 text-white/90">
-            <div className="w-10 h-10 rounded-full bg-white/20 mb-3" />
-            <div className="h-2 w-3/4 bg-white/30 rounded mb-1.5" />
-            <div className="h-2 w-1/2 bg-white/20 rounded" />
+          <div className="w-full h-full flex flex-col items-center justify-center p-2 text-white/90">
+            <div className="w-7 h-7 sm:w-9 sm:h-9 rounded-full bg-white/20 mb-2" />
+            <div className="h-1.5 w-3/4 bg-white/30 rounded mb-1" />
+            <div className="h-1.5 w-1/2 bg-white/20 rounded" />
           </div>
         </div>
       ),
@@ -178,7 +178,7 @@ const StyleSelectionModal: React.FC<StyleSelectionModalProps> = ({
                   <button
                     key={card.id}
                     onClick={() => setSelected(card.id)}
-                    className={`group text-left rounded-lg border-2 transition-all p-3 space-y-2 ${
+                    className={`group text-left rounded-lg border-2 transition-all p-2.5 space-y-2 ${
                       isSelected
                         ? "border-primary bg-primary/5"
                         : "border-border hover:border-primary/50 bg-card"
@@ -203,13 +203,20 @@ const StyleSelectionModal: React.FC<StyleSelectionModalProps> = ({
           </div>
 
           <DialogFooter className="gap-2 sm:justify-between shrink-0">
-            <Button variant="ghost" size="sm" onClick={handleSkip}>
+            <Button variant="ghost" size="sm" onClick={handleSkip} className="text-xs opacity-50 hover:opacity-80">
               Pular e abrir editor vazio
             </Button>
-            <Button size="sm" onClick={handleConfirm} disabled={!selected} className="gap-2">
-              <Sparkles className="h-3.5 w-3.5" />
-              {selected === "ai" ? "Continuar" : "Abrir com este estilo"}
-            </Button>
+            <div className="flex flex-col items-end gap-1">
+              <Button size="sm" onClick={handleConfirm} disabled={!selected} className="gap-2">
+                <Sparkles className="h-3.5 w-3.5" />
+                {selected === "ai" ? "Continuar" : "Abrir com este estilo"}
+              </Button>
+              {!selected && (
+                <p className="text-[11px] text-muted-foreground/60">
+                  Selecione um estilo acima para continuar
+                </p>
+              )}
+            </div>
           </DialogFooter>
           </> : <>
           <DialogHeader className="shrink-0">
