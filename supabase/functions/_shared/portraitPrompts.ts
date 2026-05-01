@@ -664,3 +664,72 @@ export function buildMakeupText(figurino: any): string {
   if (typeof figurino.maquiagem === "string") return figurino.maquiagem;
   return "";
 }
+
+// ============================================================================
+// NANO BANANA PRO BUILDER
+// Construtor de prompt otimizado para google/gemini-3-pro-image-preview com
+// referências visuais (selfies). Diferente do Flux+LoRA, o Gemini recebe as
+// selfies como image_url e preserva identidade nativamente — não precisamos de
+// trigger word, LoRA, ou prompt longo. O foco é descrever a CENA (arquétipo,
+// figurino, fundo, pose) e instruir EXPLICITAMENTE a preservar idade, etnia,
+// cabelo e textura natural de pele.
+// ============================================================================
+
+export interface GeminiPromptParams {
+  archetype: ArchetypeName | string;
+  outfit: string;
+  backgroundIndex: 0 | 1 | 2;
+  handPose?: string | null;
+  /** Gênero opcional só pra refinar pronome no texto. */
+  gender?: "woman" | "man" | "none";
+}
+
+export function buildGeminiPortraitPrompt(params: GeminiPromptParams): {
+  prompt: string;
+  backgroundKey: string;
+} {
+  const archetypeKey = (params.archetype in ARCHETYPE_PROMPTS
+    ? params.archetype
+    : "Cara-comum") as ArchetypeName;
+  const tpl = ARCHETYPE_PROMPTS[archetypeKey];
+  const bg = BACKGROUND_VARIATIONS[params.backgroundIndex];
+  const framing = FRAMING_VARIATIONS[params.backgroundIndex];
+
+  // Aplica fundo claro/escuro sobre a essência do arquétipo (mesma lógica do Krea).
+  let archetypeEssence = tpl.prompt;
+  if (bg.replacement) {
+    if (BACKGROUND_REGEX.test(archetypeEssence)) {
+      archetypeEssence = archetypeEssence.replace(BACKGROUND_REGEX, `${bg.replacement}`);
+    } else {
+      archetypeEssence = `${bg.replacement} ${archetypeEssence}`;
+    }
+  }
+
+  const subject = params.gender === "man" ? "the man" : params.gender === "woman" ? "the woman" : "the person";
+  const possessive = params.gender === "man" ? "his" : "her";
+
+  const sceneParts: string[] = [
+    `Editorial portrait photograph of ${subject} shown in the reference images.`,
+    `IDENTITY LOCK: preserve ${possessive} EXACT facial identity, age, ethnicity, hair color, hair length, hair style, eye color, and natural skin tone from the reference photos. Do NOT age the subject. Do NOT make the subject look older. Do NOT change ethnicity. Do NOT alter hair color or length.`,
+    `Skin must show natural texture with visible pores and subtle imperfections — no airbrushing, no plastic smoothing, no beauty filter, no age regression, no aging.`,
+    `Scene direction: ${archetypeEssence}.`,
+  ];
+
+  if (params.outfit) {
+    sceneParts.push(`Wardrobe: ${params.outfit}.`);
+  }
+  if (params.handPose) {
+    sceneParts.push(`Pose: ${params.handPose}.`);
+  }
+  if (framing.instruction) {
+    sceneParts.push(`Framing: ${framing.instruction}, vertical 4:5 aspect ratio.`);
+  } else {
+    sceneParts.push(`Framing: editorial close-up headshot, vertical 4:5 aspect ratio.`);
+  }
+  sceneParts.push(
+    `Technical: 50mm lens, soft natural studio lighting, shallow depth of field, photorealistic, magazine cover quality.`
+  );
+
+  const prompt = sceneParts.join(" ");
+  return { prompt, backgroundKey: bg.key };
+}
