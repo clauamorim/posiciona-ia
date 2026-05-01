@@ -12,6 +12,7 @@ import CarouselEditor from "@/components/post-editor/CarouselEditor";
 import PostToolbar from "@/components/post-editor/PostToolbar";
 import MobileEditorBar from "@/components/post-editor/MobileEditorBar";
 import type { OverlayImage } from "@/components/post-editor/PostToolbar";
+import type { TextBox } from "@/components/post-editor/PostCanvas";
 import { parseReportContent } from "@/lib/reportParser";
 import { cleanMarkdown, extractAfterBold, cleanText, stripFrameworkLabels } from "@/lib/textCleanup";
 import { compressImage } from "@/lib/imageUtils";
@@ -90,6 +91,7 @@ interface EditorDraft {
   slideNumberSize: number;
   displayFont: string;
   bodyFont: string;
+  slideTextBoxes?: Record<number, TextBox[]>;
 }
 
 function loadDraft(weekIdx: number, dayIdx: number, style: string | undefined, format: string): EditorDraft | null {
