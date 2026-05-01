@@ -633,7 +633,8 @@ async function persistWeek(
   feed: FeedPost[],
   stories: StoryDay[],
   jobId: string,
-): Promise<{ days: DayV6[] }> {
+  marketTrends: MarketTrend[] = [],
+): Promise<{ days: DayV6[]; market_trends?: MarketTrend[] }> {
   const feedByDay = new Map(feed.map((f) => [f.day, f]));
   const storyByDay = new Map(stories.map((s) => [s.day, s]));
 
@@ -650,7 +651,10 @@ async function persistWeek(
     generator_version: EDITORIAL_GENERATOR_VERSION,
   }));
 
-  const weekObj = { days };
+  const weekObj: { days: DayV6[]; market_trends?: MarketTrend[] } = { days };
+  if (marketTrends && marketTrends.length > 0) {
+    weekObj.market_trends = marketTrends;
+  }
 
   const { data: reportRow } = await admin
     .from("reports")
