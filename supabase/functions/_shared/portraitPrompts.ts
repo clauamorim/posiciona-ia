@@ -15,16 +15,15 @@ export type ArchetypeName =
   | "Rebelde"
   | "Bobo-da-corte";
 
-// MODO MANUAL PURO: prompt mínimo espelhando exatamente o que funcionou no
-// Replicate UI. Cada token a mais dilui o peso dos críticos de textura/pele.
-//
-// QUALITY_SUFFIX reforçado contra "pele plástica" — descrições redundantes
-// de textura natural ajudam o modelo a NÃO escorregar para o look airbrushed.
+// MODO EDITORIAL DOCUMENTAL: vocabulário deslocado de "studio polido" pra
+// "retrato editorial real". Combinado com o LoRA de realismo de pele empilhado
+// (Canopus-Face-Realism), elimina o look airbrushed sem perder nitidez.
 const QUALITY_SUFFIX =
-  "natural skin texture, visible fine pores, subtle skin imperfections, no retouching, photographed not rendered, shot on Sony A7, 85mm f/1.4, shallow depth of field";
-// Negative ampliado contra todos os termos comuns que descrevem pele plastificada.
+  "natural editorial portrait, real human skin texture, fine pores and natural facial lines, soft realistic skin not glossy, natural makeup no beauty retouching, true-to-life face texture, photographed not rendered";
+// Negative ampliado: bloqueia TODO vocabulário de pele artificial — render, filtro,
+// retoque de glamour, suavização. Termos redundantes em inglês reforçam o sinal.
 const STUDIO_NEGATIVE_BASE =
-  ", plastic skin, beauty filter, smoothed skin, airbrushed skin, waxy skin, porcelain skin, over-retouched face, AI beauty filter, doll-like skin, heavy makeup, deformed face, deformed hands";
+  ", plastic skin, glossy skin, overly smooth face, perfect skin, skin smoothing, face smoothing, airbrushed skin, waxy skin, porcelain skin, beauty filter, AI beauty filter, instagram filter, glamour retouching, overprocessed portrait, CGI skin, 3d render skin, synthetic skin texture, doll-like skin, over-retouched face, heavy makeup, deformed face, deformed hands";
 // Reforço de anatomia de mãos — aplicado APENAS aos looks que mostram mãos
 // (atualmente nenhum, hands-out-of-frame em todos).
 const HANDS_NEGATIVE_REINFORCE = ", extra fingers, deformed fingers, fused fingers, claw hands";

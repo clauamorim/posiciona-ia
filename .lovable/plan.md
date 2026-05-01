@@ -1,75 +1,118 @@
-## Diagnóstico atualizado
+## Objetivo
 
-Os retratos gerados pelo Gemini (referência enviada) mostram:
-- Pele com textura natural — poros visíveis, não-airbrushed
-- Variação real de figurino entre as três fotos (blazer marinho/branco, malha texturizada/saia marinho, camisa azul céu/saia cinza)
+Eliminar a "pele plástica" dos retratos sem perder semelhança da cliente nem fidelidade ao figurino, combinando:
 
-Já os retratos atuais via FLUX LoRA mostram:
-- Pele "plastificada" / waxy
-- Repetição da mesma peça (blazer + camisa de seda) nas três fotos, mesmo o pool tendo variedade
+1. **Stack de 2 LoRAs** na inferência (LoRA da cliente + LoRA público de realismo de pele).
+2. **Ajustes de prompt e negative prompt** para remover vocabulário "studio polido".
+3. **Manutenção da diversidade de figurino por profissão** já implementada.
 
-A causa da repetição: a memória curta (`recentlyUsedOutfits`) só evita os figurinos da última geração — dentro da mesma rodada, o pool sorteia 3 itens mas não garante diversidade real entre eles (peça-âncora pode coincidir).
+Sem retreino. Os LoRAs já treinados continuam válidos.
 
-## Plano revisado
+## Mudança 1 — Trocar modelo Replicate (multi-LoRA)
 
-### 1. Manter pool de figurinos por profissão (sem ler relatório)
-
-Manter o comportamento atual de usar `outfitPool` curado por profissão como fonte principal — apenas reforçar que **nunca pode haver repetição da mesma peça-âncora dentro da mesma rodada de 3 fotos**.
-
-Mudanças em `supabase/functions/_shared/outfitPool.ts`:
-
-- Adicionar metadata leve em cada item do pool: peça-âncora (`blazer`, `dress`, `cardigan`, `silk shirt`, etc.) e cor dominante.
-- Atualizar `pickOutfits` para garantir, na mesma rodada:
-  - 3 peças-âncora **diferentes** (ex.: 1 blazer + 1 vestido + 1 cardigã, nunca 3 blazers)
-  - 3 cores dominantes **diferentes** (ex.: marinho + bege + esmeralda, nunca 3 marinho)
-- Se o pool da combinação família×categoria não tiver variedade suficiente, completar com itens da família "general" da mesma família-de-arquétipo.
-
-### 2. Reforçar negative prompts contra "voltar ao mesmo look"
-
-Em `buildPortraitPrompt` (`portraitPrompts.ts`):
-
-- Detectar a peça-âncora do outfit atual e adicionar negative explícito contra as outras peças que apareceriam em looks vizinhos.
-- Já existe lógica parcial; ampliar para cobrir todos os casos do pool.
-
-### 3. Combater pele plastificada (mantido do plano anterior)
-
-Ajustes em `generate-portrait/index.ts` e `portraitPrompts.ts`:
-
-- Reduzir `num_inference_steps` de **35 → 28**.
-- Reduzir guidance: `[2.5, 3.0, 3.5]` → `[2.0, 2.4, 2.8]`.
-- Reduzir levemente `lora_scale` máximo: `0.70 / 0.75 / 0.78` → `0.68 / 0.72 / 0.75`.
-- Reforçar `QUALITY_SUFFIX` com termos pró-textura:
-  ```
-  natural skin texture, visible fine pores, subtle skin imperfections, 
-  no retouching, photographed not rendered, shot on Sony A7, 85mm f/1.4, 
-  shallow depth of field
-  ```
-- Ampliar `STUDIO_NEGATIVE_BASE`:
-  ```
-  plastic skin, beauty filter, smoothed skin, airbrushed skin, waxy skin, 
-  porcelain skin, over-retouched face, AI beauty filter, doll-like skin, 
-  heavy makeup, deformed face, deformed hands
-  ```
-
-### 4. Logs de validação
-
-Adicionar log da peça-âncora e cor escolhidas por look para auditar variedade:
+O modelo atual `black-forest-labs/flux-dev-lora` aceita apenas 1 LoRA por chamada. Vamos para:
 
 ```
-outfits=[{anchor:blazer, color:navy}, {anchor:dress, color:emerald}, {anchor:cardigan, color:beige}]
+black-forest-labs/flux-dev-lora  →  lucataco/flux-dev-multi-lora
 ```
 
-### 5. Não alterar
+Suporta `hf_loras` (array) + `lora_scales` (array). Carrega LoRAs públicos do HuggingFace direto pelo path. Mantém todos os outros inputs (aspect_ratio, megapixels, guidance_scale, num_inference_steps, output_format, output_quality, negative_prompt, seed).
 
-- Fluxo de upload, treino, créditos, histórico, download, layout, visual da página
-- Texto exibido no card abaixo de cada retrato (continua usando `enToPtFashion`)
-- Prioridade do pool sobre o relatório (mantida — não voltamos para `figurino.looks_completos`)
+### Novo payload
+
+```json
+{
+  "hf_loras": [
+    "<replicate_lora_url da cliente>",
+    "prithivMLmods/Canopus-LoRA-Flux-FaceRealism"
+  ],
+  "lora_scales": [0.82, 0.45],
+  "prompt": "<prompt com trigger word>",
+  "negative_prompt": "<negative reforçado>",
+  "aspect_ratio": "3:4",
+  "megapixels": "1",
+  "guidance_scale": <2.0 | 2.4 | 2.8>,
+  "num_inference_steps": 28,
+  "output_format": "png",
+  "output_quality": 95,
+  "num_outputs": 1,
+  "seed": <random>
+}
+```
+
+### Por que essas escalas
+
+- LoRA da cliente sobe de 0.68 → **0.82**: o LoRA de realismo (0.45) puxa para textura natural; sem subir o da cliente, perderíamos semelhança.
+- LoRA de realismo em **0.45**: forte para introduzir poros e linhas finas, fraco para não dominar os traços faciais.
+
+## Mudança 2 — Prompt e negative prompt
+
+Em `supabase/functions/_shared/portraitPrompts.ts`:
+
+### `QUALITY_SUFFIX` revisto
+
+Remover termos "studio polido":
+- `shot on Sony A7`, `85mm f/1.4`, `shallow depth of field`
+
+Adicionar termos editoriais/documentais:
+- `natural editorial portrait`
+- `real human skin texture`
+- `fine pores and natural facial lines`
+- `soft realistic skin, not glossy`
+- `natural makeup, no beauty retouching`
+- `true-to-life face texture`
+- `photographed not rendered`
+
+### `STUDIO_NEGATIVE_BASE` ampliado
+
+Adicionar:
+- `glossy skin`, `overly smooth face`, `perfect skin`
+- `skin smoothing`, `face smoothing`, `airbrushed skin`
+- `waxy skin`, `porcelain skin`, `plastic skin`
+- `CGI skin`, `3d render skin`, `synthetic skin texture`
+- `instagram filter`, `AI beauty filter`
+- `glamour retouching`, `overprocessed portrait`
+
+## Mudança 3 — Parâmetros de geração
+
+Mantidos do plano anterior (não baixamos mais o guidance porque o stack de LoRAs já resolve):
+
+- `guidance_scale`: `[2.0, 2.4, 2.8]` (uma por look da rodada de 3)
+- `num_inference_steps`: `28`
+- `output_format`: `png`
+- `output_quality`: `95`
+- `aspect_ratio`: `3:4` @ 1MP
+
+## Mudança 4 — Logs
+
+Em `generate-portrait/index.ts`, ampliar log existente para registrar a stack aplicada em cada uma das 3 fotos:
+
+```
+loraStack=[{anchor:client,scale:0.82},{anchor:realism,scale:0.45}] guidance=2.4 steps=28
+```
+
+## O que NÃO muda
+
+- `portrait-train` — sem retreino, LoRAs existentes continuam válidos
+- Lógica de figurino por profissão e diversidade de peças-âncora (`outfitPool.ts`)
+- Pool de poses de mãos
+- Sistema de fundos (Neutro / Claro / Escuro)
+- Trigger word, dataset, traços físicos extraídos
+- Créditos, storage privado, URLs assinadas, histórico, versionamento
+- Qualquer UI
+
+## Plano de fallback
+
+Após primeira rodada de teste:
+- Cara menos parecida → ajustar para `[0.85, 0.40]`
+- Pele ainda lisa → ajustar para `[0.80, 0.55]`
+- LoRA público falhando ao carregar → try/catch já existente cai de volta para `flux-dev-lora` com só o LoRA da cliente, sem quebrar a função
 
 ## Arquivos afetados
 
-**Modificados:**
-- `supabase/functions/_shared/outfitPool.ts` — metadata + diversidade garantida
-- `supabase/functions/_shared/portraitPrompts.ts` — quality suffix + negatives mais fortes
-- `supabase/functions/generate-portrait/index.ts` — guidance/steps/loraScale revistos + logs
+Apenas dois:
 
-Sem migrations. Sem mudanças de UI. Sem novos secrets.
+- `supabase/functions/generate-portrait/index.ts` — trocar modelo, montar payload com `hf_loras`/`lora_scales`, ampliar logs
+- `supabase/functions/_shared/portraitPrompts.ts` — `QUALITY_SUFFIX` e `STUDIO_NEGATIVE_BASE`
+
+Sem migrations. Sem mudanças de UI. Sem novos secrets (`REPLICATE_API_TOKEN` já existe).

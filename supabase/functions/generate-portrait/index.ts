@@ -14,7 +14,12 @@ import {
 } from "../_shared/portraitPrompts.ts";
 import { mapProfessionToCategory, pickOutfits, lookupOutfitMeta } from "../_shared/outfitPool.ts";
 
-const FLUX_LORA_MODEL = "black-forest-labs/flux-dev-lora";
+// Modelo multi-LoRA: empilha LoRA da cliente + LoRA público de realismo de pele.
+// Mantém a semelhança facial do treino e força textura natural (poros, linhas finas).
+const FLUX_LORA_MODEL = "lucataco/flux-dev-multi-lora";
+// LoRA público de realismo facial (carregado direto do HF pelo Replicate).
+const FACE_REALISM_LORA = "prithivMLmods/Canopus-LoRA-Flux-FaceRealism";
+const FACE_REALISM_SCALE = 0.45;
 const GENERATE_COST_CREDITS = 3;
 // Guidance MAIS BAIXO pra reduzir polimento artificial. Faixa testada:
 // 2.0 (super documental) / 2.4 (equilibrado) / 2.8 (definido sem virar plástico).
@@ -28,15 +33,14 @@ const PORTRAIT_WIDTH = 896;
 const PORTRAIT_HEIGHT = 1152;
 
 /**
- * Calibra a força do LoRA conforme o tamanho do dataset de selfies.
- * Reduzido em -0.02 versus versão anterior pra dar mais espaço ao modelo
- * base (FLUX) preservar textura natural da pele em vez de copiar a maquiagem
- * lisa que o LoRA decora das selfies.
+ * Calibra a força do LoRA da cliente conforme o tamanho do dataset.
+ * Subimos a faixa (vs single-LoRA) porque o LoRA de realismo (0.45) puxa
+ * textura natural — sem reforçar o LoRA da cliente, perderíamos semelhança.
  */
 function pickLoraScale(selfiesCount: number): number {
-  if (selfiesCount <= 12) return 0.68;
-  if (selfiesCount <= 20) return 0.72;
-  return 0.75;
+  if (selfiesCount <= 12) return 0.78;
+  if (selfiesCount <= 20) return 0.82;
+  return 0.85;
 }
 
 /** Fisher–Yates shuffle não destrutivo. */
@@ -98,13 +102,15 @@ async function callFluxLora(params: {
   guidanceScale: number;
   loraScale?: number;
 }): Promise<{ ok: true; imageUrl: string } | { ok: false; reason: string }> {
-  const { token, loraVersion, prompt, negative, guidanceScale, loraScale = 0.95 } = params;
+  const { token, loraVersion, prompt, negative, guidanceScale, loraScale = 0.82 } = params;
   const start = Date.now();
   try {
+    // Multi-LoRA stack: LoRA da cliente + LoRA público de realismo de pele.
+    // O modelo lucataco/flux-dev-multi-lora aceita arrays paralelos hf_loras + lora_scales.
     const input: Record<string, unknown> = {
       prompt,
-      lora_weights: loraVersion,
-      lora_scale: loraScale,
+      hf_loras: [loraVersion, FACE_REALISM_LORA],
+      lora_scales: [loraScale, FACE_REALISM_SCALE],
       num_outputs: 1,
       // FLUX LoRA: usar aspect_ratio + megapixels. width/height no input são
       // ignorados silenciosamente e o modelo cai pra 1024x1024 quadrado.
@@ -167,7 +173,7 @@ async function callFluxLora(params: {
     const imageUrl = Array.isArray(output) ? output[0] : output;
     if (!imageUrl || typeof imageUrl !== "string") return { ok: false, reason: "empty-output" };
 
-    console.log(`[generate-portrait] flux-lora succeeded latency=${latency}s guidance=${guidanceScale}`);
+    console.log(`[generate-portrait] flux-multi-lora succeeded latency=${latency}s guidance=${guidanceScale} loraStack=[client:${loraScale},realism:${FACE_REALISM_SCALE}]`);
     return { ok: true, imageUrl };
   } catch (e) {
     return { ok: false, reason: `exception:${e instanceof Error ? e.message : String(e)}` };
@@ -392,8 +398,8 @@ serve(async (req) => {
       console.log(
         `[generate-portrait] call ${i + 1}/${requestedCount} background=${built.backgroundKey} archetype=${archetypeName} ` +
         `trigger="${training.trigger_word}" trainingId=${training.id} ` +
-        `dims=${PORTRAIT_WIDTH}x${PORTRAIT_HEIGHT}(3:4@1MP) ` +
-        `guidance=${guidanceScale} loraScale=${loraScale} steps=${NUM_INFERENCE_STEPS} ` +
+        `dims=${PORTRAIT_WIDTH}x${PORTRAIT_HEIGHT}(3:4@1MP) model=${FLUX_LORA_MODEL} ` +
+        `guidance=${guidanceScale} loraStack=[{anchor:client,scale:${loraScale}},{anchor:realism,scale:${FACE_REALISM_SCALE}}] steps=${NUM_INFERENCE_STEPS} ` +
         `selfiesCount=${selfiesCount} hasTraits=${!!(training as any).physical_traits} ` +
         `promptTokens=${promptTokens} outfitMeta=${JSON.stringify(outfitsMeta[i] ?? null)}`,
       );
