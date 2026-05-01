@@ -57,6 +57,8 @@ const PortraitGenerator = () => {
   const [confirmGenerateOpen, setConfirmGenerateOpen] = useState(false);
   const [portraits, setPortraits] = useState<string[]>([]);
   const [backgrounds, setBackgrounds] = useState<string[]>([]);
+  const [generationId, setGenerationId] = useState<string | null>(null);
+  const [discardingIndex, setDiscardingIndex] = useState<number | null>(null);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
 
   const totalCredits = (balances?.portrait_credits_included ?? 0) + (balances?.portrait_credits_extra ?? 0);
