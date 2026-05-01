@@ -427,14 +427,16 @@ serve(async (req) => {
 
     console.log(`[portrait-train] starting training=${training.id} trigger="${triggerPhrase}" provider=fal endpoint=${FAL_TRAINER_PATH}`);
 
-    // Fal queue API. O webhook é entregue via header `fal-webhook` (sem assinatura
-    // própria — protegido pelo HMAC token na nossa URL).
-    const trainRes = await fetch(`https://queue.fal.run/${FAL_TRAINER_PATH}`, {
+    // Fal queue API. O webhook é entregue via query param `fal_webhook` (forma
+    // documentada e suportada pela Fal — header é silenciosamente ignorado).
+    // Protegido pelo HMAC token embutido na própria URL do webhook.
+    const submitUrl =
+      `https://queue.fal.run/${FAL_TRAINER_PATH}?fal_webhook=${encodeURIComponent(webhookUrl)}`;
+    const trainRes = await fetch(submitUrl, {
       method: "POST",
       headers: {
         Authorization: `Key ${FAL_KEY}`,
         "Content-Type": "application/json",
-        "fal-webhook": webhookUrl,
       },
       body: JSON.stringify(trainBody),
     });
