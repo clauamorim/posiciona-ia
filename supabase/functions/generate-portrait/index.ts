@@ -129,7 +129,7 @@ async function callFluxLora(params: {
     };
 
     const createRes = await fetch(
-      `https://api.replicate.com/v1/models/${FLUX_LORA_MODEL}/predictions`,
+      `https://api.replicate.com/v1/predictions`,
       {
         method: "POST",
         headers: {
@@ -137,7 +137,7 @@ async function callFluxLora(params: {
           "Content-Type": "application/json",
           Prefer: "wait=5",
         },
-        body: JSON.stringify({ input }),
+        body: JSON.stringify({ version: FLUX_LORA_VERSION, input }),
       },
     );
 
