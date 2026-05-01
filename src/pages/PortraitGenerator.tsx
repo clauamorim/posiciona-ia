@@ -61,6 +61,39 @@ const PortraitGenerator = () => {
   const [generationId, setGenerationId] = useState<string | null>(null);
   const [discardingIndex, setDiscardingIndex] = useState<number | null>(null);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
+  const [hydratedFromHistory, setHydratedFromHistory] = useState(false);
+
+  // Rehydrate the last generation when the page mounts.
+  // The edge function persists portraits atomically; if the user navigated away
+  // during generation, we recover the result from the database here.
+  useEffect(() => {
+    if (!user || hydratedFromHistory || generating || portraits.length > 0) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("portrait_generations")
+        .select("id, portraits, kept_indices, status, created_at")
+        .eq("user_id", user.id)
+        .eq("status", "ready")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (cancelled || !data) { setHydratedFromHistory(true); return; }
+      const all = Array.isArray(data.portraits) ? (data.portraits as any[]) : [];
+      // Respect discarded items
+      const kept = Array.isArray(data.kept_indices) ? data.kept_indices as number[] : null;
+      const indices = kept ? kept : all.map((_, i) => i);
+      const items = indices.map((i) => all[i]).filter(Boolean);
+      if (items.length === 0) { setHydratedFromHistory(true); return; }
+      setPortraits(items.map((p: any) => p.url));
+      setBackgrounds(items.map((p: any) => p.background ?? ""));
+      setOriginalIndices(indices);
+      setGenerationId(data.id);
+      setHydratedFromHistory(true);
+    })();
+    return () => { cancelled = true; };
+  }, [user, hydratedFromHistory, generating, portraits.length]);
+
 
   const totalCredits = (balances?.portrait_credits_included ?? 0) + (balances?.portrait_credits_extra ?? 0);
 
