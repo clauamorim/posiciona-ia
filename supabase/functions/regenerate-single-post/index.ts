@@ -283,14 +283,15 @@ Regras:
 Empresa: ${business.company_name || ""}
 Serviços: ${business.services || ""}
 Público: ${business.target_audience || ""}
-Nicho: ${niche || ""}${storybrandContext}${toneContext}${personalContext}
+Nicho: ${niche || ""}${storybrandContext}${toneContext}${personalContext}${marketTrendsBlock}${themeOverrideBlock}
 
 # POSTS JÁ EXISTENTES (NÃO REPETIR)
 ${existingTitles || "Nenhum"}
 
 Gere 1 novo post de feed no formato "${format}".`;
 
-    const enrichedSystemPrompt = systemPrompt + renderEditorialFrameworks();
+    const enrichedSystemPrompt =
+      NARRATIVE_PRINCIPLES_BLOCK + ethicalBlock + "\n\n" + systemPrompt + renderEditorialFrameworks();
 
     let rawContent: string;
     try {
