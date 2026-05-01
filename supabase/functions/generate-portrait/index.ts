@@ -20,7 +20,7 @@ const FAL_INFERENCE_PATH = "fal-ai/flux-krea-lora";
 const GENERATE_COST_CREDITS = 3;
 const DEFAULT_GUIDANCE = 3.0;
 const NUM_INFERENCE_STEPS = 28;
-const DEFAULT_LORA_SCALE = 1.0;
+const DEFAULT_LORA_SCALE = 1.05;
 
 /** Submete um único job pra fila Fal e retorna o request_id. */
 async function enqueueFalJob(params: {
