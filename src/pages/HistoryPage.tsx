@@ -58,7 +58,7 @@ const HistoryPage = () => {
     const portraitItems: any[] = (portraitsRes as any)?.data?.portraits ?? [];
     const flat = portraitItems
       .filter((p) => p && typeof p.url === "string" && p.url)
-      .map((p) => ({ url: p.url as string, createdAt: p.created_at as string, parentId: p.parent_id as string }));
+      .map((p) => ({ url: p.url as string, createdAt: p.created_at as string, parentId: p.parent_id as string, parentIndex: typeof p.parent_index === "number" ? p.parent_index : 0 }));
     setFlatPortraits(flat);
     setProgress(100);
     setTimeout(() => setLoading(false), 300);
