@@ -602,7 +602,7 @@ const PortraitGenerator = () => {
         index={previewIndex ?? 0}
         onIndexChange={(i) => setPreviewIndex(i)}
         onDownload={(url, i) => downloadPortrait(url, i)}
-        downloadHint="Salvo no histórico · Download gratuito"
+        downloadHint="Salvo no histórico · Você pode descartar a qualquer momento"
         downloadLabel="Baixar"
       />
     </DashboardLayout>
