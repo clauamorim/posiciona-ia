@@ -382,6 +382,9 @@ const EditorialPage = () => {
         ].filter(Boolean) as { theme: string }[]),
       );
 
+      const currentWeek = allWeeks[weekIndex] as any;
+      const weekTrends = Array.isArray(currentWeek?.market_trends) ? currentWeek.market_trends : [];
+
       const baseBody = {
         business: bq,
         niche: profile?.niche || "",
@@ -389,6 +392,8 @@ const EditorialPage = () => {
         storybrand: reportContent?.storybrand || null,
         tone_of_voice: reportContent?.tone_of_voice || null,
         freeRegeneration: freeMode,
+        marketTrends: weekTrends,
+        ...(themeOverride ? { themeOverride } : {}),
       };
 
       let newFeed = day.feed;
