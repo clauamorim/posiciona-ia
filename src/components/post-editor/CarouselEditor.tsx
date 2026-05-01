@@ -77,6 +77,7 @@ const CarouselEditor: React.FC<CarouselEditorProps> = ({
   onSelectedTextChange, renderOrder, onRenderOrderChange,
   showRulers, postStyle,
   initialTextBoxes, resetKey,
+  slideTextBoxes, onSlideTextBoxesChange,
 }) => {
   const total = slides.length;
   const isCover = currentSlide === 0;
@@ -117,6 +118,8 @@ const CarouselEditor: React.FC<CarouselEditorProps> = ({
         postStyle={postStyle}
         initialTextBoxes={initialTextBoxes}
         resetKey={resetKey ? `${resetKey}-${currentSlide}` : undefined}
+        textBoxes={slideTextBoxes?.[currentSlide]}
+        onTextBoxesChange={onSlideTextBoxesChange ? (boxes) => onSlideTextBoxesChange(currentSlide, boxes) : undefined}
       />
 
       <div className="flex items-center gap-4">
