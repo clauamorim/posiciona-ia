@@ -214,6 +214,7 @@ const PortraitGenerator = () => {
     setGenerating(true);
     setPortraits([]);
     setBackgrounds([]);
+    setOriginalIndices([]);
     setGenerationId(null);
 
     try {
