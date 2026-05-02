@@ -354,18 +354,17 @@ function buildSearchQuery(opts: {
   theme?: string; caption?: string; body?: string; cardCopy?: string;
   niche?: string; businessContext?: string;
   userQuery?: string;
+  /** Seed determinística para variar a cena escolhida por chamada/slide. */
+  seed?: string;
 }): string {
   const nicheEN = translateNiche(opts.niche);
 
-  // Se o usuário digitou algo, ele lidera a intenção visual.
+  // Se o usuário digitou algo, ele lidera a intenção visual (comportamento original).
   if (opts.userQuery && opts.userQuery.trim()) {
     const userKeywords = extractKeywordsFromText(opts.userQuery, 4);
-    // Se a tradução não rendeu nada (texto muito abstrato/sem dicionário),
-    // mantém o input cru deaccentado como fallback.
     const userPart = userKeywords.length > 0
       ? userKeywords.join(" ")
       : deaccent(opts.userQuery).replace(/[^a-z\s]/g, " ").trim();
-    // Adiciona 1-2 keywords do cardCopy/tema como contexto, sem dominar
     const ctxText = [opts.cardCopy, opts.theme].filter(Boolean).join(" ");
     const ctxKeywords = extractKeywordsFromText(ctxText, 2);
     const parts = [nicheEN, userPart, ctxKeywords.join(" ")].filter(Boolean);
@@ -375,26 +374,11 @@ function buildSearchQuery(opts: {
     return q.slice(0, 90);
   }
 
-  // Sem userQuery: extrai do contexto do post.
-  // cardCopy primeiro (peso máximo — é a frase visível daquele slide).
-  const richText = [
-    opts.cardCopy,
-    opts.theme,
-    opts.body,
-    (opts.caption || "").slice(0, 200),
-  ].filter(Boolean).join(" ");
-  const richKeywords = extractKeywordsFromText(richText, 4);
-
-  let ctxEN = "";
-  if (opts.businessContext) {
-    const ctxTokens = deaccent(opts.businessContext).replace(/[^a-z\s]/g, " ").split(/\s+/).filter(Boolean);
-    for (const t of ctxTokens) {
-      const tr = translateWord(t);
-      if (tr) { ctxEN = tr; break; }
-    }
-  }
-
-  const parts = [nicheEN, richKeywords.join(" "), ctxEN].filter(Boolean);
+  // Sem userQuery: âncora vira a CENA EDITORIAL do nicho — substitui as
+  // keywords genéricas extraídas do texto do post.
+  const scene = pickNicheScene(opts.niche, opts.seed);
+  const sceneAnchor = scene.split(",")[0].trim(); // "attorney at mahogany desk reviewing documents"
+  const parts = [nicheEN, sceneAnchor].filter(Boolean);
   let query = parts.join(" ").trim();
   query = filterSensitive(query, opts.niche);
   if (!query.trim()) query = "minimal abstract editorial";
@@ -402,30 +386,42 @@ function buildSearchQuery(opts: {
 }
 
 /**
- * Constrói uma descrição rica para o prompt da IA, incluindo nicho,
- * cardCopy do slide (mensagem central), tema e legenda.
+ * Constrói o subject/mensagem para o prompt da IA.
+ * - Com userQuery: comportamento original (keywords do input + contexto).
+ * - Sem userQuery: âncora vira a cena editorial do nicho + até 2 keywords
+ *   do conteúdo do post como contexto emocional leve.
  */
 function buildAIPromptSubject(opts: {
   theme?: string; caption?: string; body?: string; cardCopy?: string;
   niche?: string; businessContext?: string;
   userQuery?: string;
+  seed?: string;
 }): { subject: string; mainMessage: string } {
   const nicheEN = translateNiche(opts.niche);
-  // userQuery > cardCopy > theme > body para a descrição visual concreta
-  const primarySource = opts.userQuery || opts.cardCopy || opts.theme || "";
-  const primaryKeywords = extractKeywordsFromText(primarySource, 4).join(" ");
-  const secondarySource = opts.cardCopy && opts.userQuery
-    ? opts.cardCopy
-    : (opts.theme || opts.body || opts.caption || "");
-  const secondaryKeywords = extractKeywordsFromText(secondarySource, 3).join(" ");
+  const mainMessage = (opts.cardCopy || opts.theme || "").trim().slice(0, 240);
 
-  const subject = [nicheEN, primaryKeywords, secondaryKeywords]
+  if (opts.userQuery && opts.userQuery.trim()) {
+    // Comportamento original preservado.
+    const primaryKeywords = extractKeywordsFromText(opts.userQuery, 4).join(" ");
+    const secondarySource = opts.cardCopy || opts.theme || opts.body || opts.caption || "";
+    const secondaryKeywords = extractKeywordsFromText(secondarySource, 3).join(" ");
+    const subject = [nicheEN, primaryKeywords, secondaryKeywords]
+      .filter(Boolean)
+      .join(", ")
+      .trim() || "minimal editorial scene";
+    return { subject, mainMessage };
+  }
+
+  // Âncora editorial = cena fotográfica concreta do nicho.
+  const scene = pickNicheScene(opts.niche, opts.seed);
+  const ctxKeywords = extractKeywordsFromText(
+    opts.cardCopy || opts.theme || opts.body || "",
+    2,
+  ).join(" ");
+  const subject = [scene, ctxKeywords]
     .filter(Boolean)
     .join(", ")
     .trim() || "minimal editorial scene";
-
-  // Mensagem central original (PT) — ajuda a IA a entender o sentido emocional.
-  const mainMessage = (opts.cardCopy || opts.theme || "").trim().slice(0, 240);
   return { subject, mainMessage };
 }
 
