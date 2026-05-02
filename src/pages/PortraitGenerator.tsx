@@ -505,10 +505,13 @@ const PortraitGenerator = () => {
                       : "Sem créditos disponíveis"}
                 </Button>
                 {generating && (
-                  <div className="space-y-2">
+                  <div className="space-y-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3">
                     <Progress value={undefined} className="animate-pulse" />
+                    <p className="text-sm font-semibold text-amber-700 dark:text-amber-300">
+                      Não saia desta janela.
+                    </p>
                     <p className="text-xs text-muted-foreground">
-                      Gerando seu{requestedCount > 1 ? "s" : ""} {requestedCount} retrato{requestedCount > 1 ? "s" : ""}. Leva cerca de 1 minuto — não feche esta aba.
+                      Gerando seu{requestedCount > 1 ? "s" : ""} {requestedCount} retrato{requestedCount > 1 ? "s" : ""}. Leva cerca de 1 minuto — mantenha esta aba aberta até concluir.
                     </p>
                   </div>
                 )}
