@@ -288,7 +288,7 @@ const PersonalQuestionnaire = () => {
             {blocks.map((b, i) => (
               <button
                 key={b.title}
-                onClick={() => setBlockIndex(i)}
+                onClick={() => goToBlock(i)}
                 className={`flex-1 h-9 rounded-md text-[11px] font-medium transition-all px-2 ${
                   i === blockIndex
                     ? "bg-primary text-primary-foreground shadow-sm"
@@ -299,6 +299,14 @@ const PersonalQuestionnaire = () => {
               </button>
             ))}
           </div>
+          {isEditable && saveStatus !== "idle" && (
+            <div className={`flex items-center gap-1.5 text-[11px] ${saveStatus === "error" ? "text-destructive" : "text-muted-foreground"}`}>
+              {saveStatus === "saving" && <Loader2 className="h-3 w-3 animate-spin" />}
+              {saveStatus === "saved" && <Check className="h-3 w-3 text-success" />}
+              {saveStatus === "error" && <AlertTriangle className="h-3 w-3" />}
+              <span>{SaveStatusLabel(saveStatus)}</span>
+            </div>
+          )}
         </div>
 
         {/* Current block */}
