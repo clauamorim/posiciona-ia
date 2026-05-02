@@ -364,6 +364,9 @@ const BusinessQuestionnaire = () => {
                 ) : null}
               </div>
             </div>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Reanalysis Dialog */}
       <Dialog open={showReanalysisDialog} onOpenChange={setShowReanalysisDialog}>
