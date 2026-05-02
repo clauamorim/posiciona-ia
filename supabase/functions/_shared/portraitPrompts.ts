@@ -708,29 +708,11 @@ export function buildGeminiPortraitPrompt(params: GeminiPromptParams): {
   const possessive = params.gender === "man" ? "his" : "her";
 
   const sceneParts: string[] = [
-    `PHOTOGRAPHIC REALISM ONLY. This must look like a real photograph captured by a professional photographer with a Canon EOS R5 and an 85mm f/1.4 lens. Absolutely NOT a 3D render, NOT CGI, NOT a digital painting, NOT AI-stylized, NOT a beauty-app filter.`,
-
-    // ===== IDENTITY LOCK — TOPO ABSOLUTO, MÁXIMO PESO =====
-    `### IDENTITY LOCK — HIGHEST PRIORITY ###`,
-    `The FIRST reference image is the PRIMARY identity reference (ground truth). The other reference images are auxiliary angles only — use them only to understand 3D structure, never to average or blend features.`,
-    `Reproduce ${possessive} face EXACTLY as it appears in the primary reference. Treat this as a forensic facial reconstruction, not an artistic portrait.`,
-    `Copy with photographic precision: distance between the eyes, natural asymmetries, eyelid shape and position, eye shape and tilt, eyebrow shape and thickness, exact nose length and width, nose tip and nostril shape, mouth width and curvature at rest, upper and lower lip shape and thickness, philtrum, forehead height and width, hairline position and shape, cheekbone structure, jaw angle, chin shape and projection, ear shape and angle, neck proportions.`,
-    `Do NOT average features across references. Do NOT create a generalized, idealized, prettified or symmetric version. Do NOT beautify. Do NOT make ${subject} look like a different person, a lookalike, or an Instagram model. If references differ, ALWAYS anchor to the first reference.`,
-    `Age preservation — match the EXACT apparent age visible in the references. Preserve eye creases, fine lines around the eyes and mouth, neck texture, expression lines, and any visible signs of age. Do NOT regress age, do NOT make ${subject} look younger, do NOT smooth away wrinkles.`,
-    `Ethnicity, natural skin tone, eye color and any distinctive marks — copied EXACTLY from the references.`,
-
-    // ===== SKIN =====
-    `Skin — natural human skin with visible pores, micro-tonal variations, fine surface texture, subtle redness in cheeks and around the nose, faint asymmetries. Preserve every freckle, mole, beauty mark, scar, blemish, vein and skin imperfection visible in the references. Do NOT smooth, do NOT airbrush, do NOT beautify, do NOT apply any filter. Skin must read as REAL human skin under a magazine loupe.`,
-
-    // ===== HAIR TEXTURE LOCK =====
-    `### HAIR TEXTURE LOCK ###`,
-    `Hair must be PHOTOREAL, never blocky or wig-like. Render INDIVIDUAL strands clearly visible along the hairline, temples, parting and nape. Show natural flyaway hairs and gentle frizz at the perimeter. Shine must be IRREGULAR and realistic — soft highlights breaking across uneven strands, never a uniform glossy band.`,
-    `Preserve EXACTLY the hair color, length, density, parting and natural texture (straight, wavy, curly or coily) visible in the references — including any grey strands, roots, or color variation. Do NOT change the haircut, do NOT add volume that isn't there, do NOT straighten or curl beyond what the references show.`,
-    `Eyelashes and eyebrows must show individual hairs, not painted shapes.`,
+    `PHOTOGRAPHIC REALISM ONLY. Real photograph captured by a professional photographer with a Canon EOS R5 and an 85mm f/1.4 lens. Absolutely NOT a 3D render, NOT CGI, NOT a digital painting, NOT AI-stylized, NOT a beauty-app filter.`,
 
     // ===== STUDIO BACKDROP LOCK — fundo SEMPRE estúdio neutro =====
     `### STUDIO BACKDROP LOCK ###`,
-    `Background MUST be a clean professional photo studio with a seamless paper backdrop only. Subtle paper texture and a soft light gradient are allowed. Color palette is STRICTLY neutral: shades of grey, brown and black only. ABSOLUTELY NO saturated colors, NO terracotta, NO mustard, NO pink, NO green, NO blue, NO cream, NO ivory, NO yellow, NO red, NO orange. ABSOLUTELY NO props, NO furniture, NO brick walls, NO concrete walls, NO wood panels, NO windows, NO plants, NO bookshelves, NO studio equipment in frame (no softboxes, no light stands, no tripods, no cables, no reflectors, no umbrellas), NO outdoor scenery, NO architectural elements, NO patterns, NO text. Just the subject in front of a clean neutral textured paper backdrop.`,
+    `Background MUST be a clean professional photo studio with a seamless paper backdrop only. Subtle paper texture and a soft light gradient are allowed. Color palette is STRICTLY neutral: shades of grey, brown and black only. ABSOLUTELY NO saturated colors, NO props, NO furniture, NO walls, NO windows, NO plants, NO studio equipment in frame. Just ${subject} in front of a clean neutral textured paper backdrop.`,
 
     // ===== SCENE =====
     `Scene direction: ${archetypeEssence}.`,
@@ -748,10 +730,23 @@ export function buildGeminiPortraitPrompt(params: GeminiPromptParams): {
     sceneParts.push(`Framing: editorial close-up headshot, vertical 4:5 aspect ratio.`);
   }
   sceneParts.push(
-    `Lighting: soft natural studio lighting from a large softbox (key light) with a subtle fill, gentle falloff, realistic shadow density under the jaw and on the neck, catchlights in the eyes consistent with a real softbox. Add a subtle rim light on the hair to reveal individual strands and natural shine without flattening the hair into a uniform block.`,
+    `Lighting: soft natural studio lighting from a large softbox with subtle fill, gentle falloff, realistic shadow density under the jaw, catchlights in the eyes consistent with a real softbox, subtle rim light on the hair revealing individual strands.`,
   );
   sceneParts.push(
-    `Technical: 85mm f/1.4 lens, shallow but realistic depth of field, accurate color science, fine 35mm film grain, sharp micro-detail on hair strands, eyelashes, eyebrows and skin pores, photorealistic, magazine cover quality.`,
+    `Technical: 85mm f/1.4 lens, shallow but realistic depth of field, accurate color science, fine 35mm film grain, sharp micro-detail on hair strands, eyelashes, eyebrows and skin pores, magazine cover quality.`,
+  );
+
+  // ===== IDENTITY LOCK — no FINAL, posição de maior peso de atenção no Gemini =====
+  // No Gemini, instruções no fim do prompt dominam as do começo. Manter o lock
+  // de identidade aqui é o que mais preserva os traços fisionômicos.
+  sceneParts.push(
+    `### CRITICAL IDENTITY LOCK — THIS OVERRIDES EVERYTHING ABOVE ###`,
+    `The FIRST reference image is the PRIMARY identity reference (ground truth). Any other reference images are auxiliary angles only — use them to understand 3D head structure, NEVER to average, blend, or beautify features.`,
+    `Reproduce ${possessive} face with FORENSIC precision matching the first reference: distance between the eyes, natural facial asymmetries, eyelid shape and position, eye shape, tilt and color, eyebrow shape and thickness, exact nose length, width, bridge, tip and nostril shape, mouth width and curvature at rest, upper and lower lip shape and thickness, philtrum, forehead height and hairline, cheekbone structure, jaw angle, chin shape and projection, ear shape, neck proportions.`,
+    `Skin — preserve EVERY freckle, mole, beauty mark, scar, blemish, pore texture, micro-tonal variation and faint asymmetry visible in the references. Natural human skin under a magazine loupe. Do NOT smooth, do NOT airbrush, do NOT beautify, do NOT apply ANY filter.`,
+    `Hair — preserve EXACTLY the hair color, length, density, parting and natural texture (including grey strands and roots) from the references. Render INDIVIDUAL strands along the hairline, temples and nape with natural flyaways and irregular shine. Eyelashes and eyebrows must show individual hairs.`,
+    `Age — match the EXACT apparent age in the references. Preserve eye creases, fine lines, neck texture and expression lines. Do NOT regress age, do NOT make ${subject} look younger, do NOT smooth wrinkles. Ethnicity, natural skin tone and eye color — copied EXACTLY from the references.`,
+    `ABSOLUTE PROHIBITIONS: do NOT average features across references. Do NOT idealize, prettify, symmetrize or "improve" the face. Do NOT generate a lookalike, an Instagram-model face, a generic AI face, or any face that is not a precise photographic reproduction of the first reference. If the output would not be recognized as the SAME PERSON in the first reference by a close friend, the result is WRONG.`,
   );
 
   sceneParts.push(

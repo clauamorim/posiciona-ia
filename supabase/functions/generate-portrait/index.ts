@@ -210,9 +210,15 @@ serve(async (req) => {
     const gender = mapGender(profileRes.data?.gender);
     const profession = profileRes.data?.profession ?? "";
 
-    // Baixa selfies como data URLs (paralelo)
+    // Baixa selfies como data URLs (paralelo).
+    // IMPORTANTE: limitamos a 5 referências para evitar que o Gemini "média"
+    // os rostos. A primeira selfie é a âncora de identidade (ground truth);
+    // as demais servem só para fornecer ângulos auxiliares. Mais que isso
+    // dilui a semelhança facial.
+    const MAX_REFERENCES_TO_SEND = 5;
+    const refsToUse = references.slice(0, MAX_REFERENCES_TO_SEND);
     const refDownloads = await Promise.all(
-      references.map((r) => downloadReferenceAsDataUrl(supabaseAdmin, r.file_path)),
+      refsToUse.map((r) => downloadReferenceAsDataUrl(supabaseAdmin, r.file_path)),
     );
     const referenceDataUrls = refDownloads
       .filter((d): d is { ok: true; dataUrl: string } => d.ok)
