@@ -37,61 +37,140 @@ const BusinessQuestionnaire = () => {
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [saving, setSaving] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [existingId, setExistingId] = useState<string | null>(null);
   const [isComplete, setIsComplete] = useState(false);
   const [status, setStatus] = useState<QStatus>("draft");
   const [showReanalysisDialog, setShowReanalysisDialog] = useState(false);
+  const insertingRef = useRef(false);
 
   const isLocked = status === "locked";
   const isSubmitted = status === "submitted";
   const isEditable = status === "draft";
   const reanalysisCredits = balances?.reanalysis_credits ?? 0;
+  const storageKey = user ? `posiciona-bq-draft-${user.id}` : "posiciona-bq-draft";
 
-  useEffect(() => {
-    if (!user) return;
-    supabase
-      .from("business_questionnaires")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("version", { ascending: false })
-      .limit(1)
-      .then(({ data }) => {
-        if (data?.[0]) {
-          setExistingId(data[0].id);
-          setIsComplete(data[0].is_complete || false);
-          setStatus((data[0].status as QStatus) || "draft");
-          const existing: Record<string, string> = {};
-          fields.forEach(f => { existing[f.key] = (data[0] as any)[f.key] || ""; });
-          setAnswers(existing);
-        }
-      });
-  }, [user]);
-
-  const save = useCallback(async (complete = false) => {
-    if (!user || isLocked) return;
-    setSaving(true);
-    const newStatus = complete ? "submitted" : "draft";
-    const payload = {
+  // Persist current answers (used by autosave & manual flush).
+  const persist = useCallback(async (overrides?: { complete?: boolean }): Promise<{ ok: boolean; error?: string }> => {
+    if (!user || isLocked) return { ok: false, error: "locked" };
+    const complete = overrides?.complete ?? false;
+    const newStatus: QStatus = complete ? "submitted" : (isSubmitted ? "submitted" : "draft");
+    const payload: any = {
       user_id: user.id,
       ...answers,
-      is_complete: complete,
+      is_complete: complete || isComplete,
       status: newStatus,
     };
-    if (existingId) {
-      await supabase.from("business_questionnaires").update(payload).eq("id", existingId);
-    } else {
-      const { data } = await supabase.from("business_questionnaires").insert(payload).select("id").single();
+    try {
+      if (existingId) {
+        const { error } = await supabase.from("business_questionnaires").update(payload).eq("id", existingId);
+        if (error) return { ok: false, error: error.message };
+        return { ok: true };
+      }
+      // Evita inserts paralelos duplicados
+      if (insertingRef.current) return { ok: true };
+      insertingRef.current = true;
+      const { data, error } = await supabase.from("business_questionnaires").insert(payload).select("id").single();
+      insertingRef.current = false;
+      if (error) return { ok: false, error: error.message };
       if (data) setExistingId(data.id);
+      return { ok: true };
+    } catch (e: any) {
+      insertingRef.current = false;
+      return { ok: false, error: e?.message || "save failed" };
     }
-    setSaving(false);
-    if (complete) {
-      setIsComplete(true);
-      setStatus("submitted");
+  }, [user, isLocked, isSubmitted, isComplete, answers, existingId]);
+
+  const { status: saveStatus, flush, clearLocalBackup, readLocalBackup } = useQuestionnaireAutosave({
+    userId: user?.id,
+    answers,
+    enabled: isEditable && hydrated,
+    storageKey,
+    saveFn: () => persist(),
+  });
+
+  // Hidrata do banco e mescla com backup local se existir.
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("business_questionnaires")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("version", { ascending: false })
+        .limit(1);
+      if (cancelled) return;
+
+      let dbAnswers: Record<string, string> = {};
+      let dbStatus: QStatus = "draft";
+      let dbComplete = false;
+      let dbId: string | null = null;
+      if (data?.[0]) {
+        dbId = data[0].id;
+        dbStatus = (data[0].status as QStatus) || "draft";
+        dbComplete = data[0].is_complete || false;
+        fields.forEach(f => { dbAnswers[f.key] = (data[0] as any)[f.key] || ""; });
+      } else {
+        fields.forEach(f => { dbAnswers[f.key] = ""; });
+      }
+
+      // Recupera backup local se for rascunho e tiver mais conteúdo
+      if (dbStatus === "draft") {
+        try {
+          const raw = localStorage.getItem(`posiciona-bq-draft-${user.id}`);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            const local = parsed?.answers as Record<string, string> | undefined;
+            if (local) {
+              const localFilled = Object.values(local).filter(v => (v || "").trim().length > 0).length;
+              const dbFilled = Object.values(dbAnswers).filter(v => (v || "").trim().length > 0).length;
+              if (localFilled > dbFilled) {
+                dbAnswers = { ...dbAnswers, ...local };
+                toast({ title: "Rascunho recuperado", description: "Restauramos respostas que ainda não tinham sido sincronizadas." });
+              }
+            }
+          }
+        } catch { /* ignore */ }
+      }
+
+      setExistingId(dbId);
+      setIsComplete(dbComplete);
+      setStatus(dbStatus);
+      setAnswers(dbAnswers);
+      setHydrated(true);
+    })();
+    return () => { cancelled = true; };
+  }, [user]);
+
+  const submit = useCallback(async () => {
+    if (!user || isLocked) return;
+    setSubmitting(true);
+    const flushed = await flush();
+    if (!flushed) {
+      setSubmitting(false);
+      toast({ title: "Não foi possível salvar", description: "Verifique sua conexão e tente novamente.", variant: "destructive" });
+      return;
     }
-    toast({ title: complete ? "Questionário enviado!" : "Salvo automaticamente" });
-    if (complete) navigate("/personal-questionnaire");
-  }, [user, answers, existingId, navigate, isLocked]);
+    const res = await persist({ complete: true });
+    setSubmitting(false);
+    if (!res.ok) {
+      toast({ title: "Não foi possível enviar", description: res.error || "Tente novamente.", variant: "destructive" });
+      return;
+    }
+    setIsComplete(true);
+    setStatus("submitted");
+    clearLocalBackup();
+    toast({ title: "Questionário enviado!" });
+    navigate("/personal-questionnaire");
+  }, [user, isLocked, flush, persist, clearLocalBackup, navigate]);
+
+  const goToStep = useCallback(async (target: number) => {
+    if (isEditable) await flush();
+    setStep(target);
+  }, [isEditable, flush]);
+
 
   const handleReanalysis = async (mode: "edit" | "reset") => {
     if (!user || reanalysisCredits < 1) return;
