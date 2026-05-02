@@ -343,30 +343,27 @@ const BusinessQuestionnaire = () => {
             )}
 
             <div className="flex items-center justify-between pt-1">
-              <Button variant="ghost" size="sm" onClick={() => setStep(s => s - 1)} disabled={step === 0}>
+              <Button variant="ghost" size="sm" onClick={() => goToStep(step - 1)} disabled={step === 0}>
                 <ChevronLeft className="h-4 w-4 mr-1" /> Anterior
               </Button>
 
               <div className="flex items-center gap-2">
                 {isEditable && (
-                  <Button variant="ghost" size="sm" onClick={() => save(false)} disabled={saving} className="text-muted-foreground">
-                    <Save className="h-3.5 w-3.5 mr-1" /> {saving ? "..." : "Salvar"}
+                  <Button variant="ghost" size="sm" onClick={() => flush()} disabled={saveStatus === "saving"} className="text-muted-foreground">
+                    <Save className="h-3.5 w-3.5 mr-1" /> {saveStatus === "saving" ? "..." : "Salvar"}
                   </Button>
                 )}
                 {step < fields.length - 1 ? (
-                  <Button size="sm" onClick={() => { if (isEditable) save(false); setStep(s => s + 1); }}>
+                  <Button size="sm" onClick={() => goToStep(step + 1)}>
                     Próximo <ChevronRight className="h-4 w-4 ml-1" />
                   </Button>
                 ) : isEditable ? (
-                  <Button size="sm" onClick={() => save(true)} disabled={!allFilled}>
-                    Concluir diagnóstico
+                  <Button size="sm" onClick={submit} disabled={!allFilled || submitting || saveStatus === "saving"}>
+                    {submitting ? <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Enviando…</> : "Concluir diagnóstico"}
                   </Button>
                 ) : null}
               </div>
             </div>
-          </CardContent>
-        </Card>
-      </div>
 
       {/* Reanalysis Dialog */}
       <Dialog open={showReanalysisDialog} onOpenChange={setShowReanalysisDialog}>
