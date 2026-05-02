@@ -246,7 +246,7 @@ export const ARCHETYPE_PROMPTS: Record<ArchetypeName, { prompt: string; negative
 export const BACKGROUND_VARIATIONS = [
   { key: "neutro", label: "Neutro", replacement: null }, // mantém o paper backdrop do arquétipo
   { key: "claro", label: "Claro", replacement: "light grey seamless paper studio backdrop with subtle paper texture," },
-  { key: "escuro", label: "Escuro", replacement: "deep charcoal seamless paper studio backdrop with subtle paper texture," },
+  { key: "escuro", label: "Escuro", replacement: "medium-dark charcoal grey seamless paper studio backdrop with subtle paper texture (NOT pure black, keep the backdrop a few stops above black so the face stays well-lit and clearly readable)," },
 ] as const;
 
 /**
@@ -732,6 +732,13 @@ export function buildGeminiPortraitPrompt(params: GeminiPromptParams): {
   sceneParts.push(
     `Lighting: soft natural studio lighting from a large softbox with subtle fill, gentle falloff, realistic shadow density under the jaw, catchlights in the eyes consistent with a real softbox, subtle rim light on the hair revealing individual strands.`,
   );
+  if (params.backgroundIndex === 2) {
+    // Fundo escuro: o modelo tende a subexpor o rosto e perder traços. Forçamos
+    // exposição correta da pele e separação clara do fundo via rim light.
+    sceneParts.push(
+      `CRITICAL EXPOSURE FOR DARK BACKDROP: the face MUST be fully and evenly lit at correct skin exposure — never underexposed, never in shadow, never silhouetted against the dark backdrop. Use a strong key softbox at 45° plus a soft fill to keep ALL facial features (eyes, nose bridge, mouth, jawline, skin texture, freckles, moles) sharply visible and clearly readable. Add a defined rim/hair light to separate ${possessive} head and shoulders from the dark backdrop. Skin tone, micro-detail and identity must be IDENTICAL to the references — the dark backdrop must NEVER cause loss of facial detail or feature drift.`,
+    );
+  }
   sceneParts.push(
     `Technical: 85mm f/1.4 lens, shallow but realistic depth of field, accurate color science, fine 35mm film grain, sharp micro-detail on hair strands, eyelashes, eyebrows and skin pores, magazine cover quality.`,
   );
