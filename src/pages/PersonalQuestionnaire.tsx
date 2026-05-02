@@ -364,14 +364,14 @@ const PersonalQuestionnaire = () => {
             </div>
 
             <div className="flex items-center justify-between pt-1 border-t border-border/40">
-              <Button variant="ghost" size="sm" onClick={() => setBlockIndex(i => i - 1)} disabled={isFirst}>
+              <Button variant="ghost" size="sm" onClick={() => goToBlock(blockIndex - 1)} disabled={isFirst}>
                 <ChevronLeft className="h-4 w-4 mr-1" /> Anterior
               </Button>
 
               <div className="flex items-center gap-2">
                 {!isSubmitted && (
-                  <Button variant="ghost" size="sm" onClick={() => save(false)} disabled={saving} className="text-muted-foreground">
-                    <Save className="h-3.5 w-3.5 mr-1" /> {saving ? "..." : "Salvar"}
+                  <Button variant="ghost" size="sm" onClick={() => flush()} disabled={saveStatus === "saving"} className="text-muted-foreground">
+                    <Save className="h-3.5 w-3.5 mr-1" /> {saveStatus === "saving" ? "..." : "Salvar"}
                   </Button>
                 )}
                 {!isLast ? (
@@ -379,8 +379,8 @@ const PersonalQuestionnaire = () => {
                     Próximo bloco <ChevronRight className="h-4 w-4 ml-1" />
                   </Button>
                 ) : !isSubmitted ? (
-                  <Button size="sm" onClick={() => save(true)} disabled={!canFinish || saving}>
-                    <Sparkles className="h-3.5 w-3.5 mr-1" /> Concluir e ir para Arquétipos
+                  <Button size="sm" onClick={submit} disabled={!canFinish || submitting || saveStatus === "saving"}>
+                    {submitting ? <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Enviando…</> : <><Sparkles className="h-3.5 w-3.5 mr-1" /> Concluir e ir para Arquétipos</>}
                   </Button>
                 ) : (
                   <Button size="sm" onClick={() => navigate("/archetype-questionnaire")}>
