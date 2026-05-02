@@ -190,6 +190,14 @@ function translateNiche(niche?: string): string {
   return tokens.slice(0, 2).join(" ");
 }
 
+/** Filtra termos sensíveis quando o nicho não é infantil. */
+function filterSensitive(query: string, niche?: string): string {
+  const nicheIsKidFriendly = niche && KID_FRIENDLY_NICHES.some((k) => deaccent(niche).includes(k));
+  if (nicheIsKidFriendly) return query;
+  const tokens = query.split(/\s+/).filter((t) => !SENSITIVE_TERMS.includes(t));
+  return tokens.join(" ");
+}
+
 // =====================================================
 // Banco de cenas editoriais por nicho profissional
 // Cada cena: ambiente + iluminação + composição + postura.
