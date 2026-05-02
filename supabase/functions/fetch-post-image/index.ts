@@ -198,6 +198,147 @@ function filterSensitive(query: string, niche?: string): string {
   return tokens.join(" ");
 }
 
+// =====================================================
+// Banco de cenas editoriais por nicho profissional
+// Cada cena: ambiente + iluminação + composição + postura.
+// Usado quando o usuário NÃO digitou um userQuery — substitui
+// keywords genéricas extraídas do texto do post por direção
+// fotográfica concreta.
+// =====================================================
+const NICHE_SCENES: Record<string, string[]> = {
+  lawyer: [
+    "attorney at mahogany desk reviewing documents, dramatic side lighting, leather-bound books in background",
+    "lawyer in tailored dark suit walking through neoclassical courthouse corridor, warm afternoon light",
+    "close-up of hands signing contract beside a fountain pen and law books, shallow depth of field",
+    "female attorney by tall office window, city skyline behind, soft directional light, contemplative posture",
+  ],
+  doctor: [
+    "physician in white coat at modern clinic, confident posture, soft window light, stethoscope visible",
+    "doctor reviewing chart at minimalist consultation desk, warm natural light, calm and authoritative",
+    "hands of a physician examining medical imaging on a tablet, clean clinical environment, soft shadows",
+  ],
+  executive: [
+    "executive in dark suit at glass desk, bokeh city view behind, golden hour light",
+    "businesswoman in cream blazer leading strategy meeting in glass-walled boardroom, soft daylight",
+    "close-up of wristwatch and laptop on dark walnut desk, espresso cup beside, moody editorial light",
+  ],
+  consultant: [
+    "consultant standing at whiteboard sketching diagrams, sleeves rolled, focused expression, side daylight",
+    "two professionals reviewing strategy document at minimalist meeting table, warm filtered light",
+    "consultant at coworking space with laptop and notebook, neutral palette, soft window light",
+  ],
+  accountant: [
+    "accountant at clean desk reviewing spreadsheets on dual monitors, calm task light, organized workspace",
+    "close-up of calculator, ledger and cup of coffee on a wooden desk, morning light from the side",
+    "professional in shirt and tie examining financial reports, glasses in hand, contemplative expression",
+  ],
+  therapist: [
+    "therapist office with two armchairs, warm lamp light, plants and bookshelf, inviting calm atmosphere",
+    "hands holding a notebook in a softly lit consultation room, neutral earthy palette",
+    "psychologist in knit sweater listening attentively, soft daylight, blurred bookshelf background",
+  ],
+  architect: [
+    "architect reviewing blueprints on a long wooden table, scale model nearby, daylight from skylight",
+    "designer's desk with rolled drawings, T-square and brass lamp, minimal Scandinavian palette",
+    "architect at construction site wearing white shirt and hard hat, golden hour, confident stance",
+  ],
+  coach: [
+    "coach mid-conversation in airy studio with plants, soft daylight, warm and energetic posture",
+    "notebook with handwritten goals beside steaming coffee on a linen tablecloth, morning light",
+    "speaker on minimal stage addressing small audience, warm spotlight, editorial framing",
+  ],
+  marketing: [
+    "creative team reviewing mood board on studio wall, natural light, energetic but composed",
+    "designer at iMac with sketches pinned around the desk, warm afternoon light",
+    "social media strategist with smartphone and notebook in modern cafe, soft window light",
+  ],
+  realtor: [
+    "real-estate agent handing keys in front of bright contemporary house, golden hour",
+    "professional touring buyers through sunlit modern living room with floor-to-ceiling windows",
+    "close-up of architectural model and floor plan on concrete table, directional daylight",
+  ],
+  fitness: [
+    "personal trainer in minimalist gym demonstrating posture, raking morning light, athletic but composed",
+    "athlete tying running shoes on stadium track at sunrise, muted palette, editorial framing",
+    "kettlebell and towel on polished concrete floor, dramatic side light, calm composition",
+  ],
+  nutrition: [
+    "nutritionist plating colorful seasonal vegetables on a marble counter, soft daylight overhead",
+    "close-up of fresh produce, olive oil and notebook on light wooden table, airy editorial style",
+    "professional in linen apron writing meal plan beside bowl of fruit, warm window light",
+  ],
+  dentist: [
+    "modern minimalist dental clinic with soft daylight, clean white tones, no patient in frame",
+    "close-up of dental tools arranged on a clean tray, soft directional light",
+  ],
+  designer: [
+    "graphic designer sketching in notebook beside laptop and color swatches, soft side light",
+    "studio desk with minimal still life of design tools, neutral palette, gentle shadows",
+  ],
+  photographer: [
+    "photographer holding camera by large window, soft directional light, contemplative posture",
+    "still-life of vintage camera, prints and notebook on wooden table, editorial framing",
+  ],
+  veterinarian: [
+    "veterinarian in scrubs petting calm dog at modern clinic, warm soft light",
+    "close-up of stethoscope on wooden surface beside small plant, neutral palette, soft shadows",
+  ],
+  default: [
+    "minimalist editorial workspace with notebook, warm coffee and morning daylight from the side",
+    "professional in neutral attire by tall window, soft directional light, calm confident posture",
+    "still-life of leather notebook, fountain pen and ceramic cup on linen surface, editorial framing",
+    "architectural interior with single armchair and plant, warm ambient light, generous negative space",
+  ],
+};
+
+// Mapeia nicho PT → chave do mapa de cenas.
+function resolveNicheKey(niche?: string): keyof typeof NICHE_SCENES {
+  if (!niche) return "default";
+  const n = deaccent(niche);
+  if (/(advog|jurid|direito)/.test(n)) return "lawyer";
+  if (/(medic|saude|clinic)/.test(n)) return "doctor";
+  if (/(executiv|ceo|empresari|gestor)/.test(n)) return "executive";
+  if (/(consult)/.test(n)) return "consultant";
+  if (/(contad|contabil)/.test(n)) return "accountant";
+  if (/(psicolog|terapeut|terapia)/.test(n)) return "therapist";
+  if (/(arquitet)/.test(n)) return "architect";
+  if (/(coach|mentor)/.test(n)) return "coach";
+  if (/(marketing|publicid|social media|midia)/.test(n)) return "marketing";
+  if (/(corret|imobili|imovel|imoveis)/.test(n)) return "realtor";
+  if (/(personal|fitness|treinad|academ)/.test(n)) return "fitness";
+  if (/(nutri)/.test(n)) return "nutrition";
+  if (/(dentist|odonto)/.test(n)) return "dentist";
+  if (/(design|estilis|moda)/.test(n)) return "designer";
+  if (/(fotograf)/.test(n)) return "photographer";
+  if (/(veterin|pet)/.test(n)) return "veterinarian";
+  return "default";
+}
+
+// Hash determinístico simples para usar com seed.
+function seedHash(seed: string): number {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) {
+    h = ((h << 5) - h + seed.charCodeAt(i)) | 0;
+  }
+  return Math.abs(h);
+}
+
+/**
+ * Sorteia uma cena editorial do nicho. Quando `seed` é informado,
+ * a escolha é determinística (slide N do mesmo carrossel cai sempre
+ * na mesma cena). Sem seed, sorteia aleatoriamente para gerar
+ * variedade entre chamadas.
+ */
+function pickNicheScene(niche?: string, seed?: string): string {
+  const key = resolveNicheKey(niche);
+  const scenes = NICHE_SCENES[key] || NICHE_SCENES.default;
+  if (!scenes.length) return "minimal editorial scene";
+  const idx = seed
+    ? seedHash(seed) % scenes.length
+    : Math.floor(Math.random() * scenes.length);
+  return scenes[idx];
+}
+
 /**
  * Constrói query de busca priorizando o "sentido real do post".
  * Ordem de prioridade na extração de keywords:
@@ -213,18 +354,17 @@ function buildSearchQuery(opts: {
   theme?: string; caption?: string; body?: string; cardCopy?: string;
   niche?: string; businessContext?: string;
   userQuery?: string;
+  /** Seed determinística para variar a cena escolhida por chamada/slide. */
+  seed?: string;
 }): string {
   const nicheEN = translateNiche(opts.niche);
 
-  // Se o usuário digitou algo, ele lidera a intenção visual.
+  // Se o usuário digitou algo, ele lidera a intenção visual (comportamento original).
   if (opts.userQuery && opts.userQuery.trim()) {
     const userKeywords = extractKeywordsFromText(opts.userQuery, 4);
-    // Se a tradução não rendeu nada (texto muito abstrato/sem dicionário),
-    // mantém o input cru deaccentado como fallback.
     const userPart = userKeywords.length > 0
       ? userKeywords.join(" ")
       : deaccent(opts.userQuery).replace(/[^a-z\s]/g, " ").trim();
-    // Adiciona 1-2 keywords do cardCopy/tema como contexto, sem dominar
     const ctxText = [opts.cardCopy, opts.theme].filter(Boolean).join(" ");
     const ctxKeywords = extractKeywordsFromText(ctxText, 2);
     const parts = [nicheEN, userPart, ctxKeywords.join(" ")].filter(Boolean);
@@ -234,26 +374,11 @@ function buildSearchQuery(opts: {
     return q.slice(0, 90);
   }
 
-  // Sem userQuery: extrai do contexto do post.
-  // cardCopy primeiro (peso máximo — é a frase visível daquele slide).
-  const richText = [
-    opts.cardCopy,
-    opts.theme,
-    opts.body,
-    (opts.caption || "").slice(0, 200),
-  ].filter(Boolean).join(" ");
-  const richKeywords = extractKeywordsFromText(richText, 4);
-
-  let ctxEN = "";
-  if (opts.businessContext) {
-    const ctxTokens = deaccent(opts.businessContext).replace(/[^a-z\s]/g, " ").split(/\s+/).filter(Boolean);
-    for (const t of ctxTokens) {
-      const tr = translateWord(t);
-      if (tr) { ctxEN = tr; break; }
-    }
-  }
-
-  const parts = [nicheEN, richKeywords.join(" "), ctxEN].filter(Boolean);
+  // Sem userQuery: âncora vira a CENA EDITORIAL do nicho — substitui as
+  // keywords genéricas extraídas do texto do post.
+  const scene = pickNicheScene(opts.niche, opts.seed);
+  const sceneAnchor = scene.split(",")[0].trim(); // "attorney at mahogany desk reviewing documents"
+  const parts = [nicheEN, sceneAnchor].filter(Boolean);
   let query = parts.join(" ").trim();
   query = filterSensitive(query, opts.niche);
   if (!query.trim()) query = "minimal abstract editorial";
@@ -261,30 +386,42 @@ function buildSearchQuery(opts: {
 }
 
 /**
- * Constrói uma descrição rica para o prompt da IA, incluindo nicho,
- * cardCopy do slide (mensagem central), tema e legenda.
+ * Constrói o subject/mensagem para o prompt da IA.
+ * - Com userQuery: comportamento original (keywords do input + contexto).
+ * - Sem userQuery: âncora vira a cena editorial do nicho + até 2 keywords
+ *   do conteúdo do post como contexto emocional leve.
  */
 function buildAIPromptSubject(opts: {
   theme?: string; caption?: string; body?: string; cardCopy?: string;
   niche?: string; businessContext?: string;
   userQuery?: string;
+  seed?: string;
 }): { subject: string; mainMessage: string } {
   const nicheEN = translateNiche(opts.niche);
-  // userQuery > cardCopy > theme > body para a descrição visual concreta
-  const primarySource = opts.userQuery || opts.cardCopy || opts.theme || "";
-  const primaryKeywords = extractKeywordsFromText(primarySource, 4).join(" ");
-  const secondarySource = opts.cardCopy && opts.userQuery
-    ? opts.cardCopy
-    : (opts.theme || opts.body || opts.caption || "");
-  const secondaryKeywords = extractKeywordsFromText(secondarySource, 3).join(" ");
+  const mainMessage = (opts.cardCopy || opts.theme || "").trim().slice(0, 240);
 
-  const subject = [nicheEN, primaryKeywords, secondaryKeywords]
+  if (opts.userQuery && opts.userQuery.trim()) {
+    // Comportamento original preservado.
+    const primaryKeywords = extractKeywordsFromText(opts.userQuery, 4).join(" ");
+    const secondarySource = opts.cardCopy || opts.theme || opts.body || opts.caption || "";
+    const secondaryKeywords = extractKeywordsFromText(secondarySource, 3).join(" ");
+    const subject = [nicheEN, primaryKeywords, secondaryKeywords]
+      .filter(Boolean)
+      .join(", ")
+      .trim() || "minimal editorial scene";
+    return { subject, mainMessage };
+  }
+
+  // Âncora editorial = cena fotográfica concreta do nicho.
+  const scene = pickNicheScene(opts.niche, opts.seed);
+  const ctxKeywords = extractKeywordsFromText(
+    opts.cardCopy || opts.theme || opts.body || "",
+    2,
+  ).join(" ");
+  const subject = [scene, ctxKeywords]
     .filter(Boolean)
     .join(", ")
     .trim() || "minimal editorial scene";
-
-  // Mensagem central original (PT) — ajuda a IA a entender o sentido emocional.
-  const mainMessage = (opts.cardCopy || opts.theme || "").trim().slice(0, 240);
   return { subject, mainMessage };
 }
 
@@ -441,6 +578,7 @@ Deno.serve(async (req) => {
       theme, caption, body: postBody, cardCopy,
       niche, businessContext,
       userQuery: effectiveUserQuery,
+      seed: nonce,
     });
     console.log("Search query:", keywords, "(niche:", niche, "format:", format, "mode:", mode, "userQuery:", effectiveUserQuery || "—", "cardCopy:", (cardCopy || "").slice(0, 60), ")");
 
@@ -468,6 +606,7 @@ Deno.serve(async (req) => {
         theme, caption, body: postBody, cardCopy,
         niche, businessContext,
         userQuery: effectiveUserQuery,
+        seed: nonce,
       });
       console.log("AI prompt subject:", subject, "| message:", mainMessage.slice(0, 80), "| style:", (aiStyleDirective || "—").slice(0, 80), "| nonce:", nonce);
       const url = await generateWithAI(subject, mainMessage, format, nonce, aiStyleDirective);

@@ -227,6 +227,9 @@ const PostEditorPage = () => {
   const [renderOrder, setRenderOrder] = useState<string[]>([]);
   const [showRulers, setShowRulers] = useState(false);
   const [slideTextBoxes, setSlideTextBoxes] = useState<Record<number, TextBox[]>>(draft?.slideTextBoxes ?? {});
+  // Imagem de fundo independente por slide do carrossel + variação visual sutil
+  // (opacidade e object-position alternados) — gera ritmo entre os cards.
+  const [slideBackgrounds, setSlideBackgrounds] = useState<Record<number, { url: string; opacity: number; objectPosition: string }>>({});
   const handleSlideTextBoxesChange = useCallback((slideIndex: number, boxes: TextBox[]) => {
     setSlideTextBoxes((prev) => {
       const existing = prev[slideIndex];
@@ -532,6 +535,59 @@ const PostEditorPage = () => {
     })();
   }, [user, day, palette, weekIndex, dayIndex, canvasFormat, bgIndex, initialStyle, userNiche, businessContext]);
 
+  // Carrossel + estilo Pexels: busca uma imagem independente para cada slide,
+  // com variação sutil de opacidade e object-position para criar ritmo visual.
+  // Apenas Pexels (gratuito); estilo "ai" mantém uma imagem só para não estourar custo.
+  const slideBgRanRef = useRef(false);
+  useEffect(() => {
+    if (!day || slideBgRanRef.current) return;
+    const isCarouselDay = day.format?.toLowerCase() === "carrossel";
+    if (!isCarouselDay || initialStyle !== "pexels") return;
+    const totalSlides = Math.max(1, day.card_copy?.length || 1);
+    if (totalSlides <= 1) return;
+    slideBgRanRef.current = true;
+
+    const opacityCycle = [0.45, 0.55, 0.65];
+    const positionCycle = ["center center", "center top", "center bottom"];
+    const themeStr = (day.theme || day.caption || "").toString();
+    const baseSeed = Date.now();
+
+    (async () => {
+      const updates: Record<number, { url: string; opacity: number; objectPosition: string }> = {};
+      for (let i = 0; i < totalSlides; i++) {
+        try {
+          const slideBody = (day.card_copy?.[i] || day.caption || "").toString();
+          const res = await supabase.functions.invoke("fetch-post-image", {
+            body: {
+              theme: themeStr,
+              caption: day.caption,
+              body: slideBody,
+              cardCopy: slideBody,
+              format: canvasFormat === "reels" ? "reels" : "card",
+              niche: userNiche,
+              businessContext,
+              mode: "single",
+              nonce: `${baseSeed}-${i}-${Math.random().toString(36).slice(2, 8)}`,
+            },
+          });
+          const url = res?.data?.url;
+          if (url) {
+            updates[i] = {
+              url,
+              opacity: opacityCycle[i % opacityCycle.length],
+              objectPosition: positionCycle[i % positionCycle.length],
+            };
+          }
+        } catch (err) {
+          console.warn("[slide-bg] fetch failed for slide", i, err);
+        }
+      }
+      if (Object.keys(updates).length > 0) {
+        setSlideBackgrounds((prev) => ({ ...prev, ...updates }));
+      }
+    })();
+  }, [day, canvasFormat, initialStyle, userNiche, businessContext]);
+
   // Trocar imagem de fundo (busca nova do Unsplash)
   const handleSwapBackground = useCallback(async () => {
     if (swappingBackground || !day) return;
@@ -665,6 +721,19 @@ const PostEditorPage = () => {
     : null;
 
   const isCarousel = day?.format?.toLowerCase() === "carrossel";
+
+  // Quando há background por slide, substitui o overlay de fundo (tpl-bg-*)
+  // pela imagem específica daquele slide + opacidade/object-position alternados.
+  const carouselOverlays = (() => {
+    if (!isCarousel) return overlayImages;
+    const slideBg = slideBackgrounds[currentSlide];
+    if (!slideBg) return overlayImages;
+    return overlayImages.map((o) =>
+      o.id.startsWith("tpl-bg-")
+        ? { ...o, src: slideBg.url, opacity: slideBg.opacity, objectPosition: slideBg.objectPosition }
+        : o
+    );
+  })();
 
   const handleAddImage = (image: OverlayImage) => {
     setOverlayImages((prev) => [...prev, image]);
@@ -1251,7 +1320,7 @@ const PostEditorPage = () => {
                 slideRefs={slideRefs}
                 initialTextBoxes={initialTextBoxes}
                 resetKey={`${initialStyle || "minimal"}-${canvasFormat}-${currentSlide}`}
-                overlayImages={overlayImages} onUpdateOverlay={handleUpdateOverlay}
+                overlayImages={carouselOverlays} onUpdateOverlay={handleUpdateOverlay}
                 onImageMove={handleImageMove} onImageResize={handleImageResize}
                 selectedImageId={selectedImageId} onSelectImage={setSelectedImageId}
                 fontSize={fontSize} fontWeight={fontWeight} fontStyle={fontStyle}

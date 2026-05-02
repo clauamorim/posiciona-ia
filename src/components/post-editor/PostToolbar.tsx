@@ -14,6 +14,8 @@ export interface OverlayImage {
   height: number;
   type: "logo" | "photo" | "element" | "textbox";
   opacity?: number;
+  /** CSS object-position aplicado quando objectFit === 'cover'. Ex: 'center top'. */
+  objectPosition?: string;
   text?: string;
   textColor?: string;
   bgColor?: string;
