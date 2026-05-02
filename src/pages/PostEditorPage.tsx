@@ -535,6 +535,59 @@ const PostEditorPage = () => {
     })();
   }, [user, day, palette, weekIndex, dayIndex, canvasFormat, bgIndex, initialStyle, userNiche, businessContext]);
 
+  // Carrossel + estilo Pexels: busca uma imagem independente para cada slide,
+  // com variação sutil de opacidade e object-position para criar ritmo visual.
+  // Apenas Pexels (gratuito); estilo "ai" mantém uma imagem só para não estourar custo.
+  const slideBgRanRef = useRef(false);
+  useEffect(() => {
+    if (!day || slideBgRanRef.current) return;
+    const isCarouselDay = day.format?.toLowerCase() === "carrossel";
+    if (!isCarouselDay || initialStyle !== "pexels") return;
+    const totalSlides = Math.max(1, day.card_copy?.length || 1);
+    if (totalSlides <= 1) return;
+    slideBgRanRef.current = true;
+
+    const opacityCycle = [0.45, 0.55, 0.65];
+    const positionCycle = ["center center", "center top", "center bottom"];
+    const themeStr = (day.theme || day.caption || "").toString();
+    const baseSeed = Date.now();
+
+    (async () => {
+      const updates: Record<number, { url: string; opacity: number; objectPosition: string }> = {};
+      for (let i = 0; i < totalSlides; i++) {
+        try {
+          const slideBody = (day.card_copy?.[i] || day.caption || "").toString();
+          const res = await supabase.functions.invoke("fetch-post-image", {
+            body: {
+              theme: themeStr,
+              caption: day.caption,
+              body: slideBody,
+              cardCopy: slideBody,
+              format: canvasFormat === "reels" ? "reels" : "card",
+              niche: userNiche,
+              businessContext,
+              mode: "single",
+              nonce: `${baseSeed}-${i}-${Math.random().toString(36).slice(2, 8)}`,
+            },
+          });
+          const url = res?.data?.url;
+          if (url) {
+            updates[i] = {
+              url,
+              opacity: opacityCycle[i % opacityCycle.length],
+              objectPosition: positionCycle[i % positionCycle.length],
+            };
+          }
+        } catch (err) {
+          console.warn("[slide-bg] fetch failed for slide", i, err);
+        }
+      }
+      if (Object.keys(updates).length > 0) {
+        setSlideBackgrounds((prev) => ({ ...prev, ...updates }));
+      }
+    })();
+  }, [day, canvasFormat, initialStyle, userNiche, businessContext]);
+
   // Trocar imagem de fundo (busca nova do Unsplash)
   const handleSwapBackground = useCallback(async () => {
     if (swappingBackground || !day) return;
