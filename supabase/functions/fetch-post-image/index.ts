@@ -190,12 +190,145 @@ function translateNiche(niche?: string): string {
   return tokens.slice(0, 2).join(" ");
 }
 
-/** Filtra termos sensíveis quando o nicho não é infantil. */
-function filterSensitive(query: string, niche?: string): string {
-  const nicheIsKidFriendly = niche && KID_FRIENDLY_NICHES.some((k) => deaccent(niche).includes(k));
-  if (nicheIsKidFriendly) return query;
-  const tokens = query.split(/\s+/).filter((t) => !SENSITIVE_TERMS.includes(t));
-  return tokens.join(" ");
+// =====================================================
+// Banco de cenas editoriais por nicho profissional
+// Cada cena: ambiente + iluminação + composição + postura.
+// Usado quando o usuário NÃO digitou um userQuery — substitui
+// keywords genéricas extraídas do texto do post por direção
+// fotográfica concreta.
+// =====================================================
+const NICHE_SCENES: Record<string, string[]> = {
+  lawyer: [
+    "attorney at mahogany desk reviewing documents, dramatic side lighting, leather-bound books in background",
+    "lawyer in tailored dark suit walking through neoclassical courthouse corridor, warm afternoon light",
+    "close-up of hands signing contract beside a fountain pen and law books, shallow depth of field",
+    "female attorney by tall office window, city skyline behind, soft directional light, contemplative posture",
+  ],
+  doctor: [
+    "physician in white coat at modern clinic, confident posture, soft window light, stethoscope visible",
+    "doctor reviewing chart at minimalist consultation desk, warm natural light, calm and authoritative",
+    "hands of a physician examining medical imaging on a tablet, clean clinical environment, soft shadows",
+  ],
+  executive: [
+    "executive in dark suit at glass desk, bokeh city view behind, golden hour light",
+    "businesswoman in cream blazer leading strategy meeting in glass-walled boardroom, soft daylight",
+    "close-up of wristwatch and laptop on dark walnut desk, espresso cup beside, moody editorial light",
+  ],
+  consultant: [
+    "consultant standing at whiteboard sketching diagrams, sleeves rolled, focused expression, side daylight",
+    "two professionals reviewing strategy document at minimalist meeting table, warm filtered light",
+    "consultant at coworking space with laptop and notebook, neutral palette, soft window light",
+  ],
+  accountant: [
+    "accountant at clean desk reviewing spreadsheets on dual monitors, calm task light, organized workspace",
+    "close-up of calculator, ledger and cup of coffee on a wooden desk, morning light from the side",
+    "professional in shirt and tie examining financial reports, glasses in hand, contemplative expression",
+  ],
+  therapist: [
+    "therapist office with two armchairs, warm lamp light, plants and bookshelf, inviting calm atmosphere",
+    "hands holding a notebook in a softly lit consultation room, neutral earthy palette",
+    "psychologist in knit sweater listening attentively, soft daylight, blurred bookshelf background",
+  ],
+  architect: [
+    "architect reviewing blueprints on a long wooden table, scale model nearby, daylight from skylight",
+    "designer's desk with rolled drawings, T-square and brass lamp, minimal Scandinavian palette",
+    "architect at construction site wearing white shirt and hard hat, golden hour, confident stance",
+  ],
+  coach: [
+    "coach mid-conversation in airy studio with plants, soft daylight, warm and energetic posture",
+    "notebook with handwritten goals beside steaming coffee on a linen tablecloth, morning light",
+    "speaker on minimal stage addressing small audience, warm spotlight, editorial framing",
+  ],
+  marketing: [
+    "creative team reviewing mood board on studio wall, natural light, energetic but composed",
+    "designer at iMac with sketches pinned around the desk, warm afternoon light",
+    "social media strategist with smartphone and notebook in modern cafe, soft window light",
+  ],
+  realtor: [
+    "real-estate agent handing keys in front of bright contemporary house, golden hour",
+    "professional touring buyers through sunlit modern living room with floor-to-ceiling windows",
+    "close-up of architectural model and floor plan on concrete table, directional daylight",
+  ],
+  fitness: [
+    "personal trainer in minimalist gym demonstrating posture, raking morning light, athletic but composed",
+    "athlete tying running shoes on stadium track at sunrise, muted palette, editorial framing",
+    "kettlebell and towel on polished concrete floor, dramatic side light, calm composition",
+  ],
+  nutrition: [
+    "nutritionist plating colorful seasonal vegetables on a marble counter, soft daylight overhead",
+    "close-up of fresh produce, olive oil and notebook on light wooden table, airy editorial style",
+    "professional in linen apron writing meal plan beside bowl of fruit, warm window light",
+  ],
+  dentist: [
+    "modern minimalist dental clinic with soft daylight, clean white tones, no patient in frame",
+    "close-up of dental tools arranged on a clean tray, soft directional light",
+  ],
+  designer: [
+    "graphic designer sketching in notebook beside laptop and color swatches, soft side light",
+    "studio desk with minimal still life of design tools, neutral palette, gentle shadows",
+  ],
+  photographer: [
+    "photographer holding camera by large window, soft directional light, contemplative posture",
+    "still-life of vintage camera, prints and notebook on wooden table, editorial framing",
+  ],
+  veterinarian: [
+    "veterinarian in scrubs petting calm dog at modern clinic, warm soft light",
+    "close-up of stethoscope on wooden surface beside small plant, neutral palette, soft shadows",
+  ],
+  default: [
+    "minimalist editorial workspace with notebook, warm coffee and morning daylight from the side",
+    "professional in neutral attire by tall window, soft directional light, calm confident posture",
+    "still-life of leather notebook, fountain pen and ceramic cup on linen surface, editorial framing",
+    "architectural interior with single armchair and plant, warm ambient light, generous negative space",
+  ],
+};
+
+// Mapeia nicho PT → chave do mapa de cenas.
+function resolveNicheKey(niche?: string): keyof typeof NICHE_SCENES {
+  if (!niche) return "default";
+  const n = deaccent(niche);
+  if (/(advog|jurid|direito)/.test(n)) return "lawyer";
+  if (/(medic|saude|clinic)/.test(n)) return "doctor";
+  if (/(executiv|ceo|empresari|gestor)/.test(n)) return "executive";
+  if (/(consult)/.test(n)) return "consultant";
+  if (/(contad|contabil)/.test(n)) return "accountant";
+  if (/(psicolog|terapeut|terapia)/.test(n)) return "therapist";
+  if (/(arquitet)/.test(n)) return "architect";
+  if (/(coach|mentor)/.test(n)) return "coach";
+  if (/(marketing|publicid|social media|midia)/.test(n)) return "marketing";
+  if (/(corret|imobili|imovel|imoveis)/.test(n)) return "realtor";
+  if (/(personal|fitness|treinad|academ)/.test(n)) return "fitness";
+  if (/(nutri)/.test(n)) return "nutrition";
+  if (/(dentist|odonto)/.test(n)) return "dentist";
+  if (/(design|estilis|moda)/.test(n)) return "designer";
+  if (/(fotograf)/.test(n)) return "photographer";
+  if (/(veterin|pet)/.test(n)) return "veterinarian";
+  return "default";
+}
+
+// Hash determinístico simples para usar com seed.
+function seedHash(seed: string): number {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) {
+    h = ((h << 5) - h + seed.charCodeAt(i)) | 0;
+  }
+  return Math.abs(h);
+}
+
+/**
+ * Sorteia uma cena editorial do nicho. Quando `seed` é informado,
+ * a escolha é determinística (slide N do mesmo carrossel cai sempre
+ * na mesma cena). Sem seed, sorteia aleatoriamente para gerar
+ * variedade entre chamadas.
+ */
+function pickNicheScene(niche?: string, seed?: string): string {
+  const key = resolveNicheKey(niche);
+  const scenes = NICHE_SCENES[key] || NICHE_SCENES.default;
+  if (!scenes.length) return "minimal editorial scene";
+  const idx = seed
+    ? seedHash(seed) % scenes.length
+    : Math.floor(Math.random() * scenes.length);
+  return scenes[idx];
 }
 
 /**
