@@ -110,6 +110,8 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   primaryArchetype,
 }) => {
   const typo = getArchetypeTypography(primaryArchetype);
+  // TEMP debug — remover depois de validar
+  console.log("[PostCanvas] primaryArchetype:", primaryArchetype, "→ typo:", typo);
   const isMobile = useIsMobile();
   const handleVisualSize = isMobile ? 22 : RESIZE_HANDLE_SIZE;
   const handleHitSize = isMobile ? 36 : 20;

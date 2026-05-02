@@ -318,6 +318,7 @@ const PostEditorPage = () => {
     : {};
   // Arquétipo primário (rank 1) — usado para hierarquia tipográfica do canvas.
   const primaryArchetype: string | null =
+    content?.archetypes?.primary?.name ||
     content?.archetypes?.["1"]?.name ||
     content?.archetypes?.[1]?.name ||
     null;
