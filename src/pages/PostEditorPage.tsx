@@ -1297,6 +1297,7 @@ const PostEditorPage = () => {
                 onRenderOrderChange={setRenderOrder}
                 showRulers={showRulers}
                 postStyle={initialStyle || undefined}
+                primaryArchetype={primaryArchetype}
                 initialTextBoxes={initialTextBoxes}
                 resetKey={`${initialStyle || "minimal"}-${canvasFormat}`}
                 textBoxes={slideTextBoxes[0]}
