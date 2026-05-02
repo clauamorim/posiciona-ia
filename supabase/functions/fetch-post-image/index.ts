@@ -578,6 +578,7 @@ Deno.serve(async (req) => {
       theme, caption, body: postBody, cardCopy,
       niche, businessContext,
       userQuery: effectiveUserQuery,
+      seed: nonce,
     });
     console.log("Search query:", keywords, "(niche:", niche, "format:", format, "mode:", mode, "userQuery:", effectiveUserQuery || "—", "cardCopy:", (cardCopy || "").slice(0, 60), ")");
 
@@ -605,6 +606,7 @@ Deno.serve(async (req) => {
         theme, caption, body: postBody, cardCopy,
         niche, businessContext,
         userQuery: effectiveUserQuery,
+        seed: nonce,
       });
       console.log("AI prompt subject:", subject, "| message:", mainMessage.slice(0, 80), "| style:", (aiStyleDirective || "—").slice(0, 80), "| nonce:", nonce);
       const url = await generateWithAI(subject, mainMessage, format, nonce, aiStyleDirective);
