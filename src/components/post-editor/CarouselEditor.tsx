@@ -62,6 +62,7 @@ interface CarouselEditorProps {
   resetKey?: string;
   slideTextBoxes?: Record<number, TextBox[]>;
   onSlideTextBoxesChange?: (slideIndex: number, boxes: TextBox[]) => void;
+  primaryArchetype?: string | null;
 }
 
 const CarouselEditor: React.FC<CarouselEditorProps> = ({
@@ -78,6 +79,7 @@ const CarouselEditor: React.FC<CarouselEditorProps> = ({
   showRulers, postStyle,
   initialTextBoxes, resetKey,
   slideTextBoxes, onSlideTextBoxesChange,
+  primaryArchetype,
 }) => {
   const total = slides.length;
   const isCover = currentSlide === 0;
@@ -116,6 +118,7 @@ const CarouselEditor: React.FC<CarouselEditorProps> = ({
         onRenderOrderChange={onRenderOrderChange}
         showRulers={showRulers}
         postStyle={postStyle}
+        primaryArchetype={primaryArchetype}
         initialTextBoxes={initialTextBoxes}
         resetKey={resetKey ? `${resetKey}-${currentSlide}` : undefined}
         textBoxes={slideTextBoxes?.[currentSlide]}
