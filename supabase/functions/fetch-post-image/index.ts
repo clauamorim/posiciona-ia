@@ -622,12 +622,17 @@ Deno.serve(async (req) => {
     }
 
     if (pexelsKey) {
-      const list = await searchPexelsList(keywords, format, pexelsKey, 12, 1);
+      // Quando há nonce (ex.: slide-by-slide em carrossel), variamos página e
+      // seleção determinística pelo hash do nonce — assim cada slide cai em
+      // uma imagem diferente em vez de colidir nos top 6.
+      const nonceHash = nonce ? seedHash(nonce) : 0;
+      const pexelsPage = nonce ? (Math.abs(nonceHash) % 3) + 1 : 1;
+      const list = await searchPexelsList(keywords, format, pexelsKey, 24, pexelsPage);
       if (list.length > 0) {
-        // Top 6 já estão ranqueados por proximidade de aspect ratio + relevância.
-        // Sorteia entre eles para variar entre chamadas.
-        const topPool = list.slice(0, Math.min(6, list.length));
-        const pick = topPool[Math.floor(Math.random() * topPool.length)];
+        const topPool = list.slice(0, Math.min(12, list.length));
+        const pick = nonce
+          ? topPool[Math.abs(nonceHash) % topPool.length]
+          : topPool[Math.floor(Math.random() * topPool.length)];
         return new Response(JSON.stringify({
           url: pick.url, source: "pexels", keywords,
           photographer: pick.photographer, sourceUrl: pick.sourceUrl,
