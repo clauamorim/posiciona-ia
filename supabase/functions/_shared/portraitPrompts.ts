@@ -246,7 +246,7 @@ export const ARCHETYPE_PROMPTS: Record<ArchetypeName, { prompt: string; negative
 export const BACKGROUND_VARIATIONS = [
   { key: "neutro", label: "Neutro", replacement: null }, // mantém o paper backdrop do arquétipo
   { key: "claro", label: "Claro", replacement: "light grey seamless paper studio backdrop with subtle paper texture," },
-  { key: "escuro", label: "Escuro", replacement: "deep charcoal seamless paper studio backdrop with subtle paper texture," },
+  { key: "escuro", label: "Escuro", replacement: "medium-dark charcoal grey seamless paper studio backdrop with subtle paper texture (NOT pure black, keep the backdrop a few stops above black so the face stays well-lit and clearly readable)," },
 ] as const;
 
 /**
