@@ -555,32 +555,46 @@ const PostEditorPage = () => {
 
     (async () => {
       const updates: Record<number, { url: string; opacity: number; objectPosition: string }> = {};
+      const usedUrls = new Set<string>();
       for (let i = 0; i < totalSlides; i++) {
-        try {
-          const slideBody = (day.card_copy?.[i] || day.caption || "").toString();
-          const res = await supabase.functions.invoke("fetch-post-image", {
-            body: {
-              theme: themeStr,
-              caption: day.caption,
-              body: slideBody,
-              cardCopy: slideBody,
-              format: canvasFormat === "reels" ? "reels" : "card",
-              niche: userNiche,
-              businessContext,
-              mode: "single",
-              nonce: `${baseSeed}-${i}-${Math.random().toString(36).slice(2, 8)}`,
-            },
-          });
-          const url = res?.data?.url;
-          if (url) {
-            updates[i] = {
-              url,
-              opacity: opacityCycle[i % opacityCycle.length],
-              objectPosition: positionCycle[i % positionCycle.length],
-            };
+        let url: string | undefined;
+        // Tenta até 3 vezes com nonces diferentes para evitar colidir com
+        // URLs já usadas em slides anteriores deste mesmo carrossel.
+        for (let attempt = 0; attempt < 3 && !url; attempt++) {
+          try {
+            const slideBody = (day.card_copy?.[i] || day.caption || "").toString();
+            const nonce = `${baseSeed}-${i}-${attempt}-${Math.random().toString(36).slice(2, 10)}`;
+            const res = await supabase.functions.invoke("fetch-post-image", {
+              body: {
+                theme: themeStr,
+                caption: day.caption,
+                body: slideBody,
+                cardCopy: slideBody,
+                format: canvasFormat === "reels" ? "reels" : "card",
+                niche: userNiche,
+                businessContext,
+                mode: "single",
+                nonce,
+              },
+            });
+            const candidate = res?.data?.url;
+            if (candidate && !usedUrls.has(candidate)) {
+              url = candidate;
+            } else if (candidate && attempt === 2) {
+              // último recurso: aceita mesmo duplicado
+              url = candidate;
+            }
+          } catch (err) {
+            console.warn("[slide-bg] fetch failed for slide", i, "attempt", attempt, err);
           }
-        } catch (err) {
-          console.warn("[slide-bg] fetch failed for slide", i, err);
+        }
+        if (url) {
+          usedUrls.add(url);
+          updates[i] = {
+            url,
+            opacity: opacityCycle[i % opacityCycle.length],
+            objectPosition: positionCycle[i % positionCycle.length],
+          };
         }
       }
       if (Object.keys(updates).length > 0) {
