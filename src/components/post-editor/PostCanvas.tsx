@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState } from "react";
 import type { OverlayImage } from "./PostToolbar";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { getArchetypeTypography, clampBodyWeight } from "@/lib/archetypeTypography";
 
 interface PostCanvasProps {
   text: string;
@@ -65,6 +66,8 @@ interface PostCanvasProps {
   /** Posições controladas das caixas de título/corpo (para persistência por slide). */
   textBoxes?: TextBox[];
   onTextBoxesChange?: (boxes: TextBox[]) => void;
+  /** Arquétipo primário do usuário — define hierarquia tipográfica do título/corpo. */
+  primaryArchetype?: string | null;
   // Legacy compat
   onImageMove?: (id: string, x: number, y: number) => void;
   onImageResize?: (id: string, width: number, height: number) => void;
@@ -104,7 +107,9 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   showRulers = false, postStyle,
   initialTextBoxes, resetKey,
   textBoxes: controlledTextBoxes, onTextBoxesChange,
+  primaryArchetype,
 }) => {
+  const typo = getArchetypeTypography(primaryArchetype);
   const isMobile = useIsMobile();
   const handleVisualSize = isMobile ? 22 : RESIZE_HANDLE_SIZE;
   const handleHitSize = isMobile ? 36 : 20;
@@ -499,13 +504,16 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
 
   const isMinimalStyle = postStyle === "minimal";
   const bodyFontSize = fontSize || 38;
-  const bodyFontWeight = fontWeight || "normal";
+  // Body weight nunca pode ser bold — clamp para o peso máximo do arquétipo (300 ou 400).
+  const bodyFontWeight = clampBodyWeight(fontWeight || "normal", typo.bodyWeight);
   const bodyFontStyle2 = fontStyle || "normal";
   // Em estilos minimalistas, força centralização horizontal sempre.
   const bodyTextAlign: "left" | "center" | "right" | "justify" = isMinimalStyle ? "center" : (textAlign || "center");
   const effectiveTitleAlign: "left" | "center" | "right" | "justify" = isMinimalStyle ? "center" : (titleTextAlign || "center");
 
-  const resolvedTitleFontSize = titleFontSize || (isCoverSlide ? 64 : 44);
+  // Tamanho de título: respeita override do usuário; senão usa o do arquétipo (cover ganha boost).
+  const archetypeTitleSize = isCoverSlide ? typo.titleSizeMax + 12 : typo.titleSizeMax;
+  const resolvedTitleFontSize = Math.max(42, titleFontSize || archetypeTitleSize);
   const resolvedTitleColor = titleColor || textColor;
   const resolvedTitleFont = titleFontFamily || displayFont;
 
@@ -667,10 +675,11 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
           style={{
             fontFamily: isTitle ? `'${resolvedTitleFont}', sans-serif` : `'${bodyFont}', sans-serif`,
             fontSize: isTitle ? resolvedTitleFontSize : bodyFontSize,
-            fontWeight: isTitle ? "bold" : bodyFontWeight,
+            fontWeight: isTitle ? typo.titleWeight : bodyFontWeight,
             fontStyle: isTitle ? "normal" : bodyFontStyle2,
             textAlign: isTitle ? effectiveTitleAlign : bodyTextAlign,
-            lineHeight: isTitle ? 1.15 : 1.55,
+            lineHeight: isTitle ? typo.titleLineHeight : 1.55,
+            letterSpacing: isTitle ? typo.titleLetterSpacing : undefined,
             color: hasPhotoBackground ? "#ffffff" : (isTitle ? resolvedTitleColor : textColor),
             outline: "none", width: "100%", minHeight: "1em",
             opacity: 1,

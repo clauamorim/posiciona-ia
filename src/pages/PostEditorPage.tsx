@@ -313,6 +313,11 @@ const PostEditorPage = () => {
   const typography = typeof content.visual_identity?.typography === "object" && content.visual_identity?.typography !== null
     ? content.visual_identity.typography
     : {};
+  // Arquétipo primário (rank 1) — usado para hierarquia tipográfica do canvas.
+  const primaryArchetype: string | null =
+    content?.archetypes?.["1"]?.name ||
+    content?.archetypes?.[1]?.name ||
+    null;
 
   const [displayFont, setDisplayFont] = useState(draft?.displayFont || typography.display || "Space Grotesk");
   const [bodyFont, setBodyFont] = useState(draft?.bodyFont || typography.body || "Inter");
@@ -1266,6 +1271,7 @@ const PostEditorPage = () => {
                 onRenderOrderChange={setRenderOrder}
                 showRulers={showRulers}
                 postStyle={initialStyle || undefined}
+                primaryArchetype={primaryArchetype}
                 slideTextBoxes={slideTextBoxes}
                 onSlideTextBoxesChange={handleSlideTextBoxesChange}
               />
@@ -1291,6 +1297,7 @@ const PostEditorPage = () => {
                 onRenderOrderChange={setRenderOrder}
                 showRulers={showRulers}
                 postStyle={initialStyle || undefined}
+                primaryArchetype={primaryArchetype}
                 initialTextBoxes={initialTextBoxes}
                 resetKey={`${initialStyle || "minimal"}-${canvasFormat}`}
                 textBoxes={slideTextBoxes[0]}
