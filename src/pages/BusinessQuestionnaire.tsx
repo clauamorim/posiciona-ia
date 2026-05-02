@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,8 +11,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { ChevronLeft, ChevronRight, Save, Lock, RefreshCw, Pencil, Trash2, HelpCircle } from "lucide-react";
+import { ChevronLeft, ChevronRight, Save, Lock, RefreshCw, Pencil, Trash2, HelpCircle, Check, AlertTriangle, Loader2 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useQuestionnaireAutosave, SaveStatusLabel } from "@/hooks/useQuestionnaireAutosave";
 
 const fields = [
   { key: "company_name", label: "Nome da empresa ou negócio", type: "input", placeholder: "Ex: Studio Bella", help: "Pode ser o nome fantasia, nome pessoal ou como você é conhecida(o) no mercado." },
@@ -36,61 +37,140 @@ const BusinessQuestionnaire = () => {
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [saving, setSaving] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [existingId, setExistingId] = useState<string | null>(null);
   const [isComplete, setIsComplete] = useState(false);
   const [status, setStatus] = useState<QStatus>("draft");
   const [showReanalysisDialog, setShowReanalysisDialog] = useState(false);
+  const insertingRef = useRef(false);
 
   const isLocked = status === "locked";
   const isSubmitted = status === "submitted";
   const isEditable = status === "draft";
   const reanalysisCredits = balances?.reanalysis_credits ?? 0;
+  const storageKey = user ? `posiciona-bq-draft-${user.id}` : "posiciona-bq-draft";
 
-  useEffect(() => {
-    if (!user) return;
-    supabase
-      .from("business_questionnaires")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("version", { ascending: false })
-      .limit(1)
-      .then(({ data }) => {
-        if (data?.[0]) {
-          setExistingId(data[0].id);
-          setIsComplete(data[0].is_complete || false);
-          setStatus((data[0].status as QStatus) || "draft");
-          const existing: Record<string, string> = {};
-          fields.forEach(f => { existing[f.key] = (data[0] as any)[f.key] || ""; });
-          setAnswers(existing);
-        }
-      });
-  }, [user]);
-
-  const save = useCallback(async (complete = false) => {
-    if (!user || isLocked) return;
-    setSaving(true);
-    const newStatus = complete ? "submitted" : "draft";
-    const payload = {
+  // Persist current answers (used by autosave & manual flush).
+  const persist = useCallback(async (overrides?: { complete?: boolean }): Promise<{ ok: boolean; error?: string }> => {
+    if (!user || isLocked) return { ok: false, error: "locked" };
+    const complete = overrides?.complete ?? false;
+    const newStatus: QStatus = complete ? "submitted" : (isSubmitted ? "submitted" : "draft");
+    const payload: any = {
       user_id: user.id,
       ...answers,
-      is_complete: complete,
+      is_complete: complete || isComplete,
       status: newStatus,
     };
-    if (existingId) {
-      await supabase.from("business_questionnaires").update(payload).eq("id", existingId);
-    } else {
-      const { data } = await supabase.from("business_questionnaires").insert(payload).select("id").single();
+    try {
+      if (existingId) {
+        const { error } = await supabase.from("business_questionnaires").update(payload).eq("id", existingId);
+        if (error) return { ok: false, error: error.message };
+        return { ok: true };
+      }
+      // Evita inserts paralelos duplicados
+      if (insertingRef.current) return { ok: true };
+      insertingRef.current = true;
+      const { data, error } = await supabase.from("business_questionnaires").insert(payload).select("id").single();
+      insertingRef.current = false;
+      if (error) return { ok: false, error: error.message };
       if (data) setExistingId(data.id);
+      return { ok: true };
+    } catch (e: any) {
+      insertingRef.current = false;
+      return { ok: false, error: e?.message || "save failed" };
     }
-    setSaving(false);
-    if (complete) {
-      setIsComplete(true);
-      setStatus("submitted");
+  }, [user, isLocked, isSubmitted, isComplete, answers, existingId]);
+
+  const { status: saveStatus, flush, clearLocalBackup, readLocalBackup } = useQuestionnaireAutosave({
+    userId: user?.id,
+    answers,
+    enabled: isEditable && hydrated,
+    storageKey,
+    saveFn: () => persist(),
+  });
+
+  // Hidrata do banco e mescla com backup local se existir.
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("business_questionnaires")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("version", { ascending: false })
+        .limit(1);
+      if (cancelled) return;
+
+      let dbAnswers: Record<string, string> = {};
+      let dbStatus: QStatus = "draft";
+      let dbComplete = false;
+      let dbId: string | null = null;
+      if (data?.[0]) {
+        dbId = data[0].id;
+        dbStatus = (data[0].status as QStatus) || "draft";
+        dbComplete = data[0].is_complete || false;
+        fields.forEach(f => { dbAnswers[f.key] = (data[0] as any)[f.key] || ""; });
+      } else {
+        fields.forEach(f => { dbAnswers[f.key] = ""; });
+      }
+
+      // Recupera backup local se for rascunho e tiver mais conteúdo
+      if (dbStatus === "draft") {
+        try {
+          const raw = localStorage.getItem(`posiciona-bq-draft-${user.id}`);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            const local = parsed?.answers as Record<string, string> | undefined;
+            if (local) {
+              const localFilled = Object.values(local).filter(v => (v || "").trim().length > 0).length;
+              const dbFilled = Object.values(dbAnswers).filter(v => (v || "").trim().length > 0).length;
+              if (localFilled > dbFilled) {
+                dbAnswers = { ...dbAnswers, ...local };
+                toast({ title: "Rascunho recuperado", description: "Restauramos respostas que ainda não tinham sido sincronizadas." });
+              }
+            }
+          }
+        } catch { /* ignore */ }
+      }
+
+      setExistingId(dbId);
+      setIsComplete(dbComplete);
+      setStatus(dbStatus);
+      setAnswers(dbAnswers);
+      setHydrated(true);
+    })();
+    return () => { cancelled = true; };
+  }, [user]);
+
+  const submit = useCallback(async () => {
+    if (!user || isLocked) return;
+    setSubmitting(true);
+    const flushed = await flush();
+    if (!flushed) {
+      setSubmitting(false);
+      toast({ title: "Não foi possível salvar", description: "Verifique sua conexão e tente novamente.", variant: "destructive" });
+      return;
     }
-    toast({ title: complete ? "Questionário enviado!" : "Salvo automaticamente" });
-    if (complete) navigate("/personal-questionnaire");
-  }, [user, answers, existingId, navigate, isLocked]);
+    const res = await persist({ complete: true });
+    setSubmitting(false);
+    if (!res.ok) {
+      toast({ title: "Não foi possível enviar", description: res.error || "Tente novamente.", variant: "destructive" });
+      return;
+    }
+    setIsComplete(true);
+    setStatus("submitted");
+    clearLocalBackup();
+    toast({ title: "Questionário enviado!" });
+    navigate("/personal-questionnaire");
+  }, [user, isLocked, flush, persist, clearLocalBackup, navigate]);
+
+  const goToStep = useCallback(async (target: number) => {
+    if (isEditable) await flush();
+    setStep(target);
+  }, [isEditable, flush]);
+
 
   const handleReanalysis = async (mode: "edit" | "reset") => {
     if (!user || reanalysisCredits < 1) return;
@@ -194,7 +274,7 @@ const BusinessQuestionnaire = () => {
             {fields.map((f, i) => (
               <button
                 key={f.key}
-                onClick={() => setStep(i)}
+                onClick={() => goToStep(i)}
                 className={`w-7 h-7 rounded-md text-[11px] font-medium transition-all ${
                   i === step
                     ? "bg-primary text-primary-foreground shadow-sm"
@@ -207,6 +287,14 @@ const BusinessQuestionnaire = () => {
               </button>
             ))}
           </div>
+          {isEditable && saveStatus !== "idle" && (
+            <div className={`flex items-center gap-1.5 text-[11px] ${saveStatus === "error" ? "text-destructive" : "text-muted-foreground"}`}>
+              {saveStatus === "saving" && <Loader2 className="h-3 w-3 animate-spin" />}
+              {saveStatus === "saved" && <Check className="h-3 w-3 text-success" />}
+              {saveStatus === "error" && <AlertTriangle className="h-3 w-3" />}
+              <span>{SaveStatusLabel(saveStatus)}</span>
+            </div>
+          )}
         </div>
 
         {/* Current question */}
@@ -255,23 +343,23 @@ const BusinessQuestionnaire = () => {
             )}
 
             <div className="flex items-center justify-between pt-1">
-              <Button variant="ghost" size="sm" onClick={() => setStep(s => s - 1)} disabled={step === 0}>
+              <Button variant="ghost" size="sm" onClick={() => goToStep(step - 1)} disabled={step === 0}>
                 <ChevronLeft className="h-4 w-4 mr-1" /> Anterior
               </Button>
 
               <div className="flex items-center gap-2">
                 {isEditable && (
-                  <Button variant="ghost" size="sm" onClick={() => save(false)} disabled={saving} className="text-muted-foreground">
-                    <Save className="h-3.5 w-3.5 mr-1" /> {saving ? "..." : "Salvar"}
+                  <Button variant="ghost" size="sm" onClick={() => flush()} disabled={saveStatus === "saving"} className="text-muted-foreground">
+                    <Save className="h-3.5 w-3.5 mr-1" /> {saveStatus === "saving" ? "..." : "Salvar"}
                   </Button>
                 )}
                 {step < fields.length - 1 ? (
-                  <Button size="sm" onClick={() => { if (isEditable) save(false); setStep(s => s + 1); }}>
+                  <Button size="sm" onClick={() => goToStep(step + 1)}>
                     Próximo <ChevronRight className="h-4 w-4 ml-1" />
                   </Button>
                 ) : isEditable ? (
-                  <Button size="sm" onClick={() => save(true)} disabled={!allFilled}>
-                    Concluir diagnóstico
+                  <Button size="sm" onClick={submit} disabled={!allFilled || submitting || saveStatus === "saving"}>
+                    {submitting ? <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Enviando…</> : "Concluir diagnóstico"}
                   </Button>
                 ) : null}
               </div>
