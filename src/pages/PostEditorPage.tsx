@@ -722,6 +722,19 @@ const PostEditorPage = () => {
 
   const isCarousel = day?.format?.toLowerCase() === "carrossel";
 
+  // Quando há background por slide, substitui o overlay de fundo (tpl-bg-*)
+  // pela imagem específica daquele slide + opacidade/object-position alternados.
+  const carouselOverlays = (() => {
+    if (!isCarousel) return overlayImages;
+    const slideBg = slideBackgrounds[currentSlide];
+    if (!slideBg) return overlayImages;
+    return overlayImages.map((o) =>
+      o.id.startsWith("tpl-bg-")
+        ? { ...o, src: slideBg.url, opacity: slideBg.opacity, objectPosition: slideBg.objectPosition }
+        : o
+    );
+  })();
+
   const handleAddImage = (image: OverlayImage) => {
     setOverlayImages((prev) => [...prev, image]);
     // Track uploaded photos in gallery
@@ -1307,7 +1320,7 @@ const PostEditorPage = () => {
                 slideRefs={slideRefs}
                 initialTextBoxes={initialTextBoxes}
                 resetKey={`${initialStyle || "minimal"}-${canvasFormat}-${currentSlide}`}
-                overlayImages={overlayImages} onUpdateOverlay={handleUpdateOverlay}
+                overlayImages={carouselOverlays} onUpdateOverlay={handleUpdateOverlay}
                 onImageMove={handleImageMove} onImageResize={handleImageResize}
                 selectedImageId={selectedImageId} onSelectImage={setSelectedImageId}
                 fontSize={fontSize} fontWeight={fontWeight} fontStyle={fontStyle}
