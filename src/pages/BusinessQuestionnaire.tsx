@@ -274,7 +274,7 @@ const BusinessQuestionnaire = () => {
             {fields.map((f, i) => (
               <button
                 key={f.key}
-                onClick={() => setStep(i)}
+                onClick={() => goToStep(i)}
                 className={`w-7 h-7 rounded-md text-[11px] font-medium transition-all ${
                   i === step
                     ? "bg-primary text-primary-foreground shadow-sm"
@@ -287,6 +287,14 @@ const BusinessQuestionnaire = () => {
               </button>
             ))}
           </div>
+          {isEditable && saveStatus !== "idle" && (
+            <div className={`flex items-center gap-1.5 text-[11px] ${saveStatus === "error" ? "text-destructive" : "text-muted-foreground"}`}>
+              {saveStatus === "saving" && <Loader2 className="h-3 w-3 animate-spin" />}
+              {saveStatus === "saved" && <Check className="h-3 w-3 text-success" />}
+              {saveStatus === "error" && <AlertTriangle className="h-3 w-3" />}
+              <span>{SaveStatusLabel(saveStatus)}</span>
+            </div>
+          )}
         </div>
 
         {/* Current question */}
