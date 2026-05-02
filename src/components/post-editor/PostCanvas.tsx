@@ -780,7 +780,11 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
       >
         <img src={img.src} alt={img.type}
           crossOrigin="anonymous"
-          style={{ width: "100%", height: "100%", objectFit, pointerEvents: "none", opacity: img.opacity ?? 1 }}
+          style={{
+            width: "100%", height: "100%", objectFit, pointerEvents: "none",
+            opacity: img.opacity ?? 1,
+            objectPosition: img.objectPosition || undefined,
+          }}
           draggable={false} />
         {isSelected && renderResizeHandles(img, false)}
       </div>
