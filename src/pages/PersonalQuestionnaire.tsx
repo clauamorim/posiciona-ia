@@ -85,34 +85,108 @@ const PersonalQuestionnaire = () => {
   const navigate = useNavigate();
   const [blockIndex, setBlockIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [saving, setSaving] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [existingId, setExistingId] = useState<string | null>(null);
   const [status, setStatus] = useState<QStatus>("draft");
   const [consent, setConsent] = useState(false);
+  const insertingRef = useRef(false);
 
   const currentBlock = blocks[blockIndex];
   const isLast = blockIndex === blocks.length - 1;
   const isFirst = blockIndex === 0;
   const isSubmitted = status === "submitted";
+  const storageKey = user ? `posiciona-pq-draft-${user.id}` : "posiciona-pq-draft";
+
+  const persist = useCallback(async (overrides?: { complete?: boolean }): Promise<{ ok: boolean; error?: string }> => {
+    if (!user) return { ok: false, error: "no-user" };
+    const complete = overrides?.complete ?? false;
+    const newStatus: QStatus = complete ? "submitted" : (isSubmitted ? "submitted" : "draft");
+    const fieldPayload: Record<string, string> = {};
+    allFieldKeys.forEach(k => { fieldPayload[k] = (answers[k] || "").trim(); });
+    const payload: any = {
+      user_id: user.id,
+      ...fieldPayload,
+      is_complete: complete,
+      status: newStatus,
+    };
+    try {
+      if (existingId) {
+        const { error } = await supabase.from("personal_questionnaires").update(payload).eq("id", existingId);
+        if (error) return { ok: false, error: error.message };
+        return { ok: true };
+      }
+      if (insertingRef.current) return { ok: true };
+      insertingRef.current = true;
+      const { data, error } = await supabase.from("personal_questionnaires").insert(payload).select("id").single();
+      insertingRef.current = false;
+      if (error) return { ok: false, error: error.message };
+      if (data) setExistingId(data.id);
+      return { ok: true };
+    } catch (e: any) {
+      insertingRef.current = false;
+      return { ok: false, error: e?.message || "save failed" };
+    }
+  }, [user, answers, existingId, isSubmitted]);
+
+  const isEditable = !isSubmitted;
+
+  const { status: saveStatus, flush, clearLocalBackup } = useQuestionnaireAutosave({
+    userId: user?.id,
+    answers,
+    enabled: isEditable && hydrated,
+    storageKey,
+    saveFn: () => persist(),
+  });
 
   useEffect(() => {
     if (!user) return;
-    supabase
-      .from("personal_questionnaires")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("version", { ascending: false })
-      .limit(1)
-      .then(({ data }) => {
-        if (data?.[0]) {
-          setExistingId(data[0].id);
-          setStatus((data[0].status as QStatus) || "draft");
-          const existing: Record<string, string> = {};
-          allFieldKeys.forEach(k => { existing[k] = (data[0] as any)[k] || ""; });
-          setAnswers(existing);
-          if (data[0].status === "submitted") setConsent(true);
-        }
-      });
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("personal_questionnaires")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("version", { ascending: false })
+        .limit(1);
+      if (cancelled) return;
+
+      let dbAnswers: Record<string, string> = {};
+      let dbStatus: QStatus = "draft";
+      let dbId: string | null = null;
+      if (data?.[0]) {
+        dbId = data[0].id;
+        dbStatus = (data[0].status as QStatus) || "draft";
+        allFieldKeys.forEach(k => { dbAnswers[k] = (data[0] as any)[k] || ""; });
+        if (data[0].status === "submitted") setConsent(true);
+      } else {
+        allFieldKeys.forEach(k => { dbAnswers[k] = ""; });
+      }
+
+      if (dbStatus === "draft") {
+        try {
+          const raw = localStorage.getItem(`posiciona-pq-draft-${user.id}`);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            const local = parsed?.answers as Record<string, string> | undefined;
+            if (local) {
+              const localFilled = Object.values(local).filter(v => (v || "").trim().length > 0).length;
+              const dbFilled = Object.values(dbAnswers).filter(v => (v || "").trim().length > 0).length;
+              if (localFilled > dbFilled) {
+                dbAnswers = { ...dbAnswers, ...local };
+                toast({ title: "Rascunho recuperado", description: "Restauramos respostas que ainda não tinham sido sincronizadas." });
+              }
+            }
+          }
+        } catch { /* ignore */ }
+      }
+
+      setExistingId(dbId);
+      setStatus(dbStatus);
+      setAnswers(dbAnswers);
+      setHydrated(true);
+    })();
+    return () => { cancelled = true; };
   }, [user]);
 
   const filledCount = useMemo(
@@ -126,42 +200,40 @@ const PersonalQuestionnaire = () => {
   const minTotalRequired = blocks.length * minRequiredPerBlock;
   const canFinish = consent && filledCount >= minTotalRequired;
 
-  const save = useCallback(async (complete: boolean) => {
+  const submit = useCallback(async () => {
     if (!user) return;
-    if (complete && !consent) {
+    if (!consent) {
       toast({ title: "Aceite necessário", description: "Confirme o aviso de uso público antes de concluir.", variant: "destructive" });
       return;
     }
-    setSaving(true);
-    const newStatus: QStatus = complete ? "submitted" : "draft";
-    const fieldPayload: Record<string, string> = {};
-    allFieldKeys.forEach(k => { fieldPayload[k] = (answers[k] || "").trim(); });
-    const payload = {
-      user_id: user.id,
-      ...fieldPayload,
-      is_complete: complete,
-      status: newStatus,
-    } as any;
-    if (existingId) {
-      await supabase.from("personal_questionnaires").update(payload).eq("id", existingId);
-    } else {
-      const { data } = await supabase.from("personal_questionnaires").insert(payload).select("id").single();
-      if (data) setExistingId(data.id);
+    setSubmitting(true);
+    const flushed = await flush();
+    if (!flushed) {
+      setSubmitting(false);
+      toast({ title: "Não foi possível salvar", description: "Verifique sua conexão e tente novamente.", variant: "destructive" });
+      return;
     }
-    setSaving(false);
-    if (complete) {
-      setStatus("submitted");
-      toast({ title: "Sua história foi salva", description: "Agora vamos mapear seus arquétipos." });
-      navigate("/archetype-questionnaire");
-    } else {
-      toast({ title: "Salvo automaticamente" });
+    const res = await persist({ complete: true });
+    setSubmitting(false);
+    if (!res.ok) {
+      toast({ title: "Não foi possível enviar", description: res.error || "Tente novamente.", variant: "destructive" });
+      return;
     }
-  }, [user, answers, existingId, consent, navigate]);
+    setStatus("submitted");
+    clearLocalBackup();
+    toast({ title: "Sua história foi salva", description: "Agora vamos mapear seus arquétipos." });
+    navigate("/archetype-questionnaire");
+  }, [user, consent, flush, persist, clearLocalBackup, navigate]);
 
   const handleNext = async () => {
-    if (!isSubmitted) await save(false);
+    if (isEditable) await flush();
     setBlockIndex(i => Math.min(i + 1, blocks.length - 1));
   };
+
+  const goToBlock = useCallback(async (target: number) => {
+    if (isEditable) await flush();
+    setBlockIndex(target);
+  }, [isEditable, flush]);
 
   const Icon = currentBlock.icon;
 
