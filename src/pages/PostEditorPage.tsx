@@ -1271,6 +1271,7 @@ const PostEditorPage = () => {
                 onRenderOrderChange={setRenderOrder}
                 showRulers={showRulers}
                 postStyle={initialStyle || undefined}
+                primaryArchetype={primaryArchetype}
                 slideTextBoxes={slideTextBoxes}
                 onSlideTextBoxesChange={handleSlideTextBoxesChange}
               />
