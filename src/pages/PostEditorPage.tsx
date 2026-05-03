@@ -24,6 +24,7 @@ import { prepareSinglePostCardCopy, prepareCarouselCardCopy } from "@/lib/editor
 import { Sparkles, X, Image as ImageIcon, Loader2, Download } from "lucide-react";
 import { useEditorHistory } from "@/hooks/useEditorHistory";
 import { normalizeWeekToV6 } from "@/lib/editorialShape";
+import { normalizeTemplateStateForCanvas } from "@/lib/template-normalize";
 
 function getContrastColor(hex: string): string {
   const r = parseInt(hex.slice(1, 3), 16);
@@ -540,42 +541,22 @@ const PostEditorPage = () => {
         // Marca bg como inicializado para evitar que o efeito de palette sobrescreva
         bgInitializedRef.current = true;
 
-        // Reescala coordenadas: templates legacy globais (Governante etc.)
-        // foram salvos numa base 1080×1080 quadrada (moldura 960×960 em 60,60).
-        // Quando o template traz canvasWidth/Height explícitos, usa esses valores;
-        // caso contrário, assume 1080×1080.
-        const fromW = typeof s.canvasWidth === "number" ? s.canvasWidth : 1080;
-        const fromH = typeof s.canvasHeight === "number" ? s.canvasHeight : 1080;
-        // Escala não-uniforme: cada eixo é esticado independentemente para
-        // preencher o canvas atual (1080×1350 ou 1080×1920). Mantém moldura,
-        // linhas decorativas E blocos de texto coerentes em qualquer formato.
-        const sx = cW / fromW;
-        const sy = cH / fromH;
-        const scaleBox = <T extends { x?: number; y?: number; width?: number; height?: number }>(b: T): T => ({
-          ...b,
-          x: typeof b.x === "number" ? Math.round(b.x * sx) : b.x,
-          y: typeof b.y === "number" ? Math.round(b.y * sy) : b.y,
-          width: typeof b.width === "number" ? Math.round(b.width * sx) : b.width,
-          height: typeof b.height === "number" ? Math.round(b.height * sy) : b.height,
-        });
+        // Normaliza o state legado (1080×1080 quadrado) para o canvas atual,
+        // reescalando posições E reescrevendo a string dos SVGs decorativos
+        // (viewBox + preserveAspectRatio="none") para que molduras/linhas
+        // preencham corretamente o novo formato em todos os 12 templates.
+        const normalized = normalizeTemplateStateForCanvas(s, cW, cH);
 
-        // Reescala slideTextBoxes (posições dos textos por slide)
-        if (s.slideTextBoxes && typeof s.slideTextBoxes === "object") {
+        if (normalized.slideTextBoxes && typeof normalized.slideTextBoxes === "object") {
           const scaled: Record<number, TextBox[]> = {};
-          for (const [k, arr] of Object.entries(s.slideTextBoxes)) {
-            if (Array.isArray(arr)) {
-              scaled[Number(k)] = (arr as TextBox[]).map(b => scaleBox(b));
-            }
+          for (const [k, arr] of Object.entries(normalized.slideTextBoxes)) {
+            if (Array.isArray(arr)) scaled[Number(k)] = arr as TextBox[];
           }
           setSlideTextBoxes(scaled);
         }
 
-        // Overlays decorativos do template (frames, linhas, acentos).
-        // Filtra fotos — o auto-layout cuida do background image.
-        const tplOverlays: OverlayImage[] = Array.isArray(s.overlayImages)
-          ? s.overlayImages
-              .filter((o: any) => o && o.type !== "photo")
-              .map((o: any) => scaleBox(o))
+        const tplOverlays: OverlayImage[] = Array.isArray(normalized.overlayImages)
+          ? normalized.overlayImages.filter((o: any) => o && o.type !== "photo")
           : [];
         if (tplOverlays.length > 0) {
           setOverlayImages(prev => {
@@ -629,19 +610,28 @@ const PostEditorPage = () => {
         // overlays decorativos e configurações visuais — só atualizamos o
         // background image e os slots de texto sugeridos pelo auto-layout.
         const tplApplied = archetypeTemplateAppliedRef.current;
-        if (result.overlays.length > 0) {
+        // Normaliza decorativos vindos do auto-layout (base 1080×1080) para o
+        // canvas atual, reescrevendo os SVGs para esticar sem deformar para um
+        // quadrado interno.
+        const normalizedAutoLayoutState = normalizeTemplateStateForCanvas(
+          { overlayImages: result.overlays, canvasWidth: 1080, canvasHeight: 1080 },
+          cW,
+          cH,
+        );
+        const normalizedAutoOverlays = (normalizedAutoLayoutState.overlayImages as OverlayImage[]) || [];
+        if (normalizedAutoOverlays.length > 0) {
           setOverlayImages(prev => {
             if (tplApplied) {
               // Template do arquétipo é a única fonte de decorativos.
               // Do auto-layout só aproveitamos o background image (tpl-bg-*).
               const keptTplDecor = prev.filter(o => o.id.startsWith("tpl-") && !o.id.startsWith("tpl-bg-"));
-              const newBgs = result.overlays.filter(o => o.id.startsWith("tpl-bg-"));
+              const newBgs = normalizedAutoOverlays.filter(o => o.id.startsWith("tpl-bg-"));
               const otherPrev = prev.filter(o => !o.id.startsWith("tpl-"));
               return [...newBgs, ...otherPrev, ...keptTplDecor];
             }
             // Sem template do arquétipo: comportamento original.
             const cleaned = prev.filter(o => !o.id.startsWith("tpl-"));
-            const next = [...result.overlays, ...cleaned];
+            const next = [...normalizedAutoOverlays, ...cleaned];
             const bgs = next.filter(o => o.id.startsWith("tpl-bg-"));
             const others = next.filter(o => !o.id.startsWith("tpl-bg-"));
             return [...bgs, ...others];
@@ -1164,11 +1154,19 @@ const PostEditorPage = () => {
     supabase.from("user_designs").select("*").eq("id", designIdParam).eq("user_id", user.id).maybeSingle()
       .then(({ data }) => {
         if (!data || !data.state) return;
-        const s: any = data.state;
+        let s: any = data.state;
         // IMPORTANTE: o campo `archetype` do template (coluna ou state) NUNCA
         // sobrescreve o primaryArchetype do usuário atual. A tipografia/canvas
         // sempre usa o arquétipo derivado do relatório do próprio usuário.
         if ("archetype" in s) delete s.archetype;
+        // Se for abertura como modelo (?fromTemplate=1) ou se o design for legado
+        // (sem canvasWidth/Height), normaliza para o canvas atual e reescreve
+        // os SVGs decorativos para esticar corretamente.
+        const targetW = canvasFormat === "reels" ? 1080 : 1080;
+        const targetH = canvasFormat === "reels" ? 1920 : 1350;
+        if (fromTemplateParam || typeof s.canvasWidth !== "number" || typeof s.canvasHeight !== "number") {
+          s = normalizeTemplateStateForCanvas(s, targetW, targetH);
+        }
         if (s.editedTexts) setEditedTexts(s.editedTexts);
         if (s.editedTitle) setEditedTitle(s.editedTitle);
         if (s.overlayImages) setOverlayImages(s.overlayImages);
@@ -1330,6 +1328,7 @@ const PostEditorPage = () => {
         slideNumberBgColor, slideNumberTextColor, slideNumberSize,
         displayFont, bodyFont,
         slideTextBoxes,
+        canvasWidth: cW, canvasHeight: cH,
       };
       const baseTitle = `Dia ${day?.day || dayIndex + 1} — ${cleanMarkdown(editedTitle || day?.theme || "Sem título").slice(0, 60)}`;
       const title = asTemplate ? `Modelo · ${baseTitle}` : baseTitle;
