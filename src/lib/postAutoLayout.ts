@@ -361,8 +361,14 @@ export async function fetchBackgroundImage(opts: {
   businessContext?: string;
 }): Promise<{ url: string; source: "pexels" | "ai" | "cache"; photographer?: PhotographerInfo } | null> {
   try {
+    const fetchPostImageBody = { ...opts, mode: "single" };
+    console.log("[fetch-post-image] background body", {
+      niche: fetchPostImageBody.niche,
+      hasNiche: Boolean(fetchPostImageBody.niche),
+      body: fetchPostImageBody,
+    });
     const { data, error } = await supabase.functions.invoke("fetch-post-image", {
-      body: { ...opts, mode: "single" },
+      body: fetchPostImageBody,
     });
     if (error || !data?.url) return null;
     const photographer = data.photographer
@@ -485,16 +491,22 @@ export async function generateAIImage(opts: {
 }): Promise<{ url: string; source: "ai"; savedToGallery?: boolean } | null> {
   try {
     const nonce = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    const fetchPostImageBody = {
+      theme: opts.query, format: opts.format,
+      caption: opts.caption, body: opts.body,
+      cardCopy: opts.cardCopy, userQuery: opts.userQuery,
+      allowAI: true, mode: "single",
+      niche: opts.niche, businessContext: opts.businessContext,
+      aiStyleDirective: opts.aiStyleDirective,
+      nonce,
+    };
+    console.log("[fetch-post-image] ai body", {
+      niche: fetchPostImageBody.niche,
+      hasNiche: Boolean(fetchPostImageBody.niche),
+      body: fetchPostImageBody,
+    });
     const { data, error } = await supabase.functions.invoke("fetch-post-image", {
-      body: {
-        theme: opts.query, format: opts.format,
-        caption: opts.caption, body: opts.body,
-        cardCopy: opts.cardCopy, userQuery: opts.userQuery,
-        allowAI: true, mode: "single",
-        niche: opts.niche, businessContext: opts.businessContext,
-        aiStyleDirective: opts.aiStyleDirective,
-        nonce,
-      },
+      body: fetchPostImageBody,
     });
     if (error || !data?.url) return null;
     const src = data.source === "ai" ? "ai" : null;
