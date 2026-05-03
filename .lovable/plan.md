@@ -1,61 +1,39 @@
-## Objetivo
+# Corrigir download no editor de posts
 
-Corrigir a conversão dos 12 templates para 4:5 e 9:16 sem “esticar cegamente” o template antigo. O Governante deve manter a intenção visual do modelo original do print: composição editorial, respiro amplo, linhas finas nos cantos, texto posicionado no terço médio/inferior, CTA e assinatura próximos da base — apenas adaptado para a altura extra do 4:5.
+## Diagnóstico
 
-## Ajustes principais
+No `src/pages/PostEditorPage.tsx` (linhas 1038–1085), `handleDownloadSlide` e `handleDownloadAll` têm três problemas que, combinados, produzem o sintoma "não baixa":
 
-1. **Governante como referência de conversão**
-   - Não transformar a moldura quadrada antiga em uma moldura colada nas laterais.
-   - Manter a estética do template original: margens visuais largas, linhas douradas curtas nos cantos, pouca ornamentação e muito espaço negativo.
-   - Em 4:5, a altura extra deve entrar principalmente como respiro vertical, não como distorção do desenho.
+1. **Erros silenciados sem detalhe.** Os `try/catch` capturam tudo em um `toast` genérico ("Erro ao exportar imagem"), sem `console.error`. Não dá para diagnosticar a causa real.
+2. **Anchor não anexada ao DOM.** `link.click()` sem `document.body.appendChild(link)` é ignorado em alguns navegadores (notadamente Firefox e versões recentes do Chrome quando o `download` aponta para `dataURL` grande). Isso causa "click silencioso" — nenhum download é disparado e nenhum erro é lançado.
+3. **CORS taints o canvas.** Overlays e imagens vindas de URLs assinadas do Supabase (`portrait-outputs`, `user-uploads`) e da Pexels não vêm com `crossOrigin="anonymous"` setado nos `<img>` dentro do `PostCanvas`. Isso "tainta" o canvas e faz `html2canvas` lançar `SecurityError` em `toDataURL`/`toBlob`. Como o catch é silencioso, parece que o botão "não funciona".
 
-2. **Molduras e margens seguras**
-   - Definir uma área segura para templates legados:
-     - 4:5: margem lateral maior que a atual, aproximadamente 90–110px.
-     - 9:16: margem lateral semelhante e margem vertical proporcionalmente maior.
-   - Reposicionar `tpl-frame-*` para essa área segura.
-   - Reescrever SVGs decorativos para não criarem linhas internas indesejadas.
+## O que fazer
 
-3. **Remover barra dourada perdida**
-   - Detectar e remover/neutralizar elementos SVG internos que viram barra vertical ou horizontal isolada após a conversão.
-   - Para Governante, preservar apenas as linhas curtas de canto e detalhes editoriais coerentes com o template original.
+### 1. `src/pages/PostEditorPage.tsx` — endurecer os handlers de download
 
-4. **Reposicionar elementos decorativos dos 12 templates**
-   - `tpl-line-*` e `tpl-accent-*` não serão apenas escalados por `sy`.
-   - Eles serão ancorados ao retângulo seguro do template:
-     - linhas superiores próximas ao topo da área segura;
-     - linhas inferiores próximas à base da área segura;
-     - acentos verticais dentro da composição, sem atravessar texto ou aparecer soltos.
-   - Isso cobre Governante, Explorador, Rebelde e os demais arquétipos.
+- Logar o erro (`console.error`) e mostrar `err.message` no toast para visibilidade.
+- Anexar o `<a>` ao `document.body` antes do `click()` e remover depois.
+- Trocar `dataURL` por `Blob` + `URL.createObjectURL` no slide único (mais confiável para PNGs grandes).
+- Passar `useCORS: true`, `allowTaint: false` e `backgroundColor: null` no `html2canvas` (já tem useCORS, garantir os outros).
+- Em `handleDownloadAll`, se um slide falhar, continuar os demais e reportar quantos falharam em vez de abortar tudo.
 
-5. **Posts com foto não podem voltar ao layout antigo**
-   - Quando houver foto, preservar a composição do template do arquétipo.
-   - A foto deve entrar como background/overlay, sem substituir posições de texto e decorativos por defaults antigos.
-   - Se o template global não tiver `slideTextBoxes`, gerar caixas de texto em 4:5 compatíveis com a composição original, em vez de cair no layout legado.
+### 2. `src/components/post-editor/PostCanvas.tsx` — habilitar CORS nas imagens
 
-6. **Textos do Governante em 4:5**
-   - Adaptar a posição do título, corpo, CTA e assinatura conforme o modelo enviado:
-     - título no bloco editorial central/inferior;
-     - corpo abaixo do título;
-     - destaque/observação curta abaixo do corpo;
-     - CTA e assinatura próximos da parte inferior, com respiro.
-   - Com foto, manter essa hierarquia, apenas garantindo contraste.
+Garantir `crossOrigin="anonymous"` em todos os `<img>` renderizados no canvas (overlays, foto principal, ícones recoloridos via `<img>` SVG). Sem isso, `html2canvas` não consegue ler pixels e o canvas fica tainted.
 
-## Arquivos a alterar
+### 3. Verificar fontes externas
 
-- `src/lib/template-normalize.ts`
-  - Normalização por área segura.
-  - Limpeza/regravação de SVGs decorativos.
-  - Ancoragem correta de linhas e acentos.
+Se o canvas usa Google Fonts ou similares, `html2canvas` pode estourar CORS na hora de inlinar. Não é o gatilho mais comum aqui (fontes vêm do CSS, não como recursos no canvas), mas vale checar console após a melhoria #1.
 
-- `src/pages/PostEditorPage.tsx`
-  - Preservar layout do template ao inserir foto.
-  - Criar fallback de caixas de texto em 4:5/9:16 quando o template legado não trouxer `slideTextBoxes`.
-  - Evitar que `setInitialTextBoxes(result.slots)` sobrescreva a composição do arquétipo aplicado.
+## Como validar
 
-## Validação esperada
+1. Abrir o editor com um post sem foto → "Baixar PNG" deve baixar.
+2. Adicionar uma imagem de overlay (galeria/retrato) → "Baixar PNG" deve continuar funcionando.
+3. No carrossel, "Baixar todos (ZIP)" deve gerar zip com todos os slides.
+4. Se algum erro restar, agora aparecerá com mensagem específica no toast e no console — passo a passo a partir daí.
 
-- Governante sem foto: visual próximo ao print original, mas em 4:5, com mais altura e sem barra perdida.
-- Governante com foto: mantém o mesmo layout editorial, com foto apenas como fundo/elemento visual.
-- Explorador e Rebelde: linhas/acento reposicionados dentro da nova área segura.
-- Todos os 12 templates: sem moldura colada, sem elementos decorativos soltos e sem retorno parcial ao layout antigo ao usar foto.
+## Arquivos a editar
+
+- `src/pages/PostEditorPage.tsx` (handlers `handleDownloadSlide`, `handleDownloadAll`)
+- `src/components/post-editor/PostCanvas.tsx` (atributo `crossOrigin` nas `<img>`)
