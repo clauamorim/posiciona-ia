@@ -553,8 +553,11 @@ const PostEditorPage = () => {
           : [];
         if (tplOverlays.length > 0) {
           setOverlayImages(prev => {
-            const cleaned = prev.filter(o => !String(o.id || "").startsWith("tpl-"));
-            return [...tplOverlays, ...cleaned];
+            // Substitui completamente: mantém só fotos (bg do usuário) e
+            // descarta qualquer outro decorativo prévio para evitar
+            // sobreposição com a moldura do template.
+            const photos = prev.filter(o => o.type === "photo");
+            return [...tplOverlays, ...photos];
           });
         }
       } catch (err) {
