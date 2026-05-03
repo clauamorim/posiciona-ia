@@ -252,6 +252,11 @@ const PostEditorPage = () => {
   const textsInitializedRef = useRef(!!draft);
   const bgInitializedRef = useRef(!!draft);
   const autoLayoutRanRef = useRef(!!draft || hasDesignParam);
+  // Quando o usuário abre um post novo, aplicamos o template global do
+  // arquétipo dele como base visual (cores, fontes, decorativos, layout).
+  // O auto-layout que roda depois apenas substitui o background image.
+  const archetypeTemplateRanRef = useRef(!!draft || hasDesignParam);
+  const archetypeTemplateAppliedRef = useRef(false);
 
   // Card 4:5 (1080×1350) ou Reels 9:16 (1080×1920)
   const cW = canvasFormat === "reels" ? 1080 : 1080;
