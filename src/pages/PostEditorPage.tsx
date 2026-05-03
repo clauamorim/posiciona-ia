@@ -274,6 +274,14 @@ const PostEditorPage = () => {
         if (data) {
           const ctx = [data.company_name, data.services, data.target_audience].filter(Boolean).join(" ");
           setBusinessContext(ctx);
+          // Fallback de niche: se profiles.niche estiver vazio, derive a partir do
+          // questionário de negócios (profession, services, company_name).
+          setUserNiche(prev => {
+            if (prev) return prev;
+            const candidate = [data.services, data.company_name]
+              .filter(Boolean).join(" ").trim();
+            return candidate || prev;
+          });
         }
       });
     supabase.functions
@@ -466,6 +474,9 @@ const PostEditorPage = () => {
     if (archetypeTemplateRanRef.current) return;
     if (!user || !primaryArchetype) return;
     archetypeTemplateRanRef.current = true;
+    // Otimista: marca como aplicado para que o auto-layout (que dispara em
+    // paralelo) já preserve as decisões do template. Reverte se falhar.
+    archetypeTemplateAppliedRef.current = true;
     (async () => {
       try {
         const { data, error } = await supabase
@@ -477,7 +488,10 @@ const PostEditorPage = () => {
           .order("updated_at", { ascending: false })
           .limit(1)
           .maybeSingle();
-        if (error || !data?.state) return;
+        if (error || !data?.state) {
+          archetypeTemplateAppliedRef.current = false;
+          return;
+        }
         const s: any = data.state;
         // Salvaguarda: archetype do template não sobrescreve o do usuário
         if ("archetype" in s) delete s.archetype;
@@ -519,8 +533,23 @@ const PostEditorPage = () => {
 
         // Overlays decorativos do template (frames, linhas, acentos).
         // Filtra fotos — o auto-layout cuida do background image.
+        // Reescala coordenadas: templates foram salvos em 1080×1080 (ou
+        // dimensão informada em state.canvasWidth/Height). O canvas atual
+        // pode ser 1080×1350 (card) ou 1080×1920 (reels).
+        const fromW = typeof s.canvasWidth === "number" ? s.canvasWidth : 1080;
+        const fromH = typeof s.canvasHeight === "number" ? s.canvasHeight : 1080;
+        const sx = cW / fromW;
+        const sy = cH / fromH;
         const tplOverlays: OverlayImage[] = Array.isArray(s.overlayImages)
-          ? s.overlayImages.filter((o: any) => o && o.type !== "photo")
+          ? s.overlayImages
+              .filter((o: any) => o && o.type !== "photo")
+              .map((o: any) => ({
+                ...o,
+                x: typeof o.x === "number" ? Math.round(o.x * sx) : o.x,
+                y: typeof o.y === "number" ? Math.round(o.y * sy) : o.y,
+                width: typeof o.width === "number" ? Math.round(o.width * sx) : o.width,
+                height: typeof o.height === "number" ? Math.round(o.height * sy) : o.height,
+              }))
           : [];
         if (tplOverlays.length > 0) {
           setOverlayImages(prev => {
@@ -528,12 +557,12 @@ const PostEditorPage = () => {
             return [...tplOverlays, ...cleaned];
           });
         }
-        archetypeTemplateAppliedRef.current = true;
       } catch (err) {
         console.warn("[archetype-template] failed", err);
+        archetypeTemplateAppliedRef.current = false;
       }
     })();
-  }, [user, primaryArchetype]);
+  }, [user, primaryArchetype, cW, cH]);
 
   // Auto-layout: monta layout inicial (template + bg Unsplash + logo) na primeira abertura
   useEffect(() => {

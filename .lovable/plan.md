@@ -1,54 +1,59 @@
-## Objetivo
-Adicionar gerenciamento de **templates globais** no painel admin. Templates globais são modelos criados pela equipe Posiciona, vinculados a um arquétipo, e visíveis para todos os usuários autenticados na aba "Meus modelos".
+## Diagnóstico
 
-## 1. Migração de banco de dados
+### Bug 1 — Tipografia pequena
+`PostCanvas.tsx` já aplica `typo.titleWeight` (linha 681) e calcula floor com `Math.max(42, typo.titleSizeMin)` (linha 518) e `Math.max(archetypeTitleFloor, titleFontSize || archetypeTitleSize)` (linha 519). O sistema funciona — mas:
 
-Adicionar dois campos em `user_designs`:
-- `is_global boolean NOT NULL DEFAULT false`
-- `archetype text NULL` (nome do arquétipo, ex: "Sábio", "Herói", ou null = neutro/todos)
+1. **Amante não está no mapa de ELEGANCE** em `src/lib/archetypeTypography.ts` → cai em DEFAULT (weight 400, size 44).
+2. Templates globais salvos no banco têm `titleFontSize` baixo (ex.: Mago=44, Cuidador=46) e o efeito de hidratação do template chama `setTitleFontSize(s.titleFontSize)` (PostEditorPage linha 505), forçando esse valor antes do clamp do canvas. O floor ainda atua, mas elegância merece mais respiro.
+3. Possível race: o efeito de auto-layout pode rodar antes de `archetypeTemplateAppliedRef.current` virar `true` (a flag só é setada depois do `await` da query Supabase), e aplicar `setTitleFontSize` da sugestão da IA por cima.
 
-Índice auxiliar:
-- `(is_template, is_global)` para consulta de globais.
+### Bug 2 — Imagem fora de contexto (copo de café num post de advogado)
+Edge `fetch-post-image` JÁ tem `NICHE_SCENES` + `resolveNicheKey` + `pickNicheScene` aplicados em `buildSearchQuery` e `buildAIPromptSubject`. A query para `niche="advogado"` resolveria para `"lawyer office attorney at mahogany desk reviewing documents"`.
 
-Atualizar **RLS** em `user_designs`:
-- Manter políticas existentes (dono CRUD).
-- Adicionar política `SELECT` para `authenticated`: qualquer usuário pode ler linhas onde `is_template = true AND is_global = true`.
-- Restringir `INSERT/UPDATE/DELETE` de globais somente a admins (via `has_role(auth.uid(), 'admin')`), garantindo que usuários comuns não consigam criar/marcar registros globais.
+A causa real do "copo de café": quando `niche` chega vazio na edge (porque `profiles.niche` do usuário está NULL), `resolveNicheKey` cai em `default`, cuja primeira cena é literalmente `"minimalist editorial workspace with notebook, warm coffee and morning daylight from the side"` — exatamente o copo de café que apareceu.
 
-## 2. Painel admin — nova rota `/admin/templates`
+`PostEditorPage.tsx` (linha 269-270) só busca `niche` em `profiles`. Não há fallback para o `business_questionnaires` (que JÁ é carregado em seguida para `businessContext`).
 
-Criar `src/pages/admin/AdminTemplates.tsx` com:
-- Listagem de templates globais (cards com thumbnail, título, badge do `archetype`, toggle ativo/inativo).
-- Botão **"Criar template global"** que abre o editor (`/post-editor?adminTemplate=1&archetype=<nome>`) e ao salvar grava com `is_template=true` e `is_global=true`.
-- Ações por card: editar, duplicar, ativar/desativar (toggle de `is_global`), excluir.
-- Filtro por arquétipo usando os nomes de `ARCHETYPE_MAP`.
+### Bug 3 — Decorativos fora de posição
+Templates globais foram salvos com canvas implícito de **1080×1080** (frames com `x:60, y:60, width:960, height:960` = 1080-60-60). O canvas atual do editor é **1080×1350 (card 4:5)** ou **1080×1920 (reels)**. As coordenadas são absolutas em px — usadas direto sem rescale (`PostCanvas` linha 660: `left: tb.x, top: tb.y`).
 
-Adicionar entrada **"Templates globais"** no grupo Admin do `DashboardLayout`.
+Resultado: o frame fica `60px` do topo, ocupa apenas até `y=1020` (sobra 330px embaixo), e linhas decorativas posicionadas em `y=120` e `y=840` aparecem no meio do card em vez das bordas.
 
-Pequena adaptação no `PostEditorPage` para, quando `adminTemplate=1` (e usuário admin), gravar `is_global=true` e `archetype` no insert do `user_designs`. Sem mudar o fluxo normal de salvar.
+Os templates não são responsivos a outros formatos.
 
-## 3. MyDesignsPage — incluir templates globais
+---
 
-Substituir a query única por duas chamadas paralelas:
-- Templates próprios + designs do usuário (como hoje).
-- Templates globais ativos: `is_template=true AND is_global=true`.
+## Correções
 
-Mesclar os resultados; na aba **"Meus modelos"** mostrar os globais com badge **"Posiciona"** (ou similar) e desabilitar ações de excluir/editar para não-donos. Botão "Usar" continua abrindo no editor com `fromTemplate=1` (igual ao fluxo atual — gera um novo design baseado no template).
+### 1. `src/lib/archetypeTypography.ts`
+- Adicionar `"Amante": ELEGANCE` ao mapa.
+- Subir `titleSizeMin` de ELEGANCE de 48 → **52** e `titleSizeMax` para 60, garantindo título visivelmente maior.
 
-## 4. Detalhes técnicos
+### 2. `src/components/post-editor/PostCanvas.tsx`
+- Reforçar floor: para arquétipos de elegância, ignorar `titleFontSize` quando ele for menor que `typo.titleSizeMin`.
+  Trocar linha 519 por:
+  `const userTitleSize = titleFontSize && titleFontSize >= typo.titleSizeMin ? titleFontSize : archetypeTitleSize;`
+  `const resolvedTitleFontSize = Math.max(archetypeTitleFloor, userTitleSize);`
 
-**Arquivos novos:**
-- `supabase/migrations/<timestamp>_user_designs_global_templates.sql`
-- `src/pages/admin/AdminTemplates.tsx`
+### 3. `src/pages/PostEditorPage.tsx` — fix race e nicho
 
-**Arquivos alterados:**
-- `src/App.tsx` (rota `/admin/templates`)
-- `src/components/DashboardLayout.tsx` (item de nav admin)
-- `src/pages/MyDesignsPage.tsx` (query, merge, badge, restrição de ações)
-- `src/pages/PostEditorPage.tsx` (insert respeitar `is_global`/`archetype` quando admin)
+**Race condition do template** (linha 466):
+- Setar `archetypeTemplateAppliedRef.current = true` **sincronamente** logo após `archetypeTemplateRanRef.current = true` (otimista), e revertê-lo no `catch`/quando `data?.state` não existir. Garante que o auto-layout que dispara em paralelo já enxergue a flag.
 
-**RLS resumida (políticas adicionadas):**
-- `SELECT` global: `is_template AND is_global` para `authenticated`.
-- `INSERT/UPDATE/DELETE` quando `is_global = true`: somente `has_role(auth.uid(),'admin')`.
+**Fallback de niche** (linha 269):
+- Se `profiles.niche` vier vazio, derivar a partir do `business_questionnaires` (services + company_name) com simples heurística PT — ou simplesmente usar a primeira frase de `services` como `userNiche`. Preferir guardar o niche real quando achar palavra-chave conhecida (`advogado`, `médico`, etc.).
 
-**Tipos:** `src/integrations/supabase/types.ts` é regenerado após a migração — não é editado manualmente.
+### 4. Reescalar overlays do template ao hidratar (`PostEditorPage.tsx` linha 522-530)
+
+Adicionar função local `rescaleTemplateOverlay(overlay, fromW, fromH, toW, toH)` que multiplica `x`, `y`, `width`, `height` pelos fatores `toW/fromW` e `toH/fromH`.
+
+- Detectar dimensão original do template: ler `state.canvasWidth`/`canvasHeight` se existir; senão assumir **1080×1080** (templates atuais).
+- Aplicar `rescaleTemplateOverlay` em cada elemento de `tplOverlays` antes de chamar `setOverlayImages`.
+- Para frames (SVGs com viewBox fixo), o rescale por `width`/`height` já estica corretamente o data-URL SVG (preserveAspectRatio padrão).
+
+## Critérios de verificação
+
+- Abrir post novo de usuário com arquétipo Sábio/Governante/Amante/Mago: título ≥ 52px, weight 300, fonte do template aplicada.
+- Console log `[PostCanvas] primaryArchetype` confirma typo correto.
+- Post de advogado: log `Search query:` na edge `fetch-post-image` deve conter `lawyer` + cena editorial (não default coffee).
+- Frame decorativo do template encosta nas 4 bordas do canvas em formato card (1080×1350) e reels (1080×1920).
