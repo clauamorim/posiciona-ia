@@ -538,18 +538,35 @@ const PostEditorPage = () => {
         // pode ser 1080×1350 (card) ou 1080×1920 (reels).
         const fromW = typeof s.canvasWidth === "number" ? s.canvasWidth : 1080;
         const fromH = typeof s.canvasHeight === "number" ? s.canvasHeight : 1080;
+        console.log("[archetype-template] rescale overlayImages", {
+          primaryArchetype,
+          fromW,
+          fromH,
+          toW: cW,
+          toH: cH,
+          originalOverlayCount: Array.isArray(s.overlayImages) ? s.overlayImages.length : 0,
+        });
         const sx = cW / fromW;
         const sy = cH / fromH;
         const tplOverlays: OverlayImage[] = Array.isArray(s.overlayImages)
           ? s.overlayImages
               .filter((o: any) => o && o.type !== "photo")
-              .map((o: any) => ({
-                ...o,
-                x: typeof o.x === "number" ? Math.round(o.x * sx) : o.x,
-                y: typeof o.y === "number" ? Math.round(o.y * sy) : o.y,
-                width: typeof o.width === "number" ? Math.round(o.width * sx) : o.width,
-                height: typeof o.height === "number" ? Math.round(o.height * sy) : o.height,
-              }))
+              .map((o: any) => {
+                const scaled = {
+                  ...o,
+                  x: typeof o.x === "number" ? Math.round(o.x * sx) : o.x,
+                  y: typeof o.y === "number" ? Math.round(o.y * sy) : o.y,
+                  width: typeof o.width === "number" ? Math.round(o.width * sx) : o.width,
+                  height: typeof o.height === "number" ? Math.round(o.height * sy) : o.height,
+                };
+                console.log("[archetype-template] overlay rescaled", {
+                  id: o.id,
+                  type: o.type,
+                  original: { x: o.x, y: o.y, width: o.width, height: o.height },
+                  scaled: { x: scaled.x, y: scaled.y, width: scaled.width, height: scaled.height },
+                });
+                return scaled;
+              })
           : [];
         if (tplOverlays.length > 0) {
           setOverlayImages(prev => {
