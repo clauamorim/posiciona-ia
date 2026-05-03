@@ -577,8 +577,8 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
     const img = overlayImages.find(o => o.id === id);
     return !!img && img.type === "photo" && img.x <= 5 && img.y <= 5 && img.width >= canvasWidth - 10 && img.height >= canvasHeight - 10;
   };
-  const isFrame = (id: string) => /^tpl-mframe/.test(id);
-  const isAccentDecoration = (id: string) => /^tpl-(mline|mornament)/.test(id);
+  const isFrame = (id: string) => /^tpl-(mframe|frame)/.test(id);
+  const isAccentDecoration = (id: string) => /^tpl-(mline|mornament|line|ornament)/.test(id);
   const isTextBoxId = (id: string) => textBoxes.some(t => t.id === id);
   const sortByVisualLayer = (ids: string[]) => {
     // 0 = fundo (foto full), 1 = moldura, 2 = textos, 3 = barra/losango (na frente do texto), 4 = demais
