@@ -1204,7 +1204,7 @@ const PostEditorPage = () => {
       useGradient, gradientColor2Index, customGradientColor2, gradientDirection, textAlign, customTextColor, customBgColor,
       titleFontSize, titleColor, titleFontFamily, ctaText, ctaBgColor, ctaTextColor, ctaFontSize, ctaPosition,
       canvasFormat, showSlideNumber, slideNumberPosition, slideNumberBgColor, slideNumberTextColor, slideNumberSize,
-      displayFont, bodyFont, titleTextAlign, persistPostPhotosToGallery, slideTextBoxes]);
+      displayFont, bodyFont, titleTextAlign, persistPostPhotosToGallery, slideTextBoxes, isAdmin, searchParams]);
 
   const handleSaveDesign = useCallback(() => doSaveDesign(false), [doSaveDesign]);
   const handleSaveAsTemplate = useCallback(() => doSaveDesign(true), [doSaveDesign]);
