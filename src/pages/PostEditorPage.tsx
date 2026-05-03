@@ -187,6 +187,7 @@ const PostEditorPage = () => {
   const [loading, setLoading] = useState(true);
   const [userNiche, setUserNiche] = useState<string>("");
   const [businessContext, setBusinessContext] = useState<string>("");
+  const [imageContextLoaded, setImageContextLoaded] = useState(false);
   const [bgIndex, setBgIndex] = useState(draft?.bgIndex ?? 0);
   const [layout, setLayout] = useState<"centered" | "top" | "split">((draft?.layout as any) ?? "centered");
   const [currentSlide, setCurrentSlide] = useState(draft?.currentSlide ?? 0);
@@ -266,24 +267,34 @@ const PostEditorPage = () => {
     if (!user) return;
     supabase.from("reports").select("*").eq("user_id", user.id).order("version", { ascending: false }).limit(1).single()
       .then(({ data }) => { setReport(data); setLoading(false); });
-    supabase.from("profiles").select("niche").eq("user_id", user.id).maybeSingle()
-      .then(({ data }) => { if (data?.niche) setUserNiche(data.niche); });
-    supabase.from("business_questionnaires").select("services,target_audience,company_name")
-      .eq("user_id", user.id).order("version", { ascending: false }).limit(1).maybeSingle()
-      .then(({ data }) => {
-        if (data) {
-          const ctx = [data.company_name, data.services, data.target_audience].filter(Boolean).join(" ");
-          setBusinessContext(ctx);
-          // Fallback de niche: se profiles.niche estiver vazio, derive a partir do
-          // questionário de negócios (profession, services, company_name).
-          setUserNiche(prev => {
-            if (prev) return prev;
-            const candidate = [data.services, data.company_name]
-              .filter(Boolean).join(" ").trim();
-            return candidate || prev;
-          });
-        }
+    setImageContextLoaded(false);
+    (async () => {
+      const [profileRes, businessRes] = await Promise.all([
+        supabase.from("profiles").select("niche").eq("user_id", user.id).maybeSingle(),
+        supabase.from("business_questionnaires").select("services,target_audience,company_name")
+          .eq("user_id", user.id).order("version", { ascending: false }).limit(1).maybeSingle(),
+      ]);
+      const business = businessRes.data;
+      const ctx = business
+        ? [business.company_name, business.services, business.target_audience].filter(Boolean).join(" ")
+        : "";
+      const derivedNiche = business
+        ? [business.services, business.company_name].filter(Boolean).join(" ").trim()
+        : "";
+      const resolvedNiche = (profileRes.data?.niche || derivedNiche || "").trim();
+      setBusinessContext(ctx);
+      setUserNiche(resolvedNiche);
+      setImageContextLoaded(true);
+      console.log("[PostEditor] image context loaded", {
+        profileNiche: profileRes.data?.niche || null,
+        derivedNiche,
+        resolvedNiche,
+        hasResolvedNiche: Boolean(resolvedNiche),
       });
+    })().catch((err) => {
+      console.warn("[PostEditor] image context failed", err);
+      setImageContextLoaded(true);
+    });
     supabase.functions
       .invoke("portrait-history", { method: "GET" })
       .then(({ data }) => {
@@ -477,6 +488,10 @@ const PostEditorPage = () => {
     // Otimista: marca como aplicado para que o auto-layout (que dispara em
     // paralelo) já preserve as decisões do template. Reverte se falhar.
     archetypeTemplateAppliedRef.current = true;
+    console.log("[archetype-template] flag set before query await", {
+      primaryArchetype,
+      archetypeTemplateApplied: archetypeTemplateAppliedRef.current,
+    });
     (async () => {
       try {
         const { data, error } = await supabase
@@ -538,18 +553,35 @@ const PostEditorPage = () => {
         // pode ser 1080×1350 (card) ou 1080×1920 (reels).
         const fromW = typeof s.canvasWidth === "number" ? s.canvasWidth : 1080;
         const fromH = typeof s.canvasHeight === "number" ? s.canvasHeight : 1080;
+        console.log("[archetype-template] rescale overlayImages", {
+          primaryArchetype,
+          fromW,
+          fromH,
+          toW: cW,
+          toH: cH,
+          originalOverlayCount: Array.isArray(s.overlayImages) ? s.overlayImages.length : 0,
+        });
         const sx = cW / fromW;
         const sy = cH / fromH;
         const tplOverlays: OverlayImage[] = Array.isArray(s.overlayImages)
           ? s.overlayImages
               .filter((o: any) => o && o.type !== "photo")
-              .map((o: any) => ({
-                ...o,
-                x: typeof o.x === "number" ? Math.round(o.x * sx) : o.x,
-                y: typeof o.y === "number" ? Math.round(o.y * sy) : o.y,
-                width: typeof o.width === "number" ? Math.round(o.width * sx) : o.width,
-                height: typeof o.height === "number" ? Math.round(o.height * sy) : o.height,
-              }))
+              .map((o: any) => {
+                const scaled = {
+                  ...o,
+                  x: typeof o.x === "number" ? Math.round(o.x * sx) : o.x,
+                  y: typeof o.y === "number" ? Math.round(o.y * sy) : o.y,
+                  width: typeof o.width === "number" ? Math.round(o.width * sx) : o.width,
+                  height: typeof o.height === "number" ? Math.round(o.height * sy) : o.height,
+                };
+                console.log("[archetype-template] overlay rescaled", {
+                  id: o.id,
+                  type: o.type,
+                  original: { x: o.x, y: o.y, width: o.width, height: o.height },
+                  scaled: { x: scaled.x, y: scaled.y, width: scaled.width, height: scaled.height },
+                });
+                return scaled;
+              })
           : [];
         if (tplOverlays.length > 0) {
           setOverlayImages(prev => {
@@ -570,6 +602,7 @@ const PostEditorPage = () => {
   // Auto-layout: monta layout inicial (template + bg Unsplash + logo) na primeira abertura
   useEffect(() => {
     if (!user || !day || autoLayoutRanRef.current) return;
+    if (!imageContextLoaded) return;
     if (!Array.isArray(palette) || palette.length === 0) return;
     autoLayoutRanRef.current = true;
     const isCarouselDay = day?.format?.toLowerCase() === "carrossel";
@@ -662,7 +695,7 @@ const PostEditorPage = () => {
         setInitializingLayout(null);
       }
     })();
-  }, [user, day, palette, weekIndex, dayIndex, canvasFormat, bgIndex, initialStyle, userNiche, businessContext]);
+  }, [user, day, palette, weekIndex, dayIndex, canvasFormat, bgIndex, initialStyle, userNiche, businessContext, imageContextLoaded]);
 
   // Carrossel + estilo Pexels: busca uma imagem independente para cada slide,
   // com variação sutil de opacidade e object-position para criar ritmo visual.
@@ -670,6 +703,7 @@ const PostEditorPage = () => {
   const slideBgRanRef = useRef(false);
   useEffect(() => {
     if (!day || slideBgRanRef.current) return;
+    if (!imageContextLoaded) return;
     const isCarouselDay = day.format?.toLowerCase() === "carrossel";
     if (!isCarouselDay || initialStyle !== "pexels") return;
     const totalSlides = Math.max(1, day.card_copy?.length || 1);
@@ -692,8 +726,7 @@ const PostEditorPage = () => {
           try {
             const slideBody = (day.card_copy?.[i] || day.caption || "").toString();
             const nonce = `${baseSeed}-${i}-${attempt}-${Math.random().toString(36).slice(2, 10)}`;
-            const res = await supabase.functions.invoke("fetch-post-image", {
-              body: {
+            const fetchPostImageBody = {
                 theme: themeStr,
                 caption: day.caption,
                 body: slideBody,
@@ -703,7 +736,16 @@ const PostEditorPage = () => {
                 businessContext,
                 mode: "single",
                 nonce,
-              },
+              };
+            console.log("[fetch-post-image] carousel slide body", {
+              slideIndex: i,
+              attempt,
+              niche: fetchPostImageBody.niche,
+              hasNiche: Boolean(fetchPostImageBody.niche),
+              body: fetchPostImageBody,
+            });
+            const res = await supabase.functions.invoke("fetch-post-image", {
+              body: fetchPostImageBody,
             });
             const candidate = res?.data?.url;
             if (candidate && !usedUrls.has(candidate)) {
@@ -729,7 +771,7 @@ const PostEditorPage = () => {
         setSlideBackgrounds((prev) => ({ ...prev, ...updates }));
       }
     })();
-  }, [day, canvasFormat, initialStyle, userNiche, businessContext]);
+  }, [day, canvasFormat, initialStyle, userNiche, businessContext, imageContextLoaded]);
 
   // Trocar imagem de fundo (busca nova do Unsplash)
   const handleSwapBackground = useCallback(async () => {

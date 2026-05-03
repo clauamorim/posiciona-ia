@@ -505,7 +505,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   };
 
   const isMinimalStyle = postStyle === "minimal";
-  const bodyFontSize = fontSize || 38;
+  const bodyFontSize = Math.max(22, fontSize || 38);
   // Body weight nunca pode ser bold — clamp para o peso máximo do arquétipo (300 ou 400).
   const bodyFontWeight = clampBodyWeight(fontWeight || "normal", typo.bodyWeight);
   const bodyFontStyle2 = fontStyle || "normal";
