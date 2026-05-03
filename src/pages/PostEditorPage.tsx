@@ -458,6 +458,83 @@ const PostEditorPage = () => {
     textsInitializedRef.current = true;
   }, [day]);
 
+  // Aplica o template global do arquétipo do usuário como base visual.
+  // Preserva: cores, fontes, pesos, tamanhos, layout, decorativos.
+  // NÃO toca em: textos (vêm da IA) e imagens de fundo (vêm do auto-layout).
+  // Se nenhum template global existir para o arquétipo, segue o fluxo padrão.
+  useEffect(() => {
+    if (archetypeTemplateRanRef.current) return;
+    if (!user || !primaryArchetype) return;
+    archetypeTemplateRanRef.current = true;
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from("user_designs")
+          .select("state")
+          .eq("is_template", true)
+          .eq("is_global", true)
+          .eq("archetype", primaryArchetype)
+          .order("updated_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (error || !data?.state) return;
+        const s: any = data.state;
+        // Salvaguarda: archetype do template não sobrescreve o do usuário
+        if ("archetype" in s) delete s.archetype;
+
+        // Visual base: cores, gradiente, fontes, layout, alinhamentos, números de slide
+        if (s.layout) setLayout(s.layout);
+        if (typeof s.bgIndex === "number") setBgIndex(s.bgIndex);
+        if (s.customBgColor !== undefined) setCustomBgColor(s.customBgColor);
+        if (typeof s.useGradient === "boolean") setUseGradient(s.useGradient);
+        if (typeof s.gradientColor2Index === "number") setGradientColor2Index(s.gradientColor2Index);
+        if (s.customGradientColor2 !== undefined) setCustomGradientColor2(s.customGradientColor2);
+        if (s.gradientDirection) setGradientDirection(s.gradientDirection);
+        if (s.displayFont) { loadGoogleFont(s.displayFont); setDisplayFont(s.displayFont); }
+        if (s.bodyFont) { loadGoogleFont(s.bodyFont); setBodyFont(s.bodyFont); }
+        if (s.titleFontFamily !== undefined) {
+          if (s.titleFontFamily) loadGoogleFont(s.titleFontFamily);
+          setTitleFontFamily(s.titleFontFamily);
+        }
+        if (typeof s.fontSize === "number") setFontSize(s.fontSize);
+        if (s.fontWeight) setFontWeight(s.fontWeight);
+        if (s.fontStyle) setFontStyle(s.fontStyle);
+        if (s.textAlign) setTextAlign(s.textAlign);
+        if (s.titleTextAlign) setTitleTextAlign(s.titleTextAlign);
+        if (s.customTextColor !== undefined) setCustomTextColor(s.customTextColor);
+        if (typeof s.titleFontSize === "number") setTitleFontSize(s.titleFontSize);
+        if (s.titleColor !== undefined) setTitleColor(s.titleColor);
+        if (s.ctaBgColor !== undefined) setCtaBgColor(s.ctaBgColor);
+        if (s.ctaTextColor !== undefined) setCtaTextColor(s.ctaTextColor);
+        if (typeof s.ctaFontSize === "number") setCtaFontSize(s.ctaFontSize);
+        if (s.ctaPosition !== undefined) setCtaPosition(s.ctaPosition);
+        if (typeof s.showSlideNumber === "boolean") setShowSlideNumber(s.showSlideNumber);
+        if (s.slideNumberPosition !== undefined) setSlideNumberPosition(s.slideNumberPosition);
+        if (s.slideNumberBgColor !== undefined) setSlideNumberBgColor(s.slideNumberBgColor);
+        if (s.slideNumberTextColor !== undefined) setSlideNumberTextColor(s.slideNumberTextColor);
+        if (typeof s.slideNumberSize === "number") setSlideNumberSize(s.slideNumberSize);
+        if (s.slideTextBoxes && typeof s.slideTextBoxes === "object") setSlideTextBoxes(s.slideTextBoxes);
+        // Marca bg como inicializado para evitar que o efeito de palette sobrescreva
+        bgInitializedRef.current = true;
+
+        // Overlays decorativos do template (frames, linhas, acentos).
+        // Filtra fotos — o auto-layout cuida do background image.
+        const tplOverlays: OverlayImage[] = Array.isArray(s.overlayImages)
+          ? s.overlayImages.filter((o: any) => o && o.type !== "photo")
+          : [];
+        if (tplOverlays.length > 0) {
+          setOverlayImages(prev => {
+            const cleaned = prev.filter(o => !String(o.id || "").startsWith("tpl-"));
+            return [...tplOverlays, ...cleaned];
+          });
+        }
+        archetypeTemplateAppliedRef.current = true;
+      } catch (err) {
+        console.warn("[archetype-template] failed", err);
+      }
+    })();
+  }, [user, primaryArchetype]);
+
   // Auto-layout: monta layout inicial (template + bg Unsplash + logo) na primeira abertura
   useEffect(() => {
     if (!user || !day || autoLayoutRanRef.current) return;
