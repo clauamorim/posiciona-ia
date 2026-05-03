@@ -168,7 +168,7 @@ function restoreDraftImages(draft: EditorDraft): EditorDraft {
 }
 
 const PostEditorPage = () => {
-  const { user, balances, refreshSubscription } = useAuth();
+  const { user, balances, refreshSubscription, isAdmin } = useAuth();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
