@@ -601,11 +601,16 @@ const PostEditorPage = () => {
         const tplApplied = archetypeTemplateAppliedRef.current;
         if (result.overlays.length > 0) {
           setOverlayImages(prev => {
-            // Quando temos template, mantemos overlays do template (tpl-* não-bg);
-            // só limpamos bg antigo. Sem template, limpamos todos tpl-*.
-            const cleaned = tplApplied
-              ? prev.filter(o => !o.id.startsWith("tpl-bg-"))
-              : prev.filter(o => !o.id.startsWith("tpl-"));
+            if (tplApplied) {
+              // Template do arquétipo é a única fonte de decorativos.
+              // Do auto-layout só aproveitamos o background image (tpl-bg-*).
+              const keptTplDecor = prev.filter(o => o.id.startsWith("tpl-") && !o.id.startsWith("tpl-bg-"));
+              const newBgs = result.overlays.filter(o => o.id.startsWith("tpl-bg-"));
+              const otherPrev = prev.filter(o => !o.id.startsWith("tpl-"));
+              return [...newBgs, ...otherPrev, ...keptTplDecor];
+            }
+            // Sem template do arquétipo: comportamento original.
+            const cleaned = prev.filter(o => !o.id.startsWith("tpl-"));
             const next = [...result.overlays, ...cleaned];
             const bgs = next.filter(o => o.id.startsWith("tpl-bg-"));
             const others = next.filter(o => !o.id.startsWith("tpl-bg-"));
