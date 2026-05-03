@@ -31,6 +31,7 @@ const adminGroups: NavGroup[] = [
       { label: "Métricas", href: "/admin/metrics", icon: BarChart3 },
       { label: "Documentos LLM", href: "/admin/documents", icon: FileUp },
       { label: "Galeria", href: "/admin/gallery", icon: Image },
+      { label: "Templates Globais", href: "/admin/templates", icon: Layers },
     ],
   },
 ];

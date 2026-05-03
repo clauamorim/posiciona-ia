@@ -30,6 +30,7 @@ import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminUsers from "./pages/admin/AdminUsers";
 import AdminDocuments from "./pages/admin/AdminDocuments";
 import AdminGallery from "./pages/admin/AdminGallery";
+import AdminTemplates from "./pages/admin/AdminTemplates";
 import ChoosePlan from "./pages/ChoosePlan";
 import HelpPage from "./pages/HelpPage";
 import NotFound from "./pages/NotFound";
@@ -79,6 +80,7 @@ const App = () => (
             <Route path="/admin/users" element={<ProtectedRoute requireAdmin><AdminUsers /></ProtectedRoute>} />
             <Route path="/admin/documents" element={<ProtectedRoute requireAdmin><AdminDocuments /></ProtectedRoute>} />
             <Route path="/admin/gallery" element={<ProtectedRoute requireAdmin><AdminGallery /></ProtectedRoute>} />
+            <Route path="/admin/templates" element={<ProtectedRoute requireAdmin><AdminTemplates /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
           <AssistantButton />

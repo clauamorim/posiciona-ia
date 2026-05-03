@@ -24,6 +24,9 @@ interface UserDesign {
   day_index: number | null;
   state: any;
   is_template: boolean;
+  is_global?: boolean;
+  archetype?: string | null;
+  user_id?: string;
   updated_at: string;
   created_at: string;
 }
@@ -60,24 +63,32 @@ const MyDesignsPage = () => {
   const fetchDesigns = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-    const [{ data: designsData, error }, { data: reportData }] = await Promise.all([
+    const [ownRes, globalRes, reportRes] = await Promise.all([
       supabase
         .from("user_designs")
-        .select("id, title, thumbnail, week_index, day_index, state, is_template, updated_at, created_at")
+        .select("id, title, thumbnail, week_index, day_index, state, is_template, is_global, archetype, user_id, updated_at, created_at")
         .eq("user_id", user.id)
+        .order("updated_at", { ascending: false }),
+      supabase
+        .from("user_designs")
+        .select("id, title, thumbnail, week_index, day_index, state, is_template, is_global, archetype, user_id, updated_at, created_at")
+        .eq("is_template", true)
+        .eq("is_global", true)
         .order("updated_at", { ascending: false }),
       supabase.from("reports").select("content, editorial_weeks")
         .eq("user_id", user.id).eq("status", "completed")
         .order("version", { ascending: false }).limit(1).maybeSingle(),
     ]);
-    if (error) {
-      toast({ title: "Erro ao carregar designs", description: error.message, variant: "destructive" });
+    if (ownRes.error) {
+      toast({ title: "Erro ao carregar designs", description: ownRes.error.message, variant: "destructive" });
     } else {
-      setDesigns((designsData as UserDesign[]) || []);
+      const own = (ownRes.data as UserDesign[]) || [];
+      const globals = ((globalRes.data as UserDesign[]) || []).filter((g) => g.user_id !== user.id);
+      setDesigns([...own, ...globals]);
     }
-    const structured = (reportData?.content as any)?.editorial;
+    const structured = (reportRes.data?.content as any)?.editorial;
     const structuredArr = Array.isArray(structured) ? structured : [];
-    const weeks: any[][] = Array.isArray(reportData?.editorial_weeks) ? reportData!.editorial_weeks as any[][] : [];
+    const weeks: any[][] = Array.isArray(reportRes.data?.editorial_weeks) ? reportRes.data!.editorial_weeks as any[][] : [];
     setAllWeeks([...(structuredArr.length > 0 ? [structuredArr] : []), ...weeks]);
     setLoading(false);
   }, [user]);
@@ -141,6 +152,7 @@ const MyDesignsPage = () => {
 
   const renderDesignCard = (d: UserDesign) => {
     const stale = isDesignStale(d);
+    const isGlobal = !!d.is_global && d.user_id !== user?.id;
     return (
       <Card key={d.id} className="overflow-hidden group">
         <button onClick={() => handleOpen(d)} className="block w-full aspect-[4/5] bg-muted relative">
@@ -152,7 +164,14 @@ const MyDesignsPage = () => {
             </div>
           )}
           {d.is_template && (
-            <span className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-primary/90 text-primary-foreground text-[10px] font-semibold uppercase tracking-wider">Modelo</span>
+            <span className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-primary/90 text-primary-foreground text-[10px] font-semibold uppercase tracking-wider">
+              {isGlobal ? "Posiciona" : "Modelo"}
+            </span>
+          )}
+          {isGlobal && d.archetype && (
+            <span className="absolute top-2 right-2 px-2 py-0.5 rounded-md bg-background/90 text-foreground text-[10px] font-semibold uppercase tracking-wider">
+              {d.archetype}
+            </span>
           )}
         </button>
         <CardContent className="p-3 space-y-2">
@@ -172,26 +191,30 @@ const MyDesignsPage = () => {
             <Button variant="outline" size="sm" className="flex-1 h-7 text-[11px] gap-1" onClick={() => handleOpen(d)}>
               <Pencil className="h-3 w-3" /> {d.is_template ? "Usar" : "Abrir"}
             </Button>
-            <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => handleDuplicate(d)} aria-label="Duplicar">
-              <Copy className="h-3 w-3" />
-            </Button>
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="outline" size="icon" className="h-7 w-7" aria-label="Excluir">
-                  <Trash2 className="h-3 w-3" />
+            {!isGlobal && (
+              <>
+                <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => handleDuplicate(d)} aria-label="Duplicar">
+                  <Copy className="h-3 w-3" />
                 </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>{d.is_template ? "Excluir modelo?" : "Excluir design?"}</AlertDialogTitle>
-                  <AlertDialogDescription>Esta ação não pode ser desfeita.</AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                  <AlertDialogAction onClick={() => handleDelete(d)}>Excluir</AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="outline" size="icon" className="h-7 w-7" aria-label="Excluir">
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>{d.is_template ? "Excluir modelo?" : "Excluir design?"}</AlertDialogTitle>
+                      <AlertDialogDescription>Esta ação não pode ser desfeita.</AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => handleDelete(d)}>Excluir</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </>
+            )}
           </div>
         </CardContent>
       </Card>

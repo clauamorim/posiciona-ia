@@ -168,7 +168,7 @@ function restoreDraftImages(draft: EditorDraft): EditorDraft {
 }
 
 const PostEditorPage = () => {
-  const { user, balances, refreshSubscription } = useAuth();
+  const { user, balances, refreshSubscription, isAdmin } = useAuth();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
@@ -1179,12 +1179,19 @@ const PostEditorPage = () => {
         if (error) throw error;
         toast({ title: "Design atualizado", description: galleryNote || undefined });
       } else {
+        const adminTemplate = isAdmin && asTemplate && searchParams.get("adminTemplate") === "1";
+        const archetypeParam = searchParams.get("archetype");
+        const insertPayload: any = { user_id: user.id, title, state, thumbnail, week_index: weekIndex, day_index: dayIndex, is_template: asTemplate };
+        if (adminTemplate) {
+          insertPayload.is_global = true;
+          if (archetypeParam) insertPayload.archetype = archetypeParam;
+        }
         const { data, error } = await supabase.from("user_designs")
-          .insert({ user_id: user.id, title, state, thumbnail, week_index: weekIndex, day_index: dayIndex, is_template: asTemplate } as any)
+          .insert(insertPayload)
           .select("id").single();
         if (error) throw error;
         if (data && !asTemplate) setCurrentDesignId(data.id);
-        toast({ title: asTemplate ? "Modelo salvo" : "Design salvo", description: galleryNote || undefined });
+        toast({ title: asTemplate ? (adminTemplate ? "Template global salvo" : "Modelo salvo") : "Design salvo", description: galleryNote || undefined });
       }
     } catch (err: any) {
       console.error(err);
@@ -1197,7 +1204,7 @@ const PostEditorPage = () => {
       useGradient, gradientColor2Index, customGradientColor2, gradientDirection, textAlign, customTextColor, customBgColor,
       titleFontSize, titleColor, titleFontFamily, ctaText, ctaBgColor, ctaTextColor, ctaFontSize, ctaPosition,
       canvasFormat, showSlideNumber, slideNumberPosition, slideNumberBgColor, slideNumberTextColor, slideNumberSize,
-      displayFont, bodyFont, titleTextAlign, persistPostPhotosToGallery, slideTextBoxes]);
+      displayFont, bodyFont, titleTextAlign, persistPostPhotosToGallery, slideTextBoxes, isAdmin, searchParams]);
 
   const handleSaveDesign = useCallback(() => doSaveDesign(false), [doSaveDesign]);
   const handleSaveAsTemplate = useCallback(() => doSaveDesign(true), [doSaveDesign]);
