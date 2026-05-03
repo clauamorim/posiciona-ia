@@ -400,19 +400,25 @@ export async function fetchImageGallery(opts: {
   userQuery?: string;
 }): Promise<{ results: Array<{ url: string; photographer: PhotographerInfo }>; keywords: string }> {
   try {
+    const fetchPostImageBody = {
+      theme: opts.query,
+      format: opts.format,
+      page: opts.page,
+      niche: opts.niche,
+      businessContext: opts.businessContext,
+      caption: opts.caption,
+      body: opts.body,
+      cardCopy: opts.cardCopy,
+      userQuery: opts.userQuery,
+      mode: "gallery",
+    };
+    console.log("[fetch-post-image] gallery body", {
+      niche: fetchPostImageBody.niche,
+      hasNiche: Boolean(fetchPostImageBody.niche),
+      body: fetchPostImageBody,
+    });
     const { data, error } = await supabase.functions.invoke("fetch-post-image", {
-      body: {
-        theme: opts.query,
-        format: opts.format,
-        page: opts.page,
-        niche: opts.niche,
-        businessContext: opts.businessContext,
-        caption: opts.caption,
-        body: opts.body,
-        cardCopy: opts.cardCopy,
-        userQuery: opts.userQuery,
-        mode: "gallery",
-      },
+      body: fetchPostImageBody,
     });
     if (error || !Array.isArray(data?.results)) return { results: [], keywords: "" };
     const results = data.results.map((r: any) => ({
