@@ -1035,53 +1035,101 @@ const PostEditorPage = () => {
     }
   }, [overlayImages, removingBackground, chromaKeyToTransparent]);
 
-  const handleDownloadSlide = useCallback(async (index: number) => {
+  const triggerDownload = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    link.rel = "noopener";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
+  const captureSlide = async (el: HTMLElement) => {
+    const html2canvas = (await import("html2canvas")).default;
+    const origTransform = el.style.transform;
+    const origTransformOrigin = el.style.transformOrigin;
+    el.style.transform = "scale(1)";
+    el.style.transformOrigin = "top left";
     try {
-      const html2canvas = (await import("html2canvas")).default;
-      const el = isCarousel ? slideRefs.current[index] : singleCanvasRef.current;
-      if (!el) return;
-      const origTransform = el.style.transform;
-      const origTransformOrigin = el.style.transformOrigin;
-      el.style.transform = "scale(1)";
-      el.style.transformOrigin = "top left";
-      const canvas = await html2canvas(el, { scale: 2, width: cW, height: cH, useCORS: true });
+      const canvas = await html2canvas(el, {
+        scale: 2,
+        width: cW,
+        height: cH,
+        useCORS: true,
+        allowTaint: false,
+        backgroundColor: null,
+        logging: false,
+      });
+      return canvas;
+    } finally {
       el.style.transform = origTransform;
       el.style.transformOrigin = origTransformOrigin;
-      const link = document.createElement("a");
-      link.download = `post-dia${day?.day || dayIndex + 1}${isCarousel ? `-slide${index + 1}` : ""}.png`;
-      link.href = canvas.toDataURL("image/png");
-      link.click();
-    } catch { toast({ title: "Erro ao exportar imagem", variant: "destructive" }); }
+    }
+  };
+
+  const handleDownloadSlide = useCallback(async (index: number) => {
+    try {
+      const el = isCarousel ? slideRefs.current[index] : singleCanvasRef.current;
+      if (!el) {
+        toast({ title: "Canvas não encontrado", variant: "destructive" });
+        return;
+      }
+      const canvas = await captureSlide(el);
+      const blob = await new Promise<Blob | null>((resolve) =>
+        canvas.toBlob((b) => resolve(b), "image/png")
+      );
+      if (!blob) throw new Error("Falha ao gerar PNG");
+      const filename = `post-dia${day?.day || dayIndex + 1}${isCarousel ? `-slide${index + 1}` : ""}.png`;
+      triggerDownload(blob, filename);
+    } catch (err: any) {
+      console.error("[download-slide]", err);
+      toast({
+        title: "Erro ao exportar imagem",
+        description: err?.message || "Tente remover imagens externas e baixar novamente.",
+        variant: "destructive",
+      });
+    }
   }, [isCarousel, day, dayIndex, cW, cH]);
 
   const handleDownloadAll = useCallback(async () => {
     try {
-      const html2canvas = (await import("html2canvas")).default;
       const JSZip = (await import("jszip")).default;
       const zip = new JSZip();
+      let failed = 0;
       for (let i = 0; i < editedTexts.length; i++) {
         setCurrentSlide(i);
-        await new Promise((r) => setTimeout(r, 200));
+        await new Promise((r) => setTimeout(r, 250));
         const el = slideRefs.current[i];
-        if (!el) continue;
-        const origTransform = el.style.transform;
-        const origTransformOrigin = el.style.transformOrigin;
-        el.style.transform = "scale(1)";
-        el.style.transformOrigin = "top left";
-        const canvas = await html2canvas(el, { scale: 2, width: cW, height: cH, useCORS: true });
-        el.style.transform = origTransform;
-        el.style.transformOrigin = origTransformOrigin;
-        const blob = await new Promise<Blob>((resolve) => canvas.toBlob((b) => resolve(b!), "image/png"));
-        zip.file(`slide-${i + 1}.png`, blob);
+        if (!el) { failed++; continue; }
+        try {
+          const canvas = await captureSlide(el);
+          const blob = await new Promise<Blob | null>((resolve) =>
+            canvas.toBlob((b) => resolve(b), "image/png")
+          );
+          if (!blob) { failed++; continue; }
+          zip.file(`slide-${i + 1}.png`, blob);
+        } catch (e) {
+          console.error(`[download-all] slide ${i + 1}`, e);
+          failed++;
+        }
       }
       const zipBlob = await zip.generateAsync({ type: "blob" });
-      const link = document.createElement("a");
-      link.download = `carrossel-dia${day?.day || dayIndex + 1}.zip`;
-      link.href = URL.createObjectURL(zipBlob);
-      link.click();
-      URL.revokeObjectURL(link.href);
-      toast({ title: "Carrossel exportado com sucesso!" });
-    } catch { toast({ title: "Erro ao exportar ZIP", variant: "destructive" }); }
+      triggerDownload(zipBlob, `carrossel-dia${day?.day || dayIndex + 1}.zip`);
+      toast({
+        title: failed ? `Exportado com ${failed} falha(s)` : "Carrossel exportado com sucesso!",
+        variant: failed ? "destructive" : "default",
+      });
+    } catch (err: any) {
+      console.error("[download-all]", err);
+      toast({
+        title: "Erro ao exportar ZIP",
+        description: err?.message || "Tente novamente.",
+        variant: "destructive",
+      });
+    }
   }, [editedTexts, day, dayIndex, cW, cH]);
 
   const handleCtaMove = (x: number, y: number) => setCtaPosition({ x, y });
