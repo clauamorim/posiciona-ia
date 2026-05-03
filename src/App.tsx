@@ -30,6 +30,7 @@ import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminUsers from "./pages/admin/AdminUsers";
 import AdminDocuments from "./pages/admin/AdminDocuments";
 import AdminGallery from "./pages/admin/AdminGallery";
+import AdminTemplates from "./pages/admin/AdminTemplates";
 import ChoosePlan from "./pages/ChoosePlan";
 import HelpPage from "./pages/HelpPage";
 import NotFound from "./pages/NotFound";
