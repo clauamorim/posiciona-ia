@@ -24,6 +24,9 @@ interface UserDesign {
   day_index: number | null;
   state: any;
   is_template: boolean;
+  is_global?: boolean;
+  archetype?: string | null;
+  user_id?: string;
   updated_at: string;
   created_at: string;
 }
