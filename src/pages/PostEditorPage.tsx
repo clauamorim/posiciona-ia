@@ -477,6 +477,10 @@ const PostEditorPage = () => {
     // Otimista: marca como aplicado para que o auto-layout (que dispara em
     // paralelo) já preserve as decisões do template. Reverte se falhar.
     archetypeTemplateAppliedRef.current = true;
+    console.log("[archetype-template] flag set before query await", {
+      primaryArchetype,
+      archetypeTemplateApplied: archetypeTemplateAppliedRef.current,
+    });
     (async () => {
       try {
         const { data, error } = await supabase
