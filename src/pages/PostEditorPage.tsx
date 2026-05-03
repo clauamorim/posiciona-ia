@@ -566,10 +566,17 @@ const PostEditorPage = () => {
           businessContext,
           aiStyleDirective: initialStyle === "ai" ? getAIStyleById(initialAiVisualStyle)?.directive : undefined,
         });
+        // Quando o template do arquétipo já foi aplicado, preservamos seus
+        // overlays decorativos e configurações visuais — só atualizamos o
+        // background image e os slots de texto sugeridos pelo auto-layout.
+        const tplApplied = archetypeTemplateAppliedRef.current;
         if (result.overlays.length > 0) {
           setOverlayImages(prev => {
-            // Limpa overlays automáticos anteriores (tpl-*) antes de aplicar os novos
-            const cleaned = prev.filter(o => !o.id.startsWith("tpl-"));
+            // Quando temos template, mantemos overlays do template (tpl-* não-bg);
+            // só limpamos bg antigo. Sem template, limpamos todos tpl-*.
+            const cleaned = tplApplied
+              ? prev.filter(o => !o.id.startsWith("tpl-bg-"))
+              : prev.filter(o => !o.id.startsWith("tpl-"));
             const next = [...result.overlays, ...cleaned];
             const bgs = next.filter(o => o.id.startsWith("tpl-bg-"));
             const others = next.filter(o => !o.id.startsWith("tpl-bg-"));
@@ -579,17 +586,19 @@ const PostEditorPage = () => {
         }
         if (result.slots) setInitialTextBoxes(result.slots);
         const s = result.suggestions;
-        if (s.titleFontSize) setTitleFontSize(s.titleFontSize);
-        if (s.titleTextAlign) setTitleTextAlign(s.titleTextAlign);
-        if (s.bodyFontSize) setFontSize(s.bodyFontSize);
-        if (s.bodyTextAlign) setTextAlign(s.bodyTextAlign);
-        if (typeof s.showSlideNumber === "boolean") setShowSlideNumber(s.showSlideNumber);
-        if (s.slideNumberSize) setSlideNumberSize(s.slideNumberSize);
-        // Aplicar sugestões de gradiente (estilo minimalista OU fallback de erro)
-        if (s.useGradient) {
-          setUseGradient(true);
-          if (typeof s.gradientColor2Index === "number") setGradientColor2Index(s.gradientColor2Index);
-          if (s.gradientDirection) setGradientDirection(s.gradientDirection);
+        if (!tplApplied) {
+          if (s.titleFontSize) setTitleFontSize(s.titleFontSize);
+          if (s.titleTextAlign) setTitleTextAlign(s.titleTextAlign);
+          if (s.bodyFontSize) setFontSize(s.bodyFontSize);
+          if (s.bodyTextAlign) setTextAlign(s.bodyTextAlign);
+          if (typeof s.showSlideNumber === "boolean") setShowSlideNumber(s.showSlideNumber);
+          if (s.slideNumberSize) setSlideNumberSize(s.slideNumberSize);
+          // Aplicar sugestões de gradiente (estilo minimalista OU fallback de erro)
+          if (s.useGradient) {
+            setUseGradient(true);
+            if (typeof s.gradientColor2Index === "number") setGradientColor2Index(s.gradientColor2Index);
+            if (s.gradientDirection) setGradientDirection(s.gradientDirection);
+          }
         }
         if (result.photographer) setActivePhotographer(result.photographer);
         // Salva imagem inicial do template (IA/Pexels) automaticamente na galeria pessoal
