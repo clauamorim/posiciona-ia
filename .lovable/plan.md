@@ -1,39 +1,41 @@
-# Corrigir download no editor de posts
-
 ## Diagnóstico
 
-No `src/pages/PostEditorPage.tsx` (linhas 1038–1085), `handleDownloadSlide` e `handleDownloadAll` têm três problemas que, combinados, produzem o sintoma "não baixa":
+O comportamento do print indica que o clique está chegando no handler, mas a função de captura está mexendo no próprio canvas visível: ela remove temporariamente o `transform: scale(...)` para exportar em tamanho real. Se o `html2canvas` trava, demora ou falha antes de restaurar visualmente, o post fica ampliado na tela e nenhum download é disparado.
 
-1. **Erros silenciados sem detalhe.** Os `try/catch` capturam tudo em um `toast` genérico ("Erro ao exportar imagem"), sem `console.error`. Não dá para diagnosticar a causa real.
-2. **Anchor não anexada ao DOM.** `link.click()` sem `document.body.appendChild(link)` é ignorado em alguns navegadores (notadamente Firefox e versões recentes do Chrome quando o `download` aponta para `dataURL` grande). Isso causa "click silencioso" — nenhum download é disparado e nenhum erro é lançado.
-3. **CORS taints o canvas.** Overlays e imagens vindas de URLs assinadas do Supabase (`portrait-outputs`, `user-uploads`) e da Pexels não vêm com `crossOrigin="anonymous"` setado nos `<img>` dentro do `PostCanvas`. Isso "tainta" o canvas e faz `html2canvas` lançar `SecurityError` em `toDataURL`/`toBlob`. Como o catch é silencioso, parece que o botão "não funciona".
+Além disso, no carrossel existe outro risco: só há um `PostCanvas` renderizado por vez, mas `handleDownloadAll` tenta baixar vários `slideRefs`. Na prática, os refs dos slides não existem simultaneamente, então o ZIP pode falhar ou sair incompleto.
 
-## O que fazer
+## Plano de correção
 
-### 1. `src/pages/PostEditorPage.tsx` — endurecer os handlers de download
+1. **Não alterar mais o canvas visível durante exportação**
+   - Substituir a estratégia atual de `el.style.transform = "scale(1)"`.
+   - Capturar um clone temporário/offscreen do slide, em vez do elemento que o usuário está vendo.
+   - O canvas visível não deve aumentar nem piscar ao clicar em baixar.
 
-- Logar o erro (`console.error`) e mostrar `err.message` no toast para visibilidade.
-- Anexar o `<a>` ao `document.body` antes do `click()` e remover depois.
-- Trocar `dataURL` por `Blob` + `URL.createObjectURL` no slide único (mais confiável para PNGs grandes).
-- Passar `useCORS: true`, `allowTaint: false` e `backgroundColor: null` no `html2canvas` (já tem useCORS, garantir os outros).
-- Em `handleDownloadAll`, se um slide falhar, continuar os demais e reportar quantos falharam em vez de abortar tudo.
+2. **Criar uma função de exportação isolada e segura**
+   - Clonar o slide para uma área fora da tela.
+   - Remover `transform` apenas no clone.
+   - Fixar `width`/`height` reais do post no clone.
+   - Rodar `html2canvas` nesse clone com `useCORS: true`, `allowTaint: false`, `backgroundColor: null` e `scale: 2`.
+   - Remover o clone no `finally`, mesmo se der erro.
 
-### 2. `src/components/post-editor/PostCanvas.tsx` — habilitar CORS nas imagens
+3. **Evitar que controles do editor apareçam no PNG**
+   - Antes da captura, ocultar no clone elementos de edição como outlines, handles de resize, réguas e guias.
+   - Manter apenas a arte final do post.
 
-Garantir `crossOrigin="anonymous"` em todos os `<img>` renderizados no canvas (overlays, foto principal, ícones recoloridos via `<img>` SVG). Sem isso, `html2canvas` não consegue ler pixels e o canvas fica tainted.
+4. **Corrigir o download do carrossel**
+   - Para baixar slide individual: capturar o slide atual via clone offscreen.
+   - Para “Baixar todos (ZIP)”: iterar pelos slides mudando `currentSlide`, aguardar a renderização, capturar o slide atual e adicionar ao ZIP.
+   - Reportar falhas por slide sem travar toda a exportação.
 
-### 3. Verificar fontes externas
+5. **Melhorar feedback visual**
+   - Adicionar estado `exporting` para desabilitar os botões enquanto exporta.
+   - Mostrar toast de sucesso/falha com mensagem específica.
 
-Se o canvas usa Google Fonts ou similares, `html2canvas` pode estourar CORS na hora de inlinar. Não é o gatilho mais comum aqui (fontes vêm do CSS, não como recursos no canvas), mas vale checar console após a melhoria #1.
+## Arquivos a alterar
 
-## Como validar
+- `src/pages/PostEditorPage.tsx`
+- Possivelmente `src/components/post-editor/CarouselEditor.tsx`, apenas se for necessário passar estado de exportação para desabilitar botões.
 
-1. Abrir o editor com um post sem foto → "Baixar PNG" deve baixar.
-2. Adicionar uma imagem de overlay (galeria/retrato) → "Baixar PNG" deve continuar funcionando.
-3. No carrossel, "Baixar todos (ZIP)" deve gerar zip com todos os slides.
-4. Se algum erro restar, agora aparecerá com mensagem específica no toast e no console — passo a passo a partir daí.
+## Resultado esperado
 
-## Arquivos a editar
-
-- `src/pages/PostEditorPage.tsx` (handlers `handleDownloadSlide`, `handleDownloadAll`)
-- `src/components/post-editor/PostCanvas.tsx` (atributo `crossOrigin` nas `<img>`)
+Ao clicar em “Baixar slide” ou “Baixar todos (ZIP)”, o post não aumenta na tela, a interface permanece estável, e o arquivo PNG/ZIP é baixado corretamente.
