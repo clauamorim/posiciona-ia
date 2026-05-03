@@ -63,22 +63,30 @@ const MyDesignsPage = () => {
   const fetchDesigns = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-    const [{ data: designsData, error }, { data: reportData }] = await Promise.all([
+    const [ownRes, globalRes, reportRes] = await Promise.all([
       supabase
         .from("user_designs")
-        .select("id, title, thumbnail, week_index, day_index, state, is_template, updated_at, created_at")
+        .select("id, title, thumbnail, week_index, day_index, state, is_template, is_global, archetype, user_id, updated_at, created_at")
         .eq("user_id", user.id)
+        .order("updated_at", { ascending: false }),
+      supabase
+        .from("user_designs")
+        .select("id, title, thumbnail, week_index, day_index, state, is_template, is_global, archetype, user_id, updated_at, created_at")
+        .eq("is_template", true)
+        .eq("is_global", true)
         .order("updated_at", { ascending: false }),
       supabase.from("reports").select("content, editorial_weeks")
         .eq("user_id", user.id).eq("status", "completed")
         .order("version", { ascending: false }).limit(1).maybeSingle(),
     ]);
-    if (error) {
-      toast({ title: "Erro ao carregar designs", description: error.message, variant: "destructive" });
+    if (ownRes.error) {
+      toast({ title: "Erro ao carregar designs", description: ownRes.error.message, variant: "destructive" });
     } else {
-      setDesigns((designsData as UserDesign[]) || []);
+      const own = (ownRes.data as UserDesign[]) || [];
+      const globals = ((globalRes.data as UserDesign[]) || []).filter((g) => g.user_id !== user.id);
+      setDesigns([...own, ...globals]);
     }
-    const structured = (reportData?.content as any)?.editorial;
+    const structured = (reportRes.data?.content as any)?.editorial;
     const structuredArr = Array.isArray(structured) ? structured : [];
     const weeks: any[][] = Array.isArray(reportData?.editorial_weeks) ? reportData!.editorial_weeks as any[][] : [];
     setAllWeeks([...(structuredArr.length > 0 ? [structuredArr] : []), ...weeks]);
