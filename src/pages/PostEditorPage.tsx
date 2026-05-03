@@ -268,7 +268,7 @@ const PostEditorPage = () => {
       .then(({ data }) => { setReport(data); setLoading(false); });
     supabase.from("profiles").select("niche").eq("user_id", user.id).maybeSingle()
       .then(({ data }) => { if (data?.niche) setUserNiche(data.niche); });
-    supabase.from("business_questionnaires").select("services,target_audience,company_name,profession")
+    supabase.from("business_questionnaires").select("services,target_audience,company_name")
       .eq("user_id", user.id).order("version", { ascending: false }).limit(1).maybeSingle()
       .then(({ data }) => {
         if (data) {
