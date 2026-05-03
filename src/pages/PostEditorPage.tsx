@@ -1001,6 +1001,10 @@ const PostEditorPage = () => {
       .then(({ data }) => {
         if (!data || !data.state) return;
         const s: any = data.state;
+        // IMPORTANTE: o campo `archetype` do template (coluna ou state) NUNCA
+        // sobrescreve o primaryArchetype do usuário atual. A tipografia/canvas
+        // sempre usa o arquétipo derivado do relatório do próprio usuário.
+        if ("archetype" in s) delete s.archetype;
         if (s.editedTexts) setEditedTexts(s.editedTexts);
         if (s.editedTitle) setEditedTitle(s.editedTitle);
         if (s.overlayImages) setOverlayImages(s.overlayImages);
