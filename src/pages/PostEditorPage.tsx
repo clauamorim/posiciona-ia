@@ -551,40 +551,33 @@ const PostEditorPage = () => {
         // Reescala coordenadas: templates foram salvos em 1080×1080 (ou
         // dimensão informada em state.canvasWidth/Height). O canvas atual
         // pode ser 1080×1350 (card) ou 1080×1920 (reels).
-         console.log("[debug-canvas-size] cW:", cW, "cH:", cH,
-           "canvasFormat:", canvasFormat,
-           "timestamp:", Date.now());
-         const fromW = typeof s.canvasWidth === "number" ? s.canvasWidth : 1080;
+        const fromW = typeof s.canvasWidth === "number" ? s.canvasWidth : 1080;
         const fromH = typeof s.canvasHeight === "number" ? s.canvasHeight : 1080;
+        // Formato real derivado das dimensões correntes (evita dessincronia
+        // entre canvasFormat label e cW/cH efetivos).
+        const realFormat: "square" | "reels" = cH / cW >= 1.5 ? "reels" : "square";
+        // Rescale uniforme preserva proporção dos elementos decorativos
+        // (frames quadrados não devem virar retângulos no canvas 4:5).
+        const s_uniform = Math.min(cW / fromW, cH / fromH);
+        const offsetX = (cW - fromW * s_uniform) / 2;
+        const offsetY = (cH - fromH * s_uniform) / 2;
         console.log("[archetype-template] rescale overlayImages", {
           primaryArchetype,
-          fromW,
-          fromH,
-          toW: cW,
-          toH: cH,
+          fromW, fromH, toW: cW, toH: cH,
+          canvasFormatLabel: canvasFormat, realFormat,
+          scale: s_uniform, offsetX, offsetY,
           originalOverlayCount: Array.isArray(s.overlayImages) ? s.overlayImages.length : 0,
         });
-        const sx = cW / fromW;
-        const sy = cH / fromH;
         const tplOverlays: OverlayImage[] = Array.isArray(s.overlayImages)
           ? s.overlayImages
               .filter((o: any) => o && o.type !== "photo")
-              .map((o: any) => {
-                const scaled = {
-                  ...o,
-                  x: typeof o.x === "number" ? Math.round(o.x * sx) : o.x,
-                  y: typeof o.y === "number" ? Math.round(o.y * sy) : o.y,
-                  width: typeof o.width === "number" ? Math.round(o.width * sx) : o.width,
-                  height: typeof o.height === "number" ? Math.round(o.height * sy) : o.height,
-                };
-                console.log("[archetype-template] overlay rescaled", {
-                  id: o.id,
-                  type: o.type,
-                  original: { x: o.x, y: o.y, width: o.width, height: o.height },
-                  scaled: { x: scaled.x, y: scaled.y, width: scaled.width, height: scaled.height },
-                });
-                return scaled;
-              })
+              .map((o: any) => ({
+                ...o,
+                x: typeof o.x === "number" ? Math.round(o.x * s_uniform + offsetX) : o.x,
+                y: typeof o.y === "number" ? Math.round(o.y * s_uniform + offsetY) : o.y,
+                width: typeof o.width === "number" ? Math.round(o.width * s_uniform) : o.width,
+                height: typeof o.height === "number" ? Math.round(o.height * s_uniform) : o.height,
+              }))
           : [];
         if (tplOverlays.length > 0) {
           setOverlayImages(prev => {
