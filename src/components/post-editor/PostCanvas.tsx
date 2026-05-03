@@ -516,7 +516,9 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   // Tamanho de título: respeita override do usuário; senão usa o do arquétipo (cover ganha boost).
   const archetypeTitleSize = isCoverSlide ? typo.titleSizeMax + 12 : typo.titleSizeMax;
   const archetypeTitleFloor = Math.max(42, typo.titleSizeMin);
-  const resolvedTitleFontSize = Math.max(archetypeTitleFloor, titleFontSize || archetypeTitleSize);
+  // Ignora titleFontSize do usuário/template quando for menor que o mínimo do arquétipo.
+  const userTitleSize = titleFontSize && titleFontSize >= typo.titleSizeMin ? titleFontSize : archetypeTitleSize;
+  const resolvedTitleFontSize = Math.max(archetypeTitleFloor, userTitleSize);
   const resolvedTitleColor = titleColor || textColor;
   const resolvedTitleFont = titleFontFamily || displayFont;
 
