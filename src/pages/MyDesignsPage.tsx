@@ -88,7 +88,7 @@ const MyDesignsPage = () => {
     }
     const structured = (reportRes.data?.content as any)?.editorial;
     const structuredArr = Array.isArray(structured) ? structured : [];
-    const weeks: any[][] = Array.isArray(reportData?.editorial_weeks) ? reportData!.editorial_weeks as any[][] : [];
+    const weeks: any[][] = Array.isArray(reportRes.data?.editorial_weeks) ? reportRes.data!.editorial_weeks as any[][] : [];
     setAllWeeks([...(structuredArr.length > 0 ? [structuredArr] : []), ...weeks]);
     setLoading(false);
   }, [user]);
