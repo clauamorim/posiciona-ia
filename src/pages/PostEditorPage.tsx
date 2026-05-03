@@ -1319,6 +1319,7 @@ const PostEditorPage = () => {
         slideNumberBgColor, slideNumberTextColor, slideNumberSize,
         displayFont, bodyFont,
         slideTextBoxes,
+        canvasWidth: cW, canvasHeight: cH,
       };
       const baseTitle = `Dia ${day?.day || dayIndex + 1} — ${cleanMarkdown(editedTitle || day?.theme || "Sem título").slice(0, 60)}`;
       const title = asTemplate ? `Modelo · ${baseTitle}` : baseTitle;
