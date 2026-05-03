@@ -258,6 +258,16 @@ const PostEditorPage = () => {
   // O auto-layout que roda depois apenas substitui o background image.
   const archetypeTemplateRanRef = useRef(!!draft || hasDesignParam);
   const archetypeTemplateAppliedRef = useRef(false);
+  // Debug: ver se o draft pulou o template
+  if (typeof window !== "undefined" && !(window as any).__loggedDraftState) {
+    (window as any).__loggedDraftState = true;
+    console.log("[archetype-template] init", {
+      hasDraft: !!draft,
+      hasDesignParam,
+      willSkipTemplate: !!draft || hasDesignParam,
+      draftOverlayCount: draft?.overlayImages?.length ?? 0,
+    });
+  }
 
   // Card 4:5 (1080×1350) ou Reels 9:16 (1080×1920)
   const cW = canvasFormat === "reels" ? 1080 : 1080;
