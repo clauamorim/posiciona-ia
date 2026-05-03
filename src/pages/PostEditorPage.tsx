@@ -268,12 +268,20 @@ const PostEditorPage = () => {
       .then(({ data }) => { setReport(data); setLoading(false); });
     supabase.from("profiles").select("niche").eq("user_id", user.id).maybeSingle()
       .then(({ data }) => { if (data?.niche) setUserNiche(data.niche); });
-    supabase.from("business_questionnaires").select("services,target_audience,company_name")
+    supabase.from("business_questionnaires").select("services,target_audience,company_name,profession")
       .eq("user_id", user.id).order("version", { ascending: false }).limit(1).maybeSingle()
       .then(({ data }) => {
         if (data) {
           const ctx = [data.company_name, data.services, data.target_audience].filter(Boolean).join(" ");
           setBusinessContext(ctx);
+          // Fallback de niche: se profiles.niche estiver vazio, derive a partir do
+          // questionário de negócios (profession, services, company_name).
+          setUserNiche(prev => {
+            if (prev) return prev;
+            const candidate = [(data as any).profession, data.services, data.company_name]
+              .filter(Boolean).join(" ").trim();
+            return candidate || prev;
+          });
         }
       });
     supabase.functions
