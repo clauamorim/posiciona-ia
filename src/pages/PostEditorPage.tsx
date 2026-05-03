@@ -24,6 +24,7 @@ import { prepareSinglePostCardCopy, prepareCarouselCardCopy } from "@/lib/editor
 import { Sparkles, X, Image as ImageIcon, Loader2, Download } from "lucide-react";
 import { useEditorHistory } from "@/hooks/useEditorHistory";
 import { normalizeWeekToV6 } from "@/lib/editorialShape";
+import { normalizeTemplateStateForCanvas, rewriteDecorativeOverlaySvg } from "@/lib/template-normalize";
 
 function getContrastColor(hex: string): string {
   const r = parseInt(hex.slice(1, 3), 16);
