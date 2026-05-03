@@ -610,19 +610,28 @@ const PostEditorPage = () => {
         // overlays decorativos e configurações visuais — só atualizamos o
         // background image e os slots de texto sugeridos pelo auto-layout.
         const tplApplied = archetypeTemplateAppliedRef.current;
-        if (result.overlays.length > 0) {
+        // Normaliza decorativos vindos do auto-layout (base 1080×1080) para o
+        // canvas atual, reescrevendo os SVGs para esticar sem deformar para um
+        // quadrado interno.
+        const normalizedAutoLayoutState = normalizeTemplateStateForCanvas(
+          { overlayImages: result.overlays, canvasWidth: 1080, canvasHeight: 1080 },
+          cW,
+          cH,
+        );
+        const normalizedAutoOverlays = (normalizedAutoLayoutState.overlayImages as OverlayImage[]) || [];
+        if (normalizedAutoOverlays.length > 0) {
           setOverlayImages(prev => {
             if (tplApplied) {
               // Template do arquétipo é a única fonte de decorativos.
               // Do auto-layout só aproveitamos o background image (tpl-bg-*).
               const keptTplDecor = prev.filter(o => o.id.startsWith("tpl-") && !o.id.startsWith("tpl-bg-"));
-              const newBgs = result.overlays.filter(o => o.id.startsWith("tpl-bg-"));
+              const newBgs = normalizedAutoOverlays.filter(o => o.id.startsWith("tpl-bg-"));
               const otherPrev = prev.filter(o => !o.id.startsWith("tpl-"));
               return [...newBgs, ...otherPrev, ...keptTplDecor];
             }
             // Sem template do arquétipo: comportamento original.
             const cleaned = prev.filter(o => !o.id.startsWith("tpl-"));
-            const next = [...result.overlays, ...cleaned];
+            const next = [...normalizedAutoOverlays, ...cleaned];
             const bgs = next.filter(o => o.id.startsWith("tpl-bg-"));
             const others = next.filter(o => !o.id.startsWith("tpl-bg-"));
             return [...bgs, ...others];
