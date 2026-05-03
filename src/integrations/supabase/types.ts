@@ -934,9 +934,11 @@ export type Database = {
       }
       user_designs: {
         Row: {
+          archetype: string | null
           created_at: string
           day_index: number | null
           id: string
+          is_global: boolean
           is_template: boolean
           state: Json
           thumbnail: string | null
@@ -946,9 +948,11 @@ export type Database = {
           week_index: number | null
         }
         Insert: {
+          archetype?: string | null
           created_at?: string
           day_index?: number | null
           id?: string
+          is_global?: boolean
           is_template?: boolean
           state?: Json
           thumbnail?: string | null
@@ -958,9 +962,11 @@ export type Database = {
           week_index?: number | null
         }
         Update: {
+          archetype?: string | null
           created_at?: string
           day_index?: number | null
           id?: string
+          is_global?: boolean
           is_template?: boolean
           state?: Json
           thumbnail?: string | null

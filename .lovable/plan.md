@@ -1,72 +1,54 @@
-# Diagnóstico
+## Objetivo
+Adicionar gerenciamento de **templates globais** no painel admin. Templates globais são modelos criados pela equipe Posiciona, vinculados a um arquétipo, e visíveis para todos os usuários autenticados na aba "Meus modelos".
 
-A tipografia por arquétipo já está implementada corretamente no `PostCanvas` (via `getArchetypeTypography`) e a prop `primaryArchetype` é propagada de `PostEditorPage` → `CarouselEditor` → `PostCanvas`.
+## 1. Migração de banco de dados
 
-O bug está na **extração inicial do nome do arquétipo** em `src/pages/PostEditorPage.tsx` (linha 320):
+Adicionar dois campos em `user_designs`:
+- `is_global boolean NOT NULL DEFAULT false`
+- `archetype text NULL` (nome do arquétipo, ex: "Sábio", "Herói", ou null = neutro/todos)
 
-```ts
-const primaryArchetype: string | null =
-  content?.archetypes?.["1"]?.name ||
-  content?.archetypes?.[1]?.name ||
-  null;
-```
+Índice auxiliar:
+- `(is_template, is_global)` para consulta de globais.
 
-Mas a estrutura real do relatório (gerada em `process-report-generation-job/index.ts` linha 293) usa as chaves `primary | secondary | tertiary`, **não** `1 | 2 | 3`:
+Atualizar **RLS** em `user_designs`:
+- Manter políticas existentes (dono CRUD).
+- Adicionar política `SELECT` para `authenticated`: qualquer usuário pode ler linhas onde `is_template = true AND is_global = true`.
+- Restringir `INSERT/UPDATE/DELETE` de globais somente a admins (via `has_role(auth.uid(), 'admin')`), garantindo que usuários comuns não consigam criar/marcar registros globais.
 
-```ts
-archetypes: {
-  primary:   { name, description, ... },
-  secondary: { ... },
-  tertiary:  { ... },
-}
-```
+## 2. Painel admin — nova rota `/admin/templates`
 
-Resultado: `primaryArchetype` é sempre `null`, `getArchetypeTypography(null)` retorna o `DEFAULT_TYPO`, e nenhum arquétipo afeta o título visualmente.
+Criar `src/pages/admin/AdminTemplates.tsx` com:
+- Listagem de templates globais (cards com thumbnail, título, badge do `archetype`, toggle ativo/inativo).
+- Botão **"Criar template global"** que abre o editor (`/post-editor?adminTemplate=1&archetype=<nome>`) e ao salvar grava com `is_template=true` e `is_global=true`.
+- Ações por card: editar, duplicar, ativar/desativar (toggle de `is_global`), excluir.
+- Filtro por arquétipo usando os nomes de `ARCHETYPE_MAP`.
 
-# Caminho completo do dado
+Adicionar entrada **"Templates globais"** no grupo Admin do `DashboardLayout`.
 
-1. **Origem (Supabase)**: tabela `reports`, coluna `content` (JSONB).
-   Estrutura: `content.archetypes.primary.name` (ex.: "Sábio").
-2. **Hidratação**: `PostEditorPage.tsx` carrega o relatório e parseia `content` via `reportParser`.
-3. **Derivação**: linha 320 monta `primaryArchetype` (ponto bugado).
-4. **Propagação**: passado como prop para `CarouselEditor` (l. 1343/1369) e daí para `PostCanvas`.
-5. **Uso**: `PostCanvas` chama `getArchetypeTypography(primaryArchetype)`.
+Pequena adaptação no `PostEditorPage` para, quando `adminTemplate=1` (e usuário admin), gravar `is_global=true` e `archetype` no insert do `user_designs`. Sem mudar o fluxo normal de salvar.
 
-# Correção
+## 3. MyDesignsPage — incluir templates globais
 
-## 1. `src/pages/PostEditorPage.tsx` (linha 319-323)
+Substituir a query única por duas chamadas paralelas:
+- Templates próprios + designs do usuário (como hoje).
+- Templates globais ativos: `is_template=true AND is_global=true`.
 
-Trocar a leitura de chaves numéricas pela estrutura `primary/secondary/tertiary`, com fallback defensivo para `user_top_archetypes` (caso já esteja em contexto) e para as chaves antigas, por segurança:
+Mesclar os resultados; na aba **"Meus modelos"** mostrar os globais com badge **"Posiciona"** (ou similar) e desabilitar ações de excluir/editar para não-donos. Botão "Usar" continua abrindo no editor com `fromTemplate=1` (igual ao fluxo atual — gera um novo design baseado no template).
 
-```ts
-const primaryArchetype: string | null =
-  content?.archetypes?.primary?.name ||
-  content?.archetypes?.["1"]?.name ||
-  content?.archetypes?.[1]?.name ||
-  null;
-```
+## 4. Detalhes técnicos
 
-## 2. `src/components/post-editor/PostCanvas.tsx`
+**Arquivos novos:**
+- `supabase/migrations/<timestamp>_user_designs_global_templates.sql`
+- `src/pages/admin/AdminTemplates.tsx`
 
-Adicionar `console.log` temporário logo após a resolução de `typo`:
+**Arquivos alterados:**
+- `src/App.tsx` (rota `/admin/templates`)
+- `src/components/DashboardLayout.tsx` (item de nav admin)
+- `src/pages/MyDesignsPage.tsx` (query, merge, badge, restrição de ações)
+- `src/pages/PostEditorPage.tsx` (insert respeitar `is_global`/`archetype` quando admin)
 
-```ts
-const typo = getArchetypeTypography(primaryArchetype);
-// TEMP debug — remover depois de validar
-console.log("[PostCanvas] primaryArchetype:", primaryArchetype, "→ typo:", typo);
-```
+**RLS resumida (políticas adicionadas):**
+- `SELECT` global: `is_template AND is_global` para `authenticated`.
+- `INSERT/UPDATE/DELETE` quando `is_global = true`: somente `has_role(auth.uid(),'admin')`.
 
-# Verificação
-
-Abrir um post no editor e conferir no console:
-- `primaryArchetype` deve aparecer com o nome real (ex.: "Sábio").
-- `typo.titleWeight` deve refletir a configuração do arquétipo (ex.: 300 para Sábio em vez de 400 do default).
-- Visualmente, o título do post deve mudar de peso/tamanho conforme o arquétipo do usuário.
-
-# Escopo
-
-Mudanças mínimas, somente apresentação:
-- 1 linha de extração corrigida em `PostEditorPage.tsx`.
-- 1 `console.log` temporário em `PostCanvas.tsx` para validação.
-
-Nenhuma alteração de regra de negócio, schema ou edge function.
+**Tipos:** `src/integrations/supabase/types.ts` é regenerado após a migração — não é editado manualmente.
