@@ -1,97 +1,258 @@
 // Normaliza o `state` salvo de um template/design legado (1080×1080 quadrado)
-// para o canvas atual (1080×1350 ou 1080×1920), corrigindo simultaneamente:
-// - posições e dimensões (overlayImages, slideTextBoxes)
-// - SVGs decorativos data:image/svg+xml (adiciona viewBox + preserveAspectRatio="none"
-//   e atualiza width/height da raiz para casar com a nova caixa)
+// para o canvas atual (1080×1350 ou 1080×1920).
 //
-// Isso garante que molduras e linhas dos 12 templates de arquétipo se ajustem
-// corretamente a qualquer formato.
+// Ao invés de "esticar" cegamente os SVGs decorativos antigos (o que criava
+// linhas verticais/horizontais perdidas e molduras coladas nas laterais),
+// esta camada faz duas coisas:
+//
+//   1) Define uma ÁREA SEGURA por formato (margem lateral generosa) e
+//      reposiciona `tpl-frame-*`, `tpl-line-*`, `tpl-accent-*` dentro dela.
+//   2) Para cada `tpl-frame-{archetype}` gera novamente o SVG com elementos
+//      decorativos ancorados nos cantos/bordas da área segura, mantendo a
+//      identidade visual de cada arquétipo (Governante, Explorador, Rebelde,
+//      Cuidador, Sábio, Mago, Inocente, Amante, Herói, Criador, Cara-comum,
+//      Bobo-da-corte) sem distorções.
 
 const TEMPLATE_DECOR_RE = /^tpl-(mframe|frame|mline|line|mornament|ornament|block|accent)/;
 
-function decodeBase64(str: string): string | null {
-  try {
-    if (typeof atob === "function") return atob(str);
-  } catch {}
-  return null;
+function encodeBase64(str: string): string {
+  if (typeof btoa === "function") return btoa(unescape(encodeURIComponent(str)));
+  return Buffer.from(str, "utf-8").toString("base64");
 }
 
-function encodeBase64(str: string): string | null {
-  try {
-    if (typeof btoa === "function") return btoa(str);
-  } catch {}
-  return null;
+// =====================================================================
+// Área segura por formato (em px sobre o canvas alvo).
+// =====================================================================
+function getSafeArea(toW: number, toH: number) {
+  const isReels = toH >= 1700; // 1080×1920
+  const isPortrait = toH > toW;
+  // Lateral mais generosa para não colar a moldura na borda.
+  const sideX = isReels ? 110 : isPortrait ? 100 : 60;
+  const topY = isReels ? 160 : isPortrait ? 120 : 60;
+  const bottomY = isReels ? 200 : isPortrait ? 160 : 60;
+  return {
+    x: sideX,
+    y: topY,
+    width: toW - sideX * 2,
+    height: toH - topY - bottomY,
+  };
 }
 
-function rewriteSvg(svg: string, newW: number, newH: number): string {
-  // Garante viewBox e preserveAspectRatio="none" + width/height novos.
-  // Captura intrinsic existente (atributos width/height ou viewBox).
-  let viewBoxW = 0;
-  let viewBoxH = 0;
+// =====================================================================
+// Geradores de SVG por arquétipo. Cada função recebe a largura/altura
+// da MOLDURA (área segura) e devolve um SVG já dimensionado.
+// Trabalham no espaço do próprio overlay (0..W, 0..H).
+// =====================================================================
+type FrameBuilder = (W: number, H: number) => string;
 
-  const vbMatch = svg.match(/viewBox\s*=\s*["']([^"']+)["']/i);
-  if (vbMatch) {
-    const parts = vbMatch[1].trim().split(/[\s,]+/).map(Number);
-    if (parts.length === 4 && parts[2] > 0 && parts[3] > 0) {
-      viewBoxW = parts[2];
-      viewBoxH = parts[3];
-    }
-  }
-  if (!viewBoxW || !viewBoxH) {
-    const wM = svg.match(/<svg[^>]*\swidth\s*=\s*["']([\d.]+)/i);
-    const hM = svg.match(/<svg[^>]*\sheight\s*=\s*["']([\d.]+)/i);
-    viewBoxW = wM ? parseFloat(wM[1]) : 1080;
-    viewBoxH = hM ? parseFloat(hM[1]) : 1080;
-  }
+const wrap = (W: number, H: number, body: string) =>
+  `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">${body}</svg>`;
 
-  // Reescreve a tag <svg ...> raiz
-  return svg.replace(/<svg\b([^>]*)>/i, (_full, attrs: string) => {
-    let cleaned = attrs
-      .replace(/\swidth\s*=\s*["'][^"']*["']/i, "")
-      .replace(/\sheight\s*=\s*["'][^"']*["']/i, "")
-      .replace(/\sviewBox\s*=\s*["'][^"']*["']/i, "")
-      .replace(/\spreserveAspectRatio\s*=\s*["'][^"']*["']/i, "");
-    return `<svg${cleaned} width="${newW}" height="${newH}" viewBox="0 0 ${viewBoxW} ${viewBoxH}" preserveAspectRatio="none">`;
-  });
+const FRAME_BUILDERS: Record<string, FrameBuilder> = {
+  governante: (W, H) => {
+    const c = "#c8a84b";
+    const tickLen = Math.min(80, W * 0.16);
+    const top = Math.min(120, H * 0.1);
+    const bot = H - top;
+    return wrap(W, H, `
+      <rect x="2" y="2" width="${W - 4}" height="${H - 4}" fill="none" stroke="${c}" stroke-width="1.5" opacity="0.75"/>
+      <line x1="0" y1="${top}" x2="${tickLen}" y2="${top}" stroke="${c}" stroke-width="1.5" opacity="0.85"/>
+      <line x1="${W - tickLen}" y1="${top}" x2="${W}" y2="${top}" stroke="${c}" stroke-width="1.5" opacity="0.85"/>
+      <line x1="0" y1="${bot}" x2="${tickLen}" y2="${bot}" stroke="${c}" stroke-width="1.5" opacity="0.85"/>
+      <line x1="${W - tickLen}" y1="${bot}" x2="${W}" y2="${bot}" stroke="${c}" stroke-width="1.5" opacity="0.85"/>
+    `);
+  },
+  explorador: (W, H) => {
+    const c = "#4db8ff";
+    const len = Math.min(220, Math.min(W, H) * 0.22);
+    return wrap(W, H, `
+      <line x1="2" y1="2" x2="${len}" y2="2" stroke="${c}" stroke-width="2.5" opacity="0.85"/>
+      <line x1="2" y1="2" x2="2" y2="${len}" stroke="${c}" stroke-width="2.5" opacity="0.85"/>
+      <line x1="${W - len}" y1="${H - 2}" x2="${W - 2}" y2="${H - 2}" stroke="${c}" stroke-width="2.5" opacity="0.85"/>
+      <line x1="${W - 2}" y1="${H - len}" x2="${W - 2}" y2="${H - 2}" stroke="${c}" stroke-width="2.5" opacity="0.85"/>
+    `);
+  },
+  heroi: (W, H) => {
+    const c = "#ff3b3b";
+    const len = Math.min(320, Math.min(W, H) * 0.32);
+    return wrap(W, H, `
+      <line x1="0" y1="0" x2="${len}" y2="0" stroke="${c}" stroke-width="3.5"/>
+      <line x1="0" y1="0" x2="0" y2="${len}" stroke="${c}" stroke-width="3.5"/>
+      <line x1="${W - len}" y1="${H}" x2="${W}" y2="${H}" stroke="${c}" stroke-width="3.5"/>
+      <line x1="${W}" y1="${H - len}" x2="${W}" y2="${H}" stroke="${c}" stroke-width="3.5"/>
+    `);
+  },
+  cuidador: (W, H) => {
+    const c = "#52b788";
+    const r = Math.min(28, Math.min(W, H) * 0.04);
+    const top = Math.min(90, H * 0.07);
+    return wrap(W, H, `
+      <rect x="2" y="2" width="${W - 4}" height="${H - 4}" rx="${r}" ry="${r}" fill="none" stroke="${c}" stroke-width="1.5" opacity="0.65"/>
+      <circle cx="${W / 2}" cy="${top}" r="4" fill="${c}" opacity="0.7"/>
+      <circle cx="${W / 2 - 16}" cy="${top}" r="3" fill="${c}" opacity="0.4"/>
+      <circle cx="${W / 2 + 16}" cy="${top}" r="3" fill="${c}" opacity="0.4"/>
+    `);
+  },
+  mago: (W, H) => {
+    const c = "#b388ff";
+    const dotY = H - Math.min(80, H * 0.07);
+    return wrap(W, H, `
+      <rect x="2" y="2" width="${W - 4}" height="${H - 4}" fill="none" stroke="${c}" stroke-width="1.2" opacity="0.45"/>
+      <polygon points="${W / 2},20 ${W - 20},${H - 20} 20,${H - 20}" fill="none" stroke="${c}" stroke-width="1" opacity="0.2"/>
+      <circle cx="${W / 2}" cy="${dotY}" r="6" fill="${c}" opacity="0.75"/>
+    `);
+  },
+  sabio: (W, H) => {
+    const c = "#c4a870";
+    const sideY1 = Math.min(140, H * 0.12);
+    const sideY2 = H - Math.min(140, H * 0.12);
+    const lineY = H - Math.min(120, H * 0.1);
+    const dotY = H - Math.min(80, H * 0.07);
+    return wrap(W, H, `
+      <rect x="2" y="2" width="${W - 4}" height="${H - 4}" fill="none" stroke="${c}" stroke-width="1.2" opacity="0.55"/>
+      <line x1="2" y1="${sideY1}" x2="2" y2="${sideY2}" stroke="${c}" stroke-width="1.5" opacity="0.6"/>
+      <line x1="2" y1="${lineY}" x2="160" y2="${lineY}" stroke="${c}" stroke-width="1.5" opacity="0.7"/>
+      <rect x="${W / 2 - 80}" y="${dotY - 18}" width="160" height="2" fill="${c}" opacity="0.55"/>
+      <circle cx="${W / 2}" cy="${dotY}" r="4" fill="none" stroke="${c}" stroke-width="1" opacity="0.6"/>
+    `);
+  },
+  amante: (W, H) => {
+    const c = "#c97b8a";
+    const cx = W / 2, cy = H / 2;
+    const rx = W / 2 - 10, ry = H / 2 - 10;
+    const lineY = H - Math.min(100, H * 0.08);
+    return wrap(W, H, `
+      <ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="none" stroke="${c}" stroke-width="1" opacity="0.3"/>
+      <ellipse cx="${cx}" cy="${cy}" rx="${rx * 0.82}" ry="${ry * 0.82}" fill="none" stroke="${c}" stroke-width="0.8" opacity="0.18"/>
+      <line x1="${cx - 200}" y1="${lineY}" x2="${cx + 200}" y2="${lineY}" stroke="${c}" stroke-width="1.2" opacity="0.5"/>
+      <circle cx="${cx}" cy="${lineY}" r="5" fill="${c}" opacity="0.7"/>
+    `);
+  },
+  rebelde: (W, H) => {
+    // Rebelde tem `tpl-accent-rebelde` (acento vertical) e `tpl-line-rebelde`
+    // (linha horizontal) como overlays separados; a moldura é apenas um
+    // marco fino no canto superior direito.
+    const c = "#ff2d2d";
+    const len = Math.min(260, Math.min(W, H) * 0.25);
+    return wrap(W, H, `
+      <line x1="${W - len}" y1="2" x2="${W - 2}" y2="2" stroke="${c}" stroke-width="3"/>
+      <line x1="${W - 2}" y1="2" x2="${W - 2}" y2="${len}" stroke="${c}" stroke-width="3"/>
+    `);
+  },
+  criador: (W, H) => {
+    const c = "#e07b39";
+    const len = Math.min(140, Math.min(W, H) * 0.14);
+    const lineY = H - Math.min(110, H * 0.09);
+    return wrap(W, H, `
+      <line x1="0" y1="0" x2="${len}" y2="0" stroke="${c}" stroke-width="3"/>
+      <line x1="0" y1="0" x2="0" y2="${len}" stroke="${c}" stroke-width="3"/>
+      <rect x="0" y="${lineY}" width="160" height="2" fill="${c}" opacity="0.6"/>
+    `);
+  },
+  caracomum: (W, H) => {
+    const c = "#2d7dd2";
+    const r = Math.min(10, Math.min(W, H) * 0.012);
+    const lineY = H - Math.min(100, H * 0.08);
+    return wrap(W, H, `
+      <rect x="2" y="2" width="${W - 4}" height="${H - 4}" rx="${r}" ry="${r}" fill="none" stroke="${c}" stroke-width="2" opacity="0.45"/>
+      <line x1="${W / 2 - 240}" y1="${lineY}" x2="${W / 2 + 240}" y2="${lineY}" stroke="${c}" stroke-width="2" opacity="0.5"/>
+    `);
+  },
+  inocente: (W, H) => {
+    const c = "#f5c842";
+    const cx = W / 2, cy = H / 2;
+    const r = Math.min(W, H) / 2 - 10;
+    const dotY = H - Math.min(90, H * 0.07);
+    return wrap(W, H, `
+      <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${c}" stroke-width="1.5" opacity="0.4"/>
+      <circle cx="${cx}" cy="${cy}" r="${r * 0.82}" fill="none" stroke="${c}" stroke-width="1" opacity="0.25"/>
+      <circle cx="${cx}" cy="${dotY}" r="5" fill="${c}" opacity="0.8"/>
+    `);
+  },
+  bobo: (W, H) => {
+    const c1 = "#ffdd57";
+    const c2 = "#ff6b9d";
+    const c3 = "#66ffdd";
+    const r = Math.min(40, Math.min(W, H) * 0.04);
+    const lineY = H - Math.min(110, H * 0.09);
+    return wrap(W, H, `
+      <rect x="2" y="2" width="${W - 4}" height="${H - 4}" rx="${r}" ry="${r}" fill="none" stroke="${c1}" stroke-width="2" opacity="0.5"/>
+      <circle cx="${Math.min(150, W * 0.15)}" cy="${Math.min(150, H * 0.12)}" r="60" fill="none" stroke="${c2}" stroke-width="1" opacity="0.25"/>
+      <circle cx="${W - Math.min(150, W * 0.15)}" cy="${H - Math.min(150, H * 0.12)}" r="80" fill="none" stroke="${c3}" stroke-width="1" opacity="0.25"/>
+      <line x1="${Math.min(100, W * 0.1)}" y1="${lineY}" x2="${Math.min(300, W * 0.3)}" y2="${lineY}" stroke="${c1}" stroke-width="3" opacity="0.7"/>
+    `);
+  },
+};
+
+function archetypeKeyFromId(id: string): string | null {
+  const m = id.match(/^tpl-(?:frame|line|accent)-([a-z0-9-]+)/i);
+  if (!m) return null;
+  return m[1].toLowerCase().replace(/-/g, "");
 }
 
-function rewriteSvgSrc(src: string, newW: number, newH: number): string {
-  if (typeof src !== "string") return src;
-  // data:image/svg+xml;base64,...
-  const base64Match = src.match(/^data:image\/svg\+xml;base64,(.+)$/i);
-  if (base64Match) {
-    const decoded = decodeBase64(base64Match[1]);
-    if (!decoded) return src;
-    const rewritten = rewriteSvg(decoded, Math.round(newW), Math.round(newH));
-    const enc = encodeBase64(rewritten);
-    if (!enc) return src;
-    return `data:image/svg+xml;base64,${enc}`;
-  }
-  // data:image/svg+xml;utf8,... ou ;,...
-  const utf8Match = src.match(/^data:image\/svg\+xml(?:;[^,]*)?,(.+)$/i);
-  if (utf8Match) {
-    const decoded = decodeURIComponent(utf8Match[1]);
-    const rewritten = rewriteSvg(decoded, Math.round(newW), Math.round(newH));
-    return `data:image/svg+xml;utf8,${encodeURIComponent(rewritten)}`;
-  }
-  return src;
-}
+// =====================================================================
+// Reposicionamento de elementos auxiliares (tpl-line-*, tpl-accent-*)
+// dentro da área segura.
+// =====================================================================
+type AuxBuilder = (safe: { x: number; y: number; width: number; height: number }) =>
+  { x: number; y: number; width: number; height: number; src: string };
 
+const AUX_BUILDERS: Record<string, AuxBuilder> = {
+  "tpl-line-governante": (safe) => {
+    const W = 200, H = 4;
+    const svg = wrap(W, H, `<line x1="0" y1="2" x2="${W}" y2="2" stroke="#c8a84b" stroke-width="2"/>`);
+    return {
+      x: safe.x + 40,
+      y: safe.y + safe.height - 240,
+      width: W,
+      height: H,
+      src: `data:image/svg+xml;base64,${encodeBase64(svg)}`,
+    };
+  },
+  "tpl-line-rebelde": (safe) => {
+    const W = safe.width, H = 4;
+    const svg = wrap(W, H, `<rect width="${W}" height="${H}" fill="#ff2d2d" opacity="0.5"/>`);
+    return {
+      x: safe.x,
+      y: safe.y + safe.height - 60,
+      width: W,
+      height: H,
+      src: `data:image/svg+xml;base64,${encodeBase64(svg)}`,
+    };
+  },
+  "tpl-accent-rebelde": (safe) => {
+    const W = 8, H = safe.height;
+    const svg = wrap(W, H, `<rect width="${W}" height="${H}" fill="#ff2d2d"/>`);
+    return {
+      x: safe.x,
+      y: safe.y,
+      width: W,
+      height: H,
+      src: `data:image/svg+xml;base64,${encodeBase64(svg)}`,
+    };
+  },
+  "tpl-accent-explorador": (safe) => {
+    const W = 6, H = Math.round(safe.height * 0.42);
+    const svg = wrap(W, H, `<rect width="3" height="${H}" fill="#4db8ff" opacity="0.7"/>`);
+    return {
+      x: safe.x + 20,
+      y: safe.y + Math.round(safe.height * 0.32),
+      width: W,
+      height: H,
+      src: `data:image/svg+xml;base64,${encodeBase64(svg)}`,
+    };
+  },
+};
+
+// =====================================================================
+// Normalização principal
+// =====================================================================
 export interface NormalizeOptions {
-  /** Largura base do template original. Default: state.canvasWidth ?? 1080 */
   fromW?: number;
-  /** Altura base do template original. Default: state.canvasHeight ?? 1080 */
   fromH?: number;
-  /** Se true, regrava a moldura/decoração para preencher a nova caixa. Default true. */
   rewriteSvgs?: boolean;
 }
 
-/**
- * Normaliza o `state` para um canvas alvo (toW × toH).
- * - Escala não-uniformemente (sx, sy independentes)
- * - Reescreve SVGs decorativos para corresponder à nova caixa
- * - Atualiza canvasWidth/Height no state retornado
- */
 export function normalizeTemplateStateForCanvas(
   state: any,
   toW: number,
@@ -102,49 +263,70 @@ export function normalizeTemplateStateForCanvas(
   const fromW = opts.fromW ?? (typeof state.canvasWidth === "number" ? state.canvasWidth : 1080);
   const fromH = opts.fromH ?? (typeof state.canvasHeight === "number" ? state.canvasHeight : 1080);
   if (!fromW || !fromH) return state;
-  if (Math.abs(fromW - toW) < 1 && Math.abs(fromH - toH) < 1) {
-    return { ...state, canvasWidth: toW, canvasHeight: toH };
-  }
+
+  const safe = getSafeArea(toW, toH);
   const sx = toW / fromW;
   const sy = toH / fromH;
-  const rewriteSvgs = opts.rewriteSvgs !== false;
-
-  const scaleBox = <T extends { x?: number; y?: number; width?: number; height?: number }>(b: T): T => ({
-    ...b,
-    x: typeof b.x === "number" ? Math.round(b.x * sx) : b.x,
-    y: typeof b.y === "number" ? Math.round(b.y * sy) : b.y,
-    width: typeof b.width === "number" ? Math.round(b.width * sx) : b.width,
-    height: typeof b.height === "number" ? Math.round(b.height * sy) : b.height,
-  });
 
   const next: any = { ...state, canvasWidth: toW, canvasHeight: toH };
 
   if (Array.isArray(state.overlayImages)) {
     next.overlayImages = state.overlayImages.map((o: any) => {
       if (!o || typeof o !== "object") return o;
-      const scaled = scaleBox(o);
+
       // Background full-canvas: força nova dimensão de canvas.
       if (typeof o.id === "string" && o.id.startsWith("tpl-bg-")) {
-        return { ...scaled, x: 0, y: 0, width: toW, height: toH };
+        return { ...o, x: 0, y: 0, width: toW, height: toH };
       }
-      // SVG decorativo: reescreve a string para casar com a nova caixa.
-      if (
-        rewriteSvgs &&
-        typeof o.id === "string" &&
-        TEMPLATE_DECOR_RE.test(o.id) &&
-        typeof o.src === "string" &&
-        o.src.startsWith("data:image/svg+xml")
-      ) {
-        return { ...scaled, src: rewriteSvgSrc(o.src, scaled.width || 0, scaled.height || 0) };
+
+      const id: string = typeof o.id === "string" ? o.id : "";
+
+      // Frame por arquétipo: regenera SVG ancorado na área segura.
+      if (id.startsWith("tpl-frame-")) {
+        const archKey = archetypeKeyFromId(id);
+        const builder = archKey ? FRAME_BUILDERS[archKey] : null;
+        if (builder) {
+          const svg = builder(safe.width, safe.height);
+          return {
+            ...o,
+            x: safe.x,
+            y: safe.y,
+            width: safe.width,
+            height: safe.height,
+            src: `data:image/svg+xml;base64,${encodeBase64(svg)}`,
+          };
+        }
       }
-      return scaled;
+
+      // Auxiliares conhecidos (linha/acento por arquétipo).
+      if (AUX_BUILDERS[id]) {
+        const built = AUX_BUILDERS[id](safe);
+        return { ...o, ...built };
+      }
+
+      // Genérico: escala não-uniforme simples.
+      return {
+        ...o,
+        x: typeof o.x === "number" ? Math.round(o.x * sx) : o.x,
+        y: typeof o.y === "number" ? Math.round(o.y * sy) : o.y,
+        width: typeof o.width === "number" ? Math.round(o.width * sx) : o.width,
+        height: typeof o.height === "number" ? Math.round(o.height * sy) : o.height,
+      };
     });
   }
 
   if (state.slideTextBoxes && typeof state.slideTextBoxes === "object") {
     const scaled: Record<string, any[]> = {};
     for (const [k, arr] of Object.entries(state.slideTextBoxes)) {
-      if (Array.isArray(arr)) scaled[k] = (arr as any[]).map(b => scaleBox(b));
+      if (Array.isArray(arr)) {
+        scaled[k] = (arr as any[]).map((b: any) => ({
+          ...b,
+          x: typeof b?.x === "number" ? Math.round(b.x * sx) : b?.x,
+          y: typeof b?.y === "number" ? Math.round(b.y * sy) : b?.y,
+          width: typeof b?.width === "number" ? Math.round(b.width * sx) : b?.width,
+          height: typeof b?.height === "number" ? Math.round(b.height * sy) : b?.height,
+        }));
+      }
     }
     next.slideTextBoxes = scaled;
   }
@@ -156,9 +338,17 @@ export function normalizeTemplateStateForCanvas(
 export function rewriteDecorativeOverlaySvg(overlay: any): any {
   if (!overlay || typeof overlay !== "object") return overlay;
   if (typeof overlay.id !== "string" || !TEMPLATE_DECOR_RE.test(overlay.id)) return overlay;
-  if (typeof overlay.src !== "string" || !overlay.src.startsWith("data:image/svg+xml")) return overlay;
-  const w = Math.round(Number(overlay.width) || 0);
-  const h = Math.round(Number(overlay.height) || 0);
-  if (!w || !h) return overlay;
-  return { ...overlay, src: rewriteSvgSrc(overlay.src, w, h) };
+  const id = overlay.id;
+  if (id.startsWith("tpl-frame-")) {
+    const archKey = archetypeKeyFromId(id);
+    const builder = archKey ? FRAME_BUILDERS[archKey] : null;
+    if (builder) {
+      const W = Math.round(Number(overlay.width) || 0);
+      const H = Math.round(Number(overlay.height) || 0);
+      if (!W || !H) return overlay;
+      const svg = builder(W, H);
+      return { ...overlay, src: `data:image/svg+xml;base64,${encodeBase64(svg)}` };
+    }
+  }
+  return overlay;
 }

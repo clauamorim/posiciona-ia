@@ -1,37 +1,61 @@
-Plano de correção estrutural dos templates do editor:
+## Objetivo
 
-1. **Criar uma normalização única para templates legados**
-   - Em `PostEditorPage.tsx`, criar um helper que receba o `state` do design/template e o canvas atual (`1080×1350` ou `1080×1920`).
-   - Se o template salvo não tiver `canvasWidth/canvasHeight`, tratar como legado `1080×1080` e converter tudo para o formato atual.
-   - Aplicar a mesma normalização para:
-     - template global automático por arquétipo;
-     - design aberto por `?design=...`;
-     - modelo aberto por `fromTemplate=1`.
+Corrigir a conversão dos 12 templates para 4:5 e 9:16 sem “esticar cegamente” o template antigo. O Governante deve manter a intenção visual do modelo original do print: composição editorial, respiro amplo, linhas finas nos cantos, texto posicionado no terço médio/inferior, CTA e assinatura próximos da base — apenas adaptado para a altura extra do 4:5.
 
-2. **Corrigir molduras dos 12 arquétipos**
-   - Os 12 templates globais estão salvos com moldura `x=60, y=60, width=960, height=960`, herdada do layout antigo.
-   - A normalização deve transformar para o canvas 4:5 mantendo margens coerentes: `x=60`, `y=60`, `width=960`, `height=1230` em post vertical.
-   - Para Reels, transformar proporcionalmente para `height=1800`.
-   - Além da caixa externa, atualizar o SVG interno (`width`, `height`, `viewBox` e formas internas), para o desenho visual não continuar quadrado.
+## Ajustes principais
 
-3. **Reposicionar elementos decorativos auxiliares**
-   - Linhas horizontais e acentos verticais não devem apenas ser multiplicados cegamente pelo eixo Y.
-   - Para cada overlay decorativo:
-     - moldura: ocupar a área segura vertical do novo canvas;
-     - linha decorativa inferior: ancorar perto da parte baixa da moldura, sem invadir botão/logo/texto;
-     - acento vertical: manter proporção e posição dentro da moldura;
-     - linhas/acréscimos internos do SVG: reescalar coordenadas internas para acompanhar o novo retângulo.
-   - Isso cobre Governante, Explorador, Rebelde e os demais arquétipos com apenas moldura.
+1. **Governante como referência de conversão**
+   - Não transformar a moldura quadrada antiga em uma moldura colada nas laterais.
+   - Manter a estética do template original: margens visuais largas, linhas douradas curtas nos cantos, pouca ornamentação e muito espaço negativo.
+   - Em 4:5, a altura extra deve entrar principalmente como respiro vertical, não como distorção do desenho.
 
-4. **Impedir regressão quando abre com foto**
-   - Hoje o auto-layout com foto substitui parte do design e preserva outra parte, o que faz o template “voltar parcialmente” ao comportamento antigo.
-   - Ajustar a mesclagem: quando um template de arquétipo já foi aplicado, o auto-layout só pode substituir o background/foto; os decorativos e caixas normalizados do template devem permanecer intactos.
-   - Também normalizar os overlays preservados depois da entrada da foto, para não reintroduzir posições antigas.
+2. **Molduras e margens seguras**
+   - Definir uma área segura para templates legados:
+     - 4:5: margem lateral maior que a atual, aproximadamente 90–110px.
+     - 9:16: margem lateral semelhante e margem vertical proporcionalmente maior.
+   - Reposicionar `tpl-frame-*` para essa área segura.
+   - Reescrever SVGs decorativos para não criarem linhas internas indesejadas.
 
-5. **Salvar dimensões reais daqui para frente**
-   - Ao salvar design/modelo, gravar `canvasWidth` e `canvasHeight` no `state`.
-   - Assim novos modelos não serão interpretados como `1080×1080`.
+3. **Remover barra dourada perdida**
+   - Detectar e remover/neutralizar elementos SVG internos que viram barra vertical ou horizontal isolada após a conversão.
+   - Para Governante, preservar apenas as linhas curtas de canto e detalhes editoriais coerentes com o template original.
 
-6. **Validação no preview**
-   - Testar com o template Governante do print e com pelo menos um template com acento/linha (`Explorador` ou `Rebelde`).
-   - Conferir visualmente que seleção, moldura e elementos decorativos coincidem no canvas com foto e sem foto.
+4. **Reposicionar elementos decorativos dos 12 templates**
+   - `tpl-line-*` e `tpl-accent-*` não serão apenas escalados por `sy`.
+   - Eles serão ancorados ao retângulo seguro do template:
+     - linhas superiores próximas ao topo da área segura;
+     - linhas inferiores próximas à base da área segura;
+     - acentos verticais dentro da composição, sem atravessar texto ou aparecer soltos.
+   - Isso cobre Governante, Explorador, Rebelde e os demais arquétipos.
+
+5. **Posts com foto não podem voltar ao layout antigo**
+   - Quando houver foto, preservar a composição do template do arquétipo.
+   - A foto deve entrar como background/overlay, sem substituir posições de texto e decorativos por defaults antigos.
+   - Se o template global não tiver `slideTextBoxes`, gerar caixas de texto em 4:5 compatíveis com a composição original, em vez de cair no layout legado.
+
+6. **Textos do Governante em 4:5**
+   - Adaptar a posição do título, corpo, CTA e assinatura conforme o modelo enviado:
+     - título no bloco editorial central/inferior;
+     - corpo abaixo do título;
+     - destaque/observação curta abaixo do corpo;
+     - CTA e assinatura próximos da parte inferior, com respiro.
+   - Com foto, manter essa hierarquia, apenas garantindo contraste.
+
+## Arquivos a alterar
+
+- `src/lib/template-normalize.ts`
+  - Normalização por área segura.
+  - Limpeza/regravação de SVGs decorativos.
+  - Ancoragem correta de linhas e acentos.
+
+- `src/pages/PostEditorPage.tsx`
+  - Preservar layout do template ao inserir foto.
+  - Criar fallback de caixas de texto em 4:5/9:16 quando o template legado não trouxer `slideTextBoxes`.
+  - Evitar que `setInitialTextBoxes(result.slots)` sobrescreva a composição do arquétipo aplicado.
+
+## Validação esperada
+
+- Governante sem foto: visual próximo ao print original, mas em 4:5, com mais altura e sem barra perdida.
+- Governante com foto: mantém o mesmo layout editorial, com foto apenas como fundo/elemento visual.
+- Explorador e Rebelde: linhas/acento reposicionados dentro da nova área segura.
+- Todos os 12 templates: sem moldura colada, sem elementos decorativos soltos e sem retorno parcial ao layout antigo ao usar foto.
