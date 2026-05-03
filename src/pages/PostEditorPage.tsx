@@ -1145,11 +1145,19 @@ const PostEditorPage = () => {
     supabase.from("user_designs").select("*").eq("id", designIdParam).eq("user_id", user.id).maybeSingle()
       .then(({ data }) => {
         if (!data || !data.state) return;
-        const s: any = data.state;
+        let s: any = data.state;
         // IMPORTANTE: o campo `archetype` do template (coluna ou state) NUNCA
         // sobrescreve o primaryArchetype do usuário atual. A tipografia/canvas
         // sempre usa o arquétipo derivado do relatório do próprio usuário.
         if ("archetype" in s) delete s.archetype;
+        // Se for abertura como modelo (?fromTemplate=1) ou se o design for legado
+        // (sem canvasWidth/Height), normaliza para o canvas atual e reescreve
+        // os SVGs decorativos para esticar corretamente.
+        const targetW = canvasFormat === "reels" ? 1080 : 1080;
+        const targetH = canvasFormat === "reels" ? 1920 : 1350;
+        if (fromTemplateParam || typeof s.canvasWidth !== "number" || typeof s.canvasHeight !== "number") {
+          s = normalizeTemplateStateForCanvas(s, targetW, targetH);
+        }
         if (s.editedTexts) setEditedTexts(s.editedTexts);
         if (s.editedTitle) setEditedTitle(s.editedTitle);
         if (s.overlayImages) setOverlayImages(s.overlayImages);
