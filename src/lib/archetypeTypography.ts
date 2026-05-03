@@ -14,8 +14,8 @@ export interface ArchetypeTypography {
 
 const ELEGANCE: ArchetypeTypography = {
   titleWeight: 300,
-  titleSizeMin: 48,
-  titleSizeMax: 52,
+  titleSizeMin: 52,
+  titleSizeMax: 60,
   titleLineHeight: 1.1,
   titleLetterSpacing: "0.02em",
   bodyWeight: 300,
