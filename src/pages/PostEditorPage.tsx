@@ -1049,12 +1049,44 @@ const PostEditorPage = () => {
 
   const captureSlide = async (el: HTMLElement) => {
     const html2canvas = (await import("html2canvas")).default;
-    const origTransform = el.style.transform;
-    const origTransformOrigin = el.style.transformOrigin;
-    el.style.transform = "scale(1)";
-    el.style.transformOrigin = "top left";
+    // Clona o slide para uma área offscreen para NÃO mexer no canvas visível.
+    const host = document.createElement("div");
+    host.style.position = "fixed";
+    host.style.left = "-100000px";
+    host.style.top = "0";
+    host.style.width = `${cW}px`;
+    host.style.height = `${cH}px`;
+    host.style.pointerEvents = "none";
+    host.style.zIndex = "-1";
+    host.style.overflow = "hidden";
+    host.style.background = "transparent";
+
+    const clone = el.cloneNode(true) as HTMLElement;
+    clone.style.transform = "none";
+    clone.style.transformOrigin = "top left";
+    clone.style.position = "absolute";
+    clone.style.left = "0";
+    clone.style.top = "0";
+    clone.style.width = `${cW}px`;
+    clone.style.height = `${cH}px`;
+
+    host.appendChild(clone);
+    document.body.appendChild(host);
+
+    // Esconde elementos de edição (handles, outlines, guias, réguas) dentro do clone
     try {
-      const canvas = await html2canvas(el, {
+      const editorHelpers = clone.querySelectorAll<HTMLElement>(
+        '[data-editor-only], [data-resize-handle]'
+      );
+      editorHelpers.forEach((n) => { n.style.display = "none"; });
+      // Remove outlines de seleção
+      clone.querySelectorAll<HTMLElement>('[data-overlay]').forEach((n) => {
+        n.style.outline = "none";
+      });
+    } catch {}
+
+    try {
+      const canvas = await html2canvas(clone, {
         scale: 2,
         width: cW,
         height: cH,
@@ -1065,8 +1097,7 @@ const PostEditorPage = () => {
       });
       return canvas;
     } finally {
-      el.style.transform = origTransform;
-      el.style.transformOrigin = origTransformOrigin;
+      try { document.body.removeChild(host); } catch {}
     }
   };
 
