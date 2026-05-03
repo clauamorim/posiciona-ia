@@ -709,8 +709,7 @@ const PostEditorPage = () => {
           try {
             const slideBody = (day.card_copy?.[i] || day.caption || "").toString();
             const nonce = `${baseSeed}-${i}-${attempt}-${Math.random().toString(36).slice(2, 10)}`;
-            const res = await supabase.functions.invoke("fetch-post-image", {
-              body: {
+            const fetchPostImageBody = {
                 theme: themeStr,
                 caption: day.caption,
                 body: slideBody,
@@ -720,7 +719,16 @@ const PostEditorPage = () => {
                 businessContext,
                 mode: "single",
                 nonce,
-              },
+              };
+            console.log("[fetch-post-image] carousel slide body", {
+              slideIndex: i,
+              attempt,
+              niche: fetchPostImageBody.niche,
+              hasNiche: Boolean(fetchPostImageBody.niche),
+              body: fetchPostImageBody,
+            });
+            const res = await supabase.functions.invoke("fetch-post-image", {
+              body: fetchPostImageBody,
             });
             const candidate = res?.data?.url;
             if (candidate && !usedUrls.has(candidate)) {
