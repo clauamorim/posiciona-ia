@@ -537,41 +537,45 @@ const PostEditorPage = () => {
         if (s.slideNumberBgColor !== undefined) setSlideNumberBgColor(s.slideNumberBgColor);
         if (s.slideNumberTextColor !== undefined) setSlideNumberTextColor(s.slideNumberTextColor);
         if (typeof s.slideNumberSize === "number") setSlideNumberSize(s.slideNumberSize);
-        if (s.slideTextBoxes && typeof s.slideTextBoxes === "object") setSlideTextBoxes(s.slideTextBoxes);
         // Marca bg como inicializado para evitar que o efeito de palette sobrescreva
         bgInitializedRef.current = true;
 
-        // Overlays decorativos do template (frames, linhas, acentos).
-        // Filtra fotos — o auto-layout cuida do background image.
         // Reescala coordenadas: templates legacy globais (Governante etc.)
         // foram salvos numa base 1080×1080 quadrada (moldura 960×960 em 60,60).
         // Quando o template traz canvasWidth/Height explícitos, usa esses valores;
         // caso contrário, assume 1080×1080.
         const fromW = typeof s.canvasWidth === "number" ? s.canvasWidth : 1080;
         const fromH = typeof s.canvasHeight === "number" ? s.canvasHeight : 1080;
-        const realFormat: "square" | "reels" = cH / cW >= 1.5 ? "reels" : "square";
         // Escala não-uniforme: cada eixo é esticado independentemente para
-        // preencher o canvas atual (1080×1350 ou 1080×1920). Mantém a moldura
-        // encostada nas margens em qualquer formato.
+        // preencher o canvas atual (1080×1350 ou 1080×1920). Mantém moldura,
+        // linhas decorativas E blocos de texto coerentes em qualquer formato.
         const sx = cW / fromW;
         const sy = cH / fromH;
-        console.log("[archetype-template] rescale overlayImages", {
-          primaryArchetype,
-          fromW, fromH, toW: cW, toH: cH,
-          canvasFormatLabel: canvasFormat, realFormat,
-          scaleX: sx, scaleY: sy,
-          originalOverlayCount: Array.isArray(s.overlayImages) ? s.overlayImages.length : 0,
+        const scaleBox = <T extends { x?: number; y?: number; width?: number; height?: number }>(b: T): T => ({
+          ...b,
+          x: typeof b.x === "number" ? Math.round(b.x * sx) : b.x,
+          y: typeof b.y === "number" ? Math.round(b.y * sy) : b.y,
+          width: typeof b.width === "number" ? Math.round(b.width * sx) : b.width,
+          height: typeof b.height === "number" ? Math.round(b.height * sy) : b.height,
         });
+
+        // Reescala slideTextBoxes (posições dos textos por slide)
+        if (s.slideTextBoxes && typeof s.slideTextBoxes === "object") {
+          const scaled: Record<number, TextBox[]> = {};
+          for (const [k, arr] of Object.entries(s.slideTextBoxes)) {
+            if (Array.isArray(arr)) {
+              scaled[Number(k)] = (arr as TextBox[]).map(b => scaleBox(b));
+            }
+          }
+          setSlideTextBoxes(scaled);
+        }
+
+        // Overlays decorativos do template (frames, linhas, acentos).
+        // Filtra fotos — o auto-layout cuida do background image.
         const tplOverlays: OverlayImage[] = Array.isArray(s.overlayImages)
           ? s.overlayImages
               .filter((o: any) => o && o.type !== "photo")
-              .map((o: any) => ({
-                ...o,
-                x: typeof o.x === "number" ? Math.round(o.x * sx) : o.x,
-                y: typeof o.y === "number" ? Math.round(o.y * sy) : o.y,
-                width: typeof o.width === "number" ? Math.round(o.width * sx) : o.width,
-                height: typeof o.height === "number" ? Math.round(o.height * sy) : o.height,
-              }))
+              .map((o: any) => scaleBox(o))
           : [];
         if (tplOverlays.length > 0) {
           setOverlayImages(prev => {
