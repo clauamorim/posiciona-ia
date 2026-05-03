@@ -44,6 +44,7 @@ export const ARCHETYPE_TYPOGRAPHY: Record<string, ArchetypeTypography> = {
   "Sábio": ELEGANCE,
   "Governante": ELEGANCE,
   "Mago": ELEGANCE,
+  "Amante": ELEGANCE,
   // Energia / Ação
   "Herói": ENERGY,
   "Explorador": ENERGY,
