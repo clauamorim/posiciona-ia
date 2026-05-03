@@ -1,24 +1,25 @@
-Identifiquei o problema no preview: o template Governante salvo não tem `canvasWidth/canvasHeight`, mas ele foi criado como canvas 1080x1080. A correção anterior esticou só os overlays; os blocos de texto do template (`slideTextBoxes`) continuaram nas coordenadas antigas, então a composição ficou quebrada.
+Entendi o problema: a caixa selecionada foi redimensionada para 1080×1350, mas o desenho interno da moldura continua com proporção/viewport de 1080×1080. Por isso o contorno visual parece “parado” dentro de uma caixa maior.
 
 Plano de correção:
 
-1. Em `PostEditorPage.tsx`, criar uma função única de normalização para templates legacy.
-   - Base de origem: 1080x1080 quando o template não trouxer dimensões explícitas.
-   - Destino: canvas atual (`1080x1350` para carrossel/feed, `1080x1920` para reels).
+1. Normalizar SVGs decorativos ao aplicar templates legacy
+   - Em `PostEditorPage.tsx`, criar um helper para detectar elementos de moldura (`tpl-frame-*`, `tpl-mframe-*`) e elementos decorativos lineares.
+   - Quando o template não tiver `canvasWidth/canvasHeight`, continuar assumindo base 1080×1080, mas regenerar a `src` da moldura para o tamanho final já escalado.
+   - A moldura passará a ter um SVG interno com `viewBox` e dimensões compatíveis com a caixa final, em vez de apenas aumentar a caixa do `<img>`.
 
-2. Aplicar a mesma escala não-uniforme em todos os elementos do template.
-   - `overlayImages`: x, y, width, height.
-   - `slideTextBoxes`: x, y, width, height de cada slide.
-   - Isso mantém moldura, linha decorativa e textos no mesmo sistema de coordenadas.
+2. Preservar aparência da moldura
+   - Manter cor, opacidade, espessura e inset visual proporcional ao template existente.
+   - Para a moldura do print, o contorno deve ficar encostado dentro das margens esperadas do canvas 4:5, sem a faixa vazia inferior ou lateral.
 
-3. Ajustar o SVG da moldura legacy Governante para não ficar apenas visualmente “esticado”.
-   - Para elementos `tpl-frame-*`, regenerar/normalizar a moldura para o tamanho final quando possível, preservando o inset proporcional.
-   - A moldura passa a ocupar corretamente a área interna do canvas final.
+3. Aplicar a mesma regra a templates abertos por link/design salvo
+   - O carregamento via `?design=...` hoje restaura `overlayImages` diretamente, sem normalização.
+   - Vou reutilizar a mesma normalização nesse fluxo para evitar que designs salvos antigos continuem quebrados.
 
-4. Garantir que templates carregados por `?design=...&fromTemplate=1` também passem pela mesma normalização.
-   - Hoje o template global é normalizado, mas designs/templates salvos podem entrar sem recalcular.
+4. Ajustar renderização do canvas se necessário
+   - Em `PostCanvas.tsx`, garantir que SVGs de elementos decorativos usem preenchimento real da caixa (`objectFit: fill`) quando forem molduras/linhas, mantendo fotos em `cover/contain` como hoje.
+   - Isso evita que o navegador preserve a proporção quadrada do SVG dentro de uma caixa vertical.
 
-5. Remover logs temporários depois da validação.
-   - Manter o editor limpo e sem ruído no console.
+5. Remover logs temporários
+   - Remover o `console.log` de debug de tipografia que ainda está no canvas.
 
-Resultado esperado: ao abrir um post novo no Dashboard, a moldura Governante, a linha decorativa e os textos devem manter a mesma composição relativa, agora adaptada corretamente ao canvas vertical do carrossel.
+Resultado esperado: ao abrir o post no preview, a seleção e a moldura visual passam a representar o mesmo tamanho; o contorno acompanha o canvas 1080×1350 e não fica visualmente preso no layout quadrado antigo.

@@ -110,8 +110,6 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   primaryArchetype,
 }) => {
   const typo = getArchetypeTypography(primaryArchetype);
-  // TEMP debug — remover depois de validar
-  console.log("[PostCanvas] primaryArchetype:", primaryArchetype, "→ typo:", typo);
   const isMobile = useIsMobile();
   const handleVisualSize = isMobile ? 22 : RESIZE_HANDLE_SIZE;
   const handleHitSize = isMobile ? 36 : 20;
@@ -769,7 +767,15 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
       img.type === "photo" &&
       img.x <= 5 && img.y <= 5 &&
       img.width >= canvasWidth - 10 && img.height >= canvasHeight - 10;
-    const objectFit: React.CSSProperties["objectFit"] = isFullCanvasPhoto ? "cover" : "contain";
+    // Decorativos do template (moldura, linha, losango, bloco) são SVGs que devem
+    // preencher exatamente a caixa redimensionada — sem manter proporção quadrada
+    // do SVG original. Usa "fill" para esticar não-uniformemente.
+    const isTemplateDecoration = /^tpl-(mframe|frame|mline|line|mornament|ornament|block)/.test(img.id);
+    const objectFit: React.CSSProperties["objectFit"] = isFullCanvasPhoto
+      ? "cover"
+      : isTemplateDecoration
+        ? "fill"
+        : "contain";
     return (
       <div key={img.id} data-overlay
         style={{
