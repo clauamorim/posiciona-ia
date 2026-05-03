@@ -541,42 +541,22 @@ const PostEditorPage = () => {
         // Marca bg como inicializado para evitar que o efeito de palette sobrescreva
         bgInitializedRef.current = true;
 
-        // Reescala coordenadas: templates legacy globais (Governante etc.)
-        // foram salvos numa base 1080×1080 quadrada (moldura 960×960 em 60,60).
-        // Quando o template traz canvasWidth/Height explícitos, usa esses valores;
-        // caso contrário, assume 1080×1080.
-        const fromW = typeof s.canvasWidth === "number" ? s.canvasWidth : 1080;
-        const fromH = typeof s.canvasHeight === "number" ? s.canvasHeight : 1080;
-        // Escala não-uniforme: cada eixo é esticado independentemente para
-        // preencher o canvas atual (1080×1350 ou 1080×1920). Mantém moldura,
-        // linhas decorativas E blocos de texto coerentes em qualquer formato.
-        const sx = cW / fromW;
-        const sy = cH / fromH;
-        const scaleBox = <T extends { x?: number; y?: number; width?: number; height?: number }>(b: T): T => ({
-          ...b,
-          x: typeof b.x === "number" ? Math.round(b.x * sx) : b.x,
-          y: typeof b.y === "number" ? Math.round(b.y * sy) : b.y,
-          width: typeof b.width === "number" ? Math.round(b.width * sx) : b.width,
-          height: typeof b.height === "number" ? Math.round(b.height * sy) : b.height,
-        });
+        // Normaliza o state legado (1080×1080 quadrado) para o canvas atual,
+        // reescalando posições E reescrevendo a string dos SVGs decorativos
+        // (viewBox + preserveAspectRatio="none") para que molduras/linhas
+        // preencham corretamente o novo formato em todos os 12 templates.
+        const normalized = normalizeTemplateStateForCanvas(s, cW, cH);
 
-        // Reescala slideTextBoxes (posições dos textos por slide)
-        if (s.slideTextBoxes && typeof s.slideTextBoxes === "object") {
+        if (normalized.slideTextBoxes && typeof normalized.slideTextBoxes === "object") {
           const scaled: Record<number, TextBox[]> = {};
-          for (const [k, arr] of Object.entries(s.slideTextBoxes)) {
-            if (Array.isArray(arr)) {
-              scaled[Number(k)] = (arr as TextBox[]).map(b => scaleBox(b));
-            }
+          for (const [k, arr] of Object.entries(normalized.slideTextBoxes)) {
+            if (Array.isArray(arr)) scaled[Number(k)] = arr as TextBox[];
           }
           setSlideTextBoxes(scaled);
         }
 
-        // Overlays decorativos do template (frames, linhas, acentos).
-        // Filtra fotos — o auto-layout cuida do background image.
-        const tplOverlays: OverlayImage[] = Array.isArray(s.overlayImages)
-          ? s.overlayImages
-              .filter((o: any) => o && o.type !== "photo")
-              .map((o: any) => scaleBox(o))
+        const tplOverlays: OverlayImage[] = Array.isArray(normalized.overlayImages)
+          ? normalized.overlayImages.filter((o: any) => o && o.type !== "photo")
           : [];
         if (tplOverlays.length > 0) {
           setOverlayImages(prev => {
