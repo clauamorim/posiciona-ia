@@ -602,6 +602,7 @@ const PostEditorPage = () => {
   // Auto-layout: monta layout inicial (template + bg Unsplash + logo) na primeira abertura
   useEffect(() => {
     if (!user || !day || autoLayoutRanRef.current) return;
+    if (!imageContextLoaded) return;
     if (!Array.isArray(palette) || palette.length === 0) return;
     autoLayoutRanRef.current = true;
     const isCarouselDay = day?.format?.toLowerCase() === "carrossel";
@@ -694,7 +695,7 @@ const PostEditorPage = () => {
         setInitializingLayout(null);
       }
     })();
-  }, [user, day, palette, weekIndex, dayIndex, canvasFormat, bgIndex, initialStyle, userNiche, businessContext]);
+  }, [user, day, palette, weekIndex, dayIndex, canvasFormat, bgIndex, initialStyle, userNiche, businessContext, imageContextLoaded]);
 
   // Carrossel + estilo Pexels: busca uma imagem independente para cada slide,
   // com variação sutil de opacidade e object-position para criar ritmo visual.
@@ -702,6 +703,7 @@ const PostEditorPage = () => {
   const slideBgRanRef = useRef(false);
   useEffect(() => {
     if (!day || slideBgRanRef.current) return;
+    if (!imageContextLoaded) return;
     const isCarouselDay = day.format?.toLowerCase() === "carrossel";
     if (!isCarouselDay || initialStyle !== "pexels") return;
     const totalSlides = Math.max(1, day.card_copy?.length || 1);
@@ -769,7 +771,7 @@ const PostEditorPage = () => {
         setSlideBackgrounds((prev) => ({ ...prev, ...updates }));
       }
     })();
-  }, [day, canvasFormat, initialStyle, userNiche, businessContext]);
+  }, [day, canvasFormat, initialStyle, userNiche, businessContext, imageContextLoaded]);
 
   // Trocar imagem de fundo (busca nova do Unsplash)
   const handleSwapBackground = useCallback(async () => {
