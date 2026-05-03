@@ -278,7 +278,7 @@ const PostEditorPage = () => {
           // questionário de negócios (profession, services, company_name).
           setUserNiche(prev => {
             if (prev) return prev;
-            const candidate = [(data as any).profession, data.services, data.company_name]
+            const candidate = [data.services, data.company_name]
               .filter(Boolean).join(" ").trim();
             return candidate || prev;
           });
