@@ -551,7 +551,10 @@ const PostEditorPage = () => {
         // Reescala coordenadas: templates foram salvos em 1080×1080 (ou
         // dimensão informada em state.canvasWidth/Height). O canvas atual
         // pode ser 1080×1350 (card) ou 1080×1920 (reels).
-        const fromW = typeof s.canvasWidth === "number" ? s.canvasWidth : 1080;
+         console.log("[debug-canvas-size] cW:", cW, "cH:", cH,
+           "canvasFormat:", canvasFormat,
+           "timestamp:", Date.now());
+         const fromW = typeof s.canvasWidth === "number" ? s.canvasWidth : 1080;
         const fromH = typeof s.canvasHeight === "number" ? s.canvasHeight : 1080;
         console.log("[archetype-template] rescale overlayImages", {
           primaryArchetype,
