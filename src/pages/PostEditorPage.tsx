@@ -543,11 +543,11 @@ const PostEditorPage = () => {
 
         // Overlays decorativos do template (frames, linhas, acentos).
         // Filtra fotos — o auto-layout cuida do background image.
-        // Reescala coordenadas: templates foram salvos em 1080×1080 (ou
-        // dimensão informada em state.canvasWidth/Height). O canvas atual
-        // pode ser 1080×1350 (card) ou 1080×1920 (reels).
+        // Reescala coordenadas: templates legacy foram salvos no editor real
+        // (1080×1350 para card "square"). Quando o template traz
+        // canvasWidth/Height explícitos, usa esses valores.
         const fromW = typeof s.canvasWidth === "number" ? s.canvasWidth : 1080;
-        const fromH = typeof s.canvasHeight === "number" ? s.canvasHeight : 1080;
+        const fromH = typeof s.canvasHeight === "number" ? s.canvasHeight : 1350;
         // Formato real derivado das dimensões correntes (evita dessincronia
         // entre canvasFormat label e cW/cH efetivos).
         const realFormat: "square" | "reels" = cH / cW >= 1.5 ? "reels" : "square";
