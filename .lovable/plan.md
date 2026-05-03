@@ -1,29 +1,55 @@
-Plano de correção:
+## Diagnóstico
 
-1. Remover a dependência do `canvasFormat` defasado no momento de aplicar o template global.
-   - Calcular o formato efetivo a partir das dimensões reais usadas no canvas (`cW`, `cH`).
-   - Usar esse formato efetivo também para gravar/normalizar `canvasFormat` quando houver divergência.
+Olhando os templates globais salvos no banco, todos foram criados sem os campos `canvasWidth`/`canvasHeight` no `state`. Exemplo, Governante:
 
-2. Ajustar o rescale dos `overlayImages` decorativos do template global.
-   - Manter `s = Math.min(cW / fromW, cH / fromH)`.
-   - Aplicar centralização com:
-     - `offsetX = (cW - fromW * s) / 2`
-     - `offsetY = (cH - fromH * s) / 2`
-   - Aplicar em cada overlay:
-     - `x = Math.round(o.x * s + offsetX)`
-     - `y = Math.round(o.y * s + offsetY)`
-     - `width = Math.round(o.width * s)`
-     - `height = Math.round(o.height * s)`
+```
+frame: x=60, y=60, w=960, h=960
+line:  x=100, y=880, w=160, h=4
+```
 
-3. Corrigir o caso específico que ainda mantém os decorativos no meio do canvas 4:5.
-   - Os templates globais estão salvos como `square` e sem `canvasWidth/canvasHeight`, mas o editor usa `square = 1080×1350`.
-   - Para templates legados sem dimensão salva, tratar `fromW/fromH` como `1080×1080`, preservando o quadrado original e centralizando no canvas real.
+Essas coordenadas foram salvas dentro do **editor real de "square", que é 1080×1350** (não 1080×1080). Ou seja, na hora do save o `y=60` significava "60px do topo de um canvas 1350px de altura".
 
-4. Adicionar logs temporários objetivos para validação.
-   - Logar `fromW`, `fromH`, `toW`, `toH`, `canvasFormat`, formato efetivo, escala e offsets no momento do rescale.
-   - Logar uma amostra antes/depois dos overlays para confirmar a nova posição.
+No `PostEditorPage.tsx` (linhas 564–565), o fallback quando o template não tem dimensão salva está assumindo origem **1080×1080**:
 
-5. Validar no preview.
-   - Abrir um post novo.
-   - Confirmar no console que o rescale usa `fromW=1080`, `fromH=1080`, `toW=1080`, `toH=1350`, `scale=1`, `offsetY=135`.
-   - Confirmar que `setOverlayImages` recebe os overlays já centralizados, com a moldura em `y=195` para o template Governante atual.
+```ts
+const fromW = typeof s.canvasWidth === "number" ? s.canvasWidth : 1080;
+const fromH = typeof s.canvasHeight === "number" ? s.canvasHeight : 1080;
+```
+
+Resultado para o canvas atual de card 4:5 (1080×1350):
+
+- `s = min(1080/1080, 1350/1080) = 1`
+- `offsetY = (1350 − 1080)/2 = 135`
+- A moldura sai de `y=60` e vai para `y=195`, e o `tpl-line` de `y=880` vai para `y=1015`
+
+Por isso o template aparece "afundado" no meio do canvas, exatamente o sintoma que você descreve. A correção do rescale uniforme em si está certa — o que está errado é o **valor de origem assumido quando o template legacy não traz `canvasWidth/Height`**.
+
+A confirmação adicional é que o cálculo de `realFormat` em `cH/cW >= 1.5` também está errado para card 4:5 (1350/1080 = 1.25 → cai em "square", o que está certo), mas não influencia esse bug específico — o bug é só o `fromH` padrão.
+
+## Mudança
+
+Arquivo: `src/pages/PostEditorPage.tsx`, no efeito de aplicação do template do arquétipo (linhas ~559–600).
+
+1. Trocar o fallback de origem para refletir o tamanho real em que os templates foram salvos:
+   - `fromW` padrão: `1080`
+   - `fromH` padrão: `1350` quando o `state` não traz `canvasHeight` (ou usar `1080` apenas se o template explicitamente declarar `canvasFormat: "square-1to1"` no futuro — hoje nenhum declara, então sempre cai em 1350)
+
+2. Manter o rescale uniforme com `min(sx, sy)` e os offsets de centralização — que já estão corretos.
+
+3. Atualizar o log `[archetype-template] rescale overlayImages` para ficar claro que `fromH` agora vem do default 1350.
+
+4. Remover o bloco de log `[archetype-template] init` (linhas 261–270) e o `[archetype-template] flag set before query await` (linhas 501–504), agora que a causa é conhecida — deixar só o log do rescale.
+
+## Resultado esperado
+
+- Card 4:5 (1080×1350): `s=1`, `offsetX=0`, `offsetY=0`. Moldura do Governante volta a ficar em `y=60` (alta no canvas), exatamente como foi salva no admin.
+- Reels (1080×1920): `s=min(1, 1920/1350)=1`, `offsetY=285`. Moldura centralizada verticalmente sem distorção.
+- Carrossel/quadrado novo: idem ao card.
+
+## Validação no preview (sem novo crédito gasto à toa)
+
+1. Abrir um post novo pelo Dashboard (não reabrir o mesmo, para não pegar draft cacheado).
+2. Conferir no console:
+   - `fromW=1080`, `fromH=1350`, `toW=1080`, `toH=1350`, `scale=1`, `offsetX=0`, `offsetY=0`.
+   - Moldura visível encostada na borda (≈ 60px de inset), e não no meio do canvas.
+3. Trocar para Reels e confirmar que a moldura escala/centraliza corretamente (sem virar retângulo achatado).
