@@ -258,17 +258,6 @@ const PostEditorPage = () => {
   // O auto-layout que roda depois apenas substitui o background image.
   const archetypeTemplateRanRef = useRef(!!draft || hasDesignParam);
   const archetypeTemplateAppliedRef = useRef(false);
-  // Debug: ver se o draft pulou o template
-  if (typeof window !== "undefined" && !(window as any).__loggedDraftState) {
-    (window as any).__loggedDraftState = true;
-    console.log("[archetype-template] init", {
-      hasDraft: !!draft,
-      hasDesignParam,
-      willSkipTemplate: !!draft || hasDesignParam,
-      draftOverlayCount: draft?.overlayImages?.length ?? 0,
-    });
-  }
-
   // Card 4:5 (1080×1350) ou Reels 9:16 (1080×1920)
   const cW = canvasFormat === "reels" ? 1080 : 1080;
   const cH = canvasFormat === "reels" ? 1920 : 1350;
@@ -498,10 +487,6 @@ const PostEditorPage = () => {
     // Otimista: marca como aplicado para que o auto-layout (que dispara em
     // paralelo) já preserve as decisões do template. Reverte se falhar.
     archetypeTemplateAppliedRef.current = true;
-    console.log("[archetype-template] flag set before query await", {
-      primaryArchetype,
-      archetypeTemplateApplied: archetypeTemplateAppliedRef.current,
-    });
     (async () => {
       try {
         const { data, error } = await supabase
@@ -558,11 +543,11 @@ const PostEditorPage = () => {
 
         // Overlays decorativos do template (frames, linhas, acentos).
         // Filtra fotos — o auto-layout cuida do background image.
-        // Reescala coordenadas: templates foram salvos em 1080×1080 (ou
-        // dimensão informada em state.canvasWidth/Height). O canvas atual
-        // pode ser 1080×1350 (card) ou 1080×1920 (reels).
+        // Reescala coordenadas: templates legacy foram salvos no editor real
+        // (1080×1350 para card "square"). Quando o template traz
+        // canvasWidth/Height explícitos, usa esses valores.
         const fromW = typeof s.canvasWidth === "number" ? s.canvasWidth : 1080;
-        const fromH = typeof s.canvasHeight === "number" ? s.canvasHeight : 1080;
+        const fromH = typeof s.canvasHeight === "number" ? s.canvasHeight : 1350;
         // Formato real derivado das dimensões correntes (evita dessincronia
         // entre canvasFormat label e cW/cH efetivos).
         const realFormat: "square" | "reels" = cH / cW >= 1.5 ? "reels" : "square";
