@@ -187,6 +187,7 @@ const PostEditorPage = () => {
   const [loading, setLoading] = useState(true);
   const [userNiche, setUserNiche] = useState<string>("");
   const [businessContext, setBusinessContext] = useState<string>("");
+  const [imageContextLoaded, setImageContextLoaded] = useState(false);
   const [bgIndex, setBgIndex] = useState(draft?.bgIndex ?? 0);
   const [layout, setLayout] = useState<"centered" | "top" | "split">((draft?.layout as any) ?? "centered");
   const [currentSlide, setCurrentSlide] = useState(draft?.currentSlide ?? 0);
@@ -266,24 +267,34 @@ const PostEditorPage = () => {
     if (!user) return;
     supabase.from("reports").select("*").eq("user_id", user.id).order("version", { ascending: false }).limit(1).single()
       .then(({ data }) => { setReport(data); setLoading(false); });
-    supabase.from("profiles").select("niche").eq("user_id", user.id).maybeSingle()
-      .then(({ data }) => { if (data?.niche) setUserNiche(data.niche); });
-    supabase.from("business_questionnaires").select("services,target_audience,company_name")
-      .eq("user_id", user.id).order("version", { ascending: false }).limit(1).maybeSingle()
-      .then(({ data }) => {
-        if (data) {
-          const ctx = [data.company_name, data.services, data.target_audience].filter(Boolean).join(" ");
-          setBusinessContext(ctx);
-          // Fallback de niche: se profiles.niche estiver vazio, derive a partir do
-          // questionário de negócios (profession, services, company_name).
-          setUserNiche(prev => {
-            if (prev) return prev;
-            const candidate = [data.services, data.company_name]
-              .filter(Boolean).join(" ").trim();
-            return candidate || prev;
-          });
-        }
+    setImageContextLoaded(false);
+    (async () => {
+      const [profileRes, businessRes] = await Promise.all([
+        supabase.from("profiles").select("niche").eq("user_id", user.id).maybeSingle(),
+        supabase.from("business_questionnaires").select("services,target_audience,company_name")
+          .eq("user_id", user.id).order("version", { ascending: false }).limit(1).maybeSingle(),
+      ]);
+      const business = businessRes.data;
+      const ctx = business
+        ? [business.company_name, business.services, business.target_audience].filter(Boolean).join(" ")
+        : "";
+      const derivedNiche = business
+        ? [business.services, business.company_name].filter(Boolean).join(" ").trim()
+        : "";
+      const resolvedNiche = (profileRes.data?.niche || derivedNiche || "").trim();
+      setBusinessContext(ctx);
+      setUserNiche(resolvedNiche);
+      setImageContextLoaded(true);
+      console.log("[PostEditor] image context loaded", {
+        profileNiche: profileRes.data?.niche || null,
+        derivedNiche,
+        resolvedNiche,
+        hasResolvedNiche: Boolean(resolvedNiche),
       });
+    })().catch((err) => {
+      console.warn("[PostEditor] image context failed", err);
+      setImageContextLoaded(true);
+    });
     supabase.functions
       .invoke("portrait-history", { method: "GET" })
       .then(({ data }) => {
