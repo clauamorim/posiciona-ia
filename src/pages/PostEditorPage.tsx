@@ -1075,7 +1075,7 @@ const PostEditorPage = () => {
   const isSafari = typeof navigator !== "undefined" &&
     /^((?!chrome|android|crios|fxios).)*safari/i.test(navigator.userAgent);
 
-  const captureSlideBlob = async (el: HTMLElement): Promise<Blob> => {
+  const captureSlideBlob = async (el: HTMLElement, pixelRatio = 2): Promise<Blob> => {
     // Clona o slide para uma área offscreen para NÃO mexer no canvas visível.
     const host = document.createElement("div");
     host.style.position = "fixed";
@@ -1128,7 +1128,7 @@ const PostEditorPage = () => {
       // No Safari, a 1ª chamada às vezes retorna em branco — chamamos 2x.
       const { toBlob } = await import("html-to-image");
       const opts = {
-        pixelRatio: 2,
+        pixelRatio,
         width: cW,
         height: cH,
         cacheBust: true,
@@ -1145,7 +1145,7 @@ const PostEditorPage = () => {
       // Fallback: html2canvas
       const html2canvas = (await import("html2canvas")).default;
       const canvas = await html2canvas(clone, {
-        scale: 2,
+        scale: pixelRatio,
         width: cW,
         height: cH,
         useCORS: true,
@@ -1204,7 +1204,7 @@ const PostEditorPage = () => {
         const el = await getRenderedSlideElement(i);
         if (!el) { failed++; continue; }
         try {
-          const blob = await captureSlideBlob(el);
+          const blob = await captureSlideBlob(el, isSafari ? 1 : 2);
           if (!blob) { failed++; continue; }
           zip.file(`slide-${i + 1}.png`, blob);
           exported++;
