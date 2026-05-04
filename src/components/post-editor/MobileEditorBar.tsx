@@ -3,7 +3,6 @@ import { MousePointer2, Type, Plus, Sliders, Download, Undo2, Save } from "lucid
 import { Drawer as DrawerPrimitive } from "vaul";
 import { Drawer, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import DocumentPanel from "./inspector/DocumentPanel";
 import SelectionPanel, { SelectedKind } from "./inspector/SelectionPanel";
 import AddElementPanel from "./inspector/AddElementPanel";
