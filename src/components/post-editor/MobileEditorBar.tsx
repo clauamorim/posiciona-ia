@@ -89,6 +89,8 @@ export interface MobileEditorBarProps {
 
   // Actions
   onDownload: () => void;
+  showDownloadAction?: boolean;
+  exporting?: null | "slide" | "all";
   onReset: () => void;
   onSaveDesign?: () => void;
   saving?: boolean;
@@ -166,12 +168,15 @@ const MobileEditorBar: React.FC<MobileEditorBarProps> = (props) => {
               disabled={props.saving}
             />
           )}
-          <TabButton
-            icon={<Download className="h-5 w-5" />}
-            label="Baixar"
-            onClick={props.onDownload}
-            highlight
-          />
+          {props.showDownloadAction !== false && (
+            <TabButton
+              icon={<Download className="h-5 w-5" />}
+              label={props.exporting === "slide" ? "Baixando…" : "Baixar"}
+              onClick={props.onDownload}
+              disabled={!!props.exporting}
+              highlight
+            />
+          )}
         </div>
       </div>
 
