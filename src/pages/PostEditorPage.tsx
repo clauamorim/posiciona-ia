@@ -1838,21 +1838,7 @@ const PostEditorPage = () => {
               imageSearchQuery: (day?.theme || "").toString().slice(0, 80),
               onPexelsPick: (photographer: PhotographerInfo) => setActivePhotographer(photographer),
               onSwapBackgroundUrl: (url: string, source?: "ai" | "pexels" | "saved") => {
-                setOverlayImages(prev => {
-                  const idx = prev.findIndex(o => o.id.startsWith("tpl-bg-"));
-                  if (idx >= 0) {
-                    const next = [...prev];
-                    const updated = { ...next[idx], src: url };
-                    next.splice(idx, 1);
-                    return [updated, ...next];
-                  }
-                  const w = canvasFormat === "reels" ? 1080 : 1080;
-                  const h = canvasFormat === "reels" ? 1920 : 1350;
-                  return [
-                    { id: `tpl-bg-${crypto.randomUUID()}`, src: url, x: 0, y: 0, width: w, height: h, type: "photo", opacity: 0.85 },
-                    ...prev,
-                  ];
-                });
+                applyBackgroundToCurrentSlide(url);
                 // Salva automaticamente na galeria pessoal — só quando NÃO veio da própria galeria.
                 console.log("PostEditor: onSwapBackgroundUrl picked", { url, source });
                 if (source !== "saved") {
