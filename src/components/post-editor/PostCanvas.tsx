@@ -522,6 +522,28 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   const resolvedTitleColor = titleColor || textColor;
   const resolvedTitleFont = titleFontFamily || displayFont;
 
+  // Garante que a fonte do título seja carregada do Google Fonts e loga
+  // confirmação para diagnóstico (a fonte aplicada == a do template).
+  useEffect(() => {
+    if (!resolvedTitleFont) return;
+    const id = `gfont-${resolvedTitleFont.replace(/\s+/g, "-")}`;
+    if (!document.getElementById(id)) {
+      const link = document.createElement("link");
+      link.id = id;
+      link.rel = "stylesheet";
+      link.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(resolvedTitleFont)}:wght@300;400;500;600;700;800;900&display=swap`;
+      document.head.appendChild(link);
+    }
+    if ((document as any).fonts?.load) {
+      (document as any).fonts.load(`600 48px '${resolvedTitleFont}'`).then(() => {
+        const ok = (document as any).fonts.check(`600 48px '${resolvedTitleFont}'`);
+        console.log("[title-font] resolvedTitleFont =", resolvedTitleFont, "loaded:", ok, "(titleFontFamily=", titleFontFamily, ", displayFont=", displayFont, ")");
+      }).catch((err: any) => {
+        console.warn("[title-font] failed to load", resolvedTitleFont, err);
+      });
+    }
+  }, [resolvedTitleFont, titleFontFamily, displayFont]);
+
   const resolvedCtaText = ctaText || cta || "";
   const resolvedCtaBg = ctaBgColor || accentColor;
   const resolvedCtaText2 = ctaTextColor || bgColor;
@@ -601,16 +623,24 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
     });
   };
   const effectiveRenderOrder = (() => {
+    let merged: string[];
     if (externalRenderOrder && externalRenderOrder.length > 0) {
-      // Fonte de verdade é o parent: preserva exatamente a ordem dele para
-      // os ids existentes (Frente/Trás funciona) e só rank-sort os ids novos
-      // antes de anexar ao final.
+      // Preserva a ordem do parent para Frente/Trás funcionar nos ids existentes,
+      // e rank-sort apenas os ids novos antes de anexar ao final.
       const existing = externalRenderOrder.filter(id => allIds.includes(id));
       const newIds = allIds.filter(id => !existing.includes(id));
-      return [...existing, ...sortByVisualLayer(newIds)];
+      merged = [...existing, ...sortByVisualLayer(newIds)];
+    } else {
+      // Primeira montagem (sem ordem do parent): aplica o rank inicial.
+      merged = sortByVisualLayer(allIds);
     }
-    // Primeira montagem (sem ordem do parent): aplica o rank inicial.
-    return sortByVisualLayer(allIds);
+    // Invariante de segurança: fotos de fundo do template (tpl-bg-*) SEMPRE no
+    // fundo da pilha, independentemente da ordem manual. Backgrounds não devem
+    // ficar acima de textos/decorações — Frente/Trás continua valendo para os
+    // demais elementos.
+    const bgs = merged.filter(id => id.startsWith("tpl-bg-"));
+    const rest = merged.filter(id => !id.startsWith("tpl-bg-"));
+    return [...bgs, ...rest];
   })();
 
   // Sync render order to parent when it changes
