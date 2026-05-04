@@ -503,7 +503,9 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   };
 
   const isMinimalStyle = postStyle === "minimal";
-  const bodyFontSize = Math.max(22, fontSize || 38);
+  // Piso elevado para garantir presença visual do corpo do texto
+  // (carrossel/quadrado: 44px). Ainda respeita aumentos manuais via inspector.
+  const bodyFontSize = Math.max(44, fontSize || 44);
   // Body weight nunca pode ser bold — clamp para o peso máximo do arquétipo (300 ou 400).
   const bodyFontWeight = clampBodyWeight(fontWeight || "normal", typo.bodyWeight);
   const bodyFontStyle2 = fontStyle || "normal";
@@ -789,11 +791,12 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
       : isTemplateDecoration
         ? "fill"
         : "contain";
-    // Para o background do template, força cobrir todo o canvas atual,
-    // ignorando dimensões legadas que possam ter ficado de outro formato.
+    // Para o background do template, força cobrir todo o canvas atual em
+    // tamanho (ignora dimensões legadas), MAS respeita a posição manual do
+    // usuário (x/y) — assim a foto de fundo é arrastável para reenquadrar.
     const isTplBg = img.id.startsWith("tpl-bg-");
-    const boxLeft = isTplBg ? 0 : img.x;
-    const boxTop = isTplBg ? 0 : img.y;
+    const boxLeft = isTplBg ? (typeof img.x === "number" ? img.x : 0) : img.x;
+    const boxTop = isTplBg ? (typeof img.y === "number" ? img.y : 0) : img.y;
     const boxWidth = isTplBg ? canvasWidth : img.width;
     const boxHeight = isTplBg ? canvasHeight : img.height;
     return (
