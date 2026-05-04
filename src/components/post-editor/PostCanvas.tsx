@@ -785,11 +785,18 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
       : isTemplateDecoration
         ? "fill"
         : "contain";
+    // Para o background do template, força cobrir todo o canvas atual,
+    // ignorando dimensões legadas que possam ter ficado de outro formato.
+    const isTplBg = img.id.startsWith("tpl-bg-");
+    const boxLeft = isTplBg ? 0 : img.x;
+    const boxTop = isTplBg ? 0 : img.y;
+    const boxWidth = isTplBg ? canvasWidth : img.width;
+    const boxHeight = isTplBg ? canvasHeight : img.height;
     return (
       <div key={img.id} data-overlay
         style={{
-          position: "absolute", left: img.x, top: img.y,
-          width: img.width, height: img.height,
+          position: "absolute", left: boxLeft, top: boxTop,
+          width: boxWidth, height: boxHeight,
           cursor: "move", userSelect: "none",
           outline: isSelected ? "2px dashed rgba(255,255,255,0.7)" : "none",
           outlineOffset: 2, zIndex: itemZ,
