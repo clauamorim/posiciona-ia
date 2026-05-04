@@ -597,8 +597,14 @@ export async function buildAutoLayout(input: AutoLayoutInput): Promise<AutoLayou
   // Usa 6 linhas (em vez de 4) para garantir folga quando o corpo do texto for longo
   const isReelsFmt = template.format === "reels";
   const lineCountEstimate = isReelsFmt ? 6 : 5;
-  const estBodyHeight = template.bodySlot
-    ? Math.max(200, Math.round(template.bodySlot.fontSize * 1.6 * lineCountEstimate))
+  // Boost de +20% no tamanho default do corpo, com piso para garantir presença visual
+  // (carrossel/quadrado: 44px; reels: 48px). Não altera o template em si.
+  const bodyFloor = isReelsFmt ? 48 : 44;
+  const boostedBodyFontSize = template.bodySlot
+    ? Math.max(bodyFloor, Math.round(template.bodySlot.fontSize * 1.2))
+    : undefined;
+  const estBodyHeight = boostedBodyFontSize
+    ? Math.max(200, Math.round(boostedBodyFontSize * 1.6 * lineCountEstimate))
     : 200;
   const bodyBottomY = template.bodySlot
     ? template.bodySlot.y + estBodyHeight
