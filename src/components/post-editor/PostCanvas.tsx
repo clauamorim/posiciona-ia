@@ -726,9 +726,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
             textAlign: isTitle ? effectiveTitleAlign : bodyTextAlign,
             lineHeight: isTitle ? typo.titleLineHeight : 1.55,
             letterSpacing: isTitle ? typo.titleLetterSpacing : undefined,
-            color: isTitle
-              ? (titleColor ?? (hasPhotoBackground ? "#ffffff" : resolvedTitleColor))
-              : (hasPhotoBackground ? "#ffffff" : textColor),
+            color: isTitle ? (titleColor ?? resolvedTitleColor) : textColor,
             outline: "none", width: "100%", minHeight: "1em",
             opacity: 1,
             position: "relative",
