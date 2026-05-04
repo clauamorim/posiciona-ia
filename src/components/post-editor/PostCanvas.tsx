@@ -771,9 +771,11 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
     const isSelected = selectedImageId === img.id;
     // Full-canvas background photo → cover (preenche sem barras). Demais fotos = contain.
     const isFullCanvasPhoto =
-      img.type === "photo" &&
-      img.x <= 5 && img.y <= 5 &&
-      img.width >= canvasWidth - 10 && img.height >= canvasHeight - 10;
+      img.type === "photo" && (
+        img.id.startsWith("tpl-bg-") ||
+        (img.x <= 5 && img.y <= 5 &&
+          img.width >= canvasWidth - 10 && img.height >= canvasHeight - 10)
+      );
     // Decorativos do template (moldura, linha, losango, bloco) são SVGs que devem
     // preencher exatamente a caixa redimensionada — sem manter proporção quadrada
     // do SVG original. Usa "fill" para esticar não-uniformemente.
