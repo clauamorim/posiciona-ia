@@ -1037,16 +1037,25 @@ const PostEditorPage = () => {
     }
   }, [overlayImages, removingBackground, chromaKeyToTransparent]);
 
-  const triggerDownload = (blob: Blob, filename: string) => {
+  const triggerDownload = (blob: Blob, filename: string, fallbackWindow?: Window | null) => {
     const url = URL.createObjectURL(blob);
+    if (fallbackWindow && !fallbackWindow.closed) {
+      try {
+        fallbackWindow.document.title = filename;
+        fallbackWindow.location.href = url;
+        setTimeout(() => URL.revokeObjectURL(url), 15000);
+        return;
+      } catch {}
+    }
     const link = document.createElement("a");
     link.href = url;
     link.download = filename;
     link.rel = "noopener";
+    if (isSafari) link.target = "_blank";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    setTimeout(() => URL.revokeObjectURL(url), isSafari ? 15000 : 1000);
   };
 
   const waitForPaint = () => new Promise<void>((resolve) => {
