@@ -607,13 +607,13 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   const isAccentDecoration = (id: string) => /^tpl-(mline|mornament|line|ornament)/.test(id);
   const isTextBoxId = (id: string) => textBoxes.some(t => t.id === id);
   const sortByVisualLayer = (ids: string[]) => {
-    // 0 = fundo (foto full), 1 = moldura, 2 = textos, 3 = barra/losango (na frente do texto), 4 = demais
+    // 0 = fundo (foto full), 1 = moldura, 2 = demais overlays, 3 = barra/losango, 4 = textos (sempre topo p/ clique)
     const rank = (id: string) => {
       if (isFullPhoto(id)) return 0;
       if (isFrame(id)) return 1;
-      if (isTextBoxId(id)) return 2;
+      if (isTextBoxId(id)) return 4;
       if (isAccentDecoration(id)) return 3;
-      return 4;
+      return 2;
     };
     return [...ids].sort((a, b) => {
       const ra = rank(a), rb = rank(b);
