@@ -1652,6 +1652,7 @@ const PostEditorPage = () => {
                 currentSlide={currentSlide} onSlideChange={setCurrentSlide}
                 onSlideTextChange={(i, t) => { const copy = [...editedTexts]; copy[i] = t; setEditedTexts(copy); }}
                 onDownloadSlide={handleDownloadSlide} onDownloadAll={handleDownloadAll}
+                exporting={exporting}
                 slideRefs={slideRefs}
                 initialTextBoxes={initialTextBoxes}
                 resetKey={`${initialStyle || "minimal"}-${canvasFormat}-${currentSlide}`}
@@ -1713,9 +1714,10 @@ const PostEditorPage = () => {
                 <Button
                   size="sm"
                   className="gap-2 shadow-lg"
+                  disabled={!!exporting}
                   onClick={() => handleDownloadSlide(0)}
                 >
-                  <Download className="h-3.5 w-3.5" /> Baixar PNG
+                  <Download className="h-3.5 w-3.5" /> {exporting === "slide" ? "Baixando…" : "Baixar PNG"}
                 </Button>
               </div>
             )}
