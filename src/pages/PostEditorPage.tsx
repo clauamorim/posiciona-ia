@@ -1049,6 +1049,16 @@ const PostEditorPage = () => {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
+  const waitForPaint = () => new Promise<void>((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+  });
+
+  const getRenderedSlideElement = async (index: number) => {
+    flushSync(() => setCurrentSlide(index));
+    await waitForPaint();
+    return slideRefs.current[index] ?? slideRefs.current[currentSlide] ?? null;
+  };
+
   const isSafari = typeof navigator !== "undefined" &&
     /^((?!chrome|android|crios|fxios).)*safari/i.test(navigator.userAgent);
 
