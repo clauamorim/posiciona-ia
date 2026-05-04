@@ -624,7 +624,10 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
 
   // Detecta se há foto de fundo cobrindo todo o canvas (para aplicar text-shadow legível)
   const hasPhotoBackground = overlayImages.some(
-    img => img.type === "photo" && img.x <= 5 && img.y <= 5 && img.width >= canvasWidth - 10 && img.height >= canvasHeight - 10
+    img => img.type === "photo" && (
+      img.id.startsWith("tpl-bg-") ||
+      (img.x <= 5 && img.y <= 5 && img.width >= canvasWidth - 10 && img.height >= canvasHeight - 10)
+    )
   );
 
   const renderTextBox = (tb: TextBox) => {
