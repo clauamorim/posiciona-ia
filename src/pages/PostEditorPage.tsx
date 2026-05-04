@@ -1160,8 +1160,10 @@ const PostEditorPage = () => {
   };
 
   const handleDownloadSlide = useCallback(async (index: number) => {
+    if (exporting) return;
+    setExporting("slide");
     try {
-      const el = isCarousel ? slideRefs.current[index] : singleCanvasRef.current;
+      const el = isCarousel ? await getRenderedSlideElement(index) : singleCanvasRef.current;
       if (!el) {
         toast({ title: "Canvas não encontrado", variant: "destructive" });
         return;
@@ -1176,30 +1178,40 @@ const PostEditorPage = () => {
         description: err?.message || "Tente remover imagens externas e baixar novamente.",
         variant: "destructive",
       });
+    } finally {
+      setExporting(null);
     }
-  }, [isCarousel, day, dayIndex, cW, cH]);
+  }, [exporting, isCarousel, day, dayIndex, cW, cH, currentSlide]);
 
   const handleDownloadAll = useCallback(async () => {
+    if (exporting) return;
+    const originalSlide = currentSlide;
+    const downloadWindow = isSafari ? window.open("", "_blank") : null;
+    if (downloadWindow) {
+      downloadWindow.document.write("<p style='font-family: system-ui; padding: 24px'>Preparando download…</p>");
+    }
+    setExporting("all");
     try {
       const JSZip = (await import("jszip")).default;
       const zip = new JSZip();
       let failed = 0;
+      let exported = 0;
       for (let i = 0; i < editedTexts.length; i++) {
-        setCurrentSlide(i);
-        await new Promise((r) => setTimeout(r, 250));
-        const el = slideRefs.current[i];
+        const el = await getRenderedSlideElement(i);
         if (!el) { failed++; continue; }
         try {
           const blob = await captureSlideBlob(el);
           if (!blob) { failed++; continue; }
           zip.file(`slide-${i + 1}.png`, blob);
+          exported++;
         } catch (e) {
           console.error(`[download-all] slide ${i + 1}`, e);
           failed++;
         }
       }
+      if (exported === 0) throw new Error("Nenhum slide pôde ser exportado.");
       const zipBlob = await zip.generateAsync({ type: "blob" });
-      triggerDownload(zipBlob, `carrossel-dia${day?.day || dayIndex + 1}.zip`);
+      triggerDownload(zipBlob, `carrossel-dia${day?.day || dayIndex + 1}.zip`, downloadWindow);
       toast({
         title: failed ? `Exportado com ${failed} falha(s)` : "Carrossel exportado com sucesso!",
         variant: failed ? "destructive" : "default",
@@ -1211,8 +1223,12 @@ const PostEditorPage = () => {
         description: err?.message || "Tente novamente.",
         variant: "destructive",
       });
+      if (downloadWindow && !downloadWindow.closed) downloadWindow.close();
+    } finally {
+      flushSync(() => setCurrentSlide(originalSlide));
+      setExporting(null);
     }
-  }, [editedTexts, day, dayIndex, cW, cH]);
+  }, [exporting, editedTexts, currentSlide, day, dayIndex, cW, cH]);
 
   const handleCtaMove = (x: number, y: number) => setCtaPosition({ x, y });
 
