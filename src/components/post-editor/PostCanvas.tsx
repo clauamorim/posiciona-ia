@@ -522,6 +522,28 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   const resolvedTitleColor = titleColor || textColor;
   const resolvedTitleFont = titleFontFamily || displayFont;
 
+  // Garante que a fonte do título seja carregada do Google Fonts e loga
+  // confirmação para diagnóstico (a fonte aplicada == a do template).
+  useEffect(() => {
+    if (!resolvedTitleFont) return;
+    const id = `gfont-${resolvedTitleFont.replace(/\s+/g, "-")}`;
+    if (!document.getElementById(id)) {
+      const link = document.createElement("link");
+      link.id = id;
+      link.rel = "stylesheet";
+      link.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(resolvedTitleFont)}:wght@300;400;500;600;700;800;900&display=swap`;
+      document.head.appendChild(link);
+    }
+    if ((document as any).fonts?.load) {
+      (document as any).fonts.load(`600 48px '${resolvedTitleFont}'`).then(() => {
+        const ok = (document as any).fonts.check(`600 48px '${resolvedTitleFont}'`);
+        console.log("[title-font] resolvedTitleFont =", resolvedTitleFont, "loaded:", ok, "(titleFontFamily=", titleFontFamily, ", displayFont=", displayFont, ")");
+      }).catch((err: any) => {
+        console.warn("[title-font] failed to load", resolvedTitleFont, err);
+      });
+    }
+  }, [resolvedTitleFont, titleFontFamily, displayFont]);
+
   const resolvedCtaText = ctaText || cta || "";
   const resolvedCtaBg = ctaBgColor || accentColor;
   const resolvedCtaText2 = ctaTextColor || bgColor;
