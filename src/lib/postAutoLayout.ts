@@ -647,12 +647,12 @@ export async function buildAutoLayout(input: AutoLayoutInput): Promise<AutoLayou
         height: Math.max(120, Math.round((dynTitleFontSize || template.titleSlot.fontSize) * 1.6 * 2)),
       }
     : undefined;
-  const bodySlot = template.bodySlot
+  const bodySlot = template.bodySlot && boostedBodyFontSize
     ? {
         x: template.bodySlot.x,
         y: template.bodySlot.y,
         width: template.bodySlot.width,
-        height: Math.max(160, Math.round(template.bodySlot.fontSize * 1.6 * 4)),
+        height: Math.max(160, Math.round(boostedBodyFontSize * 1.6 * 4)),
       }
     : undefined;
 
@@ -663,7 +663,7 @@ export async function buildAutoLayout(input: AutoLayoutInput): Promise<AutoLayou
     suggestions: {
       titleFontSize: dynTitleFontSize,
       titleTextAlign: template.titleSlot?.align,
-      bodyFontSize: template.bodySlot?.fontSize,
+      bodyFontSize: boostedBodyFontSize,
       bodyTextAlign: template.bodySlot?.align,
       showSlideNumber: template.slideNumberSlot?.show,
       slideNumberSize: template.slideNumberSlot?.size,
