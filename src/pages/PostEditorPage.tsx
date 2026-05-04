@@ -1041,11 +1041,15 @@ const PostEditorPage = () => {
     const url = URL.createObjectURL(blob);
     if (fallbackWindow && !fallbackWindow.closed) {
       try {
-        fallbackWindow.document.title = filename;
-        fallbackWindow.location.href = url;
+        fallbackWindow.document.open();
+        fallbackWindow.document.write(`<a id="download" href="${url}" download="${filename}" rel="noopener">Baixar arquivo</a>`);
+        fallbackWindow.document.close();
+        fallbackWindow.document.getElementById("download")?.click();
         setTimeout(() => URL.revokeObjectURL(url), 15000);
         return;
-      } catch {}
+      } catch (error) {
+        console.warn("[download] Safari popup fallback failed", error);
+      }
     }
     const link = document.createElement("a");
     link.href = url;
