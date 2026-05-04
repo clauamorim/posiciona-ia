@@ -1,47 +1,51 @@
-## Problemas observados
+## Diagnóstico
 
-Confirmei no preview (carrossel da Semana 3, Dia 1):
+Investiguei o editor com `style=pexels` (foto de fundo) vs `style=minimal`. Encontrei três problemas independentes:
 
-1. **Fonte do título do template global não aparece.** O título sai em sans-serif do sistema, não na serifada (Playfair/Cormorant) que o template global do arquétipo define. O `titleFontFamily` salvo não chega ao canvas de forma confiável.
-2. **Corpo do texto minúsculo.** Templates de carrossel usam `bodySlot.fontSize` 38–40 — o default precisa subir.
-3. **A foto "pisca": carrega uma e logo é substituída.** O efeito `slideBgRanRef` percorre do índice 0 a N e sobrescreve a foto que o auto-layout já tinha aplicado no slide 1.
-4. **Trocar foto no carrossel não funciona.** O canvas é renderizado a partir de `carouselOverlays` (PostEditorPage linha 898), que sobrescreve `tpl-bg-*` por `slideBackgrounds[currentSlide]`. A callback `onSwapBackgroundUrl` atualiza só `overlayImages[tpl-bg-*].src`, então `slideBackgrounds[currentSlide]` continua mascarando a escolha do usuário.
-5. **Botões "Frente"/"Trás" (organização de camadas) pararam de funcionar.** `handleBringForward`/`handleSendBackward` (PostEditorPage 926–944) reordenam `renderOrder`, mas no `PostCanvas` o `effectiveRenderOrder` passa por `sortByVisualLayer` (linhas 585–608) que **força ranks fixos** (foto-fundo=0, moldura=1, textos=2, ornamentos=3, demais=4). Isso anula qualquer troca manual entre itens de ranks diferentes (e mesmo dentro do mesmo rank, a ordem retorna porque o sort recalcula a cada render).
+### 1. Cor do título não muda quando há foto de fundo
+`src/components/post-editor/PostCanvas.tsx` linha 729:
+```ts
+color: hasPhotoBackground ? "#ffffff" : (isTitle ? resolvedTitleColor : textColor)
+```
+Sempre que há foto cobrindo o canvas, a cor do texto é **forçada em branco**, ignorando qualquer cor que o usuário escolhe no ColorPicker. O mesmo vale para o corpo. Por isso "se eu clico para mudar a cor da fonte, a cor não muda" — ela está sendo sobrescrita a cada render.
 
-## O que vou alterar
+### 2. Fonte do título não aparece quando há foto
+Há uma corrida entre dois efeitos no `PostEditorPage.tsx`:
+- linhas 451-455 (`useEffect` que aplica `typography.display`/`typography.body` do relatório)
+- linhas 486-583 (`useEffect` do template global do arquétipo, que define `setDisplayFont(s.displayFont)` e `setTitleFontFamily(...)`)
 
-### 1. Aplicar de fato a fonte do título do template global
-`src/pages/PostEditorPage.tsx` (efeito do template do arquétipo, ~486–576):
-- Quando o state salvo do template global não tiver `titleFontFamily`, derivar do `displayFont` do template e aplicar via `setTitleFontFamily`.
-- Garantir o `loadGoogleFont` correspondente.
+No fluxo Minimalista o template aplica e nada vem por cima. No fluxo Pexels/IA o auto-layout demora (chama edge function), e durante esse intervalo o efeito de typography (linha 451) roda **depois** do template, sobrescrevendo `displayFont` para o valor do relatório. Como `titleFontFamily` foi setado a partir de `s.displayFont` (linha 524-531), na primeira passada ele fica correto — mas se o template global do arquétipo não tem `displayFont` salvo (caso comum: usuário nunca personalizou), `titleFontFamily` permanece `null` e o canvas cai no `displayFont` (que já foi sobrescrito por `typography.display`).
 
-### 2. Aumentar tamanho default do corpo no canvas
-`src/lib/postAutoLayout.ts` (linhas ~600 e 660):
-- Aplicar boost de +20% ao `template.bodySlot.fontSize` antes de devolver `bodyFontSize` em `suggestions`, com piso mínimo de 44 px (carrossel) e 48 px (reels).
-- Escalar a estimativa de altura proporcionalmente para o slot não cortar texto.
+Resultado: no card aparece a fonte do relatório (sans-serif) em vez da fonte serifada do template.
 
-### 3. Eliminar a troca de foto no primeiro slide
-`src/pages/PostEditorPage.tsx` (efeito `slideBgRanRef`, linhas 689–760):
-- Pular o índice 0 do loop (`for (let i = 1; ...)`). A foto do slide 1 já vem do auto-layout.
+### 3. "Voltou a carregar imagens genéricas nos cards"
+Preciso confirmar com o usuário o que está aparecendo de "genérico" (foto que não tem nada a ver com o tema vs. mesma foto repetida). O fluxo de imagem do carrossel (`slideBgRanRef`, linhas 696-767) hoje pula o slide 0 — então o slide 1 mantém a foto que o auto-layout escolheu, e os demais buscam novas. Se o auto-layout falhou para o slide 1, ele cai em gradiente; se a edge `fetch-post-image` está respondendo com fotos pouco específicas, é problema de prompt/contexto na função, não do front.
 
-### 4. Fazer a troca de foto funcionar no carrossel
-`src/pages/PostEditorPage.tsx`:
-- Criar helper `applyBackgroundToCurrentSlide(url)` que, em carrossel, escreve em `slideBackgrounds[currentSlide]` (preservando `opacity` e `objectPosition` atuais ou usando defaults). Fora do carrossel, atualiza apenas o `tpl-bg-*` em `overlayImages`.
-- Refatorar `handleSwapBackground` (763–807) e a callback `onSwapBackgroundUrl` (1800–1829) para usarem a helper.
+## Alterações
 
-### 5. Corrigir os botões "Frente" e "Trás" (camadas)
-`src/components/post-editor/PostCanvas.tsx` (linhas 585–608):
-- Tornar `sortByVisualLayer` o **estado inicial** do `renderOrder`, não uma reordenação a cada render. O sort por rank deve rodar uma única vez na primeira montagem (ou quando aparecem ids novos), e a partir daí o `renderOrder` que vem do parent é a fonte de verdade.
-- Implementação: para ids novos (não presentes em `externalRenderOrder`), inserir já ranqueados; para ids existentes, **preservar a ordem do parent** sem aplicar `sortByVisualLayer` em cima. Assim, `handleBringForward`/`handleSendBackward` passam a deslocar de fato a posição visual (inclusive cruzando ranks).
-- Resultado: o usuário consegue mandar uma foto para frente do título, ou um ornamento para trás de tudo, e a alteração se mantém.
+### A. Não forçar branco quando o usuário escolheu cor — `PostCanvas.tsx` linha 729
+- Se `titleColor` (ou `customTextColor` para o corpo) for **explicitamente definido**, respeitar essa cor mesmo com foto de fundo.
+- Manter o fallback automático para branco apenas quando a cor não foi customizada (`titleColor == null` e `customTextColor == null`).
+- Preservar o `text-shadow` em ambos os casos para garantir legibilidade.
 
-### 6. Limpeza dos avisos do React
-`src/components/post-editor/inspector/SelectionPanel.tsx`: o aviso "Function components cannot be given refs" aparece em `FontSelect` e `ColorPicker`. Embrulhar ambos com `React.forwardRef` (sem mudança visual).
+Isso resolve "mudar cor não muda".
+
+### B. Garantir que a fonte do template prevaleça — `PostEditorPage.tsx`
+1. No useEffect de typography (linhas 451-455), só aplicar `typography.display`/`typography.body` se o template do arquétipo **ainda não foi aplicado** (`!archetypeTemplateAppliedRef.current`).
+2. Quando o template do arquétipo é aplicado mas não tem `displayFont` salvo, derivar do `archetypeTypography` (helper já existente em `src/lib/archetypeTypography.ts`) em vez de cair no `typography.display` do relatório.
+
+Isso garante que a fonte serifada do template global apareça em qualquer estilo (minimal, pexels, IA).
+
+### C. Diagnóstico das "imagens genéricas"
+Antes de mexer no fluxo, vou pedir ao usuário:
+- Print de um exemplo de card com a foto que está vindo "genérica".
+- Tema/dia (semana, dia) onde isso acontece.
+
+Sem essa amostra, qualquer mudança no `fetch-post-image` é tiro no escuro e pode regredir outros casos. Só vou tocar nesse fluxo depois de identificar o padrão (ex.: fotos sem niche, fallback caindo em palavra-chave genérica, cache).
 
 ## Como vou validar
-- Recarregar `/post-editor?week=2&day=0&style=pexels` e confirmar:
-  - Título em fonte serifada do template global.
-  - Corpo do post nitidamente maior já no carregamento.
-  - Slide 1 carrega uma única foto, sem flicker.
-  - Escolher foto nova (Galeria/Pexels/IA) atualiza só o slide ativo do carrossel.
-  - Selecionar uma imagem/ornamento e clicar "Frente"/"Trás" move o elemento na pilha visualmente — e a posição persiste ao clicar de novo.
+1. Abrir `/post-editor?week=2&day=2&style=pexels`:
+   - Título e corpo carregam na fonte serifada do template do arquétipo.
+   - Selecionar título → trocar cor no ColorPicker → cor é aplicada de fato no canvas (mesmo com foto de fundo).
+2. Abrir `/post-editor?week=2&day=2&style=minimal` para garantir que nada quebrou no caso que já funcionava.
+3. Pedir confirmação visual do usuário sobre as imagens "genéricas" antes de tocar no fetch-post-image.

@@ -450,6 +450,9 @@ const PostEditorPage = () => {
 
   useEffect(() => {
     if (draft) return; // Don't overwrite draft fonts
+    // Se houver template global do arquétipo aplicado, NÃO sobrescrever a fonte
+    // dele com a typography do relatório (a fonte do template prevalece).
+    if (archetypeTemplateAppliedRef.current) return;
     if (typography.display) { setDisplayFont(typography.display); loadGoogleFont(typography.display); }
     if (typography.body) { setBodyFont(typography.body); loadGoogleFont(typography.body); }
   }, [typography.display, typography.body]);
