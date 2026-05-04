@@ -116,6 +116,8 @@ interface PostToolbarProps {
 
   // Actions
   onDownload: () => void;
+  showDownloadAction?: boolean;
+  exporting?: null | "slide" | "all";
   onSaveDesign?: () => void;
   onSaveAsTemplate?: () => void;
   saving?: boolean;
@@ -265,9 +267,11 @@ const PostToolbar: React.FC<PostToolbarProps> = (props) => {
               <Save className="h-3.5 w-3.5" /> {props.saving ? "Salvando…" : "Salvar design"}
             </Button>
           )}
-          <Button onClick={props.onDownload} className="gap-2 flex-1 h-9 text-xs">
-            <Download className="h-3.5 w-3.5" /> Baixar PNG
-          </Button>
+          {props.showDownloadAction !== false && (
+            <Button onClick={props.onDownload} className="gap-2 flex-1 h-9 text-xs" disabled={!!props.exporting}>
+              <Download className="h-3.5 w-3.5" /> {props.exporting === "slide" ? "Baixando…" : "Baixar PNG"}
+            </Button>
+          )}
         </div>
         {props.onSaveAsTemplate && (
           <Button variant="outline" size="sm" className="gap-2 w-full h-8 text-xs" onClick={props.onSaveAsTemplate} disabled={props.saving}>
