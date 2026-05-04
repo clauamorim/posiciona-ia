@@ -710,7 +710,8 @@ const PostEditorPage = () => {
     (async () => {
       const updates: Record<number, { url: string; opacity: number; objectPosition: string }> = {};
       const usedUrls = new Set<string>();
-      for (let i = 0; i < totalSlides; i++) {
+      // Pula i=0: a foto do slide 1 já vem do auto-layout (evita flicker).
+      for (let i = 1; i < totalSlides; i++) {
         let url: string | undefined;
         // Tenta até 3 vezes com nonces diferentes para evitar colidir com
         // URLs já usadas em slides anteriores deste mesmo carrossel.
