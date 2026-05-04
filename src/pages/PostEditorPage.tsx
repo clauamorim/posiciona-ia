@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from "react";
+import { flushSync } from "react-dom";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
@@ -229,6 +230,7 @@ const PostEditorPage = () => {
   const [renderOrder, setRenderOrder] = useState<string[]>([]);
   const [showRulers, setShowRulers] = useState(false);
   const [slideTextBoxes, setSlideTextBoxes] = useState<Record<number, TextBox[]>>(draft?.slideTextBoxes ?? {});
+  const [exporting, setExporting] = useState<null | "slide" | "all">(null);
   // Imagem de fundo independente por slide do carrossel + variação visual sutil
   // (opacidade e object-position alternados) — gera ritmo entre os cards.
   const [slideBackgrounds, setSlideBackgrounds] = useState<Record<number, { url: string; opacity: number; objectPosition: string }>>({});
