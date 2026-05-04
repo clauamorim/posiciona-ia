@@ -1169,10 +1169,7 @@ const PostEditorPage = () => {
         const el = slideRefs.current[i];
         if (!el) { failed++; continue; }
         try {
-          const canvas = await captureSlide(el);
-          const blob = await new Promise<Blob | null>((resolve) =>
-            canvas.toBlob((b) => resolve(b), "image/png")
-          );
+          const blob = await captureSlideBlob(el);
           if (!blob) { failed++; continue; }
           zip.file(`slide-${i + 1}.png`, blob);
         } catch (e) {
