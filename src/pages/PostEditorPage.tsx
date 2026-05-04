@@ -1065,7 +1065,7 @@ const PostEditorPage = () => {
   const getRenderedSlideElement = async (index: number) => {
     flushSync(() => setCurrentSlide(index));
     await waitForPaint();
-    return slideRefs.current[index] ?? slideRefs.current[currentSlide] ?? null;
+    return slideRefs.current[index] ?? null;
   };
 
   const isSafari = typeof navigator !== "undefined" &&
