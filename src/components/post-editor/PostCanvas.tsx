@@ -573,7 +573,11 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   const allIds = [...textBoxes.map(tb => tb.id), ...overlayImages.map(img => img.id)];
   const isFullPhoto = (id: string) => {
     const img = overlayImages.find(o => o.id === id);
-    return !!img && img.type === "photo" && img.x <= 5 && img.y <= 5 && img.width >= canvasWidth - 10 && img.height >= canvasHeight - 10;
+    if (!img) return false;
+    // Qualquer foto marcada como background do template é camada de fundo,
+    // independentemente de suas dimensões atuais (evita que fique acima do título).
+    if (id.startsWith("tpl-bg-")) return true;
+    return img.type === "photo" && img.x <= 5 && img.y <= 5 && img.width >= canvasWidth - 10 && img.height >= canvasHeight - 10;
   };
   const isFrame = (id: string) => /^tpl-(mframe|frame)/.test(id);
   const isAccentDecoration = (id: string) => /^tpl-(mline|mornament|line|ornament)/.test(id);
@@ -620,7 +624,10 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
 
   // Detecta se há foto de fundo cobrindo todo o canvas (para aplicar text-shadow legível)
   const hasPhotoBackground = overlayImages.some(
-    img => img.type === "photo" && img.x <= 5 && img.y <= 5 && img.width >= canvasWidth - 10 && img.height >= canvasHeight - 10
+    img => img.type === "photo" && (
+      img.id.startsWith("tpl-bg-") ||
+      (img.x <= 5 && img.y <= 5 && img.width >= canvasWidth - 10 && img.height >= canvasHeight - 10)
+    )
   );
 
   const renderTextBox = (tb: TextBox) => {
@@ -764,9 +771,11 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
     const isSelected = selectedImageId === img.id;
     // Full-canvas background photo → cover (preenche sem barras). Demais fotos = contain.
     const isFullCanvasPhoto =
-      img.type === "photo" &&
-      img.x <= 5 && img.y <= 5 &&
-      img.width >= canvasWidth - 10 && img.height >= canvasHeight - 10;
+      img.type === "photo" && (
+        img.id.startsWith("tpl-bg-") ||
+        (img.x <= 5 && img.y <= 5 &&
+          img.width >= canvasWidth - 10 && img.height >= canvasHeight - 10)
+      );
     // Decorativos do template (moldura, linha, losango, bloco) são SVGs que devem
     // preencher exatamente a caixa redimensionada — sem manter proporção quadrada
     // do SVG original. Usa "fill" para esticar não-uniformemente.
@@ -776,11 +785,18 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
       : isTemplateDecoration
         ? "fill"
         : "contain";
+    // Para o background do template, força cobrir todo o canvas atual,
+    // ignorando dimensões legadas que possam ter ficado de outro formato.
+    const isTplBg = img.id.startsWith("tpl-bg-");
+    const boxLeft = isTplBg ? 0 : img.x;
+    const boxTop = isTplBg ? 0 : img.y;
+    const boxWidth = isTplBg ? canvasWidth : img.width;
+    const boxHeight = isTplBg ? canvasHeight : img.height;
     return (
       <div key={img.id} data-overlay
         style={{
-          position: "absolute", left: img.x, top: img.y,
-          width: img.width, height: img.height,
+          position: "absolute", left: boxLeft, top: boxTop,
+          width: boxWidth, height: boxHeight,
           cursor: "move", userSelect: "none",
           outline: isSelected ? "2px dashed rgba(255,255,255,0.7)" : "none",
           outlineOffset: 2, zIndex: itemZ,
