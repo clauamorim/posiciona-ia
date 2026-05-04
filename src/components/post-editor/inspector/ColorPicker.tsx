@@ -76,7 +76,6 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
       </Tooltip>
     </div>
   );
-});
-ColorPicker.displayName = "ColorPicker";
+};
 
 export default ColorPicker;
