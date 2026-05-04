@@ -519,9 +519,15 @@ const PostEditorPage = () => {
         if (s.gradientDirection) setGradientDirection(s.gradientDirection);
         if (s.displayFont) { loadGoogleFont(s.displayFont); setDisplayFont(s.displayFont); }
         if (s.bodyFont) { loadGoogleFont(s.bodyFont); setBodyFont(s.bodyFont); }
-        if (s.titleFontFamily !== undefined) {
-          if (s.titleFontFamily) loadGoogleFont(s.titleFontFamily);
-          setTitleFontFamily(s.titleFontFamily);
+        // Título: usa titleFontFamily salva; senão deriva do displayFont do template,
+        // garantindo que a serifa do template global apareça no canvas.
+        const resolvedTitleFamily =
+          s.titleFontFamily !== undefined && s.titleFontFamily !== null
+            ? s.titleFontFamily
+            : (s.displayFont || null);
+        if (resolvedTitleFamily) {
+          loadGoogleFont(resolvedTitleFamily);
+          setTitleFontFamily(resolvedTitleFamily);
         }
         if (typeof s.fontSize === "number") setFontSize(s.fontSize);
         if (s.fontWeight) setFontWeight(s.fontWeight);
