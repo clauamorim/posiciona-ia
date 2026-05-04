@@ -14,16 +14,16 @@ interface ColorPickerProps {
   allowTransparent?: boolean;
 }
 
-export const ColorPicker: React.FC<ColorPickerProps> = ({
+export const ColorPicker = React.forwardRef<HTMLDivElement, ColorPickerProps>(({
   palette,
   value,
   onChange,
   size = "sm",
   allowTransparent,
-}) => {
+}, ref) => {
   const dim = size === "md" ? "w-7 h-7" : "w-6 h-6";
   return (
-    <div className="flex gap-1 flex-wrap items-center">
+    <div ref={ref} className="flex gap-1 flex-wrap items-center">
       {allowTransparent && (
         <Tooltip>
           <TooltipTrigger asChild>
