@@ -1108,10 +1108,12 @@ const PostEditorPage = () => {
       clone.querySelectorAll<HTMLElement>('[data-overlay]').forEach((n) => {
         n.style.outline = "none";
       });
-    } catch {}
+    } catch (error) {
+      console.warn("[download] cleanup helpers failed", error);
+    }
 
     // Aguarda fontes e imagens carregarem no clone (importante no Safari)
-    try { await (document as any).fonts?.ready; } catch {}
+    try { await (document as any).fonts?.ready; } catch (error) { console.warn("[download] font readiness failed", error); }
     const imgs = Array.from(clone.querySelectorAll("img"));
     await Promise.all(imgs.map((img) => {
       if (img.complete && img.naturalWidth > 0) return Promise.resolve();
@@ -1159,7 +1161,7 @@ const PostEditorPage = () => {
       if (!fallback) throw new Error("Falha ao gerar PNG");
       return fallback;
     } finally {
-      try { document.body.removeChild(host); } catch {}
+      try { document.body.removeChild(host); } catch (error) { console.warn("[download] offscreen cleanup failed", error); }
     }
   };
 
