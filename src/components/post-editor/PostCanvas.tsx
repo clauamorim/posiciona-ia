@@ -573,7 +573,11 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   const allIds = [...textBoxes.map(tb => tb.id), ...overlayImages.map(img => img.id)];
   const isFullPhoto = (id: string) => {
     const img = overlayImages.find(o => o.id === id);
-    return !!img && img.type === "photo" && img.x <= 5 && img.y <= 5 && img.width >= canvasWidth - 10 && img.height >= canvasHeight - 10;
+    if (!img) return false;
+    // Qualquer foto marcada como background do template é camada de fundo,
+    // independentemente de suas dimensões atuais (evita que fique acima do título).
+    if (id.startsWith("tpl-bg-")) return true;
+    return img.type === "photo" && img.x <= 5 && img.y <= 5 && img.width >= canvasWidth - 10 && img.height >= canvasHeight - 10;
   };
   const isFrame = (id: string) => /^tpl-(mframe|frame)/.test(id);
   const isAccentDecoration = (id: string) => /^tpl-(mline|mornament|line|ornament)/.test(id);
