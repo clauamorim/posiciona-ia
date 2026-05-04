@@ -766,7 +766,54 @@ const PostEditorPage = () => {
     })();
   }, [day, canvasFormat, initialStyle, userNiche, businessContext, imageContextLoaded]);
 
-  // Trocar imagem de fundo (busca nova do Unsplash)
+  // Aplica uma URL de fundo no slide ativo. Em carrossel, escreve em
+  // slideBackgrounds[currentSlide] (que é o que carouselOverlays renderiza);
+  // fora do carrossel, atualiza o tpl-bg-* em overlayImages.
+  const applyBackgroundToCurrentSlide = useCallback((url: string) => {
+    const isCarouselNow = day?.format?.toLowerCase() === "carrossel";
+    if (isCarouselNow) {
+      setSlideBackgrounds((prev) => {
+        const existing = prev[currentSlide];
+        return {
+          ...prev,
+          [currentSlide]: {
+            url,
+            opacity: existing?.opacity ?? 0.85,
+            objectPosition: existing?.objectPosition ?? "center center",
+          },
+        };
+      });
+      // Garante existência do tpl-bg-* (alguns caminhos do auto-layout dependem dele).
+      setOverlayImages((prev) => {
+        const has = prev.some((o) => o.id.startsWith("tpl-bg-"));
+        if (has) return prev;
+        const w = 1080;
+        const h = canvasFormat === "reels" ? 1920 : 1350;
+        return [
+          { id: `tpl-bg-${crypto.randomUUID()}`, src: url, x: 0, y: 0, width: w, height: h, type: "photo", opacity: 0.85 },
+          ...prev,
+        ];
+      });
+      return;
+    }
+    setOverlayImages((prev) => {
+      const idx = prev.findIndex((o) => o.id.startsWith("tpl-bg-"));
+      if (idx >= 0) {
+        const next = [...prev];
+        const updated = { ...next[idx], src: url };
+        next.splice(idx, 1);
+        return [updated, ...next];
+      }
+      const w = 1080;
+      const h = canvasFormat === "reels" ? 1920 : 1350;
+      return [
+        { id: `tpl-bg-${crypto.randomUUID()}`, src: url, x: 0, y: 0, width: w, height: h, type: "photo", opacity: 0.85 },
+        ...prev,
+      ];
+    });
+  }, [day, currentSlide, canvasFormat]);
+
+  // Trocar imagem de fundo (busca nova do Pexels)
   const handleSwapBackground = useCallback(async () => {
     if (swappingBackground || !day) return;
     setSwappingBackground(true);
@@ -786,22 +833,7 @@ const PostEditorPage = () => {
         toast({ title: "Nenhuma imagem encontrada", description: "Tente outro tema ou suba sua própria foto.", variant: "destructive" });
         return;
       }
-      setOverlayImages(prev => {
-        const idx = prev.findIndex(o => o.id.startsWith("tpl-bg-"));
-        if (idx >= 0) {
-          // Atualiza o src e move o overlay de fundo para o início (atrás de tudo)
-          const next = [...prev];
-          const updated = { ...next[idx], src: result.url };
-          next.splice(idx, 1);
-          return [updated, ...next];
-        }
-        const w = canvasFormat === "reels" ? 1080 : 1080;
-        const h = canvasFormat === "reels" ? 1920 : 1350;
-        return [
-          { id: `tpl-bg-${crypto.randomUUID()}`, src: result.url, x: 0, y: 0, width: w, height: h, type: "photo", opacity: 0.85 },
-          ...prev,
-        ];
-      });
+      applyBackgroundToCurrentSlide(result.url);
       if (result.photographer) setActivePhotographer(result.photographer);
       // Salva automaticamente na galeria pessoal (Pexels)
       saveSinglePhotoToGallery(result.url, "pexels", result.photographer || null).catch(() => {});
@@ -811,7 +843,8 @@ const PostEditorPage = () => {
     } finally {
       setSwappingBackground(false);
     }
-  }, [day, canvasFormat, swappingBackground, userNiche, businessContext]);
+  }, [day, canvasFormat, swappingBackground, userNiche, businessContext, currentSlide, editedTexts, applyBackgroundToCurrentSlide]);
+
 
   // Debita 1 crédito de regeneração após geração IA bem-sucedida
   const debitRegenerationCredit = useCallback(async (): Promise<boolean> => {
