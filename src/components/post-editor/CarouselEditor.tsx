@@ -20,6 +20,7 @@ interface CarouselEditorProps {
   onSlideTextChange: (index: number, text: string) => void;
   onDownloadSlide: (index: number) => void;
   onDownloadAll: () => void;
+  exporting?: null | "slide" | "all";
   slideRefs: React.MutableRefObject<(HTMLDivElement | null)[]>;
   overlayImages?: OverlayImage[];
   onUpdateOverlay?: (id: string, updates: Partial<OverlayImage>) => void;
@@ -67,7 +68,7 @@ interface CarouselEditorProps {
 
 const CarouselEditor: React.FC<CarouselEditorProps> = ({
   slides, theme, cta, bgColor, textColor, accentColor, displayFont, bodyFont, layout,
-  currentSlide, onSlideChange, onSlideTextChange, onDownloadSlide, onDownloadAll, slideRefs,
+  currentSlide, onSlideChange, onSlideTextChange, onDownloadSlide, onDownloadAll, exporting, slideRefs,
   overlayImages = [], onUpdateOverlay, onImageMove, onImageResize, selectedImageId, onSelectImage,
   fontSize, fontWeight, fontStyle, textAlign, titleTextAlign, bgGradient,
   titleFontSize, titleColor, titleFontFamily,
@@ -146,11 +147,11 @@ const CarouselEditor: React.FC<CarouselEditorProps> = ({
       </div>
 
       <div className="flex gap-2">
-        <Button variant="outline" size="sm" className="gap-2" onClick={() => onDownloadSlide(currentSlide)}>
-          <Download className="h-3 w-3" /> Baixar slide {currentSlide + 1}
+        <Button variant="outline" size="sm" className="gap-2" disabled={!!exporting} onClick={() => onDownloadSlide(currentSlide)}>
+          <Download className="h-3 w-3" /> {exporting === "slide" ? "Baixando…" : `Baixar slide ${currentSlide + 1}`}
         </Button>
-        <Button size="sm" className="gap-2" onClick={onDownloadAll}>
-          <Package className="h-3 w-3" /> Baixar todos (ZIP)
+        <Button size="sm" className="gap-2" disabled={!!exporting} onClick={onDownloadAll}>
+          <Package className="h-3 w-3" /> {exporting === "all" ? "Preparando ZIP…" : "Baixar todos (ZIP)"}
         </Button>
       </div>
     </div>
