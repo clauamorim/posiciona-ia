@@ -597,8 +597,14 @@ export async function buildAutoLayout(input: AutoLayoutInput): Promise<AutoLayou
   // Usa 6 linhas (em vez de 4) para garantir folga quando o corpo do texto for longo
   const isReelsFmt = template.format === "reels";
   const lineCountEstimate = isReelsFmt ? 6 : 5;
-  const estBodyHeight = template.bodySlot
-    ? Math.max(200, Math.round(template.bodySlot.fontSize * 1.6 * lineCountEstimate))
+  // Boost de +20% no tamanho default do corpo, com piso para garantir presença visual
+  // (carrossel/quadrado: 44px; reels: 48px). Não altera o template em si.
+  const bodyFloor = isReelsFmt ? 48 : 44;
+  const boostedBodyFontSize = template.bodySlot
+    ? Math.max(bodyFloor, Math.round(template.bodySlot.fontSize * 1.2))
+    : undefined;
+  const estBodyHeight = boostedBodyFontSize
+    ? Math.max(200, Math.round(boostedBodyFontSize * 1.6 * lineCountEstimate))
     : 200;
   const bodyBottomY = template.bodySlot
     ? template.bodySlot.y + estBodyHeight
@@ -641,12 +647,12 @@ export async function buildAutoLayout(input: AutoLayoutInput): Promise<AutoLayou
         height: Math.max(120, Math.round((dynTitleFontSize || template.titleSlot.fontSize) * 1.6 * 2)),
       }
     : undefined;
-  const bodySlot = template.bodySlot
+  const bodySlot = template.bodySlot && boostedBodyFontSize
     ? {
         x: template.bodySlot.x,
         y: template.bodySlot.y,
         width: template.bodySlot.width,
-        height: Math.max(160, Math.round(template.bodySlot.fontSize * 1.6 * 4)),
+        height: Math.max(160, Math.round(boostedBodyFontSize * 1.6 * 4)),
       }
     : undefined;
 
@@ -657,7 +663,7 @@ export async function buildAutoLayout(input: AutoLayoutInput): Promise<AutoLayou
     suggestions: {
       titleFontSize: dynTitleFontSize,
       titleTextAlign: template.titleSlot?.align,
-      bodyFontSize: template.bodySlot?.fontSize,
+      bodyFontSize: boostedBodyFontSize,
       bodyTextAlign: template.bodySlot?.align,
       showSlideNumber: template.slideNumberSlot?.show,
       slideNumberSize: template.slideNumberSlot?.size,

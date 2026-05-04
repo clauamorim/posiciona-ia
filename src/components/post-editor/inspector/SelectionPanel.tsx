@@ -97,11 +97,11 @@ function loadGoogleFont(fontName: string) {
   document.head.appendChild(link);
 }
 
-const FontSelect: React.FC<{
+const FontSelect = React.forwardRef<HTMLButtonElement, {
   value: string;
   recommended?: string;
   onChange: (f: string) => void;
-}> = ({ value, recommended, onChange }) => {
+}>(({ value, recommended, onChange }, ref) => {
   const fonts = [...GOOGLE_FONTS];
   if (recommended && !fonts.includes(recommended)) fonts.unshift(recommended);
   const sorted = fonts
@@ -109,7 +109,7 @@ const FontSelect: React.FC<{
     .sort((a, b) => (a.isRec ? -1 : b.isRec ? 1 : 0));
   return (
     <Select value={value} onValueChange={(v) => { loadGoogleFont(v); onChange(v); }}>
-      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+      <SelectTrigger ref={ref} className="h-8 text-xs"><SelectValue /></SelectTrigger>
       <SelectContent>
         {sorted.map((f) => (
           <SelectItem key={f.value} value={f.value} className="text-xs">{f.label}</SelectItem>
@@ -117,7 +117,8 @@ const FontSelect: React.FC<{
       </SelectContent>
     </Select>
   );
-};
+});
+FontSelect.displayName = "FontSelect";
 
 const LayerControls: React.FC<{
   id: string;

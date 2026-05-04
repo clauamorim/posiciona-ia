@@ -600,10 +600,14 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   };
   const effectiveRenderOrder = (() => {
     if (externalRenderOrder && externalRenderOrder.length > 0) {
+      // Fonte de verdade é o parent: preserva exatamente a ordem dele para
+      // os ids existentes (Frente/Trás funciona) e só rank-sort os ids novos
+      // antes de anexar ao final.
       const existing = externalRenderOrder.filter(id => allIds.includes(id));
       const newIds = allIds.filter(id => !existing.includes(id));
-      return sortByVisualLayer([...existing, ...newIds]);
+      return [...existing, ...sortByVisualLayer(newIds)];
     }
+    // Primeira montagem (sem ordem do parent): aplica o rank inicial.
     return sortByVisualLayer(allIds);
   })();
 
