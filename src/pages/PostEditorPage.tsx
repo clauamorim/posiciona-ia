@@ -1047,8 +1047,10 @@ const PostEditorPage = () => {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
-  const captureSlide = async (el: HTMLElement) => {
-    const html2canvas = (await import("html2canvas")).default;
+  const isSafari = typeof navigator !== "undefined" &&
+    /^((?!chrome|android|crios|fxios).)*safari/i.test(navigator.userAgent);
+
+  const captureSlideBlob = async (el: HTMLElement): Promise<Blob> => {
     // Clona o slide para uma área offscreen para NÃO mexer no canvas visível.
     const host = document.createElement("div");
     host.style.position = "fixed";
@@ -1073,19 +1075,50 @@ const PostEditorPage = () => {
     host.appendChild(clone);
     document.body.appendChild(host);
 
-    // Esconde elementos de edição (handles, outlines, guias, réguas) dentro do clone
     try {
       const editorHelpers = clone.querySelectorAll<HTMLElement>(
         '[data-editor-only], [data-resize-handle]'
       );
       editorHelpers.forEach((n) => { n.style.display = "none"; });
-      // Remove outlines de seleção
       clone.querySelectorAll<HTMLElement>('[data-overlay]').forEach((n) => {
         n.style.outline = "none";
       });
     } catch {}
 
+    // Aguarda fontes e imagens carregarem no clone (importante no Safari)
+    try { await (document as any).fonts?.ready; } catch {}
+    const imgs = Array.from(clone.querySelectorAll("img"));
+    await Promise.all(imgs.map((img) => {
+      if (img.complete && img.naturalWidth > 0) return Promise.resolve();
+      return new Promise<void>((resolve) => {
+        img.onload = () => resolve();
+        img.onerror = () => resolve();
+        setTimeout(resolve, 3000);
+      });
+    }));
+
     try {
+      // Safari tem bugs conhecidos no html2canvas (blob URLs, fontes, foreignObject).
+      // Usamos html-to-image (toBlob) que funciona muito melhor em Safari.
+      // No Safari, a 1ª chamada às vezes retorna em branco — chamamos 2x.
+      const { toBlob } = await import("html-to-image");
+      const opts = {
+        pixelRatio: 2,
+        width: cW,
+        height: cH,
+        cacheBust: true,
+        skipFonts: false,
+        backgroundColor: undefined,
+      };
+      if (isSafari) {
+        await toBlob(clone, opts).catch(() => null);
+        await toBlob(clone, opts).catch(() => null);
+      }
+      const blob = await toBlob(clone, opts);
+      if (blob && blob.size > 1024) return blob;
+
+      // Fallback: html2canvas
+      const html2canvas = (await import("html2canvas")).default;
       const canvas = await html2canvas(clone, {
         scale: 2,
         width: cW,
@@ -1095,7 +1128,11 @@ const PostEditorPage = () => {
         backgroundColor: null,
         logging: false,
       });
-      return canvas;
+      const fallback = await new Promise<Blob | null>((resolve) =>
+        canvas.toBlob((b) => resolve(b), "image/png")
+      );
+      if (!fallback) throw new Error("Falha ao gerar PNG");
+      return fallback;
     } finally {
       try { document.body.removeChild(host); } catch {}
     }
@@ -1108,11 +1145,7 @@ const PostEditorPage = () => {
         toast({ title: "Canvas não encontrado", variant: "destructive" });
         return;
       }
-      const canvas = await captureSlide(el);
-      const blob = await new Promise<Blob | null>((resolve) =>
-        canvas.toBlob((b) => resolve(b), "image/png")
-      );
-      if (!blob) throw new Error("Falha ao gerar PNG");
+      const blob = await captureSlideBlob(el);
       const filename = `post-dia${day?.day || dayIndex + 1}${isCarousel ? `-slide${index + 1}` : ""}.png`;
       triggerDownload(blob, filename);
     } catch (err: any) {
