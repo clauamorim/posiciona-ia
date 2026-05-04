@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from "react";
+import { flushSync } from "react-dom";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
@@ -229,6 +230,7 @@ const PostEditorPage = () => {
   const [renderOrder, setRenderOrder] = useState<string[]>([]);
   const [showRulers, setShowRulers] = useState(false);
   const [slideTextBoxes, setSlideTextBoxes] = useState<Record<number, TextBox[]>>(draft?.slideTextBoxes ?? {});
+  const [exporting, setExporting] = useState<null | "slide" | "all">(null);
   // Imagem de fundo independente por slide do carrossel + variação visual sutil
   // (opacidade e object-position alternados) — gera ritmo entre os cards.
   const [slideBackgrounds, setSlideBackgrounds] = useState<Record<number, { url: string; opacity: number; objectPosition: string }>>({});
@@ -1035,22 +1037,45 @@ const PostEditorPage = () => {
     }
   }, [overlayImages, removingBackground, chromaKeyToTransparent]);
 
-  const triggerDownload = (blob: Blob, filename: string) => {
+  const triggerDownload = (blob: Blob, filename: string, fallbackWindow?: Window | null) => {
     const url = URL.createObjectURL(blob);
+    if (fallbackWindow && !fallbackWindow.closed) {
+      try {
+        fallbackWindow.document.open();
+        fallbackWindow.document.write(`<a id="download" href="${url}" download="${filename}" rel="noopener">Baixar arquivo</a>`);
+        fallbackWindow.document.close();
+        fallbackWindow.document.getElementById("download")?.click();
+        setTimeout(() => URL.revokeObjectURL(url), 15000);
+        return;
+      } catch (error) {
+        console.warn("[download] Safari popup fallback failed", error);
+      }
+    }
     const link = document.createElement("a");
     link.href = url;
     link.download = filename;
     link.rel = "noopener";
+    if (isSafari) link.target = "_blank";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    setTimeout(() => URL.revokeObjectURL(url), isSafari ? 15000 : 1000);
+  };
+
+  const waitForPaint = () => new Promise<void>((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+  });
+
+  const getRenderedSlideElement = async (index: number) => {
+    flushSync(() => setCurrentSlide(index));
+    await waitForPaint();
+    return slideRefs.current[index] ?? null;
   };
 
   const isSafari = typeof navigator !== "undefined" &&
     /^((?!chrome|android|crios|fxios).)*safari/i.test(navigator.userAgent);
 
-  const captureSlideBlob = async (el: HTMLElement): Promise<Blob> => {
+  const captureSlideBlob = async (el: HTMLElement, pixelRatio = 2): Promise<Blob> => {
     // Clona o slide para uma área offscreen para NÃO mexer no canvas visível.
     const host = document.createElement("div");
     host.style.position = "fixed";
@@ -1083,10 +1108,12 @@ const PostEditorPage = () => {
       clone.querySelectorAll<HTMLElement>('[data-overlay]').forEach((n) => {
         n.style.outline = "none";
       });
-    } catch {}
+    } catch (error) {
+      console.warn("[download] cleanup helpers failed", error);
+    }
 
     // Aguarda fontes e imagens carregarem no clone (importante no Safari)
-    try { await (document as any).fonts?.ready; } catch {}
+    try { await (document as any).fonts?.ready; } catch (error) { console.warn("[download] font readiness failed", error); }
     const imgs = Array.from(clone.querySelectorAll("img"));
     await Promise.all(imgs.map((img) => {
       if (img.complete && img.naturalWidth > 0) return Promise.resolve();
@@ -1103,7 +1130,7 @@ const PostEditorPage = () => {
       // No Safari, a 1ª chamada às vezes retorna em branco — chamamos 2x.
       const { toBlob } = await import("html-to-image");
       const opts = {
-        pixelRatio: 2,
+        pixelRatio,
         width: cW,
         height: cH,
         cacheBust: true,
@@ -1120,7 +1147,7 @@ const PostEditorPage = () => {
       // Fallback: html2canvas
       const html2canvas = (await import("html2canvas")).default;
       const canvas = await html2canvas(clone, {
-        scale: 2,
+        scale: pixelRatio,
         width: cW,
         height: cH,
         useCORS: true,
@@ -1134,13 +1161,15 @@ const PostEditorPage = () => {
       if (!fallback) throw new Error("Falha ao gerar PNG");
       return fallback;
     } finally {
-      try { document.body.removeChild(host); } catch {}
+      try { document.body.removeChild(host); } catch (error) { console.warn("[download] offscreen cleanup failed", error); }
     }
   };
 
   const handleDownloadSlide = useCallback(async (index: number) => {
+    if (exporting) return;
+    setExporting("slide");
     try {
-      const el = isCarousel ? slideRefs.current[index] : singleCanvasRef.current;
+      const el = isCarousel ? await getRenderedSlideElement(index) : singleCanvasRef.current;
       if (!el) {
         toast({ title: "Canvas não encontrado", variant: "destructive" });
         return;
@@ -1155,30 +1184,40 @@ const PostEditorPage = () => {
         description: err?.message || "Tente remover imagens externas e baixar novamente.",
         variant: "destructive",
       });
+    } finally {
+      setExporting(null);
     }
-  }, [isCarousel, day, dayIndex, cW, cH]);
+  }, [exporting, isCarousel, day, dayIndex, cW, cH, currentSlide]);
 
   const handleDownloadAll = useCallback(async () => {
+    if (exporting) return;
+    const originalSlide = currentSlide;
+    const downloadWindow = isSafari ? window.open("", "_blank") : null;
+    if (downloadWindow) {
+      downloadWindow.document.write("<p style='font-family: system-ui; padding: 24px'>Preparando download…</p>");
+    }
+    setExporting("all");
     try {
       const JSZip = (await import("jszip")).default;
       const zip = new JSZip();
       let failed = 0;
+      let exported = 0;
       for (let i = 0; i < editedTexts.length; i++) {
-        setCurrentSlide(i);
-        await new Promise((r) => setTimeout(r, 250));
-        const el = slideRefs.current[i];
+        const el = await getRenderedSlideElement(i);
         if (!el) { failed++; continue; }
         try {
-          const blob = await captureSlideBlob(el);
+          const blob = await captureSlideBlob(el, isSafari ? 1 : 2);
           if (!blob) { failed++; continue; }
           zip.file(`slide-${i + 1}.png`, blob);
+          exported++;
         } catch (e) {
           console.error(`[download-all] slide ${i + 1}`, e);
           failed++;
         }
       }
+      if (exported === 0) throw new Error("Nenhum slide pôde ser exportado.");
       const zipBlob = await zip.generateAsync({ type: "blob" });
-      triggerDownload(zipBlob, `carrossel-dia${day?.day || dayIndex + 1}.zip`);
+      triggerDownload(zipBlob, `carrossel-dia${day?.day || dayIndex + 1}.zip`, downloadWindow);
       toast({
         title: failed ? `Exportado com ${failed} falha(s)` : "Carrossel exportado com sucesso!",
         variant: failed ? "destructive" : "default",
@@ -1190,8 +1229,12 @@ const PostEditorPage = () => {
         description: err?.message || "Tente novamente.",
         variant: "destructive",
       });
+      if (downloadWindow && !downloadWindow.closed) downloadWindow.close();
+    } finally {
+      flushSync(() => setCurrentSlide(originalSlide));
+      setExporting(null);
     }
-  }, [editedTexts, day, dayIndex, cW, cH]);
+  }, [exporting, editedTexts, currentSlide, day, dayIndex, cW, cH]);
 
   const handleCtaMove = (x: number, y: number) => setCtaPosition({ x, y });
 
@@ -1615,6 +1658,7 @@ const PostEditorPage = () => {
                 currentSlide={currentSlide} onSlideChange={setCurrentSlide}
                 onSlideTextChange={(i, t) => { const copy = [...editedTexts]; copy[i] = t; setEditedTexts(copy); }}
                 onDownloadSlide={handleDownloadSlide} onDownloadAll={handleDownloadAll}
+                exporting={exporting}
                 slideRefs={slideRefs}
                 initialTextBoxes={initialTextBoxes}
                 resetKey={`${initialStyle || "minimal"}-${canvasFormat}-${currentSlide}`}
@@ -1676,9 +1720,10 @@ const PostEditorPage = () => {
                 <Button
                   size="sm"
                   className="gap-2 shadow-lg"
+                  disabled={!!exporting}
                   onClick={() => handleDownloadSlide(0)}
                 >
-                  <Download className="h-3.5 w-3.5" /> Baixar PNG
+                  <Download className="h-3.5 w-3.5" /> {exporting === "slide" ? "Baixando…" : "Baixar PNG"}
                 </Button>
               </div>
             )}
