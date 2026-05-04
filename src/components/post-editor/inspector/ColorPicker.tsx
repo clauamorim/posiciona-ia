@@ -76,6 +76,7 @@ export const ColorPicker = React.forwardRef<HTMLDivElement, ColorPickerProps>(({
       </Tooltip>
     </div>
   );
-};
+});
+ColorPicker.displayName = "ColorPicker";
 
 export default ColorPicker;
