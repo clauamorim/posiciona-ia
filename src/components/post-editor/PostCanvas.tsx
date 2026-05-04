@@ -634,13 +634,14 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
       // Primeira montagem (sem ordem do parent): aplica o rank inicial.
       merged = sortByVisualLayer(allIds);
     }
-    // Invariante de segurança: fotos de fundo do template (tpl-bg-*) SEMPRE no
-    // fundo da pilha, independentemente da ordem manual. Backgrounds não devem
-    // ficar acima de textos/decorações — Frente/Trás continua valendo para os
-    // demais elementos.
+    // Invariantes de segurança:
+    // - fotos de fundo (tpl-bg-*) SEMPRE no fundo da pilha
+    // - caixas de texto (título/corpo) SEMPRE no topo, para não ficarem
+    //   escondidas atrás de decorativos/elementos e facilitar a seleção.
     const bgs = merged.filter(id => id.startsWith("tpl-bg-"));
-    const rest = merged.filter(id => !id.startsWith("tpl-bg-"));
-    return [...bgs, ...rest];
+    const texts = merged.filter(id => isTextBoxId(id));
+    const rest = merged.filter(id => !id.startsWith("tpl-bg-") && !isTextBoxId(id));
+    return [...bgs, ...rest, ...texts];
   })();
 
   // Sync render order to parent when it changes
