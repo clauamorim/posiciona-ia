@@ -606,6 +606,12 @@ const LandingPage = () => {
               },
               {
                 quote:
+                  "O Posiciona é uma facilidade incrível para nós, profissionais! Fiquei encantada com todas as funções: desde o branding e a análise estratégica do Instagram, até a linha editorial que organiza a rotina. Com Posiciona é possível manter uma presença digital forte, e ainda sobram horas preciosas para focar nos nossos pacientes. E as fotos geradas? Simplesmente elevam o nível do perfil para outro patamar!",
+                name: "Elisama Delmond",
+                role: "Psicóloga",
+              },
+              {
+                quote:
                   "Eu trabalho com estratégia de conteúdo para profissionais, então sou extremamente criteriosa com tudo que envolve esse tema. Usei a ferramenta Posiciona e o que mais me chamou atenção foi a objetividade e clareza na construção do posicionamento. Ela organiza toda a comunicação, direciona ajustes práticos que impactam diretamente na forma como o profissional é percebido no mercado de forma muito completa. Para quem precisa comunicar valor e sair do genérico, é uma ferramenta que acelera muito esse processo. Hoje, recomendo com segurança, principalmente para profissionais que querem ser vistos com mais autoridade e intenção no digital.",
                 name: "Mariana Bertoldo",
                 role: "Estrategista de conteúdo",
