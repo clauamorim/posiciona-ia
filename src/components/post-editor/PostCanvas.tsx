@@ -2,6 +2,8 @@ import React, { useRef, useEffect, useState } from "react";
 import type { OverlayImage } from "./PostToolbar";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { getArchetypeTypography, clampBodyWeight } from "@/lib/archetypeTypography";
+import { sanitizeRichText } from "@/lib/richText";
+import InlineFormatToolbar from "./InlineFormatToolbar";
 
 interface PostCanvasProps {
   text: string;
@@ -124,6 +126,8 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
     onSelectedTextChange?.(id);
   };
   const [editingTextId, setEditingTextId] = useState<string | null>(null);
+  const [editingEl, setEditingEl] = useState<HTMLElement | null>(null);
+  const canvasInnerRef = useRef<HTMLDivElement>(null);
   const [activeGuides, setActiveGuides] = useState<{ v: number[]; h: number[] }>({ v: [], h: [] });
 
   const [localTextBoxes, setLocalTextBoxes] = useState<TextBox[]>([]);
@@ -712,12 +716,35 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
         onDoubleClick={(e) => { e.stopPropagation(); setEditingTextId(tb.id); }}
       >
         {haloStyle && <div aria-hidden style={haloStyle} />}
-        <div contentEditable={isEditing} suppressContentEditableWarning
+        <div
+          contentEditable={isEditing}
+          suppressContentEditableWarning
+          ref={(el) => {
+            if (isEditing && el && editingEl !== el) {
+              setEditingEl(el);
+            }
+          }}
+          onKeyDown={(e) => {
+            if (!isEditing) return;
+            const mod = e.metaKey || e.ctrlKey;
+            if (!mod) return;
+            const k = e.key.toLowerCase();
+            if (k === "b" || k === "i" || k === "u") {
+              e.preventDefault();
+              try {
+                document.execCommand(
+                  k === "b" ? "bold" : k === "i" ? "italic" : "underline",
+                  false,
+                );
+              } catch {}
+            }
+          }}
           onBlur={(e) => {
-            const newText = e.currentTarget.textContent || "";
-            if (isTitle) onTitleChange?.(newText);
-            else onTextChange?.(newText);
+            const html = sanitizeRichText(e.currentTarget.innerHTML || "");
+            if (isTitle) onTitleChange?.(html);
+            else onTextChange?.(html);
             setEditingTextId(null);
+            setEditingEl(null);
           }}
           style={{
             fontFamily: isTitle ? `'${resolvedTitleFont}', sans-serif` : `'${bodyFont}', sans-serif`,
@@ -734,9 +761,9 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
             zIndex: 1,
             textShadow: hasPhotoBackground ? (isTitle ? titleShadow : bodyShadow) : undefined,
           }}
-        >
-          {content}
-        </div>
+          dangerouslySetInnerHTML={{ __html: sanitizeRichText(content || "") }}
+        />
+
         {isSelected && renderResizeHandles(tb, true)}
       </div>
     );
@@ -915,6 +942,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
         )}
 
         <div
+          ref={canvasInnerRef}
           style={{
             position: "relative",
             width: canvasWidth * scale,
@@ -1070,6 +1098,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
           )}
         </div>
 
+        <InlineFormatToolbar editableEl={editingTextId ? editingEl : null} containerEl={canvasInnerRef.current} />
         </div>
       </div>
     </div>
