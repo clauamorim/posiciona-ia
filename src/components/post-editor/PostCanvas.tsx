@@ -942,6 +942,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
         )}
 
         <div
+          ref={canvasInnerRef}
           style={{
             position: "relative",
             width: canvasWidth * scale,
