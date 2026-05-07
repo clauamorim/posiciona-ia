@@ -1098,6 +1098,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
           )}
         </div>
 
+        <InlineFormatToolbar editableEl={editingTextId ? editingEl : null} containerEl={canvasInnerRef.current} />
         </div>
       </div>
     </div>
