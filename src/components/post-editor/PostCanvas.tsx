@@ -2,6 +2,8 @@ import React, { useRef, useEffect, useState } from "react";
 import type { OverlayImage } from "./PostToolbar";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { getArchetypeTypography, clampBodyWeight } from "@/lib/archetypeTypography";
+import { sanitizeRichText } from "@/lib/richText";
+import InlineFormatToolbar from "./InlineFormatToolbar";
 
 interface PostCanvasProps {
   text: string;
