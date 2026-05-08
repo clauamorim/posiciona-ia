@@ -1,68 +1,41 @@
-## Diagnóstico
+## Plano
 
-Vendo o código atual, identifiquei dois problemas que explicam exatamente o que você descreveu:
+Corrigir a formatação inline para funcionar de forma previsível no título e no corpo do texto, tanto pela barra flutuante quanto pelo painel lateral.
 
-### 1. Clicar na toolbar flutuante "vaza" para o bloco inteiro
+## O que será ajustado
 
-No `InlineFormatToolbar.tsx`, ao clicar num botão (B/I/U):
+1. **Barra flutuante B/I/U**
+   - Corrigir o clique nos botões para não ser bloqueado pelo `pointerdown` do wrapper.
+   - Trocar a execução para um fluxo que preserva a seleção real antes de aplicar negrito, itálico ou sublinhado.
+   - Após aplicar a formatação, sincronizar imediatamente o HTML sanitizado no estado do título/corpo, sem depender apenas do `blur`.
 
-```tsx
-const apply = (cmd) => (e) => {
-  e.preventDefault();
-  if (!editableEl) return;
-  editableEl.focus();           // ← perde a seleção (colapsa)
-  document.execCommand(cmd);
-};
-```
+2. **Título**
+   - Adicionar os botões de negrito, itálico e sublinhado no painel lateral quando o elemento selecionado for **Título**.
+   - Fazer esses botões aplicarem formatação inline quando houver uma seleção ativa dentro do título.
+   - Garantir contraste visual no título, já que muitos títulos já partem de peso alto.
 
-Dois problemas combinados:
+3. **Corpo do texto**
+   - Ajustar os botões B/I/U do painel lateral para não aplicarem a alteração no bloco inteiro quando há texto selecionado em edição.
+   - Manter o comportamento global somente quando não houver seleção ativa dentro do texto editável.
+   - Incluir sublinhado também no painel lateral do corpo.
 
-- **Os `<button>` não têm `onMouseDown` com `preventDefault`** no `mousedown` nativo do navegador. Resultado: quando você clica no botão, o foco sai da `<div contentEditable>`, dispara `onBlur` no canvas → `setEditingTextId(null)` → o elemento deixa de ser editável **antes** do `execCommand` rodar.
-- **`editableEl.focus()` é chamado depois** que a seleção já foi perdida, então `execCommand('bold')` acaba aplicando ao "estado padrão" da caixa, o que pode parecer que afetou o bloco todo.
+## Detalhes técnicos
 
-### 2. Título não funciona
-
-O título tem o estilo:
-
-```tsx
-fontWeight: isTitle ? typo.titleWeight : bodyFontWeight,
-fontStyle:  isTitle ? "normal"         : bodyFontStyle2,
-```
-
-Como `typo.titleWeight` já é 700/800, o `<strong>` aplicado dentro pode não mudar visualmente o peso (já está no máximo). E pior: quando se entra em modo de edição no título, o mesmo problema do bug #1 acontece — a seleção é perdida ao clicar na toolbar, e como o título normalmente é uma única linha curta, o efeito visual de "foi pro bloco inteiro" também aparece.
-
-## Correções
-
-### `InlineFormatToolbar.tsx`
-
-1. **Preservar a seleção ao clicar nos botões**: usar `onMouseDown` com `e.preventDefault()` no próprio `<button>` (não só no `<div>` pai). Isso impede o foco de sair do contentEditable.
-2. **Salvar e restaurar a `Range` antes do `execCommand`** como cinto-e-suspensórios:
-   - Ao detectar seleção válida em `update()`, guardar a `Range` num `useRef`.
-   - Em `apply()`, em vez de chamar `editableEl.focus()` cego, restaurar a range salva via `selection.removeAllRanges()` + `selection.addRange(savedRange)` e só então rodar `execCommand`.
-3. **Re-detectar estado dos botões** (`queryCommandState`) após o comando, mantendo a UI consistente.
-
-### `PostCanvas.tsx` — título
-
-4. **Permitir que `<strong>` no título seja visível**: trocar a aplicação rígida de `fontWeight` no título por uma estratégia que permite override:
-   - Aplicar `typo.titleWeight` apenas como peso "base" do contêiner.
-   - Garantir que `<strong>` use um peso visualmente distinto: incluir CSS específico (via `style` numa classe ou `<style>` inline injetado uma vez) que force `strong { font-weight: 900; }` quando o pai já é 700+, ou troque para `font-weight: 400` quando o título base já é 800/900 (assim o "negrito" passa a ser um contraste visível em qualquer cenário).
-   - Mesma lógica para `<em>` (forçar `font-style: italic`) já que o título tem `fontStyle: "normal"` rígido — sem isso, `<em>` é ignorado visualmente em alguns arquétipos.
-
-5. **Sanitização no `onBlur` não pode disparar antes do `execCommand`**: o fix do bug #1 já resolve isso indiretamente (o `preventDefault` no botão impede o blur). Como reforço, adicionar uma verificação no `onBlur` do contentEditable: se o `relatedTarget` (próximo foco) estiver dentro da toolbar flutuante, ignorar o blur. Detecto a toolbar via `data-inline-format-toolbar` no wrapper do `InlineFormatToolbar`.
-
-## Arquivos afetados
-
-```text
-src/components/post-editor/InlineFormatToolbar.tsx   (fix de seleção + save/restore range + data attr)
-src/components/post-editor/PostCanvas.tsx            (CSS p/ <strong>/<em> dentro do título; onBlur ignora foco na toolbar)
-```
+- Criar um pequeno estado compartilhado em `PostCanvas` para rastrear:
+  - elemento editável ativo (`title` ou `body`),
+  - seleção atual,
+  - função para aplicar `bold`, `italic` ou `underline`.
+- Atualizar `InlineFormatToolbar.tsx` para aplicar formatação no `pointerdown` do botão, não no `mousedown`, evitando que o evento seja cancelado antes da execução.
+- Atualizar `SelectionPanel.tsx` para receber callbacks de formatação inline e renderizar os controles B/I/U para título e corpo.
+- Preservar a sanitização existente em `richText.ts` e continuar permitindo apenas `<strong>`, `<em>`, `<u>` e `<br>`.
 
 ## Validação
 
-Depois de implementar, testar no preview que já está aberto:
+Depois da implementação, validar no preview:
 
-1. Body — selecionar uma palavra, clicar **B** → só a palavra fica em negrito.
-2. Body — selecionar duas palavras, clicar **I** depois **U** → só essas duas ficam itálico+sublinhado.
-3. Título — selecionar uma palavra, clicar **B** → contraste visível de peso só naquela palavra.
-4. Atalhos Ctrl/Cmd+B/I/U continuam funcionando (já estão corretos).
-5. Exportar PNG e conferir que `<strong>`/`<em>`/`<u>` saem corretamente renderizados.
+1. Selecionar uma palavra no título e clicar B/I/U na barra flutuante.
+2. Selecionar uma palavra no título e clicar B/I/U no painel lateral.
+3. Selecionar uma palavra no corpo e clicar B/I/U na barra flutuante.
+4. Selecionar uma palavra no corpo e clicar B/I/U no painel lateral.
+5. Confirmar que, com seleção parcial, apenas o trecho selecionado muda.
+6. Confirmar que o PNG exportado mantém a formatação.
