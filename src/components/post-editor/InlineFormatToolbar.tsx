@@ -86,16 +86,15 @@ const InlineFormatToolbar: React.FC<Props> = ({ containerEl }) => {
     cursor: "pointer",
   });
 
-  // Importante: usar onMouseDown com preventDefault no wrapper E nos botões
-  // para não tirar o foco/seleção do contentEditable antes de aplicarmos o execCommand.
-  const stop = (e: React.SyntheticEvent) => { e.preventDefault(); e.stopPropagation(); };
+  // Apenas onMouseDown no wrapper preserva a seleção do contentEditable.
+  // NÃO usar onPointerDown com preventDefault no wrapper — isso suprime o
+  // mousedown/click nos botões filhos em alguns navegadores.
+  const stopMouse = (e: React.MouseEvent) => { e.preventDefault(); };
 
   return (
     <div
       data-inline-format-toolbar
-      onMouseDown={stop}
-      onPointerDown={stop}
-      onClick={stop}
+      onMouseDown={stopMouse}
       style={{
         position: "absolute",
         left: pos.x,
@@ -111,33 +110,24 @@ const InlineFormatToolbar: React.FC<Props> = ({ containerEl }) => {
         zIndex: 99999,
       }}
     >
-      <button
-        type="button"
-        style={btnStyle(state.bold)}
-        onMouseDown={apply("bold")}
-        onClick={stop}
-        aria-label="Negrito"
-      >
-        <Bold size={16} />
-      </button>
-      <button
-        type="button"
-        style={btnStyle(state.italic)}
-        onMouseDown={apply("italic")}
-        onClick={stop}
-        aria-label="Itálico"
-      >
-        <Italic size={16} />
-      </button>
-      <button
-        type="button"
-        style={btnStyle(state.underline)}
-        onMouseDown={apply("underline")}
-        onClick={stop}
-        aria-label="Sublinhado"
-      >
-        <Underline size={16} />
-      </button>
+      {(["bold", "italic", "underline"] as const).map((cmd) => {
+        const Icon = cmd === "bold" ? Bold : cmd === "italic" ? Italic : Underline;
+        const label = cmd === "bold" ? "Negrito" : cmd === "italic" ? "Itálico" : "Sublinhado";
+        return (
+          <button
+            key={cmd}
+            type="button"
+            data-inline-format-control
+            style={btnStyle(state[cmd])}
+            onPointerDown={apply(cmd)}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+            aria-label={label}
+          >
+            <Icon size={16} />
+          </button>
+        );
+      })}
     </div>
   );
 };
