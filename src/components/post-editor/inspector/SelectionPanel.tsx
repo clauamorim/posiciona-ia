@@ -245,6 +245,17 @@ const SelectionPanel: React.FC<SelectionPanelProps> = (props) => {
               </div>
             </div>
           )}
+          <div>
+            <label className="text-[11px] text-muted-foreground">Formatação (selecione o texto)</label>
+            <div className="flex gap-1.5 mt-1">
+              <InlineFormatButton cmd="bold" icon={<Bold className="h-3.5 w-3.5" />} label="Negrito" />
+              <InlineFormatButton cmd="italic" icon={<Italic className="h-3.5 w-3.5" />} label="Itálico" />
+              <InlineFormatButton cmd="underline" icon={<Underline className="h-3.5 w-3.5" />} label="Sublinhado" />
+            </div>
+            <p className="text-[10px] text-muted-foreground/70 mt-1">
+              Dê duplo clique no título e selecione o trecho que deseja formatar.
+            </p>
+          </div>
           {selectedLayerId && <LayerControls id={selectedLayerId} onBringForward={props.onBringForward} onSendBackward={props.onSendBackward} />}
         </>
       )}
@@ -260,23 +271,40 @@ const SelectionPanel: React.FC<SelectionPanelProps> = (props) => {
             <label className="text-[11px] text-muted-foreground">Tamanho: {props.fontSize}px</label>
             <Slider value={[props.fontSize]} onValueChange={([v]) => props.onFontSizeChange(v)} min={16} max={48} step={1} className="mt-1" />
           </div>
-          <div className="flex gap-1.5">
-            <Toggle pressed={props.fontWeight === "bold"} onPressedChange={(p) => props.onFontWeightChange(p ? "bold" : "normal")} size="sm" aria-label="Negrito" className="h-7 w-7">
-              <Bold className="h-3.5 w-3.5" />
-            </Toggle>
-            <Toggle pressed={props.fontStyle === "italic"} onPressedChange={(p) => props.onFontStyleChange(p ? "italic" : "normal")} size="sm" aria-label="Itálico" className="h-7 w-7">
-              <Italic className="h-3.5 w-3.5" />
-            </Toggle>
-            {props.onTextAlignChange && ([
-              { value: "left" as const, icon: AlignLeft },
-              { value: "center" as const, icon: AlignCenter },
-              { value: "right" as const, icon: AlignRight },
-              { value: "justify" as const, icon: AlignJustify },
-            ]).map(({ value, icon: Icon }) => (
-              <Button key={value} variant={props.textAlign === value ? "default" : "outline"} size="icon" className="h-7 w-7" onClick={() => props.onTextAlignChange!(value)}>
-                <Icon className="h-3.5 w-3.5" />
-              </Button>
-            ))}
+          <div>
+            <label className="text-[11px] text-muted-foreground">Formatação</label>
+            <div className="flex gap-1.5 mt-1 flex-wrap">
+              <InlineFormatButton
+                cmd="bold"
+                icon={<Bold className="h-3.5 w-3.5" />}
+                label="Negrito"
+                fallback={() => props.onFontWeightChange(props.fontWeight === "bold" ? "normal" : "bold")}
+              />
+              <InlineFormatButton
+                cmd="italic"
+                icon={<Italic className="h-3.5 w-3.5" />}
+                label="Itálico"
+                fallback={() => props.onFontStyleChange(props.fontStyle === "italic" ? "normal" : "italic")}
+              />
+              <InlineFormatButton
+                cmd="underline"
+                icon={<Underline className="h-3.5 w-3.5" />}
+                label="Sublinhado"
+              />
+              {props.onTextAlignChange && ([
+                { value: "left" as const, icon: AlignLeft },
+                { value: "center" as const, icon: AlignCenter },
+                { value: "right" as const, icon: AlignRight },
+                { value: "justify" as const, icon: AlignJustify },
+              ]).map(({ value, icon: Icon }) => (
+                <Button key={value} variant={props.textAlign === value ? "default" : "outline"} size="icon" className="h-7 w-7" onClick={() => props.onTextAlignChange!(value)}>
+                  <Icon className="h-3.5 w-3.5" />
+                </Button>
+              ))}
+            </div>
+            <p className="text-[10px] text-muted-foreground/70 mt-1">
+              Selecione um trecho dentro do texto para formatar só ele. Sem seleção, o B/I afetam o bloco inteiro.
+            </p>
           </div>
           {props.onTextColorChange && (
             <div>
