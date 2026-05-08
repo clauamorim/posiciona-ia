@@ -719,6 +719,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
         <div
           contentEditable={isEditing}
           suppressContentEditableWarning
+          className={isTitle ? "post-title-editable" : "post-body-editable"}
           ref={(el) => {
             if (isEditing && el && editingEl !== el) {
               setEditingEl(el);
