@@ -719,6 +719,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
         <div
           contentEditable={isEditing}
           suppressContentEditableWarning
+          className={isTitle ? "post-title-editable" : "post-body-editable"}
           ref={(el) => {
             if (isEditing && el && editingEl !== el) {
               setEditingEl(el);
@@ -740,6 +741,11 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
             }
           }}
           onBlur={(e) => {
+            // Se o foco foi para a toolbar flutuante, NÃO sai do modo de edição
+            const next = e.relatedTarget as HTMLElement | null;
+            if (next && next.closest && next.closest("[data-inline-format-toolbar]")) {
+              return;
+            }
             const html = sanitizeRichText(e.currentTarget.innerHTML || "");
             if (isTitle) onTitleChange?.(html);
             else onTextChange?.(html);
@@ -890,6 +896,14 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
 
   return (
     <div ref={containerRef} className="flex items-center justify-center w-full">
+      <style>{`
+        .post-title-editable strong, .post-title-editable b { font-weight: 900 !important; }
+        .post-title-editable em, .post-title-editable i { font-style: italic !important; }
+        .post-title-editable u { text-decoration: underline !important; }
+        .post-body-editable strong, .post-body-editable b { font-weight: 800 !important; }
+        .post-body-editable em, .post-body-editable i { font-style: italic !important; }
+        .post-body-editable u { text-decoration: underline !important; }
+      `}</style>
       <div
         style={{
           width: canvasWidth * scale + (showRulers ? RULER_PX : 0),

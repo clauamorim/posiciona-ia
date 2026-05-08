@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Bold, Italic, Underline } from "lucide-react";
 
 interface Props {
@@ -13,10 +13,12 @@ interface Pos { x: number; y: number; visible: boolean }
 const InlineFormatToolbar: React.FC<Props> = ({ editableEl, containerEl }) => {
   const [pos, setPos] = useState<Pos>({ x: 0, y: 0, visible: false });
   const [state, setState] = useState({ bold: false, italic: false, underline: false });
+  const savedRangeRef = useRef<Range | null>(null);
 
   useEffect(() => {
     if (!editableEl || !containerEl) {
       setPos((p) => ({ ...p, visible: false }));
+      savedRangeRef.current = null;
       return;
     }
     const update = () => {
@@ -26,7 +28,6 @@ const InlineFormatToolbar: React.FC<Props> = ({ editableEl, containerEl }) => {
         return;
       }
       const range = sel.getRangeAt(0);
-      // seleção precisa estar dentro do editable
       if (!editableEl.contains(range.commonAncestorContainer)) {
         setPos((p) => ({ ...p, visible: false }));
         return;
@@ -37,6 +38,8 @@ const InlineFormatToolbar: React.FC<Props> = ({ editableEl, containerEl }) => {
         setPos((p) => ({ ...p, visible: false }));
         return;
       }
+      // salva clone da range para restaurar depois do clique
+      savedRangeRef.current = range.cloneRange();
       setPos({
         x: rect.left - cRect.left + rect.width / 2,
         y: rect.top - cRect.top - 8,
@@ -62,12 +65,24 @@ const InlineFormatToolbar: React.FC<Props> = ({ editableEl, containerEl }) => {
   }, [editableEl, containerEl]);
 
   const apply = (cmd: "bold" | "italic" | "underline") => (e: React.MouseEvent) => {
+    // preventDefault no mousedown impede o blur do contentEditable
     e.preventDefault();
     e.stopPropagation();
     if (!editableEl) return;
-    editableEl.focus();
+
+    const saved = savedRangeRef.current;
+    const sel = window.getSelection();
+    if (sel && saved) {
+      sel.removeAllRanges();
+      sel.addRange(saved);
+    }
     try {
       document.execCommand(cmd, false);
+      // re-salva a range (execCommand pode ter alterado a estrutura DOM)
+      const after = window.getSelection();
+      if (after && after.rangeCount > 0) {
+        savedRangeRef.current = after.getRangeAt(0).cloneRange();
+      }
       setState({
         bold: document.queryCommandState("bold"),
         italic: document.queryCommandState("italic"),
@@ -93,6 +108,8 @@ const InlineFormatToolbar: React.FC<Props> = ({ editableEl, containerEl }) => {
 
   return (
     <div
+      data-inline-format-toolbar
+      onMouseDown={(e) => e.preventDefault()}
       onPointerDown={(e) => e.preventDefault()}
       style={{
         position: "absolute",
@@ -109,13 +126,31 @@ const InlineFormatToolbar: React.FC<Props> = ({ editableEl, containerEl }) => {
         zIndex: 99999,
       }}
     >
-      <button type="button" style={btn(state.bold)} onMouseDown={apply("bold")} aria-label="Negrito">
+      <button
+        type="button"
+        style={btn(state.bold)}
+        onMouseDown={apply("bold")}
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+        aria-label="Negrito"
+      >
         <Bold size={16} />
       </button>
-      <button type="button" style={btn(state.italic)} onMouseDown={apply("italic")} aria-label="Itálico">
+      <button
+        type="button"
+        style={btn(state.italic)}
+        onMouseDown={apply("italic")}
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+        aria-label="Itálico"
+      >
         <Italic size={16} />
       </button>
-      <button type="button" style={btn(state.underline)} onMouseDown={apply("underline")} aria-label="Sublinhado">
+      <button
+        type="button"
+        style={btn(state.underline)}
+        onMouseDown={apply("underline")}
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+        aria-label="Sublinhado"
+      >
         <Underline size={16} />
       </button>
     </div>

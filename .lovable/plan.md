@@ -1,63 +1,68 @@
-## Objetivo
+## Diagnóstico
 
-Permitir que o usuário selecione um trecho do texto dentro de uma caixa (título ou corpo) no editor de posts e aplique **negrito**, *itálico* e <u>sublinhado</u> apenas àquela seleção — preservando a formatação na edição, no salvamento e na exportação PNG.
+Vendo o código atual, identifiquei dois problemas que explicam exatamente o que você descreveu:
 
-Hoje, esses três botões só agem no bloco inteiro (`fontWeight`/`fontStyle` globais). Vamos transformá-los em formatação inline real (HTML).
+### 1. Clicar na toolbar flutuante "vaza" para o bloco inteiro
 
-## Como vai funcionar para o usuário
+No `InlineFormatToolbar.tsx`, ao clicar num botão (B/I/U):
 
-1. Dá duplo clique numa caixa de texto para entrar em modo de edição (já existe).
-2. Seleciona uma palavra ou trecho com o mouse/dedo.
-3. Aparece uma **mini-toolbar flutuante** logo acima da seleção com 3 botões: **B** / *I* / <u>U</u>.
-4. Clica para aplicar/remover a formatação só naquele trecho. Atalhos de teclado padrão (Ctrl/Cmd+B, +I, +U) também funcionam.
-5. Os botões globais existentes no painel lateral ("Negrito"/"Itálico" do corpo) continuam aplicando ao bloco inteiro como hoje (compatibilidade), mas ganham a opção visual de "Sublinhado" também.
+```tsx
+const apply = (cmd) => (e) => {
+  e.preventDefault();
+  if (!editableEl) return;
+  editableEl.focus();           // ← perde a seleção (colapsa)
+  document.execCommand(cmd);
+};
+```
 
-## Mudanças técnicas
+Dois problemas combinados:
 
-### 1. Modelo de dados — texto vira HTML
-- Hoje `editedTexts: string[]` e `editedTitle: string` guardam texto puro.
-- Vamos passar a guardar **HTML sanitizado** (apenas as tags `<strong>`, `<em>`, `<u>`, `<br>`). Texto sem formatação continua salvando como string limpa, então retrocompatível.
-- Helper novo em `src/lib/richText.ts`:
-  - `sanitizeRichText(html)` — whitelist estrita das 4 tags acima, remove o resto.
-  - `richTextToPlain(html)` — converte para texto puro (para legenda/copiar/contagem de caracteres).
-  - `isRichText(s)` — detecta se já contém uma das tags.
+- **Os `<button>` não têm `onMouseDown` com `preventDefault`** no `mousedown` nativo do navegador. Resultado: quando você clica no botão, o foco sai da `<div contentEditable>`, dispara `onBlur` no canvas → `setEditingTextId(null)` → o elemento deixa de ser editável **antes** do `execCommand` rodar.
+- **`editableEl.focus()` é chamado depois** que a seleção já foi perdida, então `execCommand('bold')` acaba aplicando ao "estado padrão" da caixa, o que pode parecer que afetou o bloco todo.
 
-### 2. `PostCanvas.tsx` — caixas de texto editáveis
-- O `<div contentEditable>` em `renderTextBox` passa a usar `dangerouslySetInnerHTML` em vez de `{content}`.
-- No `onBlur`, em vez de `e.currentTarget.textContent`, capturar `e.currentTarget.innerHTML`, passar por `sanitizeRichText` e propagar via `onTextChange`/`onTitleChange`.
-- Adicionar handler `onKeyDown` para interceptar Ctrl/Cmd+B/I/U e chamar `document.execCommand('bold'|'italic'|'underline')` (ainda é a forma mais simples e funciona em todos os navegadores para edição contentEditable).
-- Adicionar componente novo **`InlineFormatToolbar`** (filho do canvas, posicionado em coordenadas absolutas relativas ao container) que:
-  - Escuta `selectionchange` enquanto há `editingTextId`.
-  - Mostra-se apenas quando a seleção não está colapsada e está dentro do contentEditable atualmente em edição.
-  - Mostra três `Toggle` (B/I/U) já alinhados ao design system existente; estado `pressed` derivado de `document.queryCommandState`.
-  - Ao clicar, chama `execCommand` e re-foca a seleção.
+### 2. Título não funciona
 
-### 3. Exportação PNG
-- Já usa `html-to-image` (`toBlob`) e fallback `html2canvas`. Ambos respeitam `<strong>`, `<em>`, `<u>` no DOM clonado, então não precisa mudança na pipeline de export.
-- Confirmar visualmente que o texto sai com a formatação correta no PNG.
+O título tem o estilo:
 
-### 4. Outros lugares que consomem o texto
-- **Copiar legenda / preview do feed**: aplicar `richTextToPlain()` antes de copiar para a área de transferência (a legenda do Instagram não suporta HTML).
-- **Persistência de draft no `sessionStorage`**: já é string, salva HTML normalmente.
-- **`textCleanup.ts`**: a função `cleanText` continua valendo para texto vindo da IA (que não tem nossas tags); ao receber HTML do usuário, pulamos o cleanup.
+```tsx
+fontWeight: isTitle ? typo.titleWeight : bodyFontWeight,
+fontStyle:  isTitle ? "normal"         : bodyFontStyle2,
+```
 
-### 5. `SelectionPanel.tsx` — adicionar botão de Sublinhado global (opcional/cosmético)
-- Adicionar toggle **U** ao lado dos toggles B/I do "Corpo do texto".
-- Para manter o comportamento global, esses três toggles passam a aplicar a formatação no bloco inteiro via `wrapAll`/`unwrapAll` HTML — ou simplesmente envolver todo o conteúdo numa tag única quando ativado.
+Como `typo.titleWeight` já é 700/800, o `<strong>` aplicado dentro pode não mudar visualmente o peso (já está no máximo). E pior: quando se entra em modo de edição no título, o mesmo problema do bug #1 acontece — a seleção é perdida ao clicar na toolbar, e como o título normalmente é uma única linha curta, o efeito visual de "foi pro bloco inteiro" também aparece.
+
+## Correções
+
+### `InlineFormatToolbar.tsx`
+
+1. **Preservar a seleção ao clicar nos botões**: usar `onMouseDown` com `e.preventDefault()` no próprio `<button>` (não só no `<div>` pai). Isso impede o foco de sair do contentEditable.
+2. **Salvar e restaurar a `Range` antes do `execCommand`** como cinto-e-suspensórios:
+   - Ao detectar seleção válida em `update()`, guardar a `Range` num `useRef`.
+   - Em `apply()`, em vez de chamar `editableEl.focus()` cego, restaurar a range salva via `selection.removeAllRanges()` + `selection.addRange(savedRange)` e só então rodar `execCommand`.
+3. **Re-detectar estado dos botões** (`queryCommandState`) após o comando, mantendo a UI consistente.
+
+### `PostCanvas.tsx` — título
+
+4. **Permitir que `<strong>` no título seja visível**: trocar a aplicação rígida de `fontWeight` no título por uma estratégia que permite override:
+   - Aplicar `typo.titleWeight` apenas como peso "base" do contêiner.
+   - Garantir que `<strong>` use um peso visualmente distinto: incluir CSS específico (via `style` numa classe ou `<style>` inline injetado uma vez) que force `strong { font-weight: 900; }` quando o pai já é 700+, ou troque para `font-weight: 400` quando o título base já é 800/900 (assim o "negrito" passa a ser um contraste visível em qualquer cenário).
+   - Mesma lógica para `<em>` (forçar `font-style: italic`) já que o título tem `fontStyle: "normal"` rígido — sem isso, `<em>` é ignorado visualmente em alguns arquétipos.
+
+5. **Sanitização no `onBlur` não pode disparar antes do `execCommand`**: o fix do bug #1 já resolve isso indiretamente (o `preventDefault` no botão impede o blur). Como reforço, adicionar uma verificação no `onBlur` do contentEditable: se o `relatedTarget` (próximo foco) estiver dentro da toolbar flutuante, ignorar o blur. Detecto a toolbar via `data-inline-format-toolbar` no wrapper do `InlineFormatToolbar`.
 
 ## Arquivos afetados
 
 ```text
-src/lib/richText.ts                                   (novo)
-src/components/post-editor/InlineFormatToolbar.tsx    (novo)
-src/components/post-editor/PostCanvas.tsx             (editável + toolbar + execCommand)
-src/components/post-editor/inspector/SelectionPanel.tsx (adicionar toggle Sublinhado)
-src/pages/PostEditorPage.tsx                          (sanitização + plain-text para copiar legenda)
+src/components/post-editor/InlineFormatToolbar.tsx   (fix de seleção + save/restore range + data attr)
+src/components/post-editor/PostCanvas.tsx            (CSS p/ <strong>/<em> dentro do título; onBlur ignora foco na toolbar)
 ```
 
-## Considerações
+## Validação
 
-- `document.execCommand` está marcado como deprecated no MDN, mas continua sendo o caminho mais pragmático e amplamente suportado para edição contentEditable simples (Lexical/Slate seriam overkill aqui). Sem dependências novas.
-- Sanitização estrita (whitelist de tags + sem atributos) evita injeção de HTML/CSS arbitrário.
-- A formatação é puramente visual; não interfere em peso de fonte do arquétipo (`<strong>` herda `font-family`/`color` do contêiner — só muda peso).
-- Mobile: a mini-toolbar aparece acima da seleção tátil, com tamanho de toque adequado (32px+).
+Depois de implementar, testar no preview que já está aberto:
+
+1. Body — selecionar uma palavra, clicar **B** → só a palavra fica em negrito.
+2. Body — selecionar duas palavras, clicar **I** depois **U** → só essas duas ficam itálico+sublinhado.
+3. Título — selecionar uma palavra, clicar **B** → contraste visível de peso só naquela palavra.
+4. Atalhos Ctrl/Cmd+B/I/U continuam funcionando (já estão corretos).
+5. Exportar PNG e conferir que `<strong>`/`<em>`/`<u>` saem corretamente renderizados.
