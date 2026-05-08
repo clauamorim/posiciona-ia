@@ -3,6 +3,7 @@ import type { OverlayImage } from "./PostToolbar";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { getArchetypeTypography, clampBodyWeight } from "@/lib/archetypeTypography";
 import { sanitizeRichText } from "@/lib/richText";
+import { inlineFormatBus } from "@/lib/inlineFormatBus";
 import InlineFormatToolbar from "./InlineFormatToolbar";
 
 interface PostCanvasProps {
@@ -723,6 +724,11 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
           ref={(el) => {
             if (isEditing && el && editingEl !== el) {
               setEditingEl(el);
+              inlineFormatBus.setActive(el, (html) => {
+                const clean = sanitizeRichText(html);
+                if (isTitle) onTitleChange?.(clean);
+                else onTextChange?.(clean);
+              });
             }
           }}
           onKeyDown={(e) => {
@@ -741,14 +747,20 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
             }
           }}
           onBlur={(e) => {
-            // Se o foco foi para a toolbar flutuante, NÃO sai do modo de edição
+            // Se o foco foi para a toolbar flutuante OU para o painel lateral
+            // (botões B/I/U), NÃO sai do modo de edição.
             const next = e.relatedTarget as HTMLElement | null;
-            if (next && next.closest && next.closest("[data-inline-format-toolbar]")) {
+            if (next && next.closest && (
+              next.closest("[data-inline-format-toolbar]") ||
+              next.closest("[data-inline-format-control]")
+            )) {
               return;
             }
-            const html = sanitizeRichText(e.currentTarget.innerHTML || "");
+            const el = e.currentTarget;
+            const html = sanitizeRichText(el.innerHTML || "");
             if (isTitle) onTitleChange?.(html);
             else onTextChange?.(html);
+            inlineFormatBus.clearActive(el);
             setEditingTextId(null);
             setEditingEl(null);
           }}
@@ -1112,7 +1124,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
           )}
         </div>
 
-        <InlineFormatToolbar editableEl={editingTextId ? editingEl : null} containerEl={canvasInnerRef.current} />
+        <InlineFormatToolbar containerEl={canvasInnerRef.current} />
         </div>
       </div>
     </div>
