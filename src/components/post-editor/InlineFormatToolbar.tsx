@@ -1,99 +1,79 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Bold, Italic, Underline } from "lucide-react";
+import { inlineFormatBus } from "@/lib/inlineFormatBus";
 
 interface Props {
-  /** Elemento contentEditable atualmente em edição. */
-  editableEl: HTMLElement | null;
   /** Container relativo para posicionamento (o canvas wrapper). */
   containerEl: HTMLElement | null;
 }
 
 interface Pos { x: number; y: number; visible: boolean }
 
-const InlineFormatToolbar: React.FC<Props> = ({ editableEl, containerEl }) => {
+const InlineFormatToolbar: React.FC<Props> = ({ containerEl }) => {
   const [pos, setPos] = useState<Pos>({ x: 0, y: 0, visible: false });
   const [state, setState] = useState({ bold: false, italic: false, underline: false });
-  const savedRangeRef = useRef<Range | null>(null);
 
   useEffect(() => {
-    if (!editableEl || !containerEl) {
-      setPos((p) => ({ ...p, visible: false }));
-      savedRangeRef.current = null;
-      return;
-    }
     const update = () => {
+      const editableEl = inlineFormatBus.getActive();
+      if (!editableEl || !containerEl) {
+        setPos((p) => p.visible ? { ...p, visible: false } : p);
+        return;
+      }
       const sel = window.getSelection();
       if (!sel || sel.rangeCount === 0 || sel.isCollapsed) {
-        setPos((p) => ({ ...p, visible: false }));
+        setPos((p) => p.visible ? { ...p, visible: false } : p);
         return;
       }
       const range = sel.getRangeAt(0);
       if (!editableEl.contains(range.commonAncestorContainer)) {
-        setPos((p) => ({ ...p, visible: false }));
+        setPos((p) => p.visible ? { ...p, visible: false } : p);
         return;
       }
       const rect = range.getBoundingClientRect();
       const cRect = containerEl.getBoundingClientRect();
       if (rect.width === 0 && rect.height === 0) {
-        setPos((p) => ({ ...p, visible: false }));
+        setPos((p) => p.visible ? { ...p, visible: false } : p);
         return;
       }
-      // salva clone da range para restaurar depois do clique
-      savedRangeRef.current = range.cloneRange();
       setPos({
         x: rect.left - cRect.left + rect.width / 2,
         y: rect.top - cRect.top - 8,
         visible: true,
       });
-      try {
-        setState({
-          bold: document.queryCommandState("bold"),
-          italic: document.queryCommandState("italic"),
-          underline: document.queryCommandState("underline"),
-        });
-      } catch {}
+      setState({
+        bold: inlineFormatBus.queryState("bold"),
+        italic: inlineFormatBus.queryState("italic"),
+        underline: inlineFormatBus.queryState("underline"),
+      });
     };
     document.addEventListener("selectionchange", update);
     window.addEventListener("scroll", update, true);
     window.addEventListener("resize", update);
+    const unsub = inlineFormatBus.subscribe(update);
     update();
     return () => {
       document.removeEventListener("selectionchange", update);
       window.removeEventListener("scroll", update, true);
       window.removeEventListener("resize", update);
+      unsub();
     };
-  }, [editableEl, containerEl]);
+  }, [containerEl]);
 
-  const apply = (cmd: "bold" | "italic" | "underline") => (e: React.MouseEvent) => {
-    // preventDefault no mousedown impede o blur do contentEditable
+  const apply = (cmd: "bold" | "italic" | "underline") => (e: React.MouseEvent | React.PointerEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!editableEl) return;
-
-    const saved = savedRangeRef.current;
-    const sel = window.getSelection();
-    if (sel && saved) {
-      sel.removeAllRanges();
-      sel.addRange(saved);
-    }
-    try {
-      document.execCommand(cmd, false);
-      // re-salva a range (execCommand pode ter alterado a estrutura DOM)
-      const after = window.getSelection();
-      if (after && after.rangeCount > 0) {
-        savedRangeRef.current = after.getRangeAt(0).cloneRange();
-      }
-      setState({
-        bold: document.queryCommandState("bold"),
-        italic: document.queryCommandState("italic"),
-        underline: document.queryCommandState("underline"),
-      });
-    } catch {}
+    inlineFormatBus.applyFormat(cmd);
+    setState({
+      bold: inlineFormatBus.queryState("bold"),
+      italic: inlineFormatBus.queryState("italic"),
+      underline: inlineFormatBus.queryState("underline"),
+    });
   };
 
   if (!pos.visible) return null;
 
-  const btn = (active: boolean): React.CSSProperties => ({
+  const btnStyle = (active: boolean): React.CSSProperties => ({
     width: 32,
     height: 32,
     display: "inline-flex",
@@ -106,11 +86,16 @@ const InlineFormatToolbar: React.FC<Props> = ({ editableEl, containerEl }) => {
     cursor: "pointer",
   });
 
+  // Importante: usar onMouseDown com preventDefault no wrapper E nos botões
+  // para não tirar o foco/seleção do contentEditable antes de aplicarmos o execCommand.
+  const stop = (e: React.SyntheticEvent) => { e.preventDefault(); e.stopPropagation(); };
+
   return (
     <div
       data-inline-format-toolbar
-      onMouseDown={(e) => e.preventDefault()}
-      onPointerDown={(e) => e.preventDefault()}
+      onMouseDown={stop}
+      onPointerDown={stop}
+      onClick={stop}
       style={{
         position: "absolute",
         left: pos.x,
@@ -128,27 +113,27 @@ const InlineFormatToolbar: React.FC<Props> = ({ editableEl, containerEl }) => {
     >
       <button
         type="button"
-        style={btn(state.bold)}
+        style={btnStyle(state.bold)}
         onMouseDown={apply("bold")}
-        onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+        onClick={stop}
         aria-label="Negrito"
       >
         <Bold size={16} />
       </button>
       <button
         type="button"
-        style={btn(state.italic)}
+        style={btnStyle(state.italic)}
         onMouseDown={apply("italic")}
-        onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+        onClick={stop}
         aria-label="Itálico"
       >
         <Italic size={16} />
       </button>
       <button
         type="button"
-        style={btn(state.underline)}
+        style={btnStyle(state.underline)}
         onMouseDown={apply("underline")}
-        onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+        onClick={stop}
         aria-label="Sublinhado"
       >
         <Underline size={16} />
