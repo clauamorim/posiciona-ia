@@ -1,5 +1,5 @@
 import React from "react";
-import { Bold, Italic, AlignLeft, AlignCenter, AlignRight, AlignJustify, ArrowUp, ArrowDown, Paintbrush, MousePointerClick, Trash2 } from "lucide-react";
+import { Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, AlignJustify, ArrowUp, ArrowDown, Paintbrush, MousePointerClick, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -9,6 +9,39 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import ColorPicker, { PaletteColor } from "./ColorPicker";
 import type { OverlayImage } from "../PostToolbar";
+import { inlineFormatBus } from "@/lib/inlineFormatBus";
+
+/**
+ * Botão de formatação inline (B/I/U) que usa o bus global.
+ * - data-inline-format-control: o onBlur do contentEditable ignora este foco,
+ *   mantendo a edição ativa enquanto clicamos.
+ */
+const InlineFormatButton: React.FC<{
+  cmd: "bold" | "italic" | "underline";
+  icon: React.ReactNode;
+  label: string;
+  fallback?: () => void;
+}> = ({ cmd, icon, label, fallback }) => {
+  const handle = (e: React.MouseEvent | React.PointerEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const ok = inlineFormatBus.applyFormat(cmd);
+    if (!ok && fallback) fallback();
+  };
+  const stop = (e: React.SyntheticEvent) => { e.preventDefault(); e.stopPropagation(); };
+  return (
+    <button
+      type="button"
+      data-inline-format-control
+      aria-label={label}
+      onMouseDown={handle}
+      onClick={stop}
+      className="h-7 w-7 inline-flex items-center justify-center rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground"
+    >
+      {icon}
+    </button>
+  );
+};
 
 const GOOGLE_FONTS = [
   "Inter", "Montserrat", "Playfair Display", "Roboto", "Poppins",
