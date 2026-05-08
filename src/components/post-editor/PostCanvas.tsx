@@ -740,6 +740,11 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
             }
           }}
           onBlur={(e) => {
+            // Se o foco foi para a toolbar flutuante, NÃO sai do modo de edição
+            const next = e.relatedTarget as HTMLElement | null;
+            if (next && next.closest && next.closest("[data-inline-format-toolbar]")) {
+              return;
+            }
             const html = sanitizeRichText(e.currentTarget.innerHTML || "");
             if (isTitle) onTitleChange?.(html);
             else onTextChange?.(html);
