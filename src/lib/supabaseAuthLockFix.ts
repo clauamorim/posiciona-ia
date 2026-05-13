@@ -1,38 +1,36 @@
-const LOCK_PATCH_FLAG = "__posicionaAuthLockPatchApplied__";
+// Desabilita o Web Locks API ANTES do cliente Supabase ser criado.
+//
+// Motivo: a versão atual do @supabase/auth-js usa `navigator.locks` por padrão
+// quando disponível. Em alguns cenários (React Strict Mode, abas reabertas,
+// recargas durante refresh de token) o lock pode ficar órfão e causar
+// deadlock — chamadas como `signInWithPassword` ficam presas indefinidamente,
+// resultando em timeout no login mesmo com o backend saudável.
+//
+// Ao remover `navigator.locks`, o GoTrueClient cai automaticamente para o
+// `lockNoOp` interno, que serializa operações dentro da mesma aba sem usar a
+// Web Locks API. Isso é seguro para apps single-tab/SPA como este.
+//
+// IMPORTANTE: este arquivo precisa ser importado em `main.tsx` ANTES de
+// qualquer import que carregue o cliente Supabase, e a remoção precisa ser
+// permanente (sem restaurar) para que o GoTrueClient nunca veja `locks`.
 
-type NavigatorWithOptionalLocks = Navigator & { locks?: LockManager };
+const FLAG = "__posicionaAuthLockDisabled__";
 
-const applySupabaseAuthLockPatch = () => {
-  if (typeof window === "undefined" || typeof navigator === "undefined") return;
-  if ((window as unknown as Record<string, boolean>)[LOCK_PATCH_FLAG]) return;
-
-  const nav = navigator as NavigatorWithOptionalLocks;
-  if (!nav.locks) return;
-
-  const ownDescriptor = Object.getOwnPropertyDescriptor(nav, "locks");
-  const prototypeDescriptor = Object.getOwnPropertyDescriptor(Navigator.prototype, "locks");
-  const restore = () => {
-    try {
-      if (ownDescriptor) {
-        Object.defineProperty(nav, "locks", ownDescriptor);
-      } else if (prototypeDescriptor) {
-        delete (nav as { locks?: LockManager }).locks;
-      }
-    } catch {
-      // If the browser blocks restoration, keeping Web Locks disabled is safer for auth than deadlocking login.
-    }
-  };
+const disableNavigatorLocks = () => {
+  if (typeof navigator === "undefined") return;
+  const w = window as unknown as Record<string, boolean>;
+  if (w[FLAG]) return;
 
   try {
-    Object.defineProperty(nav, "locks", {
+    Object.defineProperty(navigator, "locks", {
       configurable: true,
       get: () => undefined,
     });
-    (window as unknown as Record<string, boolean>)[LOCK_PATCH_FLAG] = true;
-    queueMicrotask(restore);
+    w[FLAG] = true;
   } catch {
-    // If the property is not configurable, the installed auth client timeout still protects the UI.
+    // Se o navegador bloquear a sobrescrita, o timeout do form de login
+    // ainda protege a UI; nada mais a fazer aqui.
   }
 };
 
-applySupabaseAuthLockPatch();
+disableNavigatorLocks();
