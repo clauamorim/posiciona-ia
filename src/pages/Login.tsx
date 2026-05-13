@@ -159,10 +159,9 @@ const Login = () => {
       const { data, error } = await attemptLogin(cleanEmail, cleanPassword);
       setLoading(false);
       if (error) {
-        const code = (error as any)?.code || "";
-        const status = (error as any)?.status;
-        const raw = (error.message || "").toLowerCase();
-        const hasHttpResponse = typeof status === "number" && status > 0;
+        const code = (error as any)?.code || (error as any)?.error_code || "";
+        const raw = authErrorText(error);
+        const hasResponse = hasHttpResponse(error);
 
         let description = error.message || "Erro desconhecido.";
 
@@ -173,7 +172,7 @@ const Login = () => {
         } else if (code === "over_request_rate_limit" || raw.includes("rate limit")) {
           description = "Muitas tentativas em pouco tempo. Aguarde alguns instantes e tente novamente.";
         } else if (
-          !hasHttpResponse &&
+          !hasResponse &&
           (raw.includes("timeout") ||
             raw.includes("load failed") ||
             raw.includes("failed to fetch") ||
