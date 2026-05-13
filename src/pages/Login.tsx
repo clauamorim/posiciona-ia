@@ -25,24 +25,19 @@ const Login = () => {
     }
   }, [loginTriggered, authLoading, user, isAdmin, navigate]);
 
-  const attemptLogin = async (cleanEmail: string, cleanPassword: string, retries = 2): Promise<{ error: any }> => {
-    let lastError: any = null;
-    for (let i = 0; i <= retries; i++) {
-      try {
-        // Timeout duro: se a chamada não voltar em 15s, abortamos para destravar a UI.
-        const result = await Promise.race([
-          supabase.auth.signInWithPassword({ email: cleanEmail, password: cleanPassword }),
-          new Promise<{ error: any }>((_, reject) =>
-            setTimeout(() => reject(new Error("timeout")), 15000)
-          ),
-        ]);
-        return result as { error: any };
-      } catch (err) {
-        lastError = err;
-        if (i < retries) await new Promise(r => setTimeout(r, 800));
-      }
+  const attemptLogin = async (cleanEmail: string, cleanPassword: string): Promise<{ error: any }> => {
+    try {
+      // Single attempt with a short hard timeout so the UI never hangs.
+      const result = await Promise.race([
+        supabase.auth.signInWithPassword({ email: cleanEmail, password: cleanPassword }),
+        new Promise<{ error: any }>((_, reject) =>
+          setTimeout(() => reject(new Error("timeout")), 12000)
+        ),
+      ]);
+      return result as { error: any };
+    } catch (err) {
+      return { error: err };
     }
-    return { error: lastError ?? new Error("Falha de conexão após múltiplas tentativas") };
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -85,7 +80,7 @@ const Login = () => {
           description = "Você ainda não confirmou seu e-mail. Verifique sua caixa de entrada.";
         } else if (raw.includes("timeout")) {
           description =
-            "A sessão local ficou presa. Feche todas as abas do Posiciona, abra uma nova aba anônima e tente novamente. Se persistir, limpe o cache do navegador.";
+            "A conexão demorou demais para responder. Verifique sua internet e tente novamente.";
         } else if (
           raw.includes("load failed") ||
           raw.includes("failed to fetch") ||
