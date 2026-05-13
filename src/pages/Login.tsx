@@ -29,11 +29,16 @@ const Login = () => {
     let lastError: any = null;
     for (let i = 0; i <= retries; i++) {
       try {
-        const result = await supabase.auth.signInWithPassword({ email: cleanEmail, password: cleanPassword });
-        return result;
+        // Timeout duro: se a chamada não voltar em 15s, abortamos para destravar a UI.
+        const result = await Promise.race([
+          supabase.auth.signInWithPassword({ email: cleanEmail, password: cleanPassword }),
+          new Promise<{ error: any }>((_, reject) =>
+            setTimeout(() => reject(new Error("timeout")), 15000)
+          ),
+        ]);
+        return result as { error: any };
       } catch (err) {
         lastError = err;
-        // Wait briefly before retry (network may be momentarily unstable)
         if (i < retries) await new Promise(r => setTimeout(r, 800));
       }
     }
