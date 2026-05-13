@@ -229,7 +229,10 @@ const Results = () => {
       }
     };
     run();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      window.removeEventListener("app:signout", onSignout);
+    };
   }, [user]);
 
   const top3 = getTop3(scores);
