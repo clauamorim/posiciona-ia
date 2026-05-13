@@ -39,7 +39,14 @@ const adminGroups: NavGroup[] = [
 export const DashboardLayout = ({ children, wide = false }: { children: React.ReactNode; wide?: boolean }) => {
   const { user, isAdmin, signOut } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  const handleSignOut = async () => {
+    setMobileOpen(false);
+    try { await signOut(); } catch (e) { console.error("signOut error:", e); }
+    navigate("/login", { replace: true });
+  };
 
   // Journey status data
   const [journeyStatus, setJourneyStatus] = useState<Record<string, "done" | "in_progress" | "pending" | "blocked">>({});
