@@ -213,9 +213,18 @@ const AdminUsers = () => {
 
   const saveCredits = async () => {
     if (!editingCredits) return;
-    const { error } = await supabase.from("user_balances").update(balanceForm).eq("user_id", editingCredits.userId);
+    const { error } = await supabase.rpc("admin_set_balances", {
+      p_user_id: editingCredits.userId,
+      p_weekly_cycles: balanceForm.weekly_cycles ?? null,
+      p_reanalysis_credits: balanceForm.reanalysis_credits ?? null,
+      p_portrait_credits_included: balanceForm.portrait_credits_included ?? null,
+      p_portrait_credits_extra: balanceForm.portrait_credits_extra ?? null,
+      p_regeneration_credits: balanceForm.regeneration_credits ?? null,
+      p_log_type: "admin_adjustment",
+      p_log_amount: 0,
+      p_log_description: "Ajuste manual de saldos pelo admin",
+    });
     if (error) { toast({ title: "Erro ao salvar", variant: "destructive" }); return; }
-    await supabase.from("credit_logs").insert({ user_id: editingCredits.userId, credit_type: "admin_adjustment", amount: 0, description: "Ajuste manual de saldos pelo admin" });
     toast({ title: "Saldos atualizados" });
     setEditingCredits(null);
     loadUsers();
@@ -253,18 +262,16 @@ const AdminUsers = () => {
       });
     }
 
-    await supabase.from("user_balances").update({
-      weekly_cycles: plan.weekly_cycles * months,
-      reanalysis_credits: plan.reanalysis_credits * months,
-      portrait_credits_included: plan.portrait_credits * months,
-      regeneration_credits: plan.regeneration_credits * months,
-    }).eq("user_id", assigningPlan.userId);
-
-    await supabase.from("credit_logs").insert({
-      user_id: assigningPlan.userId,
-      credit_type: "admin_plan_assign",
-      amount: months,
-      description: `Plano "${plan.name}" atribuído por ${months} mês(es) pelo admin`,
+    await supabase.rpc("admin_set_balances", {
+      p_user_id: assigningPlan.userId,
+      p_weekly_cycles: plan.weekly_cycles * months,
+      p_reanalysis_credits: plan.reanalysis_credits * months,
+      p_portrait_credits_included: plan.portrait_credits * months,
+      p_portrait_credits_extra: null,
+      p_regeneration_credits: plan.regeneration_credits * months,
+      p_log_type: "admin_plan_assign",
+      p_log_amount: months,
+      p_log_description: `Plano "${plan.name}" atribuído por ${months} mês(es) pelo admin`,
     });
 
     toast({ title: `Plano "${plan.name}" atribuído com sucesso` });
