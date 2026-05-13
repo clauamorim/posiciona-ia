@@ -1,34 +1,35 @@
 ## Diagnóstico
 
-O backend hospedado está saudável. No meu teste no Preview, uma tentativa com credenciais inválidas chamou `/auth/v1/token?grant_type=password` e voltou em ~400ms com `invalid_credentials`, então a autenticação em si responde.
+O anexo mostra o toast “A conexão demorou demais para responder”. Os sinais atuais indicam:
 
-O travamento relatado acontece antes da requisição aparecer na rede, e começou depois das correções para travamento ao trocar de aba/logout. O ponto frágil atual é o patch `supabaseAuthLockFix.ts`: ele tenta esconder `navigator.locks`, mas isso é um hack global e pode falhar por ordem de carregamento, Safari/Preview ou HMR. Além disso, o cliente gerado não está usando a API oficial de lock da biblioteca.
+- A chamada de login está sendo disparada para `/auth/v1/token?grant_type=password`.
+- No Preview, a requisição falha como `Load failed`, sem resposta HTTP do backend.
+- O backend hospedado está saudável.
+- Esse padrão é compatível com falha de rede/proxy do Preview/Safari, não com senha incorreta, RLS ou banco travado.
+- A alteração anterior em `src/integrations/supabase/client.ts` editou um arquivo marcado como gerado automaticamente; isso deve ser revertido para evitar instabilidade futura.
 
 ## Plano de correção
 
-1. **Trocar o hack global por lock explícito e estável**
-   - Remover o arquivo `src/lib/supabaseAuthLockFix.ts` e o import em `src/main.tsx`.
-   - Configurar o cliente de autenticação com `processLock` oficial da biblioteca, evitando o Web Locks API que pode ficar preso ao trocar de aba.
-   - Manter `persistSession` e `autoRefreshToken`.
+1. **Desfazer alteração em arquivo gerado**
+   - Restaurar `src/integrations/supabase/client.ts` para o formato padrão gerado.
+   - Remover o uso manual de `processLock` nesse arquivo, porque ele não deve ser editado diretamente.
 
-2. **Proteger o login contra requisições órfãs**
-   - Remover retries longos que fazem o usuário esperar até 45s.
-   - Usar uma única tentativa com timeout curto e mensagem clara.
-   - Garantir que o botão sempre volte para “Entrar”.
+2. **Manter o login sem travar a interface**
+   - Preservar o timeout curto no `Login.tsx`, para o botão voltar ao estado normal mesmo quando o Preview/Safari bloqueia a requisição.
+   - Ajustar a mensagem de erro para diferenciar melhor “falha de conexão no Preview/navegador” de “credenciais incorretas”.
+   - Evitar retries automáticos que geram várias chamadas simultâneas e dão aparência de travamento.
 
-3. **Revisar restauração/logout sem bloquear a UI**
-   - Conferir `AuthContext` para manter o padrão correto: listener síncrono, hidratação desacoplada e timeout de hidratação.
-   - Não alterar banco, usuários, senhas, planos ou RLS.
+3. **Não mexer em backend, CORS ou autenticação hospedada**
+   - Não adicionar CORS manual.
+   - Não trocar URL/chaves do backend.
+   - Não sobrescrever `window.fetch`.
+   - Não alterar RLS, usuários, senhas ou planos.
 
-4. **Validar no Preview**
-   - Testar login inválido: deve responder rapidamente com “E-mail ou senha incorretos”.
-   - Confirmar na rede que `/auth/v1/token` é chamado.
-   - Confirmar que não aparece mais a mensagem falsa “sessão local ficou presa” quando a requisição de auth está funcionando.
+4. **Orientar validação correta**
+   - Testar o mesmo login no domínio publicado/custom domain: `https://posiciona.ia.br/login`.
+   - Se funcionar no publicado e falhar só no Preview/Safari, confirmar que o problema é do ambiente Preview/proxy/navegador.
+   - No Preview, sugerir testar Chrome ou janela privada do Safari como contorno temporário.
 
-## Arquivos envolvidos
+## Resultado esperado
 
-- `src/integrations/supabase/client.ts`
-- `src/main.tsx`
-- `src/lib/supabaseAuthLockFix.ts`
-- `src/pages/Login.tsx`
-- `src/contexts/AuthContext.tsx` apenas se a revisão mostrar bloqueio real no fluxo de sessão
+O app não ficará preso no login, o código voltará a respeitar os arquivos gerados automaticamente, e a mensagem deixará claro quando a falha é de conexão do Preview/navegador em vez de um erro real de autenticação.
