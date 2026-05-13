@@ -1066,6 +1066,24 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_set_balances: {
+        Args: {
+          p_log_amount: number
+          p_log_description: string
+          p_log_type: string
+          p_portrait_credits_extra: number
+          p_portrait_credits_included: number
+          p_reanalysis_credits: number
+          p_regeneration_credits: number
+          p_user_id: string
+          p_weekly_cycles: number
+        }
+        Returns: undefined
+      }
+      consume_credit: {
+        Args: { p_amount: number; p_credit_type: string; p_description: string }
+        Returns: undefined
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

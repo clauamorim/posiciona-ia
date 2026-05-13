@@ -174,12 +174,10 @@ const BusinessQuestionnaire = () => {
 
   const handleReanalysis = async (mode: "edit" | "reset") => {
     if (!user || reanalysisCredits < 1) return;
-    await supabase.from("user_balances").update({ reanalysis_credits: reanalysisCredits - 1 }).eq("user_id", user.id);
-    await supabase.from("credit_logs").insert({
-      user_id: user.id,
-      credit_type: "reanalysis",
-      amount: -1,
-      description: `Reanálise: ${mode === "edit" ? "editar questionário de negócio" : "refazer do zero"}`,
+    await supabase.rpc("consume_credit", {
+      p_credit_type: "reanalysis",
+      p_amount: -1,
+      p_description: `Reanálise: ${mode === "edit" ? "editar questionário de negócio" : "refazer do zero"}`,
     });
     if (mode === "reset") {
       const cleared: Record<string, string> = {};

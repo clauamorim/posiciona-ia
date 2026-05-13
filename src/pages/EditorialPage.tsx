@@ -493,11 +493,11 @@ const EditorialPage = () => {
       }
 
       if (!freeMode) {
-        await supabase.from("user_balances").update({ regeneration_credits: regenerationCredits - 1 }).eq("user_id", user.id);
         const themeForLog = target === "feed" ? (newFeed?.theme || day.feed?.theme || "") : (newStory?.theme || day.story?.theme || "");
-        await supabase.from("credit_logs").insert({
-          user_id: user.id, credit_type: "regeneration", amount: -1,
-          description: `Ajuste de conteúdo (${target}): ${themeForLog}`,
+        await supabase.rpc("consume_credit", {
+          p_credit_type: "regeneration",
+          p_amount: -1,
+          p_description: `Ajuste de conteúdo (${target}): ${themeForLog}`,
         });
         await refreshSubscription();
       }

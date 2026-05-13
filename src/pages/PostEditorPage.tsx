@@ -862,21 +862,15 @@ const PostEditorPage = () => {
         });
         return false;
       }
-      const newBalance = current - 1;
-      const { error: updErr } = await supabase
-        .from("user_balances")
-        .update({ regeneration_credits: newBalance })
-        .eq("user_id", user.id);
-      if (updErr) {
-        console.warn("Failed to debit regeneration credit", updErr);
+      const { error: rpcErr } = await supabase.rpc("consume_credit", {
+        p_credit_type: "regeneration",
+        p_amount: -1,
+        p_description: "Geração de imagem IA no editor",
+      });
+      if (rpcErr) {
+        console.warn("Failed to debit regeneration credit", rpcErr);
         return false;
       }
-      await supabase.from("credit_logs").insert({
-        user_id: user.id,
-        credit_type: "regeneration",
-        amount: -1,
-        description: "Geração de imagem IA no editor",
-      });
       await refreshSubscription();
       return true;
     } catch (err) {
