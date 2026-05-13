@@ -215,7 +215,7 @@ export const DashboardLayout = ({ children, wide = false }: { children: React.Re
         {/* Footer — e-mail + botão Sair (sempre visível) */}
         <div className="px-3 py-3 border-t border-border space-y-2">
           <button
-            onClick={() => { setMobileOpen(false); signOut(); }}
+            onClick={handleSignOut}
             className="flex items-center gap-2.5 px-3 py-2 min-h-[44px] rounded-lg text-sm lg:text-[15px] font-medium transition-colors w-full text-muted-foreground hover:bg-card hover:text-foreground"
           >
             <LogOut className="h-[18px] w-[18px] flex-shrink-0" />
