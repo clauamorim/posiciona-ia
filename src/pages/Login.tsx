@@ -26,7 +26,10 @@ const Login = () => {
     }
   }, [loginTriggered, authLoading, user, isAdmin, navigate]);
 
-  const attemptLogin = async (cleanEmail: string, cleanPassword: string) => {
+  const attemptLogin = async (
+    cleanEmail: string,
+    cleanPassword: string
+  ): Promise<Awaited<ReturnType<typeof supabase.auth.signInWithPassword>> | { data: null; error: any }> => {
     try {
       await clearLocalAuthSession();
       // Single attempt with a short hard timeout so the UI never hangs.
@@ -101,7 +104,11 @@ const Login = () => {
         toast({ title: "Erro ao entrar", description, variant: "destructive" });
       } else {
         setLoginTriggered(true);
-        navigate(data?.user?.app_metadata?.role === "admin" ? "/admin" : "/dashboard", { replace: true });
+        const { data: adminData } = await supabase.rpc("has_role", {
+          _user_id: data.user.id,
+          _role: "admin",
+        });
+        navigate(adminData ? "/admin" : "/dashboard", { replace: true });
       }
     } catch (err: any) {
       setLoading(false);
