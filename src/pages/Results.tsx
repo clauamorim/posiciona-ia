@@ -270,6 +270,11 @@ const Results = () => {
               <p className="font-medium text-sm">
                 {stage === "generating_report" && progressMessage ? progressMessage : STAGE_LABELS[stage]}
               </p>
+              {stage === "generating_report" && (
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Continuamos gerando em segundo plano. Você pode sair desta tela e voltar quando quiser.
+                </p>
+              )}
               {stage === "error" && errorMsg && (
                 <p className="text-xs text-muted-foreground mt-0.5">{errorMsg}</p>
               )}
