@@ -83,6 +83,9 @@ const Login = () => {
           description = "E-mail ou senha incorretos. Verifique e tente novamente.";
         } else if (raw.includes("email not confirmed")) {
           description = "Você ainda não confirmou seu e-mail. Verifique sua caixa de entrada.";
+        } else if (raw.includes("timeout")) {
+          description =
+            "A sessão local ficou presa. Feche todas as abas do Posiciona, abra uma nova aba anônima e tente novamente. Se persistir, limpe o cache do navegador.";
         } else if (
           raw.includes("load failed") ||
           raw.includes("failed to fetch") ||
