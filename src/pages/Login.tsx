@@ -39,9 +39,9 @@ const Login = () => {
           setTimeout(() => reject(new Error("timeout")), 12000)
         ),
       ]);
-      return result;
+      return "data" in result ? result : { data: null, error: result.error };
     } catch (err) {
-      return { error: err };
+      return { data: null, error: err };
     }
   };
 
