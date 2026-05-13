@@ -1,17 +1,9 @@
-import { supabase } from "@/integrations/supabase/client";
-
 const isAuthStorageKey = (key: string) =>
   /^sb-[^-]+-auth-token$/.test(key) ||
   key.includes("supabase.auth.token") ||
   key.includes("gotrue");
 
 export const clearLocalAuthSession = async () => {
-  try {
-    await supabase.auth.signOut({ scope: "local" });
-  } catch {
-    // Local cleanup below is the fallback when the stored session is already invalid.
-  }
-
   try {
     const keysToRemove: string[] = [];
     for (let i = 0; i < localStorage.length; i += 1) {

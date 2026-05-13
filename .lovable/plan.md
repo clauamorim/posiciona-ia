@@ -1,49 +1,36 @@
-## Diagnóstico
+Diagnóstico confirmado:
+- O backend está respondendo normalmente.
+- No preview da usuária, a chamada real para `/auth/v1/token?grant_type=password` falha como `Load failed` no navegador, antes de expor a resposta ao app.
+- Testando fora do navegador com o mesmo domínio, o endpoint responde corretamente com HTTP 400 e `invalid_credentials` quando a senha é falsa. Ou seja: não é erro de RLS, plano, perfil, assinatura ou rota protegida.
+- O código atual ainda tem um ponto arriscado: antes de cada login ele chama `supabase.auth.signOut({ scope: "local" })`. Isso dispara fluxo interno de auth e eventos de sessão imediatamente antes do `signInWithPassword`, o que pode produzir comportamento instável em Safari/Chrome e mascarar o erro real como falha de conexão.
 
-O backend está saudável e a conta `claudiacomput@hotmail.com` existe, está confirmada, não está banida e tem assinatura ativa. O erro que aparece agora vem do endpoint de autenticação retornando `invalid_credentials`, não de conexão nem de RLS/permissões do banco.
+Plano de correção:
+1. Simplificar a limpeza local antes do login
+   - Alterar `clearLocalAuthSession` para apenas remover chaves locais de autenticação do navegador, sem chamar `supabase.auth.signOut({ scope: "local" })`.
+   - Manter a função segura para localStorage indisponível/privado.
 
-Há dois pontos frágeis no código atual que podem deixar o login parecendo “quebrado” depois das mudanças de logout/sessão:
+2. Separar logout real de limpeza local
+   - No `AuthContext.signOut`, manter um único `supabase.auth.signOut()` remoto.
+   - Depois dele, chamar apenas a limpeza local passiva.
+   - Evitar duplo logout remoto/local que pode gerar eventos concorrentes.
 
-1. O login aplica `trim()` na senha. Isso altera a senha digitada se ela tiver espaço no começo ou no fim, e pode gerar `invalid_credentials` mesmo quando a usuária digitou a senha “certa”.
-2. O app não faz uma limpeza explícita e completa da sessão local antes de uma nova tentativa de login. Depois do problema anterior de travamento/logout, pode sobrar sessão/token inválido no `localStorage`, especialmente entre Preview, domínio publicado e custom domain.
+3. Corrigir classificação do erro de login
+   - No `Login.tsx`, tratar `error.code`, `error.error_code`, `error.status` e mensagens retornadas pela biblioteca.
+   - Se o navegador devolver `Load failed`, mostrar como falha de conexão somente quando de fato não houver resposta HTTP.
+   - Quando houver resposta HTTP de credenciais inválidas, mostrar `E-mail ou senha incorretos`.
 
-## Plano de correção
+4. Adicionar um fallback de diagnóstico controlado no login
+   - Se `signInWithPassword` cair em erro de rede (`Load failed`/timeout), fazer uma segunda chamada `fetch` direta ao mesmo endpoint com os mesmos dados.
+   - Se esse fallback receber `invalid_credentials`, mostrar a mensagem correta.
+   - Se o fallback também falhar sem resposta, manter a mensagem de conexão.
+   - Se o fallback autenticar com sucesso, gravar a sessão no client e navegar normalmente.
 
-1. **Corrigir o envio da senha no login**
-   - Manter normalização apenas no e-mail.
-   - Enviar a senha exatamente como digitada, sem `trim()`.
-   - Validar senha vazia usando `password.length`, sem modificar o valor.
+5. Preservar segurança e dados
+   - Não alterar senha, conta, assinatura, questionários, relatórios ou banco de dados.
+   - Não expor credenciais em logs.
+   - Não mexer nos arquivos auto-gerados da integração.
 
-2. **Adicionar limpeza segura antes de autenticar novamente**
-   - Antes de chamar o login, limpar tokens locais antigos do Lovable Cloud/Auth no domínio atual.
-   - Chamar logout com escopo local quando houver sessão residual, sem depender de resposta remota.
-   - Evitar que uma sessão revogada de logout anterior contamine uma nova tentativa.
-
-3. **Deixar o redirecionamento pós-login determinístico**
-   - Após `signInWithPassword` bem-sucedido, navegar imediatamente usando a sessão retornada.
-   - Não depender exclusivamente da hidratação assíncrona do `AuthContext` para sair da tela de login.
-   - Preservar a verificação de admin/plano existente no `ProtectedRoute`.
-
-4. **Melhorar a mensagem para este caso real**
-   - Manter `E-mail ou senha incorretos` quando o backend rejeitar credenciais.
-   - Remover a mensagem enganosa de “conexão/servidor” para erros HTTP válidos.
-   - Se houver timeout/falha de rede real, aí sim exibir a mensagem de conexão.
-
-5. **Garantir caminho de recuperação caso a senha tenha sido alterada ou o usuário esteja preso**
-   - Revisar o fluxo de “Esqueci minha senha” e `/reset-password` para confirmar que ele redefine a senha sem prender o usuário em sessão antiga.
-   - Se necessário, ajustar o reset para limpar sessão local antes/depois da atualização e levar de volta ao login com uma mensagem clara.
-
-6. **Validar depois da implementação**
-   - Conferir que o login chama o endpoint correto e que os erros são classificados corretamente.
-   - Conferir que logout não deixa estado local preso.
-   - Conferir que a conta continua com perfil, role e plano ativos depois do login.
-
-## Arquivos envolvidos
-
-- `src/pages/Login.tsx`
-- `src/contexts/AuthContext.tsx`
-- `src/pages/ResetPassword.tsx` se a revisão confirmar necessidade de ajuste no reset
-
-## Observação importante
-
-Como o backend está respondendo normalmente e a conta está ativa, se após essa correção o backend ainda retornar `invalid_credentials`, a solução definitiva será redefinir a senha pelo fluxo “Esqueci minha senha”. Isso não apaga dados, plano, questionários ou relatórios da conta.
+Validação:
+- Testar no preview com credenciais falsas para confirmar que aparece `E-mail ou senha incorretos`, não “Não conseguimos conectar”.
+- Confirmar na aba de rede que a chamada ao auth recebe resposta HTTP quando disponível.
+- Confirmar que o backend segue saudável.
