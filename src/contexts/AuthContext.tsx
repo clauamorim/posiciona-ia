@@ -254,7 +254,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    // Notify long-running components (polling loops) to abort before we revoke the token.
+    try { window.dispatchEvent(new CustomEvent("app:signout")); } catch {}
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {
+      console.error("supabase.auth.signOut error:", e);
+    }
+    // Force-clear local state in case onAuthStateChange doesn't fire fast enough.
+    authRequestRef.current += 1;
+    resetAuthState();
+    setIsLoading(false);
   };
 
   const hasActivePlan = !!subscription && subscription.status === "active";
