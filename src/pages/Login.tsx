@@ -78,17 +78,15 @@ const Login = () => {
           description = "E-mail ou senha incorretos. Verifique e tente novamente.";
         } else if (raw.includes("email not confirmed")) {
           description = "Você ainda não confirmou seu e-mail. Verifique sua caixa de entrada.";
-        } else if (raw.includes("timeout")) {
-          description =
-            "A conexão demorou demais para responder. Verifique sua internet e tente novamente.";
         } else if (
+          raw.includes("timeout") ||
           raw.includes("load failed") ||
           raw.includes("failed to fetch") ||
           raw.includes("network") ||
           raw.includes("fetch")
         ) {
           description =
-            "Não conseguimos conectar ao servidor. Tente alternar entre Wi-Fi e 4G/5G. Algumas redes corporativas ou de operadoras bloqueiam o acesso. Se persistir, tente em outro navegador ou rede.";
+            "Não conseguimos conectar ao servidor a partir deste navegador. Se você está testando no Preview do Lovable pelo Safari, tente abrir o app publicado (https://posiciona.ia.br/login) ou use o Chrome. Em redes corporativas/operadoras o acesso também pode estar bloqueado.";
         }
         toast({ title: "Erro ao entrar", description, variant: "destructive" });
       } else {
