@@ -1,36 +1,42 @@
-Diagnóstico confirmado:
-- O backend está respondendo normalmente.
-- No preview da usuária, a chamada real para `/auth/v1/token?grant_type=password` falha como `Load failed` no navegador, antes de expor a resposta ao app.
-- Testando fora do navegador com o mesmo domínio, o endpoint responde corretamente com HTTP 400 e `invalid_credentials` quando a senha é falsa. Ou seja: não é erro de RLS, plano, perfil, assinatura ou rota protegida.
-- O código atual ainda tem um ponto arriscado: antes de cada login ele chama `supabase.auth.signOut({ scope: "local" })`. Isso dispara fluxo interno de auth e eventos de sessão imediatamente antes do `signInWithPassword`, o que pode produzir comportamento instável em Safari/Chrome e mascarar o erro real como falha de conexão.
+## Diagnóstico
 
-Plano de correção:
-1. Simplificar a limpeza local antes do login
-   - Alterar `clearLocalAuthSession` para apenas remover chaves locais de autenticação do navegador, sem chamar `supabase.auth.signOut({ scope: "local" })`.
-   - Manter a função segura para localStorage indisponível/privado.
+O problema real não parece ser senha, plano, assinatura ou banco de dados. O backend está saudável, mas no navegador a chamada de login para `/auth/v1/token?grant_type=password` aparece como `Fetch is aborted` antes de receber resposta. Isso acontece tanto com e-mail inválido quanto com credenciais corretas.
 
-2. Separar logout real de limpeza local
-   - No `AuthContext.signOut`, manter um único `supabase.auth.signOut()` remoto.
-   - Depois dele, chamar apenas a limpeza local passiva.
-   - Evitar duplo logout remoto/local que pode gerar eventos concorrentes.
+A causa mais provável está no fluxo atual do `Login.tsx`: ele combina `signInWithPassword`, limpeza manual de sessão, `Promise.race` com timeout e um fallback `fetch` com `AbortController`. Esse fallback também aborta e acaba mascarando qualquer resultado real, inclusive login válido.
 
-3. Corrigir classificação do erro de login
-   - No `Login.tsx`, tratar `error.code`, `error.error_code`, `error.status` e mensagens retornadas pela biblioteca.
-   - Se o navegador devolver `Load failed`, mostrar como falha de conexão somente quando de fato não houver resposta HTTP.
-   - Quando houver resposta HTTP de credenciais inválidas, mostrar `E-mail ou senha incorretos`.
+## Plano de correção
 
-4. Adicionar um fallback de diagnóstico controlado no login
-   - Se `signInWithPassword` cair em erro de rede (`Load failed`/timeout), fazer uma segunda chamada `fetch` direta ao mesmo endpoint com os mesmos dados.
-   - Se esse fallback receber `invalid_credentials`, mostrar a mensagem correta.
-   - Se o fallback também falhar sem resposta, manter a mensagem de conexão.
-   - Se o fallback autenticar com sucesso, gravar a sessão no client e navegar normalmente.
+1. **Simplificar o login para parar de abortar a autenticação**
+   - Remover o `Promise.race` manual ao redor de `supabase.auth.signInWithPassword`.
+   - Remover o fallback direto com `fetch` para `/auth/v1/token` e seu `AbortController`.
+   - Manter o fluxo oficial da biblioteca de autenticação como fonte única da verdade.
 
-5. Preservar segurança e dados
-   - Não alterar senha, conta, assinatura, questionários, relatórios ou banco de dados.
-   - Não expor credenciais em logs.
-   - Não mexer nos arquivos auto-gerados da integração.
+2. **Não limpar a sessão imediatamente antes de tentar login**
+   - Parar de chamar `clearLocalAuthSession()` dentro do submit de login.
+   - Preservar `clearLocalAuthSession()` para logout e recuperação de senha, onde faz sentido limpar estado local.
+   - Evitar remover chaves de autenticação enquanto a própria biblioteca está tentando adquirir lock/salvar sessão.
 
-Validação:
-- Testar no preview com credenciais falsas para confirmar que aparece `E-mail ou senha incorretos`, não “Não conseguimos conectar”.
-- Confirmar na aba de rede que a chamada ao auth recebe resposta HTTP quando disponível.
-- Confirmar que o backend segue saudável.
+3. **Melhorar a mensagem de erro sem esconder o erro real**
+   - Mapear `invalid_credentials` para `E-mail ou senha incorretos`.
+   - Mapear `email_not_confirmed` para orientação de confirmação de e-mail.
+   - Se ainda houver erro de rede real, mostrar mensagem de conexão, mas sem transformar aborts artificiais em diagnóstico final.
+
+4. **Deixar a navegação pós-login depender do estado de autenticação**
+   - Após sucesso do `signInWithPassword`, marcar `loginTriggered` e deixar o `AuthContext` hidratar a sessão.
+   - Evitar chamada extra imediata de admin no `Login.tsx` quando o contexto já faz essa hidratação.
+   - Isso reduz corrida entre salvar sessão, carregar permissões e navegar.
+
+5. **Validação após implementação**
+   - Testar e-mail inválido: deve retornar mensagem de credenciais incorretas, não `Fetch is aborted`.
+   - Testar e-mail correto: deve concluir login e ir para dashboard/admin.
+   - Conferir no preview/rede que não há duas tentativas concorrentes nem abort manual no login.
+
+## Arquivos previstos
+
+- `src/pages/Login.tsx`: simplificar fluxo de submit, remover timeout/fallback direto e ajustar mensagens.
+- `src/lib/authCleanup.ts`: manter como limpeza passiva local, sem mudanças grandes se não for necessário.
+- `src/contexts/AuthContext.tsx`: revisar apenas se necessário para garantir que logout continue seguro e login não dependa de estado concorrente.
+
+## Observação
+
+Não pretendo alterar senha, conta, dados do usuário, planos, relatórios ou estrutura do backend.
