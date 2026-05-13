@@ -1,5 +1,6 @@
 import { createRoot } from "react-dom/client";
 import { HelmetProvider } from "react-helmet-async";
+import "./lib/supabaseAuthLockFix.ts";
 import App from "./App.tsx";
 import "./index.css";
 
