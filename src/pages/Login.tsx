@@ -9,6 +9,7 @@ import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { ArrowLeft } from "lucide-react";
 import posicionaLogo from "@/assets/posiciona-logo.png";
+import { clearLocalAuthSession } from "@/lib/authCleanup";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -25,8 +26,12 @@ const Login = () => {
     }
   }, [loginTriggered, authLoading, user, isAdmin, navigate]);
 
-  const attemptLogin = async (cleanEmail: string, cleanPassword: string): Promise<{ error: any }> => {
+  const attemptLogin = async (
+    cleanEmail: string,
+    cleanPassword: string
+  ): Promise<Awaited<ReturnType<typeof supabase.auth.signInWithPassword>> | { data: null; error: any }> => {
     try {
+      await clearLocalAuthSession();
       // Single attempt with a short hard timeout so the UI never hangs.
       const result = await Promise.race([
         supabase.auth.signInWithPassword({ email: cleanEmail, password: cleanPassword }),
@@ -34,9 +39,9 @@ const Login = () => {
           setTimeout(() => reject(new Error("timeout")), 12000)
         ),
       ]);
-      return result as { error: any };
+      return "data" in result ? result : { data: null, error: result.error };
     } catch (err) {
-      return { error: err };
+      return { data: null, error: err };
     }
   };
 
@@ -46,9 +51,9 @@ const Login = () => {
 
     // Sanitize inputs (mobile keyboards often add trailing spaces or invisible chars)
     const cleanEmail = email.trim().toLowerCase().replace(/\s+/g, "");
-    const cleanPassword = password.trim();
+    const cleanPassword = password;
 
-    if (!cleanEmail || !cleanPassword) {
+    if (!cleanEmail || cleanPassword.length === 0) {
       setLoading(false);
       toast({
         title: "Dados incompletos",
@@ -69,7 +74,7 @@ const Login = () => {
     }
 
     try {
-      const { error } = await attemptLogin(cleanEmail, cleanPassword);
+      const { data, error } = await attemptLogin(cleanEmail, cleanPassword);
       setLoading(false);
       if (error) {
         const code = (error as any)?.code || "";
@@ -99,6 +104,11 @@ const Login = () => {
         toast({ title: "Erro ao entrar", description, variant: "destructive" });
       } else {
         setLoginTriggered(true);
+        const { data: adminData } = await supabase.rpc("has_role", {
+          _user_id: data.user.id,
+          _role: "admin",
+        });
+        navigate(adminData ? "/admin" : "/dashboard", { replace: true });
       }
     } catch (err: any) {
       setLoading(false);

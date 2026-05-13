@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { toast } from "@/hooks/use-toast";
 import { AlertCircle } from "lucide-react";
 import posicionaLogo from "@/assets/posiciona-logo.png";
+import { clearLocalAuthSession } from "@/lib/authCleanup";
 
 const ResetPassword = () => {
   const navigate = useNavigate();
@@ -60,7 +61,8 @@ const ResetPassword = () => {
     }
 
     toast({ title: "Senha atualizada", description: "Você já pode usar sua nova senha." });
-    navigate("/dashboard", { replace: true });
+    await clearLocalAuthSession();
+    navigate("/login", { replace: true });
   };
 
   return (
