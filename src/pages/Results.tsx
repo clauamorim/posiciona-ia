@@ -289,6 +289,11 @@ const Results = () => {
                 </Button>
               </div>
             )}
+            {stage === "generating_report" && (
+              <Button size="sm" variant="outline" onClick={() => navigate("/dashboard")} className="flex-shrink-0">
+                Ir para o Dashboard
+              </Button>
+            )}
             {stage === "error" && (
               <div className="flex items-center gap-2 text-xs text-muted-foreground flex-shrink-0 max-w-xs">
                 <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
