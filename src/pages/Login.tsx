@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,30 @@ import { useAuth } from "@/contexts/AuthContext";
 import { ArrowLeft } from "lucide-react";
 import posicionaLogo from "@/assets/posiciona-logo.png";
 
+const LOGIN_TIMEOUT_MS = 15000;
+
+type LoginTimeoutResult = { timedOut: true };
+
+const signInWithTimeout = async (
+  email: string,
+  password: string
+): Promise<Awaited<ReturnType<typeof supabase.auth.signInWithPassword>> | LoginTimeoutResult> => {
+  let timeoutId: ReturnType<typeof setTimeout>;
+
+  const timeoutPromise = new Promise<LoginTimeoutResult>((resolve) => {
+    timeoutId = setTimeout(() => resolve({ timedOut: true }), LOGIN_TIMEOUT_MS);
+  });
+
+  try {
+    return await Promise.race([
+      supabase.auth.signInWithPassword({ email, password }),
+      timeoutPromise,
+    ]);
+  } finally {
+    clearTimeout(timeoutId!);
+  }
+};
+
 const Login = () => {
   const navigate = useNavigate();
   const { user, isAdmin, isLoading: authLoading } = useAuth();
@@ -17,6 +41,7 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [loginTriggered, setLoginTriggered] = useState(false);
+  const loginAttemptRef = useRef(0);
 
   useEffect(() => {
     if (!loginTriggered || authLoading) return;
@@ -27,6 +52,7 @@ const Login = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    const attemptId = ++loginAttemptRef.current;
     setLoading(true);
 
     const cleanEmail = email.trim().toLowerCase().replace(/\s+/g, "");
@@ -43,12 +69,22 @@ const Login = () => {
     }
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email: cleanEmail,
-        password: cleanPassword,
-      });
+      const result = await signInWithTimeout(cleanEmail, cleanPassword);
+
+      if (attemptId !== loginAttemptRef.current) return;
 
       setLoading(false);
+
+      if ("timedOut" in result) {
+        toast({
+          title: "Erro ao entrar",
+          description: "A conexão demorou mais que o esperado. Tente novamente em alguns instantes.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const { error } = result;
 
       if (error) {
         const code = (error as any)?.code || (error as any)?.error_code || "";
@@ -80,6 +116,7 @@ const Login = () => {
 
       setLoginTriggered(true);
     } catch (err: any) {
+      if (attemptId !== loginAttemptRef.current) return;
       setLoading(false);
       toast({
         title: "Erro ao entrar",
