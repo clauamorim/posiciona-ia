@@ -151,14 +151,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const hydrateUser = async (newSession: Session, requestId: number) => {
     const userId = newSession.user.id;
 
-    const [adminResult, subResult, balResult] = await Promise.all([
+    // Fail-safe: never let loading hang forever if a query stalls.
+    const timeoutPromise = new Promise<"timeout">((resolve) =>
+      setTimeout(() => resolve("timeout"), 8000)
+    );
+    const dataPromise = Promise.all([
       checkAdmin(userId),
       loadSubscription(userId),
       loadBalances(userId),
     ]);
 
+    const result = await Promise.race([dataPromise, timeoutPromise]);
     if (authRequestRef.current !== requestId) return;
 
+    if (result === "timeout") {
+      console.warn("AuthContext: hydration timed out — proceeding without full data");
+      setSession(newSession);
+      sessionUserIdRef.current = userId;
+      hydrationDoneRef.current = true;
+      setIsLoading(false);
+      // Retry in background; UI is already usable.
+      dataPromise.then(([adminResult, subResult, balResult]) => {
+        if (authRequestRef.current !== requestId) return;
+        setIsAdmin(adminResult);
+        setSubscription(subResult);
+        setBalances(balResult);
+      }).catch(() => {});
+      return;
+    }
+
+    const [adminResult, subResult, balResult] = result;
     setSession(newSession);
     sessionUserIdRef.current = userId;
     setIsAdmin(adminResult);
