@@ -72,21 +72,29 @@ const Login = () => {
       const { error } = await attemptLogin(cleanEmail, cleanPassword);
       setLoading(false);
       if (error) {
+        const code = (error as any)?.code || "";
+        const status = (error as any)?.status;
         const raw = (error.message || "").toLowerCase();
+        const hasHttpResponse = typeof status === "number" && status > 0;
+
         let description = error.message || "Erro desconhecido.";
-        if (raw.includes("invalid login") || raw.includes("invalid_credentials")) {
+
+        if (code === "invalid_credentials" || raw.includes("invalid login") || raw.includes("invalid_credentials")) {
           description = "E-mail ou senha incorretos. Verifique e tente novamente.";
-        } else if (raw.includes("email not confirmed")) {
+        } else if (code === "email_not_confirmed" || raw.includes("email not confirmed")) {
           description = "Você ainda não confirmou seu e-mail. Verifique sua caixa de entrada.";
+        } else if (code === "over_request_rate_limit" || raw.includes("rate limit")) {
+          description = "Muitas tentativas em pouco tempo. Aguarde alguns instantes e tente novamente.";
         } else if (
-          raw.includes("timeout") ||
-          raw.includes("load failed") ||
-          raw.includes("failed to fetch") ||
-          raw.includes("network") ||
-          raw.includes("fetch")
+          !hasHttpResponse &&
+          (raw.includes("timeout") ||
+            raw.includes("load failed") ||
+            raw.includes("failed to fetch") ||
+            raw === "network" ||
+            raw.includes("networkerror"))
         ) {
           description =
-            "Não conseguimos conectar ao servidor a partir deste navegador. Se você está testando no Preview do Lovable pelo Safari, tente abrir o app publicado (https://posiciona.ia.br/login) ou use o Chrome. Em redes corporativas/operadoras o acesso também pode estar bloqueado.";
+            "Não conseguimos conectar ao servidor. Verifique sua conexão e tente novamente. Em redes corporativas o acesso pode estar bloqueado.";
         }
         toast({ title: "Erro ao entrar", description, variant: "destructive" });
       } else {
