@@ -26,10 +26,81 @@ const Login = () => {
     }
   }, [loginTriggered, authLoading, user, isAdmin, navigate]);
 
+  const authErrorText = (error: any) =>
+    [error?.message, error?.msg, error?.error_description, error?.error]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+
+  const hasHttpResponse = (error: any) => typeof error?.status === "number" && error.status > 0;
+
+  const isNetworkAuthError = (error: any) => {
+    const raw = authErrorText(error);
+    return (
+      !hasHttpResponse(error) &&
+      (raw.includes("timeout") ||
+        raw.includes("load failed") ||
+        raw.includes("failed to fetch") ||
+        raw === "network" ||
+        raw.includes("networkerror"))
+    );
+  };
+
+  const directPasswordSignIn = async (cleanEmail: string, cleanPassword: string) => {
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 12000);
+
+    try {
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+        method: "POST",
+        headers: {
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          "Content-Type": "application/json;charset=UTF-8",
+          "X-Supabase-Api-Version": "2024-01-01",
+        },
+        body: JSON.stringify({
+          email: cleanEmail,
+          password: cleanPassword,
+          gotrue_meta_security: {},
+        }),
+        signal: controller.signal,
+      });
+
+      const rawBody = await response.text();
+      const payload = rawBody ? JSON.parse(rawBody) : null;
+
+      if (!response.ok) {
+        return {
+          data: null,
+          error: {
+            status: response.status,
+            code: payload?.code || payload?.error_code,
+            error_code: payload?.error_code || payload?.code,
+            message: payload?.message || payload?.msg || payload?.error || "Erro ao entrar.",
+          },
+        };
+      }
+
+      if (payload?.access_token && payload?.refresh_token) {
+        return await supabase.auth.setSession({
+          access_token: payload.access_token,
+          refresh_token: payload.refresh_token,
+        });
+      }
+
+      return { data: null, error: { status: response.status, message: "Resposta de autenticação inválida." } };
+    } catch (error) {
+      return { data: null, error };
+    } finally {
+      window.clearTimeout(timeoutId);
+    }
+  };
+
   const attemptLogin = async (
     cleanEmail: string,
     cleanPassword: string
-  ): Promise<Awaited<ReturnType<typeof supabase.auth.signInWithPassword>> | { data: null; error: any }> => {
+  ): Promise<any> => {
     try {
       await clearLocalAuthSession();
       // Single attempt with a short hard timeout so the UI never hangs.
@@ -39,8 +110,19 @@ const Login = () => {
           setTimeout(() => reject(new Error("timeout")), 12000)
         ),
       ]);
-      return "data" in result ? result : { data: null, error: result.error };
+
+      const authResult = "data" in result ? result : { data: null, error: result.error };
+      if (authResult.error && isNetworkAuthError(authResult.error)) {
+        const fallbackResult = await directPasswordSignIn(cleanEmail, cleanPassword);
+        if (!fallbackResult.error || !isNetworkAuthError(fallbackResult.error)) return fallbackResult;
+      }
+
+      return authResult;
     } catch (err) {
+      if (isNetworkAuthError(err)) {
+        const fallbackResult = await directPasswordSignIn(cleanEmail, cleanPassword);
+        if (!fallbackResult.error || !isNetworkAuthError(fallbackResult.error)) return fallbackResult;
+      }
       return { data: null, error: err };
     }
   };
