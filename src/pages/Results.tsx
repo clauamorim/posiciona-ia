@@ -44,18 +44,47 @@ const Results = () => {
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
+    const onSignout = () => { cancelled = true; };
+    window.addEventListener("app:signout", onSignout);
+
+    const pollJob = async (jobId: string): Promise<any> => {
+      const startedAt = Date.now();
+      while (!cancelled) {
+        if (Date.now() - startedAt > POLL_TIMEOUT_MS) {
+          throw new Error("Tempo limite excedido aguardando a estratégia. Tente novamente.");
+        }
+        await new Promise(r => setTimeout(r, POLL_INTERVAL_MS));
+        if (cancelled) return null;
+
+        const { data: jobStatus, error: pollError } = await supabase.functions.invoke("get-report-generation-job", {
+          body: { jobId },
+        });
+        if (cancelled) return null;
+        if (pollError) {
+          console.warn("Polling error (segue tentando):", pollError);
+          continue;
+        }
+        if (jobStatus?.progress_message) setProgressMessage(jobStatus.progress_message);
+        if (jobStatus?.status === "completed") return jobStatus.result?.report;
+        if (jobStatus?.status === "failed") {
+          throw new Error(jobStatus.error_message || "Não foi possível gerar a estratégia.");
+        }
+      }
+      return null;
+    };
+
     const run = async () => {
-      let activeReportVersion: number | null = null;
       try {
         const { data: latestReport } = await supabase
-          .from("reports").select("status, version, content, error_message")
+          .from("reports").select("id, status, version, content, error_message")
           .eq("user_id", user.id)
-          .order("version", { ascending: false }).limit(1).single();
+          .order("version", { ascending: false }).limit(1).maybeSingle();
 
         const [{ data: questions }, { data: answersData }] = await Promise.all([
           supabase.from("archetype_questions").select("id, question_number"),
           supabase.from("archetype_answers").select("question_id, score").eq("user_id", user.id),
         ]);
+        if (cancelled) return;
         if (!questions || !answersData) throw new Error("Erro ao carregar dados dos questionários");
 
         const answerMap: Record<string, number> = {};
@@ -79,6 +108,34 @@ const Results = () => {
           return;
         }
 
+        // Se já existe um job ativo para o relatório atual, RETOMAR o polling
+        // em vez de reiniciar o cálculo + reenfileirar.
+        if (latestReport?.id) {
+          const { data: activeJobs } = await supabase
+            .from("report_generation_jobs")
+            .select("id, status, progress_message")
+            .eq("user_id", user.id)
+            .eq("report_id", latestReport.id)
+            .in("status", ["queued", "processing"])
+            .order("created_at", { ascending: false })
+            .limit(1);
+          if (cancelled) return;
+
+          if (activeJobs && activeJobs.length > 0) {
+            const existing = activeJobs[0];
+            if (existing.progress_message) setProgressMessage(existing.progress_message);
+            setStage("generating_report");
+            const finalReport = await pollJob(existing.id);
+            if (cancelled || finalReport == null) return;
+            const normalizedReportContent = normalizeReportContent(finalReport) as any;
+            if (normalizedReportContent?.archetypes) setArchetypeDetails(normalizedReportContent.archetypes);
+            setStage("done");
+            setProgressMessage("");
+            toast({ title: "Estratégia gerada com sucesso!" });
+            return;
+          }
+        }
+
         setStage("saving");
         const upserts = calc.map(s => ({
           user_id: user.id, version: 1, archetype_name: s.name, total_score: s.score,
@@ -93,12 +150,13 @@ const Results = () => {
 
         const { data: bqData } = await supabase
           .from("business_questionnaires").select("*").eq("user_id", user.id)
-          .eq("is_complete", true).order("version", { ascending: false }).limit(1).single();
+          .eq("is_complete", true).order("version", { ascending: false }).limit(1).maybeSingle();
 
         if (!bqData) { setStage("done"); return; }
+        if (cancelled) return;
 
         setStage("generating_report");
-        const { data: profile } = await supabase.from("profiles").select("niche, gender").eq("user_id", user.id).single();
+        const { data: profile } = await supabase.from("profiles").select("niche, gender").eq("user_id", user.id).maybeSingle();
 
         const archetypes = {
           primary: { archetype_name: top3[0]?.name, score: top3[0]?.score },
@@ -122,7 +180,7 @@ const Results = () => {
           }).select("id").single();
           reportRowId = inserted?.id || null;
         }
-        activeReportVersion = reportVersion;
+        if (cancelled) return;
 
         // 1. Enfileira o job (resposta em <1s)
         const { data: queueData, error: queueError } = await supabase.functions.invoke("generate-report", {
@@ -135,43 +193,17 @@ const Results = () => {
             reportVersion,
           },
         });
+        if (cancelled) return;
         if (queueError) throw queueError;
         const jobId = queueData?.jobId;
         if (!jobId) throw new Error("Falha ao enfileirar geração da estratégia.");
 
         // 2. Polling até completar/falhar/timeout
-        const startedAt = Date.now();
-        let finalReport: any = null;
-        while (!cancelled) {
-          if (Date.now() - startedAt > POLL_TIMEOUT_MS) {
-            throw new Error("Tempo limite excedido aguardando a estratégia. Tente novamente.");
-          }
-          await new Promise(r => setTimeout(r, POLL_INTERVAL_MS));
-          if (cancelled) return;
-
-          const { data: jobStatus, error: pollError } = await supabase.functions.invoke("get-report-generation-job", {
-            body: { jobId },
-          });
-          if (pollError) {
-            console.warn("Polling error (segue tentando):", pollError);
-            continue;
-          }
-          if (jobStatus?.progress_message) setProgressMessage(jobStatus.progress_message);
-          if (jobStatus?.status === "completed") {
-            finalReport = jobStatus.result?.report;
-            break;
-          }
-          if (jobStatus?.status === "failed") {
-            throw new Error(jobStatus.error_message || "Não foi possível gerar a estratégia.");
-          }
-        }
-        if (cancelled) return;
+        const finalReport = await pollJob(jobId);
+        if (cancelled || finalReport == null) return;
 
         const normalizedReportContent = normalizeReportContent(finalReport) as any;
         if (normalizedReportContent?.archetypes) setArchetypeDetails(normalizedReportContent.archetypes);
-
-        // O worker já atualizou reports.content e reports.status no servidor.
-        // Frontend só precisa hidratar a UI.
 
         setStage("done");
         setProgressMessage("");
@@ -197,7 +229,10 @@ const Results = () => {
       }
     };
     run();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      window.removeEventListener("app:signout", onSignout);
+    };
   }, [user]);
 
   const top3 = getTop3(scores);
@@ -235,6 +270,11 @@ const Results = () => {
               <p className="font-medium text-sm">
                 {stage === "generating_report" && progressMessage ? progressMessage : STAGE_LABELS[stage]}
               </p>
+              {stage === "generating_report" && (
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Continuamos gerando em segundo plano. Você pode sair desta tela e voltar quando quiser.
+                </p>
+              )}
               {stage === "error" && errorMsg && (
                 <p className="text-xs text-muted-foreground mt-0.5">{errorMsg}</p>
               )}
@@ -248,6 +288,11 @@ const Results = () => {
                   Narrativa
                 </Button>
               </div>
+            )}
+            {stage === "generating_report" && (
+              <Button size="sm" variant="outline" onClick={() => navigate("/dashboard")} className="flex-shrink-0">
+                Ir para o Dashboard
+              </Button>
             )}
             {stage === "error" && (
               <div className="flex items-center gap-2 text-xs text-muted-foreground flex-shrink-0 max-w-xs">
