@@ -1,51 +1,36 @@
-## Problema
+## Diagnóstico
 
-Quando o usuário está em `/results` e a IA está gerando o relatório:
+- O backend hospedado está respondendo normalmente.
+- O endpoint de login responde quando chamado; em teste com credenciais inválidas, ele retorna erro em menos de 1 segundo, então não há indisponibilidade geral.
+- O ponto frágil está no fluxo do frontend: o `AuthContext` executa consultas assíncronas diretamente dentro do callback de mudança de autenticação. Esse padrão pode bloquear eventos internos do cliente de autenticação e deixar a tela em `Entrando...` quando a sessão precisa ser restaurada/hidratada, especialmente em Safari/iPhone ou após sessões presas.
 
-1. **Sair da janela trava a UI** — a `useEffect` de Results inicia o polling, mas o flag `cancelled` apenas impede `setState`. Ao voltar, o `useEffect` reexecuta o fluxo inteiro do zero (incluindo `setStage("calculating")`) e fica preso em "Calculando arquétipos…" porque há um job em andamento que não está sendo "retomado" — apenas reenfileirado (idempotente, mas a UI nunca progride se algo no caminho falhar silenciosamente).
-2. **Logout não funciona** — `signOut()` é chamado mas as Promises pendentes do polling (`supabase.functions.invoke("get-report-generation-job")`) continuam rodando em loop. Como após o signOut o token some, o invoke começa a falhar e o `continue` do loop nunca quebra. A navegação para `/login` é interrompida porque o componente Results ainda está vivo, e o `ProtectedRoute` re-redireciona enquanto o estado de auth oscila.
-3. **Reabrir o navegador mostra tela em branco** — sem nada renderizado (nem header). Indica que o `AuthContext` ou alguma query inicial está pendente "para sempre" (sem timeout), travando todo o app.
+## Plano de correção
 
-## O que mudar
+1. **Refatorar a inicialização da autenticação**
+   - Fazer o `AuthProvider` restaurar a sessão com `getSession()` ao montar.
+   - Só depois manter o `onAuthStateChange` para eventos subsequentes.
+   - Evitar `await`/hidratações pesadas dentro do callback do listener, usando execução desacoplada.
 
-### 1. Results.tsx — retomar polling em vez de reiniciar
+2. **Adicionar proteção contra login preso**
+   - No `Login.tsx`, envolver `signInWithPassword` com timeout controlado.
+   - Garantir que o botão sempre volte de `Entrando...` para `Entrar` em erro, timeout ou falha de rede.
+   - Exibir mensagem clara quando a conexão/auth demorar demais.
 
-- Persistir `jobId` ativo no banco (na própria linha de `reports`, coluna `active_job_id text`) ou consultar `report_generation_jobs` por `report_id` + status `queued/processing` ao montar.
-- Na entrada do `useEffect`:
-  - Se `latestReport.status === "completed"` → renderizar e parar (já é feito).
-  - Se existir job ativo para o relatório → pular `setStage("saving")` e os upserts/insert; ir direto para `setStage("generating_report")` e iniciar polling no `jobId` existente.
-  - Só executar o caminho "criar job novo" quando não houver job ativo nem relatório concluído.
-- Adicionar `AbortController` real: passar `signal` no `supabase.functions.invoke` (via fetch interno não suporta — então envolver com `Promise.race` contra um sinal de cancelamento) e quebrar o loop imediatamente quando `cancelled === true`.
+3. **Separar navegação pós-login da hidratação completa**
+   - Após login bem-sucedido, permitir navegação quando houver sessão válida, sem depender indefinidamente de consultas de plano/admin/saldos.
+   - Manter os dados complementares carregando em segundo plano com fallback seguro.
 
-### 2. Logout robusto
+4. **Preservar o logout robusto**
+   - Manter o evento `app:signout` para interromper processos longos.
+   - Garantir limpeza local imediata mesmo se o serviço de autenticação atrasar.
 
-- Em `AuthContext.signOut`, antes de `supabase.auth.signOut()`, despachar um `CustomEvent("app:signout")` no `window` para que componentes com loops de polling possam abortar.
-- Em Results, escutar esse evento e setar `cancelled = true` + sair do loop.
-- Após `signOut`, fazer `navigate("/login", { replace: true })` no `DashboardLayout` (forçar navegação para não depender do redirect do `ProtectedRoute`).
+5. **Validar o fluxo**
+   - Testar o formulário com credenciais inválidas para confirmar que não fica travado.
+   - Verificar, via rede/console, que erros voltam para a UI e que o botão destrava.
 
-### 3. Tela branca ao reabrir
+## Arquivos previstos
 
-- Em `AuthContext`, garantir que `setIsLoading(false)` aconteça mesmo se a inicialização demorar — adicionar `setTimeout(() => setIsLoading(false), 8000)` como fail-safe no `useEffect` inicial, e cancelar se a sessão chegar antes.
-- Em `App.tsx` (ou onde está o `Suspense`), adicionar fallback visível mínimo (loader) em vez de tela preta, para que o usuário não veja "skeleton invisível".
-- Verificar se há `ProtectedRoute` que renderiza `null` enquanto `isLoading` — substituir por um loader.
+- `src/contexts/AuthContext.tsx`
+- `src/pages/Login.tsx`
 
-### 4. UX do estado "gerando"
-
-- Mostrar mensagem clara: "Continuamos gerando sua estratégia em segundo plano. Você pode sair e voltar quando quiser." com botão "Ir para Dashboard".
-- No Dashboard, se houver job ativo, exibir banner "Estratégia em geração — ver progresso" com link para `/results`.
-
-## Detalhes técnicos
-
-Arquivos a editar:
-- `src/pages/Results.tsx` — retomar job existente, abort no signout.
-- `src/contexts/AuthContext.tsx` — disparar evento de signout, fail-safe de loading.
-- `src/components/DashboardLayout.tsx` — forçar `navigate("/login")` após signOut.
-- `src/components/ProtectedRoute.tsx` — loader visível em vez de null.
-- `src/pages/Dashboard.tsx` — banner "geração em andamento" (opcional, mas evita o usuário ficar preso só na tela de Results).
-
-Sem migração de schema obrigatória — usamos a tabela `report_generation_jobs` existente para descobrir o jobId ativo via `report_id`.
-
-## Fora do escopo
-
-- Mudar a arquitetura de jobs (já é assíncrona e correta).
-- Refatorar o worker `process-report-generation-job`.
+Não pretendo alterar banco de dados nem regras de acesso para essa correção.

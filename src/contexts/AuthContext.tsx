@@ -204,6 +204,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     let mounted = true;
 
+    // 1) Listener síncrono — nunca aguarda chamadas pesadas dentro do callback.
     const { data: { subscription: authSub } } = supabase.auth.onAuthStateChange(
       (event, newSession) => {
         if (!mounted) return;
@@ -220,32 +221,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           return;
         }
 
-        // INITIAL_SESSION, SIGNED_IN, USER_UPDATED
         if (newSession?.user) {
-          // If same user and already hydrated, just update session token — no loading
           if (hydrationDoneRef.current && sessionUserIdRef.current === newSession.user.id) {
             setSession(newSession);
             return;
           }
-          // If a *different* user signed in (account swap), wipe scoped session
-          // storage so we don't leak the previous user's editor draft / logo.
           if (sessionUserIdRef.current && sessionUserIdRef.current !== newSession.user.id) {
             clearScopedSession();
           }
+          // Disponibiliza a sessão IMEDIATAMENTE para destravar a UI/navegação;
+          // a hidratação (admin, plano, saldos) roda desacoplada (setTimeout 0).
+          setSession(newSession);
+          sessionUserIdRef.current = newSession.user.id;
           const requestId = ++authRequestRef.current;
           setIsLoading(true);
-          hydrateUser(newSession, requestId);
-          return;
-        }
-
-        // INITIAL_SESSION with no session
-        if (event === "INITIAL_SESSION") {
-          authRequestRef.current += 1;
-          resetAuthState();
-          setIsLoading(false);
+          setTimeout(() => {
+            if (!mounted) return;
+            hydrateUser(newSession, requestId);
+          }, 0);
         }
       }
     );
+
+    // 2) Restaura sessão persistida ao montar — não depende do INITIAL_SESSION.
+    supabase.auth.getSession().then(({ data: { session: existing } }) => {
+      if (!mounted) return;
+      if (existing?.user) {
+        if (hydrationDoneRef.current && sessionUserIdRef.current === existing.user.id) return;
+        setSession(existing);
+        sessionUserIdRef.current = existing.user.id;
+        const requestId = ++authRequestRef.current;
+        setIsLoading(true);
+        hydrateUser(existing, requestId);
+      } else {
+        setIsLoading(false);
+      }
+    }).catch(() => {
+      if (mounted) setIsLoading(false);
+    });
 
     return () => {
       mounted = false;
