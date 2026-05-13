@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { clearLocalAuthSession } from "@/lib/authCleanup";
 
 interface UserBalances {
   weekly_cycles: number;
@@ -274,6 +275,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (e) {
       console.error("supabase.auth.signOut error:", e);
     }
+    await clearLocalAuthSession();
     // Force-clear local state in case onAuthStateChange doesn't fire fast enough.
     authRequestRef.current += 1;
     resetAuthState();
