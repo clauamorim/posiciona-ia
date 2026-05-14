@@ -1,42 +1,86 @@
 ## Objetivo
-Eliminar repetição de templates retóricos e CTAs no feed editorial, detectados na comparação Semana 9 vs 10.
+Eliminar nova camada de repetição de templates/frases detectada nas Semanas 11-12 do editorial.
 
 ## Arquivo único
 `supabase/functions/process-content-generation-job/index.ts`
 
-## Mudança 1 — Expandir `FEED_POST_TYPES` com múltiplas estruturas por tipo
-Substituir o array `FEED_POST_TYPES` (definido antes de `const FEED_DAYS = [1, 3, 5, 7];`) por uma versão com 4 estruturas alternativas de abertura para cada tipo:
+---
 
-- **EDUCACIONAL** — 4 opções (passos / como sem erro / N erros / o que pro faz antes); proíbe "você sabia que" e o fechamento "o processo que transforma expertise em presença reconhecida".
-- **DESMISTIFICAÇÃO** — 4 opções de abertura; proíbe explicitamente "A crença de que X resolve Y".
-- **POSICIONAMENTO** — 4 opções (comparação / perfil / não-encaixe / contraste); proíbe "[Marca] não é para quem X — é para quem Y".
-- **ANÁLISE DE MERCADO OU CASO** — 4 opções (manchete + virada / caso + analogia / cronologia / contraste de reações); mantém regra de caso real nomeado.
+### Mudança 1 — Expandir lista de templates proibidos
 
-Cada bloco instrui o LLM a escolher uma estrutura **diferente das usadas em semanas anteriores**.
+Na seção `🚫 FRASES E EXPRESSÕES PROIBIDAS` dentro de `buildFeedSystemPrompt`:
 
-## Mudança 2 — Bloco "FRASES E CTAs PROIBIDOS" no system prompt
-Em `buildFeedSystemPrompt`, **antes** da seção `REGRAS DE GANCHO (mantidas):`, inserir bloco `🚫 FRASES E EXPRESSÕES PROIBIDAS` cobrindo:
+**A) Substituir a sub-seção "Aberturas proibidas"**
 
-- Aberturas proibidas (3 templates literais).
-- Encerramentos proibidos (3 frases-clichê).
-- Vocabulário saturado: máx. 1 uso na semana inteira (feed + stories) — "profissionais qualificados", "identidade de marca", "autoridade digital", "Instagram que não representa quem é".
-- CTAs: "Me chame no direct com a palavra X" no máx. 1 dos 4 posts; outros 3 devem usar naturezas diferentes (pergunta / salvar / comentar / compartilhar com contexto / referência interna ao slide).
-- Regra geral de cadência: se a frase parece "encaixar perfeitamente", provavelmente já foi usada — reescrever.
+Substituir por:
+```
+Aberturas proibidas:
+- "A crença de que [X] resolve [Y]" / "A crença de que [X] vai [verbo qualquer]" (qualquer variante de "A crença de que..." está banida)
+- "O Posiciona não é para quem quer [X] — é para quem quer [Y]"
+- "[Marca] não é para quem [...] — é para quem [...]"
+- "Tem um tipo de profissional que [...]"
+- "Todo mundo diz que [...]" (use no MÁXIMO 1x a cada 4 semanas)
+```
 
-## Mudança 3 — Reforçar variedade no `feedUser`
-Substituir a linha `Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.` por um checklist de 4 passos antes da geração:
-1. Ler temas anteriores e identificar templates já usados.
-2. Escolher estrutura de abertura diferente para o tipo da vez.
-3. Verificar nenhuma frase proibida.
-4. Confirmar diversidade de naturezas de CTA entre os 4 posts.
+**B) Adicionar nova sub-seção "Templates de TÍTULO banidos por saturação"**
 
-Em seguida, manter a linha original `Gere agora os 4 posts de feed para os dias ...`.
+Inserir imediatamente após "Aberturas proibidas":
+```
+Templates de TÍTULO (não apenas abertura) banidos por saturação:
+- "Os [N] elementos que [...]" / "Os [N] passos para [...]" / "Os [N] erros que [...]" — use no MÁXIMO 1x a cada 3 semanas, e quando usar varie o substantivo (elementos, decisões, perguntas, sinais, gatilhos, ajustes)
+- "O que o caso [X] revela sobre [Y] para profissionais liberais" — está banido como TEMPLATE. Para posts de ANÁLISE, varie a construção do título:
+  • "[Evento real]: o que [grupo X] precisa entender agora"
+  • "Em [ano], [empresa/pessoa] fez [decisão]. Veja o que isso muda para [nicho]"
+  • "[Caso] aconteceu há [tempo]. Por que [grupo do leitor] deveria ter aprendido com isso"
+  • "Quando [evento] aconteceu, [grupo A] reagiu de X jeito. Os que prosperaram fizeram Y"
+- "Postar com [X] não resolve [Y]" / "[Ação] não resolve [problema]" — varie a construção
+```
+
+---
+
+### Mudança 2 — Limitar menções da marca "Posiciona"
+
+Na seção `🚫 FRASES E EXPRESSÕES PROIBIDAS` em `buildFeedSystemPrompt`, adicionar **logo após** a sub-seção anterior:
+
+```
+🏷️ ORÇAMENTO DE MENÇÃO DA MARCA (CRÍTICO):
+A palavra "Posiciona" (nome da marca) só pode aparecer em:
+- 1 POST de feed por semana — APENAS no post de tipo POSICIONAMENTO
+- 1 STORY por semana — APENAS na story que espelha o post de POSICIONAMENTO
+Nos outros 3 posts e nas outras 6 stories, é PROIBIDO citar "Posiciona" pelo nome. Fale sobre o tema/método/insight sem usar a marca como anchor.
+Motivo: cada post precisa funcionar como insight independente. Se 4 dos 4 posts mencionam a marca, o feed soa como anúncio repetitivo em vez de autoridade construída por consistência de pensamento.
+```
+
+---
+
+### Mudança 3 — Variar o epíteto do público-alvo
+
+Na seção `🚫 FRASES E EXPRESSÕES PROIBIDAS`, localizar a sub-seção "Vocabulário saturado" e substituir:
+
+```
+Vocabulário saturado (use no MÁXIMO 1 vez na semana inteira, somando feed + stories):
+- "profissionais qualificados"
+- "profissionais liberais"
+- "identidade de marca"
+- "autoridade digital"
+- "Instagram que não representa quem é"
+
+🎯 DESCRITORES DO PÚBLICO-ALVO (REGRA DE VARIEDADE):
+Em vez de "profissionais qualificados" / "profissionais liberais" como descritor padrão (saturado), VARIE a cada post usando descritores específicos extraídos do contexto do criador. Modelos aceitáveis:
+- Profissão + segmento: "advogadas de direito de família que atendem PJ", "médicos endocrinologistas focados em emagrecimento feminino"
+- Característica + dor: "consultores experientes cansados de competir por preço", "psicólogas que atendem público de alto valor"
+- Estágio + frustração: "profissionais com 10+ anos de experiência que viraram invisíveis no digital", "especialistas no offline que não conseguem traduzir competência no online"
+- Volume + situação: "empresários que faturam acima de 500k/ano e ainda postam manualmente", "advogadas com 50+ clientes ativos e zero estratégia de aquisição"
+REGRA: cada um dos 4 posts da semana DEVE usar um descritor DIFERENTE. Nunca repita "profissionais qualificados" em mais de 1 post da mesma semana. Use o bloco "NEGÓCIO" + "CONTEXTO PESSOAL" para extrair detalhes específicos do nicho do criador e construir descritores ricos.
+```
+
+---
 
 ## Validação
-- `code--view` em `process-content-generation-job/index.ts` para confirmar nomes/posições exatas: `FEED_POST_TYPES`, `FEED_DAYS`, `buildFeedSystemPrompt`, `REGRAS DE GANCHO (mantidas)`, e a string `feedUser`.
-- Deploy do `process-content-generation-job` após edições.
+- `code--view` no arquivo para confirmar posição exata da seção `🚫 FRASES E EXPRESSÕES PROIBIDAS`
+- Deploy do `process-content-generation-job` após edições
 
 ## Efeito esperado
-- 4 estruturas por tipo × lista explícita de frases banidas × 5 modelos de CTA.
-- LLM passa a ler `previousSummary` (já no contexto) e escolher estrutura diferente das semanas anteriores.
-- Frases proibidas funcionam como "memória externa" forçando reformulação.
+- Templates de título específicos banidos com alternativas explícitas
+- Marca "Posiciona" aparece só em 1 post + 1 story por semana
+- Cada post usa descritor diferente e mais específico do público, forçando o LLM a usar dados do personalContext e business block
