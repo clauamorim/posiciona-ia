@@ -518,13 +518,21 @@ export function fingerprintPost(p: FeedPostLike): PostFingerprint {
   const headline = getHeadline(p);
   const body = getBody(p);
   const cta = (p.cta || "").toString();
-  const titleForFormula = (p.theme || headline || "").toString();
-  // Detecta fórmula no título OU no CTA (CTA repetitivo conta como fórmula).
-  let formula = detectTitleFormula(titleForFormula);
-  if (formula === "livre" && cta) {
-    const ctaFormula = detectTitleFormula(cta);
-    if (ctaFormula !== "livre") formula = ctaFormula;
+  // Detecta fórmula em CADA campo separadamente. Antes só checava `theme` (que
+  // costuma ser resumo curto sem a construção completa), perdendo padrões como
+  // "A ideia de que 'X' está [verbo]ndo Y" que vivem no headline ou body.
+  const candidates = [
+    (p.theme || "").toString(),
+    headline,
+    body,
+    cta,
+  ].filter(Boolean);
+  let formula: TitleFormulaId = "livre";
+  for (const c of candidates) {
+    const f = detectTitleFormula(c);
+    if (f !== "livre") { formula = f; break; }
   }
+  const titleForFormula = (p.theme || headline || "").toString();
   return {
     day: p.day,
     pillar: (p.pillar && String(p.pillar).trim()) || "livre",
