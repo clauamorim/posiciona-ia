@@ -351,6 +351,36 @@ export function detectTitleFormula(title: string): TitleFormulaId {
   return "livre";
 }
 
+/** Retorna TODAS as fórmulas detectadas (não para na primeira). */
+export function detectTitleFormulas(title: string): TitleFormulaId[] {
+  const t = (title || "").trim();
+  if (!t) return [];
+  const found: TitleFormulaId[] = [];
+  for (const p of FORMULA_PATTERNS) {
+    if (p.re.test(t)) found.push(p.id);
+  }
+  return found;
+}
+
+// ===== Cases reais (nomes próprios de marcas) =====
+// Marcas/cases que aparecem com frequência suspeita nos posts. Usado para
+// impedir repetição do mesmo case real dentro de 28 dias.
+const KNOWN_CASE_BRANDS = [
+  "havaianas", "burger king", "magazine luiza", "magalu", "natura", "avon",
+  "stella artois", "apple", "iphone", "nubank", "lego", "burberry",
+  "domino's", "dominos", "pizza turnaround", "sam altman", "openai",
+  "patagonia", "harley-davidson", "harley davidson", "oatly", "tesla", "dyson",
+];
+
+export function detectNamedCases(text: string): string[] {
+  const t = normalize(text);
+  const found = new Set<string>();
+  for (const brand of KNOWN_CASE_BRANDS) {
+    if (t.includes(normalize(brand))) found.add(brand);
+  }
+  return Array.from(found);
+}
+
 // ===== Ancoradores concretos no título =====
 
 export type AnchorId =
