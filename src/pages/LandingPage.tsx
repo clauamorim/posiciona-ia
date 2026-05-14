@@ -344,6 +344,20 @@ const LandingPage = () => {
 
   return (
     <div className="min-h-screen bg-landing-bg text-landing-text">
+      <SeoHead
+        title="Posiciona — Estratégia de Marca Pessoal com IA"
+        description="Posicionamento estratégico para profissionais que vendem expertise: arquétipos, narrativa StoryBrand, linha editorial pronta e retratos de marca com IA."
+        path="/"
+        jsonLd={{
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          mainEntity: faqItems.map((f) => ({
+            "@type": "Question",
+            name: f.q,
+            acceptedAnswer: { "@type": "Answer", text: f.a },
+          })),
+        }}
+      />
       {/* ── HEADER ── */}
       <header className="sticky top-0 z-50 border-b border-landing-border/60 bg-landing-bg/90 backdrop-blur-md">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
