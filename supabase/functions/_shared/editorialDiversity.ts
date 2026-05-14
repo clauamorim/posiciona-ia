@@ -658,6 +658,10 @@ export function buildDiversityHints(
       if (c in CONCEPT_GROUPS) concepts.add(c as ConceptGroupId);
     }
   }
+  // Override temporário (até 2026-06-30): "a_ideia_de_que_x_esta" foi detectada
+  // 6x recentemente mas registros antigos têm formula="livre" porque a regex
+  // foi adicionada depois. Forçar como banida.
+  formulas.add("a_ideia_de_que_x_esta");
   return {
     bannedFormulas: Array.from(formulas),
     dampenedConcepts: Array.from(concepts),
