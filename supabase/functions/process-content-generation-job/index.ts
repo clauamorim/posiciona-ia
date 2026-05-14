@@ -1405,7 +1405,9 @@ async function persistWeek(
   stories: StoryDay[],
   jobId: string,
   marketTrends: MarketTrend[] = [],
-): Promise<{ days: DayV6[]; market_trends?: MarketTrend[] }> {
+  weekIndex?: number,
+  isPartial: boolean = false,
+): Promise<{ days: DayV6[]; market_trends?: MarketTrend[]; _partial?: boolean; _week_index?: number; _stage_b_failed?: boolean }> {
   const feedByDay = new Map(feed.map((f) => [f.day, f]));
   const storyByDay = new Map(stories.map((s) => [s.day, s]));
 
@@ -1422,9 +1424,19 @@ async function persistWeek(
     generator_version: EDITORIAL_GENERATOR_VERSION,
   }));
 
-  const weekObj: { days: DayV6[]; market_trends?: MarketTrend[] } = { days };
+  const weekObj: any = { days };
   if (marketTrends && marketTrends.length > 0) {
     weekObj.market_trends = marketTrends;
+  }
+  if (typeof weekIndex === "number") {
+    weekObj._week_index = weekIndex;
+  }
+  if (isPartial) {
+    weekObj._partial = true;
+    // Quando isPartial=false (chamada final), se stories vazio, marca falha do Estágio B
+  } else if (stories.length === 0) {
+    weekObj._partial = true;
+    weekObj._stage_b_failed = true;
   }
 
   const { data: reportRow } = await admin
@@ -1434,14 +1446,26 @@ async function persistWeek(
     .single();
 
   const currentWeeks: any[] = Array.isArray(reportRow?.editorial_weeks) ? reportRow!.editorial_weeks : [];
-  const updatedWeeks = [...currentWeeks, weekObj];
+
+  // Se a última entrada é parcial e refere-se ao mesmo week_index, SUBSTITUI em vez de anexar.
+  // Isso garante que o save parcial inicial (feito antes do Estágio B) seja atualizado quando os stories chegarem.
+  let updatedWeeks: any[];
+  const last = currentWeeks[currentWeeks.length - 1];
+  const sameWeek = last && last._partial === true && typeof weekIndex === "number" && last._week_index === weekIndex;
+  if (sameWeek) {
+    updatedWeeks = [...currentWeeks.slice(0, -1), weekObj];
+  } else {
+    updatedWeeks = [...currentWeeks, weekObj];
+  }
 
   await admin
     .from("reports")
     .update({ editorial_weeks: updatedWeeks })
     .eq("id", reportId);
 
-  console.log(`[job ${jobId}] Semana persistida (${days.length} dias, feed=${feed.length}, stories=${stories.length}).`);
+  console.log(
+    `[job ${jobId}] Semana persistida (${days.length} dias, feed=${feed.length}, stories=${stories.length}, partial=${Boolean(weekObj._partial)}, replaced=${sameWeek}).`,
+  );
   return weekObj;
 }
 
