@@ -1278,7 +1278,7 @@ Gere agora os 7 stories da semana.`;
 
       // Persiste a semana completa
       await updateJob(jobId, { progress_message: "Salvando conteúdo…" });
-      const weekObj = await persistWeek(job.report_id, feedFinal, storiesFinal, jobId, marketTrends);
+      const weekObj = await persistWeek(job.report_id, feedFinal, storiesFinal, jobId, marketTrends, wkIdxForPartial, false);
 
       // Persiste fingerprints de diversidade + log de telemetria estruturado
       try {
