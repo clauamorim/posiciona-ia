@@ -164,6 +164,8 @@ export type TitleFormulaId =
   | "constroi_vs_ocupa"
   | "protocolo_n_perguntas"
   | "cliente_pediu_recusei"
+  | "a_ideia_de_que_x_esta"
+  | "cta_palavra_chave_direct"
   | "livre";
 
 // Numerais por extenso em pt-BR (com e sem acento — o detector roda no título cru)
