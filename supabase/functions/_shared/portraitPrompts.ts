@@ -167,10 +167,11 @@ export function pickPosesForLooks(
 ): { pose: string; category: PoseCategory }[] {
   const byCat = HAND_POSE_POOLS_BY_CATEGORY[family];
   const allCats = Object.keys(byCat) as PoseCategory[];
+  const allowedCats = allCats.filter((c) => c !== "holding_object");
   // Filtra categorias que tenham ao menos 1 pose não usada recentemente
   const usedSet = new Set(recentlyUsedPoses);
-  const catsWithFresh = allCats.filter((c) => byCat[c].some((p) => !usedSet.has(p)));
-  const catsToUse = catsWithFresh.length >= count ? catsWithFresh : allCats;
+  const catsWithFresh = allowedCats.filter((c) => byCat[c].some((p) => !usedSet.has(p)));
+  const catsToUse = catsWithFresh.length >= count ? catsWithFresh : allowedCats;
   const chosenCats = shuffleArr(catsToUse).slice(0, count);
   return chosenCats.map((cat) => {
     const fresh = byCat[cat].filter((p) => !usedSet.has(p));

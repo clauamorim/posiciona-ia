@@ -264,7 +264,7 @@ serve(async (req) => {
     // os rostos. A primeira selfie é a âncora de identidade (ground truth);
     // as demais servem só para fornecer ângulos auxiliares. Mais que isso
     // dilui a semelhança facial.
-    const MAX_REFERENCES_TO_SEND = 3;
+    const MAX_REFERENCES_TO_SEND = 5;
     const refsToUse = references.slice(0, MAX_REFERENCES_TO_SEND);
     const refDownloads = await Promise.all(
       refsToUse.map((r) => downloadReferenceAsDataUrl(supabaseAdmin, r.file_path)),
