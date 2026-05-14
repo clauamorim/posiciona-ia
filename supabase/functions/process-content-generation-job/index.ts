@@ -34,6 +34,7 @@ import {
   detectProfession,
   getEthicalRulesBlock,
   renderMarketTrendsBlock,
+  POSITIONING_GUARDRAIL_BLOCK,
   type MarketTrend,
 } from "../_shared/professionRules.ts";
 
@@ -762,6 +763,7 @@ async function processJob(jobId: string) {
 
       const feedSystem =
         NARRATIVE_PRINCIPLES_BLOCK +
+        POSITIONING_GUARDRAIL_BLOCK +
         ethicalBlock +
         "\n\n" +
         buildFeedSystemPrompt(rotationOffset) +
@@ -904,6 +906,7 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
 
       const storiesSystem =
         NARRATIVE_PRINCIPLES_BLOCK +
+        POSITIONING_GUARDRAIL_BLOCK +
         ethicalBlock +
         "\n\n" +
         buildStoriesSystemPrompt(feedSummaryForStories, FEED_DAYS) +
