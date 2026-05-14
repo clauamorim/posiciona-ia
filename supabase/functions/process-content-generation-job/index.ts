@@ -401,7 +401,7 @@ ESTILO STORIES:
 - Linguagem direta, falada, em primeira pessoa.
 - Cada story tem 3 a 5 frames (telas).
 - Use formatos típicos do Stories: enquete, caixa de pergunta, slider, quiz, depoimento, bastidor, mini-tutorial, opinião quente.
-- Storytelling pessoal: NO MÁXIMO 3 dos 7 stories podem ter is_personal=true. Os demais devem ser análise, dica ou quebra de mito alinhados ao pilar do feed do dia (quando houver) ou ao pilar sub-representado da semana.
+- Storytelling pessoal: ver bloco "LIMITE PESSOAL PARA STORIES" abaixo (regra crítica).
 - Toda evidência concreta (número, caso, métrica) precisa vir do bloco FATOS VERIFICÁVEIS. Sem fato disponível, use pergunta/hipótese sinalizada ("e se...", "imagine que...").
 - Nos dias com feed, mirrors_feed=true. Nos demais, mirrors_feed=false.
 
