@@ -320,6 +320,11 @@ serve(async (req) => {
       `requestedCount=${requestedCount} references=${referenceDataUrls.length}`,
     );
 
+    // Detecta faixa etária aparente da PRIMEIRA referência (uma única chamada).
+    // Default seguro: "40s" se a chamada falhar ou retornar inesperado.
+    const apparentAgeRange = await detectApparentAgeRange(LOVABLE_API_KEY, referenceDataUrls[0]);
+    console.log(`[generate-portrait] apparentAgeRange=${apparentAgeRange}`);
+
     // Gera as N imagens em paralelo
     const results = await Promise.all(
       Array.from({ length: requestedCount }, async (_, i) => {
@@ -331,6 +336,7 @@ serve(async (req) => {
           backgroundIndex: i as 0 | 1 | 2,
           handPose,
           gender,
+          apparentAgeRange,
         });
 
         // Tenta primário; se falhar (rate-limit/payment/etc), tenta fallback uma vez
