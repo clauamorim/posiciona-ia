@@ -326,53 +326,58 @@ serve(async (req) => {
     const apparentAgeRange = await detectApparentAgeRange(LOVABLE_API_KEY, referenceDataUrls[0]);
     console.log(`[generate-portrait] apparentAgeRange=${apparentAgeRange}`);
 
-    // Gera as N imagens em paralelo
-    const results = await Promise.all(
-      Array.from({ length: requestedCount }, async (_, i) => {
-        const outfit = outfitsForLooks[i] ?? "";
-        const handPose = selectedPoses[i] ?? null;
-        const built = buildGeminiPortraitPrompt({
-          archetype: archetypeName,
-          outfit,
-          backgroundIndex: i as 0 | 1 | 2,
-          handPose,
-          gender,
-          apparentAgeRange,
-        });
+    // Gera as N imagens sequencialmente (evita rate-limit e melhora consistência)
+    const results: Array<{
+      index: number;
+      background: string;
+      outfit: string;
+      pose: string | null;
+      prompt: string;
+      model: string;
+      result: Awaited<ReturnType<typeof generateOnePortrait>>;
+    }> = [];
+    for (let i = 0; i < requestedCount; i++) {
+      const outfit = outfitsForLooks[i] ?? "";
+      const handPose = selectedPoses[i] ?? null;
+      const built = buildGeminiPortraitPrompt({
+        archetype: archetypeName,
+        outfit,
+        backgroundIndex: i as 0 | 1 | 2,
+        handPose,
+        gender,
+        apparentAgeRange,
+      });
 
-        // Tenta primário; se falhar (rate-limit/payment/etc), tenta fallback uma vez
-        let r = await generateOnePortrait({
+      let r = await generateOnePortrait({
+        apiKey: LOVABLE_API_KEY,
+        prompt: built.prompt,
+        referenceDataUrls,
+        model: PRIMARY_MODEL,
+      });
+      let usedModel = PRIMARY_MODEL;
+      if (!r.ok && (r as any).status !== 402 && (r as any).status !== 429) {
+        console.log(`[generate-portrait] primary failed (status=${(r as any).status}), trying fallback`);
+        const fb = await generateOnePortrait({
           apiKey: LOVABLE_API_KEY,
           prompt: built.prompt,
           referenceDataUrls,
-          model: PRIMARY_MODEL,
+          model: FALLBACK_MODEL,
         });
-        let usedModel = PRIMARY_MODEL;
-        if (!r.ok && r.status !== 402 && r.status !== 429) {
-          console.log(`[generate-portrait] primary failed (status=${r.status}), trying fallback`);
-          const fb = await generateOnePortrait({
-            apiKey: LOVABLE_API_KEY,
-            prompt: built.prompt,
-            referenceDataUrls,
-            model: FALLBACK_MODEL,
-          });
-          if (fb.ok) {
-            r = fb;
-            usedModel = FALLBACK_MODEL;
-          }
-        }
+        if (fb.ok) { r = fb; usedModel = FALLBACK_MODEL; }
+      }
 
-        return {
-          index: i,
-          background: built.backgroundKey,
-          outfit,
-          pose: handPose,
-          prompt: built.prompt,
-          model: usedModel,
-          result: r,
-        };
-      }),
-    );
+      results.push({
+        index: i,
+        background: built.backgroundKey,
+        outfit,
+        pose: handPose,
+        prompt: built.prompt,
+        model: usedModel,
+        result: r,
+      });
+
+      if (!r.ok && ((r as any).status === 402 || (r as any).status === 429)) break;
+    }
 
     // Verifica payment/rate-limit globais
     const paymentError = results.find((x) => !x.result.ok && (x.result as any).status === 402);

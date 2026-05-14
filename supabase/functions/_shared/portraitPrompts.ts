@@ -693,7 +693,15 @@ export function buildGeminiPortraitPrompt(params: GeminiPromptParams): {
     ? params.archetype
     : "Cara-comum") as ArchetypeName;
   const tpl = ARCHETYPE_PROMPTS[archetypeKey];
-  const bg = BACKGROUND_VARIATIONS[params.backgroundIndex];
+  // Para Gemini com referências, SEMPRE fundo neutro — fundos coloridos dos
+  // arquétipos (warm taupe, sepia brown, etc.) foram projetados para FLUX+LoRA
+  // e causam deriva de identidade no Gemini.
+  const GEMINI_BACKGROUNDS = [
+    { key: "neutro", replacement: "medium warm grey seamless paper studio backdrop with subtle paper texture," },
+    { key: "claro", replacement: "light grey seamless paper studio backdrop with subtle paper texture," },
+    { key: "escuro", replacement: "medium-dark charcoal grey seamless paper studio backdrop with subtle paper texture (NOT pure black, keep the backdrop a few stops above black so the face stays well-lit and clearly readable)," },
+  ] as const;
+  const bg = GEMINI_BACKGROUNDS[params.backgroundIndex];
   const framing = FRAMING_VARIATIONS[params.backgroundIndex];
 
   // Aplica fundo claro/escuro sobre a essência do arquétipo (mesma lógica do Krea).
