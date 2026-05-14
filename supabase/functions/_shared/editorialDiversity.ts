@@ -238,19 +238,32 @@ const FORMULA_PATTERNS: { id: Exclude<TitleFormulaId, "livre">; label: string; r
   //     Aceita numeral por extenso (três, quatro, sete, etc.) ou dígito.
   {
     id: "protocolo_n_perguntas",
-    label: '"Protocolo/método/filtro (N) perguntas/passos/filtros/camadas/critérios"',
+    label: '"Protocolo/método/filtro (N) perguntas/passos/sinais/decisões/etapas/elementos…" ou "As/Os N [substantivo]"',
     re: new RegExp(
-      `(\\b(protocolo|checklist|guia|roteiro|m[eé]todo|filtro)\\s+(de\\s+)?(${N_OR_WORD}\\s+)?(perguntas|passos|filtros|camadas|crit[ée]rios|regras|sinais)\\b)` +
+      `(\\b(protocolo|checklist|guia|roteiro|m[eé]todo|filtro|sistema|framework)\\s+(de\\s+)?(${N_OR_WORD}\\s+)?(perguntas|passos|filtros|camadas|crit[ée]rios|regras|sinais|decis[õo]es|etapas|elementos|verifica[çc][õo]es|checagens|princ[íi]pios|chaves|pilares|movimentos|gatilhos)\\b)` +
       `|` +
-      `(\\b(as|os|estas|estes|essas|esses|aquelas|aqueles)\\s+${N_OR_WORD}\\s+(perguntas|camadas|filtros|passos|crit[ée]rios|regras|sinais)\\b)`,
+      `(\\b(as|os|estas|estes|essas|esses|aquelas|aqueles)\\s+${N_OR_WORD}\\s+(perguntas|camadas|filtros|passos|crit[ée]rios|regras|sinais|decis[õo]es|etapas|elementos|verifica[çc][õo]es|checagens|princ[íi]pios|chaves|pilares|movimentos|gatilhos)\\b)`,
       "i",
     ),
   },
-  // 12. "Cliente/paciente chegou pedindo X — recusei / disse não / não aceitei"
+  // 12. "Cliente/paciente/[profissional] chega(ou) pedindo/dizendo X — recusei
+  //     / disse não / não atendi / trabalho com / há dois diagnósticos / não é com"
   {
     id: "cliente_pediu_recusei",
-    label: '"Cliente pediu X impossível — recusei"',
-    re: /\b(cliente|paciente)\b[^.]{0,80}(pediu|chegou\s+pedindo|me\s+procurou\s+pedindo|chegou\s+querendo)\b[^.]{0,200}\b(recusei|disse\s+n[ãa]o|n[ãa]o\s+aceitei|recusada?|recusado)\b/i,
+    label: '"[Personagem] chega pedindo/dizendo X — triagem/recusa/diagnóstico"',
+    re: /\b(quando\s+o[a]?\s+|cliente|paciente|advog\w*|m[eé]dic\w*|psic[oó]log\w*|dentista|nutric\w*|fisioterap\w*|profissional|consultor\w*|arquitet\w*|design\w*)[^.?!]{0,80}\b(pediu|chega|chegou|chegando|escreve|escreveu|procura|procurou|me\s+procurou|chega\s+dizendo|chegou\s+dizendo|chegou\s+pedindo|chegou\s+querendo)\b[^.?!]{0,200}\b(recusei|disse\s+n[ãa]o|n[ãa]o\s+aceitei|recusada?|recusado|n[ãa]o\s+atend[io]|trabalho\s+com|trabalha\s+com|n[ãa]o\s+[ée]\s+com|h[áa]\s+dois?\s+(diagn[óo]sticos?|caminhos|cen[áa]rios|leituras))\b/i,
+  },
+  // 13. "A ideia / a regra / o conselho de que 'X' está [verbo]ndo Y"
+  {
+    id: "a_ideia_de_que_x_esta",
+    label: '"A ideia/regra/conselho de que ‘X’ está [verbo]ndo Y"',
+    re: /\b(a\s+ideia|a\s+regra|o\s+conselho|a\s+cren[çc]a|o\s+mantra|o\s+discurso)\s+de\s+que\s+['"“”‘’][^'"“”‘’]{2,120}['"“”‘’]\s+(est[áa]|t[áa]|vem|anda)\s+\w+(ndo|nte)\b/i,
+  },
+  // 14. CTA "Me chame no direct com a palavra X" (e variações próximas)
+  {
+    id: "cta_palavra_chave_direct",
+    label: '"Me chame/manda no direct com a palavra X" (CTA repetitivo)',
+    re: /\b(me\s+(chame|chama|mande|manda|chamem)|envie|manda|mande|comente)\s+(no\s+(direct|dm)|um\s+dm|aqui|abaixo)\s+.{0,40}?\b(palavra|c[óo]digo|termo)\b/i,
   },
 ];
 
