@@ -227,6 +227,8 @@ const SobrePage = () => {
         </div>
       </section>
 
+      </main>
+
       {/* ── FOOTER ── */}
       <footer className="border-t border-landing-border/40 py-6 px-4">
         <div className="max-w-3xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-landing-text-secondary/50">
