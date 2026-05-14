@@ -66,6 +66,8 @@ const SobrePage = () => {
         )}
       </header>
 
+      <main>
+
       {/* ── HERO ── */}
       <section className="pt-12 pb-10 md:pt-20 md:pb-16 px-4">
         <div className="max-w-3xl mx-auto flex flex-col items-center text-center space-y-6">
