@@ -941,9 +941,68 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
         };
       });
 
+      // ==== Validação de diversidade + retry guiado (não bloqueia entrega) ====
+      try {
+        const validation = validateWeekDiversity(feedFinal as unknown as FeedPostLike[], diversityHints as any);
+        if (!validation.ok) {
+          console.warn(`[job ${jobId}] diversidade: violações detectadas`, validation.violations);
+          await updateJob(jobId, { progress_message: "Ajustando diversidade dos posts…" });
+          const retryUser = `${feedUser}${renderRetryInstructions(validation.violations)}`;
+          try {
+            const { text: divRetryRaw } = await callClaudeWithMeta({
+              systemPrompt: feedSystem,
+              userText: retryUser,
+              model: "claude-opus-4-7",
+              max_tokens: 4500,
+              timeoutMs: 120000,
+              disableRetries: true,
+            });
+            let divRetryParsed: any = extractJsonFromLLM(divRetryRaw);
+            if (!Array.isArray(divRetryParsed) || divRetryParsed.length === 0) {
+              divRetryParsed = extractPartialDayObjects(divRetryRaw);
+            }
+            if (Array.isArray(divRetryParsed) && divRetryParsed.length > 0) {
+              const replaceMap = new Map<number, FeedPost>();
+              for (const p of divRetryParsed) {
+                if (!p || typeof p !== "object") continue;
+                const dayN = Number((p as any).day);
+                if (!FEED_DAYS.includes(dayN)) continue;
+                const cleaned = sanitizePost(p as Record<string, any>) as FeedPost;
+                cleaned.day = dayN;
+                cleaned.format = (cleaned.format || "post").toString().toLowerCase();
+                if (cleaned.format === "stories") cleaned.format = "post";
+                cleaned.is_personal = Boolean((cleaned as any).is_personal);
+                replaceMap.set(dayN, cleaned);
+              }
+              for (let i = 0; i < feedFinal.length; i++) {
+                const r = replaceMap.get(feedFinal[i].day);
+                if (r) feedFinal[i] = r;
+              }
+              const after = validateWeekDiversity(feedFinal as unknown as FeedPostLike[], diversityHints as any);
+              if (!after.ok) {
+                console.warn(`[job ${jobId}] [editorial-diversity] retry-violation`, {
+                  user_id: userId,
+                  week_index: job.week_index,
+                  violations: after.violations,
+                });
+              } else {
+                console.log(`[job ${jobId}] [editorial-diversity] retry-ok`);
+              }
+            } else {
+              console.warn(`[job ${jobId}] diversidade: retry sem posts válidos, mantendo versão original.`);
+            }
+          } catch (divRetryErr: any) {
+            console.warn(`[job ${jobId}] diversidade: retry falhou (mantendo versão original):`, divRetryErr?.message || divRetryErr);
+          }
+        }
+      } catch (divErr) {
+        console.warn(`[job ${jobId}] validação de diversidade falhou (ignorada):`, (divErr as any)?.message || divErr);
+      }
+
       // Persiste resultado parcial — permite retomar se o estágio B falhar
       await updateJob(jobId, {
         progress_message: "Gerando seus 7 stories da semana (etapa 2 de 2)…",
+
         result: { stage: "feed_done", feed: feedFinal, generator_version: EDITORIAL_GENERATOR_VERSION },
       });
 
