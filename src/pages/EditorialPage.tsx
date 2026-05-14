@@ -12,10 +12,16 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import {
   Loader2, Sparkles, ChevronDown, Calendar, Video, Image, Smartphone,
-  ImageIcon, PenTool, FileText, RefreshCw, Copy, Download, AlertTriangle, Wand2
+  ImageIcon, PenTool, FileText, RefreshCw, Copy, Download, AlertTriangle, Wand2,
+  Trash2, X, CheckSquare
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { parseReportContent, normalizeReportContent } from "@/lib/reportParser";
 import { cleanText } from "@/lib/textCleanup";
 import { isOutdated, isWeekOutdated, EDITORIAL_GENERATOR_VERSION } from "@/lib/generatorVersion";
@@ -111,6 +117,10 @@ const EditorialPage = () => {
   const [regeneratingPost, setRegeneratingPost] = useState<string | null>(null);
   const [regeneratingFreeWeek, setRegeneratingFreeWeek] = useState<number | null>(null);
   const [downloadingPDF, setDownloadingPDF] = useState(false);
+  const [deletingWeek, setDeletingWeek] = useState<number | null>(null);
+  const [confirmDeleteWeek, setConfirmDeleteWeek] = useState<number | null>(null);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedWeeks, setSelectedWeeks] = useState<Set<number>>(new Set());
   const contentRef = useRef<HTMLDivElement>(null);
   const pollingRef = useRef<{ stop: boolean }>({ stop: false });
 
@@ -612,7 +622,84 @@ const EditorialPage = () => {
     toast({ title: "Legenda copiada!" });
   };
 
-  const handleDownloadPDF = async () => {
+  // Resolve o week_index real (preservado mesmo após deleções) ou cai para a posição.
+  const getWeekKey = (w: any, idx: number): number => {
+    const k = w?._week_index ?? w?.week_index;
+    return typeof k === "number" ? k : idx;
+  };
+
+  const toggleWeekSelection = (weekKey: number) => {
+    setSelectedWeeks((prev) => {
+      const next = new Set(prev);
+      if (next.has(weekKey)) next.delete(weekKey);
+      else next.add(weekKey);
+      return next;
+    });
+  };
+
+  const selectAllWeeks = () => {
+    setSelectedWeeks(new Set(allWeeks.map((w, i) => getWeekKey(w, i))));
+  };
+
+  const clearSelection = () => setSelectedWeeks(new Set());
+
+  const exitSelectionMode = () => {
+    setSelectionMode(false);
+    clearSelection();
+  };
+
+  const handleDeleteWeek = async (weekKey: number) => {
+    if (!user || !report) return;
+    setDeletingWeek(weekKey);
+    try {
+      const { data: r } = await supabase
+        .from("reports")
+        .select("editorial_weeks")
+        .eq("id", report.id)
+        .single();
+
+      const weeks: any[] = Array.isArray(r?.editorial_weeks) ? r.editorial_weeks : [];
+      const updated = weeks.filter(
+        (w) => w?._week_index !== weekKey && w?.week_index !== weekKey,
+      );
+
+      const { error: upErr } = await supabase
+        .from("reports")
+        .update({ editorial_weeks: updated })
+        .eq("id", report.id);
+      if (upErr) throw upErr;
+
+      // Limpa embeddings e padrões dessa semana (best-effort, não bloqueia UX)
+      await Promise.all([
+        supabase.from("post_embeddings").delete()
+          .eq("user_id", user.id).eq("week_index", weekKey),
+        supabase.from("used_title_patterns").delete()
+          .eq("user_id", user.id).eq("week_index", weekKey),
+      ]);
+
+      setReport({ ...report, editorial_weeks: updated });
+      setSelectedWeeks((prev) => {
+        const next = new Set(prev);
+        next.delete(weekKey);
+        return next;
+      });
+      toast({
+        title: "Semana excluída",
+        description: `Semana ${weekKey + 1} removida com sucesso.`,
+      });
+    } catch (err: any) {
+      toast({
+        title: "Erro ao excluir",
+        description: err?.message || "Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setDeletingWeek(null);
+      setConfirmDeleteWeek(null);
+    }
+  };
+
+  const handleDownloadPDF = async (filterKeys?: Set<number>) => {
     setDownloadingPDF(true);
     try {
       const jsPDF = (await import("jspdf")).default;
@@ -623,12 +710,21 @@ const EditorialPage = () => {
       const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
       let isFirstPage = true;
 
+      // Filtra semanas se filterKeys foi fornecido (modo seleção). Caso contrário, usa todas.
+      const weeksToExport: { week: any; key: number }[] = allWeeks
+        .map((w, i) => ({ week: w, key: getWeekKey(w, i) }))
+        .filter(({ key }) => !filterKeys || filterKeys.has(key))
+        .sort((a, b) => a.key - b.key);
+
       // Render TITLE separately (avoids it being lost in pagination)
       const titleContainer = document.createElement("div");
       titleContainer.style.cssText = "position:absolute;left:-9999px;top:0;width:900px;background:#f2eeea;padding:24px;font-family:Inter,sans-serif;";
+      const subtitle = filterKeys
+        ? `${weeksToExport.length} semana${weeksToExport.length > 1 ? "s" : ""} selecionada${weeksToExport.length > 1 ? "s" : ""}`
+        : `${weeksToExport.length} semana${weeksToExport.length > 1 ? "s" : ""} de conteúdo`;
       titleContainer.innerHTML = `<div style="padding:16px 0;">
         <h1 style="font-size:22px;font-weight:700;color:#1a1a2e;margin:0 0 4px;">Linha Editorial</h1>
-        <p style="font-size:12px;color:#6b7280;margin:0;">${allWeeks.length} semana${allWeeks.length > 1 ? "s" : ""} de conteúdo</p>
+        <p style="font-size:12px;color:#6b7280;margin:0;">${subtitle}</p>
       </div>`;
       document.body.appendChild(titleContainer);
 
@@ -670,15 +766,14 @@ const EditorialPage = () => {
       document.body.removeChild(titleContainer);
 
       // Render ONE WEEK AT A TIME (avoids canvas size limit)
-      for (let wi = 0; wi < allWeeks.length; wi++) {
-        const week = allWeeks[wi];
+      for (const { week, key } of weeksToExport) {
         const weekContainer = document.createElement("div");
         weekContainer.style.cssText = "position:absolute;left:-9999px;top:0;width:900px;background:#f2eeea;padding:24px;font-family:Inter,sans-serif;";
         document.body.appendChild(weekContainer);
 
         const weekHeader = document.createElement("h2");
         weekHeader.style.cssText = "font-size:18px;font-weight:700;margin:24px 0 12px;color:#1a1a2e;";
-        weekHeader.textContent = `Semana ${wi + 1}`;
+        weekHeader.textContent = `Semana ${key + 1}`;
         weekContainer.appendChild(weekHeader);
 
         const grid = document.createElement("div");
@@ -847,11 +942,49 @@ const EditorialPage = () => {
               {regenerationCredits > 0 && ` · ${regenerationCredits} ajuste${regenerationCredits > 1 ? "s" : ""} de conteúdo`}
             </p>
           </div>
-          <Button onClick={handleDownloadPDF} variant="outline" size="sm" className="gap-2" disabled={downloadingPDF} data-hide-pdf>
-            {downloadingPDF ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-            Baixar PDF
-          </Button>
+          <div className="flex items-center gap-2" data-hide-pdf>
+            {!selectionMode && (
+              <Button
+                variant="outline" size="sm" className="gap-2"
+                onClick={() => setSelectionMode(true)}
+                disabled={downloadingPDF || allWeeks.length === 0}
+              >
+                <CheckSquare className="h-4 w-4" /> Selecionar semanas
+              </Button>
+            )}
+            {!selectionMode && (
+              <Button onClick={() => handleDownloadPDF()} variant="outline" size="sm" className="gap-2" disabled={downloadingPDF}>
+                {downloadingPDF ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                Baixar PDF
+              </Button>
+            )}
+          </div>
         </div>
+
+        {selectionMode && (
+          <div
+            className="flex items-center gap-3 sticky top-0 z-20 bg-background/95 backdrop-blur border-b py-3 -mx-2 px-2 flex-wrap"
+            data-hide-pdf
+          >
+            <span className="text-sm font-medium">
+              {selectedWeeks.size} semana{selectedWeeks.size !== 1 ? "s" : ""} selecionada{selectedWeeks.size !== 1 ? "s" : ""}
+            </span>
+            <Button variant="outline" size="sm" onClick={selectAllWeeks}>Selecionar todas</Button>
+            <Button variant="outline" size="sm" onClick={clearSelection}>Limpar</Button>
+            <Button
+              size="sm"
+              onClick={() => handleDownloadPDF(new Set(selectedWeeks))}
+              disabled={selectedWeeks.size === 0 || downloadingPDF}
+              className="ml-auto gap-2"
+            >
+              {downloadingPDF ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+              Baixar PDF ({selectedWeeks.size})
+            </Button>
+            <Button variant="ghost" size="sm" onClick={exitSelectionMode}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
 
         {hasOlderWeeks && (
           <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-900/50">
@@ -867,8 +1000,10 @@ const EditorialPage = () => {
         <Tabs value={activeWeek} onValueChange={setActiveWeek} className="w-full">
           {allWeeks.length > 1 && (
             <TabsList className="mb-4 flex-wrap h-auto bg-muted/50">
-              {allWeeks.map((_, i) => (
-                <TabsTrigger key={i} value={`week-${i}`} className="text-xs">Semana {i + 1}</TabsTrigger>
+              {allWeeks.map((w, i) => (
+                <TabsTrigger key={i} value={`week-${i}`} className="text-xs">
+                  Semana {getWeekKey(w, i) + 1}
+                </TabsTrigger>
               ))}
             </TabsList>
           )}
@@ -880,8 +1015,48 @@ const EditorialPage = () => {
             const feedDaysForTrends = week.days
               .map((d: DayV6, di: number) => d.feed ? { dayIndex: di, dayNumber: d.day || di + 1, theme: d.feed.theme || "" } : null)
               .filter(Boolean) as { dayIndex: number; dayNumber: number; theme: string }[];
+            const weekKey = getWeekKey(week, wi);
+            const isSelected = selectedWeeks.has(weekKey);
+            // Só permite excluir semanas que existem em editorial_weeks (têm _week_index ou week_index).
+            const canDelete = typeof (week as any)?._week_index === "number" || typeof (week as any)?.week_index === "number";
             return (
             <TabsContent key={wi} value={`week-${wi}`}>
+              <div
+                className={`mb-3 flex items-center gap-3 rounded-md border px-3 py-2 ${
+                  selectionMode && isSelected
+                    ? "border-primary/60 bg-primary/5"
+                    : "border-border bg-card/40"
+                }`}
+              >
+                {selectionMode && (
+                  <Checkbox
+                    checked={isSelected}
+                    onCheckedChange={() => toggleWeekSelection(weekKey)}
+                    aria-label={`Selecionar semana ${weekKey + 1}`}
+                    data-hide-pdf
+                  />
+                )}
+                <h2 className="text-sm font-semibold tracking-tight flex-1">
+                  Semana {weekKey + 1}
+                </h2>
+                {canDelete && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                    onClick={() => setConfirmDeleteWeek(weekKey)}
+                    disabled={deletingWeek !== null || isReadOnly}
+                    aria-label={`Excluir semana ${weekKey + 1}`}
+                    data-hide-pdf
+                  >
+                    {deletingWeek === weekKey ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-4 w-4" />
+                    )}
+                  </Button>
+                )}
+              </div>
               {/* Banner "Atualizar semana (grátis)" temporariamente oculto a pedido. */}
               {false && weekOutdated && isRegenWeek && null}
               {(week._partial || week._stage_b_failed) && (
@@ -1096,6 +1271,41 @@ const EditorialPage = () => {
           onChoose={handleStyleChosen}
         />
       )}
+
+      <AlertDialog
+        open={confirmDeleteWeek !== null}
+        onOpenChange={(open) => { if (!open) setConfirmDeleteWeek(null); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Excluir semana {confirmDeleteWeek !== null ? confirmDeleteWeek + 1 : ""}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação removerá os 7 dias desta semana permanentemente. Os embeddings
+              e padrões de detecção também serão limpos para que esse conteúdo não
+              influencie futuras gerações.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletingWeek !== null}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                if (confirmDeleteWeek !== null) handleDeleteWeek(confirmDeleteWeek);
+              }}
+              disabled={deletingWeek !== null}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deletingWeek !== null ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Excluindo…</>
+              ) : (
+                "Excluir semana"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   );
 };
