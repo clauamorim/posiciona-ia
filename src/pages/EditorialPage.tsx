@@ -659,9 +659,13 @@ const EditorialPage = () => {
         .single();
 
       const weeks: any[] = Array.isArray(r?.editorial_weeks) ? r.editorial_weeks : [];
-      const updated = weeks.filter(
-        (w) => w?._week_index !== weekKey && w?.week_index !== weekKey,
-      );
+      // Remove qualquer entrada que combine pelo week_index lógico OU, se a semana não tem
+      // esse campo gravado, pela posição no array (fallback para semanas legadas).
+      const updated = weeks.filter((w, i) => {
+        const wi = w?._week_index ?? w?.week_index;
+        if (typeof wi === "number") return wi !== weekKey;
+        return i !== weekKey;
+      });
 
       const { error: upErr } = await supabase
         .from("reports")
@@ -1017,8 +1021,6 @@ const EditorialPage = () => {
               .filter(Boolean) as { dayIndex: number; dayNumber: number; theme: string }[];
             const weekKey = getWeekKey(week, wi);
             const isSelected = selectedWeeks.has(weekKey);
-            // Só permite excluir semanas que existem em editorial_weeks (têm _week_index ou week_index).
-            const canDelete = typeof (week as any)?._week_index === "number" || typeof (week as any)?.week_index === "number";
             return (
             <TabsContent key={wi} value={`week-${wi}`}>
               <div
@@ -1039,13 +1041,13 @@ const EditorialPage = () => {
                 <h2 className="text-sm font-semibold tracking-tight flex-1">
                   Semana {weekKey + 1}
                 </h2>
-                {canDelete && (
+                {!isReadOnly && (
                   <Button
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8 text-muted-foreground hover:text-destructive"
                     onClick={() => setConfirmDeleteWeek(weekKey)}
-                    disabled={deletingWeek !== null || isReadOnly}
+                    disabled={deletingWeek !== null}
                     aria-label={`Excluir semana ${weekKey + 1}`}
                     data-hide-pdf
                   >
