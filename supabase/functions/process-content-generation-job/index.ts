@@ -1175,14 +1175,47 @@ Nicho: ${niche || "Não informado"}${verifiableFactsBlock}${storybrandContext}${
 
 Gere agora os 7 stories da semana.`;
 
-      const { text: storiesRaw, stopReason: storiesStop } = await callClaudeWithMeta({
-        systemPrompt: storiesSystem,
-        userText: storiesUser,
-        model: "claude-opus-4-7",
-        max_tokens: 7000,
-        timeoutMs: 150000,
-        disableRetries: true,
-      });
+      let storiesRaw: string;
+      let storiesStop: string | undefined;
+      try {
+        const result = await callClaudeWithMeta({
+          systemPrompt: storiesSystem,
+          userText: storiesUser,
+          model: "claude-opus-4-7",
+          max_tokens: 7000,
+          timeoutMs: 150000,
+          disableRetries: true,
+        });
+        storiesRaw = result.text;
+        storiesStop = result.stopReason;
+      } catch (storiesCallErr: any) {
+        // Estágio B caiu (instabilidade da API Anthropic, timeout, etc).
+        // O feed JÁ foi persistido antes (save parcial). Marcamos o job como
+        // completed_partial e NÃO reembolsamos o crédito (feed foi entregue).
+        console.error(`[job ${jobId}] Estágio B levantou exceção:`, storiesCallErr?.message || storiesCallErr);
+        if (!partialPersisted) {
+          try {
+            await persistWeek(job.report_id, feedFinal, [], jobId, marketTrends, wkIdxForPartial, true);
+            partialPersisted = true;
+          } catch (e) {
+            console.error(`[job ${jobId}] Falha ao persistir feed após exceção do Estágio B:`, e);
+          }
+        }
+        creditReserved = false; // não devolver crédito — feed foi entregue
+        await updateJob(jobId, {
+          status: "completed",
+          result: {
+            stage: "completed_partial",
+            feed: feedFinal,
+            stories: [],
+            generator_version: EDITORIAL_GENERATOR_VERSION,
+          },
+          progress_message: "Feed gerado. Stories falharam — regenere os stories para completar.",
+          finished_at: new Date().toISOString(),
+          error_message: "Stories indisponíveis no momento (instabilidade da IA). Use o botão de regenerar story em cada dia.",
+        });
+        return;
+      }
       if (storiesStop === "max_tokens") {
         console.warn(`[job ${jobId}] Estágio B: resposta truncada (max_tokens). raw len=${storiesRaw.length}. Iniciando recuperação parcial.`);
       }
