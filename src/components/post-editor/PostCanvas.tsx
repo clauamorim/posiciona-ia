@@ -623,7 +623,22 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
     }
   }, [resolvedTitleFont, titleFontFamily, displayFont]);
 
-  const resolvedCtaText = ctaText || cta || "";
+  // CTA longo é cortado na exibição do card (mantém apenas a 1ª frase/comando).
+  // O texto completo continua disponível para a legenda do Instagram.
+  const rawCtaText = ctaText || cta || "";
+  const resolvedCtaText = (() => {
+    if (!rawCtaText) return "";
+    // Corta no 1º separador natural (": ", " — ", ". ") ou em 80 chars como fallback.
+    const breakIdx = (() => {
+      const candidates = [": ", " — ", ". ", "? "]
+        .map(sep => rawCtaText.indexOf(sep))
+        .filter(i => i > 20); // ignora separadores muito próximos do início
+      return candidates.length > 0 ? Math.min(...candidates) : -1;
+    })();
+    if (breakIdx > 0 && breakIdx < 90) return rawCtaText.slice(0, breakIdx).trim();
+    if (rawCtaText.length > 90) return rawCtaText.slice(0, 87).trim() + "…";
+    return rawCtaText;
+  })();
   const resolvedCtaBg = ctaBgColor || accentColor;
   const resolvedCtaText2 = ctaTextColor || bgColor;
   // Auto-shrink do CTA quando texto é longo (evita bloco gigante sobrepondo texto).
