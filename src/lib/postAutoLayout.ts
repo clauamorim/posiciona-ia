@@ -9,11 +9,9 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   pickTemplate, pickSingleTemplate,
   buildBackgroundImageOverlay, buildDecorativeBlockOverlay, buildLogoOverlay,
-  buildMinimalDecorativeOverlays,
   type CanvasFormat, type TemplateLayout,
 } from "./postTemplates";
 import type { OverlayImage } from "@/components/post-editor/PostToolbar";
-import { buildArchetypeOverlays } from "@/lib/archetypeOverlays";
 
 export type PostStyle = "minimal" | "pexels" | "ai";
 
@@ -613,18 +611,9 @@ export async function buildAutoLayout(input: AutoLayoutInput): Promise<AutoLayou
     ? template.bodySlot.y + estBodyHeight
     : undefined;
 
-  // 2) Decorações: se houver arquétipo, usa decorativos do grupo (editáveis).
-  //    Senão, mantém os auto-decoratives genéricos (frame + linha + ornamento).
-  if (input.primaryArchetype) {
-    overlays.push(...buildArchetypeOverlays(input.primaryArchetype, template));
-  } else {
-    const primary = input.paletteHex[0] || "#7c3aed";
-    const accent = input.paletteHex[1] || input.paletteHex[0] || "#7c3aed";
-    const onPhoto = style === "pexels" || style === "ai";
-    overlays.push(
-      ...buildMinimalDecorativeOverlays(template, primary, accent, { onPhoto, bodyBottomY }),
-    );
-  }
+  // 2) Decorativos automáticos REMOVIDOS por decisão de design.
+  //    Canvas fica limpo (só background + texto + CTA + logo).
+  //    Usuário pode adicionar elementos manualmente via painel "Adicionar elemento".
 
   // 3) Logo do usuário (se houver)
   const logoUrl = await fetchUserLogo(input.userId);
