@@ -50,6 +50,131 @@ async function updateJob(jobId: string, patch: Record<string, any>) {
   await admin.from("content_generation_jobs").update(patch).eq("id", jobId);
 }
 
+// ===== Helpers para rastrear traços pessoais usados (anti-repetição) =====
+// Os "traços" são valores de campos do questionário pessoal que costumam virar
+// exemplo concreto / metáfora nos posts (hobby, esporte, ritual, etc).
+const PERSONAL_TRAIT_FIELDS = [
+  "hobby",
+  "sports",
+  "pets",
+  "dependents",
+  "sunday_morning",
+  "pre_meeting_ritual",
+  "work_routine",
+  "unblock_method",
+] as const;
+
+const PT_STOPWORDS = new Set([
+  "para","como","quando","porque","sobre","entre","minha","meus","minhas","meu",
+  "tenho","fazer","faço","gosto","sempre","nunca","muito","mais","menos","todos",
+  "todas","cada","outro","outra","outros","outras","tudo","nada","aqui","onde",
+  "isso","aquilo","esse","essa","esses","essas","este","esta","estes","estas",
+  "também","tambem","então","entao","depois","antes","ainda","desde","durante",
+  "pessoa","pessoas","coisa","coisas","tipo","forma","jeito","vezes","semana",
+  "todos","mesmo","mesma","posso","pode","podem","ser","estar","estou","estava",
+]);
+
+function normalize(s: string): string {
+  return (s || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function extractTraitKeywords(value: string): string[] {
+  if (!value) return [];
+  const norm = normalize(value);
+  const words = norm.split(/[^a-z0-9]+/).filter((w) =>
+    w.length >= 5 && !PT_STOPWORDS.has(w) && !/^\d+$/.test(w)
+  );
+  return Array.from(new Set(words));
+}
+
+/** Mapeia { field -> [keywords...] } a partir do questionário pessoal. */
+function buildPersonalTraitMap(personal: any): Record<string, string[]> {
+  const map: Record<string, string[]> = {};
+  if (!personal || typeof personal !== "object") return map;
+  for (const f of PERSONAL_TRAIT_FIELDS) {
+    const v = (personal as any)[f];
+    if (typeof v === "string" && v.trim()) {
+      const kws = extractTraitKeywords(v);
+      if (kws.length > 0) map[f] = kws;
+    }
+  }
+  return map;
+}
+
+/** Lê últimas 2 entradas de used_personal_traits do usuário. */
+async function fetchRecentlyUsedTraits(userId: string): Promise<string[]> {
+  try {
+    const { data } = await admin
+      .from("used_personal_traits")
+      .select("traits_used")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(2);
+    if (!Array.isArray(data)) return [];
+    const flat: string[] = [];
+    for (const row of data) {
+      if (Array.isArray(row.traits_used)) {
+        for (const t of row.traits_used) if (typeof t === "string" && t.trim()) flat.push(t);
+      }
+    }
+    return Array.from(new Set(flat));
+  } catch (e) {
+    console.warn("fetchRecentlyUsedTraits falhou:", (e as any)?.message || e);
+    return [];
+  }
+}
+
+function renderRecentTraitsBlock(traits: string[]): string {
+  if (!traits || traits.length === 0) return "";
+  const lines = traits.map((t) => `- ${t}`).join("\n");
+  return `\n\n## TRAÇOS PESSOAIS USADOS NAS ÚLTIMAS 2 SEMANAS (não repetir)
+Os seguintes traços pessoais do criador JÁ foram usados como exemplo concreto ou metáfora nos últimos posts:
+${lines}
+
+REGRAS:
+- NÃO use estes traços como exemplo concreto ou metáfora central desta semana
+- Você pode usá-los como TOM/VOZ implícita (ex: o ritmo de quem treina cedo influencia a forma de escrever), mas NÃO como conteúdo
+- Use traços diferentes do questionário pessoal nesta semana, ou nenhum se preferir variar com casos atuais\n`;
+}
+
+/** Heurística: detecta quais traços do questionário pessoal aparecem nos textos gerados. */
+function detectUsedTraits(
+  traitMap: Record<string, string[]>,
+  feed: any[],
+  stories: any[],
+): string[] {
+  const corpusParts: string[] = [];
+  for (const p of feed || []) {
+    if (!p) continue;
+    if (typeof p.theme === "string") corpusParts.push(p.theme);
+    if (typeof p.caption === "string") corpusParts.push(p.caption);
+    if (typeof p.script === "string") corpusParts.push(p.script);
+    if (Array.isArray(p.card_copy)) corpusParts.push(p.card_copy.join(" "));
+  }
+  for (const s of stories || []) {
+    if (!s) continue;
+    if (typeof s.theme === "string") corpusParts.push(s.theme);
+    if (Array.isArray(s.frames)) corpusParts.push(s.frames.join(" "));
+  }
+  const corpus = normalize(corpusParts.join(" \n "));
+  if (!corpus) return [];
+  const used: string[] = [];
+  for (const [field, kws] of Object.entries(traitMap)) {
+    for (const kw of kws) {
+      const re = new RegExp(`\\b${kw}\\b`);
+      if (re.test(corpus)) {
+        used.push(`${field}:${kw}`);
+        break; // uma keyword por campo basta para marcar o traço como usado
+      }
+    }
+  }
+  return used;
+}
+
+
 // Distribuição fixa dos 4 dias com feed dentro da semana (1..7).
 // Escolhemos dias que cobrem início, meio e fim da semana com bom espaçamento.
 const FEED_DAYS = [1, 3, 5, 7];
