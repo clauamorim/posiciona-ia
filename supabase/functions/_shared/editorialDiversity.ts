@@ -476,6 +476,7 @@ EXEMPLO RUIM (fórmula batida + palavra-conceito saturada + hype vazio):
 export interface DiversityHints {
   bannedFormulas: TitleFormulaId[]; // fórmulas usadas nas últimas 2 semanas
   dampenedConcepts: ConceptGroupId[]; // grupos centrais nas últimas 2 semanas
+  bannedNamedCases?: string[]; // cases reais (marcas) usados nos últimos 28 dias
 }
 
 export function renderDiversityBlock(hints: DiversityHints): string {
@@ -488,12 +489,17 @@ export function renderDiversityBlock(hints: DiversityHints): string {
       .map((g) => `${g} (${CONCEPT_GROUPS[g]?.label || ""})`)
       .join("; ")
     : "nenhum marcado";
+  const namedCases = (hints.bannedNamedCases && hints.bannedNamedCases.length > 0)
+    ? hints.bannedNamedCases.join(", ")
+    : "nenhum";
   return `
 
 # FÓRMULAS DE TÍTULO SATURADAS (use no MÁXIMO 1 vez por semana — de preferência ZERO)
 ${allFormulasList}
 
 PROIBIDAS NESTA SEMANA (já usadas nas últimas 2 semanas): ${banned}
+
+# CASES REAIS PROIBIDOS NESTA SEMANA (já usados nos últimos 28 dias — escolha OUTROS nomes/marcas/anos): ${namedCases}
 
 # CONCEITOS A EVITAR COMO TEMA CENTRAL
 Cada um destes GRUPOS de palavras pode ser TEMA CENTRAL de NO MÁXIMO 1 post da semana (regra dura — 2 posts no mesmo grupo dispara retry):
