@@ -227,11 +227,24 @@ const FORMULA_PATTERNS: { id: Exclude<TitleFormulaId, "livre">; label: string; r
     label: '"X que constrói … vs Y que só …"',
     re: /\bque\s+constr[óo]i\b.+\bvs\b|\bque\s+constr[óo]i\b.+\bque\s+s[óo]\b/i,
   },
-  // 11. "Protocolo/checklist/guia de N perguntas/passos/filtros/critérios/regras"
+  // 11. "Protocolo/método/checklist/guia/filtro (de N) perguntas/passos/filtros/camadas/critérios/regras/sinais"
+  //     OU "As N perguntas/camadas/filtros/passos/critérios" (sem o substantivo de método)
+  //     Aceita numeral por extenso (três, quatro, sete, etc.) ou dígito.
   {
     id: "protocolo_n_perguntas",
-    label: '"Protocolo/checklist/guia (de N) perguntas/passos/filtros/critérios"',
-    re: /\b(protocolo|checklist|guia|roteiro|m[eé]todo)\s+(de\s+)?(\d+\s+)?(perguntas|passos|filtros|camadas|crit[ée]rios|regras)\b/i,
+    label: '"Protocolo/método/filtro (N) perguntas/passos/filtros/camadas/critérios"',
+    re: new RegExp(
+      `(\\b(protocolo|checklist|guia|roteiro|m[eé]todo|filtro)\\s+(de\\s+)?(${N_OR_WORD}\\s+)?(perguntas|passos|filtros|camadas|crit[ée]rios|regras|sinais)\\b)` +
+      `|` +
+      `(\\b(as|os)\\s+${N_OR_WORD}\\s+(perguntas|camadas|filtros|passos|crit[ée]rios|regras|sinais)\\b)`,
+      "i",
+    ),
+  },
+  // 12. "Cliente/paciente chegou pedindo X — recusei / disse não / não aceitei"
+  {
+    id: "cliente_pediu_recusei",
+    label: '"Cliente pediu X impossível — recusei"',
+    re: /\b(cliente|paciente)\b[^.]{0,80}(pediu|chegou\s+pedindo|me\s+procurou\s+pedindo|chegou\s+querendo)\b[^.]{0,200}\b(recusei|disse\s+n[ãa]o|n[ãa]o\s+aceitei|recusada?|recusado)\b/i,
   },
 ];
 
