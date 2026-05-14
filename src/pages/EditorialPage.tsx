@@ -196,6 +196,17 @@ const EditorialPage = () => {
   // Sempre normaliza para shape v6 antes de renderizar (tolerante a v5 antigo)
   const allWeeks: WeekV6[] = allWeeksRaw.map((w) => normalizeWeekToV6(w));
 
+  // Detecta semanas migradas de versão anterior do relatório.
+  const currentReportVersion = (report as any)?.version;
+  const olderWeeksCount = editorialWeeks.reduce((acc, w) => {
+    const v = w && typeof w === "object" ? (w._meta?.generated_with_report_version) : undefined;
+    if (typeof v === "number" && typeof currentReportVersion === "number" && v !== currentReportVersion) {
+      return acc + 1;
+    }
+    return acc;
+  }, 0);
+  const hasOlderWeeks = olderWeeksCount > 0;
+
   // Cleanup do polling ao desmontar (evita updates em componente desmontado)
   useEffect(() => {
     return () => {
