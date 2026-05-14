@@ -16,10 +16,14 @@ interface UserSubscription {
   plan_id: string;
   plan_slug: string;
   plan_name: string;
+  billing_type: string | null;
   status: string;
   current_period_end: string | null;
   created_at: string;
 }
+
+export type PlanAccessLevel = "full" | "read_only" | "none";
+export type ExpirationReason = "subscription_expired" | "one_time_exhausted" | null;
 
 interface AuthContextType {
   session: Session | null;
@@ -27,6 +31,9 @@ interface AuthContextType {
   isAdmin: boolean;
   isLoading: boolean;
   hasActivePlan: boolean;
+  planAccessLevel: PlanAccessLevel;
+  isReadOnly: boolean;
+  expirationReason: ExpirationReason;
   subscription: UserSubscription | null;
   balances: UserBalances | null;
   adoptSession: (session: Session) => Promise<void>;
@@ -40,6 +47,9 @@ const AuthContext = createContext<AuthContextType>({
   isAdmin: false,
   isLoading: true,
   hasActivePlan: false,
+  planAccessLevel: "none",
+  isReadOnly: false,
+  expirationReason: null,
   subscription: null,
   balances: null,
   adoptSession: async () => {},
@@ -118,7 +128,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (sub) {
         const { data: plan } = await supabase
           .from("plans")
-          .select("slug, name")
+          .select("slug, name, billing_type")
           .eq("id", sub.plan_id)
           .single();
 
@@ -126,6 +136,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           plan_id: sub.plan_id,
           plan_slug: plan?.slug || "",
           plan_name: plan?.name || "",
+          billing_type: plan?.billing_type ?? null,
           status: sub.status,
           current_period_end: sub.current_period_end,
           created_at: sub.created_at,
@@ -296,7 +307,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const hasActivePlan = !!subscription && subscription.status === "active";
+  const planAccessLevel: PlanAccessLevel = (() => {
+    if (!subscription) return "none";
+    if (subscription.status !== "active") return "none";
+
+    // Plano recorrente: checa vencimento real
+    if (subscription.current_period_end) {
+      const expired = new Date(subscription.current_period_end) < new Date();
+      if (expired) return "read_only";
+    }
+
+    // Plano one-time: read-only quando weekly_cycles == 0
+    if (subscription.billing_type === "one_time") {
+      const cyclesLeft = balances?.weekly_cycles ?? 0;
+      if (cyclesLeft === 0) return "read_only";
+    }
+
+    return "full";
+  })();
+
+  const hasActivePlan = planAccessLevel !== "none";
+  const isReadOnly = planAccessLevel === "read_only";
+  const expirationReason: ExpirationReason = (() => {
+    if (planAccessLevel !== "read_only") return null;
+    if (subscription?.billing_type === "one_time") return "one_time_exhausted";
+    return "subscription_expired";
+  })();
 
   return (
     <AuthContext.Provider
@@ -306,6 +342,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isAdmin,
         isLoading,
         hasActivePlan,
+        planAccessLevel,
+        isReadOnly,
+        expirationReason,
         subscription,
         balances,
         adoptSession,

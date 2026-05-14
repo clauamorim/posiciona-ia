@@ -6,10 +6,11 @@ interface ProtectedRouteProps {
   children: React.ReactNode;
   requireAdmin?: boolean;
   requirePlan?: boolean;
+  requireFullAccess?: boolean;
 }
 
-export const ProtectedRoute = ({ children, requireAdmin = false, requirePlan = false }: ProtectedRouteProps) => {
-  const { user, isAdmin, isLoading, hasActivePlan } = useAuth();
+export const ProtectedRoute = ({ children, requireAdmin = false, requirePlan = false, requireFullAccess = false }: ProtectedRouteProps) => {
+  const { user, isAdmin, isLoading, hasActivePlan, isReadOnly } = useAuth();
 
   if (isLoading) {
     return (
@@ -25,7 +26,8 @@ export const ProtectedRoute = ({ children, requireAdmin = false, requirePlan = f
 
   if (!user) return <Navigate to="/login" replace />;
   if (requireAdmin && !isAdmin) return <Navigate to="/dashboard" replace />;
-  if (requirePlan && !hasActivePlan && !isAdmin) return <Navigate to="/choose-plan" replace />;
+  if ((requirePlan || requireFullAccess) && !hasActivePlan && !isAdmin) return <Navigate to="/choose-plan" replace />;
+  if (requireFullAccess && isReadOnly && !isAdmin) return <Navigate to="/assinatura-expirada" replace />;
 
   return <>{children}</>;
 };
