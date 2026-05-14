@@ -335,7 +335,7 @@ ESCOLHA UMA das seguintes estruturas de abertura (não use a mesma usada em sema
 Estrutura interna: situação nomeada → decisão/desfecho → aprendizado para o leitor.`,
   },
 ] as const;
-const FEED_DAYS = [1, 3, 5, 7];
+// FEED_DAYS importado de _shared/storiesPromptBuilder.ts
 
 function buildFeedSystemPrompt(rotationOffset: number = 0): string {
   return `Você é um especialista em branding e copy para Instagram. Domina e aplica de forma OBRIGATÓRIA três frameworks (descritos em detalhe ao final deste prompt):
