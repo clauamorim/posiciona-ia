@@ -1,0 +1,1 @@
+ALTER TABLE public.used_title_patterns ADD COLUMN IF NOT EXISTS named_cases text[] NOT NULL DEFAULT '{}'::text[];

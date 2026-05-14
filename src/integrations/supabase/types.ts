@@ -1075,6 +1075,7 @@ export type Database = {
           created_at: string
           day_index: number
           id: string
+          named_cases: string[]
           pillar: string
           report_id: string | null
           title_anchors: string[]
@@ -1087,6 +1088,7 @@ export type Database = {
           created_at?: string
           day_index: number
           id?: string
+          named_cases?: string[]
           pillar?: string
           report_id?: string | null
           title_anchors?: string[]
@@ -1099,6 +1101,7 @@ export type Database = {
           created_at?: string
           day_index?: number
           id?: string
+          named_cases?: string[]
           pillar?: string
           report_id?: string | null
           title_anchors?: string[]

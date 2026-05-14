@@ -77,16 +77,22 @@ const CONCEPT_GROUPS: Record<ConceptGroupId, { label: string; terms: string[] }>
       "mostrar bastidor",
       "mostrando o dia a dia",
       "mostrando dia a dia",
+      "mostra o dia a dia",
+      "mostre o dia a dia",
       "humanizar marca",
       "humanizar a marca",
       "humanizar perfil",
+      "humanizar seu perfil",
       "humanizar conta",
+      "conselho de humanizar",
+      "conselho humanizar",
       "erro de humanizar",
       "o que e humanizar",
       "humanizar e mostrar",
       "humanizar virou",
       "bastidor humaniza",
       "dia a dia humaniza",
+      "dia a dia que humaniza",
       "bastidor nivela",
       "nivela por baixo",
       "rotina humaniza",
@@ -95,6 +101,8 @@ const CONCEPT_GROUPS: Record<ConceptGroupId, { label: string; terms: string[] }>
       "parecer amador",
       "mostrar cafe da manha",
       "cafe da manha todo dia",
+      "destruindo a percepcao",
+      "decisao tecnica de alto risco",
     ],
   },
   grupo_i_agradar_todos: {
@@ -166,6 +174,16 @@ const CONCEPT_GROUPS: Record<ConceptGroupId, { label: string; terms: string[] }>
       "descreve profissao nao recorte",
       "o erro do sobre",
       "erro de bio",
+      "curriculo emocional",
+      "filtro de cliente",
+      "bio esta boa",
+      "minha bio esta boa",
+      "ler o sobre",
+      "ler a bio",
+      "sobre do perfil",
+      "sobre de um perfil",
+      "como leio o sobre",
+      "como leio a bio",
     ],
   },
 };
@@ -307,13 +325,14 @@ const FORMULA_PATTERNS: { id: Exclude<TitleFormulaId, "livre">; label: string; r
   {
     id: "cliente_pediu_recusei",
     label: '"[Personagem] chega pedindo/dizendo X — triagem/recusa/diagnóstico"',
-    re: /\b(quando\s+o[a]?\s+|cliente|paciente|advog\w*|m[eé]dic\w*|psic[oó]log\w*|dentista|nutric\w*|fisioterap\w*|profissional|consultor\w*|arquitet\w*|design\w*)[^.?!]{0,80}\b(pediu|chega|chegou|chegando|escreve|escreveu|procura|procurou|me\s+procurou|chega\s+dizendo|chegou\s+dizendo|chegou\s+pedindo|chegou\s+querendo)\b[^.?!]{0,200}\b(recusei|disse\s+n[ãa]o|n[ãa]o\s+aceitei|recusada?|recusado|n[ãa]o\s+atend[io]|trabalho\s+com|trabalha\s+com|n[ãa]o\s+[ée]\s+com|h[áa]\s+dois?\s+(diagn[óo]sticos?|caminhos|cen[áa]rios|leituras))\b/i,
+    re: /\b(quando\s+o[a]?\s+|cliente|paciente|advog\w*|m[eé]dic\w*|psic[oó]log\w*|dentista|nutric\w*|fisioterap\w*|profissional|consultor\w*|arquitet\w*|design\w*)[^.?!]{0,80}\b(pediu|pede|chega|chegou|chegando|escreve|escreveu|procura|procurou|me\s+procurou|chega\s+dizendo|chegou\s+dizendo|chegou\s+pedindo|chegou\s+querendo)\b[^.?!]{0,200}\b(recusei|recuso|recusa|recusam|recusamos|disse\s+n[ãa]o|digo\s+n[ãa]o|n[ãa]o\s+aceit\w+|recusada?|recusado|n[ãa]o\s+atend[ioe]\w*|trabalho\s+com|trabalha\s+com|n[ãa]o\s+[ée]\s+com|h[áa]\s+dois?\s+(diagn[óo]sticos?|caminhos|cen[áa]rios|leituras))\b/i,
   },
   // 13. "A ideia / a regra / o conselho de que 'X' está [verbo]ndo Y"
+  //     Tolerante a até 80 chars de "ponte" entre as aspas fechadas e o verbo.
   {
     id: "a_ideia_de_que_x_esta",
-    label: '"A ideia/regra/conselho de que ‘X’ está [verbo]ndo Y"',
-    re: /\b(a\s+ideia|a\s+regra|o\s+conselho|a\s+cren[çc]a|o\s+mantra|o\s+discurso)\s+de\s+que\s+['"“”‘’][^'"“”‘’]{2,120}['"“”‘’]\s+(est[áa]|t[áa]|vem|anda)\s+\w+(ndo|nte)\b/i,
+    label: '"A ideia/regra/conselho/crença de que ‘X’ está [verbo]ndo Y"',
+    re: /\b(a\s+(ideia|regra|cren[çc]a)|o\s+(conselho|mantra|discurso))\s+de\s+que\s+['"“”‘’][^'"“”‘’]{2,120}['"“”‘’][^.!?]{0,80}\b(est[áa]|t[áa]|vem|anda)\s+\w*(ndo|nte)\b/i,
   },
   // 14. CTA "Me chame no direct com a palavra X" (e variações próximas)
   {
@@ -330,6 +349,36 @@ export function detectTitleFormula(title: string): TitleFormulaId {
     if (p.re.test(t)) return p.id;
   }
   return "livre";
+}
+
+/** Retorna TODAS as fórmulas detectadas (não para na primeira). */
+export function detectTitleFormulas(title: string): TitleFormulaId[] {
+  const t = (title || "").trim();
+  if (!t) return [];
+  const found: TitleFormulaId[] = [];
+  for (const p of FORMULA_PATTERNS) {
+    if (p.re.test(t)) found.push(p.id);
+  }
+  return found;
+}
+
+// ===== Cases reais (nomes próprios de marcas) =====
+// Marcas/cases que aparecem com frequência suspeita nos posts. Usado para
+// impedir repetição do mesmo case real dentro de 28 dias.
+const KNOWN_CASE_BRANDS = [
+  "havaianas", "burger king", "magazine luiza", "magalu", "natura", "avon",
+  "stella artois", "apple", "iphone", "nubank", "lego", "burberry",
+  "domino's", "dominos", "pizza turnaround", "sam altman", "openai",
+  "patagonia", "harley-davidson", "harley davidson", "oatly", "tesla", "dyson",
+];
+
+export function detectNamedCases(text: string): string[] {
+  const t = normalize(text);
+  const found = new Set<string>();
+  for (const brand of KNOWN_CASE_BRANDS) {
+    if (t.includes(normalize(brand))) found.add(brand);
+  }
+  return Array.from(found);
 }
 
 // ===== Ancoradores concretos no título =====
@@ -427,6 +476,7 @@ EXEMPLO RUIM (fórmula batida + palavra-conceito saturada + hype vazio):
 export interface DiversityHints {
   bannedFormulas: TitleFormulaId[]; // fórmulas usadas nas últimas 2 semanas
   dampenedConcepts: ConceptGroupId[]; // grupos centrais nas últimas 2 semanas
+  bannedNamedCases?: string[]; // cases reais (marcas) usados nos últimos 28 dias
 }
 
 export function renderDiversityBlock(hints: DiversityHints): string {
@@ -439,12 +489,17 @@ export function renderDiversityBlock(hints: DiversityHints): string {
       .map((g) => `${g} (${CONCEPT_GROUPS[g]?.label || ""})`)
       .join("; ")
     : "nenhum marcado";
+  const namedCases = (hints.bannedNamedCases && hints.bannedNamedCases.length > 0)
+    ? hints.bannedNamedCases.join(", ")
+    : "nenhum";
   return `
 
 # FÓRMULAS DE TÍTULO SATURADAS (use no MÁXIMO 1 vez por semana — de preferência ZERO)
 ${allFormulasList}
 
 PROIBIDAS NESTA SEMANA (já usadas nas últimas 2 semanas): ${banned}
+
+# CASES REAIS PROIBIDOS NESTA SEMANA (já usados nos últimos 28 dias — escolha OUTROS nomes/marcas/anos): ${namedCases}
 
 # CONCEITOS A EVITAR COMO TEMA CENTRAL
 Cada um destes GRUPOS de palavras pode ser TEMA CENTRAL de NO MÁXIMO 1 post da semana (regra dura — 2 posts no mesmo grupo dispara retry):
@@ -471,7 +526,8 @@ export interface DiversityViolation {
     | "concept_group_overuse"
     | "banned_formula_overuse"
     | "pillar_duplicate"
-    | "critica_crenca_overuse";
+    | "critica_crenca_overuse"
+    | "named_case_repeat";
   detail: string;
   days: number[];
 }
@@ -509,37 +565,51 @@ function getBody(p: FeedPostLike): string {
 export interface PostFingerprint {
   day: number;
   pillar: string;
+  /** Primeira fórmula detectada (compat com schema atual `title_formula text`). */
   formula: TitleFormulaId;
+  /** TODAS as fórmulas detectadas, em qualquer campo. */
+  formulas: TitleFormulaId[];
   anchors: AnchorId[];
   concepts: ConceptGroupId[];
+  named_cases: string[];
 }
 
 export function fingerprintPost(p: FeedPostLike): PostFingerprint {
   const headline = getHeadline(p);
   const body = getBody(p);
   const cta = (p.cta || "").toString();
-  // Detecta fórmula em CADA campo separadamente. Antes só checava `theme` (que
-  // costuma ser resumo curto sem a construção completa), perdendo padrões como
-  // "A ideia de que 'X' está [verbo]ndo Y" que vivem no headline ou body.
+  // Detecta fórmulas em CADA campo (theme, headline, body, cta) e agrega TODAS,
+  // não para na primeira — antes "protocolo_n_perguntas" no theme escondia
+  // "cta_palavra_chave_direct" no cta.
   const candidates = [
     (p.theme || "").toString(),
     headline,
     body,
     cta,
   ].filter(Boolean);
-  let formula: TitleFormulaId = "livre";
+  const allFormulas = new Set<TitleFormulaId>();
   for (const c of candidates) {
-    const f = detectTitleFormula(c);
-    if (f !== "livre") { formula = f; break; }
+    for (const f of detectTitleFormulas(c)) allFormulas.add(f);
   }
+  const formulas = Array.from(allFormulas);
+  const formula: TitleFormulaId = formulas[0] || "livre";
+  const named_cases = detectNamedCases(`${p.theme || ""} ${headline} ${body} ${cta}`);
   const titleForFormula = (p.theme || headline || "").toString();
-  return {
+  const fp: PostFingerprint = {
     day: p.day,
     pillar: (p.pillar && String(p.pillar).trim()) || "livre",
     formula,
+    formulas,
     anchors: detectTitleAnchors(titleForFormula),
     concepts: detectConceptGroups({ theme: p.theme, headline, body, cta }),
+    named_cases,
   };
+  // Log de debug — permite acompanhar em produção quais padrões o detector
+  // está pegando (mesmo se a LLM não conseguir reescrever bem o suficiente).
+  console.log(
+    `[fingerprint] day=${p.day} formulas=${JSON.stringify(formulas)} concepts=${JSON.stringify(fp.concepts)} named_cases=${JSON.stringify(named_cases)}`,
+  );
+  return fp;
 }
 
 export function validateWeekDiversity(
@@ -549,7 +619,7 @@ export function validateWeekDiversity(
   const fingerprints = posts.map(fingerprintPost);
   const violations: DiversityViolation[] = [];
 
-  // Concept group overuse: > 2 posts no mesmo grupo central
+  // Concept group overuse: > 1 post no mesmo grupo central
   const conceptCount: Record<string, number[]> = {};
   for (const fp of fingerprints) {
     for (const g of fp.concepts) {
@@ -586,24 +656,47 @@ export function validateWeekDiversity(
     }
   }
 
-  // Banned formula overuse na semana (>1)
+  // Banned formula overuse na semana (>1) — agora itera TODAS as fórmulas detectadas
   const formulaCount: Record<string, number[]> = {};
   for (const fp of fingerprints) {
-    if (fp.formula === "livre") continue;
-    (formulaCount[fp.formula] ||= []).push(fp.day);
+    for (const f of fp.formulas) {
+      if (f === "livre") continue;
+      (formulaCount[f] ||= []).push(fp.day);
+    }
   }
   for (const [f, days] of Object.entries(formulaCount)) {
-    if (days.length > 1) {
+    const uniqueDays = Array.from(new Set(days));
+    if (uniqueDays.length > 1) {
       violations.push({
         type: "banned_formula_overuse",
-        detail: `Fórmula "${f}" usada em ${days.length} posts (máx 1).`,
-        days,
+        detail: `Fórmula "${f}" usada em ${uniqueDays.length} posts (máx 1).`,
+        days: uniqueDays,
       });
     }
     if (hints.bannedFormulas.includes(f as TitleFormulaId)) {
       violations.push({
         type: "banned_formula_overuse",
         detail: `Fórmula "${f}" estava PROIBIDA nesta semana (uso recente).`,
+        days: uniqueDays,
+      });
+    }
+  }
+
+  // Cases reais repetidos (já usados nos últimos 28 dias) — qualquer reuso viola
+  if (hints.bannedNamedCases && hints.bannedNamedCases.length > 0) {
+    const bannedSet = new Set(hints.bannedNamedCases.map((s) => s.toLowerCase()));
+    const reuses: Record<string, number[]> = {};
+    for (const fp of fingerprints) {
+      for (const nc of fp.named_cases) {
+        if (bannedSet.has(nc.toLowerCase())) {
+          (reuses[nc] ||= []).push(fp.day);
+        }
+      }
+    }
+    for (const [nc, days] of Object.entries(reuses)) {
+      violations.push({
+        type: "named_case_repeat",
+        detail: `Case real "${nc}" já foi usado nos últimos 28 dias — escolha outro nome/marca.`,
         days,
       });
     }
@@ -644,11 +737,17 @@ export function validateWeekDiversity(
 // ===== Hints a partir do histórico do banco =====
 
 export function buildDiversityHints(
-  rows: Array<{ title_formula?: string | null; central_concepts?: string[] | null; created_at?: string }>,
+  rows: Array<{
+    title_formula?: string | null;
+    central_concepts?: string[] | null;
+    named_cases?: string[] | null;
+    created_at?: string;
+  }>,
 ): DiversityHints {
   // "Recente" = últimas ~2 semanas; o caller já limita por LIMIT/intervalo.
   const formulas = new Set<TitleFormulaId>();
   const concepts = new Set<ConceptGroupId>();
+  const namedCases = new Set<string>();
   for (const r of rows || []) {
     const f = (r.title_formula || "").trim() as TitleFormulaId;
     if (f && f !== "livre" && FORMULA_PATTERNS.some((p) => p.id === f)) {
@@ -656,6 +755,9 @@ export function buildDiversityHints(
     }
     for (const c of r.central_concepts || []) {
       if (c in CONCEPT_GROUPS) concepts.add(c as ConceptGroupId);
+    }
+    for (const nc of r.named_cases || []) {
+      if (typeof nc === "string" && nc.trim()) namedCases.add(nc.trim().toLowerCase());
     }
   }
   // Override temporário (até 2026-06-30): "a_ideia_de_que_x_esta" foi detectada
@@ -665,6 +767,7 @@ export function buildDiversityHints(
   return {
     bannedFormulas: Array.from(formulas),
     dampenedConcepts: Array.from(concepts),
+    bannedNamedCases: Array.from(namedCases),
   };
 }
 

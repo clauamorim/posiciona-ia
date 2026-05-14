@@ -712,7 +712,7 @@ async function processJob(jobId: string) {
         const since = new Date(Date.now() - 28 * 24 * 60 * 60 * 1000).toISOString();
         const { data: patternRows } = await admin
           .from("used_title_patterns")
-          .select("title_formula, central_concepts, created_at")
+          .select("title_formula, central_concepts, named_cases, created_at")
           .eq("user_id", userId)
           .gte("created_at", since)
           .order("created_at", { ascending: false })
@@ -1198,6 +1198,7 @@ Gere agora os 7 stories da semana.`;
           title_formula: fp.formula,
           title_anchors: fp.anchors,
           central_concepts: fp.concepts,
+          named_cases: fp.named_cases,
         }));
         const { error: patternErr } = await admin.from("used_title_patterns").insert(rows);
         if (patternErr) {
@@ -1207,7 +1208,8 @@ Gere agora os 7 stories da semana.`;
         console.log(
           `[editorial-diversity] week=W${wkIdx + 1} user=${userId}\n` +
           `  pillars=${JSON.stringify(fingerprints.map((f) => f.pillar))}\n` +
-          `  formulas=${JSON.stringify(fingerprints.map((f) => f.formula))}\n` +
+          `  formulas=${JSON.stringify(fingerprints.map((f) => f.formulas))}\n` +
+          `  named_cases=${JSON.stringify(fingerprints.map((f) => f.named_cases))}\n` +
           `  concept_groups_central=${JSON.stringify(fingerprints.map((f) => f.concepts))}\n` +
           `  violations=${JSON.stringify(finalCheck.violations)}`,
         );
