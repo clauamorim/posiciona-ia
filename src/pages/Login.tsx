@@ -106,13 +106,20 @@ const Login = () => {
 
     if (result.kind === "error") {
       const code = result.error.code || "";
+      const status = result.error.status;
       const raw = (result.error.message || "").toLowerCase();
-      let description = result.error.message || "Erro desconhecido.";
-      if (code === "invalid_credentials" || raw.includes("invalid login") || raw.includes("invalid_credentials")) {
+      let description = result.error.message || "Não foi possível entrar. Tente novamente.";
+      if (
+        code === "invalid_credentials" ||
+        code === "invalid_grant" ||
+        raw.includes("invalid login") ||
+        raw.includes("invalid_credentials") ||
+        (status === 400 && !code)
+      ) {
         description = "E-mail ou senha incorretos. Verifique e tente novamente.";
       } else if (code === "email_not_confirmed" || raw.includes("email not confirmed")) {
         description = "Você ainda não confirmou seu e-mail. Verifique sua caixa de entrada.";
-      } else if (code === "over_request_rate_limit" || raw.includes("rate limit")) {
+      } else if (code === "over_request_rate_limit" || raw.includes("rate limit") || status === 429) {
         description = "Muitas tentativas em pouco tempo. Aguarde alguns instantes e tente novamente.";
       } else if (raw.includes("failed to fetch") || raw.includes("load failed") || raw.includes("networkerror")) {
         description = "Não conseguimos conectar ao servidor. Verifique sua conexão e tente novamente.";
