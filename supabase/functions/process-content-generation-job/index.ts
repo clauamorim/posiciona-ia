@@ -1102,6 +1102,36 @@ Gere agora os 7 stories da semana.`;
       await updateJob(jobId, { progress_message: "Salvando conteúdo…" });
       const weekObj = await persistWeek(job.report_id, feedFinal, storiesFinal, jobId, marketTrends);
 
+      // Persiste fingerprints de diversidade + log de telemetria estruturado
+      try {
+        const wkIdx = typeof job.week_index === "number" ? job.week_index : 0;
+        const fingerprints = feedFinal.map((p) => fingerprintPost(p as unknown as FeedPostLike));
+        const rows = fingerprints.map((fp) => ({
+          user_id: userId,
+          report_id: job.report_id,
+          week_index: wkIdx,
+          day_index: fp.day,
+          pillar: fp.pillar,
+          title_formula: fp.formula,
+          title_anchors: fp.anchors,
+          central_concepts: fp.concepts,
+        }));
+        const { error: patternErr } = await admin.from("used_title_patterns").insert(rows);
+        if (patternErr) {
+          console.warn(`[job ${jobId}] used_title_patterns insert falhou:`, patternErr.message);
+        }
+        const finalCheck = validateWeekDiversity(feedFinal as unknown as FeedPostLike[], diversityHints as any);
+        console.log(
+          `[editorial-diversity] week=W${wkIdx + 1} user=${userId}\n` +
+          `  pillars=${JSON.stringify(fingerprints.map((f) => f.pillar))}\n` +
+          `  formulas=${JSON.stringify(fingerprints.map((f) => f.formula))}\n` +
+          `  concept_groups_central=${JSON.stringify(fingerprints.map((f) => f.concepts))}\n` +
+          `  violations=${JSON.stringify(finalCheck.violations)}`,
+        );
+      } catch (patternTrackErr) {
+        console.warn(`[job ${jobId}] persistência de title patterns falhou (ignorada):`, (patternTrackErr as any)?.message || patternTrackErr);
+      }
+
       // Anti-repetição: registra quais traços pessoais aparecem nos textos gerados
       try {
         const usedTraits = detectUsedTraits(personalTraitMap, feedFinal, storiesFinal);
