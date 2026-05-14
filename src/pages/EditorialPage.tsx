@@ -827,6 +827,17 @@ const EditorialPage = () => {
           </Button>
         </div>
 
+        {hasOlderWeeks && (
+          <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-900/50">
+            <AlertTriangle className="h-4 w-4 text-amber-600" />
+            <AlertTitle>Semanas geradas antes da última reanálise</AlertTitle>
+            <AlertDescription className="text-amber-900 dark:text-amber-200">
+              Você tem {olderWeeksCount} semana{olderWeeksCount > 1 ? "s" : ""} geradas com a versão anterior da sua estratégia.
+              Use o botão "Atualizar semana" em cada uma para realinhar com seu posicionamento atual.
+            </AlertDescription>
+          </Alert>
+        )}
+
         <Tabs value={activeWeek} onValueChange={setActiveWeek} className="w-full">
           {allWeeks.length > 1 && (
             <TabsList className="mb-4 flex-wrap h-auto bg-muted/50">
