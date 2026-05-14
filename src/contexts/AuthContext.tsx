@@ -28,6 +28,7 @@ interface AuthContextType {
   hasActivePlan: boolean;
   subscription: UserSubscription | null;
   balances: UserBalances | null;
+  adoptSession: (session: Session) => Promise<void>;
   refreshSubscription: () => Promise<void>;
   signOut: () => Promise<void>;
 }
@@ -40,6 +41,7 @@ const AuthContext = createContext<AuthContextType>({
   hasActivePlan: false,
   subscription: null,
   balances: null,
+  adoptSession: async () => {},
   refreshSubscription: async () => {},
   signOut: async () => {},
 });
@@ -202,6 +204,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setBalances(balResult);
   };
 
+  const adoptSession = async (newSession: Session) => {
+    const requestId = ++authRequestRef.current;
+    setSession(newSession);
+    sessionUserIdRef.current = newSession.user.id;
+    setIsLoading(true);
+    await hydrateUser(newSession, requestId);
+  };
+
   useEffect(() => {
     let mounted = true;
 
@@ -294,6 +304,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         hasActivePlan,
         subscription,
         balances,
+        adoptSession,
         refreshSubscription,
         signOut,
       }}
