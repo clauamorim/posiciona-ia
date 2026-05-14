@@ -567,18 +567,10 @@ const PostEditorPage = () => {
           setSlideTextBoxes(scaled);
         }
 
-        const tplOverlays: OverlayImage[] = Array.isArray(normalized.overlayImages)
-          ? normalized.overlayImages.filter((o: any) => o && o.type !== "photo")
-          : [];
-        if (tplOverlays.length > 0) {
-          setOverlayImages(prev => {
-            // Substitui completamente: mantém só fotos (bg do usuário) e
-            // descarta qualquer outro decorativo prévio para evitar
-            // sobreposição com a moldura do template.
-            const photos = prev.filter(o => o.type === "photo");
-            return [...tplOverlays, ...photos];
-          });
-        }
+        // Removido: carga de overlays do template legado.
+        // Decorativos do arquétipo agora vêm exclusivamente de buildArchetypeOverlays
+        // (chamado dentro de buildAutoLayout). O template legado continua aplicando
+        // cores, fontes e layout via setState acima, mas não traz mais overlays.
       } catch (err) {
         console.warn("[archetype-template] failed", err);
         archetypeTemplateAppliedRef.current = false;
