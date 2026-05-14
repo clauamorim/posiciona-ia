@@ -88,7 +88,19 @@ const ArchetypeQuestionnaire = () => {
 
   const handleFinish = async () => {
     await saveAnswers();
-    navigate("/results");
+    // First-time completion: offer the optional sales-narrative intro.
+    // If the user already has a sales_narrative record (filled or skipped before),
+    // go straight to results.
+    let goIntro = false;
+    if (user) {
+      const { data } = await supabase
+        .from("sales_narrative_questionnaires")
+        .select("user_id")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      goIntro = !data;
+    }
+    navigate(goIntro ? "/sales-narrative-intro" : "/results");
   };
 
   const handleReanalysis = async (mode: "edit" | "reset") => {
