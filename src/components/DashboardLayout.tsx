@@ -1,6 +1,7 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   LayoutDashboard, Building2, Brain, BarChart3,
   FileText, History, LogOut, Shield, Menu, X, Target, Calendar, Instagram, Camera, HelpCircle, CreditCard, FileUp, Image, User, ChevronRight, Layers, ImageIcon, Sparkles, MessageSquareQuote
@@ -10,12 +11,14 @@ import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { BackToTopButton } from "@/components/BackToTopButton";
+import { ReadOnlyBanner } from "@/components/ReadOnlyBanner";
 
 interface NavItem {
   label: string;
   href: string;
   icon: React.ElementType;
   status?: "done" | "in_progress" | "pending" | "blocked";
+  badge?: number;
 }
 
 interface NavGroup {
@@ -23,24 +26,12 @@ interface NavGroup {
   items: NavItem[];
 }
 
-const adminGroups: NavGroup[] = [
-  {
-    label: "Admin",
-    items: [
-      { label: "Usuários", href: "/admin", icon: LayoutDashboard },
-      { label: "Métricas", href: "/admin/metrics", icon: BarChart3 },
-      { label: "Documentos LLM", href: "/admin/documents", icon: FileUp },
-      { label: "Galeria", href: "/admin/gallery", icon: Image },
-      { label: "Templates Globais", href: "/admin/templates", icon: Layers },
-    ],
-  },
-];
-
 export const DashboardLayout = ({ children, wide = false }: { children: React.ReactNode; wide?: boolean }) => {
   const { user, isAdmin, signOut } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [pendingDeletions, setPendingDeletions] = useState<number>(0);
 
   const handleSignOut = async () => {
     setMobileOpen(false);
@@ -50,6 +41,14 @@ export const DashboardLayout = ({ children, wide = false }: { children: React.Re
 
   // Journey status data
   const [journeyStatus, setJourneyStatus] = useState<Record<string, "done" | "in_progress" | "pending" | "blocked">>({});
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    supabase
+      .from("account_deletion_requests")
+      .select("id", { count: "exact", head: true })
+      .then(({ count }) => setPendingDeletions(count ?? 0));
+  }, [isAdmin]);
 
   useEffect(() => {
     if (!user || isAdmin) return;
@@ -131,10 +130,25 @@ export const DashboardLayout = ({ children, wide = false }: { children: React.Re
     {
       label: "Conta",
       items: [
+        { label: "Conta", href: "/conta", icon: User },
         { label: "Plano e Créditos", href: "/choose-plan", icon: CreditCard },
         { label: "Ajuda", href: "/help", icon: HelpCircle },
         { label: "Termos", href: "/termos-de-servico", icon: FileText },
         { label: "Privacidade", href: "/politica-de-privacidade", icon: Shield },
+      ],
+    },
+  ];
+
+  const adminGroups: NavGroup[] = [
+    {
+      label: "Admin",
+      items: [
+        { label: "Usuários", href: "/admin", icon: LayoutDashboard },
+        { label: "Métricas", href: "/admin/metrics", icon: BarChart3 },
+        { label: "Documentos LLM", href: "/admin/documents", icon: FileUp },
+        { label: "Galeria", href: "/admin/gallery", icon: Image },
+        { label: "Templates Globais", href: "/admin/templates", icon: Layers },
+        { label: "Exclusões LGPD", href: "/admin/exclusoes-lgpd", icon: Shield, badge: pendingDeletions },
       ],
     },
   ];
