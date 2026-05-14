@@ -888,6 +888,26 @@ Gere agora os 7 stories da semana.`;
         console.warn(`[job ${jobId}] rastreio de traços pessoais falhou (ignorado):`, (traitTrackErr as any)?.message || traitTrackErr);
       }
 
+      // Anti-repetição: registra quais tendências de mercado foram usadas nos textos gerados
+      try {
+        const usedTrends = detectUsedTrends(filteredMarketTrends, feedFinal, storiesFinal);
+        if (usedTrends.length > 0) {
+          const { error: trendErr } = await admin.from("used_market_trends").insert({
+            user_id: userId,
+            report_id: job.report_id,
+            week_index: typeof job.week_index === "number" ? job.week_index : null,
+            trends_used: usedTrends,
+          });
+          if (trendErr) {
+            console.warn(`[job ${jobId}] used_market_trends insert falhou:`, trendErr.message);
+          } else {
+            console.log(`[job ${jobId}] tendências usadas registradas:`, usedTrends);
+          }
+        }
+      } catch (trendTrackErr) {
+        console.warn(`[job ${jobId}] rastreio de tendências falhou (ignorado):`, (trendTrackErr as any)?.message || trendTrackErr);
+      }
+
       await updateJob(jobId, {
         status: "completed",
         result: {
