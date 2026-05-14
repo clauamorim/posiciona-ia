@@ -1131,6 +1131,19 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
       }
 
 
+      // ==== SAVE PARCIAL: persiste o feed ANTES de iniciar Estágio B ====
+      // Se o Claude falhar no Estágio B (instabilidade da API), o feed (4 chamadas pagas)
+      // não é perdido. A entrada parcial é substituída quando os stories chegarem.
+      const wkIdxForPartial = typeof job.week_index === "number" ? job.week_index : 0;
+      let partialPersisted = false;
+      try {
+        await persistWeek(job.report_id, feedFinal, [], jobId, marketTrends, wkIdxForPartial, true);
+        partialPersisted = true;
+        console.log(`[job ${jobId}] Feed persistido (save parcial). Iniciando Estágio B.`);
+      } catch (partialErr) {
+        console.error(`[job ${jobId}] Falha ao salvar parcial do feed (segue tentando estágio B):`, partialErr);
+      }
+
       await updateJob(jobId, {
         progress_message: "Gerando seus 7 stories da semana (etapa 2 de 2)…",
 
