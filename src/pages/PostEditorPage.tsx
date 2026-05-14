@@ -919,9 +919,10 @@ const PostEditorPage = () => {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [selectedImageId]);
 
-  const bgColor = customBgColor || palette[bgIndex]?.hex || "#1a1a2e";
+  const archetypePalette = getArchetypePalette(primaryArchetype);
+  const bgColor = customBgColor || palette[bgIndex]?.hex || archetypePalette.background;
   const textColor = customTextColor || getContrastColor(bgColor);
-  const accentColor = palette[(bgIndex + 1) % Math.max(palette.length, 1)]?.hex || "#7c3aed";
+  const accentColor = palette[(bgIndex + 1) % Math.max(palette.length, 1)]?.hex || archetypePalette.accent;
 
   const gradientColor2 = customGradientColor2 || palette[gradientColor2Index]?.hex || accentColor;
   const bgGradient = useGradient && palette.length >= 2
