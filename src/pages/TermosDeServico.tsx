@@ -16,6 +16,7 @@ const TermosDeServico = () => {
       metaDescription="Leia os Termos de Serviço do Posiciona."
       lastUpdated="15/04/2026"
       breadcrumb="Termos de Serviço"
+      path="/termos-de-servico"
     >
       <H2>1. Quem somos</H2>
       <P>

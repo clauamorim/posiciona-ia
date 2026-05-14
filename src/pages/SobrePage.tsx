@@ -5,6 +5,7 @@ import { ArrowRight, Menu, X } from "lucide-react";
 import posicionaLogo from "@/assets/posiciona-logo.png";
 import claudiaPhoto from "@/assets/claudia-avatar.webp";
 import { useState } from "react";
+import { SeoHead } from "@/components/SeoHead";
 
 const SobrePage = () => {
   const { user } = useAuth();
@@ -13,6 +14,11 @@ const SobrePage = () => {
 
   return (
     <div className="min-h-screen bg-landing-bg text-landing-text">
+      <SeoHead
+        title="Sobre — Posiciona"
+        description="Conheça a história e o método por trás do Posiciona, criado por Cláudia Amorim para profissionais que vendem expertise."
+        path="/sobre"
+      />
       {/* ── HEADER ── */}
       <header className="sticky top-0 z-50 border-b border-landing-border/60 bg-landing-bg/90 backdrop-blur-md">
         <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
@@ -59,6 +65,8 @@ const SobrePage = () => {
           </div>
         )}
       </header>
+
+      <main>
 
       {/* ── HERO ── */}
       <section className="pt-12 pb-10 md:pt-20 md:pb-16 px-4">
@@ -218,6 +226,8 @@ const SobrePage = () => {
           </div>
         </div>
       </section>
+
+      </main>
 
       {/* ── FOOTER ── */}
       <footer className="border-t border-landing-border/40 py-6 px-4">

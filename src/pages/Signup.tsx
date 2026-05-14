@@ -10,6 +10,7 @@ import { toast } from "@/hooks/use-toast";
 import { ArrowLeft } from "lucide-react";
 import posicionaLogo from "@/assets/posiciona-logo.png";
 import LegalConsentCheckbox from "@/components/LegalConsentCheckbox";
+import { SeoHead } from "@/components/SeoHead";
 
 const GOALS = [
   "Atrair novos clientes/pacientes",
@@ -60,7 +61,8 @@ const Signup = () => {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4 bg-background relative">
+    <main className="flex min-h-screen items-center justify-center px-4 bg-background relative">
+      <SeoHead title="Criar conta — Posiciona" description="Crie sua conta no Posiciona e comece a estruturar seu posicionamento de marca pessoal com IA." path="/signup" />
       <Button
         variant="ghost"
         size="sm"
@@ -150,7 +152,7 @@ const Signup = () => {
           </p>
         </CardContent>
       </Card>
-    </div>
+    </main>
   );
 };
 

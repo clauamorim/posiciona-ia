@@ -20,6 +20,7 @@ const PoliticaDePrivacidade = () => {
       metaDescription="Saiba como o Posiciona coleta, utiliza e protege seus dados."
       lastUpdated="15/04/2026"
       breadcrumb="Política de Privacidade"
+      path="/politica-de-privacidade"
     >
       <H2>1. Apresentação</H2>
       <P>

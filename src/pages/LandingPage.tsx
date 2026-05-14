@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import posicionaLogo from "@/assets/posiciona-logo.png";
 import { useState, useCallback, useRef, useEffect } from "react";
+import { SeoHead } from "@/components/SeoHead";
 
 /* ── Demo screenshots ── */
 import demoDashboard from "@/assets/demo/dashboard.png";
@@ -343,6 +344,20 @@ const LandingPage = () => {
 
   return (
     <div className="min-h-screen bg-landing-bg text-landing-text">
+      <SeoHead
+        title="Posiciona — Estratégia de Marca Pessoal com IA"
+        description="Posicionamento estratégico para profissionais que vendem expertise: arquétipos, narrativa StoryBrand, linha editorial pronta e retratos de marca com IA."
+        path="/"
+        jsonLd={{
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          mainEntity: faqItems.map((f) => ({
+            "@type": "Question",
+            name: f.q,
+            acceptedAnswer: { "@type": "Answer", text: f.a },
+          })),
+        }}
+      />
       {/* ── HEADER ── */}
       <header className="sticky top-0 z-50 border-b border-landing-border/60 bg-landing-bg/90 backdrop-blur-md">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
@@ -396,6 +411,7 @@ const LandingPage = () => {
         )}
       </header>
 
+      <main>
       {/* ── HERO ── */}
       <section className="pt-12 pb-16 md:pt-20 md:pb-24 px-4">
         <div className="max-w-3xl mx-auto text-center space-y-6">
@@ -754,6 +770,8 @@ const LandingPage = () => {
           <p className="text-xs text-landing-text-secondary/50">Sem fidelidade. Cancele quando quiser.</p>
         </div>
       </section>
+
+      </main>
 
       {/* ── FOOTER ── */}
       <footer className="border-t border-landing-border/40 py-8 px-4">
