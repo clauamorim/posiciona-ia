@@ -583,7 +583,7 @@ async function processJob(jobId: string) {
         NARRATIVE_PRINCIPLES_BLOCK +
         ethicalBlock +
         "\n\n" +
-        buildFeedSystemPrompt() +
+        buildFeedSystemPrompt(rotationOffset) +
         renderPillarsBlock() +
         renderEditorialFrameworks();
       const feedUser = `# NEGÓCIO
