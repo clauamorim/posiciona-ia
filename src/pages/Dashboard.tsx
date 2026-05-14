@@ -290,18 +290,28 @@ const Dashboard = () => {
             <p className="text-xs font-sans font-semibold uppercase tracking-wider text-muted-foreground">Créditos</p>
             <div className="grid grid-cols-2 gap-2">
               {[
-                { icon: Calendar, value: balances.weekly_cycles, label: "Ciclos" },
-                { icon: RefreshCw, value: balances.reanalysis_credits, label: "Reanálises" },
-                { icon: Camera, value: balances.portrait_credits_included + balances.portrait_credits_extra, label: "Retratos" },
-                { icon: Repeat, value: balances.regeneration_credits, label: "Ajustes" },
+                { icon: Calendar, value: balances.weekly_cycles, label: "Ciclos", planCredit: true },
+                { icon: RefreshCw, value: balances.reanalysis_credits, label: "Reanálises", planCredit: true },
+                { icon: Camera, value: balances.portrait_credits_included + balances.portrait_credits_extra, label: "Retratos", planCredit: false },
+                { icon: Repeat, value: balances.regeneration_credits, label: "Ajustes", planCredit: true },
               ].map((item, i) => (
-                <div key={i} className="flex items-center gap-2.5 p-3 rounded-lg bg-card border border-border">
-                  <item.icon className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                  <span className="text-base font-bold text-foreground">{item.value}</span>
-                  <span className="text-[11px] text-muted-foreground truncate">{item.label}</span>
+                <div key={i} className="flex flex-col gap-0.5 p-3 rounded-lg bg-card border border-border">
+                  <div className="flex items-center gap-2.5">
+                    <item.icon className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                    <span className="text-base font-bold text-foreground">{item.value}</span>
+                    <span className="text-[11px] text-muted-foreground truncate">{item.label}</span>
+                  </div>
+                  {item.planCredit && subscription?.current_period_end && subscription?.billing_type !== "one_time" && (
+                    <p className="text-[10px] text-muted-foreground/60 leading-tight">
+                      Renova em {formatDate((subscription as any).current_period_end)}. Não acumulam.
+                    </p>
+                  )}
                 </div>
               ))}
             </div>
+            <p className="text-[11px] text-muted-foreground/70 leading-snug pt-1">
+              Créditos comprados separadamente (semanas avulsas, pacotes de retrato) não expiram.
+            </p>
           </div>
         )}
 

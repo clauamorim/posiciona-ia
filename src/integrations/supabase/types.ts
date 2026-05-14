@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      account_deletion_requests: {
+        Row: {
+          email: string
+          id: string
+          niche: string | null
+          profession: string | null
+          requested_at: string
+          user_id: string
+        }
+        Insert: {
+          email: string
+          id?: string
+          niche?: string | null
+          profession?: string | null
+          requested_at?: string
+          user_id: string
+        }
+        Update: {
+          email?: string
+          id?: string
+          niche?: string | null
+          profession?: string | null
+          requested_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       archetype_answers: {
         Row: {
           created_at: string
@@ -689,6 +716,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          account_deletion_requested_at: string | null
           created_at: string
           full_name: string
           gender: string | null
@@ -703,6 +731,7 @@ export type Database = {
           whatsapp: string | null
         }
         Insert: {
+          account_deletion_requested_at?: string | null
           created_at?: string
           full_name?: string
           gender?: string | null
@@ -717,6 +746,7 @@ export type Database = {
           whatsapp?: string | null
         }
         Update: {
+          account_deletion_requested_at?: string | null
           created_at?: string
           full_name?: string
           gender?: string | null

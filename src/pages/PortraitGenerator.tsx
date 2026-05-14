@@ -46,7 +46,7 @@ interface PortraitReference {
 }
 
 const PortraitGenerator = () => {
-  const { user, balances, refreshSubscription } = useAuth();
+  const { user, balances, refreshSubscription, isReadOnly } = useAuth();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -387,6 +387,9 @@ const PortraitGenerator = () => {
                 <p className="font-semibold">Saldo de Retratos</p>
                 <p className="text-xs text-muted-foreground">
                   {balances?.portrait_credits_included ?? 0} inclusos · {balances?.portrait_credits_extra ?? 0} extras
+                </p>
+                <p className="text-[10px] text-muted-foreground/70 mt-0.5">
+                  Inclusos renovam mensalmente. Extras não expiram.
                 </p>
               </div>
             </div>
