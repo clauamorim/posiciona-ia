@@ -1536,7 +1536,7 @@ async function persistWeek(
     .eq("id", reportId);
 
   console.log(
-    `[job ${jobId}] Semana persistida (${days.length} dias, feed=${feed.length}, stories=${stories.length}, partial=${Boolean(weekObj._partial)}, replaced=${sameWeek}).`,
+    `[job ${jobId}] Semana persistida (${days.length} dias, feed=${feed.length}, stories=${stories.length}, partial=${Boolean(weekObj._partial)}, replaced=${replaced}).`,
   );
   return weekObj;
 }
