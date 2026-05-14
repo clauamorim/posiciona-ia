@@ -201,7 +201,7 @@ const Login = () => {
       const syncResult = await syncSessionWithTimeout(data);
       if (attemptId !== loginAttemptRef.current) return;
 
-      if (syncResult === "timeout") {
+      if (syncResult === "timeout" || syncResult.error) {
         await adoptSession({
           ...data,
           expires_at: data.expires_at ?? Math.floor(Date.now() / 1000) + (data.expires_in ?? 3600),
