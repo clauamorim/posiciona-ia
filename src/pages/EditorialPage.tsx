@@ -1037,13 +1037,13 @@ const EditorialPage = () => {
                 <h2 className="text-sm font-semibold tracking-tight flex-1">
                   Semana {weekKey + 1}
                 </h2>
-                {canDelete && (
+                {!isReadOnly && (
                   <Button
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8 text-muted-foreground hover:text-destructive"
                     onClick={() => setConfirmDeleteWeek(weekKey)}
-                    disabled={deletingWeek !== null || isReadOnly}
+                    disabled={deletingWeek !== null}
                     aria-label={`Excluir semana ${weekKey + 1}`}
                     data-hide-pdf
                   >
