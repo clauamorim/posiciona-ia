@@ -14,10 +14,11 @@
 const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 
-// Modelo Claude Sonnet 4.5 (sonnet-4-5) — melhor custo/benefício para
-// geração editorial longa. Trocar para "claude-opus-4-1" se precisar de
-// mais profundidade no relatório estratégico (mais caro).
-export const DEFAULT_CLAUDE_MODEL = "claude-sonnet-4-5";
+// Modelo Claude Sonnet 4.6 — sucessor do 4.5, com mais profundidade
+// editorial e menos alucinação em prompts longos. Trocar para
+// "claude-opus-4-1" se precisar de ainda mais profundidade no relatório
+// estratégico (mais caro).
+export const DEFAULT_CLAUDE_MODEL = "claude-sonnet-4-6";
 
 export interface ClaudePdfPart {
   /** PDF base64-encoded (sem o prefixo `data:`). */
