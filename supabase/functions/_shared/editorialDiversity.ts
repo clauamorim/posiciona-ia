@@ -37,6 +37,30 @@ const CONCEPT_GROUPS: Record<ConceptGroupId, { label: string; terms: string[] }>
     label: "categoria / posicionamento / recorte",
     terms: ["categoria", "categorias", "posicionamento", "posicionamentos", "recorte", "recortes", "nicho", "nichar"],
   },
+  grupo_f_cliente_pergunta: {
+    label: "cliente premium pergunta antes de preço (você atende / atende meu caso / quanto custa antes)",
+    terms: [
+      "voce atende",
+      "atende meu caso",
+      "atende o meu caso",
+      "quanto custa antes",
+      "quanto custa antes de",
+      "criterio antes de preco",
+      "pergunta antes de perguntar o preco",
+      "pergunta antes do preco",
+    ],
+  },
+  grupo_g_frequencia_postagem: {
+    label: "postar todo dia / aparecer todo dia / consistência > frequência",
+    terms: [
+      "postar todo dia",
+      "aparecer todo dia",
+      "publicar todo dia",
+      "consistencia maior que frequencia",
+      "consistencia acima de frequencia",
+      "consistencia > frequencia",
+    ],
+  },
 };
 
 function normalize(s: string): string {
