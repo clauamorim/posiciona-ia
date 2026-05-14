@@ -1108,6 +1108,51 @@ export type Database = {
         }
         Relationships: []
       }
+      user_archetype_symbols: {
+        Row: {
+          application: string | null
+          applies_to: string[]
+          archetype_role: string
+          created_at: string
+          emoji: string | null
+          id: string
+          meaning: string | null
+          priority: number
+          report_id: string | null
+          report_version: number
+          symbol_name: string
+          user_id: string
+        }
+        Insert: {
+          application?: string | null
+          applies_to?: string[]
+          archetype_role?: string
+          created_at?: string
+          emoji?: string | null
+          id?: string
+          meaning?: string | null
+          priority?: number
+          report_id?: string | null
+          report_version?: number
+          symbol_name: string
+          user_id: string
+        }
+        Update: {
+          application?: string | null
+          applies_to?: string[]
+          archetype_role?: string
+          created_at?: string
+          emoji?: string | null
+          id?: string
+          meaning?: string | null
+          priority?: number
+          report_id?: string | null
+          report_version?: number
+          symbol_name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_balances: {
         Row: {
           id: string
@@ -1138,6 +1183,45 @@ export type Database = {
           updated_at?: string
           user_id?: string
           weekly_cycles?: number
+        }
+        Relationships: []
+      }
+      user_brand_palette: {
+        Row: {
+          color_name: string
+          created_at: string
+          hex: string
+          id: string
+          priority: number
+          report_id: string | null
+          report_version: number
+          role: string
+          usage: string | null
+          user_id: string
+        }
+        Insert: {
+          color_name: string
+          created_at?: string
+          hex: string
+          id?: string
+          priority?: number
+          report_id?: string | null
+          report_version?: number
+          role?: string
+          usage?: string | null
+          user_id: string
+        }
+        Update: {
+          color_name?: string
+          created_at?: string
+          hex?: string
+          id?: string
+          priority?: number
+          report_id?: string | null
+          report_version?: number
+          role?: string
+          usage?: string | null
+          user_id?: string
         }
         Relationships: []
       }
