@@ -1303,6 +1303,48 @@ Gere agora os 7 stories da semana.`;
       const weekObj = await persistWeek(job.report_id, feedFinal, storiesFinal, jobId, marketTrends, wkIdxForPartial, false);
       console.log(`[content-job] week=${wkIdxForPartial} user=${userId} stage=B status=success partial_saved=true`);
 
+      // ==== Persistência de embeddings (guardrail semântico) ====
+      // Salva 1 linha por post feed para alimentar a deduplicação semântica das próximas semanas.
+      try {
+        const candidates = feedFinal.filter((p) => p && (p.theme || p.caption));
+        if (candidates.length > 0) {
+          const texts = candidates.map((p) => postToEmbedText(p));
+          const vectors = await embedTextBatch(texts);
+          const rows: any[] = [];
+          for (let i = 0; i < candidates.length; i++) {
+            const vec = vectors[i];
+            if (!vec) continue;
+            const p = candidates[i];
+            const textUsed = texts[i];
+            const named = detectNamedCases(
+              `${p.theme || ""} ${(p as any).title || ""} ${p.caption || ""} ${(p.card_copy || []).join(" ")} ${p.cta || ""}`,
+            );
+            rows.push({
+              user_id: userId,
+              report_id: job.report_id,
+              week_index: wkIdxForPartial,
+              day_index: p.day,
+              post_kind: "feed",
+              text_used: textUsed,
+              embedding: vec,
+              named_cases: named,
+            });
+          }
+          if (rows.length > 0) {
+            const { error: embErr } = await admin.from("post_embeddings").insert(rows);
+            if (embErr) {
+              console.warn(`[embed-persist] insert falhou:`, embErr.message);
+            } else {
+              console.log(`[embed-persist] week=${wkIdxForPartial} inserted=${rows.length}`);
+            }
+          } else {
+            console.warn(`[embed-persist] week=${wkIdxForPartial} sem vetores válidos para inserir`);
+          }
+        }
+      } catch (embPersistErr: any) {
+        console.warn(`[embed-persist] erro geral (ignorado):`, embPersistErr?.message || embPersistErr);
+      }
+
       // Persiste fingerprints de diversidade + log de telemetria estruturado
       try {
         const wkIdx = typeof job.week_index === "number" ? job.week_index : 0;
