@@ -177,9 +177,34 @@ function detectUsedTraits(
 
 // Distribuição fixa dos 4 dias com feed dentro da semana (1..7).
 // Escolhemos dias que cobrem início, meio e fim da semana com bom espaçamento.
+// Tipos de post em ordem base. A cada semana, aplicamos rotationOffset % 4
+// para variar qual tipo vai para o Dia 1, evitando que Day1=Educacional toda semana.
+const FEED_POST_TYPES = [
+  {
+    label: "EDUCACIONAL",
+    description: `tutorial ou passo a passo prático.
+Estrutura: problema concreto → passos numerados → resultado esperado.
+SEM storytelling pessoal. SEM abrir com "você sabia que".`,
+  },
+  {
+    label: "DESMISTIFICAÇÃO",
+    description: `escolha uma crença errada comum no nicho e refute com raciocínio sólido ou dado observável.
+Estrutura: mito declarado → por que as pessoas acreditam → por que está errado → o que é verdade.`,
+  },
+  {
+    label: "POSICIONAMENTO",
+    description: `evidencie categoria + o que a marca NÃO é + para quem especificamente é.
+Estrutura: alternativa que o público usaria sem esta solução → por que essa alternativa é insuficiente → o que torna esta abordagem diferente → perfil exato do cliente ideal.`,
+  },
+  {
+    label: "ANÁLISE DE MERCADO OU CASO",
+    description: `se houver tendência relevante no bloco TENDÊNCIAS, use-a como gancho principal. Se não houver tendência pré-listada, pesquise no seu conhecimento um caso, decisão ou evento REAL e NOMEADO do nicho (empresa, pessoa, produto, lei) — nunca mini-caso hipotético genérico.
+Estrutura: situação nomeada → decisão/desfecho → aprendizado para o leitor.`,
+  },
+] as const;
 const FEED_DAYS = [1, 3, 5, 7];
 
-function buildFeedSystemPrompt(): string {
+function buildFeedSystemPrompt(rotationOffset: number = 0): string {
   return `Você é um especialista em branding e copy para Instagram. Domina e aplica de forma OBRIGATÓRIA três frameworks (descritos em detalhe ao final deste prompt):
 1) StoryBrand — clareza narrativa.
 2) Obviously Awesome (April Dunford) — posicionamento específico.
@@ -213,30 +238,23 @@ REGRAS RÍGIDAS para "card_copy":
 
 EXEMPLO BOM (post único):
 {
-  "caption": "Toda manhã, antes de qualquer reunião, eu nado. Não é ritual motivacional. É necessidade operacional. Porque descobri que análise de posicionamento profunda exige o mesmo tipo de clareza mental que nadar exige de técnica… [continua por mais 800 caracteres]",
-  "card_copy": ["40 minutos de natação me ensinaram mais sobre posicionamento do que 18 anos de carreira."]
+  "caption": "A maioria dos negócios não perde clientes por preço. Perde por não saber explicar por que é a escolha certa. Tive esse diagnóstico na prática quando um prospect pediu proposta, comparou com um concorrente 40% mais caro e escolheu o concorrente. O problema não era o preço — era que eu não tinha deixado claro o que me diferenciava… [continua por mais 800 caracteres]",
+  "card_copy": ["Não é o preço que perde clientes. É a falta de clareza sobre o que te diferencia."]
 }
 
 EXEMPLO RUIM (PROIBIDO — card repete a legenda):
 {
-  "caption": "Toda manhã, antes de qualquer reunião, eu nado…",
-  "card_copy": ["Toda manhã, antes de qualquer reunião, eu nado. Não é ritual motivacional. É necessidade operacional…"]
+  "caption": "A maioria dos negócios não perde clientes por preço. Perde por não saber explicar o que diferencia…",
+  "card_copy": ["A maioria dos negócios não perde clientes por preço. Perde por não saber explicar o que diferencia — e foi exatamente o que percebi quando…"]
 }
 
-ESTRATÉGIA DE COPY (OBRIGATÓRIA) — DISTRIBUIÇÃO FIXA DOS 4 POSTS:
+ESTRATÉGIA DE COPY (OBRIGATÓRIA) — DISTRIBUIÇÃO DOS 4 POSTS:
 Cada um dos 4 posts da semana TEM UM TIPO FIXO E OBRIGATÓRIO. Não invente outros tipos. Não repita tipo.
 
-POST 1 — EDUCACIONAL: tutorial ou passo a passo prático.
-Estrutura: problema concreto → passos numerados → resultado esperado.
-SEM storytelling pessoal. SEM abrir com "você sabia que".
-
-POST 2 — DESMISTIFICAÇÃO: escolha uma crença errada comum no nicho e refute com raciocínio sólido ou dado observável.
-Estrutura: mito declarado → por que as pessoas acreditam → por que está errado → o que é verdade.
-
-POST 3 — POSICIONAMENTO: evidencie categoria + o que a marca NÃO é + para quem especificamente é.
-Estrutura: alternativa que o público usaria sem esta solução → por que essa alternativa é insuficiente → o que torna esta abordagem diferente → perfil exato do cliente ideal.
-
-POST 4 — ANÁLISE DE MERCADO OU CASO: se houver tendência relevante no bloco TENDÊNCIAS, use-a. Se não houver, use mini-caso hipotético com estrutura situação → decisão → resultado.
+${[0, 1, 2, 3].map((i) => {
+  const t = FEED_POST_TYPES[(i + rotationOffset) % 4];
+  return `POST ${i + 1} — ${t.label}: ${t.description}`;
+}).join("\n\n")}
 
 REGRAS DE GANCHO (mantidas): primeira frase de toda caption e slide 1 de carrossel = detalhe concreto, número, cena, dado contraintuitivo ou pergunta inesperada — específicos para o NICHO. PROIBIDO abrir com: "Você sabia que…", "5 dicas para…", "A importância de…", "Vamos falar sobre…", "Hoje vou te contar…", "Já parou para pensar…", "Imagine que…", "Você já se perguntou…".
 
@@ -514,6 +532,8 @@ async function processJob(jobId: string) {
       const previousSummary = previousSummaryItems.slice(-30).join("\n");
       const rotationHint = getPillarRotationHint(previousPillarsByWeek);
       const rotationBlock = renderRotationBlock(rotationHint);
+      // Offset cíclico (0..3) para variar qual tipo de post (EDU/DES/POS/MER) vai para o Dia 1 a cada semana.
+      const rotationOffset = (previousWeeks?.length || 0) % 4;
 
       const storybrandContext = renderStorybrandBlock(storybrand);
       const toneContext = renderToneBlock(tone_of_voice);
@@ -563,7 +583,7 @@ async function processJob(jobId: string) {
         NARRATIVE_PRINCIPLES_BLOCK +
         ethicalBlock +
         "\n\n" +
-        buildFeedSystemPrompt() +
+        buildFeedSystemPrompt(rotationOffset) +
         renderPillarsBlock() +
         renderEditorialFrameworks();
       const feedUser = `# NEGÓCIO

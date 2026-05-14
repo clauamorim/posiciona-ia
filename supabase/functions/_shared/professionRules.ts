@@ -105,7 +105,14 @@ export interface MarketTrend {
 }
 
 export function renderMarketTrendsBlock(trends: MarketTrend[] | null | undefined): string {
-  if (!trends || trends.length === 0) return "";
+  if (!trends || trends.length === 0) {
+    return `\n\n# CONTEXTO ATUAL — POST DE ANÁLISE DE MERCADO OU CASO
+Não há tendências pré-buscadas disponíveis esta semana. Para o post de ANÁLISE DE MERCADO OU CASO, use seu conhecimento de treinamento para identificar um evento, decisão, polêmica ou caso REAL e NOMEADO relevante ao nicho do criador (empresa conhecida, pessoa pública, produto, legislação). Regras:
+- Deve ter nome próprio identificável (empresa X, produto Y, decisão Z)
+- Deve ter uma data ou período estimado razoável (ex: "em 2024", "recentemente")
+- Comente com perspectiva técnica/profissional do criador — NÃO apenas relate o fato
+- NÃO invente casos. Se não encontrar referência verificável, declare explicitamente como hipótese`;
+  }
   const lines = trends.map((t, i) => {
     const parts = [
       `${i + 1}. ${t.title}`,
