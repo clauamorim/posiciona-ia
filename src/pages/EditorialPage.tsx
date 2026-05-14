@@ -579,22 +579,72 @@ const EditorialPage = () => {
       const jsPDF = (await import("jspdf")).default;
       const html2canvas = (await import("html2canvas")).default;
 
-      // Create a hidden static container with ALL weeks expanded
-      const printContainer = document.createElement("div");
-      printContainer.style.cssText = "position:absolute;left:-9999px;top:0;width:900px;background:#f2eeea;padding:24px;font-family:Inter,sans-serif;";
-      document.body.appendChild(printContainer);
+      const A4_W = 210, A4_H = 297, M = 12;
+      const CW = A4_W - M * 2;
+      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+      let isFirstPage = true;
 
-      // Render all weeks statically
+      // Render TITLE separately (avoids it being lost in pagination)
+      const titleContainer = document.createElement("div");
+      titleContainer.style.cssText = "position:absolute;left:-9999px;top:0;width:900px;background:#f2eeea;padding:24px;font-family:Inter,sans-serif;";
+      titleContainer.innerHTML = `<div style="padding:16px 0;">
+        <h1 style="font-size:22px;font-weight:700;color:#1a1a2e;margin:0 0 4px;">Linha Editorial</h1>
+        <p style="font-size:12px;color:#6b7280;margin:0;">${allWeeks.length} semana${allWeeks.length > 1 ? "s" : ""} de conteúdo</p>
+      </div>`;
+      document.body.appendChild(titleContainer);
+
+      const renderToPdf = async (container: HTMLElement) => {
+        const canvas = await html2canvas(container, {
+          scale: 2, useCORS: true, backgroundColor: "#f2eeea", logging: false, windowWidth: 900,
+        });
+        const wPx = canvas.width;
+        const hPx = canvas.height;
+        const sf = CW / wPx;
+        const hMM = hPx * sf;
+
+        const addImage = (srcCanvas: HTMLCanvasElement, heightMM: number) => {
+          if (!isFirstPage) pdf.addPage();
+          isFirstPage = false;
+          pdf.addImage(srcCanvas.toDataURL("image/jpeg", 0.92), "JPEG", M, M, CW, heightMM);
+        };
+
+        if (hMM <= A4_H - M * 2) {
+          addImage(canvas, hMM);
+        } else {
+          const pageH = A4_H - M * 2;
+          const pagesNeeded = Math.ceil(hMM / pageH);
+          const sliceHPx = Math.floor(wPx * (pageH / CW));
+          for (let p = 0; p < pagesNeeded; p++) {
+            const srcY = p * sliceHPx;
+            const srcH = Math.min(sliceHPx, hPx - srcY);
+            const sliceCanvas = document.createElement("canvas");
+            sliceCanvas.width = wPx;
+            sliceCanvas.height = srcH;
+            const ctx = sliceCanvas.getContext("2d")!;
+            ctx.drawImage(canvas, 0, srcY, wPx, srcH, 0, 0, wPx, srcH);
+            addImage(sliceCanvas, srcH * sf);
+          }
+        }
+      };
+
+      await renderToPdf(titleContainer);
+      document.body.removeChild(titleContainer);
+
+      // Render ONE WEEK AT A TIME (avoids canvas size limit)
       for (let wi = 0; wi < allWeeks.length; wi++) {
         const week = allWeeks[wi];
+        const weekContainer = document.createElement("div");
+        weekContainer.style.cssText = "position:absolute;left:-9999px;top:0;width:900px;background:#f2eeea;padding:24px;font-family:Inter,sans-serif;";
+        document.body.appendChild(weekContainer);
+
         const weekHeader = document.createElement("h2");
         weekHeader.style.cssText = "font-size:18px;font-weight:700;margin:24px 0 12px;color:#1a1a2e;";
         weekHeader.textContent = `Semana ${wi + 1}`;
-        printContainer.appendChild(weekHeader);
+        weekContainer.appendChild(weekHeader);
 
         const grid = document.createElement("div");
         grid.style.cssText = "display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px;";
-        
+
         for (let di = 0; di < week.days.length; di++) {
           const day = week.days[di];
           const feed = day.feed;
@@ -646,53 +696,10 @@ const EditorialPage = () => {
           card.innerHTML = html;
           grid.appendChild(card);
         }
-        printContainer.appendChild(grid);
-      }
+        weekContainer.appendChild(grid);
 
-      // Capture sections
-      const A4_W = 210, A4_H = 297, M = 12;
-      const CW = A4_W - M * 2;
-      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-      let curY = M;
-
-      // Title
-      const titleEl = document.createElement("div");
-      titleEl.style.cssText = "padding:16px 0;";
-      titleEl.innerHTML = `<h1 style="font-size:22px;font-weight:700;color:#1a1a2e;">Linha Editorial</h1>
-        <p style="font-size:12px;color:#6b7280;">${allWeeks.length} semana${allWeeks.length > 1 ? "s" : ""} de conteúdo</p>`;
-      printContainer.insertBefore(titleEl, printContainer.firstChild);
-
-      const canvas = await html2canvas(printContainer, {
-        scale: 2, useCORS: true, backgroundColor: "#f2eeea", logging: false, windowWidth: 900,
-      });
-
-      document.body.removeChild(printContainer);
-
-      const wPx = canvas.width;
-      const hPx = canvas.height;
-      const sf = CW / wPx;
-      const hMM = hPx * sf;
-
-      if (hMM <= A4_H - M * 2) {
-        pdf.addImage(canvas.toDataURL("image/jpeg", 0.92), "JPEG", M, M, CW, hMM);
-      } else {
-        // Split across pages
-        const pageH = A4_H - M * 2;
-        const pagesNeeded = Math.ceil(hMM / pageH);
-        const sliceHPx = Math.floor(wPx * (pageH / CW));
-
-        for (let p = 0; p < pagesNeeded; p++) {
-          if (p > 0) pdf.addPage();
-          const srcY = p * sliceHPx;
-          const srcH = Math.min(sliceHPx, hPx - srcY);
-          const sliceCanvas = document.createElement("canvas");
-          sliceCanvas.width = wPx;
-          sliceCanvas.height = srcH;
-          const ctx = sliceCanvas.getContext("2d")!;
-          ctx.drawImage(canvas, 0, srcY, wPx, srcH, 0, 0, wPx, srcH);
-          const sliceHMM = srcH * sf;
-          pdf.addImage(sliceCanvas.toDataURL("image/jpeg", 0.92), "JPEG", M, M, CW, sliceHMM);
-        }
+        await renderToPdf(weekContainer);
+        document.body.removeChild(weekContainer);
       }
 
       pdf.save("posiciona-linha-editorial.pdf");
