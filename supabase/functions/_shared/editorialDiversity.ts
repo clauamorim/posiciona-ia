@@ -159,7 +159,12 @@ export type TitleFormulaId =
   | "palavra_grandiosa_ninguem"
   | "constroi_vs_ocupa"
   | "protocolo_n_perguntas"
+  | "cliente_pediu_recusei"
   | "livre";
+
+// Numerais por extenso em pt-BR (com e sem acento — o detector roda no título cru)
+const PT_NUMBER_WORDS = "(?:dois|duas|tr[êe]s|quatro|cinco|seis|sete|oito|nove|dez|onze|doze|quinze|vinte)";
+const N_OR_WORD = `(?:\\d+|${PT_NUMBER_WORDS})`;
 
 const FORMULA_PATTERNS: { id: Exclude<TitleFormulaId, "livre">; label: string; re: RegExp }[] = [
   // 1. "X não A — B"  ou  "X não é A — é B"  (dicotomia com travessão/hífen longo)
