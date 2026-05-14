@@ -426,7 +426,7 @@ Gere 1 novo post de feed no formato "${format}".`;
       }
     }
 
-
+    const finalPillar = lockedPillar
       || (isValidPillar((cleaned as any).pillar) ? (cleaned as any).pillar : "legacy");
     const stampedPost = {
       ...cleaned,
