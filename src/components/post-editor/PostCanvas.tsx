@@ -160,6 +160,10 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   const canvasInnerRef = useRef<HTMLDivElement>(null);
   const [activeGuides, setActiveGuides] = useState<{ v: number[]; h: number[] }>({ v: [], h: [] });
 
+  // Mede a altura real renderizada do título para reposicionar o corpo dinamicamente.
+  const [measuredTitleHeight, setMeasuredTitleHeight] = useState<number | null>(null);
+  const titleMeasureRef = useRef<HTMLDivElement | null>(null);
+
   const [localTextBoxes, setLocalTextBoxes] = useState<TextBox[]>([]);
   const isControlled = Array.isArray(controlledTextBoxes);
   const textBoxes = isControlled ? (controlledTextBoxes as TextBox[]) : localTextBoxes;
