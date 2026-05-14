@@ -76,6 +76,8 @@ const App = () => (
             <Route path="/portraits" element={<ProtectedRoute requirePlan><PortraitGenerator /></ProtectedRoute>} />
             <Route path="/my-designs" element={<ProtectedRoute requirePlan><MyDesignsPage /></ProtectedRoute>} />
             <Route path="/my-gallery" element={<ProtectedRoute requirePlan><MyGalleryPage /></ProtectedRoute>} />
+            <Route path="/sales-narrative" element={<ProtectedRoute requirePlan><SalesNarrativeQuestionnaire /></ProtectedRoute>} />
+            <Route path="/stories-de-venda" element={<ProtectedRoute requirePlan><SalesStoriesPage /></ProtectedRoute>} />
             <Route path="/help" element={<ProtectedRoute requirePlan><HelpPage /></ProtectedRoute>} />
             <Route path="/admin" element={<ProtectedRoute requireAdmin><AdminUsers /></ProtectedRoute>} />
             <Route path="/admin/metrics" element={<ProtectedRoute requireAdmin><AdminDashboard /></ProtectedRoute>} />
