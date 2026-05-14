@@ -22,7 +22,14 @@ import {
   renderStorybrandBlock,
   renderToneBlock,
   renderEditorialFrameworks,
+  renderVerifiableFactsBlock,
 } from "../_shared/buildClaudeContext.ts";
+import {
+  EDITORIAL_PILLARS,
+  renderPillarsBlock,
+  isValidPillar,
+  type PillarId,
+} from "../_shared/editorialPillars.ts";
 import { NARRATIVE_PRINCIPLES_BLOCK } from "../_shared/narrativePrinciples.ts";
 import {
   detectProfession,
@@ -67,6 +74,7 @@ serve(async (req) => {
       currentVersion,
       themeOverride,          // novo: tema sugerido por tendência de mercado (opcional)
       marketTrends,           // novo: tendências já salvas na semana (opcional)
+      pillar,                 // novo: pilar do post original (mantém coerência da semana)
     } = body;
 
     if (!business) {
@@ -75,6 +83,17 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    const lockedPillar: PillarId | null = isValidPillar(pillar) ? pillar : null;
+    const pillarMeta = lockedPillar
+      ? EDITORIAL_PILLARS.find((p) => p.id === lockedPillar) || null
+      : null;
+    const pillarContextBlock = pillarMeta
+      ? `\n\n# PILAR DESTE POST (manter coerência com a semana)
+Pilar fixo: ${pillarMeta.id} ("${pillarMeta.label}")
+${pillarMeta.description}
+REGRA: o JSON de saída DEVE conter "pillar": "${pillarMeta.id}". O conteúdo visível ao público NUNCA cita o nome do pilar.`
+      : "";
 
     if (freeRegeneration && !isOutdatedVersion(currentVersion)) {
       return new Response(JSON.stringify({ error: "Este item já está atualizado." }), {
@@ -91,6 +110,7 @@ serve(async (req) => {
 
     const storybrandContext = renderStorybrandBlock(storybrand);
     const toneContext = renderToneBlock(tone_of_voice);
+    const verifiableFactsBlock = renderVerifiableFactsBlock(business);
     const personal = userId ? await fetchPersonalQuestionnaire(userId) : null;
     const personalContext = renderPersonalContext(personal);
 
