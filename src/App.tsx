@@ -40,6 +40,9 @@ import SalesStoriesPage from "./pages/SalesStoriesPage";
 import SobrePage from "./pages/SobrePage";
 import TermosDeServico from "./pages/TermosDeServico";
 import PoliticaDePrivacidade from "./pages/PoliticaDePrivacidade";
+import Conta from "./pages/Conta";
+import SubscriptionExpired from "./pages/SubscriptionExpired";
+import AdminDeletionRequests from "./pages/admin/AdminDeletionRequests";
 import { AssistantButton } from "./components/assistant/AssistantButton";
 
 const queryClient = new QueryClient();
@@ -64,29 +67,32 @@ const App = () => (
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/choose-plan" element={<ProtectedRoute><ChoosePlan /></ProtectedRoute>} />
             <Route path="/dashboard" element={<ProtectedRoute requirePlan><Dashboard /></ProtectedRoute>} />
-            <Route path="/business-questionnaire" element={<ProtectedRoute requirePlan><BusinessQuestionnaire /></ProtectedRoute>} />
-            <Route path="/personal-questionnaire" element={<ProtectedRoute requirePlan><PersonalQuestionnaire /></ProtectedRoute>} />
-            <Route path="/archetype-questionnaire" element={<ProtectedRoute requirePlan><ArchetypeQuestionnaire /></ProtectedRoute>} />
+            <Route path="/business-questionnaire" element={<ProtectedRoute requireFullAccess><BusinessQuestionnaire /></ProtectedRoute>} />
+            <Route path="/personal-questionnaire" element={<ProtectedRoute requireFullAccess><PersonalQuestionnaire /></ProtectedRoute>} />
+            <Route path="/archetype-questionnaire" element={<ProtectedRoute requireFullAccess><ArchetypeQuestionnaire /></ProtectedRoute>} />
             <Route path="/results" element={<ProtectedRoute requirePlan><Results /></ProtectedRoute>} />
             <Route path="/report" element={<ProtectedRoute requirePlan><Report /></ProtectedRoute>} />
             <Route path="/history" element={<ProtectedRoute requirePlan><HistoryPage /></ProtectedRoute>} />
-            <Route path="/post-editor" element={<ProtectedRoute requirePlan><PostEditorPage /></ProtectedRoute>} />
+            <Route path="/post-editor" element={<ProtectedRoute requireFullAccess><PostEditorPage /></ProtectedRoute>} />
             <Route path="/storybrand" element={<ProtectedRoute requirePlan><StoryBrand /></ProtectedRoute>} />
             <Route path="/editorial" element={<ProtectedRoute requirePlan><EditorialPage /></ProtectedRoute>} />
             <Route path="/instagram-analysis" element={<ProtectedRoute requirePlan><InstagramAnalysis /></ProtectedRoute>} />
             <Route path="/portraits" element={<ProtectedRoute requirePlan><PortraitGenerator /></ProtectedRoute>} />
             <Route path="/my-designs" element={<ProtectedRoute requirePlan><MyDesignsPage /></ProtectedRoute>} />
             <Route path="/my-gallery" element={<ProtectedRoute requirePlan><MyGalleryPage /></ProtectedRoute>} />
-            <Route path="/sales-narrative-intro" element={<ProtectedRoute requirePlan><SalesNarrativeIntro /></ProtectedRoute>} />
-            <Route path="/sales-narrative" element={<ProtectedRoute requirePlan><SalesNarrativeQuestionnaire /></ProtectedRoute>} />
-            <Route path="/stories-de-venda" element={<ProtectedRoute requirePlan><SalesStoriesPage /></ProtectedRoute>} />
+            <Route path="/sales-narrative-intro" element={<ProtectedRoute requireFullAccess><SalesNarrativeIntro /></ProtectedRoute>} />
+            <Route path="/sales-narrative" element={<ProtectedRoute requireFullAccess><SalesNarrativeQuestionnaire /></ProtectedRoute>} />
+            <Route path="/stories-de-venda" element={<ProtectedRoute requireFullAccess><SalesStoriesPage /></ProtectedRoute>} />
             <Route path="/help" element={<ProtectedRoute requirePlan><HelpPage /></ProtectedRoute>} />
+            <Route path="/conta" element={<ProtectedRoute requirePlan><Conta /></ProtectedRoute>} />
+            <Route path="/assinatura-expirada" element={<ProtectedRoute requirePlan><SubscriptionExpired /></ProtectedRoute>} />
             <Route path="/admin" element={<ProtectedRoute requireAdmin><AdminUsers /></ProtectedRoute>} />
             <Route path="/admin/metrics" element={<ProtectedRoute requireAdmin><AdminDashboard /></ProtectedRoute>} />
             <Route path="/admin/users" element={<ProtectedRoute requireAdmin><AdminUsers /></ProtectedRoute>} />
             <Route path="/admin/documents" element={<ProtectedRoute requireAdmin><AdminDocuments /></ProtectedRoute>} />
             <Route path="/admin/gallery" element={<ProtectedRoute requireAdmin><AdminGallery /></ProtectedRoute>} />
             <Route path="/admin/templates" element={<ProtectedRoute requireAdmin><AdminTemplates /></ProtectedRoute>} />
+            <Route path="/admin/exclusoes-lgpd" element={<ProtectedRoute requireAdmin><AdminDeletionRequests /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
           <AssistantButton />
