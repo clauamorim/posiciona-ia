@@ -336,28 +336,46 @@ async function processJob(jobId: string) {
     let creditReserved = true;
 
     try {
-      // ==== Resumo de conteúdo anterior (compactado p/ não inflar prompts)
+      // ==== Resumo de conteúdo anterior + histórico de pilares ====
       // previousWeeks pode vir no shape v5 (array de posts) ou v6 (array de objetos { days }).
-      const previousSummary = (previousWeeks || [])
-        .flatMap((week: any) => {
-          if (Array.isArray(week)) {
-            // v5: array de posts simples
-            return week.map((d: any) => `${d.theme || ""} (${d.format || ""})`);
+      const formatTheme = (pillar: unknown, theme: unknown, format: unknown): string | null => {
+        const t = typeof theme === "string" ? theme.trim() : "";
+        if (!t) return null;
+        const p = typeof pillar === "string" && pillar.trim() ? pillar.trim() : "legacy";
+        const f = typeof format === "string" ? format : "";
+        return `[${p}] ${t}${f ? ` (${f})` : ""}`;
+      };
+
+      const previousPillarsByWeek: PillarId[][] = [];
+      const previousSummaryItems: string[] = [];
+      for (const week of (previousWeeks || [])) {
+        const weekPillars: PillarId[] = [];
+        if (Array.isArray(week)) {
+          // v5: array de posts simples
+          for (const d of week) {
+            const line = formatTheme(d?.pillar, d?.theme, d?.format);
+            if (line) previousSummaryItems.push(line);
+            if (isValidPillar(d?.pillar)) weekPillars.push(d.pillar);
           }
+        } else if (week && Array.isArray(week.days)) {
           // v6: { days: [...] }
-          if (week && Array.isArray(week.days)) {
-            return week.days
-              .map((d: any) => d?.feed?.theme)
-              .filter((t: any) => typeof t === "string" && t);
+          for (const d of week.days) {
+            const feed = d?.feed;
+            if (!feed) continue;
+            const line = formatTheme(feed.pillar, feed.theme, feed.format);
+            if (line) previousSummaryItems.push(line);
+            if (isValidPillar(feed.pillar)) weekPillars.push(feed.pillar);
           }
-          return [];
-        })
-        .filter(Boolean)
-        .slice(-30) // limita a 30 últimos temas
-        .join("\n");
+        }
+        previousPillarsByWeek.push(weekPillars);
+      }
+      const previousSummary = previousSummaryItems.slice(-30).join("\n");
+      const rotationHint = getPillarRotationHint(previousPillarsByWeek);
+      const rotationBlock = renderRotationBlock(rotationHint);
 
       const storybrandContext = renderStorybrandBlock(storybrand);
       const toneContext = renderToneBlock(tone_of_voice);
+      const verifiableFactsBlock = renderVerifiableFactsBlock(business);
       const personal = await fetchPersonalQuestionnaire(userId);
       const personalContext = renderPersonalContext(personal);
 
@@ -395,14 +413,15 @@ async function processJob(jobId: string) {
         ethicalBlock +
         "\n\n" +
         buildFeedSystemPrompt() +
+        renderPillarsBlock() +
         renderEditorialFrameworks();
       const feedUser = `# NEGÓCIO
 Empresa: ${business?.company_name || "Não informado"}
 Serviços: ${business?.services || "Não informado"}
 Público-alvo: ${business?.target_audience || "Não informado"}
-Nicho: ${niche || "Não informado"}${storybrandContext}${toneContext}${personalContext}
+Nicho: ${niche || "Não informado"}${verifiableFactsBlock}${storybrandContext}${toneContext}${personalContext}${rotationBlock}
 
-# TEMAS JÁ PUBLICADOS (NÃO REPETIR)
+# TEMAS JÁ PUBLICADOS (NÃO REPETIR — formato "[pilar] tema (formato)")
 ${previousSummary || "Nenhum conteúdo anterior."}${marketTrendsBlock}
 
 Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
