@@ -14,6 +14,11 @@ const SobrePage = () => {
 
   return (
     <div className="min-h-screen bg-landing-bg text-landing-text">
+      <SeoHead
+        title="Sobre — Posiciona"
+        description="Conheça a história e o método por trás do Posiciona, criado por Cláudia Amorim para profissionais que vendem expertise."
+        path="/sobre"
+      />
       {/* ── HEADER ── */}
       <header className="sticky top-0 z-50 border-b border-landing-border/60 bg-landing-bg/90 backdrop-blur-md">
         <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
