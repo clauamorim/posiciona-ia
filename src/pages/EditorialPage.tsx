@@ -942,11 +942,49 @@ const EditorialPage = () => {
               {regenerationCredits > 0 && ` · ${regenerationCredits} ajuste${regenerationCredits > 1 ? "s" : ""} de conteúdo`}
             </p>
           </div>
-          <Button onClick={handleDownloadPDF} variant="outline" size="sm" className="gap-2" disabled={downloadingPDF} data-hide-pdf>
-            {downloadingPDF ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-            Baixar PDF
-          </Button>
+          <div className="flex items-center gap-2" data-hide-pdf>
+            {!selectionMode && (
+              <Button
+                variant="outline" size="sm" className="gap-2"
+                onClick={() => setSelectionMode(true)}
+                disabled={downloadingPDF || allWeeks.length === 0}
+              >
+                <CheckSquare className="h-4 w-4" /> Selecionar semanas
+              </Button>
+            )}
+            {!selectionMode && (
+              <Button onClick={() => handleDownloadPDF()} variant="outline" size="sm" className="gap-2" disabled={downloadingPDF}>
+                {downloadingPDF ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                Baixar PDF
+              </Button>
+            )}
+          </div>
         </div>
+
+        {selectionMode && (
+          <div
+            className="flex items-center gap-3 sticky top-0 z-20 bg-background/95 backdrop-blur border-b py-3 -mx-2 px-2 flex-wrap"
+            data-hide-pdf
+          >
+            <span className="text-sm font-medium">
+              {selectedWeeks.size} semana{selectedWeeks.size !== 1 ? "s" : ""} selecionada{selectedWeeks.size !== 1 ? "s" : ""}
+            </span>
+            <Button variant="outline" size="sm" onClick={selectAllWeeks}>Selecionar todas</Button>
+            <Button variant="outline" size="sm" onClick={clearSelection}>Limpar</Button>
+            <Button
+              size="sm"
+              onClick={() => handleDownloadPDF(new Set(selectedWeeks))}
+              disabled={selectedWeeks.size === 0 || downloadingPDF}
+              className="ml-auto gap-2"
+            >
+              {downloadingPDF ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+              Baixar PDF ({selectedWeeks.size})
+            </Button>
+            <Button variant="ghost" size="sm" onClick={exitSelectionMode}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
 
         {hasOlderWeeks && (
           <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-900/50">
@@ -962,8 +1000,10 @@ const EditorialPage = () => {
         <Tabs value={activeWeek} onValueChange={setActiveWeek} className="w-full">
           {allWeeks.length > 1 && (
             <TabsList className="mb-4 flex-wrap h-auto bg-muted/50">
-              {allWeeks.map((_, i) => (
-                <TabsTrigger key={i} value={`week-${i}`} className="text-xs">Semana {i + 1}</TabsTrigger>
+              {allWeeks.map((w, i) => (
+                <TabsTrigger key={i} value={`week-${i}`} className="text-xs">
+                  Semana {getWeekKey(w, i) + 1}
+                </TabsTrigger>
               ))}
             </TabsList>
           )}
