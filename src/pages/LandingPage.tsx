@@ -771,6 +771,8 @@ const LandingPage = () => {
         </div>
       </section>
 
+      </main>
+
       {/* ── FOOTER ── */}
       <footer className="border-t border-landing-border/40 py-8 px-4">
         <div className="max-w-3xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
