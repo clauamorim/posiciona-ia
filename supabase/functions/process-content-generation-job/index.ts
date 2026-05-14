@@ -151,7 +151,7 @@ async function fetchRecentlyUsedTraits(userId: string): Promise<string[]> {
   }
 }
 
-/** Lê últimas 2 entradas de used_market_trends do usuário. */
+/** Lê últimas 6 entradas de used_market_trends do usuário. */
 async function fetchRecentlyUsedTrendTitles(userId: string): Promise<string[]> {
   try {
     const { data } = await admin
@@ -159,7 +159,7 @@ async function fetchRecentlyUsedTrendTitles(userId: string): Promise<string[]> {
       .select("trends_used")
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
-      .limit(2);
+      .limit(6);
     if (!Array.isArray(data)) return [];
     const flat: string[] = [];
     for (const row of data) {
