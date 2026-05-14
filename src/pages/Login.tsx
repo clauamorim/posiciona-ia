@@ -34,12 +34,20 @@ const passwordGrant = async (email: string, password: string): Promise<GrantResu
       body: JSON.stringify({ email, password }),
     });
     const payload = await res.json().catch(() => ({} as any));
-    if (!res.ok) {
+      if (!res.ok) {
+      const code = payload?.code || payload?.error_code || payload?.error;
+      const message =
+        payload?.message ||
+        payload?.msg ||
+        payload?.error_description ||
+        payload?.error_message ||
+        (typeof payload?.error === "string" ? payload.error : "") ||
+        "";
       return {
         kind: "error",
         error: {
-          code: payload?.code || payload?.error_code,
-          message: payload?.message || payload?.error_description || "Erro desconhecido.",
+          code,
+          message: message || `Erro ${res.status}.`,
           status: res.status,
         },
       };
