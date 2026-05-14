@@ -37,6 +37,10 @@ import {
   renderMarketTrendsBlock,
   type MarketTrend,
 } from "../_shared/professionRules.ts";
+import {
+  validatePostCompliance,
+  feedPostToCompliance,
+} from "../_shared/complianceValidator.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -124,7 +128,13 @@ REGRA: o JSON de saída DEVE conter "pillar": "${pillarMeta.id}". O conteúdo vi
           .select("profession, niche")
           .eq("user_id", userId)
           .maybeSingle();
-        professionCategory = detectProfession(profileRow);
+        professionCategory = detectProfession({
+          profession: profileRow?.profession,
+          niche: profileRow?.niche,
+          business_description: [business?.services, business?.target_audience, business?.company_name]
+            .filter((v: any) => typeof v === "string" && v.trim())
+            .join(" "),
+        });
       } catch (_e) { /* ignora — fallback "outro" */ }
     }
     const ethicalBlock = getEthicalRulesBlock(professionCategory);
