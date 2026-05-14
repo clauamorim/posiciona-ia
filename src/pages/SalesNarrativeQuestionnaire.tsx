@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,6 +31,8 @@ const fields: Field[] = [
 const SalesNarrativeQuestionnaire = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const fromIntro = searchParams.get("from") === "intro";
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [hydrated, setHydrated] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -87,8 +89,13 @@ const SalesNarrativeQuestionnaire = () => {
     setSubmitting(false);
     if (ok) {
       setIsComplete(true);
-      toast({ title: "História de venda salva", description: "Agora você pode gerar suas sequências." });
-      navigate("/stories-de-venda");
+      if (fromIntro) {
+        toast({ title: "História de venda salva", description: "Vamos seguir para seus resultados." });
+        navigate("/results");
+      } else {
+        toast({ title: "História de venda salva", description: "Agora você pode gerar suas sequências." });
+        navigate("/stories-de-venda");
+      }
     }
   };
 
