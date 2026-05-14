@@ -996,9 +996,26 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
                 cleaned.is_personal = Boolean((cleaned as any).is_personal);
                 replaceMap.set(dayN, cleaned);
               }
+              // Snapshot dos títulos antes da substituição para log estruturado.
+              const beforeTitles = new Map<number, string>();
+              feedFinal.forEach((p) => beforeTitles.set(p.day, String((p as any).theme || "")));
               for (let i = 0; i < feedFinal.length; i++) {
                 const r = replaceMap.get(feedFinal[i].day);
                 if (r) feedFinal[i] = r;
+              }
+              // Log por-dia: regra detectada + título original + título reescrito.
+              for (const v of validation.violations) {
+                for (const day of v.days) {
+                  const r = replaceMap.get(day);
+                  console.log(
+                    `[editorial-diversity-fix] week=${job.week_index} day=${day}\n` +
+                    `  detected_rule=${(v as any).type || (v as any).rule}\n` +
+                    `  detail=${JSON.stringify(v.detail)}\n` +
+                    `  original_title=${JSON.stringify(beforeTitles.get(day) || "")}\n` +
+                    `  regenerated_title=${JSON.stringify(r ? String((r as any).theme || "") : "(não reescrito)")}\n` +
+                    `  iterations=1`,
+                  );
+                }
               }
               const after = validateWeekDiversity(feedFinal as unknown as FeedPostLike[], diversityHints as any);
               if (!after.ok) {

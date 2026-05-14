@@ -127,10 +127,14 @@ function normalize(s: string): string {
  * Detecta quais grupos de conceito aparecem no texto.
  * Recebe { theme, headline } e dá peso 2x ao theme.
  */
-export function detectConceptGroups(parts: { theme?: string; headline?: string }): ConceptGroupId[] {
+export function detectConceptGroups(parts: { theme?: string; headline?: string; body?: string; cta?: string }): ConceptGroupId[] {
   const themeNorm = normalize(parts.theme || "");
   const headlineNorm = normalize(parts.headline || "");
-  const combined = `${themeNorm} ${themeNorm} ${headlineNorm}`; // theme conta 2x
+  const bodyNorm = normalize((parts.body || "").slice(0, 400));
+  const ctaNorm = normalize(parts.cta || "");
+  // Theme conta 2x; body+cta entram com peso 1 para pegar grupo recorrente que
+  // só aparece no corpo do post (ex: humanizar/bastidor sem estar no título).
+  const combined = `${themeNorm} ${themeNorm} ${headlineNorm} ${bodyNorm} ${ctaNorm}`;
   const found = new Set<ConceptGroupId>();
   for (const [gid, group] of Object.entries(CONCEPT_GROUPS) as [ConceptGroupId, typeof CONCEPT_GROUPS[ConceptGroupId]][]) {
     for (const term of group.terms) {
@@ -160,6 +164,8 @@ export type TitleFormulaId =
   | "constroi_vs_ocupa"
   | "protocolo_n_perguntas"
   | "cliente_pediu_recusei"
+  | "a_ideia_de_que_x_esta"
+  | "cta_palavra_chave_direct"
   | "livre";
 
 // Numerais por extenso em pt-BR (com e sem acento — o detector roda no título cru)
@@ -232,19 +238,32 @@ const FORMULA_PATTERNS: { id: Exclude<TitleFormulaId, "livre">; label: string; r
   //     Aceita numeral por extenso (três, quatro, sete, etc.) ou dígito.
   {
     id: "protocolo_n_perguntas",
-    label: '"Protocolo/método/filtro (N) perguntas/passos/filtros/camadas/critérios"',
+    label: '"Protocolo/método/filtro (N) perguntas/passos/sinais/decisões/etapas/elementos…" ou "As/Os N [substantivo]"',
     re: new RegExp(
-      `(\\b(protocolo|checklist|guia|roteiro|m[eé]todo|filtro)\\s+(de\\s+)?(${N_OR_WORD}\\s+)?(perguntas|passos|filtros|camadas|crit[ée]rios|regras|sinais)\\b)` +
+      `(\\b(protocolo|checklist|guia|roteiro|m[eé]todo|filtro|sistema|framework)\\s+(de\\s+)?(${N_OR_WORD}\\s+)?(perguntas|passos|filtros|camadas|crit[ée]rios|regras|sinais|decis[õo]es|etapas|elementos|verifica[çc][õo]es|checagens|princ[íi]pios|chaves|pilares|movimentos|gatilhos)\\b)` +
       `|` +
-      `(\\b(as|os|estas|estes|essas|esses|aquelas|aqueles)\\s+${N_OR_WORD}\\s+(perguntas|camadas|filtros|passos|crit[ée]rios|regras|sinais)\\b)`,
+      `(\\b(as|os|estas|estes|essas|esses|aquelas|aqueles)\\s+${N_OR_WORD}\\s+(perguntas|camadas|filtros|passos|crit[ée]rios|regras|sinais|decis[õo]es|etapas|elementos|verifica[çc][õo]es|checagens|princ[íi]pios|chaves|pilares|movimentos|gatilhos)\\b)`,
       "i",
     ),
   },
-  // 12. "Cliente/paciente chegou pedindo X — recusei / disse não / não aceitei"
+  // 12. "Cliente/paciente/[profissional] chega(ou) pedindo/dizendo X — recusei
+  //     / disse não / não atendi / trabalho com / há dois diagnósticos / não é com"
   {
     id: "cliente_pediu_recusei",
-    label: '"Cliente pediu X impossível — recusei"',
-    re: /\b(cliente|paciente)\b[^.]{0,80}(pediu|chegou\s+pedindo|me\s+procurou\s+pedindo|chegou\s+querendo)\b[^.]{0,200}\b(recusei|disse\s+n[ãa]o|n[ãa]o\s+aceitei|recusada?|recusado)\b/i,
+    label: '"[Personagem] chega pedindo/dizendo X — triagem/recusa/diagnóstico"',
+    re: /\b(quando\s+o[a]?\s+|cliente|paciente|advog\w*|m[eé]dic\w*|psic[oó]log\w*|dentista|nutric\w*|fisioterap\w*|profissional|consultor\w*|arquitet\w*|design\w*)[^.?!]{0,80}\b(pediu|chega|chegou|chegando|escreve|escreveu|procura|procurou|me\s+procurou|chega\s+dizendo|chegou\s+dizendo|chegou\s+pedindo|chegou\s+querendo)\b[^.?!]{0,200}\b(recusei|disse\s+n[ãa]o|n[ãa]o\s+aceitei|recusada?|recusado|n[ãa]o\s+atend[io]|trabalho\s+com|trabalha\s+com|n[ãa]o\s+[ée]\s+com|h[áa]\s+dois?\s+(diagn[óo]sticos?|caminhos|cen[áa]rios|leituras))\b/i,
+  },
+  // 13. "A ideia / a regra / o conselho de que 'X' está [verbo]ndo Y"
+  {
+    id: "a_ideia_de_que_x_esta",
+    label: '"A ideia/regra/conselho de que ‘X’ está [verbo]ndo Y"',
+    re: /\b(a\s+ideia|a\s+regra|o\s+conselho|a\s+cren[çc]a|o\s+mantra|o\s+discurso)\s+de\s+que\s+['"“”‘’][^'"“”‘’]{2,120}['"“”‘’]\s+(est[áa]|t[áa]|vem|anda)\s+\w+(ndo|nte)\b/i,
+  },
+  // 14. CTA "Me chame no direct com a palavra X" (e variações próximas)
+  {
+    id: "cta_palavra_chave_direct",
+    label: '"Me chame/manda no direct com a palavra X" (CTA repetitivo)',
+    re: /\b(me\s+(chame|chama|mande|manda|chamem)|envie|manda|mande|comente)\s+(no\s+(direct|dm)|um\s+dm|aqui|abaixo)\s+.{0,40}?\b(palavra|c[óo]digo|termo)\b/i,
   },
 ];
 
@@ -404,6 +423,9 @@ export interface FeedPostLike {
   theme?: string;
   caption?: any;
   pillar?: string;
+  cta?: string;
+  script?: string;
+  card_copy?: string[];
 }
 
 function getHeadline(p: FeedPostLike): string {
@@ -411,6 +433,19 @@ function getHeadline(p: FeedPostLike): string {
   if (typeof c === "string") return c;
   if (c && typeof c === "object" && typeof c.headline === "string") return c.headline;
   return "";
+}
+
+function getBody(p: FeedPostLike): string {
+  const parts: string[] = [];
+  const c = p.caption;
+  if (typeof c === "string") parts.push(c);
+  else if (c && typeof c === "object") {
+    if (typeof c.body === "string") parts.push(c.body);
+    if (typeof c.headline === "string") parts.push(c.headline);
+  }
+  if (typeof p.script === "string") parts.push(p.script);
+  if (Array.isArray(p.card_copy)) parts.push(p.card_copy.filter((s) => typeof s === "string").join(" "));
+  return parts.join(" ").slice(0, 400);
 }
 
 export interface PostFingerprint {
@@ -423,13 +458,21 @@ export interface PostFingerprint {
 
 export function fingerprintPost(p: FeedPostLike): PostFingerprint {
   const headline = getHeadline(p);
+  const body = getBody(p);
+  const cta = (p.cta || "").toString();
   const titleForFormula = (p.theme || headline || "").toString();
+  // Detecta fórmula no título OU no CTA (CTA repetitivo conta como fórmula).
+  let formula = detectTitleFormula(titleForFormula);
+  if (formula === "livre" && cta) {
+    const ctaFormula = detectTitleFormula(cta);
+    if (ctaFormula !== "livre") formula = ctaFormula;
+  }
   return {
     day: p.day,
     pillar: (p.pillar && String(p.pillar).trim()) || "livre",
-    formula: detectTitleFormula(titleForFormula),
+    formula,
     anchors: detectTitleAnchors(titleForFormula),
-    concepts: detectConceptGroups({ theme: p.theme, headline }),
+    concepts: detectConceptGroups({ theme: p.theme, headline, body, cta }),
   };
 }
 
