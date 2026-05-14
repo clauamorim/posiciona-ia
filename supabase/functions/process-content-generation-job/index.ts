@@ -609,10 +609,7 @@ async function processJob(jobId: string) {
       const verifiableFactsBlock = renderVerifiableFactsBlock(business);
       const personal = await fetchPersonalQuestionnaire(userId);
       const personalContext = renderPersonalContext(personal);
-      // Narrativa de venda é OPCIONAL — quando ausente/incompleta, retorna ""
-      // e o prompt sai exatamente como antes (zero regressão).
-      const salesNarrative = await fetchSalesNarrative(userId);
-      const salesNarrativeContext = renderSalesNarrativeContext(salesNarrative);
+      // Narrativa de venda removida do editorial — usada apenas em generate-sales-stories.
 
       // Profissão regulamentada (OAB / CFM) e tendências de mercado
       const { data: profileRow } = await admin
