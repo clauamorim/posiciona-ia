@@ -41,7 +41,7 @@ const plans = [
     slug: "semana_conteudo",
     price: "197",
     period: "pagamento único",
-    description: "Para quem quer clareza e uma primeira semana estratégica pronta para usar.",
+    description: "Teste o Posiciona sem compromisso. Saia com posicionamento, narrativa e 7 dias de conteúdo prontos para publicar.",
     highlight: false,
     badge: null,
     features: [
@@ -61,7 +61,7 @@ const plans = [
     slug: "presenca_mensal",
     price: "297",
     period: "/mês",
-    description: "Para quem quer manter consistência e continuar produzindo com estratégia ao longo do mês.",
+    description: "Nunca mais improvise. 4 semanas de conteúdo estratégico por mês, com reanálise mensal do seu posicionamento.",
     highlight: true,
     badge: "Mais escolhido",
     features: [
@@ -79,7 +79,7 @@ const plans = [
     slug: "autoridade_total",
     price: "497",
     period: "/mês",
-    description: "Para quem quer combinar posicionamento contínuo com reforço visual e presença mais premium.",
+    description: "Posicionamento, conteúdo e imagem profissional no mesmo lugar. O pacote completo para ser referência visível no seu nicho.",
     highlight: false,
     badge: "Mais completo",
     features: [
@@ -95,6 +95,8 @@ const plans = [
 ];
 
 const faqItems = [
+  { q: "O conteúdo não fica genérico, como outros geradores de IA?", a: "Não. O Posiciona não é um gerador de texto genérico. Ele parte dos seus arquétipos, da sua narrativa de marca e do seu contexto profissional específico. Dois profissionais do mesmo nicho recebem posicionamentos e conteúdos completamente diferentes." },
+  { q: "E se eu não gostar do conteúdo gerado?", a: "Você tem créditos de ajuste para refinar qualquer post. Basta indicar o que quer mudar e a IA reescreve mantendo o seu posicionamento." },
   { q: "Como funciona o diagnóstico inicial?", a: "Você preenche dois questionários: um sobre o seu negócio e outro de personalidade de marca. A partir das respostas, a IA calcula seus arquétipos, gera sua narrativa de marca e cria toda a estratégia de posicionamento." },
   { q: "Preciso entender de marketing para usar?", a: "Não. O Posiciona faz toda a parte estratégica por você. Basta responder os questionários com honestidade sobre o seu negócio e a IA cuida do resto." },
   { q: "Os conteúdos já vêm prontos?", a: "Sim. O app gera posts, carrosséis e roteiros de reels completos, com texto, chamada para ação e sugestão visual. Basta publicar." },
@@ -757,16 +759,16 @@ const LandingPage = () => {
       <section className="py-12 md:py-16 px-4 bg-landing-bg-secondary/40">
         <div className="max-w-2xl mx-auto text-center space-y-5">
           <h2 className="text-2xl md:text-3xl font-display font-semibold leading-tight">
-            Seu próximo cliente já está no Instagram.{" "}
-            <span className="text-landing-gold italic">Sua marca está pronta para ser escolhida?</span>
+            Cada semana sem posicionamento claro é uma semana de clientes que{" "}
+            <span className="text-landing-gold italic">escolhem outro profissional.</span>
           </h2>
           <p className="text-sm text-landing-text-secondary leading-relaxed">
-            Comece agora e transforme posicionamento, imagem e conteúdo em uma presença mais clara, mais estratégica e mais valiosa.
+            Responda o diagnóstico hoje. Amanhã você já tem posicionamento, narrativa e conteúdo prontos para publicar.
           </p>
           <Button size="lg" onClick={() => navigate("/signup")} className="bg-landing-purple hover:bg-landing-purple/90 text-white text-base h-12 px-8">
-            Começar meu posicionamento agora <ArrowRight className="h-4 w-4 ml-2" />
+            Criar meu posicionamento agora <ArrowRight className="h-4 w-4 ml-2" />
           </Button>
-          <p className="text-xs text-landing-text-secondary/50">Sem fidelidade. Cancele quando quiser.</p>
+          <p className="text-xs text-landing-text-secondary/50">Sem agência. Sem contrato. Resultado em minutos.</p>
         </div>
       </section>
 
