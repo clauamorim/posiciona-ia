@@ -39,6 +39,8 @@ function getContrastColor(hex: string): string {
   return luminance > 0.5 ? "#1a1a2e" : "#ffffff";
 }
 
+const SALES_NARRATIVE_BANNER_KEY = "posiciona:sales-narrative-banner-dismissed";
+
 const Report = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -47,8 +49,28 @@ const Report = () => {
   const [topArchetypes, setTopArchetypes] = useState<any[]>([]);
   const [userName, setUserName] = useState<string | null>(null);
   const [regenerating, setRegenerating] = useState(false);
+  const [showNarrativeBanner, setShowNarrativeBanner] = useState(false);
   const reportRef = useRef<HTMLDivElement>(null);
   const pdfRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    if (typeof window !== "undefined" && localStorage.getItem(SALES_NARRATIVE_BANNER_KEY) === "1") return;
+    supabase
+      .from("sales_narrative_questionnaires")
+      .select("is_complete")
+      .eq("user_id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!data || !data.is_complete) setShowNarrativeBanner(true);
+      });
+  }, [user]);
+
+  const dismissNarrativeBanner = () => {
+    setShowNarrativeBanner(false);
+    try { localStorage.setItem(SALES_NARRATIVE_BANNER_KEY, "1"); } catch {}
+  };
+
   useEffect(() => {
     if (!user) return;
     Promise.all([
