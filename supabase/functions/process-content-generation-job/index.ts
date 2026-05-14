@@ -778,6 +778,26 @@ Gere agora os 7 stories da semana.`;
       await updateJob(jobId, { progress_message: "Salvando conteúdo…" });
       const weekObj = await persistWeek(job.report_id, feedFinal, storiesFinal, jobId, marketTrends);
 
+      // Anti-repetição: registra quais traços pessoais aparecem nos textos gerados
+      try {
+        const usedTraits = detectUsedTraits(personalTraitMap, feedFinal, storiesFinal);
+        if (usedTraits.length > 0) {
+          const { error: traitErr } = await admin.from("used_personal_traits").insert({
+            user_id: userId,
+            report_id: job.report_id,
+            week_index: typeof job.week_index === "number" ? job.week_index : null,
+            traits_used: usedTraits,
+          });
+          if (traitErr) {
+            console.warn(`[job ${jobId}] used_personal_traits insert falhou:`, traitErr.message);
+          } else {
+            console.log(`[job ${jobId}] traços pessoais usados registrados:`, usedTraits);
+          }
+        }
+      } catch (traitTrackErr) {
+        console.warn(`[job ${jobId}] rastreio de traços pessoais falhou (ignorado):`, (traitTrackErr as any)?.message || traitTrackErr);
+      }
+
       await updateJob(jobId, {
         status: "completed",
         result: {
