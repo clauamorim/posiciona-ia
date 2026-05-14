@@ -25,7 +25,7 @@ import { prepareSinglePostCardCopy, prepareCarouselCardCopy } from "@/lib/editor
 import { Sparkles, X, Image as ImageIcon, Loader2, Download } from "lucide-react";
 import { useEditorHistory } from "@/hooks/useEditorHistory";
 import { normalizeWeekToV6 } from "@/lib/editorialShape";
-import { normalizeTemplateStateForCanvas } from "@/lib/template-normalize";
+import { normalizeTemplateStateForCanvas, rewriteDecorativeOverlaySvg } from "@/lib/template-normalize";
 import { getArchetypePalette } from "@/lib/archetypePalettes";
 
 function getContrastColor(hex: string): string {
@@ -964,7 +964,14 @@ const PostEditorPage = () => {
   };
 
   const handleUpdateOverlay = (id: string, updates: Partial<OverlayImage>) => {
-    setOverlayImages((prev) => prev.map((img) => (img.id === id ? { ...img, ...updates } : img)));
+    setOverlayImages((prev) => prev.map((img) => {
+      if (img.id !== id) return img;
+      const updated = { ...img, ...updates };
+      if ((updates.width !== undefined || updates.height !== undefined) && id.startsWith("tpl-frame-")) {
+        return rewriteDecorativeOverlaySvg(updated);
+      }
+      return updated;
+    }));
   };
 
   const handleImageMove = (id: string, x: number, y: number) => handleUpdateOverlay(id, { x, y });
