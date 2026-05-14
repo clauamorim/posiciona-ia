@@ -284,10 +284,16 @@ const NICHE_SCENES: Record<string, string[]> = {
     "close-up of stethoscope on wooden surface beside small plant, neutral palette, soft shadows",
   ],
   default: [
-    "minimalist editorial workspace with notebook, warm coffee and morning daylight from the side",
-    "professional in neutral attire by tall window, soft directional light, calm confident posture",
-    "still-life of leather notebook, fountain pen and ceramic cup on linen surface, editorial framing",
-    "architectural interior with single armchair and plant, warm ambient light, generous negative space",
+    // com pessoa
+    "professional in neutral attire by tall window, soft directional light, calm confident posture, editorial framing",
+    "hands typing on minimalist laptop at wooden desk, soft morning light, focused mood, shallow depth of field",
+    "close-up of a confident professional in conversation, soft window light from the side, contemplative expression",
+    "professional walking through modern corridor in tailored neutral attire, golden hour, motion blur background",
+    // conceituais (sem pessoa em foco)
+    "minimalist editorial workspace with open notebook, warm coffee and morning daylight from the side",
+    "still-life of leather notebook, fountain pen and ceramic cup on linen surface, soft directional light",
+    "abstract close-up of light rays through window blinds onto a wooden desk, editorial framing, calm mood",
+    "stack of business documents and reading glasses on a clean desk, warm side lighting, contemplative atmosphere",
   ],
 };
 
