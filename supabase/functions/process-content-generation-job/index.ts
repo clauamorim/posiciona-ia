@@ -955,8 +955,17 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
       });
 
       // ==== Validação de diversidade + retry guiado (não bloqueia entrega) ====
+      // Escopo do retry: a semana INTEIRA é re-prompt-ada com `feedUser`, mas só os
+      // dias retornados pela LLM substituem `feedFinal` (replaceMap). Na prática a
+      // LLM costuma reescrever só os dias listados em `renderRetryInstructions`,
+      // mantendo os demais como contexto no prompt original.
       try {
         const validation = validateWeekDiversity(feedFinal as unknown as FeedPostLike[], diversityHints as any);
+        console.log(
+          `[editorial-diversity] week=${job.week_index} user=${userId} violations=${JSON.stringify(
+            validation.violations.map((v) => v.rule),
+          )} retry_triggered=${!validation.ok}`,
+        );
         if (!validation.ok) {
           console.warn(`[job ${jobId}] diversidade: violações detectadas`, validation.violations);
           await updateJob(jobId, { progress_message: "Ajustando diversidade dos posts…" });
