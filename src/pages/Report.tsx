@@ -12,7 +12,7 @@ import {
   Loader2, Download, FileText, Palette, Type, MessageSquare,
   Target, Crown, Shield, Heart,
   Users, Zap, BookOpen, Compass, Star, Megaphone,
-  Shirt, Gem, Scissors, Eye, Ban, AlertTriangle, RefreshCw, Calendar, ArrowRight
+  Shirt, Gem, Scissors, Eye, Ban, AlertTriangle, RefreshCw, Calendar, ArrowRight, Sparkles, X
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getReportFallbackText, parseReportContent } from "@/lib/reportParser";
@@ -39,6 +39,8 @@ function getContrastColor(hex: string): string {
   return luminance > 0.5 ? "#1a1a2e" : "#ffffff";
 }
 
+const SALES_NARRATIVE_BANNER_KEY = "posiciona:sales-narrative-banner-dismissed";
+
 const Report = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -47,8 +49,28 @@ const Report = () => {
   const [topArchetypes, setTopArchetypes] = useState<any[]>([]);
   const [userName, setUserName] = useState<string | null>(null);
   const [regenerating, setRegenerating] = useState(false);
+  const [showNarrativeBanner, setShowNarrativeBanner] = useState(false);
   const reportRef = useRef<HTMLDivElement>(null);
   const pdfRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    if (typeof window !== "undefined" && localStorage.getItem(SALES_NARRATIVE_BANNER_KEY) === "1") return;
+    supabase
+      .from("sales_narrative_questionnaires")
+      .select("is_complete")
+      .eq("user_id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!data || !data.is_complete) setShowNarrativeBanner(true);
+      });
+  }, [user]);
+
+  const dismissNarrativeBanner = () => {
+    setShowNarrativeBanner(false);
+    try { localStorage.setItem(SALES_NARRATIVE_BANNER_KEY, "1"); } catch {}
+  };
+
   useEffect(() => {
     if (!user) return;
     Promise.all([
@@ -279,6 +301,31 @@ const Report = () => {
             <Button onClick={handleDownloadPDF} variant="outline" size="sm" className="gap-2"><Download className="h-4 w-4" /> Baixar PDF</Button>
           </div>
         </div>
+
+        {/* Sales Narrative recovery banner */}
+        {showNarrativeBanner && (
+          <div data-hide-pdf className="relative flex items-start gap-3 rounded-lg border border-primary/20 bg-primary/5 px-4 py-3">
+            <Sparkles className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+            <p className="text-sm text-muted-foreground leading-relaxed flex-1">
+              Existe um questionário opcional (~10 min) que enriquece sua linha
+              editorial com suas expressões pessoais, objeções reais da sua audiência
+              e casos de prova.{" "}
+              <button
+                onClick={() => navigate("/sales-narrative")}
+                className="font-medium text-primary hover:underline"
+              >
+                Preencher agora
+              </button>
+            </p>
+            <button
+              onClick={dismissNarrativeBanner}
+              className="text-muted-foreground hover:text-foreground p-0.5 -m-0.5 flex-shrink-0"
+              aria-label="Dispensar"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
 
         {/* CTA: Linha Editorial — próximo passo */}
         {!report?.content?.is_fallback && (
