@@ -1,60 +1,14 @@
-## Bug
+## Plano de Alteracoes nos Prompts de Retrato
 
-Ao remover uma referência de retrato, o cliente chama:
+### Arquivos e Mudancas
 
-```ts
-supabase.functions.invoke(`portrait-references?id=${id}`, { method: "DELETE" });
-```
+1. **`supabase/functions/generate-portrait/index.ts`**
+   - **Linha ~266**: alterar `const MAX_REFERENCES_TO_SEND = 5;` para `3`.
+   - **Linhas ~111-114**: dentro de `generateOnePortrait`, inverter a ordem do array `userContent` para que as imagens de referencia sejam inseridas **antes** do bloco de texto do prompt. Isso segue a recomendacao de que o Gemini presta mais atencao ao conteudo que vem primeiro.
 
-`supabase.functions.invoke()` trata o primeiro argumento como **nome da função** e URL-encoda caracteres especiais. O `?` vira `%3F`, então a requisição é enviada para uma função inexistente `portrait-references%3Fid%3D...`, resultando em `Failed to send a request to the Edge Function`.
+2. **`supabase/functions/_shared/portraitPrompts.ts`**
+   - **Linha ~713**: no primeiro item de `sceneParts`, substituir a diretriz `PHOTOGRAPHIC REALISM ONLY... Canon EOS R5...` por `DOCUMENTARY PORTRAIT PHOTOGRAPH... Kodak Portra 400 35mm film... press archive portrait`.
+   - **Linha ~743**: substituir a diretriz de `Lighting: soft natural studio lighting from a large softbox...` por uma versao que enfatiza luz de janela simples, sombras visiveis sob o maxilar/nariz (sem preenchimento total), um unico catchlight por olho e advertencia explicita contra o "beauty ad lighting" artificial.
 
-## Correção
-
-Passar o `id` no **body** em vez de querystring, nas duas pontas.
-
-### 1. `src/pages/PortraitGenerator.tsx` (função `removeReference`, ~linha 214–224)
-
-Trocar:
-```ts
-const { error } = await supabase.functions.invoke(`portrait-references?id=${id}`, {
-  method: "DELETE",
-});
-```
-
-Por:
-```ts
-const { error } = await supabase.functions.invoke("portrait-references", {
-  method: "DELETE",
-  body: { id },
-});
-```
-
-### 2. `supabase/functions/portrait-references/index.ts` (bloco `===== DELETE =====`, ~linha 198–200)
-
-Trocar a leitura do id de querystring para body, com fallback para querystring (compatibilidade):
-
-```ts
-if (req.method === "DELETE") {
-  let id = url.searchParams.get("id");
-  if (!id) {
-    try {
-      const body = await req.json();
-      id = body?.id ?? null;
-    } catch { /* body vazio é ok */ }
-  }
-  if (!id) {
-    return new Response(JSON.stringify({ error: "id obrigatório" }), {
-      status: 400,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-  // ...resto inalterado
-}
-```
-
-Atualizar também o comentário do cabeçalho (linha 9) para refletir que `id` agora vai no body.
-
-## Fora de escopo
-
-- Lógica de soft delete, storage cleanup, RLS, GET/POST handlers — tudo intacto.
-- Nenhuma migração de banco.
+### Fora do Escopo
+Nenhuma outra logica de geracao, cobranca, polling, upload ou prompt sera alterada.
