@@ -549,8 +549,8 @@ const PostEditorPage = () => {
         if (s.ctaPosition !== undefined) setCtaPosition(s.ctaPosition);
         if (typeof s.showSlideNumber === "boolean") setShowSlideNumber(s.showSlideNumber);
         if (s.slideNumberPosition !== undefined) setSlideNumberPosition(s.slideNumberPosition);
-        if (s.slideNumberBgColor !== undefined) setSlideNumberBgColor(s.slideNumberBgColor);
-        if (s.slideNumberTextColor !== undefined) setSlideNumberTextColor(s.slideNumberTextColor);
+        if (!primaryArchetype && s.slideNumberBgColor !== undefined) setSlideNumberBgColor(s.slideNumberBgColor);
+        if (!primaryArchetype && s.slideNumberTextColor !== undefined) setSlideNumberTextColor(s.slideNumberTextColor);
         if (typeof s.slideNumberSize === "number") setSlideNumberSize(s.slideNumberSize);
         // Marca bg como inicializado para evitar que o efeito de palette sobrescreva
         bgInitializedRef.current = true;
@@ -925,6 +925,8 @@ const PostEditorPage = () => {
     if (titleColor === null) setTitleColor(p.textPrimary);
     if (ctaBgColor === null) setCtaBgColor(p.accent);
     if (ctaTextColor === null) setCtaTextColor(p.background);
+    if (slideNumberBgColor === null) setSlideNumberBgColor(p.accent);
+    if (slideNumberTextColor === null) setSlideNumberTextColor(p.background);
     setBgIndex(4); // força uso de customBgColor
     archetypeColorsAppliedRef.current = true;
   }, [draft, primaryArchetype, archetypePalette]);

@@ -23,29 +23,29 @@ const ELEGANCE: ArchetypePalette = {
 
 const ENERGY: ArchetypePalette = {
   group: "energy",
-  background: "#1C1C1C",
-  textPrimary: "#FFFFFF",
-  accent: "#FF4D2E",
-  secondary: "#FFD23F",
-  critical: "#0066FF",
+  background: "#1A1A1A",   // carvão (não preto puro)
+  textPrimary: "#F5F1E8",  // branco quente (não puro)
+  accent: "#C8553D",       // burnt sienna — premium, ainda quente
+  secondary: "#D4A373",    // warm tan
+  critical: "#2C5F7F",     // deep teal
 };
 
 const WARMTH: ArchetypePalette = {
   group: "warmth",
-  background: "#FAF3E6",
-  textPrimary: "#3D2914",
-  accent: "#C0654A",
-  secondary: "#E8B85C",
-  critical: "#6B8E4E",
+  background: "#F2EBE0",   // creme quente
+  textPrimary: "#3D2914",  // cocoa
+  accent: "#A0522D",       // sienna — mais sofisticado
+  secondary: "#BC8F62",    // warm bronze
+  critical: "#5B7553",     // sage
 };
 
 const LIGHTNESS: ArchetypePalette = {
   group: "lightness",
-  background: "#FFFFFF",
+  background: "#F8F8F5",   // off-white com toque
   textPrimary: "#2C3E50",
-  accent: "#5BB3D8",
-  secondary: "#FFD166",
-  critical: "#FF6B9D",
+  accent: "#4A8B9C",       // deep teal — sofisticado
+  secondary: "#C9A961",    // champagne gold
+  critical: "#B85450",     // rose dusty
 };
 
 const ARCHETYPE_PALETTES: Record<string, ArchetypePalette> = {
