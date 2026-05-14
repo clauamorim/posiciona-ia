@@ -388,6 +388,9 @@ const PortraitGenerator = () => {
                 <p className="text-xs text-muted-foreground">
                   {balances?.portrait_credits_included ?? 0} inclusos · {balances?.portrait_credits_extra ?? 0} extras
                 </p>
+                <p className="text-[10px] text-muted-foreground/70 mt-0.5">
+                  Inclusos renovam mensalmente. Extras não expiram.
+                </p>
               </div>
             </div>
             <Badge variant={totalCredits > 0 ? "default" : "destructive"}>

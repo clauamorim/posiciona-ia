@@ -755,10 +755,13 @@ const EditorialPage = () => {
             {weeklyCycles > 0 ? `${weeklyCycles} ciclo${weeklyCycles > 1 ? "s" : ""} disponível${weeklyCycles > 1 ? "is" : ""}` : "Sem ciclos disponíveis"}
           </p>
         </div>
-        <Button onClick={handleGenerateWeek} disabled={generatingWeek || weeklyCycles < 1 || personalSubmitted === null} className="gap-2">
+        <Button onClick={handleGenerateWeek} disabled={generatingWeek || weeklyCycles < 1 || personalSubmitted === null || isReadOnly} className="gap-2">
           {generatingWeek ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
           {generatingWeek ? "Gerando..." : allWeeks.length === 0 ? "Gerar primeira semana" : "Gerar +7 dias"}
         </Button>
+        {isReadOnly && (
+          <p className="text-xs text-muted-foreground text-center max-w-xs">Disponível com assinatura ativa.</p>
+        )}
         {generatingWeek && (
           <p className="text-xs text-muted-foreground text-center max-w-xs">
             {generatingMessage || "Gerando seus 7 posts personalizados. Isso pode levar até 2 minutos — não feche a aba."}

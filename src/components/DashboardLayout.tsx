@@ -218,6 +218,9 @@ export const DashboardLayout = ({ children, wide = false }: { children: React.Re
                     >
                       <item.icon className="h-[18px] w-[18px] flex-shrink-0" />
                       <span className="flex-1 truncate">{item.label}</span>
+                      {item.badge !== undefined && item.badge > 0 && (
+                        <Badge variant="destructive" className="h-5 px-1.5 text-[10px]">{item.badge}</Badge>
+                      )}
                       {!active && statusDot(item.status)}
                     </Link>
                   );
@@ -253,6 +256,7 @@ export const DashboardLayout = ({ children, wide = false }: { children: React.Re
 
       {/* Main */}
       <main className="flex-1 min-h-screen flex flex-col w-full max-w-full [overflow-x:clip]">
+        <ReadOnlyBanner />
         {/* Mobile header */}
         <header className="sticky top-0 z-30 bg-background/85 backdrop-blur-md border-b border-border h-12 flex items-center px-4 lg:hidden">
           <button onClick={() => setMobileOpen(true)} className="p-2 -ml-2 min-h-[44px] min-w-[44px] flex items-center justify-center">
