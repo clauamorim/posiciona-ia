@@ -8,10 +8,12 @@ interface LegalPageLayoutProps {
   metaDescription: string;
   lastUpdated: string;
   breadcrumb: string;
+  path?: string;
   children: React.ReactNode;
 }
 
-const LegalPageLayout = ({ title, metaTitle, metaDescription, lastUpdated, breadcrumb, children }: LegalPageLayoutProps) => {
+const LegalPageLayout = ({ title, metaTitle, metaDescription, lastUpdated, breadcrumb, path, children }: LegalPageLayoutProps) => {
+  const url = path ? `https://posiciona.ia.br${path}` : undefined;
   return (
     <>
       <Helmet>
@@ -19,6 +21,8 @@ const LegalPageLayout = ({ title, metaTitle, metaDescription, lastUpdated, bread
         <meta name="description" content={metaDescription} />
         <meta property="og:title" content={metaTitle} />
         <meta property="og:description" content={metaDescription} />
+        {url && <link rel="canonical" href={url} />}
+        {url && <meta property="og:url" content={url} />}
       </Helmet>
       <div className="min-h-screen bg-[#0D0B1A] text-white">
         {/* Header */}
