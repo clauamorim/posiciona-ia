@@ -266,6 +266,7 @@ const FEED_POST_TYPES = [
   {
     label: "EDUCACIONAL",
     description: `tutorial ou passo a passo prático.
+NORTE DE MONETIZAÇÃO: ensine algo que demonstra profundidade — não dica genérica. Profundidade é o que justifica ticket premium.
 ESCOLHA UMA das seguintes estruturas de abertura (não use a mesma usada em semanas anteriores — varie):
   (A) "Os N passos para [resultado]..."
   (B) "Como [fazer X] sem [erro comum]..."
@@ -276,6 +277,7 @@ SEM storytelling pessoal. SEM abrir com "você sabia que". SEM fechar com frases
   {
     label: "DESMISTIFICAÇÃO",
     description: `escolha uma crença errada comum no nicho e refute com raciocínio sólido ou dado observável.
+NORTE DE MONETIZAÇÃO: quebre crença comum do mercado que está custando dinheiro/resultado ao cliente. Quem desmistifica vira referência. Referência cobra mais.
 ESCOLHA UMA das seguintes estruturas de abertura (não use a mesma usada em semanas anteriores — varie):
   (A) "Todo mundo diz que [X resolve Y]. Errado."
   (B) "[Pessoa/grupo] acredita em [mito]. Veja por que isso não funciona."
@@ -286,18 +288,24 @@ Estrutura interna: mito declarado → por que as pessoas acreditam → por que e
   },
   {
     label: "POSICIONAMENTO",
-    description: `evidencie categoria + o que a marca NÃO é + para quem especificamente é.
+    description: `evidencie categoria + critério de cliente ideal por VALOR (não por exclusão literal).
+NORTE DE MONETIZAÇÃO: mostre o critério pelo qual esse profissional decide com quem trabalha — e por que esse critério gera melhor resultado para o cliente.
 ESCOLHA UMA das seguintes estruturas de abertura (não use a mesma usada em semanas anteriores — varie):
   (A) Comparação com alternativa: "Existem dezenas de ferramentas que fazem [X]. Esta não é uma delas. Veja por quê."
   (B) Perfil do cliente ideal: "Se você é [perfil específico] e [situação concreta], leia até o fim."
   (C) História de não-encaixe: "Cliente chegou pedindo [coisa errada]. Recusei. Aqui está o porquê."
   (D) Definição por contraste: "[Categoria] resolve [problema A]. [Sua marca] resolve [problema diferente]. Não é a mesma coisa."
 PROIBIDO o template "[Marca] não é para quem quer X — é para quem quer Y" — está saturado.
-Estrutura interna: alternativa que o público usaria → por que é insuficiente → o que torna esta abordagem diferente → perfil exato do cliente ideal.`,
+Estrutura interna:
+  1) qual problema esse profissional resolve que justifica ticket premium
+  2) por que a alternativa "mais barata" custa caro no longo prazo
+  3) qual é o cliente ideal (perfil + critério de decisão por valor, não por preço)
+  4) qual transformação concreta o cliente recebe que justifica o investimento`,
   },
   {
     label: "ANÁLISE DE MERCADO OU CASO",
     description: `se houver tendência relevante no bloco TENDÊNCIAS, use-a como gancho principal. Se não houver tendência pré-listada, pesquise no seu conhecimento um caso, decisão ou evento REAL e NOMEADO do nicho (empresa, pessoa, produto, lei) — nunca mini-caso hipotético genérico.
+NORTE DE MONETIZAÇÃO: analise um caso (real ou hipotético com nomes reais) sob a ótica do seu método. Análise revela expertise. Expertise sustenta ticket.
 ESCOLHA UMA das seguintes estruturas de abertura (não use a mesma usada em semanas anteriores — varie):
   (A) Manchete + virada: "[Evento real] aconteceu. Aqui está o que ninguém comentou."
   (B) Caso + analogia: "O que aconteceu com [empresa/pessoa] tem tudo a ver com [problema do leitor]."
@@ -378,7 +386,12 @@ Aberturas proibidas:
   • "[Caso] aconteceu há [tempo]. Por que [grupo do leitor] deveria ter aprendido com isso"
   • "Quando [evento] aconteceu, [grupo A] reagiu de X jeito. Os que prosperaram fizeram Y"
 - "Postar com [X] não resolve [Y]" / "[Ação] não resolve [problema]" — varie a construção
-- "Para quem [Marca] faz [X] — e para quem é melhor [Y]" / "Para quem o Posiciona [X] — e para quem [Y]" — está banido como TEMPLATE para POSICIONAMENTO. Use alternativas: narrativa de cliente recusado, comparação com alternativa específica, ou recorte do não-cliente ideal.
+- "Para quem [Marca] faz [X] — e para quem é melhor [Y]" / "Para quem o Posiciona [X] — e para quem [Y]" está banido como abertura literal.
+  MAS o RECORTE de cliente ideal continua sendo eixo central — apenas reformule:
+  • Comece pelo problema/dor específica do cliente premium (não pela frase de exclusão).
+  • Mostre o critério de decisão por valor (não por preço).
+  • Termine com convite para quem se reconhece — não com exclusão de quem não serve.
+  EXEMPLO BOM: "Quando [problema específico que dói no cliente premium], há dois caminhos: [escolha barata que custa caro] ou [investimento que se paga]. Eu trabalho com quem escolhe o segundo."
 - "[X] não constrói autoridade — [Y] constrói" / "[X] não constrói [coisa] — [Y] constrói" — está banido como TEMPLATE para DESMISTIFICAÇÃO. A construção "[ação A] não constrói [substantivo] — [ação B] constrói" foi usada em 2 semanas seguidas. Varie a estrutura completamente (não apenas o objeto).
 
 🏷️ ORÇAMENTO DE MENÇÃO DA MARCA (CRÍTICO):
@@ -392,6 +405,11 @@ Encerramentos proibidos:
 - "o processo que transforma expertise em [presença / autoridade / reconhecimento]"
 - "profissionais qualificados continuam invisíveis"
 - "antes de qualquer post existir"
+
+ENCERRAMENTOS RECOMENDADOS (priorize):
+- Fechamentos que conectem expertise + ticket: ex. "A diferença entre ser mais um e ser o escolhido começa em como você se posiciona."
+- Fechamentos que recortem cliente premium: ex. "Não trabalho para quem busca o mais barato. Trabalho para quem busca o melhor resultado."
+- Fechamentos que validem valorização: ex. "Cobrar bem não é arrogância. É coerência com o que se entrega."
 
 Vocabulário saturado (use no MÁXIMO 1 vez na semana inteira, somando feed + stories):
 - "profissionais qualificados"
@@ -407,6 +425,13 @@ Em vez de "profissionais qualificados" / "profissionais liberais" como descritor
 - Estágio + frustração: "profissionais com 10+ anos de experiência que viraram invisíveis no digital", "especialistas no offline que não conseguem traduzir competência no online"
 - Volume + situação: "empresários que faturam acima de 500k/ano e ainda postam manualmente", "advogadas com 50+ clientes ativos e zero estratégia de aquisição"
 REGRA: cada um dos 4 posts da semana DEVE usar um descritor DIFERENTE. Nunca repita "profissionais qualificados" em mais de 1 post da mesma semana. Use o bloco "NEGÓCIO" + "CONTEXTO PESSOAL" para extrair detalhes específicos do nicho do criador e construir descritores ricos.
+
+DESCRITORES ADICIONAIS (use também — cobrem público em construção de autoridade):
+- "profissional que decidiu parar de competir por preço"
+- "[profissão] que quer ser pago pelo valor que entrega"
+- "[profissão] em transição de volume para valor"
+- "[profissão] construindo autoridade no digital"
+- "[profissão] cansado de cliente que pechincha"
 
 CTAs PROIBIDOS COMO PADRÃO ÚNICO:
 NÃO use "Me chame no direct com a palavra [X]" em MAIS DE 1 dos 4 posts da semana. Para os outros 3 posts, ESCOLHA CTAs de naturezas diferentes:
