@@ -354,6 +354,27 @@ export type Database = {
         }
         Relationships: []
       }
+      market_trends_cache: {
+        Row: {
+          expires_at: string
+          key: string
+          trends: Json
+          updated_at: string
+        }
+        Insert: {
+          expires_at: string
+          key: string
+          trends?: Json
+          updated_at?: string
+        }
+        Update: {
+          expires_at?: string
+          key?: string
+          trends?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
       personal_questionnaires: {
         Row: {
           advice_to_20yo: string | null
