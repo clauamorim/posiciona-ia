@@ -11,32 +11,106 @@ import { ArrowLeft } from "lucide-react";
 import posicionaLogo from "@/assets/posiciona-logo.png";
 
 const LOGIN_TIMEOUT_MS = 15000;
+const SESSION_SYNC_TIMEOUT_MS = 6000;
 
-type LoginTimeoutResult = { timedOut: true };
+type PasswordGrantSuccess = {
+  access_token: string;
+  refresh_token: string;
+  expires_in?: number;
+  expires_at?: number;
+  token_type?: "bearer";
+  user: NonNullable<Awaited<ReturnType<typeof supabase.auth.getUser>>["data"]["user"]>;
+};
 
-const signInWithTimeout = async (
+type PasswordGrantResult =
+  | { data: PasswordGrantSuccess; error: null }
+  | { data: null; error: { code?: string; message: string; status?: number } }
+  | { data: null; error: null; timedOut: true };
+
+const authStorageKey = () => {
+  const host = new URL(import.meta.env.VITE_SUPABASE_URL).hostname;
+  return `sb-${host.split(".")[0]}-auth-token`;
+};
+
+const persistSessionFallback = (session: PasswordGrantSuccess) => {
+  const expiresAt = session.expires_at ?? Math.floor(Date.now() / 1000) + (session.expires_in ?? 3600);
+  localStorage.setItem(
+    authStorageKey(),
+    JSON.stringify({
+      ...session,
+      expires_at: expiresAt,
+      expires_in: session.expires_in ?? Math.max(expiresAt - Math.floor(Date.now() / 1000), 0),
+      token_type: session.token_type ?? "bearer",
+    })
+  );
+};
+
+const passwordGrantWithTimeout = async (
   email: string,
   password: string
-): Promise<Awaited<ReturnType<typeof supabase.auth.signInWithPassword>> | LoginTimeoutResult> => {
-  let timeoutId: ReturnType<typeof setTimeout>;
-
-  const timeoutPromise = new Promise<LoginTimeoutResult>((resolve) => {
-    timeoutId = setTimeout(() => resolve({ timedOut: true }), LOGIN_TIMEOUT_MS);
-  });
+): Promise<PasswordGrantResult> => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), LOGIN_TIMEOUT_MS);
 
   try {
-    return await Promise.race([
-      supabase.auth.signInWithPassword({ email, password }),
-      timeoutPromise,
-    ]);
+    const response = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/auth/v1/token?grant_type=password`,
+      {
+        method: "POST",
+        signal: controller.signal,
+        headers: {
+          "Content-Type": "application/json;charset=UTF-8",
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          "X-Supabase-Api-Version": "2024-01-01",
+        },
+        body: JSON.stringify({
+          email,
+          password,
+          gotrue_meta_security: {},
+        }),
+      }
+    );
+
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      return {
+        data: null,
+        error: {
+          code: payload?.code || payload?.error_code,
+          message: payload?.message || payload?.error_description || "Erro desconhecido.",
+          status: response.status,
+        },
+      };
+    }
+
+    return { data: payload as PasswordGrantSuccess, error: null };
+  } catch (error: any) {
+    if (error?.name === "AbortError") return { data: null, error: null, timedOut: true };
+    return {
+      data: null,
+      error: {
+        message: error?.message || "Não conseguimos conectar ao servidor.",
+      },
+    };
   } finally {
-    clearTimeout(timeoutId!);
+    clearTimeout(timeoutId);
   }
 };
 
+const syncSessionWithTimeout = async (session: PasswordGrantSuccess) =>
+  Promise.race([
+    supabase.auth.setSession({
+      access_token: session.access_token,
+      refresh_token: session.refresh_token,
+    }),
+    new Promise<"timeout">((resolve) => setTimeout(() => resolve("timeout"), SESSION_SYNC_TIMEOUT_MS)),
+  ]);
+
 const Login = () => {
   const navigate = useNavigate();
-  const { user, isAdmin, isLoading: authLoading } = useAuth();
+  const { user, isAdmin, isLoading: authLoading, adoptSession } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -69,7 +143,7 @@ const Login = () => {
     }
 
     try {
-      const result = await signInWithTimeout(cleanEmail, cleanPassword);
+      const result = await passwordGrantWithTimeout(cleanEmail, cleanPassword);
 
       if (attemptId !== loginAttemptRef.current) return;
 
@@ -84,7 +158,7 @@ const Login = () => {
         return;
       }
 
-      const { error } = result;
+      const { data, error } = result;
 
       if (error) {
         const code = (error as any)?.code || (error as any)?.error_code || "";
@@ -112,6 +186,29 @@ const Login = () => {
 
         toast({ title: "Erro ao entrar", description, variant: "destructive" });
         return;
+      }
+
+      if (!data?.access_token || !data.refresh_token || !data.user) {
+        toast({
+          title: "Erro ao entrar",
+          description: "Não foi possível iniciar sua sessão. Tente novamente.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      persistSessionFallback(data);
+      const syncResult = await syncSessionWithTimeout(data);
+      if (attemptId !== loginAttemptRef.current) return;
+
+      if (syncResult === "timeout" || syncResult.error) {
+        await adoptSession({
+          ...data,
+          expires_at: data.expires_at ?? Math.floor(Date.now() / 1000) + (data.expires_in ?? 3600),
+          expires_in: data.expires_in ?? 3600,
+          token_type: data.token_type ?? "bearer",
+          user: data.user,
+        });
       }
 
       setLoginTriggered(true);
