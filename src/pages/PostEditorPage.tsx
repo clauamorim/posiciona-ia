@@ -617,6 +617,7 @@ const PostEditorPage = () => {
           niche: userNiche,
           businessContext,
           aiStyleDirective: initialStyle === "ai" ? getAIStyleById(initialAiVisualStyle)?.directive : undefined,
+          primaryArchetype,
         });
         // Quando o template do arquétipo já foi aplicado, preservamos seus
         // overlays decorativos e configurações visuais — só atualizamos o

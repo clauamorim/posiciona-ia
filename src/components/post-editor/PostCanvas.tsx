@@ -5,7 +5,7 @@ import { getArchetypeTypography, clampBodyWeight } from "@/lib/archetypeTypograp
 import { sanitizeRichText } from "@/lib/richText";
 import { inlineFormatBus } from "@/lib/inlineFormatBus";
 import InlineFormatToolbar from "./InlineFormatToolbar";
-import { ArchetypeDecorative } from "@/components/post-editor/ArchetypeDecorative";
+
 
 interface PostCanvasProps {
   text: string;
