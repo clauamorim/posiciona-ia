@@ -38,6 +38,12 @@ import {
   type MarketTrend,
 } from "../_shared/professionRules.ts";
 import {
+  validatePostCompliance,
+  feedPostToCompliance,
+  renderComplianceRetryInstructions,
+  type ComplianceViolation,
+} from "../_shared/complianceValidator.ts";
+import {
   buildDiversityHints,
   fingerprintPost,
   renderDiversityBlock,
@@ -755,7 +761,14 @@ async function processJob(jobId: string) {
         .select("profession, niche")
         .eq("user_id", userId)
         .maybeSingle();
-      const professionCategory = detectProfession(profileRow);
+      const professionCategory = detectProfession({
+        profession: profileRow?.profession,
+        niche: profileRow?.niche,
+        // `business` vem do questionário — pode trazer pistas adicionais (services/target_audience)
+        business_description: [business?.services, business?.target_audience, business?.company_name]
+          .filter((v: any) => typeof v === "string" && v.trim())
+          .join(" "),
+      });
       const ethicalBlock = getEthicalRulesBlock(professionCategory);
 
       let marketTrends: MarketTrend[] = [];
