@@ -17,7 +17,9 @@ export type ConceptGroupId =
   | "grupo_g_frequencia_postagem"
   | "grupo_h_humanizar_bastidor"
   | "grupo_i_agradar_todos"
-  | "grupo_j_cliente_pechincha";
+  | "grupo_j_cliente_pechincha"
+  | "grupo_k_anti_cliente"
+  | "grupo_l_bio_que_lista";
 
 const CONCEPT_GROUPS: Record<ConceptGroupId, { label: string; terms: string[] }> = {
   grupo_a_autoridade: {
@@ -74,16 +76,25 @@ const CONCEPT_GROUPS: Record<ConceptGroupId, { label: string; terms: string[] }>
     terms: [
       "mostrar bastidor",
       "mostrando o dia a dia",
+      "mostrando dia a dia",
       "humanizar marca",
       "humanizar a marca",
-      "dia a dia humaniza",
+      "humanizar perfil",
+      "humanizar conta",
+      "erro de humanizar",
+      "o que e humanizar",
+      "humanizar e mostrar",
+      "humanizar virou",
       "bastidor humaniza",
+      "dia a dia humaniza",
       "bastidor nivela",
       "nivela por baixo",
       "rotina humaniza",
       "rotina generica",
       "parecer estagiari",
       "parecer amador",
+      "mostrar cafe da manha",
+      "cafe da manha todo dia",
     ],
   },
   grupo_i_agradar_todos: {
@@ -101,7 +112,7 @@ const CONCEPT_GROUPS: Record<ConceptGroupId, { label: string; terms: string[] }>
     ],
   },
   grupo_j_cliente_pechincha: {
-    label: "cliente que pechincha / paciente já pechinchando / preço × valor",
+    label: "cliente que pechincha / cobrar mais / medo de subir preço / preço × valor",
     terms: [
       "cliente que pechincha",
       "paciente que pechincha",
@@ -112,6 +123,49 @@ const CONCEPT_GROUPS: Record<ConceptGroupId, { label: string; terms: string[] }>
       "pedindo desconto",
       "preco x valor",
       "preco vs valor",
+      "cobrar mais",
+      "subir o preco",
+      "subir preco",
+      "perder cliente por preco",
+      "cliente achar caro",
+      "medo de cobrar",
+      "achar caro",
+      "10% mais barato",
+      "dez por cento mais barato",
+      "ninguem aceitar",
+      "vai embora quando aparece alguem mais barato",
+    ],
+  },
+  grupo_k_anti_cliente: {
+    label: "quem o Posiciona NÃO atende / critério que separa / quem deveria primeiro resolver",
+    terms: [
+      "quem o posiciona nao atende",
+      "quem o posiciona ajuda",
+      "quem deveria primeiro resolver",
+      "primeiro resolver outra coisa",
+      "criterio que separa quem",
+      "criterio tecnico que separa",
+      "anti cliente",
+      "anti-cliente",
+      "nao e com a gente",
+      "quem nao e cliente",
+      "antes de virar cliente",
+    ],
+  },
+  grupo_l_bio_que_lista: {
+    label: "bio descreve função / lista credencial / bio sem recorte",
+    terms: [
+      "bio descreve",
+      "bio lista",
+      "bio so lista",
+      "bio sem recorte",
+      "bio que descreve a profissao",
+      "lista credencial",
+      "listando funcao",
+      "lista de servicos",
+      "descreve profissao nao recorte",
+      "o erro do sobre",
+      "erro de bio",
     ],
   },
 };
@@ -238,11 +292,13 @@ const FORMULA_PATTERNS: { id: Exclude<TitleFormulaId, "livre">; label: string; r
   //     Aceita numeral por extenso (três, quatro, sete, etc.) ou dígito.
   {
     id: "protocolo_n_perguntas",
-    label: '"Protocolo/método/filtro (N) perguntas/passos/sinais/decisões/etapas/elementos…" ou "As/Os N [substantivo]"',
+    label: '"Protocolo/método/ritual (N) perguntas/passos/sinais/movimentos/minutos…" ou "As/Os N [substantivo]"',
     re: new RegExp(
-      `(\\b(protocolo|checklist|guia|roteiro|m[eé]todo|filtro|sistema|framework)\\s+(de\\s+)?(${N_OR_WORD}\\s+)?(perguntas|passos|filtros|camadas|crit[ée]rios|regras|sinais|decis[õo]es|etapas|elementos|verifica[çc][õo]es|checagens|princ[íi]pios|chaves|pilares|movimentos|gatilhos)\\b)` +
+      `(\\b(protocolo|checklist|guia|roteiro|m[eé]todo|filtro|sistema|framework|ritual|rotina|processo)\\s+(de\\s+)?(${N_OR_WORD}\\s+)?(perguntas|passos|filtros|camadas|crit[ée]rios|regras|sinais|decis[õo]es|etapas|elementos|verifica[çc][õo]es|checagens|princ[íi]pios|chaves|pilares|movimentos|gatilhos)\\b)` +
       `|` +
-      `(\\b(as|os|estas|estes|essas|esses|aquelas|aqueles)\\s+${N_OR_WORD}\\s+(perguntas|camadas|filtros|passos|crit[ée]rios|regras|sinais|decis[õo]es|etapas|elementos|verifica[çc][õo]es|checagens|princ[íi]pios|chaves|pilares|movimentos|gatilhos)\\b)`,
+      `(\\b(as|os|estas|estes|essas|esses|aquelas|aqueles)\\s+${N_OR_WORD}\\s+(perguntas|camadas|filtros|passos|crit[ée]rios|regras|sinais|decis[õo]es|etapas|elementos|verifica[çc][õo]es|checagens|princ[íi]pios|chaves|pilares|movimentos|gatilhos)\\b)` +
+      `|` +
+      `(\\b(ritual|m[eé]todo|rotina|processo|sistema|protocolo)\\s+(de\\s+)?${N_OR_WORD}\\s+(minutos?|segundos?|horas?)\\b)`,
       "i",
     ),
   },
@@ -401,7 +457,9 @@ Cada um destes GRUPOS de palavras pode ser TEMA CENTRAL de NO MÁXIMO 1 post da 
 - grupo_g_frequencia_postagem: aparecer todo dia / volume vs tese / consistência > frequência
 - grupo_h_humanizar_bastidor: mostrar bastidor / humanizar marca / nivela por baixo
 - grupo_i_agradar_todos: agradar todo mundo / não é pra todos / recorte de cliente
-- grupo_j_cliente_pechincha: paciente já pechinchando / preço × valor
+- grupo_j_cliente_pechincha: paciente já pechinchando / cobrar mais / medo de subir preço
+- grupo_k_anti_cliente: quem o Posiciona NÃO atende / quem deveria primeiro resolver outra coisa
+- grupo_l_bio_que_lista: bio descreve função / lista credencial sem recorte
 
 CONCEITOS SATURADOS nas últimas 3 semanas (PROIBIDOS como tema central nesta semana — não use NENHUM post sobre eles): ${dampened}`;
 }
@@ -460,13 +518,21 @@ export function fingerprintPost(p: FeedPostLike): PostFingerprint {
   const headline = getHeadline(p);
   const body = getBody(p);
   const cta = (p.cta || "").toString();
-  const titleForFormula = (p.theme || headline || "").toString();
-  // Detecta fórmula no título OU no CTA (CTA repetitivo conta como fórmula).
-  let formula = detectTitleFormula(titleForFormula);
-  if (formula === "livre" && cta) {
-    const ctaFormula = detectTitleFormula(cta);
-    if (ctaFormula !== "livre") formula = ctaFormula;
+  // Detecta fórmula em CADA campo separadamente. Antes só checava `theme` (que
+  // costuma ser resumo curto sem a construção completa), perdendo padrões como
+  // "A ideia de que 'X' está [verbo]ndo Y" que vivem no headline ou body.
+  const candidates = [
+    (p.theme || "").toString(),
+    headline,
+    body,
+    cta,
+  ].filter(Boolean);
+  let formula: TitleFormulaId = "livre";
+  for (const c of candidates) {
+    const f = detectTitleFormula(c);
+    if (f !== "livre") { formula = f; break; }
   }
+  const titleForFormula = (p.theme || headline || "").toString();
   return {
     day: p.day,
     pillar: (p.pillar && String(p.pillar).trim()) || "livre",
@@ -592,6 +658,10 @@ export function buildDiversityHints(
       if (c in CONCEPT_GROUPS) concepts.add(c as ConceptGroupId);
     }
   }
+  // Override temporário (até 2026-06-30): "a_ideia_de_que_x_esta" foi detectada
+  // 6x recentemente mas registros antigos têm formula="livre" porque a regex
+  // foi adicionada depois. Forçar como banida.
+  formulas.add("a_ideia_de_que_x_esta");
   return {
     bannedFormulas: Array.from(formulas),
     dampenedConcepts: Array.from(concepts),
