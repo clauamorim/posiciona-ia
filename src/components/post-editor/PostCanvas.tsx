@@ -5,6 +5,7 @@ import { getArchetypeTypography, clampBodyWeight } from "@/lib/archetypeTypograp
 import { sanitizeRichText } from "@/lib/richText";
 import { inlineFormatBus } from "@/lib/inlineFormatBus";
 import InlineFormatToolbar from "./InlineFormatToolbar";
+import { ArchetypeDecorative } from "@/components/post-editor/ArchetypeDecorative";
 
 interface PostCanvasProps {
   text: string;
@@ -1074,6 +1075,11 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
           }}
           onClick={handleCanvasClick}
         >
+          <ArchetypeDecorative
+            primaryArchetype={primaryArchetype}
+            canvasWidth={canvasWidth}
+            canvasHeight={canvasHeight}
+          />
           {/* Degradê de legibilidade quando há foto de fundo (cobre ~55% inferiores) */}
           {hasPhotoBackground && (() => {
             const bgIndexInOrder = effectiveRenderOrder.findIndex(id => {

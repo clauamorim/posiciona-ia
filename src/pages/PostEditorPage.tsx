@@ -26,6 +26,7 @@ import { Sparkles, X, Image as ImageIcon, Loader2, Download } from "lucide-react
 import { useEditorHistory } from "@/hooks/useEditorHistory";
 import { normalizeWeekToV6 } from "@/lib/editorialShape";
 import { normalizeTemplateStateForCanvas } from "@/lib/template-normalize";
+import { getArchetypePalette } from "@/lib/archetypePalettes";
 
 function getContrastColor(hex: string): string {
   const r = parseInt(hex.slice(1, 3), 16);
@@ -919,9 +920,10 @@ const PostEditorPage = () => {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [selectedImageId]);
 
-  const bgColor = customBgColor || palette[bgIndex]?.hex || "#1a1a2e";
+  const archetypePalette = getArchetypePalette(primaryArchetype);
+  const bgColor = customBgColor || palette[bgIndex]?.hex || archetypePalette.background;
   const textColor = customTextColor || getContrastColor(bgColor);
-  const accentColor = palette[(bgIndex + 1) % Math.max(palette.length, 1)]?.hex || "#7c3aed";
+  const accentColor = palette[(bgIndex + 1) % Math.max(palette.length, 1)]?.hex || archetypePalette.accent;
 
   const gradientColor2 = customGradientColor2 || palette[gradientColor2Index]?.hex || accentColor;
   const bgGradient = useGradient && palette.length >= 2
