@@ -20,7 +20,15 @@ import {
   renderStorybrandBlock,
   renderToneBlock,
   renderEditorialFrameworks,
+  renderVerifiableFactsBlock,
 } from "../_shared/buildClaudeContext.ts";
+import {
+  renderPillarsBlock,
+  getPillarRotationHint,
+  renderRotationBlock,
+  isValidPillar,
+  type PillarId,
+} from "../_shared/editorialPillars.ts";
 import { NARRATIVE_PRINCIPLES_BLOCK } from "../_shared/narrativePrinciples.ts";
 import {
   detectProfession,
@@ -53,7 +61,7 @@ Sua tarefa: gerar EXATAMENTE 4 posts de FEED para uma semana editorial. Os posts
 ⚠️ CRÍTICO — FORMATO DE SAÍDA: Sua resposta DEVE começar com "[" e terminar com "]". NÃO use \`\`\`. NÃO escreva texto antes/depois do JSON. Sem vírgulas finais.
 
 REGRA DE LINGUAGEM (CRÍTICA):
-StoryBrand, Obviously Awesome e Made to Stick são camadas ESTRATÉGICAS INTERNAS. NUNCA escreva os rótulos dessas metodologias nos campos visíveis.
+StoryBrand, Obviously Awesome e Made to Stick são camadas ESTRATÉGICAS INTERNAS. NUNCA escreva os rótulos dessas metodologias nos campos visíveis. Os ids de pilar (metodo, mito, mercado, caso, posicionamento, bastidor) também são INTERNOS — vão no campo "pillar" do JSON, NUNCA aparecem na copy visível.
 
 PROIBIDO escrever literalmente em "theme", "caption", "card_copy", "cta" ou "script":
 "Problema Externo", "Problema Interno", "Problema Filosófico", "O Plano", "Chamada à Ação", "Chamada para Ação", "O Sucesso", "O Fracasso", "O Guia", "O Herói", "Sucesso vs Fracasso", "StoryBrand", "Framework", "Etapa do Framework", "Posicionamento", "Categoria", "SUCCES", "Made to Stick", "Obviously Awesome".
@@ -93,19 +101,22 @@ A) Gancho específico do nicho (Made to Stick — Inesperado + Concreto):
 
 B) Posicionamento (Obviously Awesome): pelo menos 1 dos 4 posts deve evidenciar categoria + alternativa rejeitada + valor único.
 
-C) StoryBrand interno: distribua facetas pelos 4 dias sem CITÁ-LAS:
-- 1 post de problema/dor sentida pelo cliente
-- 1 post de método/plano (passos práticos)
-- 1 post de resultado/transformação concreta
-- 1 post de prova/autoridade ou storytelling pessoal
+C) StoryBrand interno: distribua facetas pelos 4 dias sem CITÁ-LAS (problema, plano, resultado, prova).
 
 D) Estrutura de carrossel (mínimo 5 slides):
 - Slide 1: GANCHO (frase curta, máximo 12 palavras). Slide 2: PROBLEMA SENTIDO. Slides do meio: INSIGHT + PROVA ou PASSOS (1 ideia por slide). Último: CTA verbal e direto.
 
-E) Humanização (storytelling pessoal):
-- Reserve 1 dos 4 posts para storytelling pessoal (marque is_personal=true). Use vivência REAL do criador (do bloco "CONTEXTO PESSOAL DO CRIADOR") como metáfora para a dor do cliente. Modelo "do tatame ao tribunal".
-- Posts pessoais podem aparecer no feed mas com BAIXA frequência (0 ou 1 por semana). A predominância de pessoal está nos stories.
-- Nunca invente fatos. Se não houver contexto pessoal, NÃO marque is_personal.
+E) Pilar "bastidor" (storytelling pessoal):
+- O pilar "bastidor" aparece NO MÁXIMO 1 vez por semana e SOMENTE se estiver na lista de pilares SUB-REPRESENTADOS desta semana (veja bloco ROTAÇÃO DE PILARES no prompt do usuário).
+- Se "bastidor" NÃO estiver sub-representado, NENHUM post desta semana é pessoal (is_personal=false em todos).
+- Quando usar, marque is_personal=true e use vivência REAL do criador (do bloco "CONTEXTO PESSOAL DO CRIADOR") como metáfora para a dor do cliente. Nunca invente fatos pessoais.
+
+F) ESTRATÉGIA DE PROFUNDIDADE (camadas obrigatórias):
+Cada post didático deve ter 3 camadas explícitas e identificáveis dentro da caption:
+1. TESE — afirmação clara, contraintuitiva quando possível.
+2. EVIDÊNCIA — dado, número, mini-case ou observação retirada LITERALMENTE do bloco FATOS VERIFICÁVEIS. Sem fato pertinente, formule a evidência como hipótese sinalizada ("é comum ver...", "imagine um cliente que...", "em geral acontece que...") — JAMAIS invente número/case.
+3. APLICAÇÃO PRÁTICA — o que o leitor faz amanhã com isso.
+Ordem livre, mas as 3 camadas precisam estar lá. Posts curtos demais (uma frase + CTA) são reprovados.
 
 DISTRIBUIÇÃO DE FORMATOS (4 posts):
 - Pelo menos 1 carrossel
@@ -118,6 +129,7 @@ OUTPUT — array com EXATAMENTE 4 objetos, na ordem dos dias ${FEED_DAYS.join(",
   {
     "day": 1,
     "format": "carrossel" | "post" | "reels",
+    "pillar": "metodo" | "mito" | "mercado" | "caso" | "posicionamento" | "bastidor",
     "theme": "...",
     "caption": "LEGENDA COMPLETA pronta para postar (longa, com storytelling)",
     "card_copy": ["texto curto do card (NÃO igual à legenda)"],
@@ -129,6 +141,8 @@ OUTPUT — array com EXATAMENTE 4 objetos, na ordem dos dias ${FEED_DAYS.join(",
 
 REGRAS ESTRUTURAIS:
 - "day" deve ser exatamente um dos valores ${FEED_DAYS.join(", ")}, na ordem.
+- "pillar" obrigatório, valor literal entre os 6 ids; os 4 posts precisam usar 4 pilares DIFERENTES.
+- "is_personal" = true APENAS quando "pillar" = "bastidor".
 - "card_copy": carrossel ≥ 5 itens; post = 1 item; reels = [].
 - Cada item de card_copy: até ~180 caracteres (carrossel) ou ~200 (post único). NUNCA igual à caption.
 - "script": apenas reels tem texto; post/carrossel = "".
@@ -136,7 +150,14 @@ REGRAS ESTRUTURAIS:
 
 REFORÇO ANTI META-NARRATIVA: NÃO escreva "a marca atua como guia", "jornada do herói", "plano de 3 passos", "fracasso iminente", "categoria de mercado".
 
-CHECKLIST FINAL ANTES DE RESPONDER: você está retornando EXATAMENTE 4 objetos no array, um para cada um dos dias [${FEED_DAYS.join(", ")}]? Cada card_copy é DIFERENTE da caption correspondente? Confirme antes de enviar.`;
+CHECKLIST FINAL ANTES DE RESPONDER:
+1. 4 objetos no array, um para cada um dos dias [${FEED_DAYS.join(", ")}]?
+2. Cada card_copy DIFERENTE da caption correspondente?
+3. Cada post tem campo "pillar" com um dos 6 ids válidos?
+4. Os 4 pilares são DIFERENTES entre si e respeitam a rotação (priorizar sub-representados, evitar sobre-representados)?
+5. is_personal=true SOMENTE em post com pillar="bastidor"?
+6. Cada número, case, métrica ou exemplo concreto citado existe LITERALMENTE no bloco FATOS VERIFICÁVEIS? Se não, foi reescrito como pergunta/hipótese explícita?
+Confirme tudo antes de enviar.`;
 }
 
 function buildStoriesSystemPrompt(feedSummary: string, mirrorDays: number[]): string {
@@ -162,7 +183,8 @@ ESTILO STORIES:
 - Linguagem direta, falada, em primeira pessoa.
 - Cada story tem 3 a 5 frames (telas).
 - Use formatos típicos do Stories: enquete, caixa de pergunta, slider, quiz, depoimento, bastidor, mini-tutorial, opinião quente.
-- Predominância pessoal: pelo menos 4 dos 7 stories devem ter is_personal=true.
+- Storytelling pessoal: NO MÁXIMO 3 dos 7 stories podem ter is_personal=true. Os demais devem ser análise, dica ou quebra de mito alinhados ao pilar do feed do dia (quando houver) ou ao pilar sub-representado da semana.
+- Toda evidência concreta (número, caso, métrica) precisa vir do bloco FATOS VERIFICÁVEIS. Sem fato disponível, use pergunta/hipótese sinalizada ("e se...", "imagine que...").
 - Nos dias com feed, mirrors_feed=true. Nos demais, mirrors_feed=false.
 
 OUTPUT — array com EXATAMENTE 7 objetos, na ordem dos dias 1..7:
@@ -185,6 +207,7 @@ REGRAS ESTRUTURAIS:
 interface FeedPost {
   day: number;
   format: string;
+  pillar?: string;
   theme: string;
   caption: string;
   card_copy?: string[];
