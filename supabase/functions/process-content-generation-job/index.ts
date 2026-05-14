@@ -1514,16 +1514,21 @@ async function persistWeek(
 
   const currentWeeks: any[] = Array.isArray(reportRow?.editorial_weeks) ? reportRow!.editorial_weeks : [];
 
-  // Se a última entrada é parcial e refere-se ao mesmo week_index, SUBSTITUI em vez de anexar.
-  // Isso garante que o save parcial inicial (feito antes do Estágio B) seja atualizado quando os stories chegarem.
-  let updatedWeeks: any[];
-  const last = currentWeeks[currentWeeks.length - 1];
-  const sameWeek = last && last._partial === true && typeof weekIndex === "number" && last._week_index === weekIndex;
-  if (sameWeek) {
-    updatedWeeks = [...currentWeeks.slice(0, -1), weekObj];
-  } else {
-    updatedWeeks = [...currentWeeks, weekObj];
+  // Idempotência: remove QUALQUER entrada existente com o mesmo week_index antes de anexar.
+  // Cobre tanto o save parcial inicial quanto reexecuções/retentativas do Estágio B.
+  let cleanedWeeks = currentWeeks;
+  let replaced = false;
+  if (typeof weekIndex === "number") {
+    cleanedWeeks = currentWeeks.filter((w: any) => {
+      const wi = w?._week_index ?? w?.week_index;
+      if (wi === weekIndex) {
+        replaced = true;
+        return false;
+      }
+      return true;
+    });
   }
+  const updatedWeeks = [...cleanedWeeks, weekObj];
 
   await admin
     .from("reports")
