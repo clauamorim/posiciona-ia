@@ -6,7 +6,7 @@ import { corsHeaders } from "../_shared/cors.ts";
 // Operações:
 //   GET    /portrait-references           → lista as referências ativas (com signed URLs pra preview)
 //   POST   /portrait-references           → upload de uma nova selfie (body: { base64, filename })
-//   DELETE /portrait-references?id=...    → desativa a referência
+//   DELETE /portrait-references           → desativa a referência (body: { id })
 
 const PORTRAIT_BUCKET = "portrait-inputs";
 const MAX_REFERENCES = 5;
