@@ -17,7 +17,9 @@ export type ConceptGroupId =
   | "grupo_g_frequencia_postagem"
   | "grupo_h_humanizar_bastidor"
   | "grupo_i_agradar_todos"
-  | "grupo_j_cliente_pechincha";
+  | "grupo_j_cliente_pechincha"
+  | "grupo_k_anti_cliente"
+  | "grupo_l_bio_que_lista";
 
 const CONCEPT_GROUPS: Record<ConceptGroupId, { label: string; terms: string[] }> = {
   grupo_a_autoridade: {
