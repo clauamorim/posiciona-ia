@@ -785,8 +785,9 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
       const { text: feedRaw, stopReason: feedStop } = await callClaudeWithMeta({
         systemPrompt: feedSystem,
         userText: feedUser,
+        model: "claude-opus-4-7",
         max_tokens: 8500,
-        timeoutMs: 130000,
+        timeoutMs: 180000,
         disableRetries: true,
       });
       if (feedStop === "max_tokens") {
@@ -844,8 +845,9 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
           const { text: retryRaw, stopReason: retryStop } = await callClaudeWithMeta({
             systemPrompt: feedSystem,
             userText: retryUser,
+            model: "claude-opus-4-7",
             max_tokens: 4500,
-            timeoutMs: 90000,
+            timeoutMs: 120000,
             disableRetries: true,
           });
           let retryParsed: any = extractJsonFromLLM(retryRaw);
@@ -916,8 +918,9 @@ Gere agora os 7 stories da semana.`;
       const { text: storiesRaw, stopReason: storiesStop } = await callClaudeWithMeta({
         systemPrompt: storiesSystem,
         userText: storiesUser,
+        model: "claude-opus-4-7",
         max_tokens: 7000,
-        timeoutMs: 100000,
+        timeoutMs: 150000,
         disableRetries: true,
       });
       if (storiesStop === "max_tokens") {
