@@ -110,7 +110,7 @@ const syncSessionWithTimeout = async (session: PasswordGrantSuccess) =>
 
 const Login = () => {
   const navigate = useNavigate();
-  const { user, isAdmin, isLoading: authLoading } = useAuth();
+  const { user, isAdmin, isLoading: authLoading, adoptSession } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -143,7 +143,7 @@ const Login = () => {
     }
 
     try {
-      const result = await signInWithTimeout(cleanEmail, cleanPassword);
+      const result = await passwordGrantWithTimeout(cleanEmail, cleanPassword);
 
       if (attemptId !== loginAttemptRef.current) return;
 
@@ -158,7 +158,7 @@ const Login = () => {
         return;
       }
 
-      const { error } = result;
+      const { data, error } = result;
 
       if (error) {
         const code = (error as any)?.code || (error as any)?.error_code || "";
@@ -186,6 +186,29 @@ const Login = () => {
 
         toast({ title: "Erro ao entrar", description, variant: "destructive" });
         return;
+      }
+
+      if (!data?.access_token || !data.refresh_token || !data.user) {
+        toast({
+          title: "Erro ao entrar",
+          description: "Não foi possível iniciar sua sessão. Tente novamente.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      persistSessionFallback(data);
+      const syncResult = await syncSessionWithTimeout(data);
+      if (attemptId !== loginAttemptRef.current) return;
+
+      if (syncResult === "timeout") {
+        await adoptSession({
+          ...data,
+          expires_at: data.expires_at ?? Math.floor(Date.now() / 1000) + (data.expires_in ?? 3600),
+          expires_in: data.expires_in ?? 3600,
+          token_type: data.token_type ?? "bearer",
+          user: data.user,
+        });
       }
 
       setLoginTriggered(true);
