@@ -419,7 +419,18 @@ OUTPUT — array com EXATAMENTE 7 objetos, na ordem dos dias 1..7:
 REGRAS ESTRUTURAIS:
 - 7 objetos, "day" de 1 a 7 sequencial.
 - "frames": 3 a 5 itens, cada um com texto curto (até ~120 caracteres) representando o que vai na tela.
-- Português brasileiro.`;
+- Português brasileiro.
+
+🟥 LIMITE PESSOAL PARA STORIES (CRÍTICO):
+- NO MÁXIMO 1 das 7 stories da semana pode ser pessoal (is_personal=true).
+- As demais stories devem ser de TIPOS NÃO-PESSOAIS, escolhendo entre:
+  • Dúvida frequente da audiência (com pergunta literal entre aspas)
+  • Observação técnica/profissional do nicho (sem vivência pessoal)
+  • Comentário sobre uma decisão/erro/acerto comum no mercado
+  • Dica prática aplicável (sem narrativa pessoal)
+  • Bastidor do TRABALHO (não da vida pessoal): mostrar etapa de atendimento, decisão técnica, ferramenta usada
+- NUNCA use hobby, esporte, família, rotina doméstica ou ritual matinal em mais de 1 story por semana.
+- Se "bastidor" não estiver sub-representado nesta semana (ver ROTAÇÃO DE PILARES), NENHUMA story pode ser pessoal.`;
 }
 
 interface FeedPost {
