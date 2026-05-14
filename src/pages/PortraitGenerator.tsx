@@ -213,8 +213,9 @@ const PortraitGenerator = () => {
 
   const removeReference = async (id: string) => {
     try {
-      const { error } = await supabase.functions.invoke(`portrait-references?id=${id}`, {
+      const { error } = await supabase.functions.invoke("portrait-references", {
         method: "DELETE",
+        body: { id },
       });
       if (error) throw error;
       await refetchReferences();
