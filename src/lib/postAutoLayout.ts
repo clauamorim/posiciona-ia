@@ -9,11 +9,9 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   pickTemplate, pickSingleTemplate,
   buildBackgroundImageOverlay, buildDecorativeBlockOverlay, buildLogoOverlay,
-  buildMinimalDecorativeOverlays,
   type CanvasFormat, type TemplateLayout,
 } from "./postTemplates";
 import type { OverlayImage } from "@/components/post-editor/PostToolbar";
-import { buildArchetypeOverlays } from "@/lib/archetypeOverlays";
 
 export type PostStyle = "minimal" | "pexels" | "ai";
 
