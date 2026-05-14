@@ -513,13 +513,15 @@ const PostEditorPage = () => {
         // Salvaguarda: archetype do template não sobrescreve o do usuário
         if ("archetype" in s) delete s.archetype;
 
-        // Visual base: cores, gradiente, fontes, layout, alinhamentos, números de slide
+        // Visual base: layout, gradiente, fontes, alinhamentos, números de slide
+        // Cores do template legado são puladas quando há primaryArchetype
+        // (a archetypePalette governa as cores do post).
         if (s.layout) setLayout(s.layout);
         if (typeof s.bgIndex === "number") setBgIndex(s.bgIndex);
-        if (s.customBgColor !== undefined) setCustomBgColor(s.customBgColor);
+        if (!primaryArchetype && s.customBgColor !== undefined) setCustomBgColor(s.customBgColor);
         if (typeof s.useGradient === "boolean") setUseGradient(s.useGradient);
         if (typeof s.gradientColor2Index === "number") setGradientColor2Index(s.gradientColor2Index);
-        if (s.customGradientColor2 !== undefined) setCustomGradientColor2(s.customGradientColor2);
+        if (!primaryArchetype && s.customGradientColor2 !== undefined) setCustomGradientColor2(s.customGradientColor2);
         if (s.gradientDirection) setGradientDirection(s.gradientDirection);
         if (s.displayFont) { loadGoogleFont(s.displayFont); setDisplayFont(s.displayFont); }
         if (s.bodyFont) { loadGoogleFont(s.bodyFont); setBodyFont(s.bodyFont); }
@@ -538,11 +540,11 @@ const PostEditorPage = () => {
         if (s.fontStyle) setFontStyle(s.fontStyle);
         if (s.textAlign) setTextAlign(s.textAlign);
         if (s.titleTextAlign) setTitleTextAlign(s.titleTextAlign);
-        if (s.customTextColor !== undefined) setCustomTextColor(s.customTextColor);
+        if (!primaryArchetype && s.customTextColor !== undefined) setCustomTextColor(s.customTextColor);
         if (typeof s.titleFontSize === "number") setTitleFontSize(s.titleFontSize);
-        if (s.titleColor !== undefined) setTitleColor(s.titleColor);
-        if (s.ctaBgColor !== undefined) setCtaBgColor(s.ctaBgColor);
-        if (s.ctaTextColor !== undefined) setCtaTextColor(s.ctaTextColor);
+        if (!primaryArchetype && s.titleColor !== undefined) setTitleColor(s.titleColor);
+        if (!primaryArchetype && s.ctaBgColor !== undefined) setCtaBgColor(s.ctaBgColor);
+        if (!primaryArchetype && s.ctaTextColor !== undefined) setCtaTextColor(s.ctaTextColor);
         if (typeof s.ctaFontSize === "number") setCtaFontSize(s.ctaFontSize);
         if (s.ctaPosition !== undefined) setCtaPosition(s.ctaPosition);
         if (typeof s.showSlideNumber === "boolean") setShowSlideNumber(s.showSlideNumber);
