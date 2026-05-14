@@ -372,14 +372,19 @@ ${allFormulasList}
 PROIBIDAS NESTA SEMANA (já usadas nas últimas 2 semanas): ${banned}
 
 # CONCEITOS A EVITAR COMO TEMA CENTRAL
-Cada um destes GRUPOS de palavras pode ser TEMA CENTRAL de NO MÁXIMO 2 posts da semana:
+Cada um destes GRUPOS de palavras pode ser TEMA CENTRAL de NO MÁXIMO 1 post da semana (regra dura — 2 posts no mesmo grupo dispara retry):
 - grupo_a_autoridade: autoridade / referência / especialista
 - grupo_b_ticket: cliente premium / ticket / preço / cobrar
 - grupo_c_frequencia: postar todo dia / frequência / constância
 - grupo_d_generico: genérico / comum / igual / mais um
 - grupo_e_categoria: categoria / posicionamento / recorte
+- grupo_f_cliente_pergunta: "você atende meu caso?" / pergunta antes de preço
+- grupo_g_frequencia_postagem: aparecer todo dia / volume vs tese / consistência > frequência
+- grupo_h_humanizar_bastidor: mostrar bastidor / humanizar marca / nivela por baixo
+- grupo_i_agradar_todos: agradar todo mundo / não é pra todos / recorte de cliente
+- grupo_j_cliente_pechincha: paciente já pechinchando / preço × valor
 
-Conceitos saturados nas últimas 2 semanas (evite usar como tema central): ${dampened}`;
+CONCEITOS SATURADOS nas últimas 3 semanas (PROIBIDOS como tema central nesta semana — não use NENHUM post sobre eles): ${dampened}`;
 }
 
 // ===== Validação da semana gerada =====
