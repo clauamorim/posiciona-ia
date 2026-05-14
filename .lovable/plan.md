@@ -1,10 +1,40 @@
-Vou corrigir o login para nunca ficar preso em “Entrando...” e para separar claramente erro de credenciais, e-mail não confirmado e falha de conexão.
+Diagnóstico do problema
 
-Plano:
-1. Ajustar `src/pages/Login.tsx` para envolver `signInWithPassword` com timeout controlado, garantindo que `loading` sempre volte para `false` mesmo se a chamada de autenticação travar.
-2. Ignorar respostas atrasadas de tentativas antigas, evitando que uma tentativa anterior altere o estado ou a mensagem de uma tentativa nova.
-3. Melhorar o mapeamento de erros: credenciais inválidas → “E-mail ou senha incorretos”; e-mail não confirmado → orientação de confirmação; timeout/rede → mensagem para tentar novamente.
-4. Validar no preview com e-mail incorreto: o botão deve voltar para “Entrar” e exibir erro, sem travar.
+- O backend está respondendo normalmente.
+- Nos prints e no snapshot de rede, a chamada `POST /auth/v1/token?grant_type=password` está sendo abortada depois de 15s, por isso aparece a mensagem genérica de timeout.
+- No teste direto fora do navegador, o mesmo e-mail inválido responde em ~0,6s com `invalid_credentials`, então a falha não é credencial nem backend.
+- A causa provável está no cliente web: a versão atual da biblioteca de autenticação usa Web Locks/navigator locks, e há issues conhecidas de deadlock em `signInWithPassword`, `setSession`, `getSession` e `onAuthStateChange`, especialmente quando uma tentativa anterior deixa lock preso. O código atual ainda chama `supabase.auth.setSession()` e `supabase.auth.getSession()`, então o workaround anterior não removeu a causa.
 
-Detalhe técnico:
-- O preview reproduziu corretamente um erro 400 `invalid_credentials`, mas há evidência externa de travamentos intermitentes em `signInWithPassword` por lock interno da biblioteca de autenticação. Por isso a correção precisa tratar tanto erro normal quanto Promise que nunca resolve.
+Plano de correção
+
+1. Substituir o login por senha em `src/pages/Login.tsx` por um fluxo realmente independente do cliente de autenticação:
+   - chamar `/auth/v1/token?grant_type=password` via `fetch` com timeout curto e mensagem correta;
+   - tratar `400 invalid_credentials` como “E-mail ou senha incorretos”;
+   - persistir a sessão manualmente no mesmo formato esperado pelo cliente;
+   - não chamar `supabase.auth.signInWithPassword()` nem `supabase.auth.setSession()` no submit.
+
+2. Ajustar `src/contexts/AuthContext.tsx` para não depender de `supabase.auth.getSession()` no carregamento inicial:
+   - ler a sessão diretamente do `localStorage` pela chave `sb-...-auth-token`;
+   - validar expiração mínima;
+   - hidratar usuário/plano/saldos a partir dessa sessão;
+   - manter o listener de auth apenas como apoio, mas sem deixar `isLoading` preso se ele travar.
+
+3. Criar uma função utilitária única de sessão em `src/lib/authSession.ts`:
+   - calcular a chave de storage;
+   - ler/gravar/remover sessão local;
+   - normalizar `expires_at`, `expires_in` e `token_type`.
+   Isso evita duplicação e reduz risco de um arquivo escrever um formato diferente do outro.
+
+4. Ajustar logout e limpeza:
+   - limpar localmente a sessão primeiro para não deixar o app preso em operações internas;
+   - tentar `supabase.auth.signOut()` com timeout, sem bloquear a UI se o cliente travar.
+
+5. Melhorar a validação final:
+   - testar no preview e-mail inválido: deve voltar imediatamente para “Entrar” e mostrar “E-mail ou senha incorretos”.
+   - testar a sequência inválido → tentativa válida: o app não deve ficar preso por lock antigo; se a sessão for aceita, navega para dashboard/admin/planos conforme permissões.
+
+Detalhes técnicos
+
+- Não vou alterar os arquivos auto-gerados da integração.
+- Não vou mexer no banco nem nas regras de acesso.
+- O objetivo é remover o ponto que ainda causa deadlock: métodos de auth que passam por Web Locks durante o fluxo crítico de login.

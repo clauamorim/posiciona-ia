@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,51 +8,21 @@ import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { ArrowLeft } from "lucide-react";
 import posicionaLogo from "@/assets/posiciona-logo.png";
+import { normalizeSession, persistLocalSession, type RawTokenResponse } from "@/lib/authSession";
 
-const LOGIN_TIMEOUT_MS = 15000;
-const SESSION_SYNC_TIMEOUT_MS = 6000;
+const LOGIN_TIMEOUT_MS = 12000;
 
-type PasswordGrantSuccess = {
-  access_token: string;
-  refresh_token: string;
-  expires_in?: number;
-  expires_at?: number;
-  token_type?: "bearer";
-  user: NonNullable<Awaited<ReturnType<typeof supabase.auth.getUser>>["data"]["user"]>;
-};
+type GrantError = { code?: string; message: string; status?: number };
+type GrantResult =
+  | { kind: "ok"; data: RawTokenResponse }
+  | { kind: "error"; error: GrantError }
+  | { kind: "timeout" };
 
-type PasswordGrantResult =
-  | { data: PasswordGrantSuccess; error: null }
-  | { data: null; error: { code?: string; message: string; status?: number } }
-  | { data: null; error: null; timedOut: true };
-
-const authStorageKey = () => {
-  const host = new URL(import.meta.env.VITE_SUPABASE_URL).hostname;
-  return `sb-${host.split(".")[0]}-auth-token`;
-};
-
-const persistSessionFallback = (session: PasswordGrantSuccess) => {
-  const expiresAt = session.expires_at ?? Math.floor(Date.now() / 1000) + (session.expires_in ?? 3600);
-  localStorage.setItem(
-    authStorageKey(),
-    JSON.stringify({
-      ...session,
-      expires_at: expiresAt,
-      expires_in: session.expires_in ?? Math.max(expiresAt - Math.floor(Date.now() / 1000), 0),
-      token_type: session.token_type ?? "bearer",
-    })
-  );
-};
-
-const passwordGrantWithTimeout = async (
-  email: string,
-  password: string
-): Promise<PasswordGrantResult> => {
+const passwordGrant = async (email: string, password: string): Promise<GrantResult> => {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), LOGIN_TIMEOUT_MS);
-
+  const timer = setTimeout(() => controller.abort(), LOGIN_TIMEOUT_MS);
   try {
-    const response = await fetch(
+    const res = await fetch(
       `${import.meta.env.VITE_SUPABASE_URL}/auth/v1/token?grant_type=password`,
       {
         method: "POST",
@@ -64,49 +33,28 @@ const passwordGrantWithTimeout = async (
           Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           "X-Supabase-Api-Version": "2024-01-01",
         },
-        body: JSON.stringify({
-          email,
-          password,
-          gotrue_meta_security: {},
-        }),
+        body: JSON.stringify({ email, password, gotrue_meta_security: {} }),
       }
     );
-
-    const payload = await response.json().catch(() => ({}));
-
-    if (!response.ok) {
+    const payload = await res.json().catch(() => ({} as any));
+    if (!res.ok) {
       return {
-        data: null,
+        kind: "error",
         error: {
           code: payload?.code || payload?.error_code,
           message: payload?.message || payload?.error_description || "Erro desconhecido.",
-          status: response.status,
+          status: res.status,
         },
       };
     }
-
-    return { data: payload as PasswordGrantSuccess, error: null };
-  } catch (error: any) {
-    if (error?.name === "AbortError") return { data: null, error: null, timedOut: true };
-    return {
-      data: null,
-      error: {
-        message: error?.message || "Não conseguimos conectar ao servidor.",
-      },
-    };
+    return { kind: "ok", data: payload as RawTokenResponse };
+  } catch (err: any) {
+    if (err?.name === "AbortError") return { kind: "timeout" };
+    return { kind: "error", error: { message: err?.message || "Falha de conexão." } };
   } finally {
-    clearTimeout(timeoutId);
+    clearTimeout(timer);
   }
 };
-
-const syncSessionWithTimeout = async (session: PasswordGrantSuccess) =>
-  Promise.race([
-    supabase.auth.setSession({
-      access_token: session.access_token,
-      refresh_token: session.refresh_token,
-    }),
-    new Promise<"timeout">((resolve) => setTimeout(() => resolve("timeout"), SESSION_SYNC_TIMEOUT_MS)),
-  ]);
 
 const Login = () => {
   const navigate = useNavigate();
@@ -115,24 +63,20 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [loginTriggered, setLoginTriggered] = useState(false);
-  const loginAttemptRef = useRef(0);
+  const attemptRef = useRef(0);
 
   useEffect(() => {
     if (!loginTriggered || authLoading) return;
-    if (user) {
-      navigate(isAdmin ? "/admin" : "/dashboard", { replace: true });
-    }
+    if (user) navigate(isAdmin ? "/admin" : "/dashboard", { replace: true });
   }, [loginTriggered, authLoading, user, isAdmin, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    const attemptId = ++loginAttemptRef.current;
+    const attemptId = ++attemptRef.current;
     setLoading(true);
 
     const cleanEmail = email.trim().toLowerCase().replace(/\s+/g, "");
-    const cleanPassword = password;
-
-    if (!cleanEmail || cleanPassword.length === 0) {
+    if (!cleanEmail || !password) {
       setLoading(false);
       toast({
         title: "Dados incompletos",
@@ -142,85 +86,50 @@ const Login = () => {
       return;
     }
 
-    try {
-      const result = await passwordGrantWithTimeout(cleanEmail, cleanPassword);
+    const result = await passwordGrant(cleanEmail, password);
+    if (attemptId !== attemptRef.current) return;
+    setLoading(false);
 
-      if (attemptId !== loginAttemptRef.current) return;
-
-      setLoading(false);
-
-      if ("timedOut" in result) {
-        toast({
-          title: "Erro ao entrar",
-          description: "A conexão demorou mais que o esperado. Tente novamente em alguns instantes.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      const { data, error } = result;
-
-      if (error) {
-        const code = (error as any)?.code || (error as any)?.error_code || "";
-        const raw = (error.message || "").toLowerCase();
-        let description = error.message || "Erro desconhecido.";
-
-        if (
-          code === "invalid_credentials" ||
-          raw.includes("invalid login") ||
-          raw.includes("invalid_credentials")
-        ) {
-          description = "E-mail ou senha incorretos. Verifique e tente novamente.";
-        } else if (code === "email_not_confirmed" || raw.includes("email not confirmed")) {
-          description = "Você ainda não confirmou seu e-mail. Verifique sua caixa de entrada.";
-        } else if (code === "over_request_rate_limit" || raw.includes("rate limit")) {
-          description = "Muitas tentativas em pouco tempo. Aguarde alguns instantes e tente novamente.";
-        } else if (
-          raw.includes("failed to fetch") ||
-          raw.includes("load failed") ||
-          raw.includes("networkerror")
-        ) {
-          description =
-            "Não conseguimos conectar ao servidor. Verifique sua conexão e tente novamente.";
-        }
-
-        toast({ title: "Erro ao entrar", description, variant: "destructive" });
-        return;
-      }
-
-      if (!data?.access_token || !data.refresh_token || !data.user) {
-        toast({
-          title: "Erro ao entrar",
-          description: "Não foi possível iniciar sua sessão. Tente novamente.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      persistSessionFallback(data);
-      const syncResult = await syncSessionWithTimeout(data);
-      if (attemptId !== loginAttemptRef.current) return;
-
-      if (syncResult === "timeout" || syncResult.error) {
-        await adoptSession({
-          ...data,
-          expires_at: data.expires_at ?? Math.floor(Date.now() / 1000) + (data.expires_in ?? 3600),
-          expires_in: data.expires_in ?? 3600,
-          token_type: data.token_type ?? "bearer",
-          user: data.user,
-        });
-      }
-
-      setLoginTriggered(true);
-    } catch (err: any) {
-      if (attemptId !== loginAttemptRef.current) return;
-      setLoading(false);
+    if (result.kind === "timeout") {
       toast({
         title: "Erro ao entrar",
-        description: err?.message || "Não foi possível concluir o login. Tente novamente.",
+        description: "A conexão demorou mais que o esperado. Tente novamente em alguns instantes.",
         variant: "destructive",
       });
+      return;
     }
+
+    if (result.kind === "error") {
+      const code = result.error.code || "";
+      const raw = (result.error.message || "").toLowerCase();
+      let description = result.error.message || "Erro desconhecido.";
+      if (code === "invalid_credentials" || raw.includes("invalid login") || raw.includes("invalid_credentials")) {
+        description = "E-mail ou senha incorretos. Verifique e tente novamente.";
+      } else if (code === "email_not_confirmed" || raw.includes("email not confirmed")) {
+        description = "Você ainda não confirmou seu e-mail. Verifique sua caixa de entrada.";
+      } else if (code === "over_request_rate_limit" || raw.includes("rate limit")) {
+        description = "Muitas tentativas em pouco tempo. Aguarde alguns instantes e tente novamente.";
+      } else if (raw.includes("failed to fetch") || raw.includes("load failed") || raw.includes("networkerror")) {
+        description = "Não conseguimos conectar ao servidor. Verifique sua conexão e tente novamente.";
+      }
+      toast({ title: "Erro ao entrar", description, variant: "destructive" });
+      return;
+    }
+
+    const data = result.data;
+    if (!data?.access_token || !data.refresh_token || !data.user) {
+      toast({
+        title: "Erro ao entrar",
+        description: "Não foi possível iniciar sua sessão. Tente novamente.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const session = normalizeSession(data);
+    persistLocalSession(session);
+    await adoptSession(session);
+    setLoginTriggered(true);
   };
 
   return (

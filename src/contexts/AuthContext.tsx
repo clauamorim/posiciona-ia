@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useRef, useState } from "r
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { clearLocalAuthSession } from "@/lib/authCleanup";
+import { readLocalSession, clearLocalSession } from "@/lib/authSession";
 
 interface UserBalances {
   weekly_cycles: number;
@@ -254,22 +255,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     );
 
-    // 2) Restaura sessão persistida ao montar — não depende do INITIAL_SESSION.
-    supabase.auth.getSession().then(({ data: { session: existing } }) => {
-      if (!mounted) return;
-      if (existing?.user) {
-        if (hydrationDoneRef.current && sessionUserIdRef.current === existing.user.id) return;
-        setSession(existing);
-        sessionUserIdRef.current = existing.user.id;
-        const requestId = ++authRequestRef.current;
-        setIsLoading(true);
-        hydrateUser(existing, requestId);
-      } else {
-        setIsLoading(false);
-      }
-    }).catch(() => {
-      if (mounted) setIsLoading(false);
-    });
+    // 2) Restaura sessão persistida do localStorage — independente do cliente
+    //    de auth (que pode travar em locks internos do navegador).
+    const existing = readLocalSession();
+    if (existing?.user) {
+      setSession(existing);
+      sessionUserIdRef.current = existing.user.id;
+      const requestId = ++authRequestRef.current;
+      setIsLoading(true);
+      hydrateUser(existing, requestId);
+    } else {
+      setIsLoading(false);
+    }
 
     return () => {
       mounted = false;
@@ -280,16 +277,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signOut = async () => {
     // Notify long-running components (polling loops) to abort before we revoke the token.
     try { window.dispatchEvent(new CustomEvent("app:signout")); } catch {}
+
+    // Clear local state first so the UI never gets stuck waiting on the auth client.
+    authRequestRef.current += 1;
+    clearLocalSession();
+    await clearLocalAuthSession();
+    resetAuthState();
+    setIsLoading(false);
+
+    // Best-effort server signOut — bounded so internal locks can't hang us.
     try {
-      await supabase.auth.signOut();
+      await Promise.race([
+        supabase.auth.signOut(),
+        new Promise((resolve) => setTimeout(resolve, 3000)),
+      ]);
     } catch (e) {
       console.error("supabase.auth.signOut error:", e);
     }
-    await clearLocalAuthSession();
-    // Force-clear local state in case onAuthStateChange doesn't fire fast enough.
-    authRequestRef.current += 1;
-    resetAuthState();
-    setIsLoading(false);
   };
 
   const hasActivePlan = !!subscription && subscription.status === "active";
