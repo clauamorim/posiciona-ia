@@ -529,15 +529,15 @@ const LandingPage = () => {
       <section className="py-12 md:py-16 px-4 bg-landing-bg-secondary/40">
         <div className="max-w-3xl mx-auto space-y-8">
           <h2 className="text-2xl md:text-3xl font-display font-semibold text-center">
-            Para profissionais que{" "}
-            <span className="text-landing-gold italic">não têm tempo de improvisar</span>
+            Feito para quem{" "}
+            <span className="text-landing-gold italic">vende expertise</span>
           </h2>
           <div className="grid sm:grid-cols-2 gap-4">
             {[
-              { icon: Target, title: "Pare de postar no vazio", desc: "Cada conteúdo tem propósito estratégico e direção clara." },
-              { icon: TrendingUp, title: "Atraia o cliente certo", desc: "Posicionamento que fala diretamente com quem precisa de você." },
-              { icon: Zap, title: "Ganhe tempo sem parecer genérico", desc: "Conteúdo pronto, original e alinhado à sua marca." },
-              { icon: Palette, title: "Sua marca, não um template qualquer", desc: "Tudo é construído a partir da sua essência única." },
+              { icon: Target, title: "Coaches e consultores", desc: "Deixe de parecer mais um e passe a ser a referência óbvia para o cliente certo." },
+              { icon: TrendingUp, title: "Psicólogos e terapeutas", desc: "Comunique profundidade e segurança sem precisar virar criador de conteúdo." },
+              { icon: Zap, title: "Advogados e médicos", desc: "Autoridade que o paciente ou cliente sente antes mesmo de entrar em contato." },
+              { icon: Palette, title: "Arquitetos, designers e fotógrafos", desc: "Seu visual e sua narrativa finalmente alinhados — sem depender de agência." },
             ].map((b, i) => (
               <div key={i} className="flex items-start gap-3 p-5 rounded-xl border border-landing-border/30">
                 <div className="w-9 h-9 rounded-lg bg-landing-purple/10 flex items-center justify-center flex-shrink-0">
