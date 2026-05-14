@@ -449,8 +449,8 @@ Gere o relatório estratégico completo em JSON conforme a estrutura exigida.`;
       const rawContent = await callClaude({
         systemPrompt,
         userText: userPrompt,
-        max_tokens: 6000,
-        timeoutMs: 140000,
+        max_tokens: 10000,
+        timeoutMs: 180000,
         disableRetries: true,
       });
 
