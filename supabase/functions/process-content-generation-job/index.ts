@@ -121,7 +121,7 @@ function buildPersonalTraitMap(personal: any): Record<string, string[]> {
   for (const f of PERSONAL_TRAIT_FIELDS) {
     const v = (personal as any)[f];
     if (typeof v === "string" && v.trim()) {
-      const kws = extractTraitKeywords(v);
+      const kws = expandTraitKeywords(extractTraitKeywords(v));
       if (kws.length > 0) map[f] = kws;
     }
   }
