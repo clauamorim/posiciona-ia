@@ -102,7 +102,7 @@ const faqItems = [
   { q: "Os conteúdos já vêm prontos?", a: "Sim. O app gera posts, carrosséis e roteiros de reels completos, com texto, chamada para ação e sugestão visual. Basta publicar." },
   { q: "Os retratos estão inclusos em todos os planos?", a: "Apenas o plano Autoridade Total inclui créditos mensais de retrato. Nos demais, você pode comprar créditos extras separadamente." },
   { q: "Posso comprar créditos extras?", a: "Sim! Todos os planos permitem a compra de créditos extras de retrato para complementar sua estratégia visual." },
-  { q: "Isso serve para o meu nicho?", a: "O Posiciona é feito para profissionais que vendem expertise: coaches, consultores, terapeutas, advogados, médicos, designers, arquitetos e qualquer profissional liberal que precisa comunicar valor com mais clareza." },
+  { q: "Isso serve para o meu nicho?", a: "O Posiciona é feito para profissionais liberais que vendem expertise e querem ser pagos pelo valor que entregam — coaches, consultores, terapeutas, advogados, médicos, arquitetos, designers, fotógrafos. Não importa se você está construindo autoridade agora ou já é referência: o objetivo é sempre o mesmo — atrair clientes que pagam mais e trabalhar com mais qualidade." },
   { q: "Em quanto tempo recebo os resultados?", a: "Os arquétipos e a narrativa de marca são gerados em minutos após completar os questionários. A linha editorial e os conteúdos são criados sob demanda." },
 ];
 
@@ -348,7 +348,7 @@ const LandingPage = () => {
     <div className="min-h-screen bg-landing-bg text-landing-text">
       <SeoHead
         title="Posiciona — Estratégia de Marca Pessoal com IA"
-        description="Posicionamento estratégico para profissionais que vendem expertise: arquétipos, narrativa StoryBrand, linha editorial pronta e retratos de marca com IA."
+        description="Posicionamento estratégico para profissionais que querem cobrar pelo valor que entregam: arquétipos, narrativa StoryBrand, linha editorial e retratos de marca com IA."
         path="/"
         jsonLd={{
           "@context": "https://schema.org",
@@ -419,16 +419,16 @@ const LandingPage = () => {
         <div className="max-w-3xl mx-auto text-center space-y-6">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-landing-border bg-landing-bg-secondary/50 text-xs md:text-sm text-landing-text-secondary">
             <img src={posicionaLogo} alt="Posiciona" className="h-6 w-6" />
-            Posicionamento de marca com IA para profissionais que vendem expertise
+            Posicionamento estratégico para profissionais que querem cobrar pelo valor que entregam
           </div>
 
           <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-display font-semibold leading-[1.15] tracking-tight">
-            Você já é referência na sua área.{" "}
-            <span className="italic text-landing-gold">Seu Instagram ainda não mostra isso.</span>
+            Pare de competir por preço.{" "}
+            <span className="italic text-landing-gold">Comece a ser escolhido pelo seu valor.</span>
           </h1>
 
           <p className="text-base md:text-lg text-landing-text-secondary max-w-2xl mx-auto leading-relaxed">
-            Responda 3 questionários sobre seu negócio. Em minutos, receba seu posicionamento, sua narrativa de marca e uma semana inteira de conteúdo pronto para publicar — sem agência, sem improvisar.
+            Posicionamento de marca, narrativa e conteúdo estratégico para profissionais que querem atrair clientes de maior ticket — trabalhar menos, ganhar melhor e construir autoridade de verdade.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
@@ -459,10 +459,10 @@ const LandingPage = () => {
           </h2>
           <div className="grid sm:grid-cols-2 gap-4 text-left max-w-2xl mx-auto">
             {[
-              "Domingo à noite e você ainda não sabe o que postar segunda",
-              "Colegas com menos experiência parecem mais visíveis que você",
-              "Você cobra bem, mas seu perfil não transmite isso",
-              "Publica quando dá, some por semanas, recomeça do zero",
+              "Você atende muitos clientes, mas o preço médio não cresce",
+              "Sente que seu trabalho vale mais do que o mercado paga por ele",
+              "Quer trabalhar com menos clientes, melhor selecionados — mas não sabe como atraí-los",
+              "Vê concorrentes menos preparados cobrando mais e fechando contratos no digital",
             ].map((item, i) => (
               <div key={i} className="flex items-start gap-3 p-4 rounded-lg border border-landing-border/50 bg-landing-bg/50">
                 <div className="w-6 h-6 rounded-full bg-landing-purple/20 flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -531,15 +531,15 @@ const LandingPage = () => {
       <section className="py-12 md:py-16 px-4 bg-landing-bg-secondary/40">
         <div className="max-w-3xl mx-auto space-y-8">
           <h2 className="text-2xl md:text-3xl font-display font-semibold text-center">
-            Feito para quem{" "}
-            <span className="text-landing-gold italic">vende expertise</span>
+            Feito para quem quer{" "}
+            <span className="text-landing-gold italic">cobrar pelo valor que entrega</span>
           </h2>
           <div className="grid sm:grid-cols-2 gap-4">
             {[
-              { icon: Target, title: "Coaches e consultores", desc: "Deixe de parecer mais um e passe a ser a referência óbvia para o cliente certo." },
-              { icon: TrendingUp, title: "Psicólogos e terapeutas", desc: "Comunique profundidade e segurança sem precisar virar criador de conteúdo." },
-              { icon: Zap, title: "Advogados e médicos", desc: "Autoridade que o paciente ou cliente sente antes mesmo de entrar em contato." },
-              { icon: Palette, title: "Arquitetos, designers e fotógrafos", desc: "Seu visual e sua narrativa finalmente alinhados — sem depender de agência." },
+              { icon: Target, title: "Coaches e consultores", desc: "Saia da guerra de preços. Atraia clientes que pagam pelo seu método, não pela hora." },
+              { icon: TrendingUp, title: "Psicólogos e terapeutas", desc: "Construa autoridade que justifica sessões particulares de maior valor." },
+              { icon: Zap, title: "Advogados e médicos", desc: "Posicione-se como referência premium no seu nicho — pacientes/clientes selecionados, ticket alto." },
+              { icon: Palette, title: "Arquitetos, designers e fotógrafos", desc: "Atraia projetos de maior orçamento. Pare de competir com freela genérico." },
             ].map((b, i) => (
               <div key={i} className="flex items-start gap-3 p-5 rounded-xl border border-landing-border/30">
                 <div className="w-9 h-9 rounded-lg bg-landing-purple/10 flex items-center justify-center flex-shrink-0">
@@ -759,8 +759,8 @@ const LandingPage = () => {
       <section className="py-12 md:py-16 px-4 bg-landing-bg-secondary/40">
         <div className="max-w-2xl mx-auto text-center space-y-5">
           <h2 className="text-2xl md:text-3xl font-display font-semibold leading-tight">
-            Cada semana sem posicionamento claro é uma semana de clientes que{" "}
-            <span className="text-landing-gold italic">escolhem outro profissional.</span>
+            Cada semana sem posicionamento é uma semana competindo por preço. Pare de disputar volume —{" "}
+            <span className="text-landing-gold italic">comece a ser escolhido pelo seu valor.</span>
           </h2>
           <p className="text-sm text-landing-text-secondary leading-relaxed">
             Responda o diagnóstico hoje. Amanhã você já tem posicionamento, narrativa e conteúdo prontos para publicar.
