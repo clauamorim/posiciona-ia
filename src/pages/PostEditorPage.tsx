@@ -26,6 +26,7 @@ import { Sparkles, X, Image as ImageIcon, Loader2, Download } from "lucide-react
 import { useEditorHistory } from "@/hooks/useEditorHistory";
 import { normalizeWeekToV6 } from "@/lib/editorialShape";
 import { normalizeTemplateStateForCanvas } from "@/lib/template-normalize";
+import { getArchetypePalette } from "@/lib/archetypePalettes";
 
 function getContrastColor(hex: string): string {
   const r = parseInt(hex.slice(1, 3), 16);
