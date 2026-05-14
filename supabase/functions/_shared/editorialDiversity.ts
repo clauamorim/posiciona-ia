@@ -14,7 +14,10 @@ export type ConceptGroupId =
   | "grupo_d_generico"
   | "grupo_e_categoria"
   | "grupo_f_cliente_pergunta"
-  | "grupo_g_frequencia_postagem";
+  | "grupo_g_frequencia_postagem"
+  | "grupo_h_humanizar_bastidor"
+  | "grupo_i_agradar_todos"
+  | "grupo_j_cliente_pechincha";
 
 const CONCEPT_GROUPS: Record<ConceptGroupId, { label: string; terms: string[] }> = {
   grupo_a_autoridade: {
@@ -51,14 +54,64 @@ const CONCEPT_GROUPS: Record<ConceptGroupId, { label: string; terms: string[] }>
     ],
   },
   grupo_g_frequencia_postagem: {
-    label: "postar todo dia / aparecer todo dia / consistência > frequência",
+    label: "postar todo dia / aparecer todo dia / volume vs tese / consistência > frequência",
     terms: [
       "postar todo dia",
       "aparecer todo dia",
       "publicar todo dia",
+      "aparecer mais",
+      "frequencia",
+      "consistencia",
+      "volume vs tese",
+      "trocar volume por tese",
       "consistencia maior que frequencia",
       "consistencia acima de frequencia",
       "consistencia > frequencia",
+    ],
+  },
+  grupo_h_humanizar_bastidor: {
+    label: "mostrar bastidor / humanizar marca / dia a dia humaniza / nivela por baixo",
+    terms: [
+      "mostrar bastidor",
+      "mostrando o dia a dia",
+      "humanizar marca",
+      "humanizar a marca",
+      "dia a dia humaniza",
+      "bastidor humaniza",
+      "bastidor nivela",
+      "nivela por baixo",
+      "rotina humaniza",
+      "rotina generica",
+      "parecer estagiari",
+      "parecer amador",
+    ],
+  },
+  grupo_i_agradar_todos: {
+    label: "agradar todo mundo / falar pra todos / não é pra todos / recorte de cliente",
+    terms: [
+      "agradar todo mundo",
+      "agradar todos",
+      "falar pra todos",
+      "falar para todos",
+      "nao e pra todos",
+      "nao e para todos",
+      "parar de tentar agradar",
+      "recorte de cliente",
+      "todo cliente serve",
+    ],
+  },
+  grupo_j_cliente_pechincha: {
+    label: "cliente que pechincha / paciente já pechinchando / preço × valor",
+    terms: [
+      "cliente que pechincha",
+      "paciente que pechincha",
+      "ja pechinchando",
+      "ja chega pechinchando",
+      "chega pechinchando",
+      "pedem desconto",
+      "pedindo desconto",
+      "preco x valor",
+      "preco vs valor",
     ],
   },
 };
@@ -106,7 +159,12 @@ export type TitleFormulaId =
   | "palavra_grandiosa_ninguem"
   | "constroi_vs_ocupa"
   | "protocolo_n_perguntas"
+  | "cliente_pediu_recusei"
   | "livre";
+
+// Numerais por extenso em pt-BR (com e sem acento — o detector roda no título cru)
+const PT_NUMBER_WORDS = "(?:dois|duas|tr[êe]s|quatro|cinco|seis|sete|oito|nove|dez|onze|doze|quinze|vinte)";
+const N_OR_WORD = `(?:\\d+|${PT_NUMBER_WORDS})`;
 
 const FORMULA_PATTERNS: { id: Exclude<TitleFormulaId, "livre">; label: string; re: RegExp }[] = [
   // 1. "X não A — B"  ou  "X não é A — é B"  (dicotomia com travessão/hífen longo)
@@ -169,11 +227,24 @@ const FORMULA_PATTERNS: { id: Exclude<TitleFormulaId, "livre">; label: string; r
     label: '"X que constrói … vs Y que só …"',
     re: /\bque\s+constr[óo]i\b.+\bvs\b|\bque\s+constr[óo]i\b.+\bque\s+s[óo]\b/i,
   },
-  // 11. "Protocolo/checklist/guia de N perguntas/passos/filtros/critérios/regras"
+  // 11. "Protocolo/método/checklist/guia/filtro (de N) perguntas/passos/filtros/camadas/critérios/regras/sinais"
+  //     OU "As N perguntas/camadas/filtros/passos/critérios" (sem o substantivo de método)
+  //     Aceita numeral por extenso (três, quatro, sete, etc.) ou dígito.
   {
     id: "protocolo_n_perguntas",
-    label: '"Protocolo/checklist/guia (de N) perguntas/passos/filtros/critérios"',
-    re: /\b(protocolo|checklist|guia|roteiro|m[eé]todo)\s+(de\s+)?(\d+\s+)?(perguntas|passos|filtros|camadas|crit[ée]rios|regras)\b/i,
+    label: '"Protocolo/método/filtro (N) perguntas/passos/filtros/camadas/critérios"',
+    re: new RegExp(
+      `(\\b(protocolo|checklist|guia|roteiro|m[eé]todo|filtro)\\s+(de\\s+)?(${N_OR_WORD}\\s+)?(perguntas|passos|filtros|camadas|crit[ée]rios|regras|sinais)\\b)` +
+      `|` +
+      `(\\b(as|os|estas|estes|essas|esses|aquelas|aqueles)\\s+${N_OR_WORD}\\s+(perguntas|camadas|filtros|passos|crit[ée]rios|regras|sinais)\\b)`,
+      "i",
+    ),
+  },
+  // 12. "Cliente/paciente chegou pedindo X — recusei / disse não / não aceitei"
+  {
+    id: "cliente_pediu_recusei",
+    label: '"Cliente pediu X impossível — recusei"',
+    re: /\b(cliente|paciente)\b[^.]{0,80}(pediu|chegou\s+pedindo|me\s+procurou\s+pedindo|chegou\s+querendo)\b[^.]{0,200}\b(recusei|disse\s+n[ãa]o|n[ãa]o\s+aceitei|recusada?|recusado)\b/i,
   },
 ];
 
@@ -301,14 +372,19 @@ ${allFormulasList}
 PROIBIDAS NESTA SEMANA (já usadas nas últimas 2 semanas): ${banned}
 
 # CONCEITOS A EVITAR COMO TEMA CENTRAL
-Cada um destes GRUPOS de palavras pode ser TEMA CENTRAL de NO MÁXIMO 2 posts da semana:
+Cada um destes GRUPOS de palavras pode ser TEMA CENTRAL de NO MÁXIMO 1 post da semana (regra dura — 2 posts no mesmo grupo dispara retry):
 - grupo_a_autoridade: autoridade / referência / especialista
 - grupo_b_ticket: cliente premium / ticket / preço / cobrar
 - grupo_c_frequencia: postar todo dia / frequência / constância
 - grupo_d_generico: genérico / comum / igual / mais um
 - grupo_e_categoria: categoria / posicionamento / recorte
+- grupo_f_cliente_pergunta: "você atende meu caso?" / pergunta antes de preço
+- grupo_g_frequencia_postagem: aparecer todo dia / volume vs tese / consistência > frequência
+- grupo_h_humanizar_bastidor: mostrar bastidor / humanizar marca / nivela por baixo
+- grupo_i_agradar_todos: agradar todo mundo / não é pra todos / recorte de cliente
+- grupo_j_cliente_pechincha: paciente já pechinchando / preço × valor
 
-Conceitos saturados nas últimas 2 semanas (evite usar como tema central): ${dampened}`;
+CONCEITOS SATURADOS nas últimas 3 semanas (PROIBIDOS como tema central nesta semana — não use NENHUM post sobre eles): ${dampened}`;
 }
 
 // ===== Validação da semana gerada =====
@@ -372,10 +448,30 @@ export function validateWeekDiversity(
     }
   }
   for (const [g, days] of Object.entries(conceptCount)) {
-    if (days.length > 2) {
+    if (days.length > 1) {
       violations.push({
         type: "concept_group_overuse",
-        detail: `Grupo ${g} aparece como tema central em ${days.length} posts (máx 2).`,
+        detail: `Grupo ${g} aparece como tema central em ${days.length} posts (máx 1 por semana).`,
+        days,
+      });
+    }
+  }
+
+  // Conceitos saturados nas últimas semanas (dampenedConcepts) — qualquer uso já viola
+  if (hints.dampenedConcepts && hints.dampenedConcepts.length > 0) {
+    const dampenedSet = new Set(hints.dampenedConcepts);
+    const hits: Record<string, number[]> = {};
+    for (const fp of fingerprints) {
+      for (const g of fp.concepts) {
+        if (dampenedSet.has(g as ConceptGroupId)) {
+          (hits[g] ||= []).push(fp.day);
+        }
+      }
+    }
+    for (const [g, days] of Object.entries(hits)) {
+      violations.push({
+        type: "concept_group_overuse",
+        detail: `Grupo ${g} estava SATURADO (uso recente nas últimas 3 semanas) e voltou a aparecer.`,
         days,
       });
     }
