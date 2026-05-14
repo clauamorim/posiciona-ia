@@ -712,7 +712,7 @@ async function processJob(jobId: string) {
         const since = new Date(Date.now() - 28 * 24 * 60 * 60 * 1000).toISOString();
         const { data: patternRows } = await admin
           .from("used_title_patterns")
-          .select("title_formula, central_concepts, created_at")
+          .select("title_formula, central_concepts, named_cases, created_at")
           .eq("user_id", userId)
           .gte("created_at", since)
           .order("created_at", { ascending: false })
