@@ -1095,6 +1095,7 @@ Gere agora os 7 stories da semana.`;
         // O feed JÁ foi persistido antes (save parcial). Marcamos o job como
         // completed_partial e NÃO reembolsamos o crédito (feed foi entregue).
         console.error(`[job ${jobId}] Estágio B levantou exceção:`, storiesCallErr?.message || storiesCallErr);
+        console.log(`[content-job] week=${wkIdxForPartial} user=${userId} stage=B status=failure partial_saved=${partialPersisted}`);
         if (!partialPersisted) {
           try {
             await persistWeek(job.report_id, feedFinal, [], jobId, marketTrends, wkIdxForPartial, true);
