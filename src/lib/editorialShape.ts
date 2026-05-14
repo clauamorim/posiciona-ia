@@ -99,7 +99,12 @@ export function normalizeWeekToV6(week: any): WeekV6 {
         days.push({ day: i + 1, feed: null, story: emptyStory(i + 1, false) });
       }
     }
-    return { days };
+    return {
+      days,
+      _partial: (week as any)._partial === true,
+      _stage_b_failed: (week as any)._stage_b_failed === true,
+      _week_index: typeof (week as any)._week_index === "number" ? (week as any)._week_index : undefined,
+    };
   }
 
   // Shape v5: array de posts
