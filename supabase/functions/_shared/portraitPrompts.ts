@@ -711,14 +711,22 @@ export function buildGeminiPortraitPrompt(params: GeminiPromptParams): {
 
   const sceneParts: string[] = [
     `PHOTOGRAPHIC REALISM ONLY. Real photograph captured by a professional photographer with a Canon EOS R5 and an 85mm f/1.4 lens. Absolutely NOT a 3D render, NOT CGI, NOT a digital painting, NOT AI-stylized, NOT a beauty-app filter.`,
+  ];
 
+  if (params.apparentAgeRange) {
+    sceneParts.push(
+      `Subject is ${subject} apparently in their ${params.apparentAgeRange}. The output MUST match this exact apparent age — do not regress age, do not age up.`,
+    );
+  }
+
+  sceneParts.push(
     // ===== STUDIO BACKDROP LOCK — fundo SEMPRE estúdio neutro =====
     `### STUDIO BACKDROP LOCK ###`,
     `Background MUST be a clean professional photo studio with a seamless paper backdrop only. Subtle paper texture and a soft light gradient are allowed. Color palette is STRICTLY neutral: shades of grey, brown and black only. ABSOLUTELY NO saturated colors, NO props, NO furniture, NO walls, NO windows, NO plants, NO studio equipment in frame. Just ${subject} in front of a clean neutral textured paper backdrop.`,
 
     // ===== SCENE =====
     `Scene direction: ${archetypeEssence}.`,
-  ];
+  );
 
   if (params.outfit) {
     sceneParts.push(`Wardrobe: ${params.outfit}.`);
