@@ -1075,6 +1075,11 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
           }}
           onClick={handleCanvasClick}
         >
+          <ArchetypeDecorative
+            primaryArchetype={primaryArchetype}
+            canvasWidth={canvasWidth}
+            canvasHeight={canvasHeight}
+          />
           {/* Degradê de legibilidade quando há foto de fundo (cobre ~55% inferiores) */}
           {hasPhotoBackground && (() => {
             const bgIndexInOrder = effectiveRenderOrder.findIndex(id => {
