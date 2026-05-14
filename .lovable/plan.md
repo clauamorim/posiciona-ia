@@ -1,28 +1,31 @@
+
 ## Objetivo
-Eliminar repetição na linha editorial via 4 mudanças cirúrgicas em Edge Functions (sem frontend).
+Evitar que a mesma tendência de mercado (ex: "Havaianas vs Pé Direito") apareça em semanas consecutivas, replicando o padrão já existente do `used_personal_traits`.
 
-## Mudanças
+## Mudança 1 — Migration SQL (nova tabela)
 
-### 1. `supabase/functions/process-content-generation-job/index.ts`
-- **1a)** Trocar o EXEMPLO BOM/RUIM de "natação/disciplina" pelo novo exemplo sobre "preço vs. clareza de diferenciação".
-- **1b)** Adicionar constante `FEED_POST_TYPES` (4 tipos: EDUCACIONAL, DESMISTIFICAÇÃO, POSICIONAMENTO, ANÁLISE DE MERCADO OU CASO) imediatamente antes de `const FEED_DAYS = [1, 3, 5, 7];`.
-- **1c)** Alterar assinatura: `buildFeedSystemPrompt(rotationOffset: number = 0)`.
-- **1d)** Substituir o bloco hardcoded "POST 1..4" dentro do system prompt por loop `${[0,1,2,3].map(...)}` usando `FEED_POST_TYPES[(i + rotationOffset) % 4]`.
-- **1e)** Após `const rotationBlock = renderRotationBlock(rotationHint);`, calcular `const rotationOffset = (previousWeeks?.length || 0) % 4;`.
-- **1f)** Atualizar a chamada `buildFeedSystemPrompt()` para `buildFeedSystemPrompt(rotationOffset)`.
+Criar `public.used_market_trends`:
+- Colunas: `id`, `user_id` (FK auth.users ON DELETE CASCADE), `report_id` (FK reports ON DELETE CASCADE), `week_index`, `trends_used` (JSONB), `created_at`.
+- Índice: `(user_id, created_at DESC)`.
+- RLS habilitado:
+  - SELECT: `auth.uid() = user_id`
+  - ALL para service_role.
 
-### 2. `supabase/functions/_shared/professionRules.ts`
-- Em `renderMarketTrendsBlock`, quando `trends` for vazio/nulo, retornar bloco instruindo o LLM a usar caso real nomeado (do conhecimento de treinamento) em vez de string vazia.
+## Mudança 2 — `supabase/functions/process-content-generation-job/index.ts`
 
-### 3. `supabase/functions/fetch-market-trends/index.ts`
-- No system prompt, adicionar exceção para nichos de tecnologia (IA, software, SaaS) — permitir empresas internacionais relevantes (OpenAI, Google, Meta, etc.) e regulação/startups brasileiras de tech — imediatamente antes da linha "⚠️ FORMATO DE SAÍDA".
+**2a)** Após `fetchRecentlyUsedTraits`, adicionar `fetchRecentlyUsedTrendTitles(userId)` que lê as últimas 2 entradas de `used_market_trends`, achata e deduplica títulos.
+
+**2b)** Após `detectUsedTraits`, adicionar `detectUsedTrends(trends, feed, stories)`: heurística que normaliza corpus (theme/caption/script/card_copy do feed + theme/frames dos stories) e marca uma trend como usada se 2+ palavras-chave (≥4 chars, sem stopwords PT) do título aparecem no corpus.
+
+**2c)** Antes de `renderMarketTrendsBlock(marketTrends)`, filtrar `marketTrends` removendo títulos que casam (substring bidirecional normalizada) com `recentlyUsedTrendTitles`. Logar quantas foram filtradas. Renderizar o bloco com `filteredMarketTrends`.
+
+**2d)** Logo após o try/catch que persiste `used_personal_traits`, adicionar try/catch que chama `detectUsedTrends(filteredMarketTrends, feedFinal, storiesFinal)` e insere em `used_market_trends` (`user_id`, `report_id`, `week_index`, `trends_used`). Falhas são apenas logadas.
 
 ## Validação
-- Confirmar localização exata dos blocos com `code--view` antes de editar.
-- Deploy das 2 funções afetadas (`process-content-generation-job`, `fetch-market-trends`); `professionRules.ts` é shared e segue junto no deploy de quem importa.
+- Confirmar nomes exatos (`admin`, `userId`, `job.report_id`, `job.week_index`, `feedFinal`, `storiesFinal`, `normalize`, `PT_STOPWORDS`, `MarketTrend`) com `code--view` antes de editar.
+- Deploy de `process-content-generation-job` após a migration ser aprovada.
 
 ## Efeito esperado
-- Fim do template "natação/disciplina" replicado.
-- Rotação semanal do tipo de post no Dia 1 (4 semanas = 4 aberturas distintas).
-- Quando não há tendências cacheadas, LLM ainda produz post de análise com caso real nomeado.
-- Nichos de tech voltam a retornar tendências relevantes.
+- Semana N+1 não recebe mais as tendências usadas nas 2 semanas anteriores.
+- Se sobrarem poucas/nenhuma tendência, o fallback já implementado em `renderMarketTrendsBlock` instrui o LLM a usar caso real nomeado do conhecimento.
+- Mesmo padrão arquitetural de `used_personal_traits` (já validado na rotação de traços pessoais).
