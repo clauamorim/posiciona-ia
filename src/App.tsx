@@ -34,6 +34,8 @@ import AdminTemplates from "./pages/admin/AdminTemplates";
 import ChoosePlan from "./pages/ChoosePlan";
 import HelpPage from "./pages/HelpPage";
 import NotFound from "./pages/NotFound";
+import SalesNarrativeQuestionnaire from "./pages/SalesNarrativeQuestionnaire";
+import SalesStoriesPage from "./pages/SalesStoriesPage";
 import SobrePage from "./pages/SobrePage";
 import TermosDeServico from "./pages/TermosDeServico";
 import PoliticaDePrivacidade from "./pages/PoliticaDePrivacidade";
