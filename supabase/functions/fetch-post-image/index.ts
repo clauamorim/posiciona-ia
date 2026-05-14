@@ -317,6 +317,9 @@ function resolveNicheKey(niche?: string): keyof typeof NICHE_SCENES {
   if (/(design|estilis|moda)/.test(n)) return "designer";
   if (/(fotograf)/.test(n)) return "photographer";
   if (/(veterin|pet)/.test(n)) return "veterinarian";
+  if (/(marca pessoal|branding|posicionamento|marca|estrateg)/.test(n)) return "executive";
+  if (/(personal trainer|coach de vida|carreira)/.test(n)) return "coach";
+  if (/(mentor|mentoria)/.test(n)) return "consultant";
   return "default";
 }
 
