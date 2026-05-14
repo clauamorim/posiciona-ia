@@ -14,6 +14,10 @@ import { fetchPersonalQuestionnaire, renderPersonalContext, renderBrandscriptFra
 import { detectProfession, getEthicalRulesBlock, POSITIONING_GUARDRAIL_BLOCK } from "../_shared/professionRules.ts";
 import { validateReportCoherence, renderCoherenceRetryInstructions } from "../_shared/reportCoherenceValidator.ts";
 import { persistBrandSSoT } from "../_shared/brandSSoT.ts";
+import { getArchetypeReference } from "../_shared/archetypeReferences.ts";
+
+const truncateText = (s: any, n: number): string =>
+  String(s ?? "").trim().replace(/\s+/g, " ").slice(0, n);
 
 // Substituições obrigatórias aplicadas em campos textuais do relatório
 // quando a profissão é regulamentada — defesa em profundidade caso a LLM
@@ -311,20 +315,29 @@ function buildDeterministicReport(payload: any): any {
   const mainCta = business.main_cta || "agendar uma conversa estratégica";
   const palette = PALETTES[primary] || DEFAULT_PALETTE;
 
-  const arch = (name: string, role: string) => ({
+  // Truncações para evitar Frankenstein quando o usuário cola texto longo
+  const servicesShort = truncateText(services, 120).replace(/[.;,]+$/, "") || "seus serviços";
+  const audienceShort = truncateText(audience, 80).replace(/[.;,]+$/, "") || "seu público ideal";
+  const companyShort = truncateText(company, 60) || "sua marca";
+
+  const refPrimary = getArchetypeReference(primary);
+  const refSecondary = getArchetypeReference(secondary);
+  const refTertiary = getArchetypeReference(tertiary);
+
+  const arch = (name: string, role: string, ref: ReturnType<typeof getArchetypeReference>) => ({
     name,
     description: archetypeDescription(name),
-    application: `${role}: use este arquétipo para orientar linguagem, estética, temas editoriais e decisões de posicionamento da ${company}.`,
-    characteristics: ["clareza", "presença", "consistência", "autoridade", "diferenciação"],
-    brands: ["Apple", "Nike", "Chanel"],
-    people: ["Oprah Winfrey", "Steve Jobs", "Michelle Obama"],
+    application: `${role}: use este arquétipo para orientar linguagem, estética, temas editoriais e decisões de posicionamento da ${companyShort}.`,
+    characteristics: ref.characteristics.slice(0, 5),
+    brands: ref.brands.slice(0, 3),
+    people: ref.people.slice(0, 3),
   });
 
   return {
     archetypes: {
-      primary: arch(primary, "Arquétipo dominante"),
-      secondary: arch(secondary, "Complemento estratégico"),
-      tertiary: arch(tertiary, "Apoio de nuance"),
+      primary: arch(primary, "Arquétipo dominante", refPrimary),
+      secondary: arch(secondary, "Complemento estratégico", refSecondary),
+      tertiary: arch(tertiary, "Apoio de nuance", refTertiary),
     },
     visual_identity: {
       palette,
@@ -332,22 +345,22 @@ function buildDeterministicReport(payload: any): any {
       style: `Editorial premium com contraste entre ${primary}, ${secondary} e ${tertiary}: presença sofisticada, composição limpa e sinais visuais de autoridade.`,
     },
     tone_of_voice: {
-      summary: `A voz da ${company} deve soar clara, segura e refinada, traduzindo ${services} em uma promessa compreensível para ${audience}.`,
+      summary: `A voz da ${companyShort} deve soar clara, segura e refinada, traduzindo ${servicesShort} em uma promessa compreensível para ${audienceShort}.`,
       words_to_use: ["clareza", "estratégia", "presença", "método", "transformação"],
       words_to_avoid: ["barato", "milagre", "garantido", "fórmula mágica", "sem esforço"],
       emotions_to_evoke: ["confiança", "desejo de avançar", "segurança", "pertencimento"],
       communication_style: "Direto, elegante e consultivo, com exemplos concretos e chamadas para ação sem pressão excessiva.",
     },
     storybrand: {
-      hero: audience,
-      guide: `${company} atua como guia que organiza o caminho e reduz a insegurança de decisão.`,
-      external_problem: business.external_problems || `O público ainda não sabe como escolher ou aplicar ${services} com segurança.`,
-      internal_problem: business.internal_problems || "A pessoa sente dúvida, dispersão ou receio de investir no caminho errado.",
+      hero: audienceShort,
+      guide: `${companyShort} atua como guia que organiza o caminho e reduz a insegurança de decisão.`,
+      external_problem: truncateText(business.external_problems, 300) || `O público ainda não sabe como escolher ou aplicar ${servicesShort} com segurança.`,
+      internal_problem: truncateText(business.internal_problems, 300) || "A pessoa sente dúvida, dispersão ou receio de investir no caminho errado.",
       philosophical_problem: "Bons profissionais e boas marcas não deveriam depender de improviso para serem percebidos com valor.",
       plan: ["Diagnosticar o cenário atual", "Definir uma direção estratégica", "Aplicar a estratégia em decisões práticas de comunicação"],
-      cta: mainCta,
-      success: business.promised_transformations || "Uma marca mais clara, desejada e reconhecida pelo público certo.",
-      failure: business.negative_consequences || "Continuar comunicando de forma genérica, com baixa percepção de valor.",
+      cta: truncateText(mainCta, 120) || "agendar uma conversa estratégica",
+      success: truncateText(business.promised_transformations, 300) || "Uma marca mais clara, desejada e reconhecida pelo público certo.",
+      failure: truncateText(business.negative_consequences, 300) || "Continuar comunicando de forma genérica, com baixa percepção de valor.",
     },
     figurino: {
       resumo: `Figurino estratégico com presença editorial, alinhando ${primary}, ${secondary} e ${tertiary} para transmitir autoridade e aproximação.`,
@@ -387,10 +400,10 @@ function buildDeterministicReport(payload: any): any {
       day,
       theme: ["O desejo do cliente", "O obstáculo visível", "A tensão interna", "A marca como guia", "O caminho em etapas", "Convite para avançar", "O custo de adiar"][day - 1],
       format: ["post", "carrossel", "reels", "post", "carrossel", "stories", "post"][day - 1],
-      caption: `Conteúdo para ${company}: conecte ${audience} ao problema central e apresente ${services} como caminho claro, específico e desejável.`,
-      card_copy: day === 2 || day === 5 ? ["Você não precisa decidir no escuro.", "Existe um caminho mais claro.", "O primeiro passo é nomear o problema.", "Depois, organizar prioridades.", "Por fim, agir com direção."] : [`${company}: uma direção mais clara para ${audience}.`],
-      cta: mainCta,
-      script: day === 3 || day === 6 ? `Abra nomeando a dúvida principal de ${audience}, mostre o custo de permanecer no improviso e convide para ${mainCta}.` : "",
+      caption: `Conteúdo para ${companyShort}: conecte ${audienceShort} ao problema central e apresente ${servicesShort} como caminho claro, específico e desejável.`,
+      card_copy: day === 2 || day === 5 ? ["Você não precisa decidir no escuro.", "Existe um caminho mais claro.", "O primeiro passo é nomear o problema.", "Depois, organizar prioridades.", "Por fim, agir com direção."] : [`${companyShort}: uma direção mais clara para ${audienceShort}.`],
+      cta: truncateText(mainCta, 120) || "agendar uma conversa estratégica",
+      script: day === 3 || day === 6 ? `Abra nomeando a dúvida principal de ${audienceShort}, mostre o custo de permanecer no improviso e convide para ${truncateText(mainCta, 80)}.` : "",
     })),
   };
 }
@@ -483,26 +496,43 @@ Gere o relatório estratégico completo em JSON conforme a estrutura exigida.`;
     let reportContent: any = null;
     let isFallback = false;
 
-    try {
-      // Uma única chamada paga, sem retry automático.
-      const rawContent = await callClaude({
-        systemPrompt,
-        userText: userPrompt,
-        max_tokens: 10000,
-        timeoutMs: 180000,
-        disableRetries: true,
-      });
+    let lastError: any = null;
+    const MAX_ATTEMPTS = 3;
+    const BACKOFF_MS = [0, 8000, 20000];
 
-      const parsed = extractJsonFromLLM(rawContent);
-      if (parsed && isValidReport(parsed)) {
-        reportContent = parsed;
-      } else {
-        console.warn(`Report job ${jobId}: JSON inválido do Claude, usando fallback determinístico.`);
-        reportContent = buildDeterministicReport(payload);
-        isFallback = true;
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+      if (BACKOFF_MS[attempt] > 0) {
+        await updateJob(jobId, {
+          progress_message: `Refinando estratégia (tentativa ${attempt + 1}/${MAX_ATTEMPTS})…`,
+        });
+        await new Promise((r) => setTimeout(r, BACKOFF_MS[attempt]));
       }
-    } catch (claudeErr: any) {
-      console.warn(`Report job ${jobId}: Claude falhou (${claudeErr?.status || "?"}), usando fallback determinístico:`, claudeErr?.message);
+
+      try {
+        const rawContent = await callClaude({
+          systemPrompt,
+          userText: userPrompt,
+          max_tokens: 10000,
+          timeoutMs: 180000,
+          disableRetries: true, // o loop externo controla o retry
+        });
+
+        const parsed = extractJsonFromLLM(rawContent);
+        if (parsed && isValidReport(parsed)) {
+          reportContent = parsed;
+          break;
+        }
+
+        lastError = new Error("Invalid JSON from Claude");
+        console.warn(`[report] job ${jobId} attempt ${attempt + 1}/${MAX_ATTEMPTS}: JSON inválido`);
+      } catch (claudeErr: any) {
+        lastError = claudeErr;
+        console.warn(`[report] job ${jobId} attempt ${attempt + 1}/${MAX_ATTEMPTS} falhou (${claudeErr?.status || "?"}): ${claudeErr?.message}`);
+      }
+    }
+
+    if (!reportContent) {
+      console.error(`[report] job ${jobId} esgotou ${MAX_ATTEMPTS} tentativas, usando fallback determinístico. Último erro:`, lastError?.message);
       reportContent = buildDeterministicReport(payload);
       isFallback = true;
     }
@@ -594,6 +624,42 @@ Gere o relatório estratégico completo em JSON conforme a estrutura exigida.`;
     });
 
     console.log(`Report job ${jobId} concluído com sucesso (fallback=${isFallback}).`);
+
+    // ---- Telemetria + crédito grátis quando entregamos fallback -----------
+    if (isFallback) {
+      console.log(JSON.stringify({
+        event: "report_fallback_delivered",
+        user_id: userId,
+        job_id: jobId,
+        report_id: job.report_id,
+        reason: lastError?.message || "unknown",
+        attempts: MAX_ATTEMPTS,
+        timestamp: new Date().toISOString(),
+      }));
+
+      // Concede 1 crédito de regeneração para o usuário poder refazer sem pagar.
+      try {
+        const { data: bal } = await admin
+          .from("user_balances")
+          .select("regeneration_credits")
+          .eq("user_id", userId)
+          .maybeSingle();
+        const current = bal?.regeneration_credits ?? 0;
+        await admin
+          .from("user_balances")
+          .update({ regeneration_credits: current + 1, updated_at: new Date().toISOString() })
+          .eq("user_id", userId);
+        await admin.from("credit_logs").insert({
+          user_id: userId,
+          credit_type: "regeneration",
+          amount: 1,
+          description: `Crédito gratuito de regeneração (fallback no relatório, job=${jobId})`,
+        });
+        console.warn(`[report] FALLBACK delivered to user=${userId}, free regen granted`);
+      } catch (refundErr: any) {
+        console.error(`[report] falha ao conceder crédito grátis pós-fallback: ${refundErr?.message || refundErr}`);
+      }
+    }
   } catch (err: any) {
     console.error(`Report job ${jobId} falhou:`, err);
     const userMessage = typeof err?.userMessage === "string" && err.userMessage.trim()
