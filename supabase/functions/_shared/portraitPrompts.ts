@@ -681,6 +681,8 @@ export interface GeminiPromptParams {
   handPose?: string | null;
   /** Gênero opcional só pra refinar pronome no texto. */
   gender?: "woman" | "man" | "none";
+  /** Faixa etária aparente detectada via Gemini Vision. Default seguro: "40s". */
+  apparentAgeRange?: "20s" | "30s" | "40s" | "50s" | "60s+";
 }
 
 export function buildGeminiPortraitPrompt(params: GeminiPromptParams): {
@@ -709,14 +711,22 @@ export function buildGeminiPortraitPrompt(params: GeminiPromptParams): {
 
   const sceneParts: string[] = [
     `PHOTOGRAPHIC REALISM ONLY. Real photograph captured by a professional photographer with a Canon EOS R5 and an 85mm f/1.4 lens. Absolutely NOT a 3D render, NOT CGI, NOT a digital painting, NOT AI-stylized, NOT a beauty-app filter.`,
+  ];
 
+  if (params.apparentAgeRange) {
+    sceneParts.push(
+      `Subject is ${subject} apparently in their ${params.apparentAgeRange}. The output MUST match this exact apparent age — do not regress age, do not age up.`,
+    );
+  }
+
+  sceneParts.push(
     // ===== STUDIO BACKDROP LOCK — fundo SEMPRE estúdio neutro =====
     `### STUDIO BACKDROP LOCK ###`,
     `Background MUST be a clean professional photo studio with a seamless paper backdrop only. Subtle paper texture and a soft light gradient are allowed. Color palette is STRICTLY neutral: shades of grey, brown and black only. ABSOLUTELY NO saturated colors, NO props, NO furniture, NO walls, NO windows, NO plants, NO studio equipment in frame. Just ${subject} in front of a clean neutral textured paper backdrop.`,
 
     // ===== SCENE =====
     `Scene direction: ${archetypeEssence}.`,
-  ];
+  );
 
   if (params.outfit) {
     sceneParts.push(`Wardrobe: ${params.outfit}.`);
@@ -748,16 +758,17 @@ export function buildGeminiPortraitPrompt(params: GeminiPromptParams): {
   // de identidade aqui é o que mais preserva os traços fisionômicos.
   sceneParts.push(
     `### CRITICAL IDENTITY LOCK — THIS OVERRIDES EVERYTHING ABOVE ###`,
+    `This is a PHOTOGRAPHIC REPRODUCTION, not a portrait painting. The goal is forensic accuracy to the reference, not aesthetic improvement. Any deviation from the reference — smoother skin, younger appearance, more symmetrical features, brighter eyes, thinner face — is a failure, not an enhancement.`,
     `The FIRST reference image is the PRIMARY identity reference (ground truth). Any other reference images are auxiliary angles only — use them to understand 3D head structure, NEVER to average, blend, or beautify features.`,
     `Reproduce ${possessive} face with FORENSIC precision matching the first reference: distance between the eyes, natural facial asymmetries, eyelid shape and position, eye shape, tilt and color, eyebrow shape and thickness, exact nose length, width, bridge, tip and nostril shape, mouth width and curvature at rest, upper and lower lip shape and thickness, philtrum, forehead height and hairline, cheekbone structure, jaw angle, chin shape and projection, ear shape, neck proportions.`,
-    `Skin — preserve EVERY freckle, mole, beauty mark, scar, blemish, pore texture, micro-tonal variation and faint asymmetry visible in the references. Natural human skin under a magazine loupe. Do NOT smooth, do NOT airbrush, do NOT beautify, do NOT apply ANY filter.`,
+    `Skin — preserve EVERY freckle, mole, beauty mark, scar, blemish, pore texture, micro-tonal variation and faint asymmetry visible in the references. Natural human skin under a magazine loupe. Do NOT smooth, do NOT airbrush, do NOT beautify, do NOT apply ANY filter. Preserve visible skin pores, natural micro-texture variation, fine expression lines around the eyes and mouth, subtle uneven skin tone and natural skin grain exactly as photographed in the references. A macro loupe on the final image should reveal the same skin texture as the reference photo — not smoother, not cleaner, not more uniform.`,
     `Hair — preserve EXACTLY the hair color, length, density, parting and natural texture (including grey strands and roots) from the references. Render INDIVIDUAL strands along the hairline, temples and nape with natural flyaways and irregular shine. Eyelashes and eyebrows must show individual hairs.`,
     `Age — match the EXACT apparent age in the references. Preserve eye creases, fine lines, neck texture and expression lines. Do NOT regress age, do NOT make ${subject} look younger, do NOT smooth wrinkles. Ethnicity, natural skin tone and eye color — copied EXACTLY from the references.`,
     `ABSOLUTE PROHIBITIONS: do NOT average features across references. Do NOT idealize, prettify, symmetrize or "improve" the face. Do NOT generate a lookalike, an Instagram-model face, a generic AI face, or any face that is not a precise photographic reproduction of the first reference. If the output would not be recognized as the SAME PERSON in the first reference by a close friend, the result is WRONG.`,
   );
 
   sceneParts.push(
-    `AVOID at all costs: morphed face, averaged face, generic AI face, beautified face, idealized features, perfectly symmetrical face, different person, lookalike, instagram-model face, face that does not match the references, age regression, younger-looking face; plastic skin, doll-like appearance, waxy texture, skin smoothing, blurred skin, beauty filter, Instagram filter, oversaturated colors, render look, CGI, cartoon, anime, illustration; helmet hair, wig-like hair, plastic hair, painted hair, blocky hair, smooth uniform hair, lacquered hair, doll hair, missing flyaway hairs, fake hairline; colorful background, saturated background, terracotta background, mustard background, pink background, green background, blue background, cream background, ivory background, yellow background, red background, orange background, visible studio equipment, softbox in frame, light stand, tripod, cables, reflector, umbrella reflector, brick wall, concrete wall, wood panel, bookshelf, furniture, props, plants, window, outdoor scenery, architectural background, busy background, patterned background.`,
+    `AVOID: generic AI face, idealized face, beautified face, plastic skin, waxy skin, doll-like skin, beauty filter, age regression, younger-looking face, perfectly symmetrical face, different person, lookalike; CGI render, cartoon, illustration, digital painting, AI-stylized look; helmet hair, wig-like hair, plastic hair; colorful background, saturated background, any non-neutral backdrop color; visible studio equipment, softbox in frame, props, furniture, plants, windows, architectural elements, outdoor scenery.`,
   );
 
   const prompt = sceneParts.join(" ");

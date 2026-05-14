@@ -423,6 +423,9 @@ const PortraitGenerator = () => {
                 <p className="text-sm text-muted-foreground">
                   Envie de <strong>{MIN_REFERENCES} a {MAX_REFERENCES} selfies nítidas</strong> (frontal, lateral leve, sorrindo) com luz natural e fundo neutro. Elas guiam a fidelidade do seu rosto em cada geração — sem treino, sem espera. Ficam guardadas e são reutilizadas em todas as próximas gerações.
                 </p>
+                <p className="text-sm text-muted-foreground">
+                  Para melhores resultados: use fotos com iluminação frontal uniforme (sem sombras duras no rosto), uma foto de frente, uma de 3/4 e uma de perfil leve. Rosto deve ocupar ao menos 60% do frame. Sem filtros, sem óculos escuros, boa resolução.
+                </p>
 
                 {/* Grid de referências */}
                 <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
