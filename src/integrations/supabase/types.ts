@@ -849,6 +849,87 @@ export type Database = {
         }
         Relationships: []
       }
+      sales_narrative_questionnaires: {
+        Row: {
+          audience_objections: string | null
+          career_turn: string | null
+          created_at: string
+          forbidden_topics: string | null
+          id: string
+          is_complete: boolean
+          negative_comments: string | null
+          personal_expressions: string | null
+          previous_profession: string | null
+          proof_cases: string | null
+          start_year_motivation: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          audience_objections?: string | null
+          career_turn?: string | null
+          created_at?: string
+          forbidden_topics?: string | null
+          id?: string
+          is_complete?: boolean
+          negative_comments?: string | null
+          personal_expressions?: string | null
+          previous_profession?: string | null
+          proof_cases?: string | null
+          start_year_motivation?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          audience_objections?: string | null
+          career_turn?: string | null
+          created_at?: string
+          forbidden_topics?: string | null
+          id?: string
+          is_complete?: boolean
+          negative_comments?: string | null
+          personal_expressions?: string | null
+          previous_profession?: string | null
+          proof_cases?: string | null
+          start_year_motivation?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      sales_story_sequences: {
+        Row: {
+          created_at: string
+          generated_at: string
+          id: string
+          offer_context: string
+          sequence_type: string
+          stories: Json
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          generated_at?: string
+          id?: string
+          offer_context?: string
+          sequence_type: string
+          stories?: Json
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          generated_at?: string
+          id?: string
+          offer_context?: string
+          sequence_type?: string
+          stories?: Json
+          user_id?: string
+        }
+        Relationships: []
+      }
       subscriptions: {
         Row: {
           created_at: string
