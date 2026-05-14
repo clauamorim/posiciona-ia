@@ -1,8 +1,11 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { detectProfession, getEthicalRulesBlock, POSITIONING_GUARDRAIL_BLOCK } from "../_shared/professionRules.ts";
+import { validatePostCompliance } from "../_shared/complianceValidator.ts";
 
 const BIO_MIN = 130;
 const BIO_MAX = 145;
 const BIO_HARD_LIMIT = 150;
+const CTA_HARD_LIMIT = 40;
 
 function normalizeDocName(name: string): string {
   return (name || "")
@@ -31,10 +34,7 @@ async function fetchReferencePdfs(): Promise<{ mime_type: string; data: string }
       const candidate = normalizeDocName(d.name || d.file_path?.split("/").pop() || "");
       return ANALYSIS_PDF_WHITELIST.some((w) => candidate.includes(w));
     });
-    if (!filtered.length) {
-      console.warn("No whitelisted PDFs (StoryBrand/MadeToStick/ObviouslyAwesome) found among active reference documents.");
-      return [];
-    }
+    if (!filtered.length) return [];
 
     const parts: { mime_type: string; data: string }[] = [];
     let totalSize = 0;
@@ -91,6 +91,36 @@ function bioPolicyText(): string {
   return `Para o aspecto Bio do Instagram, gere EXATAMENTE 3 opções no campo bio_options. CADA bio DEVE ter entre ${BIO_MIN} e ${BIO_MAX} caracteres (incluindo espaços, emojis e pontuação). NUNCA ultrapasse ${BIO_HARD_LIMIT} caracteres — o Instagram corta em 150. Conte os caracteres antes de retornar e preencha char_count exato. Bios concisas, claras, com posicionamento forte. Nada de frases vagas ou enchimento.`;
 }
 
+function ctaPolicyText(): string {
+  return `Para CTAs (campo cta_options), entregue 5 a 8 sugestões PRONTAS para colar — copy final, NUNCA orientação abstrata. Cada CTA com até ${CTA_HARD_LIMIT} caracteres, terminando com seta "→" ou emoji direcional (ex: "👉", "📩", "🔗"). Linguagem sóbria, sem promessa de resultado. Nada de "agende sua consulta hoje" se a profissão for regulamentada.`;
+}
+
+const FRAMEWORK_LEAK_BLOCK = `# PROIBIÇÃO ABSOLUTA — VAZAMENTO DE FRAMEWORK INTERNO
+
+PROIBIDO escrever nas justificativas, sugestões, bios ou CTAs visíveis ao usuário:
+- Nomes de arquétipos junguianos ("Explorador", "Mago", "Rebelde", "Sábio", "Herói", "Cuidador", "Criador", "Governante", "Amante", "Bobo", "Inocente", "Comum")
+- Nomes de frameworks ("StoryBrand", "Obviously Awesome", "SUCCES", "Made to Stick", "April Dunford", "Donald Miller", "Heath")
+- Rótulos de framework ("Problema Externo", "Problema Interno", "O Plano", "O Herói", "O Guia", "Posicionamento", "Categoria de mercado", "Alternativas rejeitadas")
+
+O arquétipo e o framework PODEM informar a recomendação internamente, mas NUNCA aparecer como argumento textual entregue ao usuário.
+
+❌ ERRADO: "Esta bio alinha com o arquétipo Explorador (descoberta de território)."
+✅ CERTO: "Esta bio comunica a postura de quem conduz a uma transformação concreta."
+
+❌ ERRADO: "Aplicando o framework StoryBrand, posicione-se como guia."
+✅ CERTO: "Posicione-se como quem orienta o cliente em um caminho claro."`;
+
+const VISUAL_PRESCRIPTION_BLOCK = `# PROIBIÇÃO — PRESCRIÇÃO DE PALETAS/ELEMENTOS INVENTADOS
+
+NUNCA prescrever cores, paletas ou elementos visuais inventados como se fossem identidade oficial do usuário.
+
+❌ ERRADO: "Use Verde Aventura, Azul Oceano, bússolas e mapas antigos."
+❌ ERRADO: "Sua paleta deve ser laranja queimado e bege."
+✅ CERTO: "Tons profundos e quentes que comuniquem autoridade."
+✅ CERTO: "Elementos gráficos discretos que reforcem a postura de guia."
+
+Se houver paleta REAL registrada no perfil do usuário (campo "Identidade Visual" abaixo), você PODE citar essas cores específicas. Caso contrário, recomende DIREÇÃO (não cores nomeadas).`;
+
 async function callAi(messages: any[], LOVABLE_API_KEY: string) {
   const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
@@ -114,9 +144,9 @@ async function callAi(messages: any[], LOVABLE_API_KEY: string) {
                 items: {
                   type: "object",
                   properties: {
-                    aspect: { type: "string", description: "Nome do aspecto analisado" },
-                    current: { type: "string", description: "Situação atual detectada" },
-                    suggestion: { type: "string", description: "Sugestão de melhoria baseada em StoryBrand e arquétipos" },
+                    aspect: { type: "string" },
+                    current: { type: "string" },
+                    suggestion: { type: "string" },
                   },
                   required: ["aspect", "current", "suggestion"],
                 },
@@ -125,19 +155,25 @@ async function callAi(messages: any[], LOVABLE_API_KEY: string) {
                 type: "array",
                 minItems: 3,
                 maxItems: 3,
-                description: `3 opções de bio. Cada uma entre ${BIO_MIN} e ${BIO_MAX} chars, máx ${BIO_HARD_LIMIT}.`,
                 items: {
                   type: "object",
                   properties: {
                     text: { type: "string", description: `Bio entre ${BIO_MIN}-${BIO_MAX} chars, NUNCA mais de ${BIO_HARD_LIMIT}` },
-                    char_count: { type: "integer", description: "Contagem exata de caracteres do campo text" },
-                    rationale: { type: "string", description: "Por que essa bio funciona (curto)" },
+                    char_count: { type: "integer" },
+                    rationale: { type: "string", description: "Por que funciona — sem citar arquétipo ou framework" },
                   },
                   required: ["text", "char_count"],
                 },
               },
+              cta_options: {
+                type: "array",
+                minItems: 5,
+                maxItems: 8,
+                description: `5 a 8 CTAs PRONTOS, copy final, máx ${CTA_HARD_LIMIT} chars cada, com seta/emoji direcional`,
+                items: { type: "string" },
+              },
             },
-            required: ["analysis", "bio_options"],
+            required: ["analysis", "bio_options", "cta_options"],
           },
         },
       }],
@@ -175,54 +211,85 @@ Deno.serve(async (req) => {
       });
     }
 
-    const [reportRes, archRes] = await Promise.all([
+    const [reportRes, archRes, profileRes, bizRes] = await Promise.all([
       supabase.from("reports").select("content").eq("user_id", userId).eq("status", "completed").order("created_at", { ascending: false }).limit(1).single(),
       supabase.from("user_top_archetypes").select("*").eq("user_id", userId).order("rank").limit(3),
+      supabase.from("profiles").select("profession, niche, main_goal").eq("user_id", userId).maybeSingle(),
+      supabase.from("business_questionnaires").select("services, target_audience").eq("user_id", userId).order("version", { ascending: false }).limit(1).maybeSingle(),
     ]);
 
     const storyBrand = (reportRes.data?.content as any)?.storybrand || null;
     const visualIdentity = (reportRes.data?.content as any)?.visual_identity || null;
     const archetypes = archRes.data || [];
+    const profile = profileRes.data || {};
+    const business = bizRes.data || {};
 
-    const systemPrompt = `Você é um especialista em branding e marketing digital para Instagram. Analise o perfil do Instagram com base na screenshot fornecida e nos dados do StoryBrand e arquétipos do usuário.
+    // Detectar profissão regulamentada — alimenta tanto guardrail no prompt quanto validador pós-geração
+    const professionCategory = detectProfession({
+      profession: (profile as any).profession,
+      niche: (profile as any).niche,
+      business_description: Array.isArray((business as any).services)
+        ? (business as any).services.join(" ")
+        : (business as any).services || null,
+    });
+    const ethicalBlock = getEthicalRulesBlock(professionCategory);
 
-Aplique OBRIGATORIAMENTE três referências (anexadas em PDF como contexto):
-1) StoryBrand (Donald Miller) — clareza narrativa.
-2) Obviously Awesome (April Dunford) — posicionamento específico (categoria, alternativas rejeitadas, valor único para um público específico).
-3) Made to Stick (irmãos Heath) — SUCCES (Simples, Inesperado, Concreto, Crível, Emocional, Histórias) para ganchos memoráveis.
+    const audienceText = (() => {
+      const ta = (business as any).target_audience;
+      if (Array.isArray(ta) && ta.length) return ta.join("; ");
+      if (typeof ta === "string" && ta.trim()) return ta;
+      return "(não cadastrado — use termos genéricos como 'profissionais que vendem expertise', NÃO invente nicho específico)";
+    })();
 
-CADA sugestão (Bio, CTA, Destaques, Posts fixados, Foto, Estilo, Cenário etc.) DEVE ser fundamentada em pelo menos uma das três referências — mas NUNCA cite o nome do livro/método no texto entregue. Use-os apenas como base de raciocínio para gerar copy específica do nicho do usuário, evitando frases genéricas e clichês.
+    const nicheText = (profile as any).niche || "(não cadastrado — não restrinja a nichos específicos sem dado)";
 
-Para as 3 opções de bio: cada uma deve obedecer ao princípio de posicionamento (categoria + diferencial + público específico) ou a um princípio SUCCES claro (concreto + inesperado), evitando frases como "ajudo pessoas a se conectarem com sua melhor versão" ou "transformando vidas através de…". Use linguagem do nicho real.
+    const systemPrompt = `Você é um especialista em branding e marketing digital para Instagram. Analise o perfil com base na screenshot e nos dados estratégicos do usuário.
 
-Retorne análise prática e acionável.\n\n${bioPolicyText()}`;
+Use as três referências anexadas em PDF (clareza narrativa, posicionamento específico, ganchos memoráveis) APENAS como base de raciocínio interno. NUNCA cite os nomes dos livros/métodos/autores no texto entregue.
+
+${FRAMEWORK_LEAK_BLOCK}
+
+${VISUAL_PRESCRIPTION_BLOCK}
+${POSITIONING_GUARDRAIL_BLOCK}
+${ethicalBlock}
+
+# REGRAS DE NICHO E PÚBLICO
+- O nicho cadastrado é: ${nicheText}
+- O público cadastrado é: ${audienceText}
+- Se nicho/público forem amplos ou ausentes, NÃO invente recortes específicos ("advogados e médicos") — use termos do próprio cadastro ou termos genéricos como "profissionais liberais", "especialistas que vendem expertise".
+
+${bioPolicyText()}
+
+${ctaPolicyText()}`;
 
     const userPrompt = `
 ## Screenshot do Perfil do Instagram${username ? ` (@${username})` : ""}
 A imagem anexada é um print do perfil do Instagram do usuário.
 
-## StoryBrand do Usuário
+## StoryBrand do Usuário (uso interno — NÃO citar nomes de framework no output)
 ${storyBrand ? JSON.stringify(storyBrand, null, 2) : "Não disponível"}
 
-## Top 3 Arquétipos
+## Top 3 Arquétipos (uso interno — NÃO citar nomes de arquétipo no output)
 ${archetypes.map((a: any) => `${a.rank}. ${a.archetype_name} (${a.score}pts)`).join("\n")}
 
-## Identidade Visual
-${visualIdentity ? JSON.stringify(visualIdentity, null, 2) : "Não disponível"}
+## Identidade Visual REGISTRADA (única paleta autorizada para citar)
+${visualIdentity ? JSON.stringify(visualIdentity, null, 2) : "Nenhuma paleta registrada — recomende apenas DIREÇÃO visual, não cores nomeadas."}
 
-Analise os seguintes aspectos e forneça sugestões baseadas no StoryBrand e arquétipos:
+## Cadastro do Usuário
+- Profissão: ${(profile as any).profession || "não informado"}
+- Nicho: ${nicheText}
+- Público-alvo: ${audienceText}
+
+Analise os seguintes aspectos e forneça sugestões alinhadas ao posicionamento estratégico (cobrar pelo valor, atrair clientes premium, autoridade, melhor margem):
 1. Nome do Perfil
-2. Bio (em "suggestion" dê uma orientação geral; as 3 opções concretas vão em bio_options)
-3. CTA (Call to Action)
+2. Bio (em "suggestion" dê orientação geral; as 3 opções concretas vão em bio_options)
+3. CTA — em "suggestion" dê orientação curta; as 5-8 opções concretas PRONTAS vão em cta_options
 4. Destaques
 5. Posts Fixados
 6. Aparência do Feed
 7. Foto de Perfil
-8. Estilo e Figurino – roupas, acessórios, maquiagem, estilo pessoal
-9. Cenário e Ambientação – backgrounds das fotos
-
-REGRA CRÍTICA SOBRE BIO:
-${bioPolicyText()}
+8. Estilo e Figurino
+9. Cenário e Ambientação
     `.trim();
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -271,6 +338,9 @@ ${bioPolicyText()}
 
     const parsed = JSON.parse(toolCall.function.arguments);
     let bios: BioOption[] = normalizeBios(parsed.bio_options || []);
+    let ctas: string[] = Array.isArray(parsed.cta_options)
+      ? parsed.cta_options.filter((c: any) => typeof c === "string" && c.trim()).map((c: string) => c.trim())
+      : [];
 
     // Retry up to 2x if any bio exceeds the hard limit
     let attempts = 0;
@@ -281,7 +351,7 @@ ${bioPolicyText()}
         { role: "system", content: systemPrompt },
         { role: "user", content: userContentParts },
         { role: "assistant", content: JSON.stringify({ bio_options: bios }) },
-        { role: "user", content: `As bios abaixo ESTOURARAM o limite de ${BIO_HARD_LIMIT} caracteres:\n${tooLong}\n\nReescreva as 3 bios garantindo que cada uma tenha entre ${BIO_MIN}-${BIO_MAX} caracteres (NUNCA mais de ${BIO_HARD_LIMIT}). Conte caractere por caractere antes de responder. Mantenha o resto da análise igual.` },
+        { role: "user", content: `As bios abaixo ESTOURARAM ${BIO_HARD_LIMIT} chars:\n${tooLong}\n\nReescreva as 3 garantindo ${BIO_MIN}-${BIO_MAX} chars (NUNCA mais de ${BIO_HARD_LIMIT}). Mantenha o resto.` },
       ];
       const retryRes = await callAi(retryMessages, LOVABLE_API_KEY);
       if (!retryRes.ok) break;
@@ -292,12 +362,9 @@ ${bioPolicyText()}
         const retryParsed = JSON.parse(retryTool.function.arguments);
         const newBios = normalizeBios(retryParsed.bio_options || []);
         if (newBios.length >= 3) bios = newBios;
-      } catch {
-        break;
-      }
+      } catch { break; }
     }
 
-    // Final fallback: smart-truncate any remaining over-limit bios
     bios = bios.slice(0, 3).map((b) => {
       if (b.text.length > BIO_HARD_LIMIT) {
         const truncated = smartTruncate(b.text, BIO_HARD_LIMIT);
@@ -305,13 +372,40 @@ ${bioPolicyText()}
       }
       return { ...b, char_count: b.text.length };
     });
+    while (bios.length < 3) bios.push({ text: "", char_count: 0 });
 
-    // Pad to 3 if AI returned fewer
-    while (bios.length < 3) {
-      bios.push({ text: "", char_count: 0 });
+    // Compliance: descartar bios/CTAs com violação `high` para profissão regulamentada
+    if (professionCategory !== "outro") {
+      bios = bios.filter((b) => {
+        if (!b.text) return true;
+        const v = validatePostCompliance({ headline: b.text }, professionCategory);
+        const high = v.filter((x) => x.severity === "high");
+        if (high.length) console.warn("[analyze-instagram] bio descartada por compliance:", high.map((h) => h.rule));
+        return high.length === 0;
+      });
+      while (bios.length < 3) bios.push({ text: "", char_count: 0 });
+
+      ctas = ctas.filter((c) => {
+        const v = validatePostCompliance({ cta: c }, professionCategory);
+        const high = v.filter((x) => x.severity === "high");
+        if (high.length) console.warn("[analyze-instagram] CTA descartado por compliance:", c, high.map((h) => h.rule));
+        return high.length === 0;
+      });
     }
 
-    return new Response(JSON.stringify({ analysis: parsed.analysis, bio_options: bios }), {
+    // Trim CTAs to hard limit (graceful)
+    ctas = ctas.map((c) => c.length > CTA_HARD_LIMIT ? smartTruncate(c, CTA_HARD_LIMIT) : c).slice(0, 8);
+
+    // Mesclar cta_options no campo "suggestion" do aspecto CTA (frontend atual lê só aspect/current/suggestion)
+    const analysis = Array.isArray(parsed.analysis) ? parsed.analysis : [];
+    for (const item of analysis) {
+      if (typeof item?.aspect === "string" && /\bcta\b/i.test(item.aspect) && ctas.length) {
+        const list = ctas.map((c) => `• ${c}`).join("\n");
+        item.suggestion = `${item.suggestion || ""}\n\nOpções prontas para colar:\n${list}`.trim();
+      }
+    }
+
+    return new Response(JSON.stringify({ analysis, bio_options: bios, cta_options: ctas }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
