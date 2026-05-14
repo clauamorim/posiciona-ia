@@ -146,7 +146,8 @@ const Login = () => {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4 bg-background relative">
+    <main className="flex min-h-screen items-center justify-center px-4 bg-background relative">
+      <SeoHead title="Entrar — Posiciona" description="Acesse sua conta Posiciona para continuar sua estratégia de marca pessoal." path="/login" />
       <Button
         variant="ghost"
         size="sm"
