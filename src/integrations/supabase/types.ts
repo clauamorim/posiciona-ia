@@ -977,6 +977,33 @@ export type Database = {
           },
         ]
       }
+      used_personal_traits: {
+        Row: {
+          created_at: string
+          id: string
+          report_id: string | null
+          traits_used: string[]
+          user_id: string
+          week_index: number | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          report_id?: string | null
+          traits_used?: string[]
+          user_id: string
+          week_index?: number | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          report_id?: string | null
+          traits_used?: string[]
+          user_id?: string
+          week_index?: number | null
+        }
+        Relationships: []
+      }
       user_balances: {
         Row: {
           id: string
