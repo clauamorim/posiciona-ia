@@ -964,7 +964,14 @@ const PostEditorPage = () => {
   };
 
   const handleUpdateOverlay = (id: string, updates: Partial<OverlayImage>) => {
-    setOverlayImages((prev) => prev.map((img) => (img.id === id ? { ...img, ...updates } : img)));
+    setOverlayImages((prev) => prev.map((img) => {
+      if (img.id !== id) return img;
+      const updated = { ...img, ...updates };
+      if ((updates.width !== undefined || updates.height !== undefined) && id.startsWith("tpl-frame-")) {
+        return rewriteDecorativeOverlaySvg(updated);
+      }
+      return updated;
+    }));
   };
 
   const handleImageMove = (id: string, x: number, y: number) => handleUpdateOverlay(id, { x, y });
