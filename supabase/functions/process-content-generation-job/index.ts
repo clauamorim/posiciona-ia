@@ -58,6 +58,8 @@ import {
   extractPartialDayObjects,
   type StoryDay,
 } from "../_shared/storiesPromptBuilder.ts";
+import { embedTextBatch, postToEmbedText } from "../_shared/embeddings.ts";
+import { detectNamedCases } from "../_shared/editorialDiversity.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
