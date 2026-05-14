@@ -37,6 +37,10 @@ import {
   renderMarketTrendsBlock,
   type MarketTrend,
 } from "../_shared/professionRules.ts";
+import {
+  validatePostCompliance,
+  feedPostToCompliance,
+} from "../_shared/complianceValidator.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -124,7 +128,13 @@ REGRA: o JSON de saída DEVE conter "pillar": "${pillarMeta.id}". O conteúdo vi
           .select("profession, niche")
           .eq("user_id", userId)
           .maybeSingle();
-        professionCategory = detectProfession(profileRow);
+        professionCategory = detectProfession({
+          profession: profileRow?.profession,
+          niche: profileRow?.niche,
+          business_description: [business?.services, business?.target_audience, business?.company_name]
+            .filter((v: any) => typeof v === "string" && v.trim())
+            .join(" "),
+        });
       } catch (_e) { /* ignora — fallback "outro" */ }
     }
     const ethicalBlock = getEthicalRulesBlock(professionCategory);
@@ -379,6 +389,40 @@ Gere 1 novo post de feed no formato "${format}".`;
         }
       } catch (retryErr) {
         console.error("Stricter single-post retry failed:", retryErr);
+      }
+    }
+
+    // ==== Compliance ético: 1 retry para violações HIGH; medium apenas loga ====
+    if (professionCategory !== "outro") {
+      const violations = validatePostCompliance(feedPostToCompliance(cleaned), professionCategory);
+      const high = violations.filter((v) => v.severity === "high");
+      const medium = violations.filter((v) => v.severity === "medium");
+      if (medium.length > 0) {
+        console.log(`[regenerate-single-post] [compliance] medium violations:`, medium);
+      }
+      if (high.length > 0) {
+        console.warn(`[regenerate-single-post] [compliance] HIGH violations, retrying once:`, high);
+        const compHints = high
+          .map((v) => `   - regra "${v.rule}" no campo "${v.field}": "${v.matched_text}"`)
+          .join("\n");
+        const compStricter = enrichedSystemPrompt +
+          `\n\n⚠️ COMPLIANCE — REESCREVA: a versão anterior infringiu regras éticas obrigatórias da profissão regulamentada do criador. Remova os trechos abaixo e mantenha o tema:\n${compHints}`;
+        try {
+          const compRetryRaw = await callClaude({ systemPrompt: compStricter, userText: userPrompt, max_tokens: 3000, timeoutMs: 60000 });
+          const compRetryParsed = extractJsonFromLLM(compRetryRaw);
+          if (compRetryParsed && typeof compRetryParsed === "object" && !Array.isArray(compRetryParsed)) {
+            const compRetryClean = sanitizePost(compRetryParsed as Record<string, unknown>);
+            const after = validatePostCompliance(feedPostToCompliance(compRetryClean), professionCategory);
+            const stillHigh = after.filter((v) => v.severity === "high");
+            if (stillHigh.length === 0) {
+              cleaned = compRetryClean;
+            } else {
+              console.warn(`[regenerate-single-post] [compliance] HIGH violation persisted, accepting original:`, stillHigh);
+            }
+          }
+        } catch (compErr) {
+          console.warn(`[regenerate-single-post] compliance retry falhou (mantendo original):`, compErr);
+        }
       }
     }
 
