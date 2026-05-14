@@ -160,6 +160,10 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   const canvasInnerRef = useRef<HTMLDivElement>(null);
   const [activeGuides, setActiveGuides] = useState<{ v: number[]; h: number[] }>({ v: [], h: [] });
 
+  // Mede a altura real renderizada do título para reposicionar o corpo dinamicamente.
+  const [measuredTitleHeight, setMeasuredTitleHeight] = useState<number | null>(null);
+  const titleMeasureRef = useRef<HTMLDivElement | null>(null);
+
   const [localTextBoxes, setLocalTextBoxes] = useState<TextBox[]>([]);
   const isControlled = Array.isArray(controlledTextBoxes);
   const textBoxes = isControlled ? (controlledTextBoxes as TextBox[]) : localTextBoxes;
@@ -292,6 +296,25 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
       textBoxesInitialized.current = true;
     }
   }, [initialTextBoxes, layout, title, isCoverSlide, isControlled, controlledTextBoxes]);
+
+  // Reposiciona o corpo dinamicamente abaixo da altura REAL renderizada do título.
+  // Garante gap consistente de 60px independente do tamanho do título.
+  useEffect(() => {
+    if (!measuredTitleHeight) return;
+    const dynamicGap = 60;
+    setTextBoxes((prev) => {
+      const titleBox = prev.find(t => t.type === "title");
+      const bodyBox = prev.find(t => t.type === "body");
+      if (!titleBox || !bodyBox) return prev;
+      const desiredBodyY = titleBox.y + measuredTitleHeight + dynamicGap;
+      // Só reposiciona se a diferença for significativa (>10px) — evita loops.
+      if (Math.abs(bodyBox.y - desiredBodyY) < 10) return prev;
+      // Não empurra o corpo para fora do canvas
+      const maxBodyY = canvasHeight - 200;
+      const clampedY = Math.min(desiredBodyY, maxBodyY);
+      return prev.map(b => b.type === "body" ? { ...b, y: clampedY } : b);
+    });
+  }, [measuredTitleHeight, canvasHeight]);
 
   useEffect(() => {
     const updateScale = () => {
@@ -549,7 +572,9 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
 
   // Tamanho de título: respeita override do usuário; senão usa o do arquétipo (cover ganha boost).
   const archetypeTitleSize = isCoverSlide ? typo.titleSizeMax + 12 : typo.titleSizeMax;
-  const archetypeTitleFloor = Math.max(42, typo.titleSizeMin);
+  // Piso do título: nunca menor que o piso do arquétipo, e nunca menor que body + 18px
+  // (garante hierarquia visual mesmo quando texto é longo).
+  const archetypeTitleFloor = Math.max(42, typo.titleSizeMin, (fontSize || 44) + 18);
   // Ignora titleFontSize do usuário/template quando for menor que o mínimo do arquétipo.
   const userTitleSize = titleFontSize && titleFontSize >= typo.titleSizeMin ? titleFontSize : archetypeTitleSize;
   const resolvedTitleFontSize = Math.max(archetypeTitleFloor, userTitleSize);
@@ -770,6 +795,16 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
           suppressContentEditableWarning
           className={isTitle ? "post-title-editable" : "post-body-editable"}
           ref={(el) => {
+            if (isTitle && el) {
+              titleMeasureRef.current = el;
+              // Mede a altura real após o render
+              requestAnimationFrame(() => {
+                if (titleMeasureRef.current) {
+                  const h = titleMeasureRef.current.scrollHeight;
+                  setMeasuredTitleHeight((prev) => (prev !== h ? h : prev));
+                }
+              });
+            }
             if (isEditing && el && editingEl !== el) {
               setEditingEl(el);
               inlineFormatBus.setActive(el, (html) => {
