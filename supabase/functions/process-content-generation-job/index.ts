@@ -627,7 +627,19 @@ async function processJob(jobId: string) {
       } catch (trendsErr) {
         console.warn(`[job ${jobId}] fetch-market-trends falhou (ignorando):`, trendsErr);
       }
-      const marketTrendsBlock = renderMarketTrendsBlock(marketTrends);
+      // Anti-repetição: remove tendências já usadas nas últimas 2 semanas
+      const recentlyUsedTrendTitles = await fetchRecentlyUsedTrendTitles(userId);
+      const filteredMarketTrends = marketTrends.filter((t) => {
+        const titleNorm = normalize(t.title);
+        return !recentlyUsedTrendTitles.some((used) => {
+          const usedNorm = normalize(used);
+          return usedNorm.includes(titleNorm) || titleNorm.includes(usedNorm);
+        });
+      });
+      if (filteredMarketTrends.length < marketTrends.length) {
+        console.log(`[job ${jobId}] Filtradas ${marketTrends.length - filteredMarketTrends.length} tendências já usadas recentemente.`);
+      }
+      const marketTrendsBlock = renderMarketTrendsBlock(filteredMarketTrends);
 
       // Anti-repetição: traços pessoais usados nas últimas 2 semanas
       const recentlyUsedTraits = await fetchRecentlyUsedTraits(userId);
