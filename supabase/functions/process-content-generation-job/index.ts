@@ -359,6 +359,35 @@ ${[0, 1, 2, 3].map((i) => {
   return `POST ${i + 1} — ${t.label}: ${t.description}`;
 }).join("\n\n")}
 
+🚫 FRASES E EXPRESSÕES PROIBIDAS (DETECTADAS COMO REPETITIVAS EM SEMANAS ANTERIORES):
+NÃO use as seguintes frases, nem variações próximas, em NENHUM campo ("theme", "caption", "card_copy", "cta", "script"):
+
+Aberturas proibidas:
+- "A crença de que [X] resolve [Y]"
+- "O Posiciona não é para quem quer [X] — é para quem quer [Y]"
+- "[Marca] não é para quem [...] — é para quem [...]"
+
+Encerramentos proibidos:
+- "o processo que transforma expertise em [presença / autoridade / reconhecimento]"
+- "profissionais qualificados continuam invisíveis"
+- "antes de qualquer post existir"
+
+Vocabulário saturado (use no MÁXIMO 1 vez na semana inteira, somando feed + stories):
+- "profissionais qualificados"
+- "identidade de marca"
+- "autoridade digital"
+- "Instagram que não representa quem é"
+
+CTAs PROIBIDOS COMO PADRÃO ÚNICO:
+NÃO use "Me chame no direct com a palavra [X]" em MAIS DE 1 dos 4 posts da semana. Para os outros 3 posts, ESCOLHA CTAs de naturezas diferentes:
+  (A) Pergunta direta: "[Pergunta específica ao leitor]?"
+  (B) Comando de salvamento: "Salve este post para revisitar quando [situação]"
+  (C) Convite a comentar: "Comenta aqui: [pergunta concreta sobre experiência do leitor]"
+  (D) Convite a compartilhar com contexto: "Marca alguém que [perfil específico] nos comentários"
+  (E) Comparação interna: "Releia o slide [N] e me diz: você se encaixa em qual situação?"
+
+REGRA GERAL DE FRASEADO: se você reconhecer que está prestes a usar uma estrutura "elegante" que parece encaixar perfeitamente, é provavelmente porque já foi usada. Reescreva com cadência diferente.
+
 REGRAS DE GANCHO (mantidas): primeira frase de toda caption e slide 1 de carrossel = detalhe concreto, número, cena, dado contraintuitivo ou pergunta inesperada — específicos para o NICHO. PROIBIDO abrir com: "Você sabia que…", "5 dicas para…", "A importância de…", "Vamos falar sobre…", "Hoje vou te contar…", "Já parou para pensar…", "Imagine que…", "Você já se perguntou…".
 
 LIMITE PESSOAL: máximo 1 post pessoal (is_personal=true) por semana, e APENAS se o pilar "bastidor" estiver sub-representado (ver bloco ROTAÇÃO DE PILARES).
