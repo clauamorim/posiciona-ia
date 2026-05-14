@@ -681,6 +681,8 @@ export interface GeminiPromptParams {
   handPose?: string | null;
   /** Gênero opcional só pra refinar pronome no texto. */
   gender?: "woman" | "man" | "none";
+  /** Faixa etária aparente detectada via Gemini Vision. Default seguro: "40s". */
+  apparentAgeRange?: "20s" | "30s" | "40s" | "50s" | "60s+";
 }
 
 export function buildGeminiPortraitPrompt(params: GeminiPromptParams): {
