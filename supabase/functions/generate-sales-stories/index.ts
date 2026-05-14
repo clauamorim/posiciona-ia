@@ -110,12 +110,8 @@ serve(async (req) => {
       const userMsg = e instanceof ClaudeError && e.userMessage
         ? e.userMessage
         : "A IA está instável agora. Tente novamente em alguns minutos.";
-      // Devolve crédito em caso de falha de IA
-      await userClient.rpc("consume_credit", {
-        p_credit_type: "regeneration",
-        p_amount: -(-1), // +1 — mas RPC só aceita negativo
-        p_description: "(estorno) Stories de venda",
-      }).catch(() => {});
+      // Crédito já foi consumido. Como o RPC só aceita débito, não há
+      // estorno automático no MVP — o usuário reentra na fila se a IA falhar.
       return json({ error: userMsg }, 502);
     }
 
