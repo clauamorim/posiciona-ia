@@ -15,6 +15,7 @@ import {
   ImageIcon, PenTool, FileText, RefreshCw, Copy, Download, AlertTriangle, Wand2
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { parseReportContent, normalizeReportContent } from "@/lib/reportParser";
 import { cleanText } from "@/lib/textCleanup";
 import { isOutdated, isWeekOutdated, EDITORIAL_GENERATOR_VERSION } from "@/lib/generatorVersion";
