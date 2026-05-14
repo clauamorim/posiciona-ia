@@ -1012,7 +1012,85 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
         console.warn(`[job ${jobId}] validação de diversidade falhou (ignorada):`, (divErr as any)?.message || divErr);
       }
 
-      // Persiste resultado parcial — permite retomar se o estágio B falhar
+      // ==== Validação de compliance ético (profissões regulamentadas) ====
+      // Roda APÓS diversidade. Retry guiado apenas para violações "high".
+      // Nunca bloqueia entrega — falhas persistentes são logadas para auditoria.
+      try {
+        if (professionCategory !== "outro") {
+          const perPostViolations: Array<{ day: number; idx: number; violations: ComplianceViolation[] }> = [];
+          feedFinal.forEach((p, idx) => {
+            const v = validatePostCompliance(feedPostToCompliance(p), professionCategory);
+            if (v.length === 0) return;
+            const high = v.filter((x) => x.severity === "high");
+            const medium = v.filter((x) => x.severity === "medium");
+            if (high.length > 0) {
+              console.warn(`[job ${jobId}] [compliance] day=${p.day} HIGH violations:`, high);
+              perPostViolations.push({ day: p.day, idx, violations: v });
+            } else if (medium.length > 0) {
+              console.log(`[job ${jobId}] [compliance] day=${p.day} medium violations:`, medium);
+            }
+          });
+
+          if (perPostViolations.length > 0) {
+            await updateJob(jobId, { progress_message: "Ajustando compliance ético dos posts…" });
+            const retryUser = `${feedUser}${renderComplianceRetryInstructions(
+              perPostViolations.map(({ day, violations }) => ({ day, violations })),
+            )}`;
+            try {
+              const { text: compRetryRaw } = await callClaudeWithMeta({
+                systemPrompt: feedSystem,
+                userText: retryUser,
+                model: "claude-opus-4-7",
+                max_tokens: 4500,
+                timeoutMs: 120000,
+                disableRetries: true,
+              });
+              let compRetryParsed: any = extractJsonFromLLM(compRetryRaw);
+              if (!Array.isArray(compRetryParsed) || compRetryParsed.length === 0) {
+                compRetryParsed = extractPartialDayObjects(compRetryRaw);
+              }
+              if (Array.isArray(compRetryParsed) && compRetryParsed.length > 0) {
+                const replaceMap = new Map<number, FeedPost>();
+                for (const p of compRetryParsed) {
+                  if (!p || typeof p !== "object") continue;
+                  const dayN = Number((p as any).day);
+                  if (!FEED_DAYS.includes(dayN)) continue;
+                  const cleaned = sanitizePost(p as Record<string, any>) as FeedPost;
+                  cleaned.day = dayN;
+                  cleaned.format = (cleaned.format || "post").toString().toLowerCase();
+                  if (cleaned.format === "stories") cleaned.format = "post";
+                  cleaned.is_personal = Boolean((cleaned as any).is_personal);
+                  replaceMap.set(dayN, cleaned);
+                }
+                for (let i = 0; i < feedFinal.length; i++) {
+                  const r = replaceMap.get(feedFinal[i].day);
+                  if (r) feedFinal[i] = r;
+                }
+                // Re-checa: se ainda houver "high", aceita e loga.
+                feedFinal.forEach((p) => {
+                  const after = validatePostCompliance(feedPostToCompliance(p), professionCategory);
+                  const stillHigh = after.filter((x) => x.severity === "high");
+                  if (stillHigh.length > 0) {
+                    console.warn(`[job ${jobId}] [compliance] HIGH violation persisted day=${p.day}`, {
+                      user_id: userId,
+                      profession: professionCategory,
+                      violations: stillHigh,
+                    });
+                  }
+                });
+              } else {
+                console.warn(`[job ${jobId}] compliance: retry sem posts válidos, mantendo versão original.`);
+              }
+            } catch (compRetryErr: any) {
+              console.warn(`[job ${jobId}] compliance: retry falhou (mantendo versão original):`, compRetryErr?.message || compRetryErr);
+            }
+          }
+        }
+      } catch (compErr) {
+        console.warn(`[job ${jobId}] validação de compliance falhou (ignorada):`, (compErr as any)?.message || compErr);
+      }
+
+
       await updateJob(jobId, {
         progress_message: "Gerando seus 7 stories da semana (etapa 2 de 2)…",
 
