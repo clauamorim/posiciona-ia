@@ -325,13 +325,14 @@ const FORMULA_PATTERNS: { id: Exclude<TitleFormulaId, "livre">; label: string; r
   {
     id: "cliente_pediu_recusei",
     label: '"[Personagem] chega pedindo/dizendo X — triagem/recusa/diagnóstico"',
-    re: /\b(quando\s+o[a]?\s+|cliente|paciente|advog\w*|m[eé]dic\w*|psic[oó]log\w*|dentista|nutric\w*|fisioterap\w*|profissional|consultor\w*|arquitet\w*|design\w*)[^.?!]{0,80}\b(pediu|chega|chegou|chegando|escreve|escreveu|procura|procurou|me\s+procurou|chega\s+dizendo|chegou\s+dizendo|chegou\s+pedindo|chegou\s+querendo)\b[^.?!]{0,200}\b(recusei|disse\s+n[ãa]o|n[ãa]o\s+aceitei|recusada?|recusado|n[ãa]o\s+atend[io]|trabalho\s+com|trabalha\s+com|n[ãa]o\s+[ée]\s+com|h[áa]\s+dois?\s+(diagn[óo]sticos?|caminhos|cen[áa]rios|leituras))\b/i,
+    re: /\b(quando\s+o[a]?\s+|cliente|paciente|advog\w*|m[eé]dic\w*|psic[oó]log\w*|dentista|nutric\w*|fisioterap\w*|profissional|consultor\w*|arquitet\w*|design\w*)[^.?!]{0,80}\b(pediu|pede|chega|chegou|chegando|escreve|escreveu|procura|procurou|me\s+procurou|chega\s+dizendo|chegou\s+dizendo|chegou\s+pedindo|chegou\s+querendo)\b[^.?!]{0,200}\b(recusei|recuso|recusa|recusam|recusamos|disse\s+n[ãa]o|digo\s+n[ãa]o|n[ãa]o\s+aceit\w+|recusada?|recusado|n[ãa]o\s+atend[ioe]\w*|trabalho\s+com|trabalha\s+com|n[ãa]o\s+[ée]\s+com|h[áa]\s+dois?\s+(diagn[óo]sticos?|caminhos|cen[áa]rios|leituras))\b/i,
   },
   // 13. "A ideia / a regra / o conselho de que 'X' está [verbo]ndo Y"
+  //     Tolerante a até 80 chars de "ponte" entre as aspas fechadas e o verbo.
   {
     id: "a_ideia_de_que_x_esta",
-    label: '"A ideia/regra/conselho de que ‘X’ está [verbo]ndo Y"',
-    re: /\b(a\s+ideia|a\s+regra|o\s+conselho|a\s+cren[çc]a|o\s+mantra|o\s+discurso)\s+de\s+que\s+['"“”‘’][^'"“”‘’]{2,120}['"“”‘’]\s+(est[áa]|t[áa]|vem|anda)\s+\w+(ndo|nte)\b/i,
+    label: '"A ideia/regra/conselho/crença de que ‘X’ está [verbo]ndo Y"',
+    re: /\b(a\s+(ideia|regra|cren[çc]a)|o\s+(conselho|mantra|discurso))\s+de\s+que\s+['"“”‘’][^'"“”‘’]{2,120}['"“”‘’][^.!?]{0,80}\b(est[áa]|t[áa]|vem|anda)\s+\w*(ndo|nte)\b/i,
   },
   // 14. CTA "Me chame no direct com a palavra X" (e variações próximas)
   {
