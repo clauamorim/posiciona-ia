@@ -1040,9 +1040,23 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
             }
           });
 
+          console.log(
+            `[editorial-compliance] week=${job.week_index} user=${userId} profession=${professionCategory} violations=${JSON.stringify(
+              perPostViolations.flatMap((p) => p.violations.map((v) => `${p.day}:${v.rule}`)),
+            )} retry_triggered=${perPostViolations.length > 0}`,
+          );
+
           if (perPostViolations.length > 0) {
             await updateJob(jobId, { progress_message: "Ajustando compliance ético dos posts…" });
-            const retryUser = `${feedUser}${renderComplianceRetryInstructions(
+            // Retry PARCIAL: pedimos para a LLM reescrever apenas os dias violadores.
+            // Passamos os demais posts como "contexto a preservar" para evitar
+            // incoerências de tema/sequência narrativa na semana.
+            const violatingDays = new Set(perPostViolations.map((p) => p.day));
+            const keepContext = feedFinal
+              .filter((p) => !violatingDays.has(p.day))
+              .map((p) => `Dia ${p.day} (MANTER, não reescrever): tema="${p.theme}" | título="${(p as any).title || ""}"`)
+              .join("\n");
+            const retryUser = `${feedUser}\n\n# CONTEXTO DA SEMANA (NÃO REESCREVER)\nOs posts abaixo já foram aprovados e devem ser respeitados como contexto narrativo. Não repita seus temas/ângulos nos posts reescritos.\n${keepContext}${renderComplianceRetryInstructions(
               perPostViolations.map(({ day, violations }) => ({ day, violations })),
             )}`;
             try {
