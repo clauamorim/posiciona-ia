@@ -478,8 +478,8 @@ const LandingPage = () => {
         <div className="max-w-4xl mx-auto space-y-10">
           <div className="text-center space-y-2">
             <h2 className="text-2xl md:text-3xl font-display font-semibold">
-              Em 3 etapas, sua marca sai da improvisação e{" "}
-              <span className="text-landing-gold italic">ganha direção</span>
+              Do questionário ao conteúdo pronto em{" "}
+              <span className="text-landing-gold italic">menos de 1 hora</span>
             </h2>
           </div>
 
@@ -488,20 +488,20 @@ const LandingPage = () => {
               {
                 step: "01",
                 icon: Search,
-                title: "Descubra o que diferencia sua marca",
-                desc: "Responda ao diagnóstico e o Posiciona organiza sua mensagem, seus arquétipos e sua direção de comunicação.",
+                title: "Responda o diagnóstico (15 minutos)",
+                desc: "3 questionários sobre seu negócio e personalidade de marca. A IA identifica seus arquétipos e organiza sua direção de comunicação.",
               },
               {
                 step: "02",
                 icon: Target,
-                title: "Receba sua estratégia e calendário",
+                title: "Receba posicionamento e narrativa prontos",
                 desc: "Tenha narrativa de marca, análise de perfil e linha editorial conectados ao seu posicionamento.",
               },
               {
                 step: "03",
                 icon: Zap,
                 title: "Publique com mais autoridade",
-                desc: "Receba posts, carrosséis, roteiros e retratos alinhados à sua marca.",
+                desc: "Posts, carrosséis, roteiros de reels e retratos profissionais — tudo alinhado ao seu posicionamento.",
               },
             ].map((s) => (
               <div key={s.step} className="p-6 rounded-xl border border-landing-border/50 bg-landing-bg-secondary/30 space-y-4">
