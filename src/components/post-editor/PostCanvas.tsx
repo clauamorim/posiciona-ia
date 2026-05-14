@@ -297,6 +297,25 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
     }
   }, [initialTextBoxes, layout, title, isCoverSlide, isControlled, controlledTextBoxes]);
 
+  // Reposiciona o corpo dinamicamente abaixo da altura REAL renderizada do título.
+  // Garante gap consistente de 60px independente do tamanho do título.
+  useEffect(() => {
+    if (!measuredTitleHeight) return;
+    const dynamicGap = 60;
+    setTextBoxes((prev) => {
+      const titleBox = prev.find(t => t.type === "title");
+      const bodyBox = prev.find(t => t.type === "body");
+      if (!titleBox || !bodyBox) return prev;
+      const desiredBodyY = titleBox.y + measuredTitleHeight + dynamicGap;
+      // Só reposiciona se a diferença for significativa (>10px) — evita loops.
+      if (Math.abs(bodyBox.y - desiredBodyY) < 10) return prev;
+      // Não empurra o corpo para fora do canvas
+      const maxBodyY = canvasHeight - 200;
+      const clampedY = Math.min(desiredBodyY, maxBodyY);
+      return prev.map(b => b.type === "body" ? { ...b, y: clampedY } : b);
+    });
+  }, [measuredTitleHeight, canvasHeight]);
+
   useEffect(() => {
     const updateScale = () => {
       if (containerRef.current) {
