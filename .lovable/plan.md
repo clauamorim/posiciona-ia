@@ -1,31 +1,34 @@
-
 ## Objetivo
-Evitar que a mesma tendência de mercado (ex: "Havaianas vs Pé Direito") apareça em semanas consecutivas, replicando o padrão já existente do `used_personal_traits`.
+Reduzir repetição de conteúdo pessoal em stories e desacoplar o editorial da narrativa de vendas, com detecção de sinônimos no anti-repetição de traços.
 
-## Mudança 1 — Migration SQL (nova tabela)
+## Mudança 1 — `supabase/functions/process-content-generation-job/index.ts`
 
-Criar `public.used_market_trends`:
-- Colunas: `id`, `user_id` (FK auth.users ON DELETE CASCADE), `report_id` (FK reports ON DELETE CASCADE), `week_index`, `trends_used` (JSONB), `created_at`.
-- Índice: `(user_id, created_at DESC)`.
-- RLS habilitado:
-  - SELECT: `auth.uid() = user_id`
-  - ALL para service_role.
+### 1a) Limite de 1 story pessoal por semana
+- Em `buildStoriesSystemPrompt`, localizar o bloco "REGRAS DE STORIES" (ou equivalente que define a estrutura das 7 stories).
+- Adicionar logo abaixo um bloco "🟥 LIMITE PESSOAL PARA STORIES (CRÍTICO)" com:
+  - Máx. 1 das 7 stories pode ser `is_personal=true`.
+  - Tipos não-pessoais permitidos para as demais: dúvida frequente, observação técnica do nicho, comentário sobre decisão/erro/acerto comum, dica prática, bastidor de trabalho.
+  - Proibir hobby/esporte/família/rotina/ritual matinal em mais de 1 story/semana.
+  - Se "bastidor" não estiver sub-representado na semana (ROTAÇÃO DE PILARES), nenhuma story pode ser pessoal.
 
-## Mudança 2 — `supabase/functions/process-content-generation-job/index.ts`
+### 1b) Remover `salesNarrativeContext` dos prompts editoriais
+- Em `feedUser`: remover a interpolação `${salesNarrativeContext}` da linha do `Nicho:`.
+- Em `storiesUser`: remover a interpolação `${salesNarrativeContext}` da linha do `Nicho:`.
+- Manter `fetchSalesNarrative` e `renderSalesNarrativeContext` no shared (continuam usados por `generate-sales-stories`).
+- Avaliar se ambas as linhas (`const salesNarrative = ...` e `const salesNarrativeContext = ...`) ficam órfãs em `process-content-generation-job`; se sim, remover ambas juntas.
 
-**2a)** Após `fetchRecentlyUsedTraits`, adicionar `fetchRecentlyUsedTrendTitles(userId)` que lê as últimas 2 entradas de `used_market_trends`, achata e deduplica títulos.
-
-**2b)** Após `detectUsedTraits`, adicionar `detectUsedTrends(trends, feed, stories)`: heurística que normaliza corpus (theme/caption/script/card_copy do feed + theme/frames dos stories) e marca uma trend como usada se 2+ palavras-chave (≥4 chars, sem stopwords PT) do título aparecem no corpus.
-
-**2c)** Antes de `renderMarketTrendsBlock(marketTrends)`, filtrar `marketTrends` removendo títulos que casam (substring bidirecional normalizada) com `recentlyUsedTrendTitles`. Logar quantas foram filtradas. Renderizar o bloco com `filteredMarketTrends`.
-
-**2d)** Logo após o try/catch que persiste `used_personal_traits`, adicionar try/catch que chama `detectUsedTrends(filteredMarketTrends, feedFinal, storiesFinal)` e insere em `used_market_trends` (`user_id`, `report_id`, `week_index`, `trends_used`). Falhas são apenas logadas.
+### 1c) Sinônimos no `detectUsedTraits`
+- Após `PT_STOPWORDS`, adicionar:
+  - `TRAIT_SYNONYMS` (mapa: natacao, corrida, leitura, meditacao, yoga, caminhada, cachorro, gato, cafe, filho).
+  - `expandTraitKeywords(keywords)` que expande cada keyword para o grupo de sinônimos correspondente.
+- Em `buildPersonalTraitMap`, trocar:
+  - `const kws = extractTraitKeywords(v);` por `const kws = expandTraitKeywords(extractTraitKeywords(v));`
 
 ## Validação
-- Confirmar nomes exatos (`admin`, `userId`, `job.report_id`, `job.week_index`, `feedFinal`, `storiesFinal`, `normalize`, `PT_STOPWORDS`, `MarketTrend`) com `code--view` antes de editar.
-- Deploy de `process-content-generation-job` após a migration ser aprovada.
+- `code--view` em `process-content-generation-job/index.ts` para confirmar nomes/posições exatas de: `buildStoriesSystemPrompt`, bloco "REGRAS DE STORIES", as duas strings `feedUser`/`storiesUser`, `PT_STOPWORDS`, `extractTraitKeywords`, `buildPersonalTraitMap`.
+- Deploy de `process-content-generation-job` após as edições.
 
 ## Efeito esperado
-- Semana N+1 não recebe mais as tendências usadas nas 2 semanas anteriores.
-- Se sobrarem poucas/nenhuma tendência, o fallback já implementado em `renderMarketTrendsBlock` instrui o LLM a usar caso real nomeado do conhecimento.
-- Mesmo padrão arquitetural de `used_personal_traits` (já validado na rotação de traços pessoais).
+- Stories pessoais caem de ~3/semana para no máx. 1/semana.
+- Sales narrative deixa de "puxar" temas pessoais para feed e stories.
+- Detector marca "piscina"/"nado" como uso de "natação" — fechando o loop do anti-repetição.

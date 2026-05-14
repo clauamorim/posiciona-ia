@@ -31,10 +31,6 @@ import {
 } from "../_shared/editorialPillars.ts";
 import { NARRATIVE_PRINCIPLES_BLOCK } from "../_shared/narrativePrinciples.ts";
 import {
-  fetchSalesNarrative,
-  renderSalesNarrativeContext,
-} from "../_shared/salesStoryPrompts.ts";
-import {
   detectProfession,
   getEthicalRulesBlock,
   renderMarketTrendsBlock,
@@ -74,6 +70,34 @@ const PT_STOPWORDS = new Set([
   "todos","mesmo","mesma","posso","pode","podem","ser","estar","estou","estava",
 ]);
 
+// Mapa de sinônimos para detecção de traços pessoais reciclados.
+// Se o questionário tem "natação", a story pode usar "piscina"/"água"/"nado" —
+// queremos marcar o traço como usado mesmo assim.
+const TRAIT_SYNONYMS: Record<string, string[]> = {
+  natacao: ["piscina", "agua", "nado", "nadar", "natacao"],
+  corrida: ["correr", "corrida", "corredor", "running"],
+  leitura: ["livro", "livros", "leitura", "audiolivro", "ler", "lendo", "leio"],
+  meditacao: ["meditacao", "meditar", "meditando", "respiracao"],
+  yoga: ["yoga", "ioga"],
+  caminhada: ["caminhada", "caminhar", "andar", "passeio"],
+  cachorro: ["cachorro", "cao", "caes", "pet", "pets"],
+  gato: ["gato", "gatos", "felino"],
+  cafe: ["cafe", "cafezinho", "cafeteira"],
+  filho: ["filho", "filha", "filhos", "filhas", "crianca", "criancas"],
+};
+
+function expandTraitKeywords(keywords: string[]): string[] {
+  const expanded = new Set<string>(keywords);
+  for (const kw of keywords) {
+    for (const [, synonyms] of Object.entries(TRAIT_SYNONYMS)) {
+      if (synonyms.includes(kw)) {
+        for (const s of synonyms) expanded.add(s);
+      }
+    }
+  }
+  return Array.from(expanded);
+}
+
 function normalize(s: string): string {
   return (s || "")
     .toLowerCase()
@@ -97,7 +121,7 @@ function buildPersonalTraitMap(personal: any): Record<string, string[]> {
   for (const f of PERSONAL_TRAIT_FIELDS) {
     const v = (personal as any)[f];
     if (typeof v === "string" && v.trim()) {
-      const kws = extractTraitKeywords(v);
+      const kws = expandTraitKeywords(extractTraitKeywords(v));
       if (kws.length > 0) map[f] = kws;
     }
   }
@@ -401,7 +425,7 @@ ESTILO STORIES:
 - Linguagem direta, falada, em primeira pessoa.
 - Cada story tem 3 a 5 frames (telas).
 - Use formatos típicos do Stories: enquete, caixa de pergunta, slider, quiz, depoimento, bastidor, mini-tutorial, opinião quente.
-- Storytelling pessoal: NO MÁXIMO 3 dos 7 stories podem ter is_personal=true. Os demais devem ser análise, dica ou quebra de mito alinhados ao pilar do feed do dia (quando houver) ou ao pilar sub-representado da semana.
+- Storytelling pessoal: ver bloco "LIMITE PESSOAL PARA STORIES" abaixo (regra crítica).
 - Toda evidência concreta (número, caso, métrica) precisa vir do bloco FATOS VERIFICÁVEIS. Sem fato disponível, use pergunta/hipótese sinalizada ("e se...", "imagine que...").
 - Nos dias com feed, mirrors_feed=true. Nos demais, mirrors_feed=false.
 
@@ -419,7 +443,18 @@ OUTPUT — array com EXATAMENTE 7 objetos, na ordem dos dias 1..7:
 REGRAS ESTRUTURAIS:
 - 7 objetos, "day" de 1 a 7 sequencial.
 - "frames": 3 a 5 itens, cada um com texto curto (até ~120 caracteres) representando o que vai na tela.
-- Português brasileiro.`;
+- Português brasileiro.
+
+🟥 LIMITE PESSOAL PARA STORIES (CRÍTICO):
+- NO MÁXIMO 1 das 7 stories da semana pode ser pessoal (is_personal=true).
+- As demais stories devem ser de TIPOS NÃO-PESSOAIS, escolhendo entre:
+  • Dúvida frequente da audiência (com pergunta literal entre aspas)
+  • Observação técnica/profissional do nicho (sem vivência pessoal)
+  • Comentário sobre uma decisão/erro/acerto comum no mercado
+  • Dica prática aplicável (sem narrativa pessoal)
+  • Bastidor do TRABALHO (não da vida pessoal): mostrar etapa de atendimento, decisão técnica, ferramenta usada
+- NUNCA use hobby, esporte, família, rotina doméstica ou ritual matinal em mais de 1 story por semana.
+- Se "bastidor" não estiver sub-representado nesta semana (ver ROTAÇÃO DE PILARES), NENHUMA story pode ser pessoal.`;
 }
 
 interface FeedPost {
@@ -598,10 +633,7 @@ async function processJob(jobId: string) {
       const verifiableFactsBlock = renderVerifiableFactsBlock(business);
       const personal = await fetchPersonalQuestionnaire(userId);
       const personalContext = renderPersonalContext(personal);
-      // Narrativa de venda é OPCIONAL — quando ausente/incompleta, retorna ""
-      // e o prompt sai exatamente como antes (zero regressão).
-      const salesNarrative = await fetchSalesNarrative(userId);
-      const salesNarrativeContext = renderSalesNarrativeContext(salesNarrative);
+      // Narrativa de venda removida do editorial — usada apenas em generate-sales-stories.
 
       // Profissão regulamentada (OAB / CFM) e tendências de mercado
       const { data: profileRow } = await admin
@@ -660,7 +692,7 @@ async function processJob(jobId: string) {
 Empresa: ${business?.company_name || "Não informado"}
 Serviços: ${business?.services || "Não informado"}
 Público-alvo: ${business?.target_audience || "Não informado"}
-Nicho: ${niche || "Não informado"}${verifiableFactsBlock}${storybrandContext}${toneContext}${personalContext}${salesNarrativeContext}${recentTraitsBlock}${rotationBlock}
+Nicho: ${niche || "Não informado"}${verifiableFactsBlock}${storybrandContext}${toneContext}${personalContext}${recentTraitsBlock}${rotationBlock}
 
 # TEMAS JÁ PUBLICADOS (NÃO REPETIR — formato "[pilar] tema (formato)")
 ${previousSummary || "Nenhum conteúdo anterior."}${marketTrendsBlock}
@@ -794,7 +826,7 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
 Empresa: ${business?.company_name || "Não informado"}
 Serviços: ${business?.services || "Não informado"}
 Público-alvo: ${business?.target_audience || "Não informado"}
-Nicho: ${niche || "Não informado"}${verifiableFactsBlock}${storybrandContext}${toneContext}${personalContext}${salesNarrativeContext}${marketTrendsBlock}
+Nicho: ${niche || "Não informado"}${verifiableFactsBlock}${storybrandContext}${toneContext}${personalContext}${marketTrendsBlock}
 
 Gere agora os 7 stories da semana.`;
 
