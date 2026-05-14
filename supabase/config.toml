@@ -2,3 +2,6 @@ project_id = "opmheegtmdjqwrfkdboq"
 
 [functions.portrait-webhook]
 verify_jwt = false
+
+[functions.password-login]
+verify_jwt = false
