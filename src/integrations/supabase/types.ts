@@ -1007,6 +1007,41 @@ export type Database = {
           },
         ]
       }
+      used_market_trends: {
+        Row: {
+          created_at: string
+          id: string
+          report_id: string | null
+          trends_used: Json
+          user_id: string
+          week_index: number | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          report_id?: string | null
+          trends_used: Json
+          user_id: string
+          week_index?: number | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          report_id?: string | null
+          trends_used?: Json
+          user_id?: string
+          week_index?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "used_market_trends_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       used_personal_traits: {
         Row: {
           created_at: string

@@ -127,6 +127,29 @@ async function fetchRecentlyUsedTraits(userId: string): Promise<string[]> {
   }
 }
 
+/** Lê últimas 2 entradas de used_market_trends do usuário. */
+async function fetchRecentlyUsedTrendTitles(userId: string): Promise<string[]> {
+  try {
+    const { data } = await admin
+      .from("used_market_trends")
+      .select("trends_used")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(2);
+    if (!Array.isArray(data)) return [];
+    const flat: string[] = [];
+    for (const row of data) {
+      if (Array.isArray(row.trends_used)) {
+        for (const t of row.trends_used) if (typeof t === "string" && t.trim()) flat.push(t);
+      }
+    }
+    return Array.from(new Set(flat));
+  } catch (e) {
+    console.warn("fetchRecentlyUsedTrendTitles falhou:", (e as any)?.message || e);
+    return [];
+  }
+}
+
 function renderRecentTraitsBlock(traits: string[]): string {
   if (!traits || traits.length === 0) return "";
   const lines = traits.map((t) => `- ${t}`).join("\n");
@@ -174,6 +197,41 @@ function detectUsedTraits(
   return used;
 }
 
+/** Heurística: detecta quais tendências (por title) foram usadas nos textos gerados.
+ *  Considera "usada" se 2+ palavras-chave significativas do título aparecem no corpus. */
+function detectUsedTrends(
+  trends: MarketTrend[],
+  feed: any[],
+  stories: any[],
+): string[] {
+  if (!Array.isArray(trends) || trends.length === 0) return [];
+  const corpusParts: string[] = [];
+  for (const p of feed || []) {
+    if (!p) continue;
+    if (typeof p.theme === "string") corpusParts.push(p.theme);
+    if (typeof p.caption === "string") corpusParts.push(p.caption);
+    if (typeof p.script === "string") corpusParts.push(p.script);
+    if (Array.isArray(p.card_copy)) corpusParts.push(p.card_copy.join(" "));
+  }
+  for (const s of stories || []) {
+    if (!s) continue;
+    if (typeof s.theme === "string") corpusParts.push(s.theme);
+    if (Array.isArray(s.frames)) corpusParts.push(s.frames.join(" "));
+  }
+  const corpus = normalize(corpusParts.join(" \n "));
+  if (!corpus) return [];
+  const used: string[] = [];
+  for (const t of trends) {
+    const titleNorm = normalize(t.title);
+    const keywords = titleNorm
+      .split(/[^a-z0-9]+/)
+      .filter((w) => w.length >= 4 && !PT_STOPWORDS.has(w));
+    if (keywords.length === 0) continue;
+    const hits = keywords.filter((kw) => corpus.includes(kw)).length;
+    if (hits >= 2) used.push(t.title);
+  }
+  return used;
+}
 
 // Distribuição fixa dos 4 dias com feed dentro da semana (1..7).
 // Escolhemos dias que cobrem início, meio e fim da semana com bom espaçamento.
@@ -569,7 +627,19 @@ async function processJob(jobId: string) {
       } catch (trendsErr) {
         console.warn(`[job ${jobId}] fetch-market-trends falhou (ignorando):`, trendsErr);
       }
-      const marketTrendsBlock = renderMarketTrendsBlock(marketTrends);
+      // Anti-repetição: remove tendências já usadas nas últimas 2 semanas
+      const recentlyUsedTrendTitles = await fetchRecentlyUsedTrendTitles(userId);
+      const filteredMarketTrends = marketTrends.filter((t) => {
+        const titleNorm = normalize(t.title);
+        return !recentlyUsedTrendTitles.some((used) => {
+          const usedNorm = normalize(used);
+          return usedNorm.includes(titleNorm) || titleNorm.includes(usedNorm);
+        });
+      });
+      if (filteredMarketTrends.length < marketTrends.length) {
+        console.log(`[job ${jobId}] Filtradas ${marketTrends.length - filteredMarketTrends.length} tendências já usadas recentemente.`);
+      }
+      const marketTrendsBlock = renderMarketTrendsBlock(filteredMarketTrends);
 
       // Anti-repetição: traços pessoais usados nas últimas 2 semanas
       const recentlyUsedTraits = await fetchRecentlyUsedTraits(userId);
@@ -816,6 +886,26 @@ Gere agora os 7 stories da semana.`;
         }
       } catch (traitTrackErr) {
         console.warn(`[job ${jobId}] rastreio de traços pessoais falhou (ignorado):`, (traitTrackErr as any)?.message || traitTrackErr);
+      }
+
+      // Anti-repetição: registra quais tendências de mercado foram usadas nos textos gerados
+      try {
+        const usedTrends = detectUsedTrends(filteredMarketTrends, feedFinal, storiesFinal);
+        if (usedTrends.length > 0) {
+          const { error: trendErr } = await admin.from("used_market_trends").insert({
+            user_id: userId,
+            report_id: job.report_id,
+            week_index: typeof job.week_index === "number" ? job.week_index : null,
+            trends_used: usedTrends,
+          });
+          if (trendErr) {
+            console.warn(`[job ${jobId}] used_market_trends insert falhou:`, trendErr.message);
+          } else {
+            console.log(`[job ${jobId}] tendências usadas registradas:`, usedTrends);
+          }
+        }
+      } catch (trendTrackErr) {
+        console.warn(`[job ${jobId}] rastreio de tendências falhou (ignorado):`, (trendTrackErr as any)?.message || trendTrackErr);
       }
 
       await updateJob(jobId, {
