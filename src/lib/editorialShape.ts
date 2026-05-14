@@ -50,6 +50,9 @@ export interface WeekV6 {
   days: DayV6[];
   /** Marca se a semana foi inferida do shape v5 (legacy) — útil pra UI mostrar aviso. */
   legacy?: boolean;
+  _partial?: boolean;
+  _stage_b_failed?: boolean;
+  _week_index?: number;
 }
 
 const isObj = (v: unknown): v is Record<string, any> =>
