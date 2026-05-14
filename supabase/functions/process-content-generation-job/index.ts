@@ -747,6 +747,12 @@ Nicho: ${niche || "Não informado"}${verifiableFactsBlock}${storybrandContext}${
 # TEMAS JÁ PUBLICADOS (NÃO REPETIR — formato "[pilar] tema (formato)")
 ${previousSummary || "Nenhum conteúdo anterior."}${marketTrendsBlock}
 
+ANTES DE GERAR, leia os TEMAS JÁ PUBLICADOS acima. Para CADA post desta semana:
+1. Identifique se algum template/estrutura de abertura foi usado nos posts anteriores listados
+2. Para o tipo de post da vez, ESCOLHA uma estrutura de abertura DIFERENTE das já usadas
+3. Verifique se nenhuma das "FRASES PROIBIDAS" do system prompt aparece na sua saída
+4. Confirme que os CTAs dos 4 posts são de naturezas diferentes (não todos "Me chame no direct")
+
 Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
 
       const { text: feedRaw, stopReason: feedStop } = await callClaudeWithMeta({
