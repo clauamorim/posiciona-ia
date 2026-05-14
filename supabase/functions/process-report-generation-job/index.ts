@@ -496,26 +496,43 @@ Gere o relatório estratégico completo em JSON conforme a estrutura exigida.`;
     let reportContent: any = null;
     let isFallback = false;
 
-    try {
-      // Uma única chamada paga, sem retry automático.
-      const rawContent = await callClaude({
-        systemPrompt,
-        userText: userPrompt,
-        max_tokens: 10000,
-        timeoutMs: 180000,
-        disableRetries: true,
-      });
+    let lastError: any = null;
+    const MAX_ATTEMPTS = 3;
+    const BACKOFF_MS = [0, 8000, 20000];
 
-      const parsed = extractJsonFromLLM(rawContent);
-      if (parsed && isValidReport(parsed)) {
-        reportContent = parsed;
-      } else {
-        console.warn(`Report job ${jobId}: JSON inválido do Claude, usando fallback determinístico.`);
-        reportContent = buildDeterministicReport(payload);
-        isFallback = true;
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+      if (BACKOFF_MS[attempt] > 0) {
+        await updateJob(jobId, {
+          progress_message: `Refinando estratégia (tentativa ${attempt + 1}/${MAX_ATTEMPTS})…`,
+        });
+        await new Promise((r) => setTimeout(r, BACKOFF_MS[attempt]));
       }
-    } catch (claudeErr: any) {
-      console.warn(`Report job ${jobId}: Claude falhou (${claudeErr?.status || "?"}), usando fallback determinístico:`, claudeErr?.message);
+
+      try {
+        const rawContent = await callClaude({
+          systemPrompt,
+          userText: userPrompt,
+          max_tokens: 10000,
+          timeoutMs: 180000,
+          disableRetries: true, // o loop externo controla o retry
+        });
+
+        const parsed = extractJsonFromLLM(rawContent);
+        if (parsed && isValidReport(parsed)) {
+          reportContent = parsed;
+          break;
+        }
+
+        lastError = new Error("Invalid JSON from Claude");
+        console.warn(`[report] job ${jobId} attempt ${attempt + 1}/${MAX_ATTEMPTS}: JSON inválido`);
+      } catch (claudeErr: any) {
+        lastError = claudeErr;
+        console.warn(`[report] job ${jobId} attempt ${attempt + 1}/${MAX_ATTEMPTS} falhou (${claudeErr?.status || "?"}): ${claudeErr?.message}`);
+      }
+    }
+
+    if (!reportContent) {
+      console.error(`[report] job ${jobId} esgotou ${MAX_ATTEMPTS} tentativas, usando fallback determinístico. Último erro:`, lastError?.message);
       reportContent = buildDeterministicReport(payload);
       isFallback = true;
     }
