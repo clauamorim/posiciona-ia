@@ -85,6 +85,35 @@ const CURSORS: Record<Corner, string> = {
   t: "ns-resize", b: "ns-resize", l: "ew-resize", r: "ew-resize",
 };
 
+/**
+ * Estima o fontSize ideal do título para caber na altura disponível.
+ * Usa aproximação de largura média de caractere (~0.45 * fontSize) para evitar
+ * medição DOM (que daria flicker). Reduz em passos de 2px até caber ou bater no piso.
+ */
+function fitTitleFontSize(
+  rawText: string,
+  boxWidth: number,
+  maxHeight: number,
+  baseFontSize: number,
+  minFontSize: number,
+  lineHeight: number,
+): number {
+  if (!rawText || boxWidth <= 0 || maxHeight <= 0) return baseFontSize;
+  const stripped = rawText.replace(/<[^>]*>/g, "").trim();
+  if (!stripped) return baseFontSize;
+  const charCount = stripped.length;
+  let size = baseFontSize;
+  while (size > minFontSize) {
+    const avgCharWidth = size * 0.45;
+    const charsPerLine = Math.max(1, Math.floor(boxWidth / avgCharWidth));
+    const lines = Math.ceil(charCount / charsPerLine);
+    const heightNeeded = lines * size * lineHeight;
+    if (heightNeeded <= maxHeight) return size;
+    size -= 2;
+  }
+  return minFontSize;
+}
+
 export interface TextBox {
   id: string;
   type: "title" | "body";
