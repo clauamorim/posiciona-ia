@@ -1069,6 +1069,45 @@ export type Database = {
         }
         Relationships: []
       }
+      used_title_patterns: {
+        Row: {
+          central_concepts: string[]
+          created_at: string
+          day_index: number
+          id: string
+          pillar: string
+          report_id: string | null
+          title_anchors: string[]
+          title_formula: string
+          user_id: string
+          week_index: number
+        }
+        Insert: {
+          central_concepts?: string[]
+          created_at?: string
+          day_index: number
+          id?: string
+          pillar?: string
+          report_id?: string | null
+          title_anchors?: string[]
+          title_formula?: string
+          user_id: string
+          week_index: number
+        }
+        Update: {
+          central_concepts?: string[]
+          created_at?: string
+          day_index?: number
+          id?: string
+          pillar?: string
+          report_id?: string | null
+          title_anchors?: string[]
+          title_formula?: string
+          user_id?: string
+          week_index?: number
+        }
+        Relationships: []
+      }
       user_balances: {
         Row: {
           id: string

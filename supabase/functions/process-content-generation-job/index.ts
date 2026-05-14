@@ -37,6 +37,15 @@ import {
   POSITIONING_GUARDRAIL_BLOCK,
   type MarketTrend,
 } from "../_shared/professionRules.ts";
+import {
+  buildDiversityHints,
+  fingerprintPost,
+  renderDiversityBlock,
+  renderPillarPlanBlock,
+  renderRetryInstructions,
+  validateWeekDiversity,
+  type FeedPostLike,
+} from "../_shared/editorialDiversity.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -783,12 +792,30 @@ async function processJob(jobId: string) {
       const recentTraitsBlock = renderRecentTraitsBlock(recentlyUsedTraits);
       const personalTraitMap = buildPersonalTraitMap(personal);
 
+      // Hints de diversidade — fórmulas e conceitos centrais usados nas últimas 2 semanas
+      let diversityHints = { bannedFormulas: [] as any[], dampenedConcepts: [] as any[] };
+      try {
+        const since = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+        const { data: patternRows } = await admin
+          .from("used_title_patterns")
+          .select("title_formula, central_concepts, created_at")
+          .eq("user_id", userId)
+          .gte("created_at", since)
+          .order("created_at", { ascending: false })
+          .limit(40);
+        diversityHints = buildDiversityHints((patternRows as any[]) || []);
+      } catch (hintErr) {
+        console.warn(`[job ${jobId}] buildDiversityHints falhou (ignorado):`, (hintErr as any)?.message || hintErr);
+      }
+
       // ==== ESTÁGIO A: Feed (4 posts) ====
       await updateJob(jobId, { progress_message: "Gerando seus 4 posts de feed (etapa 1 de 2)…" });
 
       const feedSystem =
         NARRATIVE_PRINCIPLES_BLOCK +
         POSITIONING_GUARDRAIL_BLOCK +
+        renderPillarPlanBlock() +
+        renderDiversityBlock(diversityHints as any) +
         ethicalBlock +
         "\n\n" +
         buildFeedSystemPrompt(rotationOffset) +
@@ -914,9 +941,68 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
         };
       });
 
+      // ==== Validação de diversidade + retry guiado (não bloqueia entrega) ====
+      try {
+        const validation = validateWeekDiversity(feedFinal as unknown as FeedPostLike[], diversityHints as any);
+        if (!validation.ok) {
+          console.warn(`[job ${jobId}] diversidade: violações detectadas`, validation.violations);
+          await updateJob(jobId, { progress_message: "Ajustando diversidade dos posts…" });
+          const retryUser = `${feedUser}${renderRetryInstructions(validation.violations)}`;
+          try {
+            const { text: divRetryRaw } = await callClaudeWithMeta({
+              systemPrompt: feedSystem,
+              userText: retryUser,
+              model: "claude-opus-4-7",
+              max_tokens: 4500,
+              timeoutMs: 120000,
+              disableRetries: true,
+            });
+            let divRetryParsed: any = extractJsonFromLLM(divRetryRaw);
+            if (!Array.isArray(divRetryParsed) || divRetryParsed.length === 0) {
+              divRetryParsed = extractPartialDayObjects(divRetryRaw);
+            }
+            if (Array.isArray(divRetryParsed) && divRetryParsed.length > 0) {
+              const replaceMap = new Map<number, FeedPost>();
+              for (const p of divRetryParsed) {
+                if (!p || typeof p !== "object") continue;
+                const dayN = Number((p as any).day);
+                if (!FEED_DAYS.includes(dayN)) continue;
+                const cleaned = sanitizePost(p as Record<string, any>) as FeedPost;
+                cleaned.day = dayN;
+                cleaned.format = (cleaned.format || "post").toString().toLowerCase();
+                if (cleaned.format === "stories") cleaned.format = "post";
+                cleaned.is_personal = Boolean((cleaned as any).is_personal);
+                replaceMap.set(dayN, cleaned);
+              }
+              for (let i = 0; i < feedFinal.length; i++) {
+                const r = replaceMap.get(feedFinal[i].day);
+                if (r) feedFinal[i] = r;
+              }
+              const after = validateWeekDiversity(feedFinal as unknown as FeedPostLike[], diversityHints as any);
+              if (!after.ok) {
+                console.warn(`[job ${jobId}] [editorial-diversity] retry-violation`, {
+                  user_id: userId,
+                  week_index: job.week_index,
+                  violations: after.violations,
+                });
+              } else {
+                console.log(`[job ${jobId}] [editorial-diversity] retry-ok`);
+              }
+            } else {
+              console.warn(`[job ${jobId}] diversidade: retry sem posts válidos, mantendo versão original.`);
+            }
+          } catch (divRetryErr: any) {
+            console.warn(`[job ${jobId}] diversidade: retry falhou (mantendo versão original):`, divRetryErr?.message || divRetryErr);
+          }
+        }
+      } catch (divErr) {
+        console.warn(`[job ${jobId}] validação de diversidade falhou (ignorada):`, (divErr as any)?.message || divErr);
+      }
+
       // Persiste resultado parcial — permite retomar se o estágio B falhar
       await updateJob(jobId, {
         progress_message: "Gerando seus 7 stories da semana (etapa 2 de 2)…",
+
         result: { stage: "feed_done", feed: feedFinal, generator_version: EDITORIAL_GENERATOR_VERSION },
       });
 
@@ -1015,6 +1101,36 @@ Gere agora os 7 stories da semana.`;
       // Persiste a semana completa
       await updateJob(jobId, { progress_message: "Salvando conteúdo…" });
       const weekObj = await persistWeek(job.report_id, feedFinal, storiesFinal, jobId, marketTrends);
+
+      // Persiste fingerprints de diversidade + log de telemetria estruturado
+      try {
+        const wkIdx = typeof job.week_index === "number" ? job.week_index : 0;
+        const fingerprints = feedFinal.map((p) => fingerprintPost(p as unknown as FeedPostLike));
+        const rows = fingerprints.map((fp) => ({
+          user_id: userId,
+          report_id: job.report_id,
+          week_index: wkIdx,
+          day_index: fp.day,
+          pillar: fp.pillar,
+          title_formula: fp.formula,
+          title_anchors: fp.anchors,
+          central_concepts: fp.concepts,
+        }));
+        const { error: patternErr } = await admin.from("used_title_patterns").insert(rows);
+        if (patternErr) {
+          console.warn(`[job ${jobId}] used_title_patterns insert falhou:`, patternErr.message);
+        }
+        const finalCheck = validateWeekDiversity(feedFinal as unknown as FeedPostLike[], diversityHints as any);
+        console.log(
+          `[editorial-diversity] week=W${wkIdx + 1} user=${userId}\n` +
+          `  pillars=${JSON.stringify(fingerprints.map((f) => f.pillar))}\n` +
+          `  formulas=${JSON.stringify(fingerprints.map((f) => f.formula))}\n` +
+          `  concept_groups_central=${JSON.stringify(fingerprints.map((f) => f.concepts))}\n` +
+          `  violations=${JSON.stringify(finalCheck.violations)}`,
+        );
+      } catch (patternTrackErr) {
+        console.warn(`[job ${jobId}] persistência de title patterns falhou (ignorada):`, (patternTrackErr as any)?.message || patternTrackErr);
+      }
 
       // Anti-repetição: registra quais traços pessoais aparecem nos textos gerados
       try {

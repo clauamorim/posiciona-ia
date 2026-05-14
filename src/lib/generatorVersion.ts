@@ -32,7 +32,7 @@
  *   visual. Prompts reforçados (limites por slide, exemplos bom/ruim) +
  *   sanitização backend que compacta itens longos e remove eco da
  *   legenda. Frontend `editorialCardCopy.ts` normaliza conteúdos legados.
- * - 2026-05-14-v8: upgrade para Claude Sonnet 4.6. Bloco FATOS
+ * - 2026-05-14-v9: upgrade para Claude Sonnet 4.6. Bloco FATOS
  *   VERIFICÁVEIS (anti-alucinação) injetado em todo prompt: sem fatos
  *   cadastrados, exemplos numéricos viram pergunta/hipótese. Seis
  *   pilares editoriais fixos (metodo, mito, mercado, caso,
@@ -43,7 +43,7 @@
  *   post didático segue estrutura tese → evidência → aplicação. Posts
  *   passam a carregar campo `pillar`.
  */
-export const EDITORIAL_GENERATOR_VERSION = "2026-05-14-v8";
+export const EDITORIAL_GENERATOR_VERSION = "2026-05-14-v9";
 
 /**
  * Retorna true quando o dia/post foi gerado antes da versão atual,
