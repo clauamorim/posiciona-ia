@@ -15,6 +15,11 @@ import { detectProfession, getEthicalRulesBlock, POSITIONING_GUARDRAIL_BLOCK } f
 import { validateReportCoherence, renderCoherenceRetryInstructions } from "../_shared/reportCoherenceValidator.ts";
 import { persistBrandSSoT } from "../_shared/brandSSoT.ts";
 import { getArchetypeReference } from "../_shared/archetypeReferences.ts";
+import {
+  detectTitleFormula,
+  detectTitleAnchors,
+  detectConceptGroups,
+} from "../_shared/editorialDiversity.ts";
 
 const truncateText = (s: any, n: number): string =>
   String(s ?? "").trim().replace(/\s+/g, " ").slice(0, n);
