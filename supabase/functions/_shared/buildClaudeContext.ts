@@ -209,15 +209,49 @@ export function renderPersonalContext(personal: PersonalAnswers | null | undefin
   if (lines.length === 0) return "";
 
   return `\n\n# CONTEXTO PESSOAL DO CRIADOR (use para humanizar — NUNCA invente fatos)
-Estas são respostas reais do criador. Reserve 1–2 dos 7 dias da semana para posts em formato STORYTELLING que tecem paralelos entre a vida pessoal/história do criador e as dores do cliente-alvo (modelo "do tatame ao tribunal"). Nos demais dias, use detalhes pessoais como tempero — referências sutis, vocabulário, exemplos concretos — sem forçar.
+Estas são respostas reais do criador, disponíveis para uso editorial.
 
 ${lines.join("\n")}
 
 REGRAS DE USO DESTE CONTEXTO:
+- Use estes dados APENAS quando o post estiver explicitamente marcado como pessoal (is_personal=true), o que ocorre no pilar "bastidor". Nos demais posts, NÃO insira menções pessoais, vivências do criador, hobbies, família ou rotina.
 - NUNCA invente fatos pessoais. Use apenas o que está acima.
 - NUNCA exponha dados sensíveis literalmente (ex: nome de familiares, doenças, endereços).
 - Prefira metáforas e paralelos a descrições literais.
 - Se um campo estiver ausente acima, simplesmente não o use.`;
+}
+
+// ============ Fatos verificáveis (anti-alucinação) ============
+
+/**
+ * Renderiza o bloco "FATOS VERIFICÁVEIS" usado como guarda-corpo
+ * anti-alucinação. Quando o questionário de negócio expõe os campos
+ * `verifiable_facts`, `mini_cases` e/ou `signature_phrases`, o bloco
+ * lista os fatos como fonte da verdade. Sem esses campos (estado atual),
+ * renderiza a versão "sem fatos" que força o modelo a usar pergunta /
+ * hipótese em vez de afirmação fabricada.
+ */
+export function renderVerifiableFactsBlock(business: any | null | undefined): string {
+  const facts = (business?.verifiable_facts || "").toString().trim();
+  const cases = (business?.mini_cases || "").toString().trim();
+  const phrases = (business?.signature_phrases || "").toString().trim();
+
+  const hasAny = facts.length > 0 || cases.length > 0 || phrases.length > 0;
+
+  if (!hasAny) {
+    return `\n\n# FATOS VERIFICÁVEIS
+Sem fatos cadastrados. TODOS os exemplos numéricos, casos e métricas devem ser formulados como pergunta ou hipótese ("e se...", "imagine um profissional que...", "é comum ver..."). NUNCA afirme como fato concreto algo que não está no contexto da marca. Frases-marcantes, percentuais, nomes de clientes, prêmios, anos de experiência: nada disso pode aparecer como afirmação.`;
+  }
+
+  const parts: string[] = [];
+  if (facts.length > 0) parts.push(`Números/provas: ${facts}`);
+  if (cases.length > 0) parts.push(`Mini-cases: ${cases}`);
+  if (phrases.length > 0) parts.push(`Frases-marcantes: ${phrases}`);
+
+  return `\n\n# FATOS VERIFICÁVEIS (FONTE DA VERDADE)
+${parts.join("\n\n")}
+
+REGRA: todo número, caso, métrica ou exemplo concreto citado em qualquer post DEVE vir literalmente desta lista. Se não houver fato pertinente para o ângulo do post, reescreva em formato pergunta/hipótese ("e se...", "imagine que...", "em geral...") em vez de afirmar fato fabricado. Frases-marcantes podem ser parafraseadas, mas não distorcidas.`;
 }
 
 // ============ StoryBrand + Tom de voz ============

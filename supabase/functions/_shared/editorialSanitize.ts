@@ -181,6 +181,15 @@ function normalizeCardCopy(items: string[], caption: string, format: string): st
  * incluindo cada item de `card_copy`. Mantém demais propriedades intactas.
  * Também compacta `card_copy` para evitar eco da legenda no card visual.
  */
+const VALID_PILLAR_IDS = new Set([
+  "metodo",
+  "mito",
+  "mercado",
+  "caso",
+  "posicionamento",
+  "bastidor",
+]);
+
 export function sanitizePost<T extends Record<string, any>>(post: T): T {
   if (!post || typeof post !== "object") return post;
   const cleaned: any = { ...post };
@@ -195,6 +204,21 @@ export function sanitizePost<T extends Record<string, any>>(post: T): T {
       typeof cleaned.caption === "string" ? cleaned.caption : "",
       typeof cleaned.format === "string" ? cleaned.format : "",
     );
+  }
+  // Normaliza o campo `pillar`: aceita um dos 6 ids válidos; ausente ou
+  // desconhecido vira "legacy" (não bloqueia o post — conteúdo antigo
+  // continua válido).
+  const rawPillar = cleaned.pillar;
+  if (typeof rawPillar === "string") {
+    const normalized = rawPillar.trim().toLowerCase();
+    if (VALID_PILLAR_IDS.has(normalized)) {
+      cleaned.pillar = normalized;
+    } else {
+      console.warn(`sanitizePost: pillar desconhecido "${rawPillar}", marcando como "legacy".`);
+      cleaned.pillar = "legacy";
+    }
+  } else {
+    cleaned.pillar = "legacy";
   }
   return cleaned as T;
 }

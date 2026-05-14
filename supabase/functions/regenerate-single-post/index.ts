@@ -22,7 +22,14 @@ import {
   renderStorybrandBlock,
   renderToneBlock,
   renderEditorialFrameworks,
+  renderVerifiableFactsBlock,
 } from "../_shared/buildClaudeContext.ts";
+import {
+  EDITORIAL_PILLARS,
+  renderPillarsBlock,
+  isValidPillar,
+  type PillarId,
+} from "../_shared/editorialPillars.ts";
 import { NARRATIVE_PRINCIPLES_BLOCK } from "../_shared/narrativePrinciples.ts";
 import {
   detectProfession,
@@ -67,6 +74,7 @@ serve(async (req) => {
       currentVersion,
       themeOverride,          // novo: tema sugerido por tendência de mercado (opcional)
       marketTrends,           // novo: tendências já salvas na semana (opcional)
+      pillar,                 // novo: pilar do post original (mantém coerência da semana)
     } = body;
 
     if (!business) {
@@ -75,6 +83,17 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    const lockedPillar: PillarId | null = isValidPillar(pillar) ? pillar : null;
+    const pillarMeta = lockedPillar
+      ? EDITORIAL_PILLARS.find((p) => p.id === lockedPillar) || null
+      : null;
+    const pillarContextBlock = pillarMeta
+      ? `\n\n# PILAR DESTE POST (manter coerência com a semana)
+Pilar fixo: ${pillarMeta.id} ("${pillarMeta.label}")
+${pillarMeta.description}
+REGRA: o JSON de saída DEVE conter "pillar": "${pillarMeta.id}". O conteúdo visível ao público NUNCA cita o nome do pilar.`
+      : "";
 
     if (freeRegeneration && !isOutdatedVersion(currentVersion)) {
       return new Response(JSON.stringify({ error: "Este item já está atualizado." }), {
@@ -91,6 +110,7 @@ serve(async (req) => {
 
     const storybrandContext = renderStorybrandBlock(storybrand);
     const toneContext = renderToneBlock(tone_of_voice);
+    const verifiableFactsBlock = renderVerifiableFactsBlock(business);
     const personal = userId ? await fetchPersonalQuestionnaire(userId) : null;
     const personalContext = renderPersonalContext(personal);
 
@@ -155,7 +175,7 @@ Português brasileiro.`;
 Empresa: ${business.company_name || ""}
 Serviços: ${business.services || ""}
 Público: ${business.target_audience || ""}
-Nicho: ${niche || ""}${storybrandContext}${toneContext}${personalContext}${marketTrendsBlock}${themeOverrideBlock}
+Nicho: ${niche || ""}${verifiableFactsBlock}${storybrandContext}${toneContext}${personalContext}${marketTrendsBlock}${themeOverrideBlock}
 
 # OUTROS TEMAS DA SEMANA (não repetir)
 ${existingTitles || "Nenhum"}
@@ -163,7 +183,7 @@ ${existingTitles || "Nenhum"}
 Gere o story do dia ${dayNumber || 1}.`;
 
       const enrichedStorySystem =
-        NARRATIVE_PRINCIPLES_BLOCK + ethicalBlock + "\n\n" + storySystem + renderEditorialFrameworks();
+        NARRATIVE_PRINCIPLES_BLOCK + ethicalBlock + "\n\n" + storySystem + renderPillarsBlock() + renderEditorialFrameworks();
 
       let rawStory: string;
       try {
@@ -229,6 +249,18 @@ Gere o story do dia ${dayNumber || 1}.`;
       });
     }
 
+    const pillarOutputLine = lockedPillar
+      ? `  "pillar": "${lockedPillar}",`
+      : `  "pillar": "metodo" | "mito" | "mercado" | "caso" | "posicionamento" | "bastidor",`;
+    const pillarRequiredRule = lockedPillar
+      ? `- O campo "pillar" DEVE ser exatamente "${lockedPillar}" (mantém coerência com a semana).`
+      : `- O campo "pillar" é obrigatório, com um dos 6 ids válidos.`;
+    const personalRule = lockedPillar
+      ? (lockedPillar === "bastidor"
+        ? `- Como o pilar é "bastidor", marque is_personal=true e use vivência real do criador (do bloco CONTEXTO PESSOAL). Nunca invente fatos pessoais.`
+        : `- Como o pilar NÃO é "bastidor", is_personal DEVE ser false. Não insira menções pessoais, vivências ou rotina do criador.`)
+      : `- is_personal=true SOMENTE quando pillar="bastidor". Caso contrário, is_personal=false.`;
+
     const systemPrompt = `Você é um especialista em copy para Instagram. Aplique de forma OBRIGATÓRIA três frameworks (descritos ao final):
 1) StoryBrand — clareza narrativa.
 2) Obviously Awesome — posicionamento específico.
@@ -241,6 +273,7 @@ Gere UM ÚNICO post de feed novo, no formato pedido.
 REGRA DE LINGUAGEM:
 PROIBIDO escrever em campos visíveis: "Problema Externo", "Problema Interno", "Problema Filosófico", "O Plano", "Chamada à Ação", "Chamada para Ação", "O Sucesso", "O Fracasso", "O Guia", "O Herói", "StoryBrand", "Framework", "Posicionamento", "Categoria", "SUCCES", "Made to Stick", "Obviously Awesome".
 NUNCA prefixe card_copy com "Slide 1:", "Card 1:".
+Os ids de pilar (metodo, mito, mercado, caso, posicionamento, bastidor) também são INTERNOS — vão no campo "pillar" do JSON, NUNCA aparecem na copy visível.
 
 🟥 SEPARAÇÃO OBRIGATÓRIA — CARD vs LEGENDA:
 "caption" e "card_copy" NÃO PODEM ter o mesmo texto.
@@ -257,11 +290,18 @@ ESTRATÉGIA:
 - Carrossel: Slide 1=gancho curto (≤12 palavras), Slide 2=problema, meio=insight/prova (1 ideia por slide), último=CTA.
 - CTA verbal e direto.
 
+ESTRATÉGIA DE PROFUNDIDADE (camadas obrigatórias):
+Cada post didático deve ter 3 camadas explícitas dentro da caption:
+1. TESE — afirmação clara, contraintuitiva quando possível.
+2. EVIDÊNCIA — dado, número, mini-case ou observação retirada LITERALMENTE do bloco FATOS VERIFICÁVEIS. Sem fato pertinente, formule como hipótese sinalizada ("é comum ver...", "imagine um cliente que...") — JAMAIS invente número/case.
+3. APLICAÇÃO PRÁTICA — o que o leitor faz amanhã com isso.
+
 HUMANIZAÇÃO: se o post for storytelling pessoal, use vivência REAL do criador (do bloco contexto pessoal). NUNCA invente fatos.
 
 OUTPUT:
 {
   "day": ${dayNumber || 1},
+${pillarOutputLine}
   "theme": "...",
   "format": "${format}",
   "caption": "LEGENDA COMPLETA, longa (≠ card_copy)",
@@ -273,17 +313,24 @@ OUTPUT:
 
 Regras:
 - Tema completamente diferente dos posts existentes
+${pillarRequiredRule}
+${personalRule}
 - Carrossel: card_copy ≥ 5 slides curtos
 - Post: card_copy = 1 item curto (≠ caption)
 - Reels: card_copy = []
 - script: apenas reels tem texto; post/carrossel = ""
-- Português brasileiro.`;
+- Português brasileiro.
+
+CHECKLIST FINAL:
+1. Campo "pillar" presente${lockedPillar ? ` e igual a "${lockedPillar}"` : ""}?
+2. is_personal coerente com o pilar (true SOMENTE em "bastidor")?
+3. Cada número, case, métrica ou exemplo concreto existe LITERALMENTE no bloco FATOS VERIFICÁVEIS? Se não, foi reescrito como pergunta/hipótese explícita?`;
 
     const userPrompt = `# NEGÓCIO
 Empresa: ${business.company_name || ""}
 Serviços: ${business.services || ""}
 Público: ${business.target_audience || ""}
-Nicho: ${niche || ""}${storybrandContext}${toneContext}${personalContext}${marketTrendsBlock}${themeOverrideBlock}
+Nicho: ${niche || ""}${verifiableFactsBlock}${storybrandContext}${toneContext}${personalContext}${pillarContextBlock}${marketTrendsBlock}${themeOverrideBlock}
 
 # POSTS JÁ EXISTENTES (NÃO REPETIR)
 ${existingTitles || "Nenhum"}
@@ -291,7 +338,7 @@ ${existingTitles || "Nenhum"}
 Gere 1 novo post de feed no formato "${format}".`;
 
     const enrichedSystemPrompt =
-      NARRATIVE_PRINCIPLES_BLOCK + ethicalBlock + "\n\n" + systemPrompt + renderEditorialFrameworks();
+      NARRATIVE_PRINCIPLES_BLOCK + ethicalBlock + "\n\n" + systemPrompt + renderPillarsBlock() + renderEditorialFrameworks();
 
     let rawContent: string;
     try {
@@ -335,8 +382,12 @@ Gere 1 novo post de feed no formato "${format}".`;
       }
     }
 
+    const finalPillar = lockedPillar
+      || (isValidPillar((cleaned as any).pillar) ? (cleaned as any).pillar : "legacy");
     const stampedPost = {
       ...cleaned,
+      pillar: finalPillar,
+      is_personal: finalPillar === "bastidor" ? Boolean((cleaned as any).is_personal) : false,
       day: Number(dayNumber || (cleaned as any).day || 1),
       generator_version: EDITORIAL_GENERATOR_VERSION,
     };
