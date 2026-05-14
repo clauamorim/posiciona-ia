@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { detectProfession, getEthicalRulesBlock, POSITIONING_GUARDRAIL_BLOCK } from "../_shared/professionRules.ts";
 import { validatePostCompliance } from "../_shared/complianceValidator.ts";
+import { loadBrandSSoT, renderBrandSSoTBlock } from "../_shared/brandSSoT.ts";
 
 const BIO_MIN = 130;
 const BIO_MAX = 145;
