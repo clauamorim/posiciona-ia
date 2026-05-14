@@ -299,6 +299,12 @@ const EditorialPage = () => {
         }
       }
 
+      if (pollingRef.current.stop) {
+        setGeneratingWeek(false);
+        setGeneratingMessage("");
+        return;
+      }
+
       if (!finalResult?.editorial) {
         throw new Error("Nenhum conteúdo foi gerado. Tente novamente.");
       }
