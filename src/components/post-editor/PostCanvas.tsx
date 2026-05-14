@@ -553,6 +553,25 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   // Ignora titleFontSize do usuário/template quando for menor que o mínimo do arquétipo.
   const userTitleSize = titleFontSize && titleFontSize >= typo.titleSizeMin ? titleFontSize : archetypeTitleSize;
   const resolvedTitleFontSize = Math.max(archetypeTitleFloor, userTitleSize);
+
+  // Auto-fit do título: reduz fontSize quando o texto não cabe na altura entre
+  // o slot do título e o slot do corpo (evita sobreposição visual).
+  const titleBoxForFit = textBoxes.find(t => t.type === "title");
+  const bodyBoxForFit = textBoxes.find(t => t.type === "body");
+  const titleSafetyGap = 40; // px entre fim do título e início do corpo
+  const availableTitleHeight = (titleBoxForFit && bodyBoxForFit)
+    ? Math.max(80, bodyBoxForFit.y - titleBoxForFit.y - titleSafetyGap)
+    : (titleBoxForFit?.height || 200);
+  const titleBoxWidth = titleBoxForFit?.width || 880;
+  const fittedTitleFontSize = fitTitleFontSize(
+    title || "",
+    titleBoxWidth,
+    availableTitleHeight,
+    resolvedTitleFontSize,
+    archetypeTitleFloor,
+    typo.titleLineHeight,
+  );
+
   const resolvedTitleColor = titleColor || textColor;
   const resolvedTitleFont = titleFontFamily || displayFont;
 
