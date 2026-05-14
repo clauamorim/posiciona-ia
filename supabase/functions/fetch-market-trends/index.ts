@@ -1,19 +1,27 @@
 // fetch-market-trends
 // Busca 2-3 tendências/notícias recentes (últimos 14 dias) do nicho do usuário
-// usando Claude com a tool nativa `web_search_20250305`. Cache em memória por
-// (profession+niche) com TTL de 24h. Falhas são silenciosas (retorna []).
+// usando Claude com a tool nativa `web_search_20250305`. Cache persistido em
+// market_trends_cache (TTL 24h) para sobreviver a cold starts. Falhas são
+// silenciosas (retorna []).
 //
 // Input: { profession: string, niche: string }
 // Output: { trends: MarketTrend[] }
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { corsHeaders } from "../_shared/cors.ts";
 import { extractJsonFromLLM } from "../_shared/jsonExtract.ts";
 
 const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
-const MODEL = "claude-sonnet-4-5";
-const TTL_MS = 24 * 60 * 60 * 1000; // 24h
+const MODEL = "claude-sonnet-4-6";
+const TTL_HOURS = 24;
+
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+  auth: { persistSession: false, autoRefreshToken: false },
+});
 
 interface MarketTrend {
   title: string;
@@ -23,15 +31,36 @@ interface MarketTrend {
   angle_suggestion?: string;
 }
 
-interface CacheEntry {
-  trends: MarketTrend[];
-  expiresAt: number;
-}
-
-const cache = new Map<string, CacheEntry>();
-
 function cacheKey(profession: string, niche: string): string {
   return `${profession.toLowerCase().trim()}::${niche.toLowerCase().trim()}`;
+}
+
+async function readCache(key: string): Promise<MarketTrend[] | null> {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from("market_trends_cache")
+      .select("trends, expires_at")
+      .eq("key", key)
+      .gt("expires_at", new Date().toISOString())
+      .maybeSingle();
+    if (error || !data) return null;
+    return Array.isArray(data.trends) ? (data.trends as MarketTrend[]) : null;
+  } catch (e: any) {
+    console.warn("fetch-market-trends: cache read error", e?.message || e);
+    return null;
+  }
+}
+
+async function writeCache(key: string, trends: MarketTrend[]): Promise<void> {
+  try {
+    const expiresAt = new Date(Date.now() + TTL_HOURS * 60 * 60 * 1000).toISOString();
+    const { error } = await supabaseAdmin
+      .from("market_trends_cache")
+      .upsert({ key, trends, expires_at: expiresAt, updated_at: new Date().toISOString() }, { onConflict: "key" });
+    if (error) console.warn("fetch-market-trends: cache write error", error.message);
+  } catch (e: any) {
+    console.warn("fetch-market-trends: cache write exception", e?.message || e);
+  }
 }
 
 async function fetchTrends(profession: string, niche: string): Promise<MarketTrend[]> {
@@ -146,23 +175,24 @@ serve(async (req) => {
     }
 
     const key = cacheKey(profession, niche);
-    const now = Date.now();
-    const cached = cache.get(key);
-    if (cached && cached.expiresAt > now) {
-      return new Response(JSON.stringify({ trends: cached.trends, cached: true }), {
+    const cached = await readCache(key);
+    if (cached) {
+      return new Response(JSON.stringify({ trends: cached, cached: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     const trends = await fetchTrends(profession, niche);
-    cache.set(key, { trends, expiresAt: now + TTL_MS });
+    // Só persiste se houver resultado, para não cravar array vazio por 24h em caso de falha pontual.
+    if (trends.length > 0) {
+      await writeCache(key, trends);
+    }
 
     return new Response(JSON.stringify({ trends, cached: false }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e: any) {
     console.error("fetch-market-trends error:", e);
-    // Falha silenciosa: retorna array vazio para não quebrar geração.
     return new Response(JSON.stringify({ trends: [] }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
