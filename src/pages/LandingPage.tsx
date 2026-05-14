@@ -453,15 +453,14 @@ const LandingPage = () => {
       <section className="py-12 md:py-16 px-4 bg-landing-bg-secondary/40">
         <div className="max-w-3xl mx-auto text-center space-y-8">
           <h2 className="text-2xl md:text-3xl font-display font-semibold leading-tight">
-            Quando sua presença digital não acompanha{" "}
-            <span className="text-landing-gold italic">seu nível profissional</span>
+            Parece familiar?{" "}
           </h2>
           <div className="grid sm:grid-cols-2 gap-4 text-left max-w-2xl mx-auto">
             {[
-              "Sua marca parece genérica",
-              "Seu conteúdo não traduz sua autoridade",
-              "Você perde tempo decidindo o que postar",
-              "Seu perfil não atrai com clareza o cliente certo",
+              "Domingo à noite e você ainda não sabe o que postar segunda",
+              "Colegas com menos experiência parecem mais visíveis que você",
+              "Você cobra bem, mas seu perfil não transmite isso",
+              "Publica quando dá, some por semanas, recomeça do zero",
             ].map((item, i) => (
               <div key={i} className="flex items-start gap-3 p-4 rounded-lg border border-landing-border/50 bg-landing-bg/50">
                 <div className="w-6 h-6 rounded-full bg-landing-purple/20 flex items-center justify-center flex-shrink-0 mt-0.5">
