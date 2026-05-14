@@ -383,11 +383,17 @@ function buildSearchQuery(opts: {
     return q.slice(0, 90);
   }
 
-  // Sem userQuery: âncora vira a CENA EDITORIAL do nicho — substitui as
-  // keywords genéricas extraídas do texto do post.
+  // Sem userQuery: combina cena editorial do nicho + keywords da MENSAGEM do post.
+  // Antes só usava nicho + cena (gerava imagens genéricas de escritório, mesmo
+  // quando o post falava de tema específico). Agora a busca reflete o argumento.
   const scene = pickNicheScene(opts.niche, opts.seed);
-  const sceneAnchor = scene.split(",")[0].trim(); // "attorney at mahogany desk reviewing documents"
-  const parts = [nicheEN, sceneAnchor].filter(Boolean);
+  const sceneAnchor = scene.split(",")[0].trim();
+
+  // Extrai 2 keywords da mensagem central (cardCopy > theme > body) — capta o tema.
+  const messageSource = opts.cardCopy || opts.theme || opts.body || "";
+  const messageKeywords = extractKeywordsFromText(messageSource, 2).join(" ");
+
+  const parts = [nicheEN, sceneAnchor, messageKeywords].filter(Boolean);
   let query = parts.join(" ").trim();
   query = filterSensitive(query, opts.niche);
   if (!query.trim()) query = "minimal abstract editorial";
