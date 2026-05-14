@@ -127,6 +127,29 @@ async function fetchRecentlyUsedTraits(userId: string): Promise<string[]> {
   }
 }
 
+/** Lê últimas 2 entradas de used_market_trends do usuário. */
+async function fetchRecentlyUsedTrendTitles(userId: string): Promise<string[]> {
+  try {
+    const { data } = await admin
+      .from("used_market_trends")
+      .select("trends_used")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(2);
+    if (!Array.isArray(data)) return [];
+    const flat: string[] = [];
+    for (const row of data) {
+      if (Array.isArray(row.trends_used)) {
+        for (const t of row.trends_used) if (typeof t === "string" && t.trim()) flat.push(t);
+      }
+    }
+    return Array.from(new Set(flat));
+  } catch (e) {
+    console.warn("fetchRecentlyUsedTrendTitles falhou:", (e as any)?.message || e);
+    return [];
+  }
+}
+
 function renderRecentTraitsBlock(traits: string[]): string {
   if (!traits || traits.length === 0) return "";
   const lines = traits.map((t) => `- ${t}`).join("\n");
