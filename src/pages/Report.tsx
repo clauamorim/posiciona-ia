@@ -12,7 +12,7 @@ import {
   Loader2, Download, FileText, Palette, Type, MessageSquare,
   Target, Crown, Shield, Heart,
   Users, Zap, BookOpen, Compass, Star, Megaphone,
-  Shirt, Gem, Scissors, Eye, Ban, AlertTriangle, RefreshCw, Calendar, ArrowRight
+  Shirt, Gem, Scissors, Eye, Ban, AlertTriangle, RefreshCw, Calendar, ArrowRight, Sparkles, X
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getReportFallbackText, parseReportContent } from "@/lib/reportParser";
