@@ -30,6 +30,20 @@ const UNIVERSAL_RULES: Array<{ rule: string; pattern: RegExp; severity: "high" |
   { rule: "antes_e_depois", pattern: /\b(antes\s+e\s+depois|antes\/depois)\b/i, severity: "high" },
   { rule: "captacao_direta", pattern: /\b(agende\s+sua|estou\s+aceitando|vagas?\s+limitadas|me\s+chame\s+(no\s+)?direct)\b/i, severity: "medium" },
   { rule: "milagre", pattern: /\b(milagr[eo]|revolucion[aá]ri[oa]|[uú]nic[ao]\s+que)\b/i, severity: "medium" },
+  // Caso anonimizado de paciente/cliente com detalhes verossímeis — risco de
+  // identificabilidade mesmo sem nome real. Bloquear para profissões reguladas.
+  // Ex.: "Paciente de 42 anos que…", "Advogada de Curitiba que perdeu…",
+  // "Cliente que veio com…", "Médico com 12 anos de prática que…".
+  {
+    rule: "caso_cliente_identificavel",
+    pattern: /\b(paciente|cliente|atendid[oa]|consulent[ea])\s+(de\s+\d{1,2}\s+anos|de\s+[A-ZÁÉÍÓÚÂÊÔÃÕÇ][a-záéíóúâêôãõç]+|com\s+\d+\s+anos|que\s+(veio|chegou|me\s+procurou|relatou|tinha))\b/i,
+    severity: "high",
+  },
+  {
+    rule: "profissional_identificavel",
+    pattern: /\b(advogad[oa]|m[eé]dic[oa]|dentista|psic[oó]log[oa]|nutricionista|fisioterapeuta|arquitet[oa]|contador[a]?)\s+(de\s+[A-ZÁÉÍÓÚÂÊÔÃÕÇ][a-záéíóúâêôãõç]+|com\s+\d+\s+anos\s+de\s+(pr[aá]tica|carreira|profiss[aã]o))\b/,
+    severity: "high",
+  },
 ];
 
 // Regras específicas por profissão.
