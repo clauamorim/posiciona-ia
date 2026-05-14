@@ -41,7 +41,16 @@ const UNIVERSAL_RULES: Array<{ rule: string; pattern: RegExp; severity: "high" |
   },
   {
     rule: "profissional_identificavel",
-    pattern: /\b(advogad[oa]|m[eé]dic[oa]|dentista|psic[oó]log[oa]|nutricionista|fisioterapeuta|arquitet[oa]|contador[a]?)\s+(de\s+[A-ZÁÉÍÓÚÂÊÔÃÕÇ][a-záéíóúâêôãõç]+|com\s+\d+\s+anos\s+de\s+(pr[aá]tica|carreira|profiss[aã]o))\b/,
+    pattern: /\b(advogad[oa]|m[eé]dic[oa]|dentista|psic[oó]log[oa]|nutricionista|fisioterapeuta|arquitet[oa]|contador[a]?)\s+(de\s+[A-ZÁÉÍÓÚÂÊÔÃÕÇ][a-záéíóúâêôãõç]+|com\s+\d+\s+anos\s+de\s+(pr[aá]tica|carreira|profiss[aã]o)|\d+\s+anos\s+de\s+formad[oa])\b/,
+    severity: "high",
+  },
+  // Case anonimizado verossímil: data específica recente, "me escreveu/procurou"
+  // ou outros marcadores que sugerem cliente real. Para profissões reguladas,
+  // mesmo cases hipotéticos com esses detalhes são bloqueados — exigir cases
+  // públicos nomeados ou cenários explicitamente marcados como hipotéticos.
+  {
+    rule: "case_anonimizado_verossimil",
+    pattern: /\b(em\s+(janeiro|fevereiro|mar[çc]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)(\s+(deste|do|passado|de\s+\d{4}))?|(janeiro|fevereiro|mar[çc]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\s+(deste|do)\s+ano|cliente\s+me\s+(escreveu|procurou|mandou)|paciente\s+me\s+(procurou|escreveu|chamou)|me\s+escreveu\s+em|me\s+procurou\s+em)\b/i,
     severity: "high",
   },
 ];
