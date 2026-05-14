@@ -85,6 +85,35 @@ const CURSORS: Record<Corner, string> = {
   t: "ns-resize", b: "ns-resize", l: "ew-resize", r: "ew-resize",
 };
 
+/**
+ * Estima o fontSize ideal do título para caber na altura disponível.
+ * Usa aproximação de largura média de caractere (~0.45 * fontSize) para evitar
+ * medição DOM (que daria flicker). Reduz em passos de 2px até caber ou bater no piso.
+ */
+function fitTitleFontSize(
+  rawText: string,
+  boxWidth: number,
+  maxHeight: number,
+  baseFontSize: number,
+  minFontSize: number,
+  lineHeight: number,
+): number {
+  if (!rawText || boxWidth <= 0 || maxHeight <= 0) return baseFontSize;
+  const stripped = rawText.replace(/<[^>]*>/g, "").trim();
+  if (!stripped) return baseFontSize;
+  const charCount = stripped.length;
+  let size = baseFontSize;
+  while (size > minFontSize) {
+    const avgCharWidth = size * 0.45;
+    const charsPerLine = Math.max(1, Math.floor(boxWidth / avgCharWidth));
+    const lines = Math.ceil(charCount / charsPerLine);
+    const heightNeeded = lines * size * lineHeight;
+    if (heightNeeded <= maxHeight) return size;
+    size -= 2;
+  }
+  return minFontSize;
+}
+
 export interface TextBox {
   id: string;
   type: "title" | "body";
@@ -524,6 +553,25 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   // Ignora titleFontSize do usuário/template quando for menor que o mínimo do arquétipo.
   const userTitleSize = titleFontSize && titleFontSize >= typo.titleSizeMin ? titleFontSize : archetypeTitleSize;
   const resolvedTitleFontSize = Math.max(archetypeTitleFloor, userTitleSize);
+
+  // Auto-fit do título: reduz fontSize quando o texto não cabe na altura entre
+  // o slot do título e o slot do corpo (evita sobreposição visual).
+  const titleBoxForFit = textBoxes.find(t => t.type === "title");
+  const bodyBoxForFit = textBoxes.find(t => t.type === "body");
+  const titleSafetyGap = 40; // px entre fim do título e início do corpo
+  const availableTitleHeight = (titleBoxForFit && bodyBoxForFit)
+    ? Math.max(80, bodyBoxForFit.y - titleBoxForFit.y - titleSafetyGap)
+    : (titleBoxForFit?.height || 200);
+  const titleBoxWidth = titleBoxForFit?.width || 880;
+  const fittedTitleFontSize = fitTitleFontSize(
+    title || "",
+    titleBoxWidth,
+    availableTitleHeight,
+    resolvedTitleFontSize,
+    archetypeTitleFloor,
+    typo.titleLineHeight,
+  );
+
   const resolvedTitleColor = titleColor || textColor;
   const resolvedTitleFont = titleFontFamily || displayFont;
 
@@ -766,7 +814,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
           }}
           style={{
             fontFamily: isTitle ? `'${resolvedTitleFont}', sans-serif` : `'${bodyFont}', sans-serif`,
-            fontSize: isTitle ? resolvedTitleFontSize : bodyFontSize,
+            fontSize: isTitle ? fittedTitleFontSize : bodyFontSize,
             fontWeight: isTitle ? typo.titleWeight : bodyFontWeight,
             fontStyle: isTitle ? "normal" : bodyFontStyle2,
             textAlign: isTitle ? effectiveTitleAlign : bodyTextAlign,
