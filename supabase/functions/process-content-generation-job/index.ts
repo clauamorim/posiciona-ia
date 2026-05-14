@@ -1038,6 +1038,122 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
       // Se o Claude falhar no Estágio B (instabilidade da API), o feed (4 chamadas pagas)
       // não é perdido. A entrada parcial é substituída quando os stories chegarem.
       const wkIdxForPartial = typeof job.week_index === "number" ? job.week_index : 0;
+
+      // ==== Deduplicação semântica (embeddings Gemini, guardrail não-bloqueante) ====
+      // Compara cada post feed com os posts gerados nos últimos 28 dias do mesmo
+      // usuário. Se algum ultrapassar 0.80 de similaridade cosseno, dispara um
+      // retry guiado pedindo ao Claude para reescrever o(s) dia(s) repetidos.
+      try {
+        const candidates = feedFinal
+          .map((p, idx) => ({ p, idx }))
+          .filter(({ p }) => p && (p.theme || p.caption));
+        if (candidates.length > 0) {
+          const texts = candidates.map(({ p }) => postToEmbedText(p));
+          const vectors = await embedTextBatch(texts);
+          const since = new Date(Date.now() - 28 * 24 * 60 * 60 * 1000).toISOString();
+          const violations: { day: number; matches: any[] }[] = [];
+          for (let i = 0; i < vectors.length; i++) {
+            const vec = vectors[i];
+            if (!vec) continue;
+            const day = candidates[i].p.day;
+            const { data, error } = await admin.rpc("match_post_embeddings", {
+              p_user_id: userId,
+              p_query: vec as any,
+              p_since: since,
+              p_threshold: 0.80,
+              p_limit: 5,
+            });
+            if (error) {
+              console.warn(`[semantic-dedup] rpc error day=${day}:`, error.message);
+              continue;
+            }
+            if (Array.isArray(data) && data.length > 0) {
+              violations.push({ day, matches: data });
+              for (const m of data) {
+                console.log(
+                  `[semantic-dedup-fix] week=${wkIdxForPartial} day=${day} matched_week=${m.week_index} matched_day=${m.day_index} similarity=${Number(m.similarity).toFixed(3)}`,
+                );
+              }
+            }
+          }
+          console.log(
+            `[semantic-dedup] week=${wkIdxForPartial} user=${userId} candidates=${candidates.length} violations=${violations.length} threshold=0.80`,
+          );
+
+          if (violations.length > 0) {
+            await updateJob(jobId, { progress_message: "Removendo repetições semânticas…" });
+            const violatingDays = new Set(violations.map((v) => v.day));
+            const keepContext = feedFinal
+              .filter((p) => !violatingDays.has(p.day))
+              .map((p) => `Dia ${p.day} (MANTER, não reescrever): tema="${p.theme}"`)
+              .join("\n");
+            const dedupBlock =
+              `\n\n# ⚠️ DEDUPLICAÇÃO SEMÂNTICA (CRÍTICO)\n` +
+              `Os dias listados abaixo possuem ângulo/tese semanticamente próximos a posts já gerados nos últimos 28 dias. ` +
+              `Reescreva cada um desses dias com um ângulo radicalmente diferente — outro pilar narrativo, outro caso, outra aplicação. ` +
+              `Mantenha tema, tom e formato compatíveis com a semana, mas o NÚCLEO da ideia precisa mudar.\n\n` +
+              violations
+                .map(
+                  (v) =>
+                    `## Dia ${v.day} — evite repetir estes ângulos:\n` +
+                    v.matches
+                      .map(
+                        (m: any, idx: number) =>
+                          `${idx + 1}. (sim=${Number(m.similarity).toFixed(2)}) ${String(m.text_used || "").slice(0, 600)}`,
+                      )
+                      .join("\n"),
+                )
+                .join("\n\n") +
+              `\n\nRetorne APENAS um JSON array com os dias reescritos (mesmo schema do feed).`;
+            const retryUser = `${feedUser}\n\n# CONTEXTO DA SEMANA (NÃO REESCREVER)\n${keepContext}${dedupBlock}`;
+            try {
+              const { text: dedupRaw } = await callClaudeWithMeta({
+                systemPrompt: feedSystem,
+                userText: retryUser,
+                model: "claude-opus-4-7",
+                max_tokens: 4500,
+                timeoutMs: 120000,
+                disableRetries: true,
+              });
+              let dedupParsed: any = extractJsonFromLLM(dedupRaw);
+              if (!Array.isArray(dedupParsed) || dedupParsed.length === 0) {
+                dedupParsed = extractPartialDayObjects(dedupRaw);
+              }
+              if (Array.isArray(dedupParsed) && dedupParsed.length > 0) {
+                const replaceMap = new Map<number, FeedPost>();
+                for (const p of dedupParsed) {
+                  if (!p || typeof p !== "object") continue;
+                  const dayN = Number((p as any).day);
+                  if (!FEED_DAYS.includes(dayN)) continue;
+                  const cleaned = sanitizePost(p as Record<string, any>) as FeedPost;
+                  cleaned.day = dayN;
+                  cleaned.format = (cleaned.format || "post").toString().toLowerCase();
+                  if (cleaned.format === "stories") cleaned.format = "post";
+                  cleaned.is_personal = Boolean((cleaned as any).is_personal);
+                  replaceMap.set(dayN, cleaned);
+                }
+                for (let i = 0; i < feedFinal.length; i++) {
+                  const r = replaceMap.get(feedFinal[i].day);
+                  if (r) feedFinal[i] = r;
+                }
+                console.log(
+                  `[semantic-dedup] week=${wkIdxForPartial} user=${userId} retry applied days=${replaceMap.size}`,
+                );
+              } else {
+                console.warn(`[semantic-dedup] retry sem posts válidos, mantendo versão original.`);
+              }
+            } catch (dedupRetryErr: any) {
+              console.warn(
+                `[semantic-dedup] retry falhou (mantendo versão original):`,
+                dedupRetryErr?.message || dedupRetryErr,
+              );
+            }
+          }
+        }
+      } catch (semErr: any) {
+        console.warn(`[semantic-dedup] erro geral (ignorado):`, semErr?.message || semErr);
+      }
+
       let partialPersisted = false;
       try {
         await persistWeek(job.report_id, feedFinal, [], jobId, marketTrends, wkIdxForPartial, true);
