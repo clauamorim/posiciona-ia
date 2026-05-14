@@ -1271,6 +1271,41 @@ const EditorialPage = () => {
           onChoose={handleStyleChosen}
         />
       )}
+
+      <AlertDialog
+        open={confirmDeleteWeek !== null}
+        onOpenChange={(open) => { if (!open) setConfirmDeleteWeek(null); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Excluir semana {confirmDeleteWeek !== null ? confirmDeleteWeek + 1 : ""}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação removerá os 7 dias desta semana permanentemente. Os embeddings
+              e padrões de detecção também serão limpos para que esse conteúdo não
+              influencie futuras gerações.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletingWeek !== null}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                if (confirmDeleteWeek !== null) handleDeleteWeek(confirmDeleteWeek);
+              }}
+              disabled={deletingWeek !== null}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deletingWeek !== null ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Excluindo…</>
+              ) : (
+                "Excluir semana"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   );
 };
