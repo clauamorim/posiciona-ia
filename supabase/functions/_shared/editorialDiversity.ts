@@ -292,11 +292,13 @@ const FORMULA_PATTERNS: { id: Exclude<TitleFormulaId, "livre">; label: string; r
   //     Aceita numeral por extenso (três, quatro, sete, etc.) ou dígito.
   {
     id: "protocolo_n_perguntas",
-    label: '"Protocolo/método/filtro (N) perguntas/passos/sinais/decisões/etapas/elementos…" ou "As/Os N [substantivo]"',
+    label: '"Protocolo/método/ritual (N) perguntas/passos/sinais/movimentos/minutos…" ou "As/Os N [substantivo]"',
     re: new RegExp(
-      `(\\b(protocolo|checklist|guia|roteiro|m[eé]todo|filtro|sistema|framework)\\s+(de\\s+)?(${N_OR_WORD}\\s+)?(perguntas|passos|filtros|camadas|crit[ée]rios|regras|sinais|decis[õo]es|etapas|elementos|verifica[çc][õo]es|checagens|princ[íi]pios|chaves|pilares|movimentos|gatilhos)\\b)` +
+      `(\\b(protocolo|checklist|guia|roteiro|m[eé]todo|filtro|sistema|framework|ritual|rotina|processo)\\s+(de\\s+)?(${N_OR_WORD}\\s+)?(perguntas|passos|filtros|camadas|crit[ée]rios|regras|sinais|decis[õo]es|etapas|elementos|verifica[çc][õo]es|checagens|princ[íi]pios|chaves|pilares|movimentos|gatilhos)\\b)` +
       `|` +
-      `(\\b(as|os|estas|estes|essas|esses|aquelas|aqueles)\\s+${N_OR_WORD}\\s+(perguntas|camadas|filtros|passos|crit[ée]rios|regras|sinais|decis[õo]es|etapas|elementos|verifica[çc][õo]es|checagens|princ[íi]pios|chaves|pilares|movimentos|gatilhos)\\b)`,
+      `(\\b(as|os|estas|estes|essas|esses|aquelas|aqueles)\\s+${N_OR_WORD}\\s+(perguntas|camadas|filtros|passos|crit[ée]rios|regras|sinais|decis[õo]es|etapas|elementos|verifica[çc][õo]es|checagens|princ[íi]pios|chaves|pilares|movimentos|gatilhos)\\b)` +
+      `|` +
+      `(\\b(ritual|m[eé]todo|rotina|processo|sistema|protocolo)\\s+(de\\s+)?${N_OR_WORD}\\s+(minutos?|segundos?|horas?)\\b)`,
       "i",
     ),
   },
