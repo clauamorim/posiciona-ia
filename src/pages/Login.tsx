@@ -22,20 +22,17 @@ const passwordGrant = async (email: string, password: string): Promise<GrantResu
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), LOGIN_TIMEOUT_MS);
   try {
-    const res = await fetch(
-      `${import.meta.env.VITE_SUPABASE_URL}/auth/v1/token?grant_type=password`,
-      {
-        method: "POST",
-        signal: controller.signal,
-        headers: {
-          "Content-Type": "application/json;charset=UTF-8",
-          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          "X-Supabase-Api-Version": "2024-01-01",
-        },
-        body: JSON.stringify({ email, password, gotrue_meta_security: {} }),
-      }
-    );
+    const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/password-login`;
+    const res = await fetch(url, {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json;charset=UTF-8",
+        apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+      },
+      body: JSON.stringify({ email, password }),
+    });
     const payload = await res.json().catch(() => ({} as any));
     if (!res.ok) {
       return {
