@@ -526,7 +526,8 @@ export interface DiversityViolation {
     | "concept_group_overuse"
     | "banned_formula_overuse"
     | "pillar_duplicate"
-    | "critica_crenca_overuse";
+    | "critica_crenca_overuse"
+    | "named_case_repeat";
   detail: string;
   days: number[];
 }
@@ -564,37 +565,51 @@ function getBody(p: FeedPostLike): string {
 export interface PostFingerprint {
   day: number;
   pillar: string;
+  /** Primeira fórmula detectada (compat com schema atual `title_formula text`). */
   formula: TitleFormulaId;
+  /** TODAS as fórmulas detectadas, em qualquer campo. */
+  formulas: TitleFormulaId[];
   anchors: AnchorId[];
   concepts: ConceptGroupId[];
+  named_cases: string[];
 }
 
 export function fingerprintPost(p: FeedPostLike): PostFingerprint {
   const headline = getHeadline(p);
   const body = getBody(p);
   const cta = (p.cta || "").toString();
-  // Detecta fórmula em CADA campo separadamente. Antes só checava `theme` (que
-  // costuma ser resumo curto sem a construção completa), perdendo padrões como
-  // "A ideia de que 'X' está [verbo]ndo Y" que vivem no headline ou body.
+  // Detecta fórmulas em CADA campo (theme, headline, body, cta) e agrega TODAS,
+  // não para na primeira — antes "protocolo_n_perguntas" no theme escondia
+  // "cta_palavra_chave_direct" no cta.
   const candidates = [
     (p.theme || "").toString(),
     headline,
     body,
     cta,
   ].filter(Boolean);
-  let formula: TitleFormulaId = "livre";
+  const allFormulas = new Set<TitleFormulaId>();
   for (const c of candidates) {
-    const f = detectTitleFormula(c);
-    if (f !== "livre") { formula = f; break; }
+    for (const f of detectTitleFormulas(c)) allFormulas.add(f);
   }
+  const formulas = Array.from(allFormulas);
+  const formula: TitleFormulaId = formulas[0] || "livre";
+  const named_cases = detectNamedCases(`${p.theme || ""} ${headline} ${body} ${cta}`);
   const titleForFormula = (p.theme || headline || "").toString();
-  return {
+  const fp: PostFingerprint = {
     day: p.day,
     pillar: (p.pillar && String(p.pillar).trim()) || "livre",
     formula,
+    formulas,
     anchors: detectTitleAnchors(titleForFormula),
     concepts: detectConceptGroups({ theme: p.theme, headline, body, cta }),
+    named_cases,
   };
+  // Log de debug — permite acompanhar em produção quais padrões o detector
+  // está pegando (mesmo se a LLM não conseguir reescrever bem o suficiente).
+  console.log(
+    `[fingerprint] day=${p.day} formulas=${JSON.stringify(formulas)} concepts=${JSON.stringify(fp.concepts)} named_cases=${JSON.stringify(named_cases)}`,
+  );
+  return fp;
 }
 
 export function validateWeekDiversity(
@@ -604,7 +619,7 @@ export function validateWeekDiversity(
   const fingerprints = posts.map(fingerprintPost);
   const violations: DiversityViolation[] = [];
 
-  // Concept group overuse: > 2 posts no mesmo grupo central
+  // Concept group overuse: > 1 post no mesmo grupo central
   const conceptCount: Record<string, number[]> = {};
   for (const fp of fingerprints) {
     for (const g of fp.concepts) {
@@ -641,24 +656,47 @@ export function validateWeekDiversity(
     }
   }
 
-  // Banned formula overuse na semana (>1)
+  // Banned formula overuse na semana (>1) — agora itera TODAS as fórmulas detectadas
   const formulaCount: Record<string, number[]> = {};
   for (const fp of fingerprints) {
-    if (fp.formula === "livre") continue;
-    (formulaCount[fp.formula] ||= []).push(fp.day);
+    for (const f of fp.formulas) {
+      if (f === "livre") continue;
+      (formulaCount[f] ||= []).push(fp.day);
+    }
   }
   for (const [f, days] of Object.entries(formulaCount)) {
-    if (days.length > 1) {
+    const uniqueDays = Array.from(new Set(days));
+    if (uniqueDays.length > 1) {
       violations.push({
         type: "banned_formula_overuse",
-        detail: `Fórmula "${f}" usada em ${days.length} posts (máx 1).`,
-        days,
+        detail: `Fórmula "${f}" usada em ${uniqueDays.length} posts (máx 1).`,
+        days: uniqueDays,
       });
     }
     if (hints.bannedFormulas.includes(f as TitleFormulaId)) {
       violations.push({
         type: "banned_formula_overuse",
         detail: `Fórmula "${f}" estava PROIBIDA nesta semana (uso recente).`,
+        days: uniqueDays,
+      });
+    }
+  }
+
+  // Cases reais repetidos (já usados nos últimos 28 dias) — qualquer reuso viola
+  if (hints.bannedNamedCases && hints.bannedNamedCases.length > 0) {
+    const bannedSet = new Set(hints.bannedNamedCases.map((s) => s.toLowerCase()));
+    const reuses: Record<string, number[]> = {};
+    for (const fp of fingerprints) {
+      for (const nc of fp.named_cases) {
+        if (bannedSet.has(nc.toLowerCase())) {
+          (reuses[nc] ||= []).push(fp.day);
+        }
+      }
+    }
+    for (const [nc, days] of Object.entries(reuses)) {
+      violations.push({
+        type: "named_case_repeat",
+        detail: `Case real "${nc}" já foi usado nos últimos 28 dias — escolha outro nome/marca.`,
         days,
       });
     }
