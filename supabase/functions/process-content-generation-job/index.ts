@@ -808,7 +808,7 @@ async function processJob(jobId: string) {
       // Hints de diversidade — fórmulas e conceitos centrais usados nas últimas 2 semanas
       let diversityHints = { bannedFormulas: [] as any[], dampenedConcepts: [] as any[] };
       try {
-        const since = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+        const since = new Date(Date.now() - 21 * 24 * 60 * 60 * 1000).toISOString();
         const { data: patternRows } = await admin
           .from("used_title_patterns")
           .select("title_formula, central_concepts, created_at")
