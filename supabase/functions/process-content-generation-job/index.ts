@@ -52,6 +52,12 @@ import {
   validateWeekDiversity,
   type FeedPostLike,
 } from "../_shared/editorialDiversity.ts";
+import {
+  FEED_DAYS,
+  buildStoriesSystemPrompt,
+  extractPartialDayObjects,
+  type StoryDay,
+} from "../_shared/storiesPromptBuilder.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
