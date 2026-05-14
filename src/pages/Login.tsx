@@ -18,7 +18,7 @@ type PasswordGrantSuccess = {
   refresh_token: string;
   expires_in?: number;
   expires_at?: number;
-  token_type?: string;
+  token_type?: "bearer";
   user: NonNullable<Awaited<ReturnType<typeof supabase.auth.getUser>>["data"]["user"]>;
 };
 
