@@ -1017,8 +1017,6 @@ const EditorialPage = () => {
               .filter(Boolean) as { dayIndex: number; dayNumber: number; theme: string }[];
             const weekKey = getWeekKey(week, wi);
             const isSelected = selectedWeeks.has(weekKey);
-            // Só permite excluir semanas que existem em editorial_weeks (têm _week_index ou week_index).
-            const canDelete = typeof (week as any)?._week_index === "number" || typeof (week as any)?.week_index === "number";
             return (
             <TabsContent key={wi} value={`week-${wi}`}>
               <div
