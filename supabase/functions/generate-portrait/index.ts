@@ -52,6 +52,54 @@ async function downloadReferenceAsDataUrl(
   }
 }
 
+type AgeRange = "20s" | "30s" | "40s" | "50s" | "60s+";
+
+async function detectApparentAgeRange(apiKey: string, referenceDataUrl: string): Promise<AgeRange> {
+  const DEFAULT: AgeRange = "40s";
+  try {
+    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-3-flash-preview",
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: `Look at this photo and estimate the apparent age range of the person. Reply with ONLY one of these values: "20s", "30s", "40s", "50s", "60s+". Nothing else.`,
+              },
+              { type: "image_url", image_url: { url: referenceDataUrl } },
+            ],
+          },
+        ],
+      }),
+    });
+    if (!resp.ok) {
+      console.log(`[generate-portrait] age detect non-ok status=${resp.status}, defaulting to ${DEFAULT}`);
+      return DEFAULT;
+    }
+    const data = await resp.json();
+    const raw: string = data?.choices?.[0]?.message?.content ?? "";
+    const cleaned = String(raw).toLowerCase().replace(/["'.\s]/g, "");
+    const match = cleaned.match(/(20s|30s|40s|50s|60\+|60s\+)/);
+    if (!match) {
+      console.log(`[generate-portrait] age detect unrecognized="${raw}", defaulting to ${DEFAULT}`);
+      return DEFAULT;
+    }
+    const v = match[1].replace("60+", "60s+").replace("60s+", "60s+");
+    const valid: AgeRange[] = ["20s", "30s", "40s", "50s", "60s+"];
+    return (valid.includes(v as AgeRange) ? (v as AgeRange) : DEFAULT);
+  } catch (e) {
+    console.log(`[generate-portrait] age detect error: ${e instanceof Error ? e.message : String(e)}, defaulting to ${DEFAULT}`);
+    return DEFAULT;
+  }
+}
+
 async function generateOnePortrait(params: {
   apiKey: string;
   prompt: string;
