@@ -116,6 +116,7 @@ export const DashboardLayout = ({ children, wide = false }: { children: React.Re
         { label: "Relatório", href: "/report", icon: FileText, status: journeyStatus["/report"] },
         { label: "Instagram", href: "/instagram-analysis", icon: Instagram, status: journeyStatus["/instagram-analysis"] },
         { label: "Linha Editorial", href: "/editorial", icon: Calendar, status: journeyStatus["/editorial"] },
+        { label: "Stories de Venda", href: "/stories-de-venda", icon: MessageSquareQuote },
         { label: "Retratos de Marca", href: "/portraits", icon: Camera, status: journeyStatus["/portraits"] },
       ],
     },
