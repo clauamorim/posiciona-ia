@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import posicionaLogo from "@/assets/posiciona-logo.png";
 import { useState, useCallback, useRef, useEffect } from "react";
+import { SeoHead } from "@/components/SeoHead";
 
 /* ── Demo screenshots ── */
 import demoDashboard from "@/assets/demo/dashboard.png";
