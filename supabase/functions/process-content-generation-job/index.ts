@@ -1131,6 +1131,19 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
       }
 
 
+      // ==== SAVE PARCIAL: persiste o feed ANTES de iniciar Estágio B ====
+      // Se o Claude falhar no Estágio B (instabilidade da API), o feed (4 chamadas pagas)
+      // não é perdido. A entrada parcial é substituída quando os stories chegarem.
+      const wkIdxForPartial = typeof job.week_index === "number" ? job.week_index : 0;
+      let partialPersisted = false;
+      try {
+        await persistWeek(job.report_id, feedFinal, [], jobId, marketTrends, wkIdxForPartial, true);
+        partialPersisted = true;
+        console.log(`[job ${jobId}] Feed persistido (save parcial). Iniciando Estágio B.`);
+      } catch (partialErr) {
+        console.error(`[job ${jobId}] Falha ao salvar parcial do feed (segue tentando estágio B):`, partialErr);
+      }
+
       await updateJob(jobId, {
         progress_message: "Gerando seus 7 stories da semana (etapa 2 de 2)…",
 
@@ -1162,14 +1175,47 @@ Nicho: ${niche || "Não informado"}${verifiableFactsBlock}${storybrandContext}${
 
 Gere agora os 7 stories da semana.`;
 
-      const { text: storiesRaw, stopReason: storiesStop } = await callClaudeWithMeta({
-        systemPrompt: storiesSystem,
-        userText: storiesUser,
-        model: "claude-opus-4-7",
-        max_tokens: 7000,
-        timeoutMs: 150000,
-        disableRetries: true,
-      });
+      let storiesRaw: string;
+      let storiesStop: string | undefined;
+      try {
+        const result = await callClaudeWithMeta({
+          systemPrompt: storiesSystem,
+          userText: storiesUser,
+          model: "claude-opus-4-7",
+          max_tokens: 7000,
+          timeoutMs: 150000,
+          disableRetries: true,
+        });
+        storiesRaw = result.text;
+        storiesStop = result.stopReason;
+      } catch (storiesCallErr: any) {
+        // Estágio B caiu (instabilidade da API Anthropic, timeout, etc).
+        // O feed JÁ foi persistido antes (save parcial). Marcamos o job como
+        // completed_partial e NÃO reembolsamos o crédito (feed foi entregue).
+        console.error(`[job ${jobId}] Estágio B levantou exceção:`, storiesCallErr?.message || storiesCallErr);
+        if (!partialPersisted) {
+          try {
+            await persistWeek(job.report_id, feedFinal, [], jobId, marketTrends, wkIdxForPartial, true);
+            partialPersisted = true;
+          } catch (e) {
+            console.error(`[job ${jobId}] Falha ao persistir feed após exceção do Estágio B:`, e);
+          }
+        }
+        creditReserved = false; // não devolver crédito — feed foi entregue
+        await updateJob(jobId, {
+          status: "completed",
+          result: {
+            stage: "completed_partial",
+            feed: feedFinal,
+            stories: [],
+            generator_version: EDITORIAL_GENERATOR_VERSION,
+          },
+          progress_message: "Feed gerado. Stories falharam — regenere os stories para completar.",
+          finished_at: new Date().toISOString(),
+          error_message: "Stories indisponíveis no momento (instabilidade da IA). Use o botão de regenerar story em cada dia.",
+        });
+        return;
+      }
       if (storiesStop === "max_tokens") {
         console.warn(`[job ${jobId}] Estágio B: resposta truncada (max_tokens). raw len=${storiesRaw.length}. Iniciando recuperação parcial.`);
       }
@@ -1186,7 +1232,8 @@ Gere agora os 7 stories da semana.`;
         } else {
           // Falha do B: persiste apenas o feed e marca completed_partial — usuário pode regenerar só os stories
           console.error(`[job ${jobId}] Estágio B falhou. raw len=${storiesRaw?.length || 0}. stop=${storiesStop}`);
-          await persistWeek(job.report_id, feedFinal, [], jobId, marketTrends);
+          await persistWeek(job.report_id, feedFinal, [], jobId, marketTrends, wkIdxForPartial, true);
+          creditReserved = false;
           await updateJob(jobId, {
             status: "completed",
             result: {
@@ -1231,7 +1278,7 @@ Gere agora os 7 stories da semana.`;
 
       // Persiste a semana completa
       await updateJob(jobId, { progress_message: "Salvando conteúdo…" });
-      const weekObj = await persistWeek(job.report_id, feedFinal, storiesFinal, jobId, marketTrends);
+      const weekObj = await persistWeek(job.report_id, feedFinal, storiesFinal, jobId, marketTrends, wkIdxForPartial, false);
 
       // Persiste fingerprints de diversidade + log de telemetria estruturado
       try {
@@ -1358,7 +1405,9 @@ async function persistWeek(
   stories: StoryDay[],
   jobId: string,
   marketTrends: MarketTrend[] = [],
-): Promise<{ days: DayV6[]; market_trends?: MarketTrend[] }> {
+  weekIndex?: number,
+  isPartial: boolean = false,
+): Promise<{ days: DayV6[]; market_trends?: MarketTrend[]; _partial?: boolean; _week_index?: number; _stage_b_failed?: boolean }> {
   const feedByDay = new Map(feed.map((f) => [f.day, f]));
   const storyByDay = new Map(stories.map((s) => [s.day, s]));
 
@@ -1375,9 +1424,19 @@ async function persistWeek(
     generator_version: EDITORIAL_GENERATOR_VERSION,
   }));
 
-  const weekObj: { days: DayV6[]; market_trends?: MarketTrend[] } = { days };
+  const weekObj: any = { days };
   if (marketTrends && marketTrends.length > 0) {
     weekObj.market_trends = marketTrends;
+  }
+  if (typeof weekIndex === "number") {
+    weekObj._week_index = weekIndex;
+  }
+  if (isPartial) {
+    weekObj._partial = true;
+    // Quando isPartial=false (chamada final), se stories vazio, marca falha do Estágio B
+  } else if (stories.length === 0) {
+    weekObj._partial = true;
+    weekObj._stage_b_failed = true;
   }
 
   const { data: reportRow } = await admin
@@ -1387,14 +1446,26 @@ async function persistWeek(
     .single();
 
   const currentWeeks: any[] = Array.isArray(reportRow?.editorial_weeks) ? reportRow!.editorial_weeks : [];
-  const updatedWeeks = [...currentWeeks, weekObj];
+
+  // Se a última entrada é parcial e refere-se ao mesmo week_index, SUBSTITUI em vez de anexar.
+  // Isso garante que o save parcial inicial (feito antes do Estágio B) seja atualizado quando os stories chegarem.
+  let updatedWeeks: any[];
+  const last = currentWeeks[currentWeeks.length - 1];
+  const sameWeek = last && last._partial === true && typeof weekIndex === "number" && last._week_index === weekIndex;
+  if (sameWeek) {
+    updatedWeeks = [...currentWeeks.slice(0, -1), weekObj];
+  } else {
+    updatedWeeks = [...currentWeeks, weekObj];
+  }
 
   await admin
     .from("reports")
     .update({ editorial_weeks: updatedWeeks })
     .eq("id", reportId);
 
-  console.log(`[job ${jobId}] Semana persistida (${days.length} dias, feed=${feed.length}, stories=${stories.length}).`);
+  console.log(
+    `[job ${jobId}] Semana persistida (${days.length} dias, feed=${feed.length}, stories=${stories.length}, partial=${Boolean(weekObj._partial)}, replaced=${sameWeek}).`,
+  );
   return weekObj;
 }
 
