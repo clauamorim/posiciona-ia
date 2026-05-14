@@ -551,6 +551,11 @@ async function processJob(jobId: string) {
       }
       const marketTrendsBlock = renderMarketTrendsBlock(marketTrends);
 
+      // Anti-repetição: traços pessoais usados nas últimas 2 semanas
+      const recentlyUsedTraits = await fetchRecentlyUsedTraits(userId);
+      const recentTraitsBlock = renderRecentTraitsBlock(recentlyUsedTraits);
+      const personalTraitMap = buildPersonalTraitMap(personal);
+
       // ==== ESTÁGIO A: Feed (4 posts) ====
       await updateJob(jobId, { progress_message: "Gerando seus 4 posts de feed (etapa 1 de 2)…" });
 
@@ -565,7 +570,7 @@ async function processJob(jobId: string) {
 Empresa: ${business?.company_name || "Não informado"}
 Serviços: ${business?.services || "Não informado"}
 Público-alvo: ${business?.target_audience || "Não informado"}
-Nicho: ${niche || "Não informado"}${verifiableFactsBlock}${storybrandContext}${toneContext}${personalContext}${salesNarrativeContext}${rotationBlock}
+Nicho: ${niche || "Não informado"}${verifiableFactsBlock}${storybrandContext}${toneContext}${personalContext}${salesNarrativeContext}${recentTraitsBlock}${rotationBlock}
 
 # TEMAS JÁ PUBLICADOS (NÃO REPETIR — formato "[pilar] tema (formato)")
 ${previousSummary || "Nenhum conteúdo anterior."}${marketTrendsBlock}
