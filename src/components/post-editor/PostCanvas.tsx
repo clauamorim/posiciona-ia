@@ -814,7 +814,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
           }}
           style={{
             fontFamily: isTitle ? `'${resolvedTitleFont}', sans-serif` : `'${bodyFont}', sans-serif`,
-            fontSize: isTitle ? resolvedTitleFontSize : bodyFontSize,
+            fontSize: isTitle ? fittedTitleFontSize : bodyFontSize,
             fontWeight: isTitle ? typo.titleWeight : bodyFontWeight,
             fontStyle: isTitle ? "normal" : bodyFontStyle2,
             textAlign: isTitle ? effectiveTitleAlign : bodyTextAlign,
