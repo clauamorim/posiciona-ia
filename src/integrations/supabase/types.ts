@@ -714,6 +714,45 @@ export type Database = {
         }
         Relationships: []
       }
+      post_embeddings: {
+        Row: {
+          created_at: string
+          day_index: number
+          embedding: string
+          id: string
+          named_cases: string[]
+          post_kind: string
+          report_id: string
+          text_used: string
+          user_id: string
+          week_index: number
+        }
+        Insert: {
+          created_at?: string
+          day_index: number
+          embedding: string
+          id?: string
+          named_cases?: string[]
+          post_kind: string
+          report_id: string
+          text_used: string
+          user_id: string
+          week_index: number
+        }
+        Update: {
+          created_at?: string
+          day_index?: number
+          embedding?: string
+          id?: string
+          named_cases?: string[]
+          post_kind?: string
+          report_id?: string
+          text_used?: string
+          user_id?: string
+          week_index?: number
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           account_deletion_requested_at: string | null
@@ -1410,6 +1449,26 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      match_post_embeddings: {
+        Args: {
+          p_limit: number
+          p_query: string
+          p_since: string
+          p_threshold: number
+          p_user_id: string
+        }
+        Returns: {
+          created_at: string
+          day_index: number
+          id: string
+          named_cases: string[]
+          post_kind: string
+          report_id: string
+          similarity: number
+          text_used: string
+          week_index: number
+        }[]
       }
     }
     Enums: {
