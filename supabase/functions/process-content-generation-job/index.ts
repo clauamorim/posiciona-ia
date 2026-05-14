@@ -265,23 +265,44 @@ const FEED_POST_TYPES = [
   {
     label: "EDUCACIONAL",
     description: `tutorial ou passo a passo prático.
-Estrutura: problema concreto → passos numerados → resultado esperado.
-SEM storytelling pessoal. SEM abrir com "você sabia que".`,
+ESCOLHA UMA das seguintes estruturas de abertura (não use a mesma usada em semanas anteriores — varie):
+  (A) "Os N passos para [resultado]..."
+  (B) "Como [fazer X] sem [erro comum]..."
+  (C) "[Número] erros que [público] comete ao [ação] — e como evitar"
+  (D) "O que [profissional] faz antes de [ação básica]..."
+SEM storytelling pessoal. SEM abrir com "você sabia que". SEM fechar com frases-clichê como "o processo que transforma expertise em presença reconhecida".`,
   },
   {
     label: "DESMISTIFICAÇÃO",
     description: `escolha uma crença errada comum no nicho e refute com raciocínio sólido ou dado observável.
-Estrutura: mito declarado → por que as pessoas acreditam → por que está errado → o que é verdade.`,
+ESCOLHA UMA das seguintes estruturas de abertura (não use a mesma usada em semanas anteriores — varie):
+  (A) "Todo mundo diz que [X resolve Y]. Errado."
+  (B) "[Pessoa/grupo] acredita em [mito]. Veja por que isso não funciona."
+  (C) "Existe um conselho que circula em [contexto]: [conselho]. Esse conselho destrói [coisa importante]."
+  (D) "Se você acha que [X] = [resultado], esse post é pra você."
+PROIBIDO usar o template "A crença de que X resolve Y" — está saturado.
+Estrutura interna: mito declarado → por que as pessoas acreditam → por que está errado → o que é verdade.`,
   },
   {
     label: "POSICIONAMENTO",
     description: `evidencie categoria + o que a marca NÃO é + para quem especificamente é.
-Estrutura: alternativa que o público usaria sem esta solução → por que essa alternativa é insuficiente → o que torna esta abordagem diferente → perfil exato do cliente ideal.`,
+ESCOLHA UMA das seguintes estruturas de abertura (não use a mesma usada em semanas anteriores — varie):
+  (A) Comparação com alternativa: "Existem dezenas de ferramentas que fazem [X]. Esta não é uma delas. Veja por quê."
+  (B) Perfil do cliente ideal: "Se você é [perfil específico] e [situação concreta], leia até o fim."
+  (C) História de não-encaixe: "Cliente chegou pedindo [coisa errada]. Recusei. Aqui está o porquê."
+  (D) Definição por contraste: "[Categoria] resolve [problema A]. [Sua marca] resolve [problema diferente]. Não é a mesma coisa."
+PROIBIDO o template "[Marca] não é para quem quer X — é para quem quer Y" — está saturado.
+Estrutura interna: alternativa que o público usaria → por que é insuficiente → o que torna esta abordagem diferente → perfil exato do cliente ideal.`,
   },
   {
     label: "ANÁLISE DE MERCADO OU CASO",
     description: `se houver tendência relevante no bloco TENDÊNCIAS, use-a como gancho principal. Se não houver tendência pré-listada, pesquise no seu conhecimento um caso, decisão ou evento REAL e NOMEADO do nicho (empresa, pessoa, produto, lei) — nunca mini-caso hipotético genérico.
-Estrutura: situação nomeada → decisão/desfecho → aprendizado para o leitor.`,
+ESCOLHA UMA das seguintes estruturas de abertura (não use a mesma usada em semanas anteriores — varie):
+  (A) Manchete + virada: "[Evento real] aconteceu. Aqui está o que ninguém comentou."
+  (B) Caso + analogia: "O que aconteceu com [empresa/pessoa] tem tudo a ver com [problema do leitor]."
+  (C) Cronologia: "Em [data], [evento]. Em [data posterior], [consequência]. O padrão se repete em [contexto do leitor]."
+  (D) Contraste de reações: "Quando [evento] aconteceu, [grupo A] reagiu de um jeito e [grupo B] de outro. Os que prosperaram fizeram X."
+Estrutura interna: situação nomeada → decisão/desfecho → aprendizado para o leitor.`,
   },
 ] as const;
 const FEED_DAYS = [1, 3, 5, 7];
@@ -337,6 +358,35 @@ ${[0, 1, 2, 3].map((i) => {
   const t = FEED_POST_TYPES[(i + rotationOffset) % 4];
   return `POST ${i + 1} — ${t.label}: ${t.description}`;
 }).join("\n\n")}
+
+🚫 FRASES E EXPRESSÕES PROIBIDAS (DETECTADAS COMO REPETITIVAS EM SEMANAS ANTERIORES):
+NÃO use as seguintes frases, nem variações próximas, em NENHUM campo ("theme", "caption", "card_copy", "cta", "script"):
+
+Aberturas proibidas:
+- "A crença de que [X] resolve [Y]"
+- "O Posiciona não é para quem quer [X] — é para quem quer [Y]"
+- "[Marca] não é para quem [...] — é para quem [...]"
+
+Encerramentos proibidos:
+- "o processo que transforma expertise em [presença / autoridade / reconhecimento]"
+- "profissionais qualificados continuam invisíveis"
+- "antes de qualquer post existir"
+
+Vocabulário saturado (use no MÁXIMO 1 vez na semana inteira, somando feed + stories):
+- "profissionais qualificados"
+- "identidade de marca"
+- "autoridade digital"
+- "Instagram que não representa quem é"
+
+CTAs PROIBIDOS COMO PADRÃO ÚNICO:
+NÃO use "Me chame no direct com a palavra [X]" em MAIS DE 1 dos 4 posts da semana. Para os outros 3 posts, ESCOLHA CTAs de naturezas diferentes:
+  (A) Pergunta direta: "[Pergunta específica ao leitor]?"
+  (B) Comando de salvamento: "Salve este post para revisitar quando [situação]"
+  (C) Convite a comentar: "Comenta aqui: [pergunta concreta sobre experiência do leitor]"
+  (D) Convite a compartilhar com contexto: "Marca alguém que [perfil específico] nos comentários"
+  (E) Comparação interna: "Releia o slide [N] e me diz: você se encaixa em qual situação?"
+
+REGRA GERAL DE FRASEADO: se você reconhecer que está prestes a usar uma estrutura "elegante" que parece encaixar perfeitamente, é provavelmente porque já foi usada. Reescreva com cadência diferente.
 
 REGRAS DE GANCHO (mantidas): primeira frase de toda caption e slide 1 de carrossel = detalhe concreto, número, cena, dado contraintuitivo ou pergunta inesperada — específicos para o NICHO. PROIBIDO abrir com: "Você sabia que…", "5 dicas para…", "A importância de…", "Vamos falar sobre…", "Hoje vou te contar…", "Já parou para pensar…", "Imagine que…", "Você já se perguntou…".
 
@@ -696,6 +746,12 @@ Nicho: ${niche || "Não informado"}${verifiableFactsBlock}${storybrandContext}${
 
 # TEMAS JÁ PUBLICADOS (NÃO REPETIR — formato "[pilar] tema (formato)")
 ${previousSummary || "Nenhum conteúdo anterior."}${marketTrendsBlock}
+
+ANTES DE GERAR, leia os TEMAS JÁ PUBLICADOS acima. Para CADA post desta semana:
+1. Identifique se algum template/estrutura de abertura foi usado nos posts anteriores listados
+2. Para o tipo de post da vez, ESCOLHA uma estrutura de abertura DIFERENTE das já usadas
+3. Verifique se nenhuma das "FRASES PROIBIDAS" do system prompt aparece na sua saída
+4. Confirme que os CTAs dos 4 posts são de naturezas diferentes (não todos "Me chame no direct")
 
 Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
 
