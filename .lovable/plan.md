@@ -1,40 +1,37 @@
-Diagnóstico do problema
+Diagnóstico atual
 
-- O backend está respondendo normalmente.
-- Nos prints e no snapshot de rede, a chamada `POST /auth/v1/token?grant_type=password` está sendo abortada depois de 15s, por isso aparece a mensagem genérica de timeout.
-- No teste direto fora do navegador, o mesmo e-mail inválido responde em ~0,6s com `invalid_credentials`, então a falha não é credencial nem backend.
-- A causa provável está no cliente web: a versão atual da biblioteca de autenticação usa Web Locks/navigator locks, e há issues conhecidas de deadlock em `signInWithPassword`, `setSession`, `getSession` e `onAuthStateChange`, especialmente quando uma tentativa anterior deixa lock preso. O código atual ainda chama `supabase.auth.setSession()` e `supabase.auth.getSession()`, então o workaround anterior não removeu a causa.
+- O Lovable Cloud está ativo e saudável; não há sinal de projeto pausado.
+- Teste direto do meu ambiente para `POST /auth/v1/token?grant_type=password` respondeu `400` em ~0,64s com `invalid_credentials`, que é o comportamento correto para e-mail/senha inválidos.
+- O `000 em ~29,9s` no seu curl significa que a conexão não recebeu resposta HTTP no seu ambiente. Isso aponta para bloqueio/timeout de rede local, DNS/firewall/proxy/VPN, Safari/iCloud Private Relay/extensões, ou interferência do Preview, não para pausa do backend.
+- A correção anterior ainda deixou o app dependendo de chamada direta do navegador para `/auth/v1/token`; se o Preview/Safari/rede bloquear esse POST, o login continuará mostrando timeout mesmo com o backend saudável.
 
 Plano de correção
 
-1. Substituir o login por senha em `src/pages/Login.tsx` por um fluxo realmente independente do cliente de autenticação:
-   - chamar `/auth/v1/token?grant_type=password` via `fetch` com timeout curto e mensagem correta;
-   - tratar `400 invalid_credentials` como “E-mail ou senha incorretos”;
-   - persistir a sessão manualmente no mesmo formato esperado pelo cliente;
-   - não chamar `supabase.auth.signInWithPassword()` nem `supabase.auth.setSession()` no submit.
+1. Criar uma backend function própria para login por senha
+   - A tela de login deixará de chamar `/auth/v1/token` diretamente do navegador.
+   - O navegador chamará uma função do Lovable Cloud no mesmo ecossistema do app, e essa função fará a autenticação no backend.
+   - Isso contorna a camada mais provável de falha: requisição direta browser/Preview/Safari para o endpoint de auth.
 
-2. Ajustar `src/contexts/AuthContext.tsx` para não depender de `supabase.auth.getSession()` no carregamento inicial:
-   - ler a sessão diretamente do `localStorage` pela chave `sb-...-auth-token`;
-   - validar expiração mínima;
-   - hidratar usuário/plano/saldos a partir dessa sessão;
-   - manter o listener de auth apenas como apoio, mas sem deixar `isLoading` preso se ele travar.
+2. Preservar o comportamento correto de erros
+   - Credenciais inválidas: mostrar “E-mail ou senha incorretos. Verifique e tente novamente.”
+   - E-mail não confirmado: mostrar instrução para confirmar o e-mail.
+   - Rate limit/conexão: mensagens específicas, sem deixar botão preso em “Entrando...”.
+   - Timeout curto e controlado para a função, com retorno sempre desbloqueando a UI.
 
-3. Criar uma função utilitária única de sessão em `src/lib/authSession.ts`:
-   - calcular a chave de storage;
-   - ler/gravar/remover sessão local;
-   - normalizar `expires_at`, `expires_in` e `token_type`.
-   Isso evita duplicação e reduz risco de um arquivo escrever um formato diferente do outro.
+3. Manter a sessão local compatível com o app atual
+   - Reaproveitar `normalizeSession`, `persistLocalSession` e `adoptSession`.
+   - Não editar arquivos auto-gerados da integração.
+   - Não alterar banco, planos, créditos ou regras de acesso.
 
-4. Ajustar logout e limpeza:
-   - limpar localmente a sessão primeiro para não deixar o app preso em operações internas;
-   - tentar `supabase.auth.signOut()` com timeout, sem bloquear a UI se o cliente travar.
+4. Blindar o login contra travamento no Preview
+   - Adicionar fallback: se a função também não responder dentro do tempo limite, o app volta o botão para “Entrar” e mostra erro claro.
+   - Adicionar logs mínimos e seguros no console para diferenciar: função indisponível, credenciais inválidas, timeout de rede, payload inesperado.
 
-5. Melhorar a validação final:
-   - testar no preview e-mail inválido: deve voltar imediatamente para “Entrar” e mostrar “E-mail ou senha incorretos”.
-   - testar a sequência inválido → tentativa válida: o app não deve ficar preso por lock antigo; se a sessão for aceita, navega para dashboard/admin/planos conforme permissões.
+5. Validação
+   - Testar credenciais inválidas via curl pelo ambiente do projeto: deve retornar erro rápido.
+   - Testar a função de login diretamente: deve retornar erro rápido para credenciais inválidas.
+   - Confirmar que o código não chama mais `/auth/v1/token` diretamente a partir de `src/pages/Login.tsx`.
 
-Detalhes técnicos
+Observação importante
 
-- Não vou alterar os arquivos auto-gerados da integração.
-- Não vou mexer no banco nem nas regras de acesso.
-- O objetivo é remover o ponto que ainda causa deadlock: métodos de auth que passam por Web Locks durante o fluxo crítico de login.
+Mesmo com esse ajuste, se o seu terminal local não consegue alcançar `opmheegtmdjqwrfkdboq.supabase.co` e retorna `000`, isso ainda pode ser um problema da sua rede local. Mas mover o login para uma backend function reduz muito a dependência do navegador/Preview/Safari nessa chamada crítica.
