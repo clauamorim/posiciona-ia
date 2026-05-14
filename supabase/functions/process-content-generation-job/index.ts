@@ -70,6 +70,34 @@ const PT_STOPWORDS = new Set([
   "todos","mesmo","mesma","posso","pode","podem","ser","estar","estou","estava",
 ]);
 
+// Mapa de sinônimos para detecção de traços pessoais reciclados.
+// Se o questionário tem "natação", a story pode usar "piscina"/"água"/"nado" —
+// queremos marcar o traço como usado mesmo assim.
+const TRAIT_SYNONYMS: Record<string, string[]> = {
+  natacao: ["piscina", "agua", "nado", "nadar", "natacao"],
+  corrida: ["correr", "corrida", "corredor", "running"],
+  leitura: ["livro", "livros", "leitura", "audiolivro", "ler", "lendo", "leio"],
+  meditacao: ["meditacao", "meditar", "meditando", "respiracao"],
+  yoga: ["yoga", "ioga"],
+  caminhada: ["caminhada", "caminhar", "andar", "passeio"],
+  cachorro: ["cachorro", "cao", "caes", "pet", "pets"],
+  gato: ["gato", "gatos", "felino"],
+  cafe: ["cafe", "cafezinho", "cafeteira"],
+  filho: ["filho", "filha", "filhos", "filhas", "crianca", "criancas"],
+};
+
+function expandTraitKeywords(keywords: string[]): string[] {
+  const expanded = new Set<string>(keywords);
+  for (const kw of keywords) {
+    for (const [, synonyms] of Object.entries(TRAIT_SYNONYMS)) {
+      if (synonyms.includes(kw)) {
+        for (const s of synonyms) expanded.add(s);
+      }
+    }
+  }
+  return Array.from(expanded);
+}
+
 function normalize(s: string): string {
   return (s || "")
     .toLowerCase()
