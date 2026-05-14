@@ -284,10 +284,16 @@ const NICHE_SCENES: Record<string, string[]> = {
     "close-up of stethoscope on wooden surface beside small plant, neutral palette, soft shadows",
   ],
   default: [
-    "minimalist editorial workspace with notebook, warm coffee and morning daylight from the side",
-    "professional in neutral attire by tall window, soft directional light, calm confident posture",
-    "still-life of leather notebook, fountain pen and ceramic cup on linen surface, editorial framing",
-    "architectural interior with single armchair and plant, warm ambient light, generous negative space",
+    // com pessoa
+    "professional in neutral attire by tall window, soft directional light, calm confident posture, editorial framing",
+    "hands typing on minimalist laptop at wooden desk, soft morning light, focused mood, shallow depth of field",
+    "close-up of a confident professional in conversation, soft window light from the side, contemplative expression",
+    "professional walking through modern corridor in tailored neutral attire, golden hour, motion blur background",
+    // conceituais (sem pessoa em foco)
+    "minimalist editorial workspace with open notebook, warm coffee and morning daylight from the side",
+    "still-life of leather notebook, fountain pen and ceramic cup on linen surface, soft directional light",
+    "abstract close-up of light rays through window blinds onto a wooden desk, editorial framing, calm mood",
+    "stack of business documents and reading glasses on a clean desk, warm side lighting, contemplative atmosphere",
   ],
 };
 
@@ -311,6 +317,9 @@ function resolveNicheKey(niche?: string): keyof typeof NICHE_SCENES {
   if (/(design|estilis|moda)/.test(n)) return "designer";
   if (/(fotograf)/.test(n)) return "photographer";
   if (/(veterin|pet)/.test(n)) return "veterinarian";
+  if (/(marca pessoal|branding|posicionamento|marca|estrateg)/.test(n)) return "executive";
+  if (/(personal trainer|coach de vida|carreira)/.test(n)) return "coach";
+  if (/(mentor|mentoria)/.test(n)) return "consultant";
   return "default";
 }
 
@@ -374,11 +383,17 @@ function buildSearchQuery(opts: {
     return q.slice(0, 90);
   }
 
-  // Sem userQuery: âncora vira a CENA EDITORIAL do nicho — substitui as
-  // keywords genéricas extraídas do texto do post.
+  // Sem userQuery: combina cena editorial do nicho + keywords da MENSAGEM do post.
+  // Antes só usava nicho + cena (gerava imagens genéricas de escritório, mesmo
+  // quando o post falava de tema específico). Agora a busca reflete o argumento.
   const scene = pickNicheScene(opts.niche, opts.seed);
-  const sceneAnchor = scene.split(",")[0].trim(); // "attorney at mahogany desk reviewing documents"
-  const parts = [nicheEN, sceneAnchor].filter(Boolean);
+  const sceneAnchor = scene.split(",")[0].trim();
+
+  // Extrai 2 keywords da mensagem central (cardCopy > theme > body) — capta o tema.
+  const messageSource = opts.cardCopy || opts.theme || opts.body || "";
+  const messageKeywords = extractKeywordsFromText(messageSource, 2).join(" ");
+
+  const parts = [nicheEN, sceneAnchor, messageKeywords].filter(Boolean);
   let query = parts.join(" ").trim();
   query = filterSensitive(query, opts.niche);
   if (!query.trim()) query = "minimal abstract editorial";
