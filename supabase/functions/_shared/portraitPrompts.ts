@@ -710,7 +710,7 @@ export function buildGeminiPortraitPrompt(params: GeminiPromptParams): {
   const possessive = params.gender === "man" ? "his" : "her";
 
   const sceneParts: string[] = [
-    `PHOTOGRAPHIC REALISM ONLY. Real photograph captured by a professional photographer with a Canon EOS R5 and an 85mm f/1.4 lens. Absolutely NOT a 3D render, NOT CGI, NOT a digital painting, NOT AI-stylized, NOT a beauty-app filter.`,
+    `DOCUMENTARY PORTRAIT PHOTOGRAPH. Shot on Kodak Portra 400 35mm film by a documentary photographer. This is a press archive portrait — NOT a commercial beauty headshot, NOT a cosmetic ad, NOT stock photography. Film grain and natural skin imperfections are required for authenticity. NOT a 3D render, NOT CGI, NOT digital painting, NOT AI-stylized, NOT a beauty filter.`,
   ];
 
   if (params.apparentAgeRange) {
@@ -740,7 +740,7 @@ export function buildGeminiPortraitPrompt(params: GeminiPromptParams): {
     sceneParts.push(`Framing: editorial close-up headshot, vertical 4:5 aspect ratio.`);
   }
   sceneParts.push(
-    `Lighting: soft natural studio lighting from a large softbox with subtle fill, gentle falloff, realistic shadow density under the jaw, catchlights in the eyes consistent with a real softbox, subtle rim light on the hair revealing individual strands.`,
+    `Lighting: one window-style softbox at 45°, natural falloff with visible shadow under the jaw and nose that is NOT fully filled — shadows give face depth and realism. Single catchlight in each eye consistent with one real light source. Subtle rim light separating hair from background. Avoid the flat, perfectly even "beauty ad" lighting that makes portraits look artificial.`,
   );
   if (params.backgroundIndex === 2) {
     // Fundo escuro: o modelo tende a subexpor o rosto e perder traços. Forçamos

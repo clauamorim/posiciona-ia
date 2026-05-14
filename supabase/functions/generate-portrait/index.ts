@@ -108,10 +108,11 @@ async function generateOnePortrait(params: {
 }): Promise<{ ok: true; pngBytes: Uint8Array } | { ok: false; status: number; reason: string }> {
   const { apiKey, prompt, referenceDataUrls, model } = params;
 
-  const userContent: any[] = [{ type: "text", text: prompt }];
+  const userContent: any[] = [];
   for (const url of referenceDataUrls) {
     userContent.push({ type: "image_url", image_url: { url } });
   }
+  userContent.push({ type: "text", text: prompt });
 
   try {
     const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -263,7 +264,7 @@ serve(async (req) => {
     // os rostos. A primeira selfie é a âncora de identidade (ground truth);
     // as demais servem só para fornecer ângulos auxiliares. Mais que isso
     // dilui a semelhança facial.
-    const MAX_REFERENCES_TO_SEND = 5;
+    const MAX_REFERENCES_TO_SEND = 3;
     const refsToUse = references.slice(0, MAX_REFERENCES_TO_SEND);
     const refDownloads = await Promise.all(
       refsToUse.map((r) => downloadReferenceAsDataUrl(supabaseAdmin, r.file_path)),
