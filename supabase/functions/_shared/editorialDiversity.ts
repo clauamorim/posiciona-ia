@@ -236,7 +236,7 @@ const FORMULA_PATTERNS: { id: Exclude<TitleFormulaId, "livre">; label: string; r
     re: new RegExp(
       `(\\b(protocolo|checklist|guia|roteiro|m[eé]todo|filtro)\\s+(de\\s+)?(${N_OR_WORD}\\s+)?(perguntas|passos|filtros|camadas|crit[ée]rios|regras|sinais)\\b)` +
       `|` +
-      `(\\b(as|os)\\s+${N_OR_WORD}\\s+(perguntas|camadas|filtros|passos|crit[ée]rios|regras|sinais)\\b)`,
+      `(\\b(as|os|estas|estes|essas|esses|aquelas|aqueles)\\s+${N_OR_WORD}\\s+(perguntas|camadas|filtros|passos|crit[ée]rios|regras|sinais)\\b)`,
       "i",
     ),
   },
