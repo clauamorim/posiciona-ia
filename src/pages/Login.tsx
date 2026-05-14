@@ -9,6 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { ArrowLeft } from "lucide-react";
 import posicionaLogo from "@/assets/posiciona-logo.png";
 import { normalizeSession, persistLocalSession, type RawTokenResponse } from "@/lib/authSession";
+import { SeoHead } from "@/components/SeoHead";
 
 const LOGIN_TIMEOUT_MS = 12000;
 
