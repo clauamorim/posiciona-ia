@@ -326,21 +326,26 @@ const BusinessQuestionnaire = () => {
             {field.type === "input" ? (
               <Input
                 value={answers[field.key] || ""}
-                onChange={e => setAnswers(prev => ({ ...prev, [field.key]: e.target.value }))}
+                onChange={e => setAnswers(prev => ({ ...prev, [field.key]: e.target.value.slice(0, field.max) }))}
                 placeholder={field.placeholder}
                 disabled={isLocked || isSubmitted}
+                maxLength={field.max}
                 className="bg-background"
               />
             ) : (
               <Textarea
                 value={answers[field.key] || ""}
-                onChange={e => setAnswers(prev => ({ ...prev, [field.key]: e.target.value }))}
+                onChange={e => setAnswers(prev => ({ ...prev, [field.key]: e.target.value.slice(0, field.max) }))}
                 placeholder={field.placeholder}
                 rows={4}
                 disabled={isLocked || isSubmitted}
+                maxLength={field.max}
                 className="bg-background resize-none"
               />
             )}
+            <p className={`text-[11px] text-right -mt-2 ${(answers[field.key] || "").length >= field.max ? "text-amber-600" : "text-muted-foreground"}`}>
+              {(answers[field.key] || "").length}/{field.max}
+            </p>
 
             <div className="flex items-center justify-between pt-1">
               <Button variant="ghost" size="sm" onClick={() => goToStep(step - 1)} disabled={step === 0}>
