@@ -411,6 +411,7 @@ const LandingPage = () => {
         )}
       </header>
 
+      <main>
       {/* ── HERO ── */}
       <section className="pt-12 pb-16 md:pt-20 md:pb-24 px-4">
         <div className="max-w-3xl mx-auto text-center space-y-6">
