@@ -443,10 +443,10 @@ export function validateWeekDiversity(
     }
   }
   for (const [g, days] of Object.entries(conceptCount)) {
-    if (days.length > 2) {
+    if (days.length > 1) {
       violations.push({
         type: "concept_group_overuse",
-        detail: `Grupo ${g} aparece como tema central em ${days.length} posts (máx 2).`,
+        detail: `Grupo ${g} aparece como tema central em ${days.length} posts (máx 1 por semana).`,
         days,
       });
     }
