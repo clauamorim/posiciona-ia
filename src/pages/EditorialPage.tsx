@@ -622,7 +622,84 @@ const EditorialPage = () => {
     toast({ title: "Legenda copiada!" });
   };
 
-  const handleDownloadPDF = async () => {
+  // Resolve o week_index real (preservado mesmo após deleções) ou cai para a posição.
+  const getWeekKey = (w: any, idx: number): number => {
+    const k = w?._week_index ?? w?.week_index;
+    return typeof k === "number" ? k : idx;
+  };
+
+  const toggleWeekSelection = (weekKey: number) => {
+    setSelectedWeeks((prev) => {
+      const next = new Set(prev);
+      if (next.has(weekKey)) next.delete(weekKey);
+      else next.add(weekKey);
+      return next;
+    });
+  };
+
+  const selectAllWeeks = () => {
+    setSelectedWeeks(new Set(allWeeks.map((w, i) => getWeekKey(w, i))));
+  };
+
+  const clearSelection = () => setSelectedWeeks(new Set());
+
+  const exitSelectionMode = () => {
+    setSelectionMode(false);
+    clearSelection();
+  };
+
+  const handleDeleteWeek = async (weekKey: number) => {
+    if (!user || !report) return;
+    setDeletingWeek(weekKey);
+    try {
+      const { data: r } = await supabase
+        .from("reports")
+        .select("editorial_weeks")
+        .eq("id", report.id)
+        .single();
+
+      const weeks: any[] = Array.isArray(r?.editorial_weeks) ? r.editorial_weeks : [];
+      const updated = weeks.filter(
+        (w) => w?._week_index !== weekKey && w?.week_index !== weekKey,
+      );
+
+      const { error: upErr } = await supabase
+        .from("reports")
+        .update({ editorial_weeks: updated })
+        .eq("id", report.id);
+      if (upErr) throw upErr;
+
+      // Limpa embeddings e padrões dessa semana (best-effort, não bloqueia UX)
+      await Promise.all([
+        supabase.from("post_embeddings").delete()
+          .eq("user_id", user.id).eq("week_index", weekKey),
+        supabase.from("used_title_patterns").delete()
+          .eq("user_id", user.id).eq("week_index", weekKey),
+      ]);
+
+      setReport({ ...report, editorial_weeks: updated });
+      setSelectedWeeks((prev) => {
+        const next = new Set(prev);
+        next.delete(weekKey);
+        return next;
+      });
+      toast({
+        title: "Semana excluída",
+        description: `Semana ${weekKey + 1} removida com sucesso.`,
+      });
+    } catch (err: any) {
+      toast({
+        title: "Erro ao excluir",
+        description: err?.message || "Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setDeletingWeek(null);
+      setConfirmDeleteWeek(null);
+    }
+  };
+
+  const handleDownloadPDF = async (filterKeys?: Set<number>) => {
     setDownloadingPDF(true);
     try {
       const jsPDF = (await import("jspdf")).default;
