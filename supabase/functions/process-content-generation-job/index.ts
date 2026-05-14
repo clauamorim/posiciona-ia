@@ -94,14 +94,27 @@ EXEMPLO RUIM (PROIBIDO — card repete a legenda):
   "card_copy": ["Toda manhã, antes de qualquer reunião, eu nado. Não é ritual motivacional. É necessidade operacional…"]
 }
 
-ESTRATÉGIA DE COPY (OBRIGATÓRIA):
-A) Gancho específico do nicho (Made to Stick — Inesperado + Concreto):
-- Primeira frase de toda caption e slide 1 de todo carrossel: detalhe concreto, número, cena, dado contraintuitivo ou pergunta inesperada — específicos para o NICHO.
-- PROIBIDO abrir com: "Você sabia que…", "5 dicas para…", "A importância de…", "Vamos falar sobre…", "Hoje vou te contar…", "Já parou para pensar…", "Imagine que…", "Você já se perguntou…".
+ESTRATÉGIA DE COPY (OBRIGATÓRIA) — DISTRIBUIÇÃO FIXA DOS 4 POSTS:
+Cada um dos 4 posts da semana TEM UM TIPO FIXO E OBRIGATÓRIO. Não invente outros tipos. Não repita tipo.
 
-B) Posicionamento (Obviously Awesome): pelo menos 1 dos 4 posts deve evidenciar categoria + alternativa rejeitada + valor único.
+POST 1 — EDUCACIONAL: tutorial ou passo a passo prático.
+Estrutura: problema concreto → passos numerados → resultado esperado.
+SEM storytelling pessoal. SEM abrir com "você sabia que".
 
-C) StoryBrand interno: distribua facetas pelos 4 dias sem CITÁ-LAS (problema, plano, resultado, prova).
+POST 2 — DESMISTIFICAÇÃO: escolha uma crença errada comum no nicho e refute com raciocínio sólido ou dado observável.
+Estrutura: mito declarado → por que as pessoas acreditam → por que está errado → o que é verdade.
+
+POST 3 — POSICIONAMENTO: evidencie categoria + o que a marca NÃO é + para quem especificamente é.
+Estrutura: alternativa que o público usaria sem esta solução → por que essa alternativa é insuficiente → o que torna esta abordagem diferente → perfil exato do cliente ideal.
+
+POST 4 — ANÁLISE DE MERCADO OU CASO: se houver tendência relevante no bloco TENDÊNCIAS, use-a. Se não houver, use mini-caso hipotético com estrutura situação → decisão → resultado.
+
+REGRAS DE GANCHO (mantidas): primeira frase de toda caption e slide 1 de carrossel = detalhe concreto, número, cena, dado contraintuitivo ou pergunta inesperada — específicos para o NICHO. PROIBIDO abrir com: "Você sabia que…", "5 dicas para…", "A importância de…", "Vamos falar sobre…", "Hoje vou te contar…", "Já parou para pensar…", "Imagine que…", "Você já se perguntou…".
+
+LIMITE PESSOAL: máximo 1 post pessoal (is_personal=true) por semana, e APENAS se o pilar "bastidor" estiver sub-representado (ver bloco ROTAÇÃO DE PILARES).
+
+PROIBIDO: dois posts do mesmo tipo na mesma semana.
+PROIBIDO: post de POSICIONAMENTO e post de DESMISTIFICAÇÃO com o mesmo tema central.
 
 D) Estrutura de carrossel (mínimo 5 slides):
 - Slide 1: GANCHO (frase curta, máximo 12 palavras). Slide 2: PROBLEMA SENTIDO. Slides do meio: INSIGHT + PROVA ou PASSOS (1 ideia por slide). Último: CTA verbal e direto.
