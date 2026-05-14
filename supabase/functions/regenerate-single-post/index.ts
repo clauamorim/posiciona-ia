@@ -392,7 +392,41 @@ Gere 1 novo post de feed no formato "${format}".`;
       }
     }
 
-    const finalPillar = lockedPillar
+    // ==== Compliance ético: 1 retry para violações HIGH; medium apenas loga ====
+    if (professionCategory !== "outro") {
+      const violations = validatePostCompliance(feedPostToCompliance(cleaned), professionCategory);
+      const high = violations.filter((v) => v.severity === "high");
+      const medium = violations.filter((v) => v.severity === "medium");
+      if (medium.length > 0) {
+        console.log(`[regenerate-single-post] [compliance] medium violations:`, medium);
+      }
+      if (high.length > 0) {
+        console.warn(`[regenerate-single-post] [compliance] HIGH violations, retrying once:`, high);
+        const compHints = high
+          .map((v) => `   - regra "${v.rule}" no campo "${v.field}": "${v.matched_text}"`)
+          .join("\n");
+        const compStricter = enrichedSystemPrompt +
+          `\n\n⚠️ COMPLIANCE — REESCREVA: a versão anterior infringiu regras éticas obrigatórias da profissão regulamentada do criador. Remova os trechos abaixo e mantenha o tema:\n${compHints}`;
+        try {
+          const compRetryRaw = await callClaude({ systemPrompt: compStricter, userText: userPrompt, max_tokens: 3000, timeoutMs: 60000 });
+          const compRetryParsed = extractJsonFromLLM(compRetryRaw);
+          if (compRetryParsed && typeof compRetryParsed === "object" && !Array.isArray(compRetryParsed)) {
+            const compRetryClean = sanitizePost(compRetryParsed as Record<string, unknown>);
+            const after = validatePostCompliance(feedPostToCompliance(compRetryClean), professionCategory);
+            const stillHigh = after.filter((v) => v.severity === "high");
+            if (stillHigh.length === 0) {
+              cleaned = compRetryClean;
+            } else {
+              console.warn(`[regenerate-single-post] [compliance] HIGH violation persisted, accepting original:`, stillHigh);
+            }
+          }
+        } catch (compErr) {
+          console.warn(`[regenerate-single-post] compliance retry falhou (mantendo original):`, compErr);
+        }
+      }
+    }
+
+
       || (isValidPillar((cleaned as any).pillar) ? (cleaned as any).pillar : "legacy");
     const stampedPost = {
       ...cleaned,
