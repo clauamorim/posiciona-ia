@@ -31,10 +31,6 @@ import {
 } from "../_shared/editorialPillars.ts";
 import { NARRATIVE_PRINCIPLES_BLOCK } from "../_shared/narrativePrinciples.ts";
 import {
-  fetchSalesNarrative,
-  renderSalesNarrativeContext,
-} from "../_shared/salesStoryPrompts.ts";
-import {
   detectProfession,
   getEthicalRulesBlock,
   renderMarketTrendsBlock,
