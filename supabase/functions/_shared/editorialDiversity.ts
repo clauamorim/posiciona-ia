@@ -457,6 +457,26 @@ export function validateWeekDiversity(
     }
   }
 
+  // Conceitos saturados nas últimas semanas (dampenedConcepts) — qualquer uso já viola
+  if (hints.dampenedConcepts && hints.dampenedConcepts.length > 0) {
+    const dampenedSet = new Set(hints.dampenedConcepts);
+    const hits: Record<string, number[]> = {};
+    for (const fp of fingerprints) {
+      for (const g of fp.concepts) {
+        if (dampenedSet.has(g as ConceptGroupId)) {
+          (hits[g] ||= []).push(fp.day);
+        }
+      }
+    }
+    for (const [g, days] of Object.entries(hits)) {
+      violations.push({
+        type: "concept_group_overuse",
+        detail: `Grupo ${g} estava SATURADO (uso recente nas últimas 3 semanas) e voltou a aparecer.`,
+        days,
+      });
+    }
+  }
+
   // Banned formula overuse na semana (>1)
   const formulaCount: Record<string, number[]> = {};
   for (const fp of fingerprints) {
