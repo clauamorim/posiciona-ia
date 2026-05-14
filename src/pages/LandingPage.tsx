@@ -665,7 +665,7 @@ const LandingPage = () => {
         <div className="max-w-5xl mx-auto space-y-10">
           <div className="text-center space-y-2">
             <h2 className="text-2xl md:text-3xl font-display font-semibold">Escolha seu plano</h2>
-            <p className="text-sm text-landing-text-secondary">Comece com clareza. Evolua com constância. Reforce com imagem.</p>
+            <p className="text-sm text-landing-text-secondary">Um social media custa R$ 2.000–5.000/mês. Uma consultoria de marca, R$ 3.000 a sessão. O Posiciona entrega os dois — por uma fração do custo.</p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-5">
