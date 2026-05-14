@@ -710,12 +710,21 @@ const EditorialPage = () => {
       const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
       let isFirstPage = true;
 
+      // Filtra semanas se filterKeys foi fornecido (modo seleção). Caso contrário, usa todas.
+      const weeksToExport: { week: any; key: number }[] = allWeeks
+        .map((w, i) => ({ week: w, key: getWeekKey(w, i) }))
+        .filter(({ key }) => !filterKeys || filterKeys.has(key))
+        .sort((a, b) => a.key - b.key);
+
       // Render TITLE separately (avoids it being lost in pagination)
       const titleContainer = document.createElement("div");
       titleContainer.style.cssText = "position:absolute;left:-9999px;top:0;width:900px;background:#f2eeea;padding:24px;font-family:Inter,sans-serif;";
+      const subtitle = filterKeys
+        ? `${weeksToExport.length} semana${weeksToExport.length > 1 ? "s" : ""} selecionada${weeksToExport.length > 1 ? "s" : ""}`
+        : `${weeksToExport.length} semana${weeksToExport.length > 1 ? "s" : ""} de conteúdo`;
       titleContainer.innerHTML = `<div style="padding:16px 0;">
         <h1 style="font-size:22px;font-weight:700;color:#1a1a2e;margin:0 0 4px;">Linha Editorial</h1>
-        <p style="font-size:12px;color:#6b7280;margin:0;">${allWeeks.length} semana${allWeeks.length > 1 ? "s" : ""} de conteúdo</p>
+        <p style="font-size:12px;color:#6b7280;margin:0;">${subtitle}</p>
       </div>`;
       document.body.appendChild(titleContainer);
 
@@ -757,15 +766,14 @@ const EditorialPage = () => {
       document.body.removeChild(titleContainer);
 
       // Render ONE WEEK AT A TIME (avoids canvas size limit)
-      for (let wi = 0; wi < allWeeks.length; wi++) {
-        const week = allWeeks[wi];
+      for (const { week, key } of weeksToExport) {
         const weekContainer = document.createElement("div");
         weekContainer.style.cssText = "position:absolute;left:-9999px;top:0;width:900px;background:#f2eeea;padding:24px;font-family:Inter,sans-serif;";
         document.body.appendChild(weekContainer);
 
         const weekHeader = document.createElement("h2");
         weekHeader.style.cssText = "font-size:18px;font-weight:700;margin:24px 0 12px;color:#1a1a2e;";
-        weekHeader.textContent = `Semana ${wi + 1}`;
+        weekHeader.textContent = `Semana ${key + 1}`;
         weekContainer.appendChild(weekHeader);
 
         const grid = document.createElement("div");
