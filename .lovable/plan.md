@@ -1,37 +1,34 @@
-Diagnóstico atual
+# Plano: Vulnerabilidades em jspdf e html2pdf.js
 
-- O Lovable Cloud está ativo e saudável; não há sinal de projeto pausado.
-- Teste direto do meu ambiente para `POST /auth/v1/token?grant_type=password` respondeu `400` em ~0,64s com `invalid_credentials`, que é o comportamento correto para e-mail/senha inválidos.
-- O `000 em ~29,9s` no seu curl significa que a conexão não recebeu resposta HTTP no seu ambiente. Isso aponta para bloqueio/timeout de rede local, DNS/firewall/proxy/VPN, Safari/iCloud Private Relay/extensões, ou interferência do Preview, não para pausa do backend.
-- A correção anterior ainda deixou o app dependendo de chamada direta do navegador para `/auth/v1/token`; se o Preview/Safari/rede bloquear esse POST, o login continuará mostrando timeout mesmo com o backend saudável.
+## Diagnóstico
 
-Plano de correção
+- **jspdf `^4.2.1`** já é a versão **mais recente publicada** (lançada em 2026-03-17). Não existe versão corrigida upstream para os avisos listados (LFI/Path Traversal, HTML Injection em new window, ReDoS, AcroForm injection, etc.). Não há "atualizar" possível hoje.
+- **html2pdf.js `0.10.2`** tem versão nova `0.14.0` que corrige o XSS apontado no aviso GHSA-w8x4-x68c-m6fc.
+- Uso de jspdf no projeto (`src/lib/pdfExport.ts`, `EditorialPage.tsx`, `InstagramAnalysis.tsx`, `HistoryPage.tsx`): apenas `new jsPDF(...)`, `addImage`, `text`, `save`. **Nenhum uso de** `loadFile`, `openInWindow`, `addJS`, `AcroForm`, FreeText, BMP/GIF decoder com input do usuário — que são os vetores das advisories críticas/altas. Conteúdo passado vem de dados internos do app (relatórios, posts gerados), não de URLs/arquivos externos arbitrários.
 
-1. Criar uma backend function própria para login por senha
-   - A tela de login deixará de chamar `/auth/v1/token` diretamente do navegador.
-   - O navegador chamará uma função do Lovable Cloud no mesmo ecossistema do app, e essa função fará a autenticação no backend.
-   - Isso contorna a camada mais provável de falha: requisição direta browser/Preview/Safari para o endpoint de auth.
+## Ações
 
-2. Preservar o comportamento correto de erros
-   - Credenciais inválidas: mostrar “E-mail ou senha incorretos. Verifique e tente novamente.”
-   - E-mail não confirmado: mostrar instrução para confirmar o e-mail.
-   - Rate limit/conexão: mensagens específicas, sem deixar botão preso em “Entrando...”.
-   - Timeout curto e controlado para a função, com retorno sempre desbloqueando a UI.
+### 1. Atualizar html2pdf.js para 0.14.0
+Resolve o aviso de XSS de severidade alta. Mudança mínima de versão; API compatível com nosso uso atual (apenas import default e chamada simples).
 
-3. Manter a sessão local compatível com o app atual
-   - Reaproveitar `normalizeSession`, `persistLocalSession` e `adoptSession`.
-   - Não editar arquivos auto-gerados da integração.
-   - Não alterar banco, planos, créditos ou regras de acesso.
+```
+bun add html2pdf.js@^0.14.0
+```
 
-4. Blindar o login contra travamento no Preview
-   - Adicionar fallback: se a função também não responder dentro do tempo limite, o app volta o botão para “Entrar” e mostra erro claro.
-   - Adicionar logs mínimos e seguros no console para diferenciar: função indisponível, credenciais inválidas, timeout de rede, payload inesperado.
+### 2. Marcar avisos do jspdf como ignorados (com justificativa)
+Como não há patch upstream e nosso uso não atinge as APIs vulneráveis, vamos:
 
-5. Validação
-   - Testar credenciais inválidas via curl pelo ambiente do projeto: deve retornar erro rápido.
-   - Testar a função de login diretamente: deve retornar erro rápido para credenciais inválidas.
-   - Confirmar que o código não chama mais `/auth/v1/token` diretamente a partir de `src/pages/Login.tsx`.
+- Marcar `vulnerable_dependencies_critical` (jspdf) como **ignorado** com razão: "jspdf 4.2.1 é a versão mais recente publicada; não há patch upstream. Uso restrito a `new jsPDF()`, `addImage`, `text`, `save` com dados internos. Nenhum uso de `loadFile`, `openInWindow`, `addJS` ou AcroForm — vetores das advisories LFI/HTML-Injection não são acionáveis."
+- Marcar `vulnerable_dependencies_high` (parte jspdf) com justificativa similar; manter html2pdf.js retirado do escopo após o update.
+- Marcar `vulnerable_dependencies_medium` (jspdf + DOMPurify transitivo) com mesma justificativa.
 
-Observação importante
+### 3. Atualizar security memory
+Registrar que o uso de jspdf é limitado a render interno para que scans futuros não reabram o item até existir versão corrigida upstream.
 
-Mesmo com esse ajuste, se o seu terminal local não consegue alcançar `opmheegtmdjqwrfkdboq.supabase.co` e retorna `000`, isso ainda pode ser um problema da sua rede local. Mas mover o login para uma backend function reduz muito a dependência do navegador/Preview/Safari nessa chamada crítica.
+### 4. Monitoramento
+Quando o jspdf publicar versão > 4.2.1 com correções, reaplicar o scan e atualizar.
+
+## Validação
+
+- Após `bun add`, abrir páginas que exportam PDF (Relatório, Editorial, Instagram, História) e confirmar que o download continua funcionando.
+- Rodar novo scan de segurança para confirmar que apenas o item residual de jspdf permanece, agora documentado como aceito.
