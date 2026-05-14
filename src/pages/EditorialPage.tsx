@@ -884,6 +884,25 @@ const EditorialPage = () => {
             <TabsContent key={wi} value={`week-${wi}`}>
               {/* Banner "Atualizar semana (grátis)" temporariamente oculto a pedido. */}
               {false && weekOutdated && isRegenWeek && null}
+              {(week._partial || week._stage_b_failed) && (
+                <div className="mb-4 rounded-md border border-amber-300 bg-amber-50 p-4 text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="text-sm">
+                      <strong className="block font-semibold">Stories ainda não foram gerados</strong>
+                      <span className="opacity-90">
+                        O feed desta semana foi salvo, mas a geração dos stories falhou. Você pode tentar novamente sem custo adicional.
+                      </span>
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={() => handleGenerateStoriesOnly(week._week_index ?? wi)}
+                      disabled={generatingStoriesFor !== null}
+                    >
+                      {generatingStoriesFor === (week._week_index ?? wi) ? "Gerando stories..." : "Gerar stories"}
+                    </Button>
+                  </div>
+                </div>
+              )}
               {weekTrends.length > 0 && (
                 <MarketTrendsSection
                   trends={weekTrends}
