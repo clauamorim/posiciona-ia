@@ -776,6 +776,16 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
           suppressContentEditableWarning
           className={isTitle ? "post-title-editable" : "post-body-editable"}
           ref={(el) => {
+            if (isTitle && el) {
+              titleMeasureRef.current = el;
+              // Mede a altura real após o render
+              requestAnimationFrame(() => {
+                if (titleMeasureRef.current) {
+                  const h = titleMeasureRef.current.scrollHeight;
+                  setMeasuredTitleHeight((prev) => (prev !== h ? h : prev));
+                }
+              });
+            }
             if (isEditing && el && editingEl !== el) {
               setEditingEl(el);
               inlineFormatBus.setActive(el, (html) => {
