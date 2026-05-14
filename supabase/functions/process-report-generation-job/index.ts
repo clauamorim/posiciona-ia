@@ -470,7 +470,15 @@ ${personalContext}
 
 Gere o relatório estratégico completo em JSON conforme a estrutura exigida.`;
 
-    const systemPrompt = buildSystemPrompt(genderLabel) + renderBrandscriptFramework();
+    const earlyProfession = detectProfession({
+      profession: business?.profession || null,
+      niche: niche || null,
+      business_description: [business?.services, business?.target_audience].filter(Boolean).join(" "),
+    });
+    const systemPrompt = buildSystemPrompt(genderLabel)
+      + renderBrandscriptFramework()
+      + getEthicalRulesBlock(earlyProfession)
+      + POSITIONING_GUARDRAIL_BLOCK;
 
     let reportContent: any = null;
     let isFallback = false;
