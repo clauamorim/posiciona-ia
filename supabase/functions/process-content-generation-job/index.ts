@@ -265,23 +265,44 @@ const FEED_POST_TYPES = [
   {
     label: "EDUCACIONAL",
     description: `tutorial ou passo a passo prático.
-Estrutura: problema concreto → passos numerados → resultado esperado.
-SEM storytelling pessoal. SEM abrir com "você sabia que".`,
+ESCOLHA UMA das seguintes estruturas de abertura (não use a mesma usada em semanas anteriores — varie):
+  (A) "Os N passos para [resultado]..."
+  (B) "Como [fazer X] sem [erro comum]..."
+  (C) "[Número] erros que [público] comete ao [ação] — e como evitar"
+  (D) "O que [profissional] faz antes de [ação básica]..."
+SEM storytelling pessoal. SEM abrir com "você sabia que". SEM fechar com frases-clichê como "o processo que transforma expertise em presença reconhecida".`,
   },
   {
     label: "DESMISTIFICAÇÃO",
     description: `escolha uma crença errada comum no nicho e refute com raciocínio sólido ou dado observável.
-Estrutura: mito declarado → por que as pessoas acreditam → por que está errado → o que é verdade.`,
+ESCOLHA UMA das seguintes estruturas de abertura (não use a mesma usada em semanas anteriores — varie):
+  (A) "Todo mundo diz que [X resolve Y]. Errado."
+  (B) "[Pessoa/grupo] acredita em [mito]. Veja por que isso não funciona."
+  (C) "Existe um conselho que circula em [contexto]: [conselho]. Esse conselho destrói [coisa importante]."
+  (D) "Se você acha que [X] = [resultado], esse post é pra você."
+PROIBIDO usar o template "A crença de que X resolve Y" — está saturado.
+Estrutura interna: mito declarado → por que as pessoas acreditam → por que está errado → o que é verdade.`,
   },
   {
     label: "POSICIONAMENTO",
     description: `evidencie categoria + o que a marca NÃO é + para quem especificamente é.
-Estrutura: alternativa que o público usaria sem esta solução → por que essa alternativa é insuficiente → o que torna esta abordagem diferente → perfil exato do cliente ideal.`,
+ESCOLHA UMA das seguintes estruturas de abertura (não use a mesma usada em semanas anteriores — varie):
+  (A) Comparação com alternativa: "Existem dezenas de ferramentas que fazem [X]. Esta não é uma delas. Veja por quê."
+  (B) Perfil do cliente ideal: "Se você é [perfil específico] e [situação concreta], leia até o fim."
+  (C) História de não-encaixe: "Cliente chegou pedindo [coisa errada]. Recusei. Aqui está o porquê."
+  (D) Definição por contraste: "[Categoria] resolve [problema A]. [Sua marca] resolve [problema diferente]. Não é a mesma coisa."
+PROIBIDO o template "[Marca] não é para quem quer X — é para quem quer Y" — está saturado.
+Estrutura interna: alternativa que o público usaria → por que é insuficiente → o que torna esta abordagem diferente → perfil exato do cliente ideal.`,
   },
   {
     label: "ANÁLISE DE MERCADO OU CASO",
     description: `se houver tendência relevante no bloco TENDÊNCIAS, use-a como gancho principal. Se não houver tendência pré-listada, pesquise no seu conhecimento um caso, decisão ou evento REAL e NOMEADO do nicho (empresa, pessoa, produto, lei) — nunca mini-caso hipotético genérico.
-Estrutura: situação nomeada → decisão/desfecho → aprendizado para o leitor.`,
+ESCOLHA UMA das seguintes estruturas de abertura (não use a mesma usada em semanas anteriores — varie):
+  (A) Manchete + virada: "[Evento real] aconteceu. Aqui está o que ninguém comentou."
+  (B) Caso + analogia: "O que aconteceu com [empresa/pessoa] tem tudo a ver com [problema do leitor]."
+  (C) Cronologia: "Em [data], [evento]. Em [data posterior], [consequência]. O padrão se repete em [contexto do leitor]."
+  (D) Contraste de reações: "Quando [evento] aconteceu, [grupo A] reagiu de um jeito e [grupo B] de outro. Os que prosperaram fizeram X."
+Estrutura interna: situação nomeada → decisão/desfecho → aprendizado para o leitor.`,
   },
 ] as const;
 const FEED_DAYS = [1, 3, 5, 7];
