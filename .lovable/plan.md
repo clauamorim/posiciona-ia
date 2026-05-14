@@ -1,14 +1,18 @@
-## Plano de Alteracoes nos Prompts de Retrato
+## Alterações em 3 arquivos
 
-### Arquivos e Mudancas
+### 1. `supabase/functions/_shared/cors.ts`
+Adicionar `DELETE` à lista `Access-Control-Allow-Methods`.
 
-1. **`supabase/functions/generate-portrait/index.ts`**
-   - **Linha ~266**: alterar `const MAX_REFERENCES_TO_SEND = 5;` para `3`.
-   - **Linhas ~111-114**: dentro de `generateOnePortrait`, inverter a ordem do array `userContent` para que as imagens de referencia sejam inseridas **antes** do bloco de texto do prompt. Isso segue a recomendacao de que o Gemini presta mais atencao ao conteudo que vem primeiro.
+### 2. `supabase/functions/generate-portrait/index.ts`
+- 2a. `MAX_REFERENCES_TO_SEND`: `5` → `3` (já está em 3 atualmente segundo o arquivo, confirmar e manter).
+- 2b. Em `generateOnePortrait`: inverter ordem de `userContent` para imagens antes do texto (já aplicado anteriormente — confirmar e manter).
+- 2c. Trocar a geração `Promise.all` por loop sequencial `for`, com early-break em status 402/429.
 
-2. **`supabase/functions/_shared/portraitPrompts.ts`**
-   - **Linha ~713**: no primeiro item de `sceneParts`, substituir a diretriz `PHOTOGRAPHIC REALISM ONLY... Canon EOS R5...` por `DOCUMENTARY PORTRAIT PHOTOGRAPH... Kodak Portra 400 35mm film... press archive portrait`.
-   - **Linha ~743**: substituir a diretriz de `Lighting: soft natural studio lighting from a large softbox...` por uma versao que enfatiza luz de janela simples, sombras visiveis sob o maxilar/nariz (sem preenchimento total), um unico catchlight por olho e advertencia explicita contra o "beauty ad lighting" artificial.
+### 3. `supabase/functions/_shared/portraitPrompts.ts` — em `buildGeminiPortraitPrompt`
+- 3a. Adicionar constante `GEMINI_BACKGROUNDS` (3 entradas neutro/claro/escuro) antes de `const subject = ...`.
+- 3b. Trocar `BACKGROUND_VARIATIONS[params.backgroundIndex]` por `GEMINI_BACKGROUNDS[params.backgroundIndex]` (mantém `FRAMING_VARIATIONS`).
+- 3c. Substituir primeiro item de `sceneParts` por versão "DOCUMENTARY PORTRAIT PHOTOGRAPH / Kodak Portra 400".
+- 3d. Substituir diretriz `Lighting:` por versão "window-style softbox at 45°".
 
-### Fora do Escopo
-Nenhuma outra logica de geracao, cobranca, polling, upload ou prompt sera alterada.
+### Fora do escopo
+Nenhuma outra mudança em prompts, cobrança, upload ou UI.
