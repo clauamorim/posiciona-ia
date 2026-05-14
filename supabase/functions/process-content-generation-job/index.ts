@@ -1041,6 +1041,7 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
         await persistWeek(job.report_id, feedFinal, [], jobId, marketTrends, wkIdxForPartial, true);
         partialPersisted = true;
         console.log(`[job ${jobId}] Feed persistido (save parcial). Iniciando Estágio B.`);
+        console.log(`[content-job] week=${wkIdxForPartial} user=${userId} stage=A status=success`);
       } catch (partialErr) {
         console.error(`[job ${jobId}] Falha ao salvar parcial do feed (segue tentando estágio B):`, partialErr);
       }
