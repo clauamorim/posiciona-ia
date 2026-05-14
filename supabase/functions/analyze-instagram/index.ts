@@ -244,6 +244,14 @@ Deno.serve(async (req) => {
 
     const nicheText = (profile as any).niche || "(não cadastrado — não restrinja a nichos específicos sem dado)";
 
+    // Carrega Brand SSoT (paleta + símbolos + figurino + tom de voz do relatório)
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+    const ssot = await loadBrandSSoT(supabaseAdmin, userId);
+    const ssotBlock = renderBrandSSoTBlock(ssot);
+
     const systemPrompt = `Você é um especialista em branding e marketing digital para Instagram. Analise o perfil com base na screenshot e nos dados estratégicos do usuário.
 
 Use as três referências anexadas em PDF (clareza narrativa, posicionamento específico, ganchos memoráveis) APENAS como base de raciocínio interno. NUNCA cite os nomes dos livros/métodos/autores no texto entregue.
@@ -253,6 +261,7 @@ ${FRAMEWORK_LEAK_BLOCK}
 ${VISUAL_PRESCRIPTION_BLOCK}
 ${POSITIONING_GUARDRAIL_BLOCK}
 ${ethicalBlock}
+${ssotBlock}
 
 # REGRAS DE NICHO E PÚBLICO
 - O nicho cadastrado é: ${nicheText}
