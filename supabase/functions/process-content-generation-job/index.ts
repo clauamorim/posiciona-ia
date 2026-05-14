@@ -517,6 +517,7 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
         return {
           day: d,
           format: "post",
+          pillar: "legacy",
           theme: "Conteúdo a definir",
           caption: "",
           card_copy: [],
@@ -538,7 +539,7 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
 
       // ==== ESTÁGIO B: Stories (7) ====
       const feedSummaryForStories = feedFinal
-        .map((p) => `Dia ${p.day} (${p.format}${p.is_personal ? ", pessoal" : ""}): ${p.theme}`)
+        .map((p) => `Dia ${p.day} (${p.format}${p.pillar ? `, pilar=${p.pillar}` : ""}${p.is_personal ? ", pessoal" : ""}): ${p.theme}`)
         .join("\n");
 
       const storiesSystem =
@@ -546,12 +547,13 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
         ethicalBlock +
         "\n\n" +
         buildStoriesSystemPrompt(feedSummaryForStories, FEED_DAYS) +
+        renderPillarsBlock() +
         renderEditorialFrameworks();
       const storiesUser = `# NEGÓCIO
 Empresa: ${business?.company_name || "Não informado"}
 Serviços: ${business?.services || "Não informado"}
 Público-alvo: ${business?.target_audience || "Não informado"}
-Nicho: ${niche || "Não informado"}${storybrandContext}${toneContext}${personalContext}${marketTrendsBlock}
+Nicho: ${niche || "Não informado"}${verifiableFactsBlock}${storybrandContext}${toneContext}${personalContext}${marketTrendsBlock}
 
 Gere agora os 7 stories da semana.`;
 
