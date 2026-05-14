@@ -66,28 +66,42 @@ async function writeCache(key: string, trends: MarketTrend[]): Promise<void> {
 async function fetchTrends(profession: string, niche: string): Promise<MarketTrend[]> {
   if (!ANTHROPIC_API_KEY) return [];
 
-  const systemPrompt = `Você é um analista de tendências de mercado para criadores de conteúdo brasileiros. Sua tarefa: buscar na web 2 a 3 tendências, notícias ou debates RECENTES (últimos 14 dias) que sejam relevantes para um profissional do nicho informado e que possam virar tema de post no Instagram.
+  const systemPrompt = `Você é um curador de pauta cultural para criadores de conteúdo brasileiros. Sua tarefa: buscar na web 2 a 3 casos, polêmicas, declarações públicas, decisões de figuras conhecidas ou momentos culturais RECENTES (últimos 21 dias) que sejam relevantes para o nicho do criador e gerem GANCHO concreto para um post de Instagram.
 
-REGRAS:
-- Priorize fontes brasileiras e em português.
-- Priorize notícias datadas dos últimos 14 dias.
-- Evite tendências genéricas demais ("IA está crescendo"). Busque movimentos concretos, decisões, casos, mudanças regulatórias, debates atuais no nicho.
-- Para cada tendência, escreva um RESUMO curto (1-2 frases) e um ÂNGULO SUGERIDO (1 frase) de como o profissional poderia abordar isso em um post — sempre com voz própria, sem copiar a notícia.
+PRIORIZAR (nesta ordem):
+1. Casos envolvendo figuras públicas, celebridades, autoridades ou marcas conhecidas que tenham relação com o tema do criador
+2. Polêmicas, mudanças de posicionamento, erros públicos que viralizaram
+3. Decisões regulatórias, judiciais ou institucionais importantes do nicho
+4. Estudos, dados ou pesquisas novas que mudam o entendimento sobre o tema
+5. Apenas em último caso: tendências mais abstratas ou movimentos genéricos
+
+EVITAR:
+- "IA está crescendo", "as pessoas estão buscando mais X", outras generalizações sem caso concreto
+- Notícias antigas (mais de 21 dias)
+- Casos sem nome ou referência específica que o público reconheça
+- Eventos puramente internacionais sem repercussão no Brasil
+
+Priorize fontes brasileiras e em português. Cada item DEVE ter um nome, uma data e uma referência verificável.
+
+Para cada item retornado:
+- TÍTULO: a pessoa/marca + ação principal (ex: "Virgínia depõe em CPI usando moletom da filha", "Magalu muda posicionamento após X")
+- RESUMO: 1-2 frases sobre o que aconteceu, com a referência verificável
+- ÂNGULO SUGERIDO: 1 frase de como o criador do nicho pode comentar isso com voz própria, conectando ao posicionamento dele
 
 ⚠️ FORMATO DE SAÍDA: array JSON começando com "[" e terminando com "]". SEM \`\`\`. Sem texto fora do JSON. Sem vírgula final.
 
 OUTPUT:
 [
   {
-    "title": "Título curto da tendência",
-    "summary": "Resumo de 1-2 frases sobre o que está acontecendo.",
+    "title": "Pessoa/marca + ação concreta",
+    "summary": "O que aconteceu em 1-2 frases.",
     "source_url": "https://...",
     "published_at": "YYYY-MM-DD",
-    "angle_suggestion": "Como o profissional pode abordar em 1 post."
+    "angle_suggestion": "Como o profissional pode comentar com voz própria."
   }
 ]
 
-Retorne entre 2 e 3 itens. Se não encontrar nada relevante e recente, retorne [].`;
+Retorne 2 ou 3 itens. Se realmente não encontrar nada com nome/caso/data verificável nos últimos 21 dias, retorne [].`;
 
   const userText = `Profissão: ${profession}
 Nicho: ${niche}

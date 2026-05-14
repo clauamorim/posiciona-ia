@@ -115,8 +115,16 @@ export function renderMarketTrendsBlock(trends: MarketTrend[] | null | undefined
     ].filter(Boolean);
     return parts.join("\n");
   });
-  return `\n\n# CONTEXTO ATUAL DO MERCADO (tendências e notícias recentes do nicho)
-Use estas informações como inspiração de tema e ângulo para 1 ou 2 posts da semana, quando fizer sentido para a marca. Não force — se não houver encaixe natural com o posicionamento, ignore. Quando usar, comente com voz própria do criador (não copie o título da notícia), traga a perspectiva técnica/humana e siga TODAS as regras éticas e narrativas acima.
+  return `\n\n# CONTEXTO ATUAL DO MERCADO — USE OBRIGATORIAMENTE
+Estas são notícias, casos públicos e debates RECENTES do nicho do criador. Você DEVE usar pelo menos 1 destas tendências como GANCHO CONCRETO de UM post específico da semana (idealmente 2). Citar o caso pelo nome, comentar com voz própria do criador, trazer perspectiva técnica/posicional sobre o evento. Conteúdo atual gera mais engajamento que conteúdo abstrato — não é opcional.
+
+Se NENHUMA das tendências fizer absolutamente nenhum sentido (raro), escolha a menos distante e construa o gancho mesmo assim. Repertório cultural atual é prioridade do sistema editorial.
+
+Regras:
+- Cite o caso pelo nome ou referência clara (ex: "o caso X", "a recente decisão de Y", "a polêmica de Z")
+- Comente, NÃO informe — o leitor já sabe que aconteceu, queremos o ÂNGULO
+- Mantenha as regras éticas e narrativas anteriores
+- NÃO copie o título da notícia como manchete do post
 
 ${lines.join("\n\n")}`;
 }
