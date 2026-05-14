@@ -177,9 +177,34 @@ function detectUsedTraits(
 
 // Distribuição fixa dos 4 dias com feed dentro da semana (1..7).
 // Escolhemos dias que cobrem início, meio e fim da semana com bom espaçamento.
+// Tipos de post em ordem base. A cada semana, aplicamos rotationOffset % 4
+// para variar qual tipo vai para o Dia 1, evitando que Day1=Educacional toda semana.
+const FEED_POST_TYPES = [
+  {
+    label: "EDUCACIONAL",
+    description: `tutorial ou passo a passo prático.
+Estrutura: problema concreto → passos numerados → resultado esperado.
+SEM storytelling pessoal. SEM abrir com "você sabia que".`,
+  },
+  {
+    label: "DESMISTIFICAÇÃO",
+    description: `escolha uma crença errada comum no nicho e refute com raciocínio sólido ou dado observável.
+Estrutura: mito declarado → por que as pessoas acreditam → por que está errado → o que é verdade.`,
+  },
+  {
+    label: "POSICIONAMENTO",
+    description: `evidencie categoria + o que a marca NÃO é + para quem especificamente é.
+Estrutura: alternativa que o público usaria sem esta solução → por que essa alternativa é insuficiente → o que torna esta abordagem diferente → perfil exato do cliente ideal.`,
+  },
+  {
+    label: "ANÁLISE DE MERCADO OU CASO",
+    description: `se houver tendência relevante no bloco TENDÊNCIAS, use-a como gancho principal. Se não houver tendência pré-listada, pesquise no seu conhecimento um caso, decisão ou evento REAL e NOMEADO do nicho (empresa, pessoa, produto, lei) — nunca mini-caso hipotético genérico.
+Estrutura: situação nomeada → decisão/desfecho → aprendizado para o leitor.`,
+  },
+] as const;
 const FEED_DAYS = [1, 3, 5, 7];
 
-function buildFeedSystemPrompt(): string {
+function buildFeedSystemPrompt(rotationOffset: number = 0): string {
   return `Você é um especialista em branding e copy para Instagram. Domina e aplica de forma OBRIGATÓRIA três frameworks (descritos em detalhe ao final deste prompt):
 1) StoryBrand — clareza narrativa.
 2) Obviously Awesome (April Dunford) — posicionamento específico.
