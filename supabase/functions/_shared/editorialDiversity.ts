@@ -105,6 +105,7 @@ export type TitleFormulaId =
   | "verdade_sobre"
   | "palavra_grandiosa_ninguem"
   | "constroi_vs_ocupa"
+  | "protocolo_n_perguntas"
   | "livre";
 
 const FORMULA_PATTERNS: { id: Exclude<TitleFormulaId, "livre">; label: string; re: RegExp }[] = [
