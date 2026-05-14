@@ -792,12 +792,30 @@ async function processJob(jobId: string) {
       const recentTraitsBlock = renderRecentTraitsBlock(recentlyUsedTraits);
       const personalTraitMap = buildPersonalTraitMap(personal);
 
+      // Hints de diversidade — fórmulas e conceitos centrais usados nas últimas 2 semanas
+      let diversityHints = { bannedFormulas: [] as any[], dampenedConcepts: [] as any[] };
+      try {
+        const since = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+        const { data: patternRows } = await admin
+          .from("used_title_patterns")
+          .select("title_formula, central_concepts, created_at")
+          .eq("user_id", userId)
+          .gte("created_at", since)
+          .order("created_at", { ascending: false })
+          .limit(40);
+        diversityHints = buildDiversityHints((patternRows as any[]) || []);
+      } catch (hintErr) {
+        console.warn(`[job ${jobId}] buildDiversityHints falhou (ignorado):`, (hintErr as any)?.message || hintErr);
+      }
+
       // ==== ESTÁGIO A: Feed (4 posts) ====
       await updateJob(jobId, { progress_message: "Gerando seus 4 posts de feed (etapa 1 de 2)…" });
 
       const feedSystem =
         NARRATIVE_PRINCIPLES_BLOCK +
         POSITIONING_GUARDRAIL_BLOCK +
+        renderPillarPlanBlock() +
+        renderDiversityBlock(diversityHints as any) +
         ethicalBlock +
         "\n\n" +
         buildFeedSystemPrompt(rotationOffset) +
