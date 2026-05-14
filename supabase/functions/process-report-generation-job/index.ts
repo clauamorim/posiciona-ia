@@ -11,6 +11,37 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { extractJsonFromLLM, isValidReport } from "../_shared/jsonExtract.ts";
 import { callClaude, ClaudeError } from "../_shared/claudeClient.ts";
 import { fetchPersonalQuestionnaire, renderPersonalContext, renderBrandscriptFramework } from "../_shared/buildClaudeContext.ts";
+import { detectProfession, getEthicalRulesBlock, POSITIONING_GUARDRAIL_BLOCK } from "../_shared/professionRules.ts";
+import { validateReportCoherence, renderCoherenceRetryInstructions } from "../_shared/reportCoherenceValidator.ts";
+import { persistBrandSSoT } from "../_shared/brandSSoT.ts";
+
+// Substituições obrigatórias aplicadas em campos textuais do relatório
+// quando a profissão é regulamentada — defesa em profundidade caso a LLM
+// ainda escape um trecho problemático.
+const REGULATED_REPLACEMENTS: { pattern: RegExp; replacement: string }[] = [
+  { pattern: /\bantes\s*\/?\s*e?\s*\/?\s*depois\b/gi, replacement: "trilha de transformação contada pelo método" },
+  { pattern: /\bf[oó]rmula\s+que\s+poucos\s+conhecem\b/gi, replacement: "metodologia construída ao longo dos anos" },
+  { pattern: /\bf[oó]rmula\s+m[aá]gica\b/gi, replacement: "metodologia construída ao longo dos anos" },
+  { pattern: /\bsegredo\b/gi, replacement: "critério" },
+  { pattern: /\bagende\s+seu\s+diagn[oó]stico\s+pelo\s+whatsapp\b/gi, replacement: "salve este post" },
+  { pattern: /\bagende\s+pelo\s+whatsapp\b/gi, replacement: "guarde esta informação" },
+  { pattern: /\bagende\s+sua\s+(consulta|sess[aã]o|avalia[cç][aã]o)\b/gi, replacement: "guarde para conversar com seu profissional" },
+];
+
+function applyRegulatedReplacements(value: any): any {
+  if (typeof value === "string") {
+    let out = value;
+    for (const r of REGULATED_REPLACEMENTS) out = out.replace(r.pattern, r.replacement);
+    return out;
+  }
+  if (Array.isArray(value)) return value.map(applyRegulatedReplacements);
+  if (value && typeof value === "object") {
+    const o: any = {};
+    for (const k of Object.keys(value)) o[k] = applyRegulatedReplacements(value[k]);
+    return o;
+  }
+  return value;
+}
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
