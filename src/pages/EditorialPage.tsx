@@ -659,9 +659,13 @@ const EditorialPage = () => {
         .single();
 
       const weeks: any[] = Array.isArray(r?.editorial_weeks) ? r.editorial_weeks : [];
-      const updated = weeks.filter(
-        (w) => w?._week_index !== weekKey && w?.week_index !== weekKey,
-      );
+      // Remove qualquer entrada que combine pelo week_index lógico OU, se a semana não tem
+      // esse campo gravado, pela posição no array (fallback para semanas legadas).
+      const updated = weeks.filter((w, i) => {
+        const wi = w?._week_index ?? w?.week_index;
+        if (typeof wi === "number") return wi !== weekKey;
+        return i !== weekKey;
+      });
 
       const { error: upErr } = await supabase
         .from("reports")
