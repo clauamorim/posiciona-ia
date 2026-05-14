@@ -737,11 +737,17 @@ export function validateWeekDiversity(
 // ===== Hints a partir do histórico do banco =====
 
 export function buildDiversityHints(
-  rows: Array<{ title_formula?: string | null; central_concepts?: string[] | null; created_at?: string }>,
+  rows: Array<{
+    title_formula?: string | null;
+    central_concepts?: string[] | null;
+    named_cases?: string[] | null;
+    created_at?: string;
+  }>,
 ): DiversityHints {
   // "Recente" = últimas ~2 semanas; o caller já limita por LIMIT/intervalo.
   const formulas = new Set<TitleFormulaId>();
   const concepts = new Set<ConceptGroupId>();
+  const namedCases = new Set<string>();
   for (const r of rows || []) {
     const f = (r.title_formula || "").trim() as TitleFormulaId;
     if (f && f !== "livre" && FORMULA_PATTERNS.some((p) => p.id === f)) {
@@ -749,6 +755,9 @@ export function buildDiversityHints(
     }
     for (const c of r.central_concepts || []) {
       if (c in CONCEPT_GROUPS) concepts.add(c as ConceptGroupId);
+    }
+    for (const nc of r.named_cases || []) {
+      if (typeof nc === "string" && nc.trim()) namedCases.add(nc.trim().toLowerCase());
     }
   }
   // Override temporário (até 2026-06-30): "a_ideia_de_que_x_esta" foi detectada
@@ -758,6 +767,7 @@ export function buildDiversityHints(
   return {
     bannedFormulas: Array.from(formulas),
     dampenedConcepts: Array.from(concepts),
+    bannedNamedCases: Array.from(namedCases),
   };
 }
 
