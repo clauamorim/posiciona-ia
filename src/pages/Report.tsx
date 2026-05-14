@@ -370,7 +370,17 @@ const Report = () => {
               <AlertTriangle className="h-4 w-4 text-amber-600" />
               <AlertTitle className="text-amber-800 dark:text-amber-400">Versão simplificada</AlertTitle>
               <AlertDescription className="text-amber-700 dark:text-amber-300">
-                Esta estratégia foi gerada em modo simplificado porque a IA não respondeu a tempo. Você pode regenerar para tentar a versão completa.
+                Esta estratégia foi gerada em modo simplificado porque a IA não respondeu a tempo. Como você não tem culpa pela falha, a regeneração para tentar a versão completa é gratuita.
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="ml-3 gap-1.5"
+                  onClick={handleRegenerate}
+                  disabled={regenerating}
+                >
+                  {regenerating ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                  Regenerar gratuitamente
+                </Button>
               </AlertDescription>
             </Alert>
           </div>
