@@ -457,7 +457,9 @@ Cada um destes GRUPOS de palavras pode ser TEMA CENTRAL de NO MÁXIMO 1 post da 
 - grupo_g_frequencia_postagem: aparecer todo dia / volume vs tese / consistência > frequência
 - grupo_h_humanizar_bastidor: mostrar bastidor / humanizar marca / nivela por baixo
 - grupo_i_agradar_todos: agradar todo mundo / não é pra todos / recorte de cliente
-- grupo_j_cliente_pechincha: paciente já pechinchando / preço × valor
+- grupo_j_cliente_pechincha: paciente já pechinchando / cobrar mais / medo de subir preço
+- grupo_k_anti_cliente: quem o Posiciona NÃO atende / quem deveria primeiro resolver outra coisa
+- grupo_l_bio_que_lista: bio descreve função / lista credencial sem recorte
 
 CONCEITOS SATURADOS nas últimas 3 semanas (PROIBIDOS como tema central nesta semana — não use NENHUM post sobre eles): ${dampened}`;
 }
