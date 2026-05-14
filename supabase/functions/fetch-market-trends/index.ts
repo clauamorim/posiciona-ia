@@ -88,6 +88,8 @@ Para cada item retornado:
 - RESUMO: 1-2 frases sobre o que aconteceu, com a referência verificável
 - ÂNGULO SUGERIDO: 1 frase de como o criador do nicho pode comentar isso com voz própria, conectando ao posicionamento dele
 
+Exceção para nichos de tecnologia (IA, software, programação, dados, startups, SaaS): notícias e decisões de empresas/produtos internacionais que profissionais brasileiros acompanham de perto também são válidas (ex: OpenAI, Google, Meta, Microsoft, Anthropic, GitHub, Notion, Figma, etc.) — desde que tenham nome de empresa/produto, data e referência verificável. Para esses nichos também são válidos: regulação brasileira de tecnologia (LGPD, PL IA, decisões do CADE sobre big techs), notícias de startups/empresas de tech brasileiras (Nubank, iFood, RD Station, Totvs, Loft, etc.).
+
 ⚠️ FORMATO DE SAÍDA: array JSON começando com "[" e terminando com "]". SEM \`\`\`. Sem texto fora do JSON. Sem vírgula final.
 
 OUTPUT:
