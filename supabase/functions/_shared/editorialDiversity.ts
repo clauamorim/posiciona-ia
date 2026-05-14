@@ -423,6 +423,9 @@ export interface FeedPostLike {
   theme?: string;
   caption?: any;
   pillar?: string;
+  cta?: string;
+  script?: string;
+  card_copy?: string[];
 }
 
 function getHeadline(p: FeedPostLike): string {
@@ -430,6 +433,19 @@ function getHeadline(p: FeedPostLike): string {
   if (typeof c === "string") return c;
   if (c && typeof c === "object" && typeof c.headline === "string") return c.headline;
   return "";
+}
+
+function getBody(p: FeedPostLike): string {
+  const parts: string[] = [];
+  const c = p.caption;
+  if (typeof c === "string") parts.push(c);
+  else if (c && typeof c === "object") {
+    if (typeof c.body === "string") parts.push(c.body);
+    if (typeof c.headline === "string") parts.push(c.headline);
+  }
+  if (typeof p.script === "string") parts.push(p.script);
+  if (Array.isArray(p.card_copy)) parts.push(p.card_copy.filter((s) => typeof s === "string").join(" "));
+  return parts.join(" ").slice(0, 400);
 }
 
 export interface PostFingerprint {
@@ -442,13 +458,21 @@ export interface PostFingerprint {
 
 export function fingerprintPost(p: FeedPostLike): PostFingerprint {
   const headline = getHeadline(p);
+  const body = getBody(p);
+  const cta = (p.cta || "").toString();
   const titleForFormula = (p.theme || headline || "").toString();
+  // Detecta fórmula no título OU no CTA (CTA repetitivo conta como fórmula).
+  let formula = detectTitleFormula(titleForFormula);
+  if (formula === "livre" && cta) {
+    const ctaFormula = detectTitleFormula(cta);
+    if (ctaFormula !== "livre") formula = ctaFormula;
+  }
   return {
     day: p.day,
     pillar: (p.pillar && String(p.pillar).trim()) || "livre",
-    formula: detectTitleFormula(titleForFormula),
+    formula,
     anchors: detectTitleAnchors(titleForFormula),
-    concepts: detectConceptGroups({ theme: p.theme, headline }),
+    concepts: detectConceptGroups({ theme: p.theme, headline, body, cta }),
   };
 }
 
