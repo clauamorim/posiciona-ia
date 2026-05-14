@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { SeoHead } from "@/components/SeoHead";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -370,6 +371,7 @@ const PortraitGenerator = () => {
 
   return (
     <DashboardLayout>
+      <SeoHead title="Retratos de Marca · Posiciona" description="Retratos profissionais gerados por IA com base no seu posicionamento." path="/portraits" />
       <div className="space-y-6">
         <div>
           <h1 className="text-xl font-semibold tracking-tight">Retratos de Marca</h1>

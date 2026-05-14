@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { SeoHead } from "@/components/SeoHead";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -713,6 +714,7 @@ const EditorialPage = () => {
   if (loading) {
     return (
       <DashboardLayout>
+      <SeoHead title="Linha Editorial · Posiciona" description="Calendário e conteúdo semanal alinhados ao seu posicionamento." path="/editorial" />
         <div className="space-y-4">
           <Skeleton className="h-8 w-64" />
           <Skeleton className="h-96 w-full" />

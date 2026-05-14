@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { SeoHead } from "@/components/SeoHead";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -197,6 +198,7 @@ const Dashboard = () => {
 
   return (
     <DashboardLayout>
+      <SeoHead title="Dashboard · Posiciona" description="Sua central de posicionamento de marca pessoal." path="/dashboard" />
       <div className="space-y-5">
         {/* Compact greeting */}
         <div className="space-y-0.5">

@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { flushSync } from "react-dom";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { SeoHead } from "@/components/SeoHead";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -1647,6 +1648,7 @@ const PostEditorPage = () => {
   if (loading) {
     return (
       <DashboardLayout>
+      <SeoHead title="Editor de Post · Posiciona" description="Edite seus posts antes de publicar." path="/post-editor" />
         <div className="space-y-4"><Skeleton className="h-8 w-64" /><Skeleton className="h-96 w-full" /></div>
       </DashboardLayout>
     );

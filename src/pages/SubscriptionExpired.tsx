@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { SeoHead } from "@/components/SeoHead";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
@@ -55,6 +56,7 @@ const SubscriptionExpired = () => {
 
   return (
     <DashboardLayout>
+      <SeoHead title="Assinatura expirada · Posiciona" description="Renove seu acesso ao Posiciona." path="/assinatura-expirada" />
       <div className="max-w-2xl mx-auto space-y-6 py-4">
         {isExpired ? (
           <>

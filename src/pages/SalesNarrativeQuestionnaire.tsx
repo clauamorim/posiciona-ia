@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { SeoHead } from "@/components/SeoHead";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -102,6 +103,7 @@ const SalesNarrativeQuestionnaire = () => {
   if (!hydrated) {
     return (
       <DashboardLayout>
+      <SeoHead title="Narrativa de Vendas · Posiciona" description="Construa sua narrativa de vendas." path="/sales-narrative" />
         <div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
       </DashboardLayout>
     );

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { LogOut } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { SeoHead } from "@/components/SeoHead";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -378,6 +379,7 @@ const ChoosePlan = () => {
   if (currentSlug) {
     return (
       <DashboardLayout>
+      <SeoHead title="Escolher plano · Posiciona" description="Compare e escolha seu plano Posiciona." path="/choose-plan" />
         {content}
       </DashboardLayout>
     );

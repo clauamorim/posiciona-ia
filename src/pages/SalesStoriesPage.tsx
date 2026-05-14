@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { SeoHead } from "@/components/SeoHead";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -153,6 +154,7 @@ export default function SalesStoriesPage() {
   if (loading) {
     return (
       <DashboardLayout>
+      <SeoHead title="Stories de Venda · Posiciona" description="Roteiros de stories para apresentar e vender seus serviços." path="/stories-de-venda" />
         <div className="flex items-center justify-center py-20">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>

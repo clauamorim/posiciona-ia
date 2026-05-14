@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { SeoHead } from "@/components/SeoHead";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -208,6 +209,7 @@ const InstagramAnalysis = () => {
   if (hasPrereqs === null || loadingExisting) {
     return (
       <DashboardLayout>
+      <SeoHead title="Análise do Instagram · Posiciona" description="Diagnóstico estratégico do seu perfil." path="/instagram-analysis" />
         <div className="flex items-center justify-center py-20">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>

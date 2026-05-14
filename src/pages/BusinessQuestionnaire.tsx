@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { SeoHead } from "@/components/SeoHead";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -208,6 +209,7 @@ const BusinessQuestionnaire = () => {
 
   return (
     <DashboardLayout>
+      <SeoHead title="Questionário do Negócio · Posiciona" description="Diagnóstico do seu negócio." path="/business-questionnaire" />
       <div className="max-w-2xl mx-auto space-y-5">
         {/* Header */}
         <div className="flex items-center justify-between gap-3">

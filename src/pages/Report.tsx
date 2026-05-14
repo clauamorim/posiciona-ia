@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { SeoHead } from "@/components/SeoHead";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -232,6 +233,7 @@ const Report = () => {
   if (loading) {
     return (
       <DashboardLayout>
+      <SeoHead title="Relatório · Posiciona" description="Seu relatório completo de posicionamento de marca." path="/report" />
         <div className="space-y-4">
           <Skeleton className="h-8 w-64" />
           <Skeleton className="h-96 w-full" />
