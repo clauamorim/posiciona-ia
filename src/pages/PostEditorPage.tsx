@@ -626,15 +626,9 @@ const PostEditorPage = () => {
         const normalizedAutoOverlays = (normalizedAutoLayoutState.overlayImages as OverlayImage[]) || [];
         if (normalizedAutoOverlays.length > 0) {
           setOverlayImages(prev => {
-            if (tplApplied) {
-              // Template do arquétipo é a única fonte de decorativos.
-              // Do auto-layout só aproveitamos o background image (tpl-bg-*).
-              const keptTplDecor = prev.filter(o => o.id.startsWith("tpl-") && !o.id.startsWith("tpl-bg-"));
-              const newBgs = normalizedAutoOverlays.filter(o => o.id.startsWith("tpl-bg-"));
-              const otherPrev = prev.filter(o => !o.id.startsWith("tpl-"));
-              return [...newBgs, ...otherPrev, ...keptTplDecor];
-            }
-            // Sem template do arquétipo: comportamento original.
+            // Auto-layout é sempre a fonte autoritativa de overlays
+            // (decorativos de arquétipo via buildArchetypeOverlays + background image).
+            // Preservamos apenas overlays não-template que o usuário possa ter adicionado.
             const cleaned = prev.filter(o => !o.id.startsWith("tpl-"));
             const next = [...normalizedAutoOverlays, ...cleaned];
             const bgs = next.filter(o => o.id.startsWith("tpl-bg-"));
