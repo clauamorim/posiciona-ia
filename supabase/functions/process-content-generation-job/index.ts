@@ -377,6 +377,8 @@ Aberturas proibidas:
   • "[Caso] aconteceu há [tempo]. Por que [grupo do leitor] deveria ter aprendido com isso"
   • "Quando [evento] aconteceu, [grupo A] reagiu de X jeito. Os que prosperaram fizeram Y"
 - "Postar com [X] não resolve [Y]" / "[Ação] não resolve [problema]" — varie a construção
+- "Para quem [Marca] faz [X] — e para quem é melhor [Y]" / "Para quem o Posiciona [X] — e para quem [Y]" — está banido como TEMPLATE para POSICIONAMENTO. Use alternativas: narrativa de cliente recusado, comparação com alternativa específica, ou recorte do não-cliente ideal.
+- "[X] não constrói autoridade — [Y] constrói" / "[X] não constrói [coisa] — [Y] constrói" — está banido como TEMPLATE para DESMISTIFICAÇÃO. A construção "[ação A] não constrói [substantivo] — [ação B] constrói" foi usada em 2 semanas seguidas. Varie a estrutura completamente (não apenas o objeto).
 
 🏷️ ORÇAMENTO DE MENÇÃO DA MARCA (CRÍTICO):
 A palavra "Posiciona" (nome da marca) só pode aparecer em:
