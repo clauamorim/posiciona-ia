@@ -1,85 +1,113 @@
 ## Objetivo
 
-Eliminar a monotemia e as fórmulas batidas de título da linha editorial, garantindo diversidade de pilares, temas centrais e padrões de título — tanto dentro de uma semana quanto entre semanas. A geração nunca trava por violação: ela tenta corrigir uma vez e segue.
+Tornar o relatório a Single Source of Truth (SSoT) da marca. Análise de Instagram, linha editorial, retratos e geração visual de posts passam a consumir símbolos, paleta, figurino e tom de voz do relatório do usuário, em vez de gerar em paralelo.
 
-## Mudanças
+---
 
-### 1. Nova tabela `used_title_patterns`
+## 1. Guardrails éticos no relatório (`generate-report`)
 
-Migração para registrar, por post gerado:
+Localizar a função que gera o relatório (provavelmente `supabase/functions/generate-report/index.ts` ou similar) e:
 
-- `user_id`, `report_id`, `week_index`, `day_index`
-- `pillar` (text) — declarado pela LLM (ver §3)
-- `title_formula` (text) — id detectado por heurística
-- `title_anchors` (text[]) — `nome_proprio`, `ano`, `numero_nao_redondo`, `pergunta_com_dado`, `cena_especifica`
-- `central_concepts` (text[]) — grupos: `grupo_a_autoridade`, `grupo_b_ticket`, `grupo_c_frequencia`, `grupo_d_generico`, `grupo_e_categoria`
-- RLS: dono lê/insere; admin lê tudo; service_role gerencia.
+- Detectar profissão via `detectProfession()` e injetar `getEthicalRulesBlock(category)` no prompt do Gemini.
+- Adicionar bloco de **substituições obrigatórias** quando regulamentada:
+  - "antes e depois" → "trilha de transformação contada pelo método"
+  - "fórmula que poucos conhecem" / "segredo" / "fórmula mágica" → "metodologia construída ao longo de [X] anos"
+  - CTA "agende pelo WhatsApp" / "agende seu diagnóstico" → "salve este post", "guarde esta informação", "indique para um colega"
+- Pós-geração: rodar `validatePostCompliance()` (já existente) sobre todos os campos textuais do relatório (bio, CTAs, descrição de arquétipos, símbolos, figurino, tom de voz). Se severity `high`, **retry guiado uma vez** apontando o trecho infrator. Nunca bloquear entrega — log de auditoria se persistir.
 
-### 2. Novo módulo `_shared/editorialDiversity.ts`
+## 2. Validador de contradição interna do relatório
 
-- `CONCEPT_GROUPS` — grupo → termos (regex word-boundary, case/acento-insensível).
-- `BANNED_TITLE_FORMULAS` — as 10 fórmulas com regex + label.
-- `PILLAR_IDS = ["caso_real","metodologia","critica_crenca","recorte_cliente","resultado_transformacional","livre"]`.
-- `detectConceptGroups(text)`, `detectTitleFormula(title)`, `detectTitleAnchors(title)`.
-- `renderPillarPlanBlock()` — descreve os 5 pilares + 2 livres, exige cobertura de 5 distintos nos 7 dias, "crítica a crença" no máximo 1x. Cita os exemplos do briefing (Havaianas 1994 ✅ / "Postar todo dia…" ❌) **uma única vez** aqui para não duplicar com §3.
-- `renderDiversityBlock({ bannedFormulas, dampenedConcepts })` — bloco enxuto: lista os ids das fórmulas proibidas (label curto, sem exemplos longos) + grupos de conceito a evitar como TEMA CENTRAL nas últimas 2 semanas + regra "máx 2 posts por grupo nesta semana". Mantém token budget baixo.
-- `validateWeekDiversity(posts)` → `{ ok, violations[] }` cobrindo:
-  - >2 posts no mesmo grupo de conceito central,
-  - fórmula proibida >1x na semana,
-  - pilar duplicado (exceto `livre`, que pode repetir),
-  - `critica_crenca` >1x.
+Novo módulo `supabase/functions/_shared/reportCoherenceValidator.ts`:
 
-### 3. Schema de saída da LLM
+- Extrai a lista "palavras a evitar" do tom de voz do relatório.
+- Varre todas as outras seções (arquétipos, símbolos, figurino, StoryBrand, CTAs) procurando essas palavras.
+- Palavras críticas hard-coded sempre verificadas: `segredo`, `fórmula mágica`, `fácil`, `rápido`, `viral`.
+- Retorna `{ contradictions: [{section, word, snippet}] }`.
+- Se houver contradições, retry guiado uma vez no `generate-report` listando exatamente o que reescrever.
 
-Adicionar campo obrigatório por post de feed:
+## 3. Persistir símbolos e paleta do relatório (DB)
 
-```
-"pillar": "caso_real" | "metodologia" | "critica_crenca" | "recorte_cliente" | "resultado_transformacional" | "livre"
-```
+Migração — duas tabelas novas:
 
-A LLM declara o pilar que escolheu — não inferimos por heurística. Heurística cuida só de `title_formula`, `title_anchors`, `central_concepts`.
+**`user_archetype_symbols`**
+- `user_id`, `report_id`, `report_version`
+- `symbol_name` (text)
+- `applies_to` (text[]) — ex: `["overlay", "highlight_icon", "post_decoration"]`
+- `svg_data` (text, nullable) — SVG inline se gerado
+- `emoji` (text, nullable) — fallback emoji
+- `priority` (int) — ordem do relatório
+- RLS: usuário lê/insere o seu; service role full
 
-Se o JSON vier sem `pillar` ou com valor inválido, defaulta para `"livre"` e loga warn.
+**`user_brand_palette`**
+- `user_id`, `report_id`, `report_version`
+- `color_name` (text) — ex: "Verde Aventura"
+- `hex` (text) — ex: `#1ABC9C`
+- `role` (text) — `primary | secondary | accent | neutral_light | neutral_dark`
+- `priority` (int)
+- RLS idem.
 
-### 4. `process-content-generation-job/index.ts`
+Na conclusão de `generate-report`, popular as duas tabelas (deletando versões antigas do mesmo user e inserindo as novas atômicas). Sempre usar a versão `max(version)` em consultas.
 
-- Antes de chamar a LLM, carregar últimas 4 semanas de `used_title_patterns` do usuário; calcular:
-  - `bannedFormulas` = qualquer fórmula usada nas últimas 2 semanas;
-  - `dampenedConcepts` = grupos centrais das últimas 2 semanas.
-- Injetar nos system prompts de feed: `renderPillarPlanBlock()` + `renderDiversityBlock(...)`. Manter `POSITIONING_GUARDRAIL_BLOCK` existente. Stories ficam fora deste bloco.
-- Após sanitizar a semana, rodar `validateWeekDiversity`. Se violar, fazer **um** retry pedindo à LLM para reescrever apenas os posts em violação, listando o motivo.
-  - Se o retry **também** violar: **aceitar** a versão do retry. `console.warn("[editorial-diversity] retry-violation", { user_id, week_index, violations })`. Nunca travar a entrega.
-- Após aceitar a semana, persistir um registro por post em `used_title_patterns`.
-- **Escopo do detector**: `title_formula`/`title_anchors`/`central_concepts` consideram apenas `theme` (peso 2x) + `caption.headline` (peso 1x). Slides internos do carrossel são ignorados.
-- **Telemetria**: depois de persistir, emitir log estruturado:
-  ```
-  [editorial-diversity] week=W{n} user={id}
-    pillars=[...]
-    formulas=[...]
-    concept_groups_central=[...]
-    violations=[...]
-  ```
+## 4. Consumo da SSoT pelos geradores visuais
 
-### 5. Token budget
+**`buildAutoLayout` / `buildArchetypeOverlays`** (arquivo provavelmente em `src/lib/postEditor/...` ou `src/features/posts/...`):
+- Antes de cair em overlays genéricos por arquétipo, consultar `user_archetype_symbols` da versão mais recente do usuário.
+- Se vazio, fallback para os símbolos genéricos atuais.
 
-Antes de mergear, conferir tamanho do `feedSystem` final (positioning + pillar plan + diversity). Meta: ≤ ~6k tokens. Estratégia para caber:
+**Paleta no editor / templates**:
+- Hook novo `useUserBrandPalette()` que retorna as cores do `user_brand_palette` (versão mais recente).
+- Onde hoje se lê a paleta padrão por arquétipo (post editor, geração de stories, geração de capas), trocar para tentar SSoT primeiro, fallback para paleta default.
 
-- `renderPillarPlanBlock` carrega os exemplos bom/ruim (Havaianas/Postar todo dia).
-- `renderDiversityBlock` é compacto: só ids+labels curtos das fórmulas banidas, sem exemplos longos.
+## 5. `analyze-instagram` consome o relatório
 
-### 6. Sem mudanças de UX
+Antes de chamar a LLM, carregar do DB:
+- Último relatório do usuário (`reports` onde `version = max`).
+- Símbolos da SSoT (`user_archetype_symbols`).
+- Paleta da SSoT (`user_brand_palette`).
+- Tom de voz (palavras a usar / evitar do relatório).
+- Figurino estratégico (peças e cores).
 
-Só backend de geração + nova tabela + novo campo `pillar` no JSON de saída.
+Injetar no system prompt um bloco `BRAND_SSOT_BLOCK` com instruções:
+- Sugestões de **destaques** DEVEM citar os símbolos da lista (nome + emoji/svg) como ícones recomendados.
+- Sugestões de **paleta** DEVEM usar exatamente as 5 cores nomeadas (não inventar).
+- Sugestões de **bio/CTA** DEVEM respeitar palavras a usar/evitar (e nunca repetir as banidas).
+- Sugestões de **figurino** DEVEM citar as peças e cores do figurino estratégico.
 
-## Detalhes técnicos
+Se o relatório não existir, comportamento atual permanece (genérico).
 
-- Detecção heurística é tolerante (sinal, não bloqueio); o gate real é o retry guiado.
-- `dicotomia_travessao` cobre `—`, ` - ` longo e ` – `, sempre com negação ("não … —").
-- Sanitização (`editorialSanitize.ts`) e versionamento ficam intactos; bumpamos `EDITORIAL_GENERATOR_VERSION` para `2026-05-14-v9` para marcar conteúdos antigos como desatualizados.
+## 6. `generate-portrait` consome figurino
 
-## Ordem de execução
+A função (`supabase/functions/generate-portrait/index.ts` ou nome equivalente) lê do relatório do usuário:
+- Lista de peças-chave do figurino estratégico.
+- Cores de roupa recomendadas (da paleta SSoT).
+- Paleta de fundo recomendada.
 
-1. Migração SQL (`used_title_patterns`).
-2. Criar `_shared/editorialDiversity.ts`.
-3. Editar `process-content-generation-job/index.ts`: carregar histórico, injetar blocos, exigir `pillar` no schema, validar, retry opcional, persistir, telemetria.
-4. Bump em `_shared/generatorVersion.ts` para v9.
+Esses dados são injetados no prompt do Gemini como bloco `WARDROBE_GUIDANCE_BLOCK` (peças permitidas, cores, evitar X). Fallback para o comportamento atual se vazio.
+
+---
+
+## Arquivos esperados
+
+**Novos:**
+- `supabase/functions/_shared/reportCoherenceValidator.ts`
+- `supabase/functions/_shared/brandSSoT.ts` — helpers `loadUserSymbols()`, `loadUserPalette()`, `loadUserWardrobe()`, `renderBrandSSoTBlock()`
+- Migração DB para `user_archetype_symbols` + `user_brand_palette`
+- `src/hooks/useUserBrandPalette.ts`
+
+**Editados:**
+- `supabase/functions/generate-report/index.ts` (guardrails + validador + persistência SSoT)
+- `supabase/functions/analyze-instagram/index.ts` (carrega SSoT + injeta no prompt)
+- `supabase/functions/generate-portrait/index.ts` (figurino do relatório)
+- `supabase/functions/_shared/professionRules.ts` (substituições obrigatórias se ainda não cobertas)
+- Geradores de overlay/template (a localizar) — consumir `user_archetype_symbols`
+- Componentes de paleta do editor — consumir `useUserBrandPalette()`
+
+---
+
+## Validação
+
+- Gerar um relatório teste para profissão regulamentada → conferir que "antes/depois", "segredo", "fórmula mágica" não aparecem.
+- Conferir que tabelas SSoT são populadas após `generate-report`.
+- Rodar `analyze-instagram` para usuário com relatório → conferir que destaques citam símbolos do relatório e paleta usa as 5 cores nomeadas.
+- Gerar retrato → conferir que prompt inclui peças do figurino.
+- Gerar post no editor → conferir que overlays são os símbolos do relatório, não genéricos.

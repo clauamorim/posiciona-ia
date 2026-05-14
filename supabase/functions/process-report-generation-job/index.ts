@@ -11,6 +11,37 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { extractJsonFromLLM, isValidReport } from "../_shared/jsonExtract.ts";
 import { callClaude, ClaudeError } from "../_shared/claudeClient.ts";
 import { fetchPersonalQuestionnaire, renderPersonalContext, renderBrandscriptFramework } from "../_shared/buildClaudeContext.ts";
+import { detectProfession, getEthicalRulesBlock, POSITIONING_GUARDRAIL_BLOCK } from "../_shared/professionRules.ts";
+import { validateReportCoherence, renderCoherenceRetryInstructions } from "../_shared/reportCoherenceValidator.ts";
+import { persistBrandSSoT } from "../_shared/brandSSoT.ts";
+
+// Substituições obrigatórias aplicadas em campos textuais do relatório
+// quando a profissão é regulamentada — defesa em profundidade caso a LLM
+// ainda escape um trecho problemático.
+const REGULATED_REPLACEMENTS: { pattern: RegExp; replacement: string }[] = [
+  { pattern: /\bantes\s*\/?\s*e?\s*\/?\s*depois\b/gi, replacement: "trilha de transformação contada pelo método" },
+  { pattern: /\bf[oó]rmula\s+que\s+poucos\s+conhecem\b/gi, replacement: "metodologia construída ao longo dos anos" },
+  { pattern: /\bf[oó]rmula\s+m[aá]gica\b/gi, replacement: "metodologia construída ao longo dos anos" },
+  { pattern: /\bsegredo\b/gi, replacement: "critério" },
+  { pattern: /\bagende\s+seu\s+diagn[oó]stico\s+pelo\s+whatsapp\b/gi, replacement: "salve este post" },
+  { pattern: /\bagende\s+pelo\s+whatsapp\b/gi, replacement: "guarde esta informação" },
+  { pattern: /\bagende\s+sua\s+(consulta|sess[aã]o|avalia[cç][aã]o)\b/gi, replacement: "guarde para conversar com seu profissional" },
+];
+
+function applyRegulatedReplacements(value: any): any {
+  if (typeof value === "string") {
+    let out = value;
+    for (const r of REGULATED_REPLACEMENTS) out = out.replace(r.pattern, r.replacement);
+    return out;
+  }
+  if (Array.isArray(value)) return value.map(applyRegulatedReplacements);
+  if (value && typeof value === "object") {
+    const o: any = {};
+    for (const k of Object.keys(value)) o[k] = applyRegulatedReplacements(value[k]);
+    return o;
+  }
+  return value;
+}
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -439,7 +470,15 @@ ${personalContext}
 
 Gere o relatório estratégico completo em JSON conforme a estrutura exigida.`;
 
-    const systemPrompt = buildSystemPrompt(genderLabel) + renderBrandscriptFramework();
+    const earlyProfession = detectProfession({
+      profession: business?.profession || null,
+      niche: niche || null,
+      business_description: [business?.services, business?.target_audience].filter(Boolean).join(" "),
+    });
+    const systemPrompt = buildSystemPrompt(genderLabel)
+      + renderBrandscriptFramework()
+      + getEthicalRulesBlock(earlyProfession)
+      + POSITIONING_GUARDRAIL_BLOCK;
 
     let reportContent: any = null;
     let isFallback = false;
@@ -472,11 +511,74 @@ Gere o relatório estratégico completo em JSON conforme a estrutura exigida.`;
       reportContent.is_fallback = true;
     }
 
+    // ---- COMPLIANCE: profissão regulamentada -----------------------------
+    // Detecta profissão a partir do business + niche e aplica substituições
+    // textuais defensivas (mesmo se a LLM escapou). NUNCA bloqueia entrega.
+    const profileForDetection = {
+      profession: business?.profession || null,
+      niche: niche || null,
+      business_description: [business?.services, business?.target_audience]
+        .filter(Boolean)
+        .join(" "),
+    };
+    const professionCategory = detectProfession(profileForDetection);
+    if (professionCategory !== "outro") {
+      reportContent = applyRegulatedReplacements(reportContent);
+      console.log(`[generate-report] applied regulated replacements (category=${professionCategory})`);
+    }
+
+    // ---- COERÊNCIA INTERNA: tom de voz vs resto --------------------------
+    const coherenceViolations = validateReportCoherence(reportContent);
+    if (coherenceViolations.length > 0 && !isFallback) {
+      console.warn(`[generate-report] coherence violations=${coherenceViolations.length}`, coherenceViolations.slice(0, 5));
+      try {
+        const retryInstructions = renderCoherenceRetryInstructions(coherenceViolations);
+        const rawRetry = await callClaude({
+          systemPrompt: buildSystemPrompt(genderLabel) + renderBrandscriptFramework() + getEthicalRulesBlock(professionCategory) + POSITIONING_GUARDRAIL_BLOCK,
+          userText: userPrompt + "\n\n" + retryInstructions,
+          max_tokens: 10000,
+          timeoutMs: 120000,
+          disableRetries: true,
+        });
+        const reparsed = extractJsonFromLLM(rawRetry);
+        if (reparsed && isValidReport(reparsed)) {
+          reportContent = professionCategory !== "outro"
+            ? applyRegulatedReplacements(reparsed)
+            : reparsed;
+          const remaining = validateReportCoherence(reportContent);
+          if (remaining.length) {
+            console.warn(`[generate-report] coherence violations persisted after retry=${remaining.length} (delivering anyway)`);
+          }
+        } else {
+          console.warn(`[generate-report] coherence retry produced invalid JSON, keeping previous content`);
+        }
+      } catch (retryErr: any) {
+        console.warn(`[generate-report] coherence retry failed: ${retryErr?.message || retryErr}`);
+      }
+    }
+
     // Persistir no relatório
     await admin
       .from("reports")
       .update({ content: reportContent, status: "completed", error_message: null })
       .eq("id", job.report_id);
+
+    // ---- SSoT: persiste paleta + símbolos para uso por outros geradores ---
+    try {
+      const { data: reportRow } = await admin
+        .from("reports")
+        .select("version")
+        .eq("id", job.report_id)
+        .maybeSingle();
+      await persistBrandSSoT(admin, {
+        userId,
+        reportId: job.report_id,
+        reportVersion: reportRow?.version ?? 1,
+        reportContent,
+      });
+    } catch (ssotErr: any) {
+      console.error(`[generate-report] persistBrandSSoT failed: ${ssotErr?.message || ssotErr}`);
+    }
 
     await admin
       .from("business_questionnaires")
