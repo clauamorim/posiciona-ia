@@ -442,10 +442,34 @@ async function processJob(jobId: string) {
   try {
     const payload = job.payload || {};
     const userId = job.user_id as string;
-    const business = payload?.business || {};
+    const businessRaw = payload?.business || {};
     const niche = payload?.niche || "";
     const archetypes = payload?.archetypes || {};
     const genderLabel = payload?.gender || "Não informado";
+
+    // Defesa: trunca todos os campos textuais do business em 1000 chars
+    // para evitar prompts gigantes que estouram o timeout do Claude.
+    const BUSINESS_FIELD_CAP = 1000;
+    const BUSINESS_TEXT_FIELDS = [
+      "company_name", "services", "target_audience", "external_problems",
+      "internal_problems", "empathic_statements", "authority_proofs",
+      "hiring_steps", "client_fears", "main_cta", "negative_consequences",
+      "promised_transformations",
+    ];
+    const business: Record<string, any> = { ...businessRaw };
+    for (const k of BUSINESS_TEXT_FIELDS) {
+      const v = business[k];
+      if (typeof v === "string" && v.length > BUSINESS_FIELD_CAP) {
+        console.warn(JSON.stringify({
+          event: "business_field_truncated",
+          field: k,
+          original_length: v.length,
+          capped_to: BUSINESS_FIELD_CAP,
+          job_id: jobId,
+        }));
+        business[k] = v.slice(0, BUSINESS_FIELD_CAP);
+      }
+    }
 
     await updateJob(jobId, { progress_message: "Gerando estratégia com IA… pode levar até 2 minutos." });
 

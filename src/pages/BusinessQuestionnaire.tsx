@@ -17,18 +17,18 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { useQuestionnaireAutosave, SaveStatusLabel } from "@/hooks/useQuestionnaireAutosave";
 
 const fields = [
-  { key: "company_name", label: "Nome da empresa ou negócio", type: "input", placeholder: "Ex: Studio Bella", help: "Pode ser o nome fantasia, nome pessoal ou como você é conhecida(o) no mercado." },
-  { key: "services", label: "Serviços ou produtos oferecidos", type: "textarea", placeholder: "Descreva seus principais serviços ou produtos", help: "Liste os principais serviços/produtos que você oferece." },
-  { key: "target_audience", label: "Público-alvo", type: "textarea", placeholder: "Quem são seus clientes ideais?", help: "Descreva quem é seu cliente ideal: idade, gênero, profissão, nível de renda, interesses e dores." },
-  { key: "external_problems", label: "Problemas externos que resolve", type: "textarea", placeholder: "Que problemas práticos você resolve para o cliente?", help: "Problemas externos são dificuldades práticas e visíveis." },
-  { key: "internal_problems", label: "Problemas internos do cliente", type: "textarea", placeholder: "Como o cliente se sente antes de contratar você?", help: "São os sentimentos e frustrações do cliente." },
-  { key: "empathic_statements", label: "Declarações empáticas", type: "textarea", placeholder: "Frases que mostram que você entende o cliente", help: "Frases que demonstram empatia e criam conexão." },
-  { key: "authority_proofs", label: "Provas de autoridade", type: "textarea", placeholder: "Certificações, cases, depoimentos, números", help: "O que prova que você é qualificada(o)?" },
-  { key: "hiring_steps", label: "Etapas para contratar", type: "textarea", placeholder: "Quais os passos para o cliente contratar seu serviço?", help: "Descreva o passo a passo simples para contratar você." },
-  { key: "client_fears", label: "Medos do cliente", type: "textarea", placeholder: "O que impede o cliente de agir?", help: "Quais medos impedem o cliente de comprar?" },
-  { key: "main_cta", label: "Principal chamada para ação", type: "input", placeholder: "Ex: Agende sua consultoria gratuita", help: "A ação principal que você quer que o cliente tome." },
-  { key: "negative_consequences", label: "Consequências negativas evitadas", type: "textarea", placeholder: "O que acontece se o cliente NÃO agir?", help: "O que acontece se o cliente não agir?" },
-  { key: "promised_transformations", label: "Conquistas e transformações prometidas", type: "textarea", placeholder: "Como a vida do cliente muda após seu serviço?", help: "Descreva a transformação que você entrega." },
+  { key: "company_name", label: "Nome da empresa ou negócio", type: "input", placeholder: "Ex: Studio Bella", help: "Pode ser o nome fantasia, nome pessoal ou como você é conhecida(o) no mercado.", max: 120 },
+  { key: "services", label: "Serviços ou produtos oferecidos", type: "textarea", placeholder: "Descreva seus principais serviços ou produtos", help: "Liste os principais serviços/produtos que você oferece.", max: 600 },
+  { key: "target_audience", label: "Público-alvo", type: "textarea", placeholder: "Quem são seus clientes ideais?", help: "Descreva quem é seu cliente ideal: idade, gênero, profissão, nível de renda, interesses e dores.", max: 400 },
+  { key: "external_problems", label: "Problemas externos que resolve", type: "textarea", placeholder: "Que problemas práticos você resolve para o cliente?", help: "Problemas externos são dificuldades práticas e visíveis.", max: 600 },
+  { key: "internal_problems", label: "Problemas internos do cliente", type: "textarea", placeholder: "Como o cliente se sente antes de contratar você?", help: "São os sentimentos e frustrações do cliente.", max: 600 },
+  { key: "empathic_statements", label: "Declarações empáticas", type: "textarea", placeholder: "Frases que mostram que você entende o cliente", help: "Frases que demonstram empatia e criam conexão.", max: 800 },
+  { key: "authority_proofs", label: "Provas de autoridade", type: "textarea", placeholder: "Certificações, cases, depoimentos, números", help: "O que prova que você é qualificada(o)?", max: 800 },
+  { key: "hiring_steps", label: "Etapas para contratar", type: "textarea", placeholder: "Quais os passos para o cliente contratar seu serviço?", help: "Descreva o passo a passo simples para contratar você.", max: 400 },
+  { key: "client_fears", label: "Medos do cliente", type: "textarea", placeholder: "O que impede o cliente de agir?", help: "Quais medos impedem o cliente de comprar?", max: 600 },
+  { key: "main_cta", label: "Principal chamada para ação", type: "input", placeholder: "Ex: Agende sua consultoria gratuita", help: "A ação principal que você quer que o cliente tome.", max: 120 },
+  { key: "negative_consequences", label: "Consequências negativas evitadas", type: "textarea", placeholder: "O que acontece se o cliente NÃO agir?", help: "O que acontece se o cliente não agir?", max: 600 },
+  { key: "promised_transformations", label: "Conquistas e transformações prometidas", type: "textarea", placeholder: "Como a vida do cliente muda após seu serviço?", help: "Descreva a transformação que você entrega.", max: 600 },
 ];
 
 type QStatus = "draft" | "submitted" | "locked";
@@ -326,21 +326,26 @@ const BusinessQuestionnaire = () => {
             {field.type === "input" ? (
               <Input
                 value={answers[field.key] || ""}
-                onChange={e => setAnswers(prev => ({ ...prev, [field.key]: e.target.value }))}
+                onChange={e => setAnswers(prev => ({ ...prev, [field.key]: e.target.value.slice(0, field.max) }))}
                 placeholder={field.placeholder}
                 disabled={isLocked || isSubmitted}
+                maxLength={field.max}
                 className="bg-background"
               />
             ) : (
               <Textarea
                 value={answers[field.key] || ""}
-                onChange={e => setAnswers(prev => ({ ...prev, [field.key]: e.target.value }))}
+                onChange={e => setAnswers(prev => ({ ...prev, [field.key]: e.target.value.slice(0, field.max) }))}
                 placeholder={field.placeholder}
                 rows={4}
                 disabled={isLocked || isSubmitted}
+                maxLength={field.max}
                 className="bg-background resize-none"
               />
             )}
+            <p className={`text-[11px] text-right -mt-2 ${(answers[field.key] || "").length >= field.max ? "text-amber-600" : "text-muted-foreground"}`}>
+              {(answers[field.key] || "").length}/{field.max}
+            </p>
 
             <div className="flex items-center justify-between pt-1">
               <Button variant="ghost" size="sm" onClick={() => goToStep(step - 1)} disabled={step === 0}>
