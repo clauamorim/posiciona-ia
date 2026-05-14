@@ -197,7 +197,13 @@ serve(async (req) => {
 
     // ===== DELETE =====
     if (req.method === "DELETE") {
-      const id = url.searchParams.get("id");
+      let id: string | null = url.searchParams.get("id");
+      if (!id) {
+        try {
+          const body = await req.json();
+          id = body?.id ?? null;
+        } catch { /* body vazio é ok */ }
+      }
       if (!id) {
         return new Response(JSON.stringify({ error: "id obrigatório" }), {
           status: 400,
