@@ -10,6 +10,7 @@ import { toast } from "@/hooks/use-toast";
 import { ArrowLeft } from "lucide-react";
 import posicionaLogo from "@/assets/posiciona-logo.png";
 import LegalConsentCheckbox from "@/components/LegalConsentCheckbox";
+import { SeoHead } from "@/components/SeoHead";
 
 const GOALS = [
   "Atrair novos clientes/pacientes",
