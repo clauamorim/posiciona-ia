@@ -503,11 +503,74 @@ Gere o relatório estratégico completo em JSON conforme a estrutura exigida.`;
       reportContent.is_fallback = true;
     }
 
+    // ---- COMPLIANCE: profissão regulamentada -----------------------------
+    // Detecta profissão a partir do business + niche e aplica substituições
+    // textuais defensivas (mesmo se a LLM escapou). NUNCA bloqueia entrega.
+    const profileForDetection = {
+      profession: business?.profession || null,
+      niche: niche || null,
+      business_description: [business?.services, business?.target_audience]
+        .filter(Boolean)
+        .join(" "),
+    };
+    const professionCategory = detectProfession(profileForDetection);
+    if (professionCategory !== "outro") {
+      reportContent = applyRegulatedReplacements(reportContent);
+      console.log(`[generate-report] applied regulated replacements (category=${professionCategory})`);
+    }
+
+    // ---- COERÊNCIA INTERNA: tom de voz vs resto --------------------------
+    const coherenceViolations = validateReportCoherence(reportContent);
+    if (coherenceViolations.length > 0 && !isFallback) {
+      console.warn(`[generate-report] coherence violations=${coherenceViolations.length}`, coherenceViolations.slice(0, 5));
+      try {
+        const retryInstructions = renderCoherenceRetryInstructions(coherenceViolations);
+        const rawRetry = await callClaude({
+          systemPrompt: buildSystemPrompt(genderLabel) + renderBrandscriptFramework() + getEthicalRulesBlock(professionCategory) + POSITIONING_GUARDRAIL_BLOCK,
+          userText: userPrompt + "\n\n" + retryInstructions,
+          max_tokens: 10000,
+          timeoutMs: 120000,
+          disableRetries: true,
+        });
+        const reparsed = extractJsonFromLLM(rawRetry);
+        if (reparsed && isValidReport(reparsed)) {
+          reportContent = professionCategory !== "outro"
+            ? applyRegulatedReplacements(reparsed)
+            : reparsed;
+          const remaining = validateReportCoherence(reportContent);
+          if (remaining.length) {
+            console.warn(`[generate-report] coherence violations persisted after retry=${remaining.length} (delivering anyway)`);
+          }
+        } else {
+          console.warn(`[generate-report] coherence retry produced invalid JSON, keeping previous content`);
+        }
+      } catch (retryErr: any) {
+        console.warn(`[generate-report] coherence retry failed: ${retryErr?.message || retryErr}`);
+      }
+    }
+
     // Persistir no relatório
     await admin
       .from("reports")
       .update({ content: reportContent, status: "completed", error_message: null })
       .eq("id", job.report_id);
+
+    // ---- SSoT: persiste paleta + símbolos para uso por outros geradores ---
+    try {
+      const { data: reportRow } = await admin
+        .from("reports")
+        .select("version")
+        .eq("id", job.report_id)
+        .maybeSingle();
+      await persistBrandSSoT(admin, {
+        userId,
+        reportId: job.report_id,
+        reportVersion: reportRow?.version ?? 1,
+        reportContent,
+      });
+    } catch (ssotErr: any) {
+      console.error(`[generate-report] persistBrandSSoT failed: ${ssotErr?.message || ssotErr}`);
+    }
 
     await admin
       .from("business_questionnaires")
