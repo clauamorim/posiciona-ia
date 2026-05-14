@@ -15,6 +15,11 @@ import { detectProfession, getEthicalRulesBlock, POSITIONING_GUARDRAIL_BLOCK } f
 import { validateReportCoherence, renderCoherenceRetryInstructions } from "../_shared/reportCoherenceValidator.ts";
 import { persistBrandSSoT } from "../_shared/brandSSoT.ts";
 import { getArchetypeReference } from "../_shared/archetypeReferences.ts";
+import {
+  detectTitleFormula,
+  detectTitleAnchors,
+  detectConceptGroups,
+} from "../_shared/editorialDiversity.ts";
 
 const truncateText = (s: any, n: number): string =>
   String(s ?? "").trim().replace(/\s+/g, " ").slice(0, n);
@@ -649,6 +654,47 @@ Gere o relatório estratégico completo em JSON conforme a estrutura exigida.`;
         editorial_weeks: editorialWeeksToMigrate,
       })
       .eq("id", job.report_id);
+
+    // Migra também os fingerprints de diversidade editorial das semanas
+    // copiadas, para que o gerador de novas semanas reconheça os títulos /
+    // temas já usados (Bug: semanas migradas sendo regeradas idênticas).
+    if (editorialWeeksToMigrate.length > 0) {
+      try {
+        const patternRows: any[] = [];
+        editorialWeeksToMigrate.forEach((week: any, weekIdx: number) => {
+          const posts = Array.isArray(week?.posts) ? week.posts : [];
+          posts.forEach((post: any, dayIdx: number) => {
+            const headline =
+              (post?.caption && typeof post.caption === "object" && post.caption.headline) ||
+              (typeof post?.caption === "string" ? post.caption : "") ||
+              "";
+            const titleSrc = String(post?.theme || headline || "");
+            patternRows.push({
+              user_id: userId,
+              report_id: job.report_id,
+              week_index: weekIdx,
+              day_index: typeof post?.day === "number" ? post.day : dayIdx,
+              pillar: post?.pillar || "livre",
+              title_formula: detectTitleFormula(titleSrc),
+              title_anchors: detectTitleAnchors(titleSrc),
+              central_concepts: detectConceptGroups({ theme: post?.theme, headline }),
+            });
+          });
+        });
+        if (patternRows.length > 0) {
+          const { error: patternErr } = await admin
+            .from("used_title_patterns")
+            .insert(patternRows);
+          if (patternErr) {
+            console.warn(`[generate-report] used_title_patterns migration insert falhou: ${patternErr.message}`);
+          } else {
+            console.log(`[generate-report] migrados ${patternRows.length} fingerprints de used_title_patterns`);
+          }
+        }
+      } catch (patErr: any) {
+        console.warn(`[generate-report] migração de used_title_patterns falhou: ${patErr?.message || patErr}`);
+      }
+    }
 
     // ---- SSoT: persiste paleta + símbolos para uso por outros geradores ---
     try {

@@ -12,7 +12,9 @@ export type ConceptGroupId =
   | "grupo_b_ticket"
   | "grupo_c_frequencia"
   | "grupo_d_generico"
-  | "grupo_e_categoria";
+  | "grupo_e_categoria"
+  | "grupo_f_cliente_pergunta"
+  | "grupo_g_frequencia_postagem";
 
 const CONCEPT_GROUPS: Record<ConceptGroupId, { label: string; terms: string[] }> = {
   grupo_a_autoridade: {
@@ -34,6 +36,30 @@ const CONCEPT_GROUPS: Record<ConceptGroupId, { label: string; terms: string[] }>
   grupo_e_categoria: {
     label: "categoria / posicionamento / recorte",
     terms: ["categoria", "categorias", "posicionamento", "posicionamentos", "recorte", "recortes", "nicho", "nichar"],
+  },
+  grupo_f_cliente_pergunta: {
+    label: "cliente premium pergunta antes de preço (você atende / atende meu caso / quanto custa antes)",
+    terms: [
+      "voce atende",
+      "atende meu caso",
+      "atende o meu caso",
+      "quanto custa antes",
+      "quanto custa antes de",
+      "criterio antes de preco",
+      "pergunta antes de perguntar o preco",
+      "pergunta antes do preco",
+    ],
+  },
+  grupo_g_frequencia_postagem: {
+    label: "postar todo dia / aparecer todo dia / consistência > frequência",
+    terms: [
+      "postar todo dia",
+      "aparecer todo dia",
+      "publicar todo dia",
+      "consistencia maior que frequencia",
+      "consistencia acima de frequencia",
+      "consistencia > frequencia",
+    ],
   },
 };
 
@@ -79,6 +105,7 @@ export type TitleFormulaId =
   | "verdade_sobre"
   | "palavra_grandiosa_ninguem"
   | "constroi_vs_ocupa"
+  | "protocolo_n_perguntas"
   | "livre";
 
 const FORMULA_PATTERNS: { id: Exclude<TitleFormulaId, "livre">; label: string; re: RegExp }[] = [
@@ -141,6 +168,12 @@ const FORMULA_PATTERNS: { id: Exclude<TitleFormulaId, "livre">; label: string; r
     id: "constroi_vs_ocupa",
     label: '"X que constrói … vs Y que só …"',
     re: /\bque\s+constr[óo]i\b.+\bvs\b|\bque\s+constr[óo]i\b.+\bque\s+s[óo]\b/i,
+  },
+  // 11. "Protocolo/checklist/guia de N perguntas/passos/filtros/critérios/regras"
+  {
+    id: "protocolo_n_perguntas",
+    label: '"Protocolo/checklist/guia (de N) perguntas/passos/filtros/critérios"',
+    re: /\b(protocolo|checklist|guia|roteiro|m[eé]todo)\s+(de\s+)?(\d+\s+)?(perguntas|passos|filtros|camadas|crit[ée]rios|regras)\b/i,
   },
 ];
 
