@@ -611,10 +611,43 @@ Gere o relatório estratégico completo em JSON conforme a estrutura exigida.`;
       }
     }
 
+    // Migra editorial_weeks da versão anterior (se houver) para não perder
+    // o histórico da Linha Editorial após reanálise/regeneração de relatório.
+    let editorialWeeksToMigrate: any[] = [];
+    try {
+      const { data: prev } = await admin
+        .from("reports")
+        .select("version, editorial_weeks")
+        .eq("user_id", userId)
+        .neq("id", job.report_id)
+        .not("editorial_weeks", "is", null)
+        .order("version", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (prev && Array.isArray(prev.editorial_weeks) && prev.editorial_weeks.length > 0) {
+        const prevVersion = prev.version;
+        editorialWeeksToMigrate = (prev.editorial_weeks as any[]).map((w) => {
+          const meta = (w && typeof w === "object" && w._meta) ? w._meta : {};
+          return {
+            ...w,
+            _meta: { ...meta, generated_with_report_version: meta.generated_with_report_version ?? prevVersion },
+          };
+        });
+        console.log(`[generate-report] migrando ${editorialWeeksToMigrate.length} semanas editoriais da versão ${prevVersion}`);
+      }
+    } catch (migErr: any) {
+      console.warn(`[generate-report] falha ao migrar editorial_weeks: ${migErr?.message || migErr}`);
+    }
+
     // Persistir no relatório
     await admin
       .from("reports")
-      .update({ content: reportContent, status: "completed", error_message: null })
+      .update({
+        content: reportContent,
+        status: "completed",
+        error_message: null,
+        editorial_weeks: editorialWeeksToMigrate,
+      })
       .eq("id", job.report_id);
 
     // ---- SSoT: persiste paleta + símbolos para uso por outros geradores ---

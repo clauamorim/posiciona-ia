@@ -15,6 +15,7 @@ import {
   ImageIcon, PenTool, FileText, RefreshCw, Copy, Download, AlertTriangle, Wand2
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { parseReportContent, normalizeReportContent } from "@/lib/reportParser";
 import { cleanText } from "@/lib/textCleanup";
 import { isOutdated, isWeekOutdated, EDITORIAL_GENERATOR_VERSION } from "@/lib/generatorVersion";
@@ -194,6 +195,17 @@ const EditorialPage = () => {
   ];
   // Sempre normaliza para shape v6 antes de renderizar (tolerante a v5 antigo)
   const allWeeks: WeekV6[] = allWeeksRaw.map((w) => normalizeWeekToV6(w));
+
+  // Detecta semanas migradas de versão anterior do relatório.
+  const currentReportVersion = (report as any)?.version;
+  const olderWeeksCount = editorialWeeks.reduce((acc, w) => {
+    const v = w && typeof w === "object" ? (w._meta?.generated_with_report_version) : undefined;
+    if (typeof v === "number" && typeof currentReportVersion === "number" && v !== currentReportVersion) {
+      return acc + 1;
+    }
+    return acc;
+  }, 0);
+  const hasOlderWeeks = olderWeeksCount > 0;
 
   // Cleanup do polling ao desmontar (evita updates em componente desmontado)
   useEffect(() => {
@@ -814,6 +826,17 @@ const EditorialPage = () => {
             Baixar PDF
           </Button>
         </div>
+
+        {hasOlderWeeks && (
+          <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-900/50">
+            <AlertTriangle className="h-4 w-4 text-amber-600" />
+            <AlertTitle>Semanas geradas antes da última reanálise</AlertTitle>
+            <AlertDescription className="text-amber-900 dark:text-amber-200">
+              Você tem {olderWeeksCount} semana{olderWeeksCount > 1 ? "s" : ""} geradas com a versão anterior da sua estratégia.
+              Use o botão "Atualizar semana" em cada uma para realinhar com seu posicionamento atual.
+            </AlertDescription>
+          </Alert>
+        )}
 
         <Tabs value={activeWeek} onValueChange={setActiveWeek} className="w-full">
           {allWeeks.length > 1 && (
