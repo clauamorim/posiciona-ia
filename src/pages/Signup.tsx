@@ -61,7 +61,8 @@ const Signup = () => {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4 bg-background relative">
+    <main className="flex min-h-screen items-center justify-center px-4 bg-background relative">
+      <SeoHead title="Criar conta — Posiciona" description="Crie sua conta no Posiciona e comece a estruturar seu posicionamento de marca pessoal com IA." path="/signup" />
       <Button
         variant="ghost"
         size="sm"
