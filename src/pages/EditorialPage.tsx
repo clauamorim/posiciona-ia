@@ -117,6 +117,10 @@ const EditorialPage = () => {
   const [regeneratingPost, setRegeneratingPost] = useState<string | null>(null);
   const [regeneratingFreeWeek, setRegeneratingFreeWeek] = useState<number | null>(null);
   const [downloadingPDF, setDownloadingPDF] = useState(false);
+  const [deletingWeek, setDeletingWeek] = useState<number | null>(null);
+  const [confirmDeleteWeek, setConfirmDeleteWeek] = useState<number | null>(null);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedWeeks, setSelectedWeeks] = useState<Set<number>>(new Set());
   const contentRef = useRef<HTMLDivElement>(null);
   const pollingRef = useRef<{ stop: boolean }>({ stop: false });
 
