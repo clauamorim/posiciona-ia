@@ -54,4 +54,10 @@ Estes princípios são INEGOCIÁVEIS. Aplique-os em legendas, copies de carrosse
 ## TOM
 - Editorial, específico, voz humana. Como se um profissional sênior escrevesse para um colega que respeita.
 - Português brasileiro natural. Sem academicismo, sem coachismo motivacional.
+
+## VOZ DO CRIADOR (quando narrativa de venda estiver preenchida)
+- As "expressões pessoais" informadas devem aparecer organicamente — nunca forçadas. Se o tom do post não comportar, omita.
+- "Assuntos proibidos" são REGRA INVIOLÁVEL — não toque mesmo que o contexto sugira ou que sejam temas comuns no nicho.
+- Use "objeções literais da audiência" quando criar conteúdo que rebate dúvidas — citar a objeção entre aspas, exatamente como o criador relatou. Objeções literais > objeções abstratas.
+- Casos reais (proof_cases) podem virar prova social, mantendo nome e contexto exatamente como o criador forneceu — não exagere números nem invente desfechos.
 `;
