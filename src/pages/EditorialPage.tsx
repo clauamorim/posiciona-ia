@@ -1015,8 +1015,48 @@ const EditorialPage = () => {
             const feedDaysForTrends = week.days
               .map((d: DayV6, di: number) => d.feed ? { dayIndex: di, dayNumber: d.day || di + 1, theme: d.feed.theme || "" } : null)
               .filter(Boolean) as { dayIndex: number; dayNumber: number; theme: string }[];
+            const weekKey = getWeekKey(week, wi);
+            const isSelected = selectedWeeks.has(weekKey);
+            // Só permite excluir semanas que existem em editorial_weeks (têm _week_index ou week_index).
+            const canDelete = typeof (week as any)?._week_index === "number" || typeof (week as any)?.week_index === "number";
             return (
             <TabsContent key={wi} value={`week-${wi}`}>
+              <div
+                className={`mb-3 flex items-center gap-3 rounded-md border px-3 py-2 ${
+                  selectionMode && isSelected
+                    ? "border-primary/60 bg-primary/5"
+                    : "border-border bg-card/40"
+                }`}
+              >
+                {selectionMode && (
+                  <Checkbox
+                    checked={isSelected}
+                    onCheckedChange={() => toggleWeekSelection(weekKey)}
+                    aria-label={`Selecionar semana ${weekKey + 1}`}
+                    data-hide-pdf
+                  />
+                )}
+                <h2 className="text-sm font-semibold tracking-tight flex-1">
+                  Semana {weekKey + 1}
+                </h2>
+                {canDelete && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                    onClick={() => setConfirmDeleteWeek(weekKey)}
+                    disabled={deletingWeek !== null || isReadOnly}
+                    aria-label={`Excluir semana ${weekKey + 1}`}
+                    data-hide-pdf
+                  >
+                    {deletingWeek === weekKey ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-4 w-4" />
+                    )}
+                  </Button>
+                )}
+              </div>
               {/* Banner "Atualizar semana (grátis)" temporariamente oculto a pedido. */}
               {false && weekOutdated && isRegenWeek && null}
               {(week._partial || week._stage_b_failed) && (
