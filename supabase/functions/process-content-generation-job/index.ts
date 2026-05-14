@@ -1198,6 +1198,7 @@ Gere agora os 7 stories da semana.`;
           title_formula: fp.formula,
           title_anchors: fp.anchors,
           central_concepts: fp.concepts,
+          named_cases: fp.named_cases,
         }));
         const { error: patternErr } = await admin.from("used_title_patterns").insert(rows);
         if (patternErr) {
@@ -1207,7 +1208,8 @@ Gere agora os 7 stories da semana.`;
         console.log(
           `[editorial-diversity] week=W${wkIdx + 1} user=${userId}\n` +
           `  pillars=${JSON.stringify(fingerprints.map((f) => f.pillar))}\n` +
-          `  formulas=${JSON.stringify(fingerprints.map((f) => f.formula))}\n` +
+          `  formulas=${JSON.stringify(fingerprints.map((f) => f.formulas))}\n` +
+          `  named_cases=${JSON.stringify(fingerprints.map((f) => f.named_cases))}\n` +
           `  concept_groups_central=${JSON.stringify(fingerprints.map((f) => f.concepts))}\n` +
           `  violations=${JSON.stringify(finalCheck.violations)}`,
         );
