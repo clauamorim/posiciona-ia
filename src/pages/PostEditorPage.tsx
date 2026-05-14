@@ -908,6 +908,24 @@ const PostEditorPage = () => {
   }, [selectedImageId]);
 
   const archetypePalette = getArchetypePalette(primaryArchetype);
+
+  // Aplica a paleta do arquétipo às cores quando o post está sendo inicializado
+  // do zero (sem draft) e o usuário ainda não definiu uma cor customizada.
+  // Não sobrescreve posts já salvos.
+  const archetypeColorsAppliedRef = useRef(false);
+  useEffect(() => {
+    if (archetypeColorsAppliedRef.current) return;
+    if (!primaryArchetype) return;
+    if (draft) { archetypeColorsAppliedRef.current = true; return; }
+    const p = getArchetypePalette(primaryArchetype);
+    if (customBgColor === null) setCustomBgColor(p.background);
+    if (customTextColor === null) setCustomTextColor(p.textPrimary);
+    if (titleColor === null) setTitleColor(p.textPrimary);
+    if (ctaBgColor === null) setCtaBgColor(p.accent);
+    if (ctaTextColor === null) setCtaTextColor(p.background);
+    archetypeColorsAppliedRef.current = true;
+  }, [primaryArchetype]);
+
   const bgColor = customBgColor || palette[bgIndex]?.hex || archetypePalette.background;
   const textColor = customTextColor || getContrastColor(bgColor);
   const accentColor = palette[(bgIndex + 1) % Math.max(palette.length, 1)]?.hex || archetypePalette.accent;

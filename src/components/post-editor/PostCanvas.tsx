@@ -626,7 +626,14 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   const resolvedCtaText = ctaText || cta || "";
   const resolvedCtaBg = ctaBgColor || accentColor;
   const resolvedCtaText2 = ctaTextColor || bgColor;
-  const resolvedCtaFontSize = ctaFontSize || 27;
+  // Auto-shrink do CTA quando texto é longo (evita bloco gigante sobrepondo texto).
+  const baseCtaFontSize = ctaFontSize || 27;
+  const ctaTextLength = (resolvedCtaText || "").trim().length;
+  const ctaShrinkRatio =
+    ctaTextLength > 180 ? 0.55 :
+    ctaTextLength > 120 ? 0.70 :
+    ctaTextLength > 80 ? 0.85 : 1;
+  const resolvedCtaFontSize = Math.max(14, Math.round(baseCtaFontSize * ctaShrinkRatio));
 
   const renderResizeHandles = (item: { id: string; x: number; y: number; width: number; height: number }, isText: boolean) => {
     const visual = handleVisualSize;
@@ -877,11 +884,16 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   const bodyBox = textBoxes.find(t => t.type === "body");
   const titleBox = textBoxes.find(t => t.type === "title");
   const referenceBox = bodyBox || titleBox;
-  // Limite máximo do CTA para evitar a área da logo (canto inf. direito)
-  const ctaMaxY = canvasHeight - 200;
-  const computedCtaY = referenceBox
-    ? Math.min(ctaMaxY, Math.max(referenceBox.y + referenceBox.height + 60, referenceBox.y + referenceBox.height + 60))
+  // Posição preferencial do CTA: abaixo do corpo + 60px.
+  // Antes havia cap em (canvasHeight - 200) que forçava CTA para CIMA do corpo
+  // quando o corpo descia, causando sobreposição.
+  // Agora: deixamos o CTA descer junto, garantindo que NUNCA sobreponha o texto.
+  const preferredCtaY = referenceBox
+    ? referenceBox.y + referenceBox.height + 60
     : (isCoverSlide ? Math.round(canvasHeight * 0.5) : isLastSlide ? Math.round(canvasHeight * 0.72) : Math.round(canvasHeight * 0.88));
+  // Cap absoluto: não passar do limite inferior do canvas (deixa 100px para logo).
+  const ctaMaxY = canvasHeight - 100;
+  const computedCtaY = Math.min(ctaMaxY, preferredCtaY);
   const computedCtaX = referenceBox ? referenceBox.x + referenceBox.width / 2 : canvasWidth / 2;
   const defaultCtaPos = { x: computedCtaX, y: computedCtaY };
   const ctaPos = ctaPosition || defaultCtaPos;

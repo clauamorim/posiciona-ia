@@ -6,10 +6,10 @@ import type { OverlayImage } from "@/components/post-editor/PostToolbar";
 import { getArchetypePalette } from "@/lib/archetypePalettes";
 import type { TemplateLayout } from "@/lib/postTemplates";
 
-const CARD_W = 1080;
-const CARD_H = 1350;
-const REELS_W = 1080;
-const REELS_H = 1920;
+// O normalizador em PostEditorPage assume source 1080×1080.
+// Posições aqui devem caber nessa referência para escalar corretamente.
+const REF_W = 1080;
+const REF_H = 1080;
 
 function svgDataUrl(svg: string): string {
   return `data:image/svg+xml;base64,${btoa(svg)}`;
@@ -17,15 +17,12 @@ function svgDataUrl(svg: string): string {
 
 export function buildArchetypeOverlays(
   primaryArchetype: string | null | undefined,
-  template: TemplateLayout,
+  _template: TemplateLayout,
 ): OverlayImage[] {
   if (!primaryArchetype) return [];
 
   const palette = getArchetypePalette(primaryArchetype);
   const group = palette.group;
-  const isReels = template.format === "reels";
-  const W = isReels ? REELS_W : CARD_W;
-  const H = isReels ? REELS_H : CARD_H;
   const overlays: OverlayImage[] = [];
 
   if (group === "elegance") {
@@ -46,7 +43,7 @@ export function buildArchetypeOverlays(
     overlays.push({
       id: `tpl-arch-bracket-br-${crypto.randomUUID()}`,
       src: svgDataUrl(br),
-      x: W - inset - cornerSize, y: H - inset - cornerSize, width: cornerSize, height: cornerSize,
+      x: REF_W - inset - cornerSize, y: REF_H - inset - cornerSize, width: cornerSize, height: cornerSize,
       type: "element", opacity: 1,
     });
 
@@ -56,7 +53,7 @@ export function buildArchetypeOverlays(
     overlays.push({
       id: `tpl-arch-line-${crypto.randomUUID()}`,
       src: svgDataUrl(line),
-      x: (W - lineW) / 2, y: isReels ? 700 : 520,
+      x: (REF_W - lineW) / 2, y: Math.round(REF_H * 0.5),
       width: lineW, height: lineH,
       type: "element", opacity: 0.7,
     });
@@ -65,23 +62,24 @@ export function buildArchetypeOverlays(
   if (group === "energy") {
     const color = palette.accent;
 
-    const stripeW = Math.round(W * 1.3);
-    const stripeH = Math.round(H * 0.08);
+    const stripeW = Math.round(REF_W * 1.3);
+    const stripeH = Math.round(REF_H * 0.08);
     const stripe = `<svg width="${stripeW}" height="${stripeH}" xmlns="http://www.w3.org/2000/svg" style="overflow:visible"><g transform="rotate(-4 ${stripeW / 2} ${stripeH / 2})"><rect width="${stripeW}" height="${stripeH}" fill="${color}"/></g></svg>`;
     overlays.push({
       id: `tpl-arch-stripe-${crypto.randomUUID()}`,
       src: svgDataUrl(stripe),
-      x: -Math.round(W * 0.1), y: -Math.round(stripeH * 0.4),
+      x: -Math.round(REF_W * 0.1), y: -Math.round(stripeH * 0.4),
       width: stripeW, height: stripeH,
       type: "element", opacity: 0.92,
     });
 
-    const triSize = 72;
+    const triSize = 90;
     const tri = `<svg width="${triSize}" height="${triSize}" xmlns="http://www.w3.org/2000/svg"><polygon points="${triSize},0 ${triSize},${triSize} 0,${triSize}" fill="${color}"/></svg>`;
     overlays.push({
       id: `tpl-arch-triangle-${crypto.randomUUID()}`,
       src: svgDataUrl(tri),
-      x: W - triSize - 80, y: H - triSize - 200,
+      x: REF_W - triSize - 80,   // = 910
+      y: REF_H - triSize - 120,  // = 870 — bem dentro do canvas
       width: triSize, height: triSize,
       type: "element", opacity: 0.9,
     });
@@ -91,12 +89,12 @@ export function buildArchetypeOverlays(
     const primary = palette.accent;
     const secondary = palette.secondary;
 
-    const blobSize = Math.round(Math.min(W, H) * 0.55);
+    const blobSize = Math.round(Math.min(REF_W, REF_H) * 0.55);
     const blob = `<svg width="${blobSize}" height="${blobSize}" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg"><path d="M 200 40 C 290 50, 360 130, 350 220 C 340 310, 260 370, 170 355 C 80 340, 30 250, 50 160 C 70 80, 130 30, 200 40 Z" fill="${primary}"/></svg>`;
     overlays.push({
       id: `tpl-arch-blob-${crypto.randomUUID()}`,
       src: svgDataUrl(blob),
-      x: -Math.round(blobSize * 0.3), y: H - Math.round(blobSize * 0.7),
+      x: -Math.round(blobSize * 0.3), y: REF_H - Math.round(blobSize * 0.7),
       width: blobSize, height: blobSize,
       type: "element", opacity: 0.28,
     });
@@ -107,7 +105,7 @@ export function buildArchetypeOverlays(
     overlays.push({
       id: `tpl-arch-curve-${crypto.randomUUID()}`,
       src: svgDataUrl(curve),
-      x: (W - curveW) / 2, y: isReels ? 750 : 560,
+      x: (REF_W - curveW) / 2, y: Math.round(REF_H * 0.55),
       width: curveW, height: curveH,
       type: "element", opacity: 0.85,
     });
@@ -129,21 +127,21 @@ export function buildArchetypeOverlays(
     overlays.push({
       id: `tpl-arch-circ1-${crypto.randomUUID()}`,
       src: svgDataUrl(circ(big, c1)),
-      x: W - margin - big, y: margin,
+      x: REF_W - margin - big, y: margin,
       width: big, height: big,
       type: "element", opacity: 0.9,
     });
     overlays.push({
       id: `tpl-arch-circ2-${crypto.randomUUID()}`,
       src: svgDataUrl(circ(med, c2)),
-      x: W - margin - big - med, y: margin + big - 10,
+      x: REF_W - margin - big - med, y: margin + big - 10,
       width: med, height: med,
       type: "element", opacity: 0.9,
     });
     overlays.push({
       id: `tpl-arch-circ3-${crypto.randomUUID()}`,
       src: svgDataUrl(circ(small, c3)),
-      x: W - margin - big - med - small + 6, y: margin - 14,
+      x: REF_W - margin - big - med - small + 6, y: margin - 14,
       width: small, height: small,
       type: "element", opacity: 0.85,
     });
@@ -152,7 +150,7 @@ export function buildArchetypeOverlays(
     overlays.push({
       id: `tpl-arch-dot-${crypto.randomUUID()}`,
       src: svgDataUrl(circ(dot, c1)),
-      x: 100, y: H - 220,
+      x: 100, y: REF_H - 180,
       width: dot, height: dot,
       type: "element", opacity: 0.5,
     });
