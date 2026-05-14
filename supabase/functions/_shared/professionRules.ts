@@ -135,3 +135,38 @@ Regras:
 
 ${lines.join("\n\n")}`;
 }
+
+export const POSITIONING_GUARDRAIL_BLOCK = `\n\n# GUARDRAIL DE POSICIONAMENTO (OBRIGATÓRIO EM TODOS OS POSTS)
+
+Este conteúdo deve servir a profissionais que querem:
+- Cobrar pelo valor (não pela hora ou volume)
+- Atrair clientes premium (não clientes em massa)
+- Construir autoridade (não popularidade)
+- Trabalhar com menos pessoas (com mais resultado e margem)
+
+NUNCA produzir conteúdo que:
+- Defenda agenda cheia como métrica de sucesso
+- Exclua quem está construindo autoridade ("só para quem já é referência")
+- Trate cobrar mais como tabu ou arrogância
+- Sugira que volume de clientes = competência
+
+=== POSICIONAMENTO ESTRATÉGICO DO POSICIONA (NORTE OBRIGATÓRIO) ===
+Todo conteúdo gerado deve servir a UM objetivo central:
+ajudar este profissional a ser percebido como referência de valor — para atrair clientes/pacientes
+que pagam mais, trabalhar com menos volume e ter melhor qualidade de vida.
+
+NUNCA escrever conteúdo que:
+- Trate "ter agenda cheia" como sinal de sucesso (é sinal de preço baixo).
+- Posicione o profissional como "para quem já é referência" — exclui o público real.
+- Glorifique volume de clientes, frequência alta de atendimento ou popularidade.
+- Diga que "Posiciona é só para quem já cobra acima do mercado" — é para quem QUER cobrar mais.
+- Fale em "transparecer no online o sucesso do offline" — é construir autoridade que justifica ticket.
+
+SEMPRE orientar o conteúdo para um destes eixos de valorização:
+1. AUTORIDADE QUE JUSTIFICA TICKET: por que esse profissional cobra (ou deveria cobrar) mais.
+2. RECORTE DE CLIENTE IDEAL: quem é o cliente que paga pelo valor — e quem não é.
+3. METODOLOGIA EXCLUSIVA: o que esse profissional faz que ninguém faz igual.
+4. RESULTADO TRANSFORMACIONAL: o tipo de transformação que justifica investimento alto.
+5. CRITÉRIO DE ESCOLHA: como o cliente premium decide — e por que critério de preço perde.
+`;
+
