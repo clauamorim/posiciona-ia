@@ -213,14 +213,14 @@ REGRAS RÍGIDAS para "card_copy":
 
 EXEMPLO BOM (post único):
 {
-  "caption": "Toda manhã, antes de qualquer reunião, eu nado. Não é ritual motivacional. É necessidade operacional. Porque descobri que análise de posicionamento profunda exige o mesmo tipo de clareza mental que nadar exige de técnica… [continua por mais 800 caracteres]",
-  "card_copy": ["40 minutos de natação me ensinaram mais sobre posicionamento do que 18 anos de carreira."]
+  "caption": "A maioria dos negócios não perde clientes por preço. Perde por não saber explicar por que é a escolha certa. Tive esse diagnóstico na prática quando um prospect pediu proposta, comparou com um concorrente 40% mais caro e escolheu o concorrente. O problema não era o preço — era que eu não tinha deixado claro o que me diferenciava… [continua por mais 800 caracteres]",
+  "card_copy": ["Não é o preço que perde clientes. É a falta de clareza sobre o que te diferencia."]
 }
 
 EXEMPLO RUIM (PROIBIDO — card repete a legenda):
 {
-  "caption": "Toda manhã, antes de qualquer reunião, eu nado…",
-  "card_copy": ["Toda manhã, antes de qualquer reunião, eu nado. Não é ritual motivacional. É necessidade operacional…"]
+  "caption": "A maioria dos negócios não perde clientes por preço. Perde por não saber explicar o que diferencia…",
+  "card_copy": ["A maioria dos negócios não perde clientes por preço. Perde por não saber explicar o que diferencia — e foi exatamente o que percebi quando…"]
 }
 
 ESTRATÉGIA DE COPY (OBRIGATÓRIA) — DISTRIBUIÇÃO FIXA DOS 4 POSTS:
