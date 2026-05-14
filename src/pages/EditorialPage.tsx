@@ -160,6 +160,32 @@ const EditorialPage = () => {
 
   const weeklyCycles = balances?.weekly_cycles ?? 0;
   const regenerationCredits = balances?.regeneration_credits ?? 0;
+  const [generatingStoriesFor, setGeneratingStoriesFor] = useState<number | null>(null);
+
+  const handleGenerateStoriesOnly = async (weekIndex: number | undefined) => {
+    if (!user || !report?.id || typeof weekIndex !== "number") return;
+    setGeneratingStoriesFor(weekIndex);
+    try {
+      if (!(await ensureFreshSession())) return;
+      const { data, error } = await supabase.functions.invoke("process-stories-generation-job", {
+        body: { week_index: weekIndex, report_id: report.id },
+      });
+      if (error || data?.error) {
+        const msg = data?.error || error?.message || "Não foi possível gerar os stories agora.";
+        toast({ title: "Falha ao gerar stories", description: msg, variant: "destructive" });
+        return;
+      }
+      const { data: freshReport } = await supabase
+        .from("reports").select("*").eq("user_id", user.id)
+        .order("version", { ascending: false }).limit(1).single();
+      if (freshReport) setReport(freshReport);
+      toast({ title: "Stories gerados com sucesso!" });
+    } catch (err: any) {
+      toast({ title: "Erro", description: err?.message || "Tente novamente.", variant: "destructive" });
+    } finally {
+      setGeneratingStoriesFor(null);
+    }
+  };
 
   const [userNiche, setUserNiche] = useState<string>("");
   const [businessContext, setBusinessContext] = useState<string>("");
