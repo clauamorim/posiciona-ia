@@ -169,6 +169,12 @@ const FORMULA_PATTERNS: { id: Exclude<TitleFormulaId, "livre">; label: string; r
     label: '"X que constrói … vs Y que só …"',
     re: /\bque\s+constr[óo]i\b.+\bvs\b|\bque\s+constr[óo]i\b.+\bque\s+s[óo]\b/i,
   },
+  // 11. "Protocolo/checklist/guia de N perguntas/passos/filtros/critérios/regras"
+  {
+    id: "protocolo_n_perguntas",
+    label: '"Protocolo/checklist/guia (de N) perguntas/passos/filtros/critérios"',
+    re: /\b(protocolo|checklist|guia|roteiro|m[eé]todo)\s+(de\s+)?(\d+\s+)?(perguntas|passos|filtros|camadas|crit[ée]rios|regras)\b/i,
+  },
 ];
 
 export function detectTitleFormula(title: string): TitleFormulaId {
