@@ -500,16 +500,18 @@ const PortraitGenerator = () => {
                 </p>
                 <Button
                   onClick={requestGenerate}
-                  disabled={generating || totalCredits < 1 || !hasEnoughReferences}
+                  disabled={generating || totalCredits < 1 || !hasEnoughReferences || isReadOnly}
                   size="lg"
                   className="gap-2"
                 >
                   {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageIcon className="h-4 w-4" />}
-                  {!hasEnoughReferences
-                    ? `Envie ao menos ${MIN_REFERENCES} referências`
-                    : requestedCount > 0
-                      ? `Gerar ${requestedCount} retrato${requestedCount > 1 ? "s" : ""} (${requestedCount} crédito${requestedCount > 1 ? "s" : ""})`
-                      : "Sem créditos disponíveis"}
+                  {isReadOnly
+                    ? "Assinatura expirada — renove para gerar"
+                    : !hasEnoughReferences
+                      ? `Envie ao menos ${MIN_REFERENCES} referências`
+                      : requestedCount > 0
+                        ? `Gerar ${requestedCount} retrato${requestedCount > 1 ? "s" : ""} (${requestedCount} crédito${requestedCount > 1 ? "s" : ""})`
+                        : "Sem créditos disponíveis"}
                 </Button>
                 {generating && (
                   <div className="space-y-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3">
