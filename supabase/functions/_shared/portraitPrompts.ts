@@ -756,7 +756,13 @@ export function buildGeminiPortraitPrompt(params: GeminiPromptParams): {
 
   }
 
-  sceneParts.push(`Style: Kodak Portra 400 film look, natural studio lighting with visible shadows, 85mm lens, shallow depth of field. Not retouched — preserve all skin texture, pores, lines, and imperfections from the references.`);
+  sceneParts.push(`Style: Kodak Portra 400 film look, natural studio lighting with visible shadows, 85mm lens, shallow depth of field. Skin must look EXACTLY as it appears in the reference images — same tone, same texture level, same amount of freckles or marks. Do NOT add freckles, moles, or skin marks that are not visible in the references. Do NOT add wrinkles or lines that are not in the references. Do NOT smooth or beautify either.`);
+
+  if (/smile|smiling/.test(archetypeEssence.toLowerCase())) {
+    sceneParts.push(
+      `Smile: a natural, closed-mouth or barely-parted-lip smile is preferred. If teeth are visible, they must look natural — slightly off-white (not pure white), with subtle variation in size and alignment, never perfectly uniform. Avoid the "cosmetic dental ad" look.`
+    );
+  }
 
   const prompt = sceneParts.join(" ");
 
