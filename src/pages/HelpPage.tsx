@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { SeoHead } from "@/components/SeoHead";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -96,6 +97,7 @@ const HelpPage = () => {
 
   return (
     <DashboardLayout>
+      <SeoHead title="Ajuda · Posiciona" description="Suporte e perguntas frequentes." path="/help" />
       <div className="space-y-6 max-w-3xl">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">

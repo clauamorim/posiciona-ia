@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { SeoHead } from "@/components/SeoHead";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { signedUserUploadUrl } from "@/lib/userGalleryUrl";
@@ -146,6 +147,7 @@ const MyGalleryPage = () => {
 
   return (
     <DashboardLayout>
+      <SeoHead title="Minha Galeria · Posiciona" description="Imagens e retratos da sua marca." path="/my-gallery" />
       <div className="space-y-6">
         <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
           <div className="space-y-1">

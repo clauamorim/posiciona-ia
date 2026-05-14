@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { SeoHead } from "@/components/SeoHead";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -253,6 +254,7 @@ const Results = () => {
 
   return (
     <DashboardLayout>
+      <SeoHead title="Resultados · Posiciona" description="Resultado da sua análise de posicionamento." path="/results" />
       <div className="space-y-6">
         <div>
           <h1 className="text-xl md:text-2xl font-display font-semibold tracking-tight">Seus Arquétipos</h1>

@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CheckCircle, Loader2, ArrowRight } from "lucide-react";
+import { SeoHead } from "@/components/SeoHead";
 
 const CheckoutSuccess = () => {
   const { user } = useAuth();
@@ -26,7 +27,9 @@ const CheckoutSuccess = () => {
   }, [navigate]);
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-4">
+    <>
+      <SeoHead title="Pagamento confirmado · Posiciona" description="Seu plano foi ativado." path="/checkout-success" />
+      <div className="min-h-screen bg-background flex items-center justify-center px-4">
       <Card className="max-w-md w-full">
         <CardContent className="pt-8 pb-8 text-center space-y-6">
           <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
@@ -47,6 +50,8 @@ const CheckoutSuccess = () => {
         </CardContent>
       </Card>
     </div>
+    </>
+
   );
 };
 

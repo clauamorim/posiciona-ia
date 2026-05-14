@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { SeoHead } from "@/components/SeoHead";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
@@ -65,6 +66,7 @@ const StoryBrand = () => {
   if (loading) {
     return (
       <DashboardLayout>
+      <SeoHead title="Narrativa da Marca · Posiciona" description="Sua narrativa StoryBrand estruturada." path="/storybrand" />
         <div className="space-y-4">
           <Skeleton className="h-8 w-64" />
           <Skeleton className="h-96 w-full" />

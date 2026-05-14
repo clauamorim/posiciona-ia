@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { SeoHead } from "@/components/SeoHead";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -148,6 +149,7 @@ const HistoryPage = () => {
 
   return (
     <DashboardLayout>
+      <SeoHead title="Histórico · Posiciona" description="Seus relatórios, análises e retratos gerados." path="/history" />
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">

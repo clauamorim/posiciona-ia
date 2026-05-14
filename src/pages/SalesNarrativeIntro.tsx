@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { SeoHead } from "@/components/SeoHead";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Sparkles, ArrowRight, SkipForward } from "lucide-react";
@@ -9,6 +10,7 @@ const SalesNarrativeIntro = () => {
 
   return (
     <DashboardLayout>
+      <SeoHead title="Narrativa de Vendas · Posiciona" description="Construa sua narrativa de vendas." path="/sales-narrative-intro" />
       <div className="max-w-2xl mx-auto space-y-6">
         <div className="space-y-2">
           <h1 className="text-2xl md:text-3xl font-display font-semibold tracking-tight">

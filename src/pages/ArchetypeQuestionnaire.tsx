@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { SeoHead } from "@/components/SeoHead";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -129,6 +130,7 @@ const ArchetypeQuestionnaire = () => {
 
   return (
     <DashboardLayout>
+      <SeoHead title="Questionário de Arquétipos · Posiciona" description="Diagnóstico de arquétipos de marca." path="/archetype-questionnaire" />
       <div className="max-w-2xl mx-auto space-y-5">
         {/* Header */}
         <div className="flex items-center justify-between gap-3">

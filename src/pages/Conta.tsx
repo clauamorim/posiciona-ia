@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { SeoHead } from "@/components/SeoHead";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -120,6 +121,7 @@ const Conta = () => {
 
   return (
     <DashboardLayout>
+      <SeoHead title="Conta · Posiciona" description="Suas informações de conta e assinatura." path="/conta" />
       <div className="space-y-5 max-w-2xl mx-auto">
         <div>
           <h1 className="text-2xl font-display font-semibold tracking-tight">Conta</h1>

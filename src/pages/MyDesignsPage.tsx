@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { SeoHead } from "@/components/SeoHead";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -262,6 +263,7 @@ const MyDesignsPage = () => {
 
   return (
     <DashboardLayout>
+      <SeoHead title="Meus Designs · Posiciona" description="Seus designs salvos." path="/my-designs" />
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
