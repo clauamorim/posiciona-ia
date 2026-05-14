@@ -175,7 +175,7 @@ Português brasileiro.`;
 Empresa: ${business.company_name || ""}
 Serviços: ${business.services || ""}
 Público: ${business.target_audience || ""}
-Nicho: ${niche || ""}${storybrandContext}${toneContext}${personalContext}${marketTrendsBlock}${themeOverrideBlock}
+Nicho: ${niche || ""}${verifiableFactsBlock}${storybrandContext}${toneContext}${personalContext}${marketTrendsBlock}${themeOverrideBlock}
 
 # OUTROS TEMAS DA SEMANA (não repetir)
 ${existingTitles || "Nenhum"}
@@ -183,7 +183,7 @@ ${existingTitles || "Nenhum"}
 Gere o story do dia ${dayNumber || 1}.`;
 
       const enrichedStorySystem =
-        NARRATIVE_PRINCIPLES_BLOCK + ethicalBlock + "\n\n" + storySystem + renderEditorialFrameworks();
+        NARRATIVE_PRINCIPLES_BLOCK + ethicalBlock + "\n\n" + storySystem + renderPillarsBlock() + renderEditorialFrameworks();
 
       let rawStory: string;
       try {
