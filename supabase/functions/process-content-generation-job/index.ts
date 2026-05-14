@@ -532,6 +532,8 @@ async function processJob(jobId: string) {
       const previousSummary = previousSummaryItems.slice(-30).join("\n");
       const rotationHint = getPillarRotationHint(previousPillarsByWeek);
       const rotationBlock = renderRotationBlock(rotationHint);
+      // Offset cíclico (0..3) para variar qual tipo de post (EDU/DES/POS/MER) vai para o Dia 1 a cada semana.
+      const rotationOffset = (previousWeeks?.length || 0) % 4;
 
       const storybrandContext = renderStorybrandBlock(storybrand);
       const toneContext = renderToneBlock(tone_of_voice);
