@@ -382,8 +382,12 @@ Gere 1 novo post de feed no formato "${format}".`;
       }
     }
 
+    const finalPillar = lockedPillar
+      || (isValidPillar((cleaned as any).pillar) ? (cleaned as any).pillar : "legacy");
     const stampedPost = {
       ...cleaned,
+      pillar: finalPillar,
+      is_personal: finalPillar === "bastidor" ? Boolean((cleaned as any).is_personal) : false,
       day: Number(dayNumber || (cleaned as any).day || 1),
       generator_version: EDITORIAL_GENERATOR_VERSION,
     };
