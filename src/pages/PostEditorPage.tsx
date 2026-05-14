@@ -917,14 +917,15 @@ const PostEditorPage = () => {
     if (archetypeColorsAppliedRef.current) return;
     if (!primaryArchetype) return;
     if (draft) { archetypeColorsAppliedRef.current = true; return; }
-    const p = getArchetypePalette(primaryArchetype);
+    const p = archetypePalette;
     if (customBgColor === null) setCustomBgColor(p.background);
     if (customTextColor === null) setCustomTextColor(p.textPrimary);
     if (titleColor === null) setTitleColor(p.textPrimary);
     if (ctaBgColor === null) setCtaBgColor(p.accent);
     if (ctaTextColor === null) setCtaTextColor(p.background);
+    setBgIndex(4); // força uso de customBgColor
     archetypeColorsAppliedRef.current = true;
-  }, [primaryArchetype]);
+  }, [draft, primaryArchetype, archetypePalette]);
 
   const bgColor = customBgColor || palette[bgIndex]?.hex || archetypePalette.background;
   const textColor = customTextColor || getContrastColor(bgColor);
