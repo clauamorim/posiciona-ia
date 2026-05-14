@@ -101,7 +101,7 @@ const getFunctionErrorMessage = async (error: any, data?: any, fallback = "Ocorr
 
 const EditorialPage = () => {
   const navigate = useNavigate();
-  const { user, balances, refreshSubscription } = useAuth();
+  const { user, balances, refreshSubscription, isReadOnly } = useAuth();
   const [report, setReport] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [generatingWeek, setGeneratingWeek] = useState(false);

@@ -46,7 +46,7 @@ interface PortraitReference {
 }
 
 const PortraitGenerator = () => {
-  const { user, balances, refreshSubscription } = useAuth();
+  const { user, balances, refreshSubscription, isReadOnly } = useAuth();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
