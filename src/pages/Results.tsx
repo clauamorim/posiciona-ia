@@ -166,7 +166,8 @@ const Results = () => {
 
         let reportVersion: number;
         let reportRowId: string | null = null;
-        if (latestReport && ["pending", "generating"].includes(latestReport.status)) {
+        if (latestReport && latestReport.status === "generating") {
+          // Reutiliza versão apenas quando a geração ainda está em andamento (retry de job travado).
           reportVersion = latestReport.version;
           const { data: existing } = await supabase.from("reports")
             .update({ status: "generating", content: null, error_message: null })
@@ -174,6 +175,8 @@ const Results = () => {
             .select("id").single();
           reportRowId = existing?.id || null;
         } else {
+          // Sempre cria nova versão (inclusive após reanálise/refazer questionário),
+          // preservando o relatório anterior no histórico.
           reportVersion = (latestReport?.version || 0) + 1;
           const { data: inserted } = await supabase.from("reports").insert({
             user_id: user.id, version: reportVersion, status: "generating", error_message: null,

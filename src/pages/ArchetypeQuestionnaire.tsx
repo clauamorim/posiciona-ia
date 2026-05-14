@@ -117,12 +117,8 @@ const ArchetypeQuestionnaire = () => {
       setTouchedIds(new Set());
       await supabase.from("archetype_answers").delete().eq("user_id", user.id);
     }
-    const { data: latestReport } = await supabase.from("reports").select("version")
-      .eq("user_id", user.id).order("version", { ascending: false }).limit(1).single();
-    if (latestReport) {
-      await supabase.from("reports").update({ status: "pending", content: null, error_message: null, editorial_weeks: [] })
-        .eq("user_id", user.id).eq("version", latestReport.version);
-    }
+    // Não sobrescrever o relatório anterior. A nova geração criará uma nova versão
+    // (ver Results.tsx), preservando o histórico.
     setStatus("draft");
     setShowReanalysisDialog(false);
     setPage(0);
