@@ -41,7 +41,7 @@ const plans = [
     slug: "semana_conteudo",
     price: "197",
     period: "pagamento único",
-    description: "Para quem quer clareza e uma primeira semana estratégica pronta para usar.",
+    description: "Teste o Posiciona sem compromisso. Saia com posicionamento, narrativa e 7 dias de conteúdo prontos para publicar.",
     highlight: false,
     badge: null,
     features: [
@@ -61,7 +61,7 @@ const plans = [
     slug: "presenca_mensal",
     price: "297",
     period: "/mês",
-    description: "Para quem quer manter consistência e continuar produzindo com estratégia ao longo do mês.",
+    description: "Nunca mais improvise. 4 semanas de conteúdo estratégico por mês, com reanálise mensal do seu posicionamento.",
     highlight: true,
     badge: "Mais escolhido",
     features: [
@@ -79,7 +79,7 @@ const plans = [
     slug: "autoridade_total",
     price: "497",
     period: "/mês",
-    description: "Para quem quer combinar posicionamento contínuo com reforço visual e presença mais premium.",
+    description: "Posicionamento, conteúdo e imagem profissional no mesmo lugar. O pacote completo para ser referência visível no seu nicho.",
     highlight: false,
     badge: "Mais completo",
     features: [
@@ -95,6 +95,8 @@ const plans = [
 ];
 
 const faqItems = [
+  { q: "O conteúdo não fica genérico, como outros geradores de IA?", a: "Não. O Posiciona não é um gerador de texto genérico. Ele parte dos seus arquétipos, da sua narrativa de marca e do seu contexto profissional específico. Dois profissionais do mesmo nicho recebem posicionamentos e conteúdos completamente diferentes." },
+  { q: "E se eu não gostar do conteúdo gerado?", a: "Você tem créditos de ajuste para refinar qualquer post. Basta indicar o que quer mudar e a IA reescreve mantendo o seu posicionamento." },
   { q: "Como funciona o diagnóstico inicial?", a: "Você preenche dois questionários: um sobre o seu negócio e outro de personalidade de marca. A partir das respostas, a IA calcula seus arquétipos, gera sua narrativa de marca e cria toda a estratégia de posicionamento." },
   { q: "Preciso entender de marketing para usar?", a: "Não. O Posiciona faz toda a parte estratégica por você. Basta responder os questionários com honestidade sobre o seu negócio e a IA cuida do resto." },
   { q: "Os conteúdos já vêm prontos?", a: "Sim. O app gera posts, carrosséis e roteiros de reels completos, com texto, chamada para ação e sugestão visual. Basta publicar." },
@@ -417,7 +419,7 @@ const LandingPage = () => {
         <div className="max-w-3xl mx-auto text-center space-y-6">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-landing-border bg-landing-bg-secondary/50 text-xs md:text-sm text-landing-text-secondary">
             <img src={posicionaLogo} alt="Posiciona" className="h-6 w-6" />
-            Posicionamento estratégico com IA para profissionais que vendem expertise
+            Posicionamento de marca com IA para profissionais que vendem expertise
           </div>
 
           <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-display font-semibold leading-[1.15] tracking-tight">
@@ -426,12 +428,12 @@ const LandingPage = () => {
           </h1>
 
           <p className="text-base md:text-lg text-landing-text-secondary max-w-2xl mx-auto leading-relaxed">
-            O Posiciona identifica o que diferencia sua marca, organiza sua mensagem e entrega estratégia, calendário, conteúdo pronto para publicar e retratos de marca com mais autoridade e constância.
+            Responda 3 questionários sobre seu negócio. Em minutos, receba seu posicionamento, sua narrativa de marca e uma semana inteira de conteúdo pronto para publicar — sem agência, sem improvisar.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
             <Button size="lg" onClick={() => navigate("/signup")} className="bg-landing-purple hover:bg-landing-purple/90 text-white text-base h-12 px-8">
-              Começar agora <ArrowRight className="h-4 w-4 ml-2" />
+              Criar meu posicionamento <ArrowRight className="h-4 w-4 ml-2" />
             </Button>
             <Button
               size="lg"
@@ -444,7 +446,7 @@ const LandingPage = () => {
           </div>
 
           <p className="text-xs text-landing-text-secondary/60 pt-1">
-            Sem improvisar conteúdo. Sem depender de agência. Com direção clara para sua marca.
+            Sem contrato. Cancele quando quiser.
           </p>
         </div>
       </section>
@@ -453,15 +455,14 @@ const LandingPage = () => {
       <section className="py-12 md:py-16 px-4 bg-landing-bg-secondary/40">
         <div className="max-w-3xl mx-auto text-center space-y-8">
           <h2 className="text-2xl md:text-3xl font-display font-semibold leading-tight">
-            Quando sua presença digital não acompanha{" "}
-            <span className="text-landing-gold italic">seu nível profissional</span>
+            Parece familiar?{" "}
           </h2>
           <div className="grid sm:grid-cols-2 gap-4 text-left max-w-2xl mx-auto">
             {[
-              "Sua marca parece genérica",
-              "Seu conteúdo não traduz sua autoridade",
-              "Você perde tempo decidindo o que postar",
-              "Seu perfil não atrai com clareza o cliente certo",
+              "Domingo à noite e você ainda não sabe o que postar segunda",
+              "Colegas com menos experiência parecem mais visíveis que você",
+              "Você cobra bem, mas seu perfil não transmite isso",
+              "Publica quando dá, some por semanas, recomeça do zero",
             ].map((item, i) => (
               <div key={i} className="flex items-start gap-3 p-4 rounded-lg border border-landing-border/50 bg-landing-bg/50">
                 <div className="w-6 h-6 rounded-full bg-landing-purple/20 flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -479,8 +480,8 @@ const LandingPage = () => {
         <div className="max-w-4xl mx-auto space-y-10">
           <div className="text-center space-y-2">
             <h2 className="text-2xl md:text-3xl font-display font-semibold">
-              Em 3 etapas, sua marca sai da improvisação e{" "}
-              <span className="text-landing-gold italic">ganha direção</span>
+              Do questionário ao conteúdo pronto em{" "}
+              <span className="text-landing-gold italic">menos de 1 hora</span>
             </h2>
           </div>
 
@@ -489,20 +490,20 @@ const LandingPage = () => {
               {
                 step: "01",
                 icon: Search,
-                title: "Descubra o que diferencia sua marca",
-                desc: "Responda ao diagnóstico e o Posiciona organiza sua mensagem, seus arquétipos e sua direção de comunicação.",
+                title: "Responda o diagnóstico (15 minutos)",
+                desc: "3 questionários sobre seu negócio e personalidade de marca. A IA identifica seus arquétipos e organiza sua direção de comunicação.",
               },
               {
                 step: "02",
                 icon: Target,
-                title: "Receba sua estratégia e calendário",
+                title: "Receba posicionamento e narrativa prontos",
                 desc: "Tenha narrativa de marca, análise de perfil e linha editorial conectados ao seu posicionamento.",
               },
               {
                 step: "03",
                 icon: Zap,
                 title: "Publique com mais autoridade",
-                desc: "Receba posts, carrosséis, roteiros e retratos alinhados à sua marca.",
+                desc: "Posts, carrosséis, roteiros de reels e retratos profissionais — tudo alinhado ao seu posicionamento.",
               },
             ].map((s) => (
               <div key={s.step} className="p-6 rounded-xl border border-landing-border/50 bg-landing-bg-secondary/30 space-y-4">
@@ -530,15 +531,15 @@ const LandingPage = () => {
       <section className="py-12 md:py-16 px-4 bg-landing-bg-secondary/40">
         <div className="max-w-3xl mx-auto space-y-8">
           <h2 className="text-2xl md:text-3xl font-display font-semibold text-center">
-            Para profissionais que{" "}
-            <span className="text-landing-gold italic">não têm tempo de improvisar</span>
+            Feito para quem{" "}
+            <span className="text-landing-gold italic">vende expertise</span>
           </h2>
           <div className="grid sm:grid-cols-2 gap-4">
             {[
-              { icon: Target, title: "Pare de postar no vazio", desc: "Cada conteúdo tem propósito estratégico e direção clara." },
-              { icon: TrendingUp, title: "Atraia o cliente certo", desc: "Posicionamento que fala diretamente com quem precisa de você." },
-              { icon: Zap, title: "Ganhe tempo sem parecer genérico", desc: "Conteúdo pronto, original e alinhado à sua marca." },
-              { icon: Palette, title: "Sua marca, não um template qualquer", desc: "Tudo é construído a partir da sua essência única." },
+              { icon: Target, title: "Coaches e consultores", desc: "Deixe de parecer mais um e passe a ser a referência óbvia para o cliente certo." },
+              { icon: TrendingUp, title: "Psicólogos e terapeutas", desc: "Comunique profundidade e segurança sem precisar virar criador de conteúdo." },
+              { icon: Zap, title: "Advogados e médicos", desc: "Autoridade que o paciente ou cliente sente antes mesmo de entrar em contato." },
+              { icon: Palette, title: "Arquitetos, designers e fotógrafos", desc: "Seu visual e sua narrativa finalmente alinhados — sem depender de agência." },
             ].map((b, i) => (
               <div key={i} className="flex items-start gap-3 p-5 rounded-xl border border-landing-border/30">
                 <div className="w-9 h-9 rounded-lg bg-landing-purple/10 flex items-center justify-center flex-shrink-0">
@@ -664,7 +665,7 @@ const LandingPage = () => {
         <div className="max-w-5xl mx-auto space-y-10">
           <div className="text-center space-y-2">
             <h2 className="text-2xl md:text-3xl font-display font-semibold">Escolha seu plano</h2>
-            <p className="text-sm text-landing-text-secondary">Comece com clareza. Evolua com constância. Reforce com imagem.</p>
+            <p className="text-sm text-landing-text-secondary">Um social media custa R$ 2.000–5.000/mês. Uma consultoria de marca, R$ 3.000 a sessão. O Posiciona entrega os dois — por uma fração do custo.</p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-5">
@@ -758,16 +759,16 @@ const LandingPage = () => {
       <section className="py-12 md:py-16 px-4 bg-landing-bg-secondary/40">
         <div className="max-w-2xl mx-auto text-center space-y-5">
           <h2 className="text-2xl md:text-3xl font-display font-semibold leading-tight">
-            Seu próximo cliente já está no Instagram.{" "}
-            <span className="text-landing-gold italic">Sua marca está pronta para ser escolhida?</span>
+            Cada semana sem posicionamento claro é uma semana de clientes que{" "}
+            <span className="text-landing-gold italic">escolhem outro profissional.</span>
           </h2>
           <p className="text-sm text-landing-text-secondary leading-relaxed">
-            Comece agora e transforme posicionamento, imagem e conteúdo em uma presença mais clara, mais estratégica e mais valiosa.
+            Responda o diagnóstico hoje. Amanhã você já tem posicionamento, narrativa e conteúdo prontos para publicar.
           </p>
           <Button size="lg" onClick={() => navigate("/signup")} className="bg-landing-purple hover:bg-landing-purple/90 text-white text-base h-12 px-8">
-            Começar meu posicionamento agora <ArrowRight className="h-4 w-4 ml-2" />
+            Criar meu posicionamento agora <ArrowRight className="h-4 w-4 ml-2" />
           </Button>
-          <p className="text-xs text-landing-text-secondary/50">Sem fidelidade. Cancele quando quiser.</p>
+          <p className="text-xs text-landing-text-secondary/50">Sem agência. Sem contrato. Resultado em minutos.</p>
         </div>
       </section>
 
