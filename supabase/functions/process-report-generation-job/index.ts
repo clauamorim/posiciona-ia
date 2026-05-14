@@ -624,6 +624,42 @@ Gere o relatório estratégico completo em JSON conforme a estrutura exigida.`;
     });
 
     console.log(`Report job ${jobId} concluído com sucesso (fallback=${isFallback}).`);
+
+    // ---- Telemetria + crédito grátis quando entregamos fallback -----------
+    if (isFallback) {
+      console.log(JSON.stringify({
+        event: "report_fallback_delivered",
+        user_id: userId,
+        job_id: jobId,
+        report_id: job.report_id,
+        reason: lastError?.message || "unknown",
+        attempts: MAX_ATTEMPTS,
+        timestamp: new Date().toISOString(),
+      }));
+
+      // Concede 1 crédito de regeneração para o usuário poder refazer sem pagar.
+      try {
+        const { data: bal } = await admin
+          .from("user_balances")
+          .select("regeneration_credits")
+          .eq("user_id", userId)
+          .maybeSingle();
+        const current = bal?.regeneration_credits ?? 0;
+        await admin
+          .from("user_balances")
+          .update({ regeneration_credits: current + 1, updated_at: new Date().toISOString() })
+          .eq("user_id", userId);
+        await admin.from("credit_logs").insert({
+          user_id: userId,
+          credit_type: "regeneration",
+          amount: 1,
+          description: `Crédito gratuito de regeneração (fallback no relatório, job=${jobId})`,
+        });
+        console.warn(`[report] FALLBACK delivered to user=${userId}, free regen granted`);
+      } catch (refundErr: any) {
+        console.error(`[report] falha ao conceder crédito grátis pós-fallback: ${refundErr?.message || refundErr}`);
+      }
+    }
   } catch (err: any) {
     console.error(`Report job ${jobId} falhou:`, err);
     const userMessage = typeof err?.userMessage === "string" && err.userMessage.trim()
