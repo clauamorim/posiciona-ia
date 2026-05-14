@@ -127,10 +127,14 @@ function normalize(s: string): string {
  * Detecta quais grupos de conceito aparecem no texto.
  * Recebe { theme, headline } e dá peso 2x ao theme.
  */
-export function detectConceptGroups(parts: { theme?: string; headline?: string }): ConceptGroupId[] {
+export function detectConceptGroups(parts: { theme?: string; headline?: string; body?: string; cta?: string }): ConceptGroupId[] {
   const themeNorm = normalize(parts.theme || "");
   const headlineNorm = normalize(parts.headline || "");
-  const combined = `${themeNorm} ${themeNorm} ${headlineNorm}`; // theme conta 2x
+  const bodyNorm = normalize((parts.body || "").slice(0, 400));
+  const ctaNorm = normalize(parts.cta || "");
+  // Theme conta 2x; body+cta entram com peso 1 para pegar grupo recorrente que
+  // só aparece no corpo do post (ex: humanizar/bastidor sem estar no título).
+  const combined = `${themeNorm} ${themeNorm} ${headlineNorm} ${bodyNorm} ${ctaNorm}`;
   const found = new Set<ConceptGroupId>();
   for (const [gid, group] of Object.entries(CONCEPT_GROUPS) as [ConceptGroupId, typeof CONCEPT_GROUPS[ConceptGroupId]][]) {
     for (const term of group.terms) {
