@@ -5,6 +5,7 @@ import { ArrowRight, Menu, X } from "lucide-react";
 import posicionaLogo from "@/assets/posiciona-logo.png";
 import claudiaPhoto from "@/assets/claudia-avatar.webp";
 import { useState } from "react";
+import { SeoHead } from "@/components/SeoHead";
 
 const SobrePage = () => {
   const { user } = useAuth();
