@@ -197,6 +197,41 @@ function detectUsedTraits(
   return used;
 }
 
+/** Heurística: detecta quais tendências (por title) foram usadas nos textos gerados.
+ *  Considera "usada" se 2+ palavras-chave significativas do título aparecem no corpus. */
+function detectUsedTrends(
+  trends: MarketTrend[],
+  feed: any[],
+  stories: any[],
+): string[] {
+  if (!Array.isArray(trends) || trends.length === 0) return [];
+  const corpusParts: string[] = [];
+  for (const p of feed || []) {
+    if (!p) continue;
+    if (typeof p.theme === "string") corpusParts.push(p.theme);
+    if (typeof p.caption === "string") corpusParts.push(p.caption);
+    if (typeof p.script === "string") corpusParts.push(p.script);
+    if (Array.isArray(p.card_copy)) corpusParts.push(p.card_copy.join(" "));
+  }
+  for (const s of stories || []) {
+    if (!s) continue;
+    if (typeof s.theme === "string") corpusParts.push(s.theme);
+    if (Array.isArray(s.frames)) corpusParts.push(s.frames.join(" "));
+  }
+  const corpus = normalize(corpusParts.join(" \n "));
+  if (!corpus) return [];
+  const used: string[] = [];
+  for (const t of trends) {
+    const titleNorm = normalize(t.title);
+    const keywords = titleNorm
+      .split(/[^a-z0-9]+/)
+      .filter((w) => w.length >= 4 && !PT_STOPWORDS.has(w));
+    if (keywords.length === 0) continue;
+    const hits = keywords.filter((kw) => corpus.includes(kw)).length;
+    if (hits >= 2) used.push(t.title);
+  }
+  return used;
+}
 
 // Distribuição fixa dos 4 dias com feed dentro da semana (1..7).
 // Escolhemos dias que cobrem início, meio e fim da semana com bom espaçamento.
