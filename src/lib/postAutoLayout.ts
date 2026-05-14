@@ -13,6 +13,7 @@ import {
   type CanvasFormat, type TemplateLayout,
 } from "./postTemplates";
 import type { OverlayImage } from "@/components/post-editor/PostToolbar";
+import { buildArchetypeOverlays } from "@/lib/archetypeOverlays";
 
 export type PostStyle = "minimal" | "pexels" | "ai";
 
@@ -48,6 +49,8 @@ export interface AutoLayoutInput {
   businessContext?: string;
   /** Diretiva estética em inglês concatenada ao prompt do Gemini quando style === "ai". */
   aiStyleDirective?: string;
+  /** Arquétipo primário do usuário — direciona paleta e decorativos. */
+  primaryArchetype?: string | null;
 }
 
 export interface AutoLayoutResult {
@@ -610,13 +613,18 @@ export async function buildAutoLayout(input: AutoLayoutInput): Promise<AutoLayou
     ? template.bodySlot.y + estBodyHeight
     : undefined;
 
-  // 2) Decorações (moldura + linha + losango) — agora em TODOS os estilos
-  const primary = input.paletteHex[0] || "#7c3aed";
-  const accent = input.paletteHex[1] || input.paletteHex[0] || "#7c3aed";
-  const onPhoto = style === "pexels" || style === "ai";
-  overlays.push(
-    ...buildMinimalDecorativeOverlays(template, primary, accent, { onPhoto, bodyBottomY }),
-  );
+  // 2) Decorações: se houver arquétipo, usa decorativos do grupo (editáveis).
+  //    Senão, mantém os auto-decoratives genéricos (frame + linha + ornamento).
+  if (input.primaryArchetype) {
+    overlays.push(...buildArchetypeOverlays(input.primaryArchetype, template));
+  } else {
+    const primary = input.paletteHex[0] || "#7c3aed";
+    const accent = input.paletteHex[1] || input.paletteHex[0] || "#7c3aed";
+    const onPhoto = style === "pexels" || style === "ai";
+    overlays.push(
+      ...buildMinimalDecorativeOverlays(template, primary, accent, { onPhoto, bodyBottomY }),
+    );
+  }
 
   // 3) Logo do usuário (se houver)
   const logoUrl = await fetchUserLogo(input.userId);
