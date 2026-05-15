@@ -171,13 +171,22 @@ serve(async (req) => {
     }
 
     // Cria o job
-    const currentWeeks: any[][] = Array.isArray(targetReport.editorial_weeks) ? targetReport.editorial_weeks : [];
+    const currentWeeks: any[] = Array.isArray(targetReport.editorial_weeks) ? targetReport.editorial_weeks : [];
+    // Garante monotonicidade: pega o maior _week_index/week_index existente + 1.
+    // Evita colisões quando o array tem buracos ou foi reindexado (ex: backfill manual).
+    const existingIndices: number[] = currentWeeks
+      .map((w: any) => {
+        const wi = w?._week_index ?? w?.week_index;
+        return typeof wi === "number" ? wi : -1;
+      })
+      .filter((n: number) => n >= 0);
+    const nextWeekIndex = Math.max(...existingIndices, -1) + 1;
     const { data: jobInsert, error: jobInsertErr } = await supabase
       .from("content_generation_jobs")
       .insert({
         user_id: user.id,
         report_id: targetReport.id,
-        week_index: currentWeeks.length, // próxima posição
+        week_index: nextWeekIndex,
         status: "queued",
         progress_message: "Na fila…",
         payload: {
@@ -186,7 +195,7 @@ serve(async (req) => {
           previousWeeks: previousWeeks || [],
           storybrand: storybrand || null,
           tone_of_voice: tone_of_voice || null,
-          weekNumber: weekNumber || (currentWeeks.length + 1),
+          weekNumber: weekNumber || (nextWeekIndex + 1),
         },
       })
       .select("id")
