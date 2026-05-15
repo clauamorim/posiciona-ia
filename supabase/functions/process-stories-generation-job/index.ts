@@ -136,8 +136,13 @@ serve(async (req) => {
     if (report.user_id !== userId) return json({ error: "Acesso negado." }, 403);
 
     const weeks: any[] = Array.isArray(report.editorial_weeks) ? report.editorial_weeks : [];
-    const week = weeks[weekIndex];
-    if (!week) return json({ error: "Esta semana não está em estado recuperável" }, 400);
+    const arrayPos = weeks.findIndex((w: any) =>
+      (w?._week_index ?? w?.week_index) === weekIndex
+    );
+    if (arrayPos < 0) {
+      return json({ error: `Semana com _week_index=${weekIndex} não encontrada.` }, 404);
+    }
+    const week = weeks[arrayPos];
     const isRecoverable = week._partial === true || week._stage_b_failed === true;
     if (!isRecoverable) {
       return json({ error: "Esta semana não está em estado recuperável" }, 400);
@@ -283,10 +288,13 @@ Gere agora os 7 stories da semana.`;
       .eq("id", reportId)
       .single();
     const freshWeeks: any[] = Array.isArray(freshReport?.editorial_weeks) ? freshReport!.editorial_weeks : [];
-    const target = freshWeeks[weekIndex];
-    if (!target) {
+    const arrayPosFresh = freshWeeks.findIndex((w: any) =>
+      (w?._week_index ?? w?.week_index) === weekIndex
+    );
+    if (arrayPosFresh < 0) {
       return json({ error: "Semana sumiu durante a geração. Recarregue a página." }, 409);
     }
+    const target = freshWeeks[arrayPosFresh];
 
     const days = Array.isArray(target.days) ? target.days : [];
     const storyByDay = new Map(storiesFinal.map((s) => [s.day, s]));
@@ -312,7 +320,7 @@ Gere agora os 7 stories da semana.`;
     delete updatedWeek.error_message;
 
     const newWeeks = [...freshWeeks];
-    newWeeks[weekIndex] = updatedWeek;
+    newWeeks[arrayPosFresh] = updatedWeek;
 
     const { error: updateErr } = await admin
       .from("reports")
