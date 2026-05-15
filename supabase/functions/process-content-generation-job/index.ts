@@ -1039,6 +1039,10 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
       // não é perdido. A entrada parcial é substituída quando os stories chegarem.
       const wkIdxForPartial = typeof job.week_index === "number" ? job.week_index : 0;
 
+      // Métricas do detector semântico — persistidas dentro de editorial_weeks[i]
+      // para histórico/calibração. Sobrevive ao try/catch.
+      let dedupMeta: Record<string, any> | null = null;
+
       // ==== Deduplicação semântica (embeddings Gemini, guardrail não-bloqueante) ====
       // Compara cada post feed com os posts gerados nos últimos 28 dias do mesmo
       // usuário. Se algum ultrapassar 0.80 de similaridade cosseno, dispara um
@@ -1051,7 +1055,7 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
           const texts = candidates.map(({ p }) => postToEmbedText(p));
           const vectors = await embedTextBatch(texts);
           const since = new Date(Date.now() - 28 * 24 * 60 * 60 * 1000).toISOString();
-          const violations: { day: number; matches: any[] }[] = [];
+          const violations: { day: number; matches: any[]; topSim: number }[] = [];
           for (let i = 0; i < vectors.length; i++) {
             const vec = vectors[i];
             if (!vec) continue;
@@ -1068,7 +1072,8 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
               continue;
             }
             if (Array.isArray(data) && data.length > 0) {
-              violations.push({ day, matches: data });
+              const topSim = Math.max(...data.map((m: any) => Number(m.similarity) || 0));
+              violations.push({ day, matches: data, topSim });
               for (const m of data) {
                 console.log(
                   `[semantic-dedup-fix] week=${wkIdxForPartial} day=${day} matched_week=${m.week_index} matched_day=${m.day_index} similarity=${Number(m.similarity).toFixed(3)}`,
@@ -1081,30 +1086,146 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
           );
 
           if (violations.length > 0) {
+            const preRetryMaxSim = Math.max(...violations.map((v) => v.topSim));
+            dedupMeta = {
+              pre_retry_max_sim: Number(preRetryMaxSim.toFixed(3)),
+              post_retry_max_sim: null,
+              days_regenerated: violations.map((v) => v.day),
+              matches_blocked: [] as string[],
+              entity_extraction_source: "fallback-raw" as "gemini-flash-lite" | "fallback-raw",
+              threshold: 0.80,
+              ts: new Date().toISOString(),
+            };
+
             await updateJob(jobId, { progress_message: "Removendo repetições semânticas…" });
+
+            // ---- Extração de entidades via Gemini Flash Lite (cai para fallback-raw em erro) ----
+            type DayTargets = { day: number; brands: string[]; frameworks: string[]; opening_forms: string[] };
+            let dayTargets: DayTargets[] = [];
+            try {
+              const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+              if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY ausente");
+              const extractionInput = violations
+                .map(
+                  (v) =>
+                    `## Dia ${v.day}\n` +
+                    v.matches
+                      .map(
+                        (m: any, idx: number) =>
+                          `${idx + 1}. ${String(m.text_used || "").slice(0, 500)}`,
+                      )
+                      .join("\n"),
+                )
+                .join("\n\n");
+              const extractionSystem =
+                "Você extrai padrões repetitivos de posts de redes sociais em português. " +
+                "Para cada dia listado, identifique: " +
+                "(1) brands — marcas/produtos citados nominalmente ou por descrição inequívoca (ex.: 'iPhone 7 sem entrada de fone' → ['Apple', 'iPhone']); " +
+                "(2) frameworks — estruturas numéricas ou metodológicas (ex.: 'método de 4 cortes' → ['método de N elementos']); " +
+                "(3) opening_forms — fôrmas narrativas de abertura recorrentes (ex.: 'A regra/dor/decisão de X está Y'). " +
+                "Retorne APENAS um JSON array no formato: " +
+                '[{"day": N, "brands": [], "frameworks": [], "opening_forms": []}]. ' +
+                "Sem texto extra, sem markdown.";
+              const extractionResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${LOVABLE_API_KEY}`,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  model: "google/gemini-2.5-flash-lite",
+                  messages: [
+                    { role: "system", content: extractionSystem },
+                    { role: "user", content: extractionInput },
+                  ],
+                }),
+              });
+              if (!extractionResp.ok) {
+                throw new Error(`gateway ${extractionResp.status}`);
+              }
+              const extractionJson = await extractionResp.json();
+              const extractionRaw = String(extractionJson?.choices?.[0]?.message?.content || "");
+              const parsedTargets = extractJsonFromLLM(extractionRaw);
+              if (!Array.isArray(parsedTargets)) throw new Error("extração não retornou array");
+              dayTargets = parsedTargets
+                .filter((t: any) => t && typeof t === "object" && Number.isFinite(Number(t.day)))
+                .map((t: any) => ({
+                  day: Number(t.day),
+                  brands: Array.isArray(t.brands) ? t.brands.map(String) : [],
+                  frameworks: Array.isArray(t.frameworks) ? t.frameworks.map(String) : [],
+                  opening_forms: Array.isArray(t.opening_forms) ? t.opening_forms.map(String) : [],
+                }));
+              dedupMeta.entity_extraction_source = "gemini-flash-lite";
+              const blockedSet = new Set<string>();
+              for (const t of dayTargets) {
+                t.brands.forEach((b) => blockedSet.add(b));
+                t.frameworks.forEach((f) => blockedSet.add(f));
+                t.opening_forms.forEach((o) => blockedSet.add(o));
+              }
+              dedupMeta.matches_blocked = Array.from(blockedSet);
+              console.log(
+                `[semantic-dedup] entities-extracted week=${wkIdxForPartial} blocked=${JSON.stringify(dedupMeta.matches_blocked)}`,
+              );
+            } catch (extractErr: any) {
+              console.warn(
+                `[semantic-dedup] entity-extraction-failed (fallback raw):`,
+                extractErr?.message || extractErr,
+              );
+              dayTargets = [];
+              dedupMeta.entity_extraction_source = "fallback-raw";
+            }
+
+            // ---- Monta anti-prompt enriquecido ----
             const violatingDays = new Set(violations.map((v) => v.day));
             const keepContext = feedFinal
               .filter((p) => !violatingDays.has(p.day))
               .map((p) => `Dia ${p.day} (MANTER, não reescrever): tema="${p.theme}"`)
               .join("\n");
+
+            const dayTargetsByDay = new Map(dayTargets.map((t) => [t.day, t]));
+
             const dedupBlock =
               `\n\n# ⚠️ DEDUPLICAÇÃO SEMÂNTICA (CRÍTICO)\n` +
               `Os dias listados abaixo possuem ângulo/tese semanticamente próximos a posts já gerados nos últimos 28 dias. ` +
-              `Reescreva cada um desses dias com um ângulo radicalmente diferente — outro pilar narrativo, outro caso, outra aplicação. ` +
-              `Mantenha tema, tom e formato compatíveis com a semana, mas o NÚCLEO da ideia precisa mudar.\n\n` +
+              `Reescreva cada um com um ângulo radicalmente diferente. Mantenha tema, tom e formato compatíveis com a semana, mas o NÚCLEO precisa mudar.\n\n` +
               violations
-                .map(
-                  (v) =>
-                    `## Dia ${v.day} — evite repetir estes ângulos:\n` +
-                    v.matches
-                      .map(
-                        (m: any, idx: number) =>
-                          `${idx + 1}. (sim=${Number(m.similarity).toFixed(2)}) ${String(m.text_used || "").slice(0, 600)}`,
-                      )
-                      .join("\n"),
-                )
+                .map((v) => {
+                  const t = dayTargetsByDay.get(v.day);
+                  const proibicoes: string[] = [];
+                  if (t && t.brands.length > 0) {
+                    proibicoes.push(
+                      `NÃO cite nominalmente nem por descrição inequívoca: ${t.brands.join(", ")} (já usados, sim_top=${v.topSim.toFixed(2)})`,
+                    );
+                  }
+                  if (t && t.opening_forms.length > 0) {
+                    proibicoes.push(`NÃO use a fôrma narrativa: ${t.opening_forms.join(" | ")}`);
+                  }
+                  if (t && t.frameworks.length > 0) {
+                    proibicoes.push(`NÃO use o framework: ${t.frameworks.join(" | ")}`);
+                  }
+                  const matchesEcho = v.matches
+                    .map(
+                      (m: any, idx: number) =>
+                        `   ${idx + 1}. (sim=${Number(m.similarity).toFixed(2)}) ${String(m.text_used || "").slice(0, 400)}`,
+                    )
+                    .join("\n");
+                  return (
+                    `## Dia ${v.day} — proibições nominais\n` +
+                    (proibicoes.length > 0 ? proibicoes.join("\n") + "\n" : "") +
+                    `\nNÃO use case de marca grande tomando decisão de produto polêmica como gancho. ` +
+                    `Cases empresariais de outra família (gestão, conflito interno, decisão regulatória, sucessão) seguem permitidos ` +
+                    `se o gancho narrativo não for "X removeu/cortou Y → lição sobre cobrar/recortar".\n\n` +
+                    `Famílias narrativas alternativas (escolha 1):\n` +
+                    `(a) nicho técnico real do profissional\n` +
+                    `(b) crítica a livro/autor de referência\n` +
+                    `(c) comparação histórica não-tecnológica\n` +
+                    `(d) erro profissional pessoal\n\n` +
+                    `Ângulos a evitar (matches detectados):\n${matchesEcho}`
+                  );
+                })
                 .join("\n\n") +
               `\n\nRetorne APENAS um JSON array com os dias reescritos (mesmo schema do feed).`;
+
             const retryUser = `${feedUser}\n\n# CONTEXTO DA SEMANA (NÃO REESCREVER)\n${keepContext}${dedupBlock}`;
             try {
               const { text: dedupRaw } = await callClaudeWithMeta({
@@ -1139,6 +1260,49 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
                 console.log(
                   `[semantic-dedup] week=${wkIdxForPartial} user=${userId} retry applied days=${replaceMap.size}`,
                 );
+
+                // ---- Revalidação cega (não bloqueante) ----
+                try {
+                  const regeneratedDays = Array.from(replaceMap.keys());
+                  const revalCandidates = feedFinal.filter(
+                    (p) => regeneratedDays.includes(p.day) && (p.theme || p.caption),
+                  );
+                  if (revalCandidates.length > 0) {
+                    const revalTexts = revalCandidates.map((p) => postToEmbedText(p));
+                    const revalVectors = await embedTextBatch(revalTexts);
+                    let postRetryMax = 0;
+                    for (let i = 0; i < revalVectors.length; i++) {
+                      const vec = revalVectors[i];
+                      if (!vec) continue;
+                      const day = revalCandidates[i].day;
+                      const { data, error } = await admin.rpc("match_post_embeddings", {
+                        p_user_id: userId,
+                        p_query: vec as any,
+                        p_since: since,
+                        p_threshold: 0.0, // queremos o top match independente do threshold
+                        p_limit: 1,
+                      });
+                      if (error) {
+                        console.warn(`[semantic-dedup] revalidation rpc error day=${day}:`, error.message);
+                        continue;
+                      }
+                      const top = Array.isArray(data) && data.length > 0 ? Number(data[0].similarity) || 0 : 0;
+                      if (top > postRetryMax) postRetryMax = top;
+                      console.log(
+                        `[semantic-dedup] post-retry week=${wkIdxForPartial} day=${day} pre=${(violations.find((v) => v.day === day)?.topSim || 0).toFixed(3)} post=${top.toFixed(3)}`,
+                      );
+                    }
+                    dedupMeta.post_retry_max_sim = Number(postRetryMax.toFixed(3));
+                    if (postRetryMax > 0.80) {
+                      (dedupMeta as any)._dedup_warning = true;
+                    }
+                  }
+                } catch (revalErr: any) {
+                  console.warn(
+                    `[semantic-dedup] revalidation-skipped:`,
+                    revalErr?.message || revalErr,
+                  );
+                }
               } else {
                 console.warn(`[semantic-dedup] retry sem posts válidos, mantendo versão original.`);
               }
@@ -1153,6 +1317,14 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
       } catch (semErr: any) {
         console.warn(`[semantic-dedup] erro geral (ignorado):`, semErr?.message || semErr);
       }
+
+      // Monta extraMeta para persistir flag/métricas no JSONB editorial_weeks[i]
+      const weekExtraMeta: Record<string, any> | undefined = dedupMeta
+        ? {
+            _dedup_metrics: dedupMeta,
+            ...((dedupMeta as any)._dedup_warning ? { _dedup_warning: true } : {}),
+          }
+        : undefined;
 
       let partialPersisted = false;
       try {
