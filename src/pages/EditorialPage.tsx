@@ -225,10 +225,12 @@ const EditorialPage = () => {
   const content = contentObject ?? {};
   const structuredEditorial = Array.isArray(content.editorial) ? content.editorial : [];
   const editorialWeeks: any[] = Array.isArray(report?.editorial_weeks) ? report.editorial_weeks : [];
-  const allWeeksRaw: any[] = [
-    ...(hasEditorial && structuredEditorial.length > 0 ? [structuredEditorial] : []),
-    ...editorialWeeks,
-  ];
+  // Só prefixa structuredEditorial (semana 1 vinda de content.editorial) se editorial_weeks
+  // estiver vazio. Caso contrário, editorial_weeks já contém todas as semanas (incluindo a 1)
+  // e prefixar criaria uma "Semana 1" fantasma sem _week_index, dessincronizando UI vs PDF.
+  const allWeeksRaw: any[] = editorialWeeks.length > 0
+    ? editorialWeeks
+    : (hasEditorial && structuredEditorial.length > 0 ? [structuredEditorial] : []);
   // Sempre normaliza para shape v6 antes de renderizar (tolerante a v5 antigo)
   const allWeeks: WeekV6[] = allWeeksRaw.map((w) => normalizeWeekToV6(w));
 
@@ -344,6 +346,12 @@ const EditorialPage = () => {
           break;
         }
         if (job?.status === "failed") {
+          // Save parcial: feed (Estágio A) foi persistido mas stories (Estágio B) falharam.
+          // Mostra aviso amarelo em vez de erro vermelho — usuário ainda tem a semana.
+          if (job?.result?.partial === true) {
+            finalResult = job.result;
+            break;
+          }
           throw new Error(job.error_message || "Não foi possível gerar a semana. Tente novamente.");
         }
       }
@@ -354,7 +362,8 @@ const EditorialPage = () => {
         return;
       }
 
-      if (!finalResult?.editorial) {
+      const isPartial = finalResult?.partial === true;
+      if (!finalResult?.editorial && !isPartial) {
         throw new Error("Nenhum conteúdo foi gerado. Tente novamente.");
       }
 
@@ -369,7 +378,16 @@ const EditorialPage = () => {
       if (freshReport) setReport(freshReport);
 
       await refreshSubscription();
-      toast({ title: "Nova semana gerada com sucesso!" });
+      if (isPartial) {
+        toast({
+          title: "Semana parcialmente gerada",
+          description: finalResult?.stage_b_error
+            ? "Os posts de feed foram salvos, mas os stories falharam. Você pode regenerar os stories depois."
+            : "A semana foi salva parcialmente. Verifique o conteúdo e regenere se necessário.",
+        });
+      } else {
+        toast({ title: "Nova semana gerada com sucesso!" });
+      }
     } catch (err: any) {
       await refreshSubscription();
       const raw = String(err?.message || "");
