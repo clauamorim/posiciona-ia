@@ -1328,7 +1328,7 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
 
       let partialPersisted = false;
       try {
-        await persistWeek(job.report_id, feedFinal, [], jobId, marketTrends, wkIdxForPartial, true);
+        await persistWeek(job.report_id, feedFinal, [], jobId, marketTrends, wkIdxForPartial, true, weekExtraMeta);
         partialPersisted = true;
         console.log(`[job ${jobId}] Feed persistido (save parcial). Iniciando Estágio B.`);
         console.log(`[content-job] week=${wkIdxForPartial} user=${userId} stage=A status=success`);
@@ -1388,7 +1388,7 @@ Gere agora os 7 stories da semana.`;
         console.log(`[content-job] week=${wkIdxForPartial} user=${userId} stage=B status=failure partial_saved=${partialPersisted}`);
         if (!partialPersisted) {
           try {
-            await persistWeek(job.report_id, feedFinal, [], jobId, marketTrends, wkIdxForPartial, true);
+            await persistWeek(job.report_id, feedFinal, [], jobId, marketTrends, wkIdxForPartial, true, weekExtraMeta);
             partialPersisted = true;
           } catch (e) {
             console.error(`[job ${jobId}] Falha ao persistir feed após exceção do Estágio B:`, e);
@@ -1426,7 +1426,7 @@ Gere agora os 7 stories da semana.`;
           // Falha do B: persiste apenas o feed e marca completed_partial — usuário pode regenerar só os stories
           console.error(`[job ${jobId}] Estágio B falhou. raw len=${storiesRaw?.length || 0}. stop=${storiesStop}`);
           console.log(`[content-job] week=${wkIdxForPartial} user=${userId} stage=B status=failure partial_saved=true`);
-          await persistWeek(job.report_id, feedFinal, [], jobId, marketTrends, wkIdxForPartial, true);
+          await persistWeek(job.report_id, feedFinal, [], jobId, marketTrends, wkIdxForPartial, true, weekExtraMeta);
           creditReserved = false;
           await updateJob(jobId, {
             status: "completed",
@@ -1472,7 +1472,7 @@ Gere agora os 7 stories da semana.`;
 
       // Persiste a semana completa
       await updateJob(jobId, { progress_message: "Salvando conteúdo…" });
-      const weekObj = await persistWeek(job.report_id, feedFinal, storiesFinal, jobId, marketTrends, wkIdxForPartial, false);
+      const weekObj = await persistWeek(job.report_id, feedFinal, storiesFinal, jobId, marketTrends, wkIdxForPartial, false, weekExtraMeta);
       console.log(`[content-job] week=${wkIdxForPartial} user=${userId} stage=B status=success partial_saved=true`);
 
       // ==== Persistência de embeddings (guardrail semântico) ====
