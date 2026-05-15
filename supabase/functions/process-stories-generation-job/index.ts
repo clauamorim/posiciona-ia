@@ -320,7 +320,7 @@ Gere agora os 7 stories da semana.`;
     delete updatedWeek.error_message;
 
     const newWeeks = [...freshWeeks];
-    newWeeks[weekIndex] = updatedWeek;
+    newWeeks[arrayPosFresh] = updatedWeek;
 
     const { error: updateErr } = await admin
       .from("reports")
