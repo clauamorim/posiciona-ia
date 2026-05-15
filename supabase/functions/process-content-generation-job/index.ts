@@ -1646,6 +1646,7 @@ async function persistWeek(
   marketTrends: MarketTrend[] = [],
   weekIndex?: number,
   isPartial: boolean = false,
+  extraMeta?: Record<string, any>,
 ): Promise<{ days: DayV6[]; market_trends?: MarketTrend[]; _partial?: boolean; _week_index?: number; _stage_b_failed?: boolean }> {
   const feedByDay = new Map(feed.map((f) => [f.day, f]));
   const storyByDay = new Map(stories.map((s) => [s.day, s]));
@@ -1676,6 +1677,9 @@ async function persistWeek(
   } else if (stories.length === 0) {
     weekObj._partial = true;
     weekObj._stage_b_failed = true;
+  }
+  if (extraMeta && typeof extraMeta === "object") {
+    Object.assign(weekObj, extraMeta);
   }
 
   const { data: reportRow } = await admin
