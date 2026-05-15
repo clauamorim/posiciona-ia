@@ -136,8 +136,13 @@ serve(async (req) => {
     if (report.user_id !== userId) return json({ error: "Acesso negado." }, 403);
 
     const weeks: any[] = Array.isArray(report.editorial_weeks) ? report.editorial_weeks : [];
-    const week = weeks[weekIndex];
-    if (!week) return json({ error: "Esta semana não está em estado recuperável" }, 400);
+    const arrayPos = weeks.findIndex((w: any) =>
+      (w?._week_index ?? w?.week_index) === weekIndex
+    );
+    if (arrayPos < 0) {
+      return json({ error: `Semana com _week_index=${weekIndex} não encontrada.` }, 404);
+    }
+    const week = weeks[arrayPos];
     const isRecoverable = week._partial === true || week._stage_b_failed === true;
     if (!isRecoverable) {
       return json({ error: "Esta semana não está em estado recuperável" }, 400);
