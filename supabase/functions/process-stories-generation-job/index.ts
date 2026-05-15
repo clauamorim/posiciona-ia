@@ -288,10 +288,13 @@ Gere agora os 7 stories da semana.`;
       .eq("id", reportId)
       .single();
     const freshWeeks: any[] = Array.isArray(freshReport?.editorial_weeks) ? freshReport!.editorial_weeks : [];
-    const target = freshWeeks[weekIndex];
-    if (!target) {
+    const arrayPosFresh = freshWeeks.findIndex((w: any) =>
+      (w?._week_index ?? w?.week_index) === weekIndex
+    );
+    if (arrayPosFresh < 0) {
       return json({ error: "Semana sumiu durante a geração. Recarregue a página." }, 409);
     }
+    const target = freshWeeks[arrayPosFresh];
 
     const days = Array.isArray(target.days) ? target.days : [];
     const storyByDay = new Map(storiesFinal.map((s) => [s.day, s]));
