@@ -309,10 +309,10 @@ const EditorialPage = () => {
       const jobId: string | undefined = enqueueData?.jobId;
       if (!jobId) throw new Error("Não foi possível iniciar a geração. Tente novamente.");
 
-      // 2) Polling do status (a cada 3s, timeout 4 minutos)
+      // 2) Polling do status (a cada 3s, timeout 7 minutos)
       setGeneratingMessage("Gerando seus 7 posts… pode levar até 2 minutos.");
       const startedAt = Date.now();
-      const TIMEOUT_MS = 4 * 60 * 1000;
+      const TIMEOUT_MS = 7 * 60 * 1000;
       const POLL_INTERVAL = 3000;
       let finalResult: any = null;
 
