@@ -1399,8 +1399,10 @@ Gere agora os 7 stories da semana.`;
           status: "completed",
           result: {
             stage: "completed_partial",
+            partial: true,
             feed: feedFinal,
             stories: [],
+            stage_b_error: storiesCallErr?.message || "Stories indisponíveis no momento (instabilidade da IA).",
             generator_version: EDITORIAL_GENERATOR_VERSION,
           },
           progress_message: "Feed gerado. Stories falharam — regenere os stories para completar.",
@@ -1432,8 +1434,10 @@ Gere agora os 7 stories da semana.`;
             status: "completed",
             result: {
               stage: "completed_partial",
+              partial: true,
               feed: feedFinal,
               stories: [],
+              stage_b_error: "Stories não gerados — conteúdo truncado ou vazio.",
               generator_version: EDITORIAL_GENERATOR_VERSION,
             },
             progress_message: "Feed gerado. Stories falharam — regenere os stories para completar.",

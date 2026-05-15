@@ -362,7 +362,8 @@ const EditorialPage = () => {
         return;
       }
 
-      const isPartial = finalResult?.partial === true;
+      const isPartial = finalResult?.partial === true
+        || finalResult?.stage === "completed_partial";
       if (!finalResult?.editorial && !isPartial) {
         throw new Error("Nenhum conteúdo foi gerado. Tente novamente.");
       }
