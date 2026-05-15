@@ -225,10 +225,12 @@ const EditorialPage = () => {
   const content = contentObject ?? {};
   const structuredEditorial = Array.isArray(content.editorial) ? content.editorial : [];
   const editorialWeeks: any[] = Array.isArray(report?.editorial_weeks) ? report.editorial_weeks : [];
-  const allWeeksRaw: any[] = [
-    ...(hasEditorial && structuredEditorial.length > 0 ? [structuredEditorial] : []),
-    ...editorialWeeks,
-  ];
+  // Só prefixa structuredEditorial (semana 1 vinda de content.editorial) se editorial_weeks
+  // estiver vazio. Caso contrário, editorial_weeks já contém todas as semanas (incluindo a 1)
+  // e prefixar criaria uma "Semana 1" fantasma sem _week_index, dessincronizando UI vs PDF.
+  const allWeeksRaw: any[] = editorialWeeks.length > 0
+    ? editorialWeeks
+    : (hasEditorial && structuredEditorial.length > 0 ? [structuredEditorial] : []);
   // Sempre normaliza para shape v6 antes de renderizar (tolerante a v5 antigo)
   const allWeeks: WeekV6[] = allWeeksRaw.map((w) => normalizeWeekToV6(w));
 
