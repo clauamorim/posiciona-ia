@@ -306,8 +306,8 @@ const BusinessQuestionnaire = () => {
                 <p className="text-xs text-primary/60 font-semibold uppercase tracking-wider mb-1">
                   Etapa {step + 1} de {fields.length}
                 </p>
-                <h2 className="text-base md:text-lg font-display font-semibold leading-snug flex items-center gap-2">
-                  {field.label}
+                <h2 className="text-base md:text-lg font-display font-semibold leading-snug flex items-center gap-2 flex-wrap">
+                  <span>{field.label}</span>
                   {field.help && (
                     <Popover>
                       <PopoverTrigger asChild>
@@ -320,6 +320,10 @@ const BusinessQuestionnaire = () => {
                       </PopoverContent>
                     </Popover>
                   )}
+                  <InlineHelpButton
+                    className="ml-auto"
+                    questionContext={`Diagnóstico do Negócio · Etapa ${step + 1}/${fields.length}: "${field.label}"`}
+                  />
                 </h2>
               </div>
             </div>
