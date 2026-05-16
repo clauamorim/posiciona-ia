@@ -4,9 +4,12 @@ import { Sparkles } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { AssistantPanel } from "./AssistantPanel";
 import { getRouteLabel } from "@/lib/assistantJourney";
+import { ASSISTANT_OPEN_EVENT } from "@/lib/assistantBus";
 import { cn } from "@/lib/utils";
 
 const HIDDEN_ROUTES = ["/", "/login", "/signup", "/verify-email", "/forgot-password", "/reset-password", "/sobre", "/termos-de-servico", "/politica-de-privacidade", "/checkout-success"];
+// Telas onde o FAB flutuante é substituído por botões inline ao lado de cada pergunta.
+const FAB_HIDDEN_ROUTES = ["/business-questionnaire", "/personal-questionnaire", "/archetype-questionnaire"];
 const HINT_DISMISS_KEY = "posiciona.assistant.hint.dismissed";
 
 export function AssistantButton() {
