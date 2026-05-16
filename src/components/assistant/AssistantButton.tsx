@@ -4,9 +4,12 @@ import { Sparkles } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { AssistantPanel } from "./AssistantPanel";
 import { getRouteLabel } from "@/lib/assistantJourney";
+import { ASSISTANT_OPEN_EVENT } from "@/lib/assistantBus";
 import { cn } from "@/lib/utils";
 
 const HIDDEN_ROUTES = ["/", "/login", "/signup", "/verify-email", "/forgot-password", "/reset-password", "/sobre", "/termos-de-servico", "/politica-de-privacidade", "/checkout-success"];
+// Telas onde o FAB flutuante é substituído por botões inline ao lado de cada pergunta.
+const FAB_HIDDEN_ROUTES = ["/business-questionnaire", "/personal-questionnaire", "/archetype-questionnaire"];
 const HINT_DISMISS_KEY = "posiciona.assistant.hint.dismissed";
 
 export function AssistantButton() {
@@ -47,11 +50,22 @@ export function AssistantButton() {
     if (pulseRoute) sessionStorage.setItem(HINT_DISMISS_KEY + ":" + pulseRoute, "1");
   };
 
+  // Listener global: permite que botões inline (InlineHelpButton) abram o painel.
+  useEffect(() => {
+    if (!user) return;
+    const handler = () => setOpen(true);
+    window.addEventListener(ASSISTANT_OPEN_EVENT, handler);
+    return () => window.removeEventListener(ASSISTANT_OPEN_EVENT, handler);
+  }, [user]);
+
   if (!user) return null;
   if (HIDDEN_ROUTES.includes(location.pathname)) return null;
 
+  const fabHidden = FAB_HIDDEN_ROUTES.includes(location.pathname);
+
   return (
     <>
+      {!fabHidden && (
       <div
         className="fixed right-5 z-50 flex items-end gap-2 bottom-20 lg:bottom-5"
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
@@ -91,6 +105,7 @@ export function AssistantButton() {
           </span>
         </button>
       </div>
+      )}
 
       <AssistantPanel open={open} onOpenChange={setOpen} />
     </>

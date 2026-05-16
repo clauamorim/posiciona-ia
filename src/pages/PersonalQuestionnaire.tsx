@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { ChevronLeft, ChevronRight, Save, Sparkles, ShieldAlert, HelpCircle, Heart, Briefcase, Compass, BookOpen, Loader2, Check, AlertTriangle } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { InlineHelpButton } from "@/components/assistant/InlineHelpButton";
 import { useQuestionnaireAutosave, SaveStatusLabel } from "@/hooks/useQuestionnaireAutosave";
 
 type QStatus = "draft" | "submitted";
@@ -334,8 +335,8 @@ const PersonalQuestionnaire = () => {
             <div className="space-y-4">
               {currentBlock.fields.map(field => (
                 <div key={field.key} className="space-y-1.5">
-                  <label className="text-sm font-medium flex items-center gap-1.5">
-                    {field.label}
+                  <label className="text-sm font-medium flex items-center gap-1.5 flex-wrap">
+                    <span>{field.label}</span>
                     {field.help && (
                       <Popover>
                         <PopoverTrigger asChild>
@@ -348,6 +349,10 @@ const PersonalQuestionnaire = () => {
                         </PopoverContent>
                       </Popover>
                     )}
+                    <InlineHelpButton
+                      className="ml-auto"
+                      questionContext={`Sua História · Bloco ${blockIndex + 1} (${currentBlock.title}) — "${field.label}"`}
+                    />
                   </label>
                   <Textarea
                     value={answers[field.key] || ""}

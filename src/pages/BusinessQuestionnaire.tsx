@@ -15,6 +15,7 @@ import { toast } from "@/hooks/use-toast";
 import { ChevronLeft, ChevronRight, Save, Lock, RefreshCw, Pencil, Trash2, HelpCircle, Check, AlertTriangle, Loader2 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useQuestionnaireAutosave, SaveStatusLabel } from "@/hooks/useQuestionnaireAutosave";
+import { InlineHelpButton } from "@/components/assistant/InlineHelpButton";
 
 const fields = [
   { key: "company_name", label: "Nome da empresa ou negócio", type: "input", placeholder: "Ex: Studio Bella", help: "Pode ser o nome fantasia, nome pessoal ou como você é conhecida(o) no mercado.", max: 120 },
@@ -305,8 +306,8 @@ const BusinessQuestionnaire = () => {
                 <p className="text-xs text-primary/60 font-semibold uppercase tracking-wider mb-1">
                   Etapa {step + 1} de {fields.length}
                 </p>
-                <h2 className="text-base md:text-lg font-display font-semibold leading-snug flex items-center gap-2">
-                  {field.label}
+                <h2 className="text-base md:text-lg font-display font-semibold leading-snug flex items-center gap-2 flex-wrap">
+                  <span>{field.label}</span>
                   {field.help && (
                     <Popover>
                       <PopoverTrigger asChild>
@@ -319,6 +320,10 @@ const BusinessQuestionnaire = () => {
                       </PopoverContent>
                     </Popover>
                   )}
+                  <InlineHelpButton
+                    className="ml-auto"
+                    questionContext={`Diagnóstico do Negócio · Etapa ${step + 1}/${fields.length}: "${field.label}"`}
+                  />
                 </h2>
               </div>
             </div>

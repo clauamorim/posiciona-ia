@@ -3,6 +3,7 @@ import { useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { buildJourneyContext } from "@/lib/assistantJourney";
+import { consumeQuestionContext, clearQuestionContext } from "@/lib/assistantBus";
 
 export type Msg = { id?: string; role: "user" | "assistant"; content: string };
 
@@ -78,7 +79,12 @@ export function useAssistantChat(open: boolean) {
       });
 
       try {
-        const journeyContext = await buildJourneyContext(user.id, location.pathname);
+        const baseJourney = await buildJourneyContext(user.id, location.pathname);
+        const qCtx = consumeQuestionContext();
+        const journeyContext = qCtx
+          ? `${baseJourney}\nPergunta atual em que o usuário pediu ajuda: ${qCtx}\nResponda de forma específica a essa pergunta.`
+          : baseJourney;
+        clearQuestionContext();
 
         const controller = new AbortController();
         abortRef.current = controller;
