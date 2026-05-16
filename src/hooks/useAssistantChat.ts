@@ -79,7 +79,12 @@ export function useAssistantChat(open: boolean) {
       });
 
       try {
-        const journeyContext = await buildJourneyContext(user.id, location.pathname);
+        const baseJourney = await buildJourneyContext(user.id, location.pathname);
+        const qCtx = consumeQuestionContext();
+        const journeyContext = qCtx
+          ? `${baseJourney}\nPergunta atual em que o usuário pediu ajuda: ${qCtx}\nResponda de forma específica a essa pergunta.`
+          : baseJourney;
+        clearQuestionContext();
 
         const controller = new AbortController();
         abortRef.current = controller;
