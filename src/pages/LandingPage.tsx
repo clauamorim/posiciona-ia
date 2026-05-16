@@ -629,6 +629,12 @@ const LandingPage = () => {
               },
               {
                 quote:
+                  "Adorei! Facilitou muito a minha vida, a administrar a minha própria rotina de trabalho de maneira mais eficiente. Me guiou, de maneira muito fácil de entender e pôr em prática. Me ajudou a decidir desde a bio do Instagram até as cores que transmitem a minha essência da maneira mais natural possível.",
+                name: "Ângela Macário",
+                role: "Fotógrafa",
+              },
+              {
+                quote:
                   "Eu trabalho com estratégia de conteúdo para profissionais, então sou extremamente criteriosa com tudo que envolve esse tema. Usei a ferramenta Posiciona e o que mais me chamou atenção foi a objetividade e clareza na construção do posicionamento. Ela organiza toda a comunicação, direciona ajustes práticos que impactam diretamente na forma como o profissional é percebido no mercado de forma muito completa. Para quem precisa comunicar valor e sair do genérico, é uma ferramenta que acelera muito esse processo. Hoje, recomendo com segurança, principalmente para profissionais que querem ser vistos com mais autoridade e intenção no digital.",
                 name: "Mariana Bertoldo",
                 role: "Estrategista de conteúdo",
