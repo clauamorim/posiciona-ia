@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { BackToTopButton } from "@/components/BackToTopButton";
 import { ReadOnlyBanner } from "@/components/ReadOnlyBanner";
+import { MobileBottomNav } from "@/components/MobileBottomNav";
 
 interface NavItem {
   label: string;
