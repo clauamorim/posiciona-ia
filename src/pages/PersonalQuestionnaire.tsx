@@ -335,8 +335,8 @@ const PersonalQuestionnaire = () => {
             <div className="space-y-4">
               {currentBlock.fields.map(field => (
                 <div key={field.key} className="space-y-1.5">
-                  <label className="text-sm font-medium flex items-center gap-1.5">
-                    {field.label}
+                  <label className="text-sm font-medium flex items-center gap-1.5 flex-wrap">
+                    <span>{field.label}</span>
                     {field.help && (
                       <Popover>
                         <PopoverTrigger asChild>
@@ -349,6 +349,10 @@ const PersonalQuestionnaire = () => {
                         </PopoverContent>
                       </Popover>
                     )}
+                    <InlineHelpButton
+                      className="ml-auto"
+                      questionContext={`Sua História · Bloco ${blockIndex + 1} (${currentBlock.title}) — "${field.label}"`}
+                    />
                   </label>
                   <Textarea
                     value={answers[field.key] || ""}
