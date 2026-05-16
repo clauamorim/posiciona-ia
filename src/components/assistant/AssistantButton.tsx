@@ -105,6 +105,7 @@ export function AssistantButton() {
           </span>
         </button>
       </div>
+      )}
 
       <AssistantPanel open={open} onOpenChange={setOpen} />
     </>
