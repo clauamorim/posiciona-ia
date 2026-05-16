@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { BackToTopButton } from "@/components/BackToTopButton";
 import { ReadOnlyBanner } from "@/components/ReadOnlyBanner";
+import { MobileBottomNav } from "@/components/MobileBottomNav";
 
 interface NavItem {
   label: string;
@@ -267,10 +268,11 @@ export const DashboardLayout = ({ children, wide = false }: { children: React.Re
             <span className="text-base font-display font-semibold tracking-tight">Posiciona</span>
           </Link>
         </header>
-        <div className={cn("flex-1 px-4 py-5 lg:px-8 lg:py-8 mx-auto w-full pb-[calc(1.5rem+env(safe-area-inset-bottom))]", wide ? "max-w-[1400px]" : "max-w-4xl")}>
+        <div className={cn("flex-1 px-4 py-5 lg:px-8 lg:py-8 mx-auto w-full pb-[calc(72px+env(safe-area-inset-bottom))] md:pb-[calc(1.5rem+env(safe-area-inset-bottom))]", wide ? "max-w-[1400px]" : "max-w-4xl")}>
           {children}
         </div>
         <BackToTopButton />
+        <MobileBottomNav />
       </main>
     </div>
   );
