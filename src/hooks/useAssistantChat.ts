@@ -3,6 +3,7 @@ import { useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { buildJourneyContext } from "@/lib/assistantJourney";
+import { consumeQuestionContext, clearQuestionContext } from "@/lib/assistantBus";
 
 export type Msg = { id?: string; role: "user" | "assistant"; content: string };
 
