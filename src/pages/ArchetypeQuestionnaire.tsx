@@ -11,6 +11,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { ChevronLeft, ChevronRight, Lock, RefreshCw, Pencil, Trash2 } from "lucide-react";
+import { InlineHelpButton } from "@/components/assistant/InlineHelpButton";
 
 const QUESTIONS_PER_PAGE = 12;
 
