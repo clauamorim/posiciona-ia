@@ -1102,6 +1102,13 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
         // ---- 1) Embedding match (últimos 56d) ----
         const candTexts = candidates.map(({ p }) => postToEmbedText(p));
         const candVectors = await embedTextBatch(candTexts);
+        // Acumulador de vetores finais por dia — alimentado por cand inicial + reval 1º + 2º retry.
+        // Persistido ANTES do save parcial para que próximas semanas vejam estes embeddings.
+        const finalVectorByDay = new Map<number, number[]>();
+        for (let i = 0; i < candVectors.length; i++) {
+          const v = candVectors[i];
+          if (v) finalVectorByDay.set(candidates[i].p.day, v);
+        }
         const since = new Date(Date.now() - DEDUP_WINDOW_MS).toISOString();
         type EmbMatch = { day: number; matches: any[]; topSim: number };
         const embeddingViolations: EmbMatch[] = [];
