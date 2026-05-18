@@ -1595,6 +1595,7 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
               for (let i = 0; i < revalVecs.length; i++) {
                 const vec = revalVecs[i]; if (!vec) continue;
                 const day = revalCands[i].day;
+                finalVectorByDay.set(day, vec);
                 const { data } = await admin.rpc("match_post_embeddings", {
                   p_user_id: userId, p_query: vec as any, p_since: since, p_threshold: 0.0, p_limit: 1,
                 });
