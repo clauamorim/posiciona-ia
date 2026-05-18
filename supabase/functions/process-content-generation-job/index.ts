@@ -1353,14 +1353,44 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
           }
         }
 
-        // ---- 6) Repetição de brand/framework ----
+        // ---- 6) Repetição de brand/framework/opening-form (normalizado) ----
         const repeatedBrandsByDay = new Map<number, string[]>();
         const repeatedFrameworksByDay = new Map<number, string[]>();
+        const repeatedOpeningFormsByDay = new Map<number, string[]>();
         for (const t of dayTargets) {
-          const rb = t.brands.filter((b) => recentBrands.has(b));
-          const rf = t.frameworks.filter((f) => recentFrameworks.has(f));
+          const rb: string[] = [];
+          for (const b of t.brands) {
+            const seen = brandLastSeen.get(normalizePattern(b));
+            if (seen) {
+              rb.push(seen.value);
+              console.log(
+                `[semantic-dedup] brand-repeat-detected week=${wkIdxForPartial} day=${t.day} brand=${JSON.stringify(b)} matched=${JSON.stringify(seen.value)} last_seen_week=${seen.weekIndex}`,
+              );
+            }
+          }
+          const rf: string[] = [];
+          for (const f of t.frameworks) {
+            const seen = frameworkLastSeen.get(normalizePattern(f));
+            if (seen) {
+              rf.push(seen.value);
+              console.log(
+                `[semantic-dedup] framework-repeat-detected week=${wkIdxForPartial} day=${t.day} framework=${JSON.stringify(f)} matched=${JSON.stringify(seen.value)} last_seen_week=${seen.weekIndex}`,
+              );
+            }
+          }
+          const ro: string[] = [];
+          for (const o of t.opening_forms) {
+            const seen = openingFormLastSeen.get(normalizePattern(o));
+            if (seen) {
+              ro.push(seen.value);
+              console.log(
+                `[semantic-dedup] opening-form-repeat-detected week=${wkIdxForPartial} day=${t.day} form=${JSON.stringify(o)} matched=${JSON.stringify(seen.value)} last_seen_week=${seen.weekIndex}`,
+              );
+            }
+          }
           if (rb.length) repeatedBrandsByDay.set(t.day, rb);
           if (rf.length) repeatedFrameworksByDay.set(t.day, rf);
+          if (ro.length) repeatedOpeningFormsByDay.set(t.day, ro);
         }
         if (repeatedBrandsByDay.size > 0) {
           console.log(`[semantic-dedup] brand-repetition week=${wkIdxForPartial} days=${JSON.stringify(Array.from(repeatedBrandsByDay.entries()))}`);
@@ -1368,6 +1398,10 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
         if (repeatedFrameworksByDay.size > 0) {
           console.log(`[semantic-dedup] framework-repetition week=${wkIdxForPartial} days=${JSON.stringify(Array.from(repeatedFrameworksByDay.entries()))}`);
         }
+        if (repeatedOpeningFormsByDay.size > 0) {
+          console.log(`[semantic-dedup] opening-form-repetition week=${wkIdxForPartial} days=${JSON.stringify(Array.from(repeatedOpeningFormsByDay.entries()))}`);
+        }
+
 
         // ---- 7) Persiste meta SEMPRE ----
         const extracted_brands_by_day: Record<number, string[]> = {};
