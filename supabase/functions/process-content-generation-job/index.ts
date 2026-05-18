@@ -1444,10 +1444,11 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
         for (const tb of thesisCosineBlocks) violatingDaysSet.add(tb.day);
         for (const d of repeatedBrandsByDay.keys()) violatingDaysSet.add(d);
         for (const d of repeatedFrameworksByDay.keys()) violatingDaysSet.add(d);
+        for (const d of repeatedOpeningFormsByDay.keys()) violatingDaysSet.add(d);
         for (const d of audienceSaturationByDay.keys()) violatingDaysSet.add(d);
 
         console.log(
-          `[semantic-dedup] week=${wkIdxForPartial} user=${userId} candidates=${candidates.length} violations=${violatingDaysSet.size} (emb=${embeddingViolations.length} thesis=${thesisCosineBlocks.length} brand=${repeatedBrandsByDay.size} framework=${repeatedFrameworksByDay.size} audience=${audienceSaturationByDay.size})`,
+          `[semantic-dedup] week=${wkIdxForPartial} user=${userId} candidates=${candidates.length} violations=${violatingDaysSet.size} (emb=${embeddingViolations.length} thesis=${thesisCosineBlocks.length} brand=${repeatedBrandsByDay.size} framework=${repeatedFrameworksByDay.size} opening_form=${repeatedOpeningFormsByDay.size} audience=${audienceSaturationByDay.size})`,
         );
 
         if (violatingDaysSet.size === 0) {
