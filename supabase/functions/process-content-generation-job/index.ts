@@ -1072,419 +1072,607 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
       // Métricas do detector semântico — persistidas dentro de editorial_weeks[i]
       // para histórico/calibração. Sobrevive ao try/catch.
       let dedupMeta: Record<string, any> | null = null;
+      const dedupFailedDays: number[] = [];
 
-      // ==== Deduplicação semântica (embeddings Gemini, guardrail não-bloqueante) ====
-      // Compara cada post feed com os posts gerados nos últimos 28 dias do mesmo
-      // usuário. Se algum ultrapassar 0.80 de similaridade cosseno, dispara um
-      // retry guiado pedindo ao Claude para reescrever o(s) dia(s) repetidos.
+      // ==== Dedup v3: extração SEMPRE + 5 dimensões + 2 retries ====
       try {
         const candidates = feedFinal
           .map((p, idx) => ({ p, idx }))
           .filter(({ p }) => p && (p.theme || p.caption));
-        if (candidates.length > 0) {
-          const texts = candidates.map(({ p }) => postToEmbedText(p));
-          const vectors = await embedTextBatch(texts);
-          const since = new Date(Date.now() - DEDUP_WINDOW_MS).toISOString();
-          const violations: { day: number; matches: any[]; topSim: number }[] = [];
-          for (let i = 0; i < vectors.length; i++) {
-            const vec = vectors[i];
-            if (!vec) continue;
-            const day = candidates[i].p.day;
-            const { data, error } = await admin.rpc("match_post_embeddings", {
-              p_user_id: userId,
-              p_query: vec as any,
-              p_since: since,
-              p_threshold: 0.80,
-              p_limit: 5,
-            });
-            if (error) {
-              console.warn(`[semantic-dedup] rpc error day=${day}:`, error.message);
-              continue;
-            }
-            if (Array.isArray(data) && data.length > 0) {
-              const topSim = Math.max(...data.map((m: any) => Number(m.similarity) || 0));
-              violations.push({ day, matches: data, topSim });
-              for (const m of data) {
-                console.log(
-                  `[semantic-dedup-fix] week=${wkIdxForPartial} day=${day} matched_week=${m.week_index} matched_day=${m.day_index} similarity=${Number(m.similarity).toFixed(3)}`,
-                );
-              }
+        if (candidates.length === 0) throw new Error("no_candidates");
+
+        // ---- 1) Embedding match (últimos 56d) ----
+        const candTexts = candidates.map(({ p }) => postToEmbedText(p));
+        const candVectors = await embedTextBatch(candTexts);
+        const since = new Date(Date.now() - DEDUP_WINDOW_MS).toISOString();
+        type EmbMatch = { day: number; matches: any[]; topSim: number };
+        const embeddingViolations: EmbMatch[] = [];
+        for (let i = 0; i < candVectors.length; i++) {
+          const vec = candVectors[i];
+          if (!vec) continue;
+          const day = candidates[i].p.day;
+          const { data, error } = await admin.rpc("match_post_embeddings", {
+            p_user_id: userId,
+            p_query: vec as any,
+            p_since: since,
+            p_threshold: 0.80,
+            p_limit: 5,
+          });
+          if (error) {
+            console.warn(`[semantic-dedup] rpc error day=${day}:`, error.message);
+            continue;
+          }
+          if (Array.isArray(data) && data.length > 0) {
+            const topSim = Math.max(...data.map((m: any) => Number(m.similarity) || 0));
+            embeddingViolations.push({ day, matches: data, topSim });
+            for (const m of data) {
+              console.log(
+                `[semantic-dedup-fix] week=${wkIdxForPartial} day=${day} matched_week=${m.week_index} matched_day=${m.day_index} similarity=${Number(m.similarity).toFixed(3)}`,
+              );
             }
           }
-          console.log(
-            `[semantic-dedup] week=${wkIdxForPartial} user=${userId} candidates=${candidates.length} violations=${violations.length} threshold=0.80`,
-          );
+        }
 
-          if (violations.length > 0) {
-            const preRetryMaxSim = Math.max(...violations.map((v) => v.topSim));
-            dedupMeta = {
-              pre_retry_max_sim: Number(preRetryMaxSim.toFixed(3)),
-              post_retry_max_sim: null,
-              days_regenerated: violations.map((v) => v.day),
-              matches_blocked: [] as string[],
-              entity_extraction_source: "fallback-raw" as "gemini-flash-lite" | "fallback-raw",
-              threshold: 0.80,
-              window_days: DEDUP_WINDOW_DAYS,
-              thesis_summaries: {} as Record<number, string>,
-              audience_qualification_scores: {} as Record<number, number>,
-              ts: new Date().toISOString(),
-            };
+        // ---- 2) Extração SEMPRE via Gemini Flash Lite ----
+        type DayTargets = {
+          day: number;
+          brands: string[];
+          frameworks: string[];
+          opening_forms: string[];
+          thesis_summary: string;
+          audience_qualification_score: number;
+          match_theses: { week_index: number; day_index: number; thesis: string; similarity: number }[];
+        };
+        let dayTargets: DayTargets[] = [];
+        let extractionSource: "gemini-flash-lite" | "fallback-raw" = "fallback-raw";
+        try {
+          const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+          if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY ausente");
 
-            await updateJob(jobId, { progress_message: "Removendo repetições semânticas…" });
-
-            // ---- Extração de entidades + tese + qualificação de público via Gemini Flash Lite ----
-            type DayTargets = {
-              day: number;
-              brands: string[];
-              frameworks: string[];
-              opening_forms: string[];
-              thesis_summary: string;
-              audience_qualification_score: number;
-              match_theses: { week_index: number; day_index: number; thesis: string; similarity: number }[];
-            };
-            let dayTargets: DayTargets[] = [];
-            try {
-              const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-              if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY ausente");
-
-              // Para cada violação, inclui o texto do CANDIDATE (o post recém-gerado)
-              // e os textos dos MATCHES (posts antigos que dispararam o conflito).
-              const candidateTextByDay = new Map<number, string>();
-              for (const v of violations) {
-                const cand = feedFinal.find((p) => p.day === v.day);
-                if (cand) candidateTextByDay.set(v.day, postToEmbedText(cand));
-              }
-              const extractionInput = violations
-                .map((v) => {
-                  const candText = (candidateTextByDay.get(v.day) || "").slice(0, 700);
-                  const matchesText = v.matches
+          const matchesByDay = new Map(embeddingViolations.map((v) => [v.day, v.matches]));
+          const extractionInput = candidates
+            .map(({ p }) => {
+              const candText = postToEmbedText(p).slice(0, 700);
+              const dayMatches = matchesByDay.get(p.day);
+              const matchesText = dayMatches && dayMatches.length > 0
+                ? dayMatches
                     .map(
                       (m: any, idx: number) =>
                         `${idx + 1}. [Sem ${m.week_index ?? "?"} dia ${m.day_index ?? "?"} sim=${Number(m.similarity).toFixed(2)}] ${String(m.text_used || "").slice(0, 500)}`,
                     )
-                    .join("\n");
-                  return (
-                    `## Dia ${v.day}\n` +
-                    `### CANDIDATE (post novo gerado agora — extraia thesis_summary e audience_qualification_score DESTE):\n${candText}\n` +
-                    `### MATCHES (posts antigos do mesmo usuário — extraia thesis de CADA UM como match_theses):\n${matchesText}`
-                  );
-                })
-                .join("\n\n");
-
-              const extractionSystem =
-                "Você extrai padrões repetitivos de posts de redes sociais em português. " +
-                "Para CADA dia listado, identifique a partir do CANDIDATE: " +
-                "(1) brands — marcas/produtos/autores/livros citados nominalmente OU por descrição inequívoca. " +
-                "IMPORTANTE — NORMALIZAÇÃO DE ENTIDADES: trate variações do mesmo autor/obra como UMA entidade. Exemplos: " +
-                "'Strunk & White', 'Strunk and White', 'Elements of Style', 'The Elements of Style' → SEMPRE retorne 'Strunk & White' em brands (não em frameworks/opening_forms). " +
-                "Mesma regra para qualquer autor/livro citado (use o nome canônico mais reconhecido). " +
-                "(2) frameworks — estruturas numéricas ou metodológicas (ex.: 'método de 4 cortes' → ['método de N elementos']). " +
-                "(3) opening_forms — fôrmas narrativas de abertura recorrentes. " +
-                "Trate 'A [crença/regra/ideia/conselho/recomendação] de \"X\" está [Y]' como UMA fôrma única (não variações separadas) — retorne literalmente 'A [crença/regra/ideia] de X está Y'. " +
-                "(4) thesis_summary — UMA frase em pt-BR com a tese central do CANDIDATE no formato '[sujeito] [verbo] [consequência]'. " +
-                "Exemplos: 'humanizar mostrando bastidor dilui autoridade técnica' | 'Posiciona reposiciona profissional técnico em 90 dias' | 'responder rápido ensina cliente premium que tempo do especialista não vale o cobrado'. " +
-                "(5) audience_qualification_score — número de 0.0 a 1.0 indicando se o CANDIDATE é sobre 'quem é meu cliente ideal vs quem não é' (qualificação/desqualificação de público). " +
-                "0.0 = post puramente técnico sem qualificar público; 0.5 = menciona perfil de cliente de passagem; 1.0 = post inteiro é sobre 'atendo X, não atendo Y'. " +
-                "(6) match_theses — array com a thesis_summary de CADA um dos MATCHES (mesma frase curta de tese), preservando o week_index, day_index e similarity informados. " +
-                "Retorne APENAS um JSON array, sem texto extra e sem markdown, no formato: " +
-                '[{"day": N, "brands": [], "frameworks": [], "opening_forms": [], "thesis_summary": "...", "audience_qualification_score": 0.0, "match_theses": [{"week_index": N, "day_index": N, "thesis": "...", "similarity": 0.0}]}].';
-
-              const extractionResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-                method: "POST",
-                headers: {
-                  Authorization: `Bearer ${LOVABLE_API_KEY}`,
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                  model: "google/gemini-2.5-flash-lite",
-                  messages: [
-                    { role: "system", content: extractionSystem },
-                    { role: "user", content: extractionInput },
-                  ],
-                }),
-              });
-              if (!extractionResp.ok) {
-                throw new Error(`gateway ${extractionResp.status}`);
-              }
-              const extractionJson = await extractionResp.json();
-              const extractionRaw = String(extractionJson?.choices?.[0]?.message?.content || "");
-              const parsedTargets = extractJsonFromLLM(extractionRaw);
-              if (!Array.isArray(parsedTargets)) throw new Error("extração não retornou array");
-              dayTargets = parsedTargets
-                .filter((t: any) => t && typeof t === "object" && Number.isFinite(Number(t.day)))
-                .map((t: any) => ({
-                  day: Number(t.day),
-                  brands: Array.isArray(t.brands) ? t.brands.map(String) : [],
-                  frameworks: Array.isArray(t.frameworks) ? t.frameworks.map(String) : [],
-                  opening_forms: Array.isArray(t.opening_forms) ? t.opening_forms.map(String) : [],
-                  thesis_summary: typeof t.thesis_summary === "string" ? t.thesis_summary : "",
-                  audience_qualification_score: Math.max(
-                    0,
-                    Math.min(1, Number(t.audience_qualification_score) || 0),
-                  ),
-                  match_theses: Array.isArray(t.match_theses)
-                    ? t.match_theses
-                        .filter((m: any) => m && typeof m === "object")
-                        .map((m: any) => ({
-                          week_index: Number(m.week_index ?? -1),
-                          day_index: Number(m.day_index ?? -1),
-                          thesis: typeof m.thesis === "string" ? m.thesis : "",
-                          similarity: Number(m.similarity) || 0,
-                        }))
-                    : [],
-                }));
-              dedupMeta.entity_extraction_source = "gemini-flash-lite";
-              const blockedSet = new Set<string>();
-              for (const t of dayTargets) {
-                t.brands.forEach((b) => blockedSet.add(b));
-                t.frameworks.forEach((f) => blockedSet.add(f));
-                t.opening_forms.forEach((o) => blockedSet.add(o));
-                if (t.thesis_summary) dedupMeta.thesis_summaries[t.day] = t.thesis_summary;
-                dedupMeta.audience_qualification_scores[t.day] = t.audience_qualification_score;
-              }
-              dedupMeta.matches_blocked = Array.from(blockedSet);
-              console.log(
-                `[semantic-dedup] entities-extracted week=${wkIdxForPartial} blocked=${JSON.stringify(dedupMeta.matches_blocked)} thesis=${JSON.stringify(dedupMeta.thesis_summaries)} audience=${JSON.stringify(dedupMeta.audience_qualification_scores)}`,
+                    .join("\n")
+                : "(nenhum match — match_theses=[])";
+              return (
+                `## Dia ${p.day}\n` +
+                `### CANDIDATE:\n${candText}\n` +
+                `### MATCHES:\n${matchesText}`
               );
-            } catch (extractErr: any) {
-              console.warn(
-                `[semantic-dedup] entity-extraction-failed (fallback raw):`,
-                extractErr?.message || extractErr,
-              );
-              dayTargets = [];
-              dedupMeta.entity_extraction_source = "fallback-raw";
+            })
+            .join("\n\n");
+
+          const extractionSystem =
+            "Você extrai padrões repetitivos de posts de redes sociais em português. " +
+            "Para CADA dia listado, identifique a partir do CANDIDATE: " +
+            "(1) brands — marcas/produtos/autores/livros citados nominalmente OU por descrição inequívoca. " +
+            "NORMALIZAÇÃO: 'Strunk & White'/'Elements of Style' → 'Strunk & White'. Use nome canônico. " +
+            "(2) frameworks — estruturas numéricas/metodológicas (ex.: 'método de 4 cortes' → 'método de N elementos'). " +
+            "(3) opening_forms — fôrmas narrativas de abertura recorrentes. " +
+            "Trate 'A [crença/regra/ideia/conselho] de X está Y' como UMA fôrma única — retorne 'A [crença/regra/ideia] de X está Y'. " +
+            "(4) thesis_summary — UMA frase em pt-BR com a tese central do CANDIDATE no formato '[sujeito] [verbo] [consequência]'. " +
+            "(5) audience_qualification_score — 0.0 a 1.0 (0=técnico puro; 1=post inteiro sobre 'atendo X, não atendo Y'). " +
+            "(6) match_theses — array com a thesis_summary de CADA um dos MATCHES (vazio se não houver MATCHES). " +
+            "Retorne APENAS um JSON array, sem markdown: " +
+            '[{"day": N, "brands": [], "frameworks": [], "opening_forms": [], "thesis_summary": "...", "audience_qualification_score": 0.0, "match_theses": [{"week_index": N, "day_index": N, "thesis": "...", "similarity": 0.0}]}].';
+
+          const extractionResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              model: "google/gemini-2.5-flash-lite",
+              messages: [
+                { role: "system", content: extractionSystem },
+                { role: "user", content: extractionInput },
+              ],
+            }),
+          });
+          if (!extractionResp.ok) throw new Error(`gateway ${extractionResp.status}`);
+          const extractionJson = await extractionResp.json();
+          const parsed = extractJsonFromLLM(String(extractionJson?.choices?.[0]?.message?.content || ""));
+          if (!Array.isArray(parsed)) throw new Error("extração não retornou array");
+          dayTargets = parsed
+            .filter((t: any) => t && Number.isFinite(Number(t.day)))
+            .map((t: any) => ({
+              day: Number(t.day),
+              brands: Array.isArray(t.brands) ? t.brands.map(String) : [],
+              frameworks: Array.isArray(t.frameworks) ? t.frameworks.map(String) : [],
+              opening_forms: Array.isArray(t.opening_forms) ? t.opening_forms.map(String) : [],
+              thesis_summary: typeof t.thesis_summary === "string" ? t.thesis_summary : "",
+              audience_qualification_score: Math.max(0, Math.min(1, Number(t.audience_qualification_score) || 0)),
+              match_theses: Array.isArray(t.match_theses)
+                ? t.match_theses
+                    .filter((m: any) => m && typeof m === "object")
+                    .map((m: any) => ({
+                      week_index: Number(m.week_index ?? -1),
+                      day_index: Number(m.day_index ?? -1),
+                      thesis: typeof m.thesis === "string" ? m.thesis : "",
+                      similarity: Number(m.similarity) || 0,
+                    }))
+                : [],
+            }));
+          extractionSource = "gemini-flash-lite";
+        } catch (extractErr: any) {
+          console.warn(`[semantic-dedup] entity-extraction-failed (fallback):`, extractErr?.message || extractErr);
+          dayTargets = [];
+        }
+
+        // ---- 3) Carrega histórico (últimas 8 semanas) ----
+        const recentBrands = new Set<string>();
+        const recentFrameworks = new Set<string>();
+        const recentOpeningForms = new Set<string>();
+        const recentTheses: { week_index: number; thesis: string }[] = [];
+        const recentAudienceScores: { week_index: number; score: number }[] = [];
+        try {
+          const { data: reportRow } = await admin
+            .from("reports")
+            .select("editorial_weeks")
+            .eq("id", job.report_id)
+            .maybeSingle();
+          const allWeeks: any[] = Array.isArray(reportRow?.editorial_weeks) ? reportRow!.editorial_weeks : [];
+          const sortedRecent = allWeeks
+            .filter((w) => w && typeof w === "object" && Number(w._week_index ?? w.week_index ?? -1) !== wkIdxForPartial)
+            .sort((a, b) => Number(b._week_index ?? b.week_index ?? 0) - Number(a._week_index ?? a.week_index ?? 0))
+            .slice(0, RECENT_HISTORY_WEEKS);
+          const audienceCutoff = Date.now() - AUDIENCE_QUALIFICATION_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+          const addInto = (obj: any, set: Set<string>) => {
+            if (!obj) return;
+            const push = (x: any) => { if (typeof x === "string" && x.trim()) set.add(x.trim()); };
+            if (Array.isArray(obj)) obj.forEach(push);
+            else if (typeof obj === "object") {
+              for (const v of Object.values(obj)) {
+                if (Array.isArray(v)) v.forEach(push);
+                else push(v);
+              }
+            }
+          };
+          for (const w of sortedRecent) {
+            const dm = (w as any)._dedup_metrics || {};
+            const wIdx = Number(w._week_index ?? w.week_index ?? -1);
+            addInto(dm.extracted_brands_by_day, recentBrands);
+            addInto(dm.extracted_frameworks_by_day, recentFrameworks);
+            addInto(dm.extracted_opening_forms_by_day, recentOpeningForms);
+            addInto(dm.matches_blocked, recentBrands); // v2 legacy
+            if (dm.thesis_summaries && typeof dm.thesis_summaries === "object") {
+              for (const th of Object.values(dm.thesis_summaries)) {
+                if (typeof th === "string" && th.trim()) recentTheses.push({ week_index: wIdx, thesis: th.trim() });
+              }
+            }
+            const generatedAt = (w as any)._generated_at || dm.ts;
+            const inAudienceWindow = generatedAt ? Date.parse(String(generatedAt)) >= audienceCutoff : true;
+            if (inAudienceWindow && dm.audience_qualification_scores && typeof dm.audience_qualification_scores === "object") {
+              for (const v of Object.values(dm.audience_qualification_scores)) {
+                const n = Number(v);
+                if (Number.isFinite(n) && n > AUDIENCE_QUALIFICATION_THRESHOLD) {
+                  recentAudienceScores.push({ week_index: wIdx, score: n });
+                }
+              }
+            }
+          }
+        } catch (histErr: any) {
+          console.warn(`[semantic-dedup] history-load-failed (ignorado):`, histErr?.message || histErr);
+        }
+
+        // ---- 4) Tese por cosine sim ----
+        type ThesisBlock = { day: number; thesis: string; matchedThesis: string; matchedWeek: number; sim: number };
+        const thesisCosineBlocks: ThesisBlock[] = [];
+        try {
+          const candidateTheses = dayTargets.filter((t) => t.thesis_summary).map((t) => ({ day: t.day, thesis: t.thesis_summary }));
+          if (candidateTheses.length > 0 && recentTheses.length > 0) {
+            const allTexts = [...candidateTheses.map((c) => c.thesis), ...recentTheses.map((r) => r.thesis)];
+            const allVecs = await embedTextBatch(allTexts);
+            const candVecs2 = allVecs.slice(0, candidateTheses.length);
+            const histVecs = allVecs.slice(candidateTheses.length);
+            const cosine = (a: number[], b: number[]) => {
+              let dot = 0, na = 0, nb = 0;
+              const len = Math.min(a.length, b.length);
+              for (let i = 0; i < len; i++) { dot += a[i] * b[i]; na += a[i] * a[i]; nb += b[i] * b[i]; }
+              const denom = Math.sqrt(na) * Math.sqrt(nb);
+              return denom > 0 ? dot / denom : 0;
+            };
+            for (let i = 0; i < candidateTheses.length; i++) {
+              const cv = candVecs2[i]; if (!cv) continue;
+              let bestSim = 0; let bestIdx = -1;
+              for (let j = 0; j < histVecs.length; j++) {
+                const hv = histVecs[j]; if (!hv) continue;
+                const s = cosine(cv, hv);
+                if (s > bestSim) { bestSim = s; bestIdx = j; }
+              }
+              if (bestSim > THESIS_COSINE_THRESHOLD && bestIdx >= 0) {
+                const matched = recentTheses[bestIdx];
+                thesisCosineBlocks.push({
+                  day: candidateTheses[i].day,
+                  thesis: candidateTheses[i].thesis,
+                  matchedThesis: matched.thesis,
+                  matchedWeek: matched.week_index,
+                  sim: bestSim,
+                });
+                console.log(`[semantic-dedup] thesis-cosine-blocked week=${wkIdxForPartial} day=${candidateTheses[i].day} sim=${bestSim.toFixed(3)}`);
+              }
+            }
+          }
+        } catch (te: any) {
+          console.warn(`[semantic-dedup] thesis-cosine-failed (ignorado):`, te?.message || te);
+        }
+
+        // ---- 5) Saturação de público ----
+        const audienceSaturationByDay = new Map<number, { week_index: number; score: number }>();
+        if (recentAudienceScores.length > 0) {
+          const top = [...recentAudienceScores].sort((a, b) => b.score - a.score)[0];
+          for (const t of dayTargets) {
+            if (t.audience_qualification_score > AUDIENCE_QUALIFICATION_THRESHOLD) {
+              audienceSaturationByDay.set(t.day, top);
+            }
+          }
+          if (audienceSaturationByDay.size > 0) {
+            console.log(`[semantic-dedup] audience-saturation week=${wkIdxForPartial} days=${JSON.stringify(Array.from(audienceSaturationByDay.keys()))}`);
+          }
+        }
+
+        // ---- 6) Repetição de brand/framework ----
+        const repeatedBrandsByDay = new Map<number, string[]>();
+        const repeatedFrameworksByDay = new Map<number, string[]>();
+        for (const t of dayTargets) {
+          const rb = t.brands.filter((b) => recentBrands.has(b));
+          const rf = t.frameworks.filter((f) => recentFrameworks.has(f));
+          if (rb.length) repeatedBrandsByDay.set(t.day, rb);
+          if (rf.length) repeatedFrameworksByDay.set(t.day, rf);
+        }
+        if (repeatedBrandsByDay.size > 0) {
+          console.log(`[semantic-dedup] brand-repetition week=${wkIdxForPartial} days=${JSON.stringify(Array.from(repeatedBrandsByDay.entries()))}`);
+        }
+        if (repeatedFrameworksByDay.size > 0) {
+          console.log(`[semantic-dedup] framework-repetition week=${wkIdxForPartial} days=${JSON.stringify(Array.from(repeatedFrameworksByDay.entries()))}`);
+        }
+
+        // ---- 7) Persiste meta SEMPRE ----
+        const extracted_brands_by_day: Record<number, string[]> = {};
+        const extracted_frameworks_by_day: Record<number, string[]> = {};
+        const extracted_opening_forms_by_day: Record<number, string[]> = {};
+        const thesis_summaries: Record<number, string> = {};
+        const audience_qualification_scores: Record<number, number> = {};
+        for (const t of dayTargets) {
+          extracted_brands_by_day[t.day] = t.brands;
+          extracted_frameworks_by_day[t.day] = t.frameworks;
+          extracted_opening_forms_by_day[t.day] = t.opening_forms;
+          if (t.thesis_summary) thesis_summaries[t.day] = t.thesis_summary;
+          audience_qualification_scores[t.day] = t.audience_qualification_score;
+        }
+        const preRetryMaxSim = embeddingViolations.length > 0 ? Math.max(...embeddingViolations.map((v) => v.topSim)) : 0;
+        dedupMeta = {
+          pre_retry_max_sim: Number(preRetryMaxSim.toFixed(3)),
+          post_retry_max_sim: null,
+          second_retry_max_sim: null,
+          days_regenerated: embeddingViolations.map((v) => v.day),
+          matches_blocked: Array.from(new Set([...recentBrands, ...recentFrameworks])),
+          entity_extraction_source: extractionSource,
+          threshold: 0.80,
+          thesis_threshold: THESIS_COSINE_THRESHOLD,
+          window_days: DEDUP_WINDOW_DAYS,
+          extracted_brands_by_day,
+          extracted_frameworks_by_day,
+          extracted_opening_forms_by_day,
+          thesis_summaries,
+          audience_qualification_scores,
+          ts: new Date().toISOString(),
+        };
+        console.log(
+          `[semantic-dedup] entities-extracted week=${wkIdxForPartial} brands=${JSON.stringify(extracted_brands_by_day)} thesis=${JSON.stringify(thesis_summaries)} audience=${JSON.stringify(audience_qualification_scores)}`,
+        );
+
+        // ---- 8) Dias violadores (5 dimensões) ----
+        const violatingDaysSet = new Set<number>();
+        for (const v of embeddingViolations) violatingDaysSet.add(v.day);
+        for (const tb of thesisCosineBlocks) violatingDaysSet.add(tb.day);
+        for (const d of repeatedBrandsByDay.keys()) violatingDaysSet.add(d);
+        for (const d of repeatedFrameworksByDay.keys()) violatingDaysSet.add(d);
+        for (const d of audienceSaturationByDay.keys()) violatingDaysSet.add(d);
+
+        console.log(
+          `[semantic-dedup] week=${wkIdxForPartial} user=${userId} candidates=${candidates.length} violations=${violatingDaysSet.size} (emb=${embeddingViolations.length} thesis=${thesisCosineBlocks.length} brand=${repeatedBrandsByDay.size} framework=${repeatedFrameworksByDay.size} audience=${audienceSaturationByDay.size})`,
+        );
+
+        if (violatingDaysSet.size === 0) {
+          // nada a fazer — dedupMeta já persistido
+        } else {
+          await updateJob(jobId, { progress_message: "Removendo repetições semânticas…" });
+
+          // ---- 9) Anti-prompt 1º retry ----
+          const violatingDays = Array.from(violatingDaysSet);
+          dedupMeta.days_regenerated = violatingDays;
+          const dayTargetsByDay = new Map(dayTargets.map((t) => [t.day, t]));
+          const embByDay = new Map(embeddingViolations.map((v) => [v.day, v]));
+          const thesisBlocksByDay = new Map<number, ThesisBlock[]>();
+          for (const tb of thesisCosineBlocks) {
+            if (!thesisBlocksByDay.has(tb.day)) thesisBlocksByDay.set(tb.day, []);
+            thesisBlocksByDay.get(tb.day)!.push(tb);
+          }
+
+          const keepContext = feedFinal
+            .filter((p) => !violatingDaysSet.has(p.day))
+            .map((p) => `Dia ${p.day} (MANTER, não reescrever): tema="${p.theme}"`)
+            .join("\n");
+
+          const dedupBlock =
+            `\n\n# ⚠️ DEDUPLICAÇÃO SEMÂNTICA (CRÍTICO)\n` +
+            `Os dias listados abaixo possuem ângulo/tese semanticamente próximos a posts já gerados nos últimos ${DEDUP_WINDOW_DAYS} dias. ` +
+            `Reescreva cada um com um ângulo radicalmente diferente. Mantenha tema, tom e formato compatíveis com a semana, mas o NÚCLEO precisa mudar.\n\n` +
+            violatingDays
+              .map((day) => {
+                const t = dayTargetsByDay.get(day);
+                const emb = embByDay.get(day);
+                const proibicoes: string[] = [];
+                const repBrands = repeatedBrandsByDay.get(day);
+                if (repBrands && repBrands.length > 0) {
+                  proibicoes.push(`NÃO cite (já usados nas últimas 8 semanas): ${repBrands.join(", ")}`);
+                } else if (t && t.brands.length > 0 && emb) {
+                  proibicoes.push(`NÃO cite: ${t.brands.join(", ")} (sim_top=${emb.topSim.toFixed(2)})`);
+                }
+                const repFw = repeatedFrameworksByDay.get(day);
+                if (repFw && repFw.length > 0) proibicoes.push(`NÃO use frameworks repetidos: ${repFw.join(" | ")}`);
+                else if (t && t.frameworks.length > 0) proibicoes.push(`NÃO use o framework: ${t.frameworks.join(" | ")}`);
+                if (t && t.opening_forms.length > 0) proibicoes.push(`NÃO use a fôrma narrativa: ${t.opening_forms.join(" | ")}`);
+
+                const thesisStr = (thesisBlocksByDay.get(day) || [])
+                  .map(
+                    (tb) =>
+                      `TESE PROIBIDA (já defendida em Sem ${tb.matchedWeek}, cosine=${tb.sim.toFixed(2)}):\n` +
+                      `"${tb.matchedThesis}"\n` +
+                      `Reescreva defendendo uma tese RADICALMENTE diferente — não basta trocar o público citado. A consequência precisa mudar.`,
+                  )
+                  .join("\n\n");
+
+                const sat = audienceSaturationByDay.get(day);
+                let audienceBlock = "";
+                if (sat && t) {
+                  audienceBlock =
+                    `\nPOST PROIBIDO: audience_qualification_score = ${t.audience_qualification_score.toFixed(2)}. ` +
+                    `Já houve outro post de qualificação na Semana ${sat.week_index} (score=${sat.score.toFixed(2)}). ` +
+                    `Limite: 1 a cada ${AUDIENCE_QUALIFICATION_WINDOW_DAYS} dias.\nReescreva sobre OUTRO ângulo (técnico, case, observação, crítica) — NÃO sobre qualificar público.\n`;
+                }
+
+                const matchesEcho = emb
+                  ? emb.matches
+                      .map(
+                        (m: any, idx: number) =>
+                          `   ${idx + 1}. (sim=${Number(m.similarity).toFixed(2)}) ${String(m.text_used || "").slice(0, 400)}`,
+                      )
+                      .join("\n")
+                  : "(nenhum match de embedding — bloqueio por outra dimensão)";
+
+                return (
+                  `## Dia ${day} — proibições nominais\n` +
+                  (proibicoes.length > 0 ? proibicoes.join("\n") + "\n" : "") +
+                  (thesisStr ? "\n" + thesisStr + "\n" : "") +
+                  audienceBlock +
+                  `\nNÃO use case de marca grande tomando decisão de produto polêmica como gancho.\n\n` +
+                  `Famílias narrativas alternativas (escolha 1):\n` +
+                  `(a) nicho técnico real do profissional\n` +
+                  `(b) crítica a livro/autor de referência (NÃO Strunk & White, NÃO Marcus Aurelius)\n` +
+                  `(c) comparação histórica não-tecnológica\n` +
+                  `(d) erro profissional pessoal\n\n` +
+                  `Ângulos a evitar:\n${matchesEcho}`
+                );
+              })
+              .join("\n\n") +
+            `\n\nRetorne APENAS um JSON array com os dias reescritos (mesmo schema do feed).`;
+
+          const retryUser = `${feedUser}\n\n# CONTEXTO DA SEMANA (NÃO REESCREVER)\n${keepContext}${dedupBlock}`;
+          let retriedDays: number[] = [];
+          try {
+            const { text: dedupRaw } = await callClaudeWithMeta({
+              systemPrompt: feedSystem,
+              userText: retryUser,
+              model: "claude-opus-4-7",
+              max_tokens: 4500,
+              timeoutMs: 120000,
+              disableRetries: true,
+            });
+            let parsed1: any = extractJsonFromLLM(dedupRaw);
+            if (!Array.isArray(parsed1) || parsed1.length === 0) parsed1 = extractPartialDayObjects(dedupRaw);
+            if (Array.isArray(parsed1) && parsed1.length > 0) {
+              const replaceMap = new Map<number, FeedPost>();
+              for (const p of parsed1) {
+                if (!p || typeof p !== "object") continue;
+                const dayN = Number((p as any).day);
+                if (!FEED_DAYS.includes(dayN)) continue;
+                const cleaned = sanitizePost(p as Record<string, any>) as FeedPost;
+                cleaned.day = dayN;
+                cleaned.format = (cleaned.format || "post").toString().toLowerCase();
+                if (cleaned.format === "stories") cleaned.format = "post";
+                cleaned.is_personal = Boolean((cleaned as any).is_personal);
+                replaceMap.set(dayN, cleaned);
+              }
+              for (let i = 0; i < feedFinal.length; i++) {
+                const r = replaceMap.get(feedFinal[i].day);
+                if (r) feedFinal[i] = r;
+              }
+              retriedDays = Array.from(replaceMap.keys());
+              console.log(`[semantic-dedup] week=${wkIdxForPartial} retry-1 applied days=${replaceMap.size}`);
+            } else {
+              console.warn(`[semantic-dedup] retry-1 sem posts válidos, mantendo versão original.`);
+            }
+          } catch (re: any) {
+            console.warn(`[semantic-dedup] retry-1 falhou (mantendo original):`, re?.message || re);
+          }
+
+          // ---- 10) Revalidação 1º retry ----
+          const failingAfterFirst: { day: number; sim: number }[] = [];
+          if (retriedDays.length > 0) {
+            try {
+              const revalCands = feedFinal.filter((p) => retriedDays.includes(p.day) && (p.theme || p.caption));
+              const revalTexts = revalCands.map((p) => postToEmbedText(p));
+              const revalVecs = await embedTextBatch(revalTexts);
+              let postRetryMax = 0;
+              for (let i = 0; i < revalVecs.length; i++) {
+                const vec = revalVecs[i]; if (!vec) continue;
+                const day = revalCands[i].day;
+                const { data } = await admin.rpc("match_post_embeddings", {
+                  p_user_id: userId, p_query: vec as any, p_since: since, p_threshold: 0.0, p_limit: 1,
+                });
+                const top = Array.isArray(data) && data.length > 0 ? Number(data[0].similarity) || 0 : 0;
+                if (top > postRetryMax) postRetryMax = top;
+                if (top > 0.80) failingAfterFirst.push({ day, sim: top });
+                console.log(
+                  `[semantic-dedup] post-retry week=${wkIdxForPartial} day=${day} pre=${(embByDay.get(day)?.topSim || 0).toFixed(3)} post=${top.toFixed(3)}`,
+                );
+              }
+              dedupMeta.post_retry_max_sim = Number(postRetryMax.toFixed(3));
+            } catch (rv: any) {
+              console.warn(`[semantic-dedup] revalidation-skipped:`, rv?.message || rv);
+            }
+          }
+
+          // ---- 11) 2º retry agressivo (só dias ainda >0.80) ----
+          if (failingAfterFirst.length > 0) {
+            const failingDayNums = failingAfterFirst.map((f) => f.day);
+            console.log(`[semantic-dedup] second-retry week=${wkIdxForPartial} days=${JSON.stringify(failingDayNums)}`);
+
+            // snapshot pra eventual fallback
+            const snapshotByDay = new Map<number, FeedPost>();
+            for (const d of failingDayNums) {
+              const p = feedFinal.find((x) => x.day === d);
+              if (p) snapshotByDay.set(d, { ...p });
             }
 
-            // ---- Checagem de SATURAÇÃO DE PÚBLICO (últimas 2 semanas) ----
-            // Se outro post nas últimas 14 dias já teve score > 0.6, marcamos
-            // o dia atual como saturação de público para forçar reescrita.
-            const audienceSaturationByDay = new Map<number, { week_index: number; score: number }>();
             try {
-              const { data: reportRow } = await admin
-                .from("reports")
-                .select("editorial_weeks")
-                .eq("id", job.report_id)
-                .maybeSingle();
-              const allWeeks: any[] = Array.isArray(reportRow?.editorial_weeks)
-                ? reportRow!.editorial_weeks
-                : [];
-              const cutoff = Date.now() - AUDIENCE_QUALIFICATION_WINDOW_DAYS * 24 * 60 * 60 * 1000;
-              const recentScores: { week_index: number; score: number }[] = [];
-              for (const w of allWeeks) {
-                if (!w || typeof w !== "object") continue;
-                const wIdx = Number((w as any)._week_index ?? (w as any).week_index ?? -1);
-                if (wIdx === wkIdxForPartial) continue; // ignora a própria
-                const generatedAt = (w as any)._generated_at || (w as any)._dedup_metrics?.ts;
-                if (generatedAt) {
-                  const ts = Date.parse(String(generatedAt));
-                  if (Number.isFinite(ts) && ts < cutoff) continue;
-                }
-                const scores = (w as any)?._dedup_metrics?.audience_qualification_scores;
-                if (scores && typeof scores === "object") {
-                  for (const v of Object.values(scores)) {
-                    const n = Number(v);
-                    if (Number.isFinite(n) && n > AUDIENCE_QUALIFICATION_THRESHOLD) {
-                      recentScores.push({ week_index: wIdx, score: n });
-                    }
-                  }
-                }
+              const allBrands = Array.from(new Set([
+                ...recentBrands,
+                ...Object.values(extracted_brands_by_day).flat(),
+              ])).filter(Boolean);
+              const allFrameworks = Array.from(new Set([
+                ...recentFrameworks,
+                ...Object.values(extracted_frameworks_by_day).flat(),
+              ])).filter(Boolean);
+              const allOpenings = Array.from(new Set([
+                ...recentOpeningForms,
+                ...Object.values(extracted_opening_forms_by_day).flat(),
+              ])).filter(Boolean);
+              const allTheses = Array.from(new Set([
+                ...recentTheses.map((t) => t.thesis),
+                ...Object.values(thesis_summaries),
+              ])).filter(Boolean);
+
+              // Famílias narrativas SEM REPETIÇÃO entre os dias (shuffle)
+              const families = ["a", "b", "c", "d"];
+              for (let i = families.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [families[i], families[j]] = [families[j], families[i]];
               }
-              if (recentScores.length > 0) {
-                for (const t of dayTargets) {
-                  if (t.audience_qualification_score > AUDIENCE_QUALIFICATION_THRESHOLD) {
-                    // já existe outro post de qualificação recente → satura
-                    const top = recentScores.sort((a, b) => b.score - a.score)[0];
-                    audienceSaturationByDay.set(t.day, top);
-                  }
-                }
-                if (audienceSaturationByDay.size > 0) {
-                  console.log(
-                    `[semantic-dedup] audience-saturation week=${wkIdxForPartial} days=${JSON.stringify(
-                      Array.from(audienceSaturationByDay.keys()),
-                    )}`,
-                  );
-                }
-              }
-            } catch (satErr: any) {
-              console.warn(
-                `[semantic-dedup] audience-saturation-check-failed (ignorado):`,
-                satErr?.message || satErr,
-              );
-            }
+              const FAMILY_DESC: Record<string, string> = {
+                a: "bastidor técnico real de atendimento específico (sem autor citado, sem framework numerado, sem qualificação de público)",
+                b: "observação de mercado com dado verificável (estudo, pesquisa, dado público) — sem usar como gancho 'X removeu Y'",
+                c: "crítica direta a uma frase/instrução específica de curso de marketing (NÃO Strunk & White, NÃO Marcus Aurelius)",
+                d: "erro técnico próprio do profissional contado em primeira pessoa, com consequência concreta",
+              };
+              const familyByDay = new Map<number, string>();
+              failingDayNums.forEach((d, idx) => familyByDay.set(d, families[idx % families.length]));
 
-            // ---- Monta anti-prompt enriquecido ----
-            const violatingDays = new Set(violations.map((v) => v.day));
-            const keepContext = feedFinal
-              .filter((p) => !violatingDays.has(p.day))
-              .map((p) => `Dia ${p.day} (MANTER, não reescrever): tema="${p.theme}"`)
-              .join("\n");
+              // keepContext do 2º retry: TUDO menos os dias que ainda falham
+              const keepContext2 = feedFinal
+                .filter((p) => !failingDayNums.includes(p.day))
+                .map((p) => `Dia ${p.day} (MANTER, não reescrever): tema="${p.theme}"`)
+                .join("\n");
 
-            const dayTargetsByDay = new Map(dayTargets.map((t) => [t.day, t]));
+              const dedupBlock2 =
+                `\n\n# ⚠️ DEDUPLICAÇÃO SEMÂNTICA — 2ª TENTATIVA (CRÍTICO)\n` +
+                `ATENÇÃO: a tentativa anterior continua semanticamente similar a posts antigos. Você está repetindo padrão mesmo após o aviso. Restrições absolutas:\n\n` +
+                `PROIBIDO QUALQUER UM destes itens (extraídos das últimas 8 semanas):\n` +
+                `- Marcas/autores/obras: ${allBrands.join("; ") || "(nenhuma)"}\n` +
+                `- Frameworks: ${allFrameworks.join("; ") || "(nenhum)"}\n` +
+                `- Fôrmas de abertura: ${allOpenings.join("; ") || "(nenhuma)"}\n` +
+                `- Teses já defendidas: ${allTheses.join(" | ") || "(nenhuma)"}\n\n` +
+                `Reescreva APENAS estes dias. Cada dia recebe UMA família narrativa DIFERENTE (não repita família entre dias):\n` +
+                failingDayNums
+                  .map((d) => {
+                    const fam = familyByDay.get(d)!;
+                    const prevSim = failingAfterFirst.find((f) => f.day === d)?.sim;
+                    return `- Dia ${d}: família (${fam}) — ${FAMILY_DESC[fam]} (sim anterior=${prevSim?.toFixed(2) ?? "?"})`;
+                  })
+                  .join("\n") +
+                `\n\nRetorne APENAS um JSON array com os dias reescritos (mesmo schema do feed).`;
 
-            const dedupBlock =
-              `\n\n# ⚠️ DEDUPLICAÇÃO SEMÂNTICA (CRÍTICO)\n` +
-              `Os dias listados abaixo possuem ângulo/tese semanticamente próximos a posts já gerados nos últimos ${DEDUP_WINDOW_DAYS} dias. ` +
-              `Reescreva cada um com um ângulo radicalmente diferente. Mantenha tema, tom e formato compatíveis com a semana, mas o NÚCLEO precisa mudar.\n\n` +
-              violations
-                .map((v) => {
-                  const t = dayTargetsByDay.get(v.day);
-                  const proibicoes: string[] = [];
-                  if (t && t.brands.length > 0) {
-                    proibicoes.push(
-                      `NÃO cite nominalmente nem por descrição inequívoca: ${t.brands.join(", ")} (já usados, sim_top=${v.topSim.toFixed(2)})`,
-                    );
-                  }
-                  if (t && t.opening_forms.length > 0) {
-                    proibicoes.push(`NÃO use a fôrma narrativa: ${t.opening_forms.join(" | ")}`);
-                  }
-                  if (t && t.frameworks.length > 0) {
-                    proibicoes.push(`NÃO use o framework: ${t.frameworks.join(" | ")}`);
-                  }
-                  // Tese proibida — comparar candidate vs cada match
-                  const thesisBlocks: string[] = [];
-                  if (t && t.thesis_summary && Array.isArray(t.match_theses)) {
-                    for (const mt of t.match_theses) {
-                      if (!mt.thesis) continue;
-                      const sim = jaccardSimilarity(t.thesis_summary, mt.thesis);
-                      if (sim > THESIS_SIMILARITY_THRESHOLD) {
-                        thesisBlocks.push(
-                          `TESE PROIBIDA (já defendida em Sem ${mt.week_index}, sim=${sim.toFixed(2)}):\n` +
-                            `"${mt.thesis}"\n` +
-                            `Reescreva defendendo uma tese RADICALMENTE diferente — não basta trocar o público citado. A consequência precisa mudar.`,
-                        );
-                      }
-                    }
-                  }
-                  // Saturação de público
-                  const sat = audienceSaturationByDay.get(v.day);
-                  let audienceBlock = "";
-                  if (sat && t) {
-                    audienceBlock =
-                      `\nPOST PROIBIDO: este dia ficou com audience_qualification_score = ${t.audience_qualification_score.toFixed(
-                        2,
-                      )} (post de "quem atendo vs quem não atendo"). ` +
-                      `Já houve outro post desse tipo na Semana ${sat.week_index} (score=${sat.score.toFixed(
-                        2,
-                      )}). Limite: 1 post de qualificação a cada ${AUDIENCE_QUALIFICATION_WINDOW_DAYS} dias.\n` +
-                      `Reescreva pra ser sobre OUTRO ângulo (técnico, case, observação, crítica de método) — NÃO sobre qualificar público.\n`;
-                  }
-                  const matchesEcho = v.matches
-                    .map(
-                      (m: any, idx: number) =>
-                        `   ${idx + 1}. (sim=${Number(m.similarity).toFixed(2)}) ${String(m.text_used || "").slice(0, 400)}`,
-                    )
-                    .join("\n");
-                  return (
-                    `## Dia ${v.day} — proibições nominais\n` +
-                    (proibicoes.length > 0 ? proibicoes.join("\n") + "\n" : "") +
-                    (thesisBlocks.length > 0 ? "\n" + thesisBlocks.join("\n\n") + "\n" : "") +
-                    audienceBlock +
-                    `\nNÃO use case de marca grande tomando decisão de produto polêmica como gancho. ` +
-                    `Cases empresariais de outra família (gestão, conflito interno, decisão regulatória, sucessão) seguem permitidos ` +
-                    `se o gancho narrativo não for "X removeu/cortou Y → lição sobre cobrar/recortar".\n\n` +
-                    `Famílias narrativas alternativas (escolha 1):\n` +
-                    `(a) nicho técnico real do profissional\n` +
-                    `(b) crítica a livro/autor de referência\n` +
-                    `(c) comparação histórica não-tecnológica\n` +
-                    `(d) erro profissional pessoal\n\n` +
-                    `Ângulos a evitar (matches detectados):\n${matchesEcho}`
-                  );
-                })
-                .join("\n\n") +
-              `\n\nRetorne APENAS um JSON array com os dias reescritos (mesmo schema do feed).`;
-
-
-            const retryUser = `${feedUser}\n\n# CONTEXTO DA SEMANA (NÃO REESCREVER)\n${keepContext}${dedupBlock}`;
-            try {
-              const { text: dedupRaw } = await callClaudeWithMeta({
+              const retryUser2 = `${feedUser}\n\n# CONTEXTO DA SEMANA (NÃO REESCREVER)\n${keepContext2}${dedupBlock2}`;
+              const { text: dedup2Raw } = await callClaudeWithMeta({
                 systemPrompt: feedSystem,
-                userText: retryUser,
+                userText: retryUser2,
                 model: "claude-opus-4-7",
                 max_tokens: 4500,
                 timeoutMs: 120000,
                 disableRetries: true,
               });
-              let dedupParsed: any = extractJsonFromLLM(dedupRaw);
-              if (!Array.isArray(dedupParsed) || dedupParsed.length === 0) {
-                dedupParsed = extractPartialDayObjects(dedupRaw);
-              }
-              if (Array.isArray(dedupParsed) && dedupParsed.length > 0) {
-                const replaceMap = new Map<number, FeedPost>();
-                for (const p of dedupParsed) {
+              let parsed2: any = extractJsonFromLLM(dedup2Raw);
+              if (!Array.isArray(parsed2) || parsed2.length === 0) parsed2 = extractPartialDayObjects(dedup2Raw);
+              const cand2ByDay = new Map<number, FeedPost>();
+              if (Array.isArray(parsed2) && parsed2.length > 0) {
+                for (const p of parsed2) {
                   if (!p || typeof p !== "object") continue;
                   const dayN = Number((p as any).day);
-                  if (!FEED_DAYS.includes(dayN)) continue;
+                  if (!failingDayNums.includes(dayN)) continue;
                   const cleaned = sanitizePost(p as Record<string, any>) as FeedPost;
                   cleaned.day = dayN;
                   cleaned.format = (cleaned.format || "post").toString().toLowerCase();
                   if (cleaned.format === "stories") cleaned.format = "post";
                   cleaned.is_personal = Boolean((cleaned as any).is_personal);
-                  replaceMap.set(dayN, cleaned);
+                  cand2ByDay.set(dayN, cleaned);
                 }
-                for (let i = 0; i < feedFinal.length; i++) {
-                  const r = replaceMap.get(feedFinal[i].day);
-                  if (r) feedFinal[i] = r;
-                }
-                console.log(
-                  `[semantic-dedup] week=${wkIdxForPartial} user=${userId} retry applied days=${replaceMap.size}`,
-                );
-
-                // ---- Revalidação cega (não bloqueante) ----
-                try {
-                  const regeneratedDays = Array.from(replaceMap.keys());
-                  const revalCandidates = feedFinal.filter(
-                    (p) => regeneratedDays.includes(p.day) && (p.theme || p.caption),
-                  );
-                  if (revalCandidates.length > 0) {
-                    const revalTexts = revalCandidates.map((p) => postToEmbedText(p));
-                    const revalVectors = await embedTextBatch(revalTexts);
-                    let postRetryMax = 0;
-                    for (let i = 0; i < revalVectors.length; i++) {
-                      const vec = revalVectors[i];
-                      if (!vec) continue;
-                      const day = revalCandidates[i].day;
-                      const { data, error } = await admin.rpc("match_post_embeddings", {
-                        p_user_id: userId,
-                        p_query: vec as any,
-                        p_since: since,
-                        p_threshold: 0.0, // queremos o top match independente do threshold
-                        p_limit: 1,
-                      });
-                      if (error) {
-                        console.warn(`[semantic-dedup] revalidation rpc error day=${day}:`, error.message);
-                        continue;
-                      }
-                      const top = Array.isArray(data) && data.length > 0 ? Number(data[0].similarity) || 0 : 0;
-                      if (top > postRetryMax) postRetryMax = top;
-                      console.log(
-                        `[semantic-dedup] post-retry week=${wkIdxForPartial} day=${day} pre=${(violations.find((v) => v.day === day)?.topSim || 0).toFixed(3)} post=${top.toFixed(3)}`,
-                      );
-                    }
-                    dedupMeta.post_retry_max_sim = Number(postRetryMax.toFixed(3));
-                    if (postRetryMax > 0.80) {
-                      (dedupMeta as any)._dedup_warning = true;
-                    }
-                  }
-                } catch (revalErr: any) {
-                  console.warn(
-                    `[semantic-dedup] revalidation-skipped:`,
-                    revalErr?.message || revalErr,
-                  );
-                }
-              } else {
-                console.warn(`[semantic-dedup] retry sem posts válidos, mantendo versão original.`);
               }
-            } catch (dedupRetryErr: any) {
-              console.warn(
-                `[semantic-dedup] retry falhou (mantendo versão original):`,
-                dedupRetryErr?.message || dedupRetryErr,
-              );
+
+              // Revalidação 2º retry: aplica só se reduzir sim
+              let secondMax = 0;
+              for (const f of failingAfterFirst) {
+                const cand2 = cand2ByDay.get(f.day);
+                if (!cand2) continue;
+                const vec = (await embedTextBatch([postToEmbedText(cand2)]))[0];
+                if (!vec) continue;
+                const { data } = await admin.rpc("match_post_embeddings", {
+                  p_user_id: userId, p_query: vec as any, p_since: since, p_threshold: 0.0, p_limit: 1,
+                });
+                const top = Array.isArray(data) && data.length > 0 ? Number(data[0].similarity) || 0 : 0;
+                console.log(
+                  `[semantic-dedup] second-retry-reval week=${wkIdxForPartial} day=${f.day} prev=${f.sim.toFixed(3)} new=${top.toFixed(3)}`,
+                );
+                if (top < f.sim) {
+                  const idx = feedFinal.findIndex((p) => p.day === f.day);
+                  if (idx >= 0) feedFinal[idx] = cand2;
+                  f.sim = top;
+                }
+                if (f.sim > secondMax) secondMax = f.sim;
+              }
+              dedupMeta.second_retry_max_sim = Number(secondMax.toFixed(3));
+              dedupMeta.second_retry_applied = true;
+            } catch (rr: any) {
+              console.warn(`[semantic-dedup] second-retry falhou (mantendo melhor versão):`, rr?.message || rr);
+            }
+
+            // Marca dias que ainda excedem 0.80
+            for (const f of failingAfterFirst) {
+              if (f.sim > 0.80) {
+                dedupFailedDays.push(f.day);
+                const idx = feedFinal.findIndex((p) => p.day === f.day);
+                if (idx >= 0) (feedFinal[idx] as any)._dedup_failed = true;
+              }
+            }
+            if (dedupFailedDays.length > 0) {
+              console.log(`[semantic-dedup] dedup-failed week=${wkIdxForPartial} days=${JSON.stringify(dedupFailedDays)}`);
+              dedupMeta.dedup_failed_days = dedupFailedDays;
+              dedupMeta.final_max_sim = Math.max(...failingAfterFirst.map((f) => f.sim));
+              (dedupMeta as any)._dedup_warning = true;
             }
           }
         }
       } catch (semErr: any) {
         console.warn(`[semantic-dedup] erro geral (ignorado):`, semErr?.message || semErr);
       }
+
 
       // Monta extraMeta para persistir flag/métricas no JSONB editorial_weeks[i]
       const weekExtraMeta: Record<string, any> | undefined = dedupMeta
