@@ -19,22 +19,31 @@ serve(async (req) => {
     const authHeader = req.headers.get("Authorization") || "";
     const token = authHeader.replace("Bearer ", "");
     if (!token) return json({ error: "unauthorized" }, 401);
-    const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      global: { headers: { Authorization: `Bearer ${token}` } },
-    });
-    const { data: userData, error: userErr } = await userClient.auth.getUser();
-    if (userErr || !userData?.user) return json({ error: "unauthorized" }, 401);
-    const callerId = userData.user.id;
-
-    const { data: roleRow } = await admin
-      .from("user_roles").select("role")
-      .eq("user_id", callerId).eq("role", "admin").maybeSingle();
-    const isAdmin = !!roleRow;
 
     let body: any = {};
     try { body = await req.json(); } catch {}
-    const targetUserId: string = body?.user_id || callerId;
-    if (targetUserId !== callerId && !isAdmin) return json({ error: "forbidden" }, 403);
+
+    // Service-role bypass (admin/scripts).
+    const isServiceRole = token === SUPABASE_SERVICE_ROLE_KEY;
+    let callerId: string | null = null;
+    let isAdmin = false;
+
+    if (!isServiceRole) {
+      const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        global: { headers: { Authorization: `Bearer ${token}` } },
+      });
+      const { data: userData, error: userErr } = await userClient.auth.getUser();
+      if (userErr || !userData?.user) return json({ error: "unauthorized" }, 401);
+      callerId = userData.user.id;
+      const { data: roleRow } = await admin
+        .from("user_roles").select("role")
+        .eq("user_id", callerId).eq("role", "admin").maybeSingle();
+      isAdmin = !!roleRow;
+    }
+
+    const targetUserId: string = body?.user_id || callerId || "";
+    if (!targetUserId) return json({ error: "user_id required" }, 400);
+    if (!isServiceRole && targetUserId !== callerId && !isAdmin) return json({ error: "forbidden" }, 403);
 
     const { data: reports, error: rErr } = await admin
       .from("reports").select("id, editorial_weeks")
