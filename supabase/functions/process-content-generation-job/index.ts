@@ -75,6 +75,24 @@ const AUDIENCE_QUALIFICATION_WINDOW_DAYS = 14;
 const THESIS_COSINE_THRESHOLD = 0.70;
 const RECENT_HISTORY_WEEKS = 8;
 
+// Bug E fix: normaliza padrões (brand/framework/opening_form) para casamento
+// robusto entre semanas. "método de 4 cortes" e "método de N cortes" precisam
+// bater. Lower + strip acentos + numerais e palavras-número viram N + remove
+// pontuação + colapsa espaços.
+const PT_NUMBER_WORDS = new Set([
+  "um","uma","dois","duas","tres","três","quatro","cinco","seis","sete","oito",
+  "nove","dez","onze","doze","treze","catorze","quatorze","quinze","dezesseis",
+  "dezessete","dezoito","dezenove","vinte","cem","cento","mil","n",
+]);
+function normalizePattern(s: string): string {
+  if (!s) return "";
+  let n = String(s).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  n = n.replace(/\d+/g, " N ");
+  n = n.replace(/[^\p{L}\p{N}\s]/gu, " ");
+  const tokens = n.split(/\s+/).filter(Boolean).map((t) => (PT_NUMBER_WORDS.has(t) ? "N" : t));
+  return tokens.join(" ").trim();
+}
+
 function jaccardSimilarity(a: string, b: string): number {
   const norm = (s: string) =>
     new Set(
@@ -1209,6 +1227,9 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
         const recentBrands = new Set<string>();
         const recentFrameworks = new Set<string>();
         const recentOpeningForms = new Set<string>();
+        const brandLastSeen = new Map<string, { value: string; weekIndex: number }>();
+        const frameworkLastSeen = new Map<string, { value: string; weekIndex: number }>();
+        const openingFormLastSeen = new Map<string, { value: string; weekIndex: number }>();
         const recentTheses: { week_index: number; thesis: string }[] = [];
         const recentAudienceScores: { week_index: number; score: number }[] = [];
         try {
@@ -1223,9 +1244,23 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
             .sort((a, b) => Number(b._week_index ?? b.week_index ?? 0) - Number(a._week_index ?? a.week_index ?? 0))
             .slice(0, RECENT_HISTORY_WEEKS);
           const audienceCutoff = Date.now() - AUDIENCE_QUALIFICATION_WINDOW_DAYS * 24 * 60 * 60 * 1000;
-          const addInto = (obj: any, set: Set<string>) => {
+          const addInto = (
+            obj: any,
+            set: Set<string>,
+            lastSeen: Map<string, { value: string; weekIndex: number }>,
+            wIdx: number,
+          ) => {
             if (!obj) return;
-            const push = (x: any) => { if (typeof x === "string" && x.trim()) set.add(x.trim()); };
+            const push = (x: any) => {
+              if (typeof x !== "string") return;
+              const v = x.trim();
+              if (!v) return;
+              set.add(v);
+              const key = normalizePattern(v);
+              if (!key) return;
+              const prev = lastSeen.get(key);
+              if (!prev || prev.weekIndex < wIdx) lastSeen.set(key, { value: v, weekIndex: wIdx });
+            };
             if (Array.isArray(obj)) obj.forEach(push);
             else if (typeof obj === "object") {
               for (const v of Object.values(obj)) {
@@ -1237,10 +1272,10 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
           for (const w of sortedRecent) {
             const dm = (w as any)._dedup_metrics || {};
             const wIdx = Number(w._week_index ?? w.week_index ?? -1);
-            addInto(dm.extracted_brands_by_day, recentBrands);
-            addInto(dm.extracted_frameworks_by_day, recentFrameworks);
-            addInto(dm.extracted_opening_forms_by_day, recentOpeningForms);
-            addInto(dm.matches_blocked, recentBrands); // v2 legacy
+            addInto(dm.extracted_brands_by_day, recentBrands, brandLastSeen, wIdx);
+            addInto(dm.extracted_frameworks_by_day, recentFrameworks, frameworkLastSeen, wIdx);
+            addInto(dm.extracted_opening_forms_by_day, recentOpeningForms, openingFormLastSeen, wIdx);
+            addInto(dm.matches_blocked, recentBrands, brandLastSeen, wIdx); // v2 legacy
             if (dm.thesis_summaries && typeof dm.thesis_summaries === "object") {
               for (const th of Object.values(dm.thesis_summaries)) {
                 if (typeof th === "string" && th.trim()) recentTheses.push({ week_index: wIdx, thesis: th.trim() });
@@ -1260,6 +1295,7 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
         } catch (histErr: any) {
           console.warn(`[semantic-dedup] history-load-failed (ignorado):`, histErr?.message || histErr);
         }
+
 
         // ---- 4) Tese por cosine sim ----
         type ThesisBlock = { day: number; thesis: string; matchedThesis: string; matchedWeek: number; sim: number };
@@ -1317,14 +1353,44 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
           }
         }
 
-        // ---- 6) Repetição de brand/framework ----
+        // ---- 6) Repetição de brand/framework/opening-form (normalizado) ----
         const repeatedBrandsByDay = new Map<number, string[]>();
         const repeatedFrameworksByDay = new Map<number, string[]>();
+        const repeatedOpeningFormsByDay = new Map<number, string[]>();
         for (const t of dayTargets) {
-          const rb = t.brands.filter((b) => recentBrands.has(b));
-          const rf = t.frameworks.filter((f) => recentFrameworks.has(f));
+          const rb: string[] = [];
+          for (const b of t.brands) {
+            const seen = brandLastSeen.get(normalizePattern(b));
+            if (seen) {
+              rb.push(seen.value);
+              console.log(
+                `[semantic-dedup] brand-repeat-detected week=${wkIdxForPartial} day=${t.day} brand=${JSON.stringify(b)} matched=${JSON.stringify(seen.value)} last_seen_week=${seen.weekIndex}`,
+              );
+            }
+          }
+          const rf: string[] = [];
+          for (const f of t.frameworks) {
+            const seen = frameworkLastSeen.get(normalizePattern(f));
+            if (seen) {
+              rf.push(seen.value);
+              console.log(
+                `[semantic-dedup] framework-repeat-detected week=${wkIdxForPartial} day=${t.day} framework=${JSON.stringify(f)} matched=${JSON.stringify(seen.value)} last_seen_week=${seen.weekIndex}`,
+              );
+            }
+          }
+          const ro: string[] = [];
+          for (const o of t.opening_forms) {
+            const seen = openingFormLastSeen.get(normalizePattern(o));
+            if (seen) {
+              ro.push(seen.value);
+              console.log(
+                `[semantic-dedup] opening-form-repeat-detected week=${wkIdxForPartial} day=${t.day} form=${JSON.stringify(o)} matched=${JSON.stringify(seen.value)} last_seen_week=${seen.weekIndex}`,
+              );
+            }
+          }
           if (rb.length) repeatedBrandsByDay.set(t.day, rb);
           if (rf.length) repeatedFrameworksByDay.set(t.day, rf);
+          if (ro.length) repeatedOpeningFormsByDay.set(t.day, ro);
         }
         if (repeatedBrandsByDay.size > 0) {
           console.log(`[semantic-dedup] brand-repetition week=${wkIdxForPartial} days=${JSON.stringify(Array.from(repeatedBrandsByDay.entries()))}`);
@@ -1332,6 +1398,10 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
         if (repeatedFrameworksByDay.size > 0) {
           console.log(`[semantic-dedup] framework-repetition week=${wkIdxForPartial} days=${JSON.stringify(Array.from(repeatedFrameworksByDay.entries()))}`);
         }
+        if (repeatedOpeningFormsByDay.size > 0) {
+          console.log(`[semantic-dedup] opening-form-repetition week=${wkIdxForPartial} days=${JSON.stringify(Array.from(repeatedOpeningFormsByDay.entries()))}`);
+        }
+
 
         // ---- 7) Persiste meta SEMPRE ----
         const extracted_brands_by_day: Record<number, string[]> = {};
