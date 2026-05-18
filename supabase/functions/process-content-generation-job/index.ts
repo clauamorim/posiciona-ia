@@ -1102,6 +1102,13 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
         // ---- 1) Embedding match (últimos 56d) ----
         const candTexts = candidates.map(({ p }) => postToEmbedText(p));
         const candVectors = await embedTextBatch(candTexts);
+        // Acumulador de vetores finais por dia — alimentado por cand inicial + reval 1º + 2º retry.
+        // Persistido ANTES do save parcial para que próximas semanas vejam estes embeddings.
+        const finalVectorByDay = new Map<number, number[]>();
+        for (let i = 0; i < candVectors.length; i++) {
+          const v = candVectors[i];
+          if (v) finalVectorByDay.set(candidates[i].p.day, v);
+        }
         const since = new Date(Date.now() - DEDUP_WINDOW_MS).toISOString();
         type EmbMatch = { day: number; matches: any[]; topSim: number };
         const embeddingViolations: EmbMatch[] = [];
@@ -1444,10 +1451,11 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
         for (const tb of thesisCosineBlocks) violatingDaysSet.add(tb.day);
         for (const d of repeatedBrandsByDay.keys()) violatingDaysSet.add(d);
         for (const d of repeatedFrameworksByDay.keys()) violatingDaysSet.add(d);
+        for (const d of repeatedOpeningFormsByDay.keys()) violatingDaysSet.add(d);
         for (const d of audienceSaturationByDay.keys()) violatingDaysSet.add(d);
 
         console.log(
-          `[semantic-dedup] week=${wkIdxForPartial} user=${userId} candidates=${candidates.length} violations=${violatingDaysSet.size} (emb=${embeddingViolations.length} thesis=${thesisCosineBlocks.length} brand=${repeatedBrandsByDay.size} framework=${repeatedFrameworksByDay.size} audience=${audienceSaturationByDay.size})`,
+          `[semantic-dedup] week=${wkIdxForPartial} user=${userId} candidates=${candidates.length} violations=${violatingDaysSet.size} (emb=${embeddingViolations.length} thesis=${thesisCosineBlocks.length} brand=${repeatedBrandsByDay.size} framework=${repeatedFrameworksByDay.size} opening_form=${repeatedOpeningFormsByDay.size} audience=${audienceSaturationByDay.size})`,
         );
 
         if (violatingDaysSet.size === 0) {
@@ -1489,7 +1497,9 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
                 const repFw = repeatedFrameworksByDay.get(day);
                 if (repFw && repFw.length > 0) proibicoes.push(`NÃO use frameworks repetidos: ${repFw.join(" | ")}`);
                 else if (t && t.frameworks.length > 0) proibicoes.push(`NÃO use o framework: ${t.frameworks.join(" | ")}`);
-                if (t && t.opening_forms.length > 0) proibicoes.push(`NÃO use a fôrma narrativa: ${t.opening_forms.join(" | ")}`);
+                const repOf = repeatedOpeningFormsByDay.get(day);
+                if (repOf && repOf.length > 0) proibicoes.push(`NÃO use fôrmas narrativas repetidas (já usadas nas últimas 8 semanas): ${repOf.join(" | ")}`);
+                else if (t && t.opening_forms.length > 0) proibicoes.push(`NÃO use a fôrma narrativa: ${t.opening_forms.join(" | ")}`);
 
                 const thesisStr = (thesisBlocksByDay.get(day) || [])
                   .map(
@@ -1585,6 +1595,7 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
               for (let i = 0; i < revalVecs.length; i++) {
                 const vec = revalVecs[i]; if (!vec) continue;
                 const day = revalCands[i].day;
+                finalVectorByDay.set(day, vec);
                 const { data } = await admin.rpc("match_post_embeddings", {
                   p_user_id: userId, p_query: vec as any, p_since: since, p_threshold: 0.0, p_limit: 1,
                 });
@@ -1713,6 +1724,7 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
                 if (top < f.sim) {
                   const idx = feedFinal.findIndex((p) => p.day === f.day);
                   if (idx >= 0) feedFinal[idx] = cand2;
+                  finalVectorByDay.set(f.day, vec);
                   f.sim = top;
                 }
                 if (f.sim > secondMax) secondMax = f.sim;
@@ -1751,6 +1763,52 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
             ...((dedupMeta as any)._dedup_warning ? { _dedup_warning: true } : {}),
           }
         : undefined;
+
+      // ==== Persistência de embeddings ANTES do save parcial ====
+      // Garante que mesmo semanas que falham no Estágio B alimentem o guardrail
+      // semântico das próximas. Reaproveita vetores já calculados (cand + retries).
+      try {
+        const rows: any[] = [];
+        for (const p of feedFinal) {
+          if (!p || (!p.theme && !p.caption)) continue;
+          const vec = finalVectorByDay.get(p.day);
+          if (!vec) {
+            // Fallback: dia que não passou pelo bloco de dedup — calcula agora.
+            const v = (await embedTextBatch([postToEmbedText(p)]))[0];
+            if (!v) continue;
+            finalVectorByDay.set(p.day, v);
+          }
+          const usedVec = finalVectorByDay.get(p.day)!;
+          const textUsed = postToEmbedText(p);
+          const named = detectNamedCases(
+            `${p.theme || ""} ${(p as any).title || ""} ${p.caption || ""} ${(p.card_copy || []).join(" ")} ${p.cta || ""}`,
+          );
+          rows.push({
+            user_id: userId,
+            report_id: job.report_id,
+            week_index: wkIdxForPartial,
+            day_index: p.day,
+            post_kind: "feed",
+            text_used: textUsed,
+            embedding: usedVec,
+            named_cases: named,
+          });
+        }
+        if (rows.length > 0) {
+          const { error: embErr } = await admin
+            .from("post_embeddings")
+            .upsert(rows, { onConflict: "user_id,report_id,week_index,day_index,post_kind" });
+          if (embErr) {
+            console.warn(`[embed-persist] upsert falhou (pre-partial):`, embErr.message);
+          } else {
+            console.log(`[embed-persist] week=${wkIdxForPartial} upserted=${rows.length} (pre-partial)`);
+          }
+        } else {
+          console.warn(`[embed-persist] week=${wkIdxForPartial} sem vetores válidos para inserir (pre-partial)`);
+        }
+      } catch (embPrePartialErr: any) {
+        console.warn(`[embed-persist] erro pre-partial (ignorado):`, embPrePartialErr?.message || embPrePartialErr);
+      }
 
       let partialPersisted = false;
       try {
@@ -1905,47 +1963,11 @@ Gere agora os 7 stories da semana.`;
       const weekObj = await persistWeek(job.report_id, feedFinal, storiesFinal, jobId, marketTrends, wkIdxForPartial, false, weekExtraMeta);
       console.log(`[content-job] week=${wkIdxForPartial} user=${userId} stage=B status=success partial_saved=true`);
 
-      // ==== Persistência de embeddings (guardrail semântico) ====
-      // Salva 1 linha por post feed para alimentar a deduplicação semântica das próximas semanas.
-      try {
-        const candidates = feedFinal.filter((p) => p && (p.theme || p.caption));
-        if (candidates.length > 0) {
-          const texts = candidates.map((p) => postToEmbedText(p));
-          const vectors = await embedTextBatch(texts);
-          const rows: any[] = [];
-          for (let i = 0; i < candidates.length; i++) {
-            const vec = vectors[i];
-            if (!vec) continue;
-            const p = candidates[i];
-            const textUsed = texts[i];
-            const named = detectNamedCases(
-              `${p.theme || ""} ${(p as any).title || ""} ${p.caption || ""} ${(p.card_copy || []).join(" ")} ${p.cta || ""}`,
-            );
-            rows.push({
-              user_id: userId,
-              report_id: job.report_id,
-              week_index: wkIdxForPartial,
-              day_index: p.day,
-              post_kind: "feed",
-              text_used: textUsed,
-              embedding: vec,
-              named_cases: named,
-            });
-          }
-          if (rows.length > 0) {
-            const { error: embErr } = await admin.from("post_embeddings").insert(rows);
-            if (embErr) {
-              console.warn(`[embed-persist] insert falhou:`, embErr.message);
-            } else {
-              console.log(`[embed-persist] week=${wkIdxForPartial} inserted=${rows.length}`);
-            }
-          } else {
-            console.warn(`[embed-persist] week=${wkIdxForPartial} sem vetores válidos para inserir`);
-          }
-        }
-      } catch (embPersistErr: any) {
-        console.warn(`[embed-persist] erro geral (ignorado):`, embPersistErr?.message || embPersistErr);
-      }
+      // Embeddings já foram upsertados ANTES do save parcial (Fix D).
+      // Não re-inserimos aqui para evitar duplicação; o upsert é idempotente
+      // por (user_id, report_id, week_index, day_index, post_kind).
+
+
 
       // Persiste fingerprints de diversidade + log de telemetria estruturado
       try {
