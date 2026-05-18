@@ -75,6 +75,24 @@ const AUDIENCE_QUALIFICATION_WINDOW_DAYS = 14;
 const THESIS_COSINE_THRESHOLD = 0.70;
 const RECENT_HISTORY_WEEKS = 8;
 
+// Bug E fix: normaliza padrões (brand/framework/opening_form) para casamento
+// robusto entre semanas. "método de 4 cortes" e "método de N cortes" precisam
+// bater. Lower + strip acentos + numerais e palavras-número viram N + remove
+// pontuação + colapsa espaços.
+const PT_NUMBER_WORDS = new Set([
+  "um","uma","dois","duas","tres","três","quatro","cinco","seis","sete","oito",
+  "nove","dez","onze","doze","treze","catorze","quatorze","quinze","dezesseis",
+  "dezessete","dezoito","dezenove","vinte","cem","cento","mil","n",
+]);
+function normalizePattern(s: string): string {
+  if (!s) return "";
+  let n = String(s).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  n = n.replace(/\d+/g, " N ");
+  n = n.replace(/[^\p{L}\p{N}\s]/gu, " ");
+  const tokens = n.split(/\s+/).filter(Boolean).map((t) => (PT_NUMBER_WORDS.has(t) ? "N" : t));
+  return tokens.join(" ").trim();
+}
+
 function jaccardSimilarity(a: string, b: string): number {
   const norm = (s: string) =>
     new Set(
