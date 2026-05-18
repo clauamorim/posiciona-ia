@@ -739,7 +739,7 @@ async function processJob(jobId: string) {
       // Hints de diversidade — fórmulas e conceitos centrais usados nas últimas 2 semanas
       let diversityHints = { bannedFormulas: [] as any[], dampenedConcepts: [] as any[] };
       try {
-        const since = new Date(Date.now() - 28 * 24 * 60 * 60 * 1000).toISOString();
+        const since = new Date(Date.now() - DEDUP_WINDOW_MS).toISOString();
         const { data: patternRows } = await admin
           .from("used_title_patterns")
           .select("title_formula, central_concepts, named_cases, created_at")
@@ -1082,7 +1082,7 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
         if (candidates.length > 0) {
           const texts = candidates.map(({ p }) => postToEmbedText(p));
           const vectors = await embedTextBatch(texts);
-          const since = new Date(Date.now() - 28 * 24 * 60 * 60 * 1000).toISOString();
+          const since = new Date(Date.now() - DEDUP_WINDOW_MS).toISOString();
           const violations: { day: number; matches: any[]; topSim: number }[] = [];
           for (let i = 0; i < vectors.length; i++) {
             const vec = vectors[i];
