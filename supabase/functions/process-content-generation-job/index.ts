@@ -1724,6 +1724,7 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
                 if (top < f.sim) {
                   const idx = feedFinal.findIndex((p) => p.day === f.day);
                   if (idx >= 0) feedFinal[idx] = cand2;
+                  finalVectorByDay.set(f.day, vec);
                   f.sim = top;
                 }
                 if (f.sim > secondMax) secondMax = f.sim;
