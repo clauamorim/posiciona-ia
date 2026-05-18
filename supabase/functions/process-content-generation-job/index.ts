@@ -1764,6 +1764,52 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
           }
         : undefined;
 
+      // ==== Persistência de embeddings ANTES do save parcial ====
+      // Garante que mesmo semanas que falham no Estágio B alimentem o guardrail
+      // semântico das próximas. Reaproveita vetores já calculados (cand + retries).
+      try {
+        const rows: any[] = [];
+        for (const p of feedFinal) {
+          if (!p || (!p.theme && !p.caption)) continue;
+          const vec = finalVectorByDay.get(p.day);
+          if (!vec) {
+            // Fallback: dia que não passou pelo bloco de dedup — calcula agora.
+            const v = (await embedTextBatch([postToEmbedText(p)]))[0];
+            if (!v) continue;
+            finalVectorByDay.set(p.day, v);
+          }
+          const usedVec = finalVectorByDay.get(p.day)!;
+          const textUsed = postToEmbedText(p);
+          const named = detectNamedCases(
+            `${p.theme || ""} ${(p as any).title || ""} ${p.caption || ""} ${(p.card_copy || []).join(" ")} ${p.cta || ""}`,
+          );
+          rows.push({
+            user_id: userId,
+            report_id: job.report_id,
+            week_index: wkIdxForPartial,
+            day_index: p.day,
+            post_kind: "feed",
+            text_used: textUsed,
+            embedding: usedVec,
+            named_cases: named,
+          });
+        }
+        if (rows.length > 0) {
+          const { error: embErr } = await admin
+            .from("post_embeddings")
+            .upsert(rows, { onConflict: "user_id,report_id,week_index,day_index,post_kind" });
+          if (embErr) {
+            console.warn(`[embed-persist] upsert falhou (pre-partial):`, embErr.message);
+          } else {
+            console.log(`[embed-persist] week=${wkIdxForPartial} upserted=${rows.length} (pre-partial)`);
+          }
+        } else {
+          console.warn(`[embed-persist] week=${wkIdxForPartial} sem vetores válidos para inserir (pre-partial)`);
+        }
+      } catch (embPrePartialErr: any) {
+        console.warn(`[embed-persist] erro pre-partial (ignorado):`, embPrePartialErr?.message || embPrePartialErr);
+      }
+
       let partialPersisted = false;
       try {
         await persistWeek(job.report_id, feedFinal, [], jobId, marketTrends, wkIdxForPartial, true, weekExtraMeta);
