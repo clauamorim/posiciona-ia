@@ -111,7 +111,9 @@ serve(async (req) => {
         });
       }
       if (rows.length > 0) {
-        const { error: insErr } = await admin.from("post_embeddings").insert(rows);
+        const { error: insErr } = await admin
+          .from("post_embeddings")
+          .upsert(rows, { onConflict: "user_id,report_id,week_index,day_index,post_kind" });
         if (insErr) errors.push(insErr.message);
         else inserted += rows.length;
       }
