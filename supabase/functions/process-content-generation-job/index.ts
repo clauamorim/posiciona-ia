@@ -1122,38 +1122,71 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
               matches_blocked: [] as string[],
               entity_extraction_source: "fallback-raw" as "gemini-flash-lite" | "fallback-raw",
               threshold: 0.80,
+              window_days: DEDUP_WINDOW_DAYS,
+              thesis_summaries: {} as Record<number, string>,
+              audience_qualification_scores: {} as Record<number, number>,
               ts: new Date().toISOString(),
             };
 
             await updateJob(jobId, { progress_message: "Removendo repetições semânticas…" });
 
-            // ---- Extração de entidades via Gemini Flash Lite (cai para fallback-raw em erro) ----
-            type DayTargets = { day: number; brands: string[]; frameworks: string[]; opening_forms: string[] };
+            // ---- Extração de entidades + tese + qualificação de público via Gemini Flash Lite ----
+            type DayTargets = {
+              day: number;
+              brands: string[];
+              frameworks: string[];
+              opening_forms: string[];
+              thesis_summary: string;
+              audience_qualification_score: number;
+              match_theses: { week_index: number; day_index: number; thesis: string; similarity: number }[];
+            };
             let dayTargets: DayTargets[] = [];
             try {
               const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
               if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY ausente");
+
+              // Para cada violação, inclui o texto do CANDIDATE (o post recém-gerado)
+              // e os textos dos MATCHES (posts antigos que dispararam o conflito).
+              const candidateTextByDay = new Map<number, string>();
+              for (const v of violations) {
+                const cand = feedFinal.find((p) => p.day === v.day);
+                if (cand) candidateTextByDay.set(v.day, postToEmbedText(cand));
+              }
               const extractionInput = violations
-                .map(
-                  (v) =>
+                .map((v) => {
+                  const candText = (candidateTextByDay.get(v.day) || "").slice(0, 700);
+                  const matchesText = v.matches
+                    .map(
+                      (m: any, idx: number) =>
+                        `${idx + 1}. [Sem ${m.week_index ?? "?"} dia ${m.day_index ?? "?"} sim=${Number(m.similarity).toFixed(2)}] ${String(m.text_used || "").slice(0, 500)}`,
+                    )
+                    .join("\n");
+                  return (
                     `## Dia ${v.day}\n` +
-                    v.matches
-                      .map(
-                        (m: any, idx: number) =>
-                          `${idx + 1}. ${String(m.text_used || "").slice(0, 500)}`,
-                      )
-                      .join("\n"),
-                )
+                    `### CANDIDATE (post novo gerado agora — extraia thesis_summary e audience_qualification_score DESTE):\n${candText}\n` +
+                    `### MATCHES (posts antigos do mesmo usuário — extraia thesis de CADA UM como match_theses):\n${matchesText}`
+                  );
+                })
                 .join("\n\n");
+
               const extractionSystem =
                 "Você extrai padrões repetitivos de posts de redes sociais em português. " +
-                "Para cada dia listado, identifique: " +
-                "(1) brands — marcas/produtos citados nominalmente ou por descrição inequívoca (ex.: 'iPhone 7 sem entrada de fone' → ['Apple', 'iPhone']); " +
-                "(2) frameworks — estruturas numéricas ou metodológicas (ex.: 'método de 4 cortes' → ['método de N elementos']); " +
-                "(3) opening_forms — fôrmas narrativas de abertura recorrentes (ex.: 'A regra/dor/decisão de X está Y'). " +
-                "Retorne APENAS um JSON array no formato: " +
-                '[{"day": N, "brands": [], "frameworks": [], "opening_forms": []}]. ' +
-                "Sem texto extra, sem markdown.";
+                "Para CADA dia listado, identifique a partir do CANDIDATE: " +
+                "(1) brands — marcas/produtos/autores/livros citados nominalmente OU por descrição inequívoca. " +
+                "IMPORTANTE — NORMALIZAÇÃO DE ENTIDADES: trate variações do mesmo autor/obra como UMA entidade. Exemplos: " +
+                "'Strunk & White', 'Strunk and White', 'Elements of Style', 'The Elements of Style' → SEMPRE retorne 'Strunk & White' em brands (não em frameworks/opening_forms). " +
+                "Mesma regra para qualquer autor/livro citado (use o nome canônico mais reconhecido). " +
+                "(2) frameworks — estruturas numéricas ou metodológicas (ex.: 'método de 4 cortes' → ['método de N elementos']). " +
+                "(3) opening_forms — fôrmas narrativas de abertura recorrentes. " +
+                "Trate 'A [crença/regra/ideia/conselho/recomendação] de \"X\" está [Y]' como UMA fôrma única (não variações separadas) — retorne literalmente 'A [crença/regra/ideia] de X está Y'. " +
+                "(4) thesis_summary — UMA frase em pt-BR com a tese central do CANDIDATE no formato '[sujeito] [verbo] [consequência]'. " +
+                "Exemplos: 'humanizar mostrando bastidor dilui autoridade técnica' | 'Posiciona reposiciona profissional técnico em 90 dias' | 'responder rápido ensina cliente premium que tempo do especialista não vale o cobrado'. " +
+                "(5) audience_qualification_score — número de 0.0 a 1.0 indicando se o CANDIDATE é sobre 'quem é meu cliente ideal vs quem não é' (qualificação/desqualificação de público). " +
+                "0.0 = post puramente técnico sem qualificar público; 0.5 = menciona perfil de cliente de passagem; 1.0 = post inteiro é sobre 'atendo X, não atendo Y'. " +
+                "(6) match_theses — array com a thesis_summary de CADA um dos MATCHES (mesma frase curta de tese), preservando o week_index, day_index e similarity informados. " +
+                "Retorne APENAS um JSON array, sem texto extra e sem markdown, no formato: " +
+                '[{"day": N, "brands": [], "frameworks": [], "opening_forms": [], "thesis_summary": "...", "audience_qualification_score": 0.0, "match_theses": [{"week_index": N, "day_index": N, "thesis": "...", "similarity": 0.0}]}].';
+
               const extractionResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
                 method: "POST",
                 headers: {
@@ -1182,6 +1215,21 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
                   brands: Array.isArray(t.brands) ? t.brands.map(String) : [],
                   frameworks: Array.isArray(t.frameworks) ? t.frameworks.map(String) : [],
                   opening_forms: Array.isArray(t.opening_forms) ? t.opening_forms.map(String) : [],
+                  thesis_summary: typeof t.thesis_summary === "string" ? t.thesis_summary : "",
+                  audience_qualification_score: Math.max(
+                    0,
+                    Math.min(1, Number(t.audience_qualification_score) || 0),
+                  ),
+                  match_theses: Array.isArray(t.match_theses)
+                    ? t.match_theses
+                        .filter((m: any) => m && typeof m === "object")
+                        .map((m: any) => ({
+                          week_index: Number(m.week_index ?? -1),
+                          day_index: Number(m.day_index ?? -1),
+                          thesis: typeof m.thesis === "string" ? m.thesis : "",
+                          similarity: Number(m.similarity) || 0,
+                        }))
+                    : [],
                 }));
               dedupMeta.entity_extraction_source = "gemini-flash-lite";
               const blockedSet = new Set<string>();
@@ -1189,10 +1237,12 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
                 t.brands.forEach((b) => blockedSet.add(b));
                 t.frameworks.forEach((f) => blockedSet.add(f));
                 t.opening_forms.forEach((o) => blockedSet.add(o));
+                if (t.thesis_summary) dedupMeta.thesis_summaries[t.day] = t.thesis_summary;
+                dedupMeta.audience_qualification_scores[t.day] = t.audience_qualification_score;
               }
               dedupMeta.matches_blocked = Array.from(blockedSet);
               console.log(
-                `[semantic-dedup] entities-extracted week=${wkIdxForPartial} blocked=${JSON.stringify(dedupMeta.matches_blocked)}`,
+                `[semantic-dedup] entities-extracted week=${wkIdxForPartial} blocked=${JSON.stringify(dedupMeta.matches_blocked)} thesis=${JSON.stringify(dedupMeta.thesis_summaries)} audience=${JSON.stringify(dedupMeta.audience_qualification_scores)}`,
               );
             } catch (extractErr: any) {
               console.warn(
@@ -1201,6 +1251,63 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
               );
               dayTargets = [];
               dedupMeta.entity_extraction_source = "fallback-raw";
+            }
+
+            // ---- Checagem de SATURAÇÃO DE PÚBLICO (últimas 2 semanas) ----
+            // Se outro post nas últimas 14 dias já teve score > 0.6, marcamos
+            // o dia atual como saturação de público para forçar reescrita.
+            const audienceSaturationByDay = new Map<number, { week_index: number; score: number }>();
+            try {
+              const { data: reportRow } = await admin
+                .from("reports")
+                .select("editorial_weeks")
+                .eq("id", job.report_id)
+                .maybeSingle();
+              const allWeeks: any[] = Array.isArray(reportRow?.editorial_weeks)
+                ? reportRow!.editorial_weeks
+                : [];
+              const cutoff = Date.now() - AUDIENCE_QUALIFICATION_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+              const recentScores: { week_index: number; score: number }[] = [];
+              for (const w of allWeeks) {
+                if (!w || typeof w !== "object") continue;
+                const wIdx = Number((w as any)._week_index ?? (w as any).week_index ?? -1);
+                if (wIdx === wkIdxForPartial) continue; // ignora a própria
+                const generatedAt = (w as any)._generated_at || (w as any)._dedup_metrics?.ts;
+                if (generatedAt) {
+                  const ts = Date.parse(String(generatedAt));
+                  if (Number.isFinite(ts) && ts < cutoff) continue;
+                }
+                const scores = (w as any)?._dedup_metrics?.audience_qualification_scores;
+                if (scores && typeof scores === "object") {
+                  for (const v of Object.values(scores)) {
+                    const n = Number(v);
+                    if (Number.isFinite(n) && n > AUDIENCE_QUALIFICATION_THRESHOLD) {
+                      recentScores.push({ week_index: wIdx, score: n });
+                    }
+                  }
+                }
+              }
+              if (recentScores.length > 0) {
+                for (const t of dayTargets) {
+                  if (t.audience_qualification_score > AUDIENCE_QUALIFICATION_THRESHOLD) {
+                    // já existe outro post de qualificação recente → satura
+                    const top = recentScores.sort((a, b) => b.score - a.score)[0];
+                    audienceSaturationByDay.set(t.day, top);
+                  }
+                }
+                if (audienceSaturationByDay.size > 0) {
+                  console.log(
+                    `[semantic-dedup] audience-saturation week=${wkIdxForPartial} days=${JSON.stringify(
+                      Array.from(audienceSaturationByDay.keys()),
+                    )}`,
+                  );
+                }
+              }
+            } catch (satErr: any) {
+              console.warn(
+                `[semantic-dedup] audience-saturation-check-failed (ignorado):`,
+                satErr?.message || satErr,
+              );
             }
 
             // ---- Monta anti-prompt enriquecido ----
@@ -1214,7 +1321,7 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
 
             const dedupBlock =
               `\n\n# ⚠️ DEDUPLICAÇÃO SEMÂNTICA (CRÍTICO)\n` +
-              `Os dias listados abaixo possuem ângulo/tese semanticamente próximos a posts já gerados nos últimos 28 dias. ` +
+              `Os dias listados abaixo possuem ângulo/tese semanticamente próximos a posts já gerados nos últimos ${DEDUP_WINDOW_DAYS} dias. ` +
               `Reescreva cada um com um ângulo radicalmente diferente. Mantenha tema, tom e formato compatíveis com a semana, mas o NÚCLEO precisa mudar.\n\n` +
               violations
                 .map((v) => {
@@ -1231,6 +1338,34 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
                   if (t && t.frameworks.length > 0) {
                     proibicoes.push(`NÃO use o framework: ${t.frameworks.join(" | ")}`);
                   }
+                  // Tese proibida — comparar candidate vs cada match
+                  const thesisBlocks: string[] = [];
+                  if (t && t.thesis_summary && Array.isArray(t.match_theses)) {
+                    for (const mt of t.match_theses) {
+                      if (!mt.thesis) continue;
+                      const sim = jaccardSimilarity(t.thesis_summary, mt.thesis);
+                      if (sim > THESIS_SIMILARITY_THRESHOLD) {
+                        thesisBlocks.push(
+                          `TESE PROIBIDA (já defendida em Sem ${mt.week_index}, sim=${sim.toFixed(2)}):\n` +
+                            `"${mt.thesis}"\n` +
+                            `Reescreva defendendo uma tese RADICALMENTE diferente — não basta trocar o público citado. A consequência precisa mudar.`,
+                        );
+                      }
+                    }
+                  }
+                  // Saturação de público
+                  const sat = audienceSaturationByDay.get(v.day);
+                  let audienceBlock = "";
+                  if (sat && t) {
+                    audienceBlock =
+                      `\nPOST PROIBIDO: este dia ficou com audience_qualification_score = ${t.audience_qualification_score.toFixed(
+                        2,
+                      )} (post de "quem atendo vs quem não atendo"). ` +
+                      `Já houve outro post desse tipo na Semana ${sat.week_index} (score=${sat.score.toFixed(
+                        2,
+                      )}). Limite: 1 post de qualificação a cada ${AUDIENCE_QUALIFICATION_WINDOW_DAYS} dias.\n` +
+                      `Reescreva pra ser sobre OUTRO ângulo (técnico, case, observação, crítica de método) — NÃO sobre qualificar público.\n`;
+                  }
                   const matchesEcho = v.matches
                     .map(
                       (m: any, idx: number) =>
@@ -1240,6 +1375,8 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
                   return (
                     `## Dia ${v.day} — proibições nominais\n` +
                     (proibicoes.length > 0 ? proibicoes.join("\n") + "\n" : "") +
+                    (thesisBlocks.length > 0 ? "\n" + thesisBlocks.join("\n\n") + "\n" : "") +
+                    audienceBlock +
                     `\nNÃO use case de marca grande tomando decisão de produto polêmica como gancho. ` +
                     `Cases empresariais de outra família (gestão, conflito interno, decisão regulatória, sucessão) seguem permitidos ` +
                     `se o gancho narrativo não for "X removeu/cortou Y → lição sobre cobrar/recortar".\n\n` +
@@ -1253,6 +1390,7 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
                 })
                 .join("\n\n") +
               `\n\nRetorne APENAS um JSON array com os dias reescritos (mesmo schema do feed).`;
+
 
             const retryUser = `${feedUser}\n\n# CONTEXTO DA SEMANA (NÃO REESCREVER)\n${keepContext}${dedupBlock}`;
             try {
