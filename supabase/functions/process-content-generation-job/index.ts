@@ -1490,7 +1490,9 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
                 const repFw = repeatedFrameworksByDay.get(day);
                 if (repFw && repFw.length > 0) proibicoes.push(`NÃO use frameworks repetidos: ${repFw.join(" | ")}`);
                 else if (t && t.frameworks.length > 0) proibicoes.push(`NÃO use o framework: ${t.frameworks.join(" | ")}`);
-                if (t && t.opening_forms.length > 0) proibicoes.push(`NÃO use a fôrma narrativa: ${t.opening_forms.join(" | ")}`);
+                const repOf = repeatedOpeningFormsByDay.get(day);
+                if (repOf && repOf.length > 0) proibicoes.push(`NÃO use fôrmas narrativas repetidas (já usadas nas últimas 8 semanas): ${repOf.join(" | ")}`);
+                else if (t && t.opening_forms.length > 0) proibicoes.push(`NÃO use a fôrma narrativa: ${t.opening_forms.join(" | ")}`);
 
                 const thesisStr = (thesisBlocksByDay.get(day) || [])
                   .map(
