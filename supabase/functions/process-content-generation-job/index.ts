@@ -66,13 +66,14 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-// Dedup v2: janela do detector semântico (28d→56d) + janela curta de
-// saturação de público (qualification posts).
+// Dedup v3: extração SEMPRE + tese por cosine + 2º retry agressivo +
+// marcação por dia (_dedup_failed) quando ambas tentativas falham.
 const DEDUP_WINDOW_DAYS = 56;
 const DEDUP_WINDOW_MS = DEDUP_WINDOW_DAYS * 24 * 60 * 60 * 1000;
 const AUDIENCE_QUALIFICATION_THRESHOLD = 0.6;
 const AUDIENCE_QUALIFICATION_WINDOW_DAYS = 14;
-const THESIS_SIMILARITY_THRESHOLD = 0.75;
+const THESIS_COSINE_THRESHOLD = 0.70;
+const RECENT_HISTORY_WEEKS = 8;
 
 function jaccardSimilarity(a: string, b: string): number {
   const norm = (s: string) =>
@@ -571,6 +572,7 @@ interface FeedPost {
   cta?: string;
   script?: string;
   is_personal?: boolean;
+  _dedup_failed?: boolean;
 }
 
 // StoryDay agora vem do _shared/storiesPromptBuilder.ts
