@@ -1107,6 +1107,19 @@ const EditorialPage = () => {
                   </div>
                 </div>
               )}
+              {(week as any)._dedup_warning === true && (
+                <div className="mb-4 rounded-md border border-amber-300 bg-amber-50 p-4 text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100">
+                  <strong className="block font-semibold mb-1">Repetição detectada nesta semana</strong>
+                  <span className="text-sm opacity-90">
+                    Alguns posts permaneceram com alta similaridade frente às últimas semanas mesmo após reescrita. Revise os dias destacados em âmbar antes de publicar — você pode regenerá-los individualmente usando crédito de regeneração.
+                  </span>
+                  {Array.isArray((week as any)._dedup_metrics?.dedup_failed_days) && (week as any)._dedup_metrics.dedup_failed_days.length > 0 && (
+                    <span className="block text-xs mt-2 opacity-80">
+                      Dias afetados: {(week as any)._dedup_metrics.dedup_failed_days.join(", ")}
+                    </span>
+                  )}
+                </div>
+              )}
               {weekTrends.length > 0 && (
                 <MarketTrendsSection
                   trends={weekTrends}
@@ -1143,9 +1156,16 @@ const EditorialPage = () => {
                             <div className="flex items-center justify-between">
                               <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Feed</span>
                               {feed ? (
-                                <Badge variant="outline" className={`text-[10px] gap-1 ${fmt.color}`}>
-                                  {fmt.icon} {fmt.label}
-                                </Badge>
+                                <div className="flex items-center gap-1.5">
+                                  {(feed as any)._dedup_failed === true && (
+                                    <span className="inline-flex items-center rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100">
+                                      Repetição
+                                    </span>
+                                  )}
+                                  <Badge variant="outline" className={`text-[10px] gap-1 ${fmt.color}`}>
+                                    {fmt.icon} {fmt.label}
+                                  </Badge>
+                                </div>
                               ) : (
                                 <span className="text-[10px] text-muted-foreground italic">Sem post</span>
                               )}
