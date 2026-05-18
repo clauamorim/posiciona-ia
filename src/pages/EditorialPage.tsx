@@ -1156,9 +1156,16 @@ const EditorialPage = () => {
                             <div className="flex items-center justify-between">
                               <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Feed</span>
                               {feed ? (
-                                <Badge variant="outline" className={`text-[10px] gap-1 ${fmt.color}`}>
-                                  {fmt.icon} {fmt.label}
-                                </Badge>
+                                <div className="flex items-center gap-1.5">
+                                  {(feed as any)._dedup_failed === true && (
+                                    <span className="inline-flex items-center rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100">
+                                      Repetição
+                                    </span>
+                                  )}
+                                  <Badge variant="outline" className={`text-[10px] gap-1 ${fmt.color}`}>
+                                    {fmt.icon} {fmt.label}
+                                  </Badge>
+                                </div>
                               ) : (
                                 <span className="text-[10px] text-muted-foreground italic">Sem post</span>
                               )}
