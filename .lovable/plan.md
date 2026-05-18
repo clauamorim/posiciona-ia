@@ -1,113 +1,53 @@
-## Objetivo
+# Passo 5 — UI de falha de deduplicação
 
-Tornar o relatório a Single Source of Truth (SSoT) da marca. Análise de Instagram, linha editorial, retratos e geração visual de posts passam a consumir símbolos, paleta, figurino e tom de voz do relatório do usuário, em vez de gerar em paralelo.
+Backend já marca `_dedup_failed=true` por dia em `week.days[i].feed` e expõe `_dedup_warning` + `_dedup_metrics.dedup_failed_days` no nível da semana. Falta só a UI.
 
----
+## Mudanças (apenas `src/pages/EditorialPage.tsx`)
 
-## 1. Guardrails éticos no relatório (`generate-report`)
+### 1. Banner âmbar no topo do bloco da semana
+Após o bloco existente `(week._partial || week._stage_b_failed)` (linha ~1091), adicionar:
 
-Localizar a função que gera o relatório (provavelmente `supabase/functions/generate-report/index.ts` ou similar) e:
+```tsx
+{week._dedup_warning === true && (
+  <div className="mb-4 rounded-md border border-amber-300 bg-amber-50 p-4 text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100">
+    <strong className="block font-semibold mb-1">Repetição detectada nesta semana</strong>
+    <span className="text-sm opacity-90">
+      Alguns posts permaneceram com alta similaridade frente às últimas semanas mesmo após reescrita. Revise os dias destacados em âmbar antes de publicar — você pode regenerá-los individualmente usando crédito de regeneração.
+    </span>
+    {Array.isArray(week._dedup_metrics?.dedup_failed_days) && week._dedup_metrics.dedup_failed_days.length > 0 && (
+      <span className="block text-xs mt-2 opacity-80">
+        Dias afetados: {week._dedup_metrics.dedup_failed_days.join(", ")}
+      </span>
+    )}
+  </div>
+)}
+```
 
-- Detectar profissão via `detectProfession()` e injetar `getEthicalRulesBlock(category)` no prompt do Gemini.
-- Adicionar bloco de **substituições obrigatórias** quando regulamentada:
-  - "antes e depois" → "trilha de transformação contada pelo método"
-  - "fórmula que poucos conhecem" / "segredo" / "fórmula mágica" → "metodologia construída ao longo de [X] anos"
-  - CTA "agende pelo WhatsApp" / "agende seu diagnóstico" → "salve este post", "guarde esta informação", "indique para um colega"
-- Pós-geração: rodar `validatePostCompliance()` (já existente) sobre todos os campos textuais do relatório (bio, CTAs, descrição de arquétipos, símbolos, figurino, tom de voz). Se severity `high`, **retry guiado uma vez** apontando o trecho infrator. Nunca bloquear entrega — log de auditoria se persistir.
+Condição de exibição: `week._dedup_warning === true`. O array `dedup_failed_days` é apenas informativo.
 
-## 2. Validador de contradição interna do relatório
+### 2. Chip âmbar no card de cada dia falho
+Dentro de `week.days.map(...)` (linha ~1122), no `<Card>` de cada dia, quando `feed?._dedup_failed === true`, renderizar um pequeno indicador âmbar ao lado do título/dia do card (próximo ao badge de formato existente):
 
-Novo módulo `supabase/functions/_shared/reportCoherenceValidator.ts`:
+```tsx
+{feed?._dedup_failed === true && (
+  <span className="inline-flex items-center rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100">
+    Repetição
+  </span>
+)}
+```
 
-- Extrai a lista "palavras a evitar" do tom de voz do relatório.
-- Varre todas as outras seções (arquétipos, símbolos, figurino, StoryBrand, CTAs) procurando essas palavras.
-- Palavras críticas hard-coded sempre verificadas: `segredo`, `fórmula mágica`, `fácil`, `rápido`, `viral`.
-- Retorna `{ contradictions: [{section, word, snippet}] }`.
-- Se houver contradições, retry guiado uma vez no `generate-report` listando exatamente o que reescrever.
+Posição: junto ao header do card (mesma linha do badge de formato). Sem emojis, conforme guideline.
 
-## 3. Persistir símbolos e paleta do relatório (DB)
+### 3. Tipagem
+`DayV6.feed` em `src/lib/editorialShape.ts` mantém `FeedPostV6` — o campo `_dedup_failed` é opcional e acessado com optional chaining + cast em uma única linha. Nenhuma mudança em tipos é necessária (o JSONB carrega o campo intacto).
 
-Migração — duas tabelas novas:
+## Não muda
+- Lógica de geração (Passos 1-4 já implementados)
+- Estilos globais / index.css
+- Nenhum estado novo, nenhum hook novo
 
-**`user_archetype_symbols`**
-- `user_id`, `report_id`, `report_version`
-- `symbol_name` (text)
-- `applies_to` (text[]) — ex: `["overlay", "highlight_icon", "post_decoration"]`
-- `svg_data` (text, nullable) — SVG inline se gerado
-- `emoji` (text, nullable) — fallback emoji
-- `priority` (int) — ordem do relatório
-- RLS: usuário lê/insere o seu; service role full
-
-**`user_brand_palette`**
-- `user_id`, `report_id`, `report_version`
-- `color_name` (text) — ex: "Verde Aventura"
-- `hex` (text) — ex: `#1ABC9C`
-- `role` (text) — `primary | secondary | accent | neutral_light | neutral_dark`
-- `priority` (int)
-- RLS idem.
-
-Na conclusão de `generate-report`, popular as duas tabelas (deletando versões antigas do mesmo user e inserindo as novas atômicas). Sempre usar a versão `max(version)` em consultas.
-
-## 4. Consumo da SSoT pelos geradores visuais
-
-**`buildAutoLayout` / `buildArchetypeOverlays`** (arquivo provavelmente em `src/lib/postEditor/...` ou `src/features/posts/...`):
-- Antes de cair em overlays genéricos por arquétipo, consultar `user_archetype_symbols` da versão mais recente do usuário.
-- Se vazio, fallback para os símbolos genéricos atuais.
-
-**Paleta no editor / templates**:
-- Hook novo `useUserBrandPalette()` que retorna as cores do `user_brand_palette` (versão mais recente).
-- Onde hoje se lê a paleta padrão por arquétipo (post editor, geração de stories, geração de capas), trocar para tentar SSoT primeiro, fallback para paleta default.
-
-## 5. `analyze-instagram` consome o relatório
-
-Antes de chamar a LLM, carregar do DB:
-- Último relatório do usuário (`reports` onde `version = max`).
-- Símbolos da SSoT (`user_archetype_symbols`).
-- Paleta da SSoT (`user_brand_palette`).
-- Tom de voz (palavras a usar / evitar do relatório).
-- Figurino estratégico (peças e cores).
-
-Injetar no system prompt um bloco `BRAND_SSOT_BLOCK` com instruções:
-- Sugestões de **destaques** DEVEM citar os símbolos da lista (nome + emoji/svg) como ícones recomendados.
-- Sugestões de **paleta** DEVEM usar exatamente as 5 cores nomeadas (não inventar).
-- Sugestões de **bio/CTA** DEVEM respeitar palavras a usar/evitar (e nunca repetir as banidas).
-- Sugestões de **figurino** DEVEM citar as peças e cores do figurino estratégico.
-
-Se o relatório não existir, comportamento atual permanece (genérico).
-
-## 6. `generate-portrait` consome figurino
-
-A função (`supabase/functions/generate-portrait/index.ts` ou nome equivalente) lê do relatório do usuário:
-- Lista de peças-chave do figurino estratégico.
-- Cores de roupa recomendadas (da paleta SSoT).
-- Paleta de fundo recomendada.
-
-Esses dados são injetados no prompt do Gemini como bloco `WARDROBE_GUIDANCE_BLOCK` (peças permitidas, cores, evitar X). Fallback para o comportamento atual se vazio.
-
----
-
-## Arquivos esperados
-
-**Novos:**
-- `supabase/functions/_shared/reportCoherenceValidator.ts`
-- `supabase/functions/_shared/brandSSoT.ts` — helpers `loadUserSymbols()`, `loadUserPalette()`, `loadUserWardrobe()`, `renderBrandSSoTBlock()`
-- Migração DB para `user_archetype_symbols` + `user_brand_palette`
-- `src/hooks/useUserBrandPalette.ts`
-
-**Editados:**
-- `supabase/functions/generate-report/index.ts` (guardrails + validador + persistência SSoT)
-- `supabase/functions/analyze-instagram/index.ts` (carrega SSoT + injeta no prompt)
-- `supabase/functions/generate-portrait/index.ts` (figurino do relatório)
-- `supabase/functions/_shared/professionRules.ts` (substituições obrigatórias se ainda não cobertas)
-- Geradores de overlay/template (a localizar) — consumir `user_archetype_symbols`
-- Componentes de paleta do editor — consumir `useUserBrandPalette()`
-
----
-
-## Validação
-
-- Gerar um relatório teste para profissão regulamentada → conferir que "antes/depois", "segredo", "fórmula mágica" não aparecem.
-- Conferir que tabelas SSoT são populadas após `generate-report`.
-- Rodar `analyze-instagram` para usuário com relatório → conferir que destaques citam símbolos do relatório e paleta usa as 5 cores nomeadas.
-- Gerar retrato → conferir que prompt inclui peças do figurino.
-- Gerar post no editor → conferir que overlays são os símbolos do relatório, não genéricos.
+## Validação após implementação
+1. Você roda `dedup-backfill-thesis` (com `user_id` ou geral)
+2. Confirma W12-W20 com `thesis_summaries` + `extracted_brands_by_day`
+3. Gera W23 e W24
+4. Me devolve os 4 títulos de feed de cada uma + presença/ausência do banner âmbar
