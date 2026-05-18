@@ -925,7 +925,7 @@ const EditorialPage = () => {
       <CardContent className="py-4 flex flex-col items-center gap-3">
         <div className="text-center">
           <p className="text-xs font-semibold text-gold">
-            {weeklyCycles > 0 ? `${weeklyCycles} ciclo${weeklyCycles > 1 ? "s" : ""} disponível${weeklyCycles > 1 ? "is" : ""}` : "Sem ciclos disponíveis"}
+            {weeklyCycles > 0 ? `${weeklyCycles} ciclo${weeklyCycles > 1 ? "s" : ""} dispon${weeklyCycles > 1 ? "íveis" : "ível"}` : "Sem ciclos disponíveis"}
           </p>
         </div>
         <Button onClick={handleGenerateWeek} disabled={generatingWeek || weeklyCycles < 1 || personalSubmitted === null || isReadOnly} className="gap-2">
