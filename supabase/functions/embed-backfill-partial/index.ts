@@ -23,8 +23,14 @@ serve(async (req) => {
     let body: any = {};
     try { body = await req.json(); } catch {}
 
-    // Service-role bypass (admin/scripts).
-    const isServiceRole = token === SUPABASE_SERVICE_ROLE_KEY;
+    // Service-role bypass (admin/scripts) — decodifica claim do JWT.
+    let isServiceRole = token === SUPABASE_SERVICE_ROLE_KEY;
+    if (!isServiceRole) {
+      try {
+        const payload = JSON.parse(atob(token.split(".")[1] || ""));
+        if (payload?.role === "service_role") isServiceRole = true;
+      } catch {}
+    }
     let callerId: string | null = null;
     let isAdmin = false;
 
