@@ -66,6 +66,34 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+// Dedup v2: janela do detector semântico (28d→56d) + janela curta de
+// saturação de público (qualification posts).
+const DEDUP_WINDOW_DAYS = 56;
+const DEDUP_WINDOW_MS = DEDUP_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+const AUDIENCE_QUALIFICATION_THRESHOLD = 0.6;
+const AUDIENCE_QUALIFICATION_WINDOW_DAYS = 14;
+const THESIS_SIMILARITY_THRESHOLD = 0.75;
+
+function jaccardSimilarity(a: string, b: string): number {
+  const norm = (s: string) =>
+    new Set(
+      (s || "")
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9\s]/g, " ")
+        .split(/\s+/)
+        .filter((w) => w.length > 2),
+    );
+  const A = norm(a);
+  const B = norm(b);
+  if (A.size === 0 || B.size === 0) return 0;
+  let inter = 0;
+  for (const w of A) if (B.has(w)) inter++;
+  const uni = A.size + B.size - inter;
+  return uni > 0 ? inter / uni : 0;
+}
+
 async function updateJob(jobId: string, patch: Record<string, any>) {
   await admin.from("content_generation_jobs").update(patch).eq("id", jobId);
 }
