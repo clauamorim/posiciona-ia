@@ -181,7 +181,15 @@ const EditorialPage = () => {
         body: { week_index: weekIndex, report_id: report.id },
       });
       if (error || data?.error) {
-        const msg = data?.error || error?.message || "Não foi possível gerar os stories agora.";
+        let msg: string | undefined = data?.error;
+        if (!msg && (error as any)?.context?.text) {
+          try {
+            const body = await (error as any).context.text();
+            const parsed = JSON.parse(body);
+            msg = parsed?.error;
+          } catch { /* noop */ }
+        }
+        msg = msg || error?.message || "Não foi possível gerar os stories agora.";
         toast({ title: "Falha ao gerar stories", description: msg, variant: "destructive" });
         return;
       }
