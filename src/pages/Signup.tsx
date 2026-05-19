@@ -4,33 +4,19 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
-import { ArrowLeft } from "lucide-react";
-import posicionaLogo from "@/assets/posiciona-logo.png";
 import LegalConsentCheckbox from "@/components/LegalConsentCheckbox";
 import { SeoHead } from "@/components/SeoHead";
-
-const GOALS = [
-  "Atrair novos clientes/pacientes",
-  "Construir autoridade na minha área",
-  "Aumentar minha visibilidade no Instagram",
-  "Me diferenciar da concorrência",
-  "Manter presença ativa sem perder tempo",
-  "Outro",
-];
+import { AuthLayout } from "@/components/auth/AuthLayout";
+import { GoogleAuthButton } from "@/components/auth/GoogleAuthButton";
+import { PasswordInput } from "@/components/auth/PasswordInput";
+import { PasswordStrengthMeter } from "@/components/auth/PasswordStrengthMeter";
 
 const Signup = () => {
   const navigate = useNavigate();
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [profession, setProfession] = useState("");
-  const [niche, setNiche] = useState("");
-  const [whatsapp, setWhatsapp] = useState("");
-  const [mainGoal, setMainGoal] = useState("");
-  const [gender, setGender] = useState("");
   const [legalConsent, setLegalConsent] = useState(false);
   const [legalConsentError, setLegalConsentError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -47,7 +33,7 @@ const Signup = () => {
       email,
       password,
       options: {
-        data: { full_name: fullName, profession, niche, whatsapp, main_goal: mainGoal, gender },
+        data: { full_name: fullName },
         emailRedirectTo: window.location.origin + "/login",
       },
     });
@@ -61,98 +47,58 @@ const Signup = () => {
   };
 
   return (
-    <main className="flex min-h-dvh items-center justify-center px-4 bg-background relative">
+    <AuthLayout showValueProp>
       <SeoHead title="Criar conta · Posiciona" description="Crie sua conta no Posiciona e comece a estruturar seu posicionamento de marca pessoal com IA." path="/signup" />
-      <Button
-        variant="ghost"
-        size="sm"
-        className="absolute top-4 left-4 gap-2 text-muted-foreground hidden sm:flex z-10"
-        onClick={() => navigate("/")}
-      >
-        <ArrowLeft className="h-4 w-4" /> Página inicial
-      </Button>
-      <Card className="w-full max-w-md border-border/50 shadow-xl">
-        <CardHeader className="text-center space-y-2">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <img src={posicionaLogo} alt="Posiciona" className="h-12 w-12" />
-            <h1 className="text-3xl font-bold font-display text-primary">Posiciona</h1>
+      <div className="space-y-6">
+        <header className="space-y-2 text-center lg:text-left">
+          <h1 className="text-3xl font-display font-bold">Criar sua conta</h1>
+          <p className="text-sm text-muted-foreground">Comece a construir seu posicionamento de marca.</p>
+        </header>
+
+        <GoogleAuthButton />
+
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center" aria-hidden="true">
+            <span className="w-full border-t border-border" />
           </div>
-          <CardTitle className="text-xl font-display">Criar sua conta</CardTitle>
-          <CardDescription>Comece a construir seu posicionamento de marca</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSignup} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="fullName">Nome completo</Label>
-              <Input id="fullName" value={fullName} onChange={e => setFullName(e.target.value)} required placeholder="Seu nome" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">E-mail</Label>
-              <Input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="seu@email.com" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Senha</Label>
-              <Input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} placeholder="Mínimo 6 caracteres" />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label htmlFor="whatsapp">WhatsApp</Label>
-                <Input id="whatsapp" type="tel" value={whatsapp} onChange={e => setWhatsapp(e.target.value)} placeholder="(11) 99999-9999" />
-              </div>
-              <div className="space-y-2">
-                <Label>Gênero</Label>
-                <Select value={gender} onValueChange={setGender}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Feminino">Feminino</SelectItem>
-                    <SelectItem value="Masculino">Masculino</SelectItem>
-                    <SelectItem value="Prefiro não informar">Prefiro não informar</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label htmlFor="profession">Profissão</Label>
-                <Input id="profession" value={profession} onChange={e => setProfession(e.target.value)} placeholder="Ex: Designer" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="niche">Nicho</Label>
-                <Input id="niche" value={niche} onChange={e => setNiche(e.target.value)} placeholder="Ex: Moda" />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Objetivo principal com o Posiciona</Label>
-              <Select value={mainGoal} onValueChange={setMainGoal}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione seu objetivo" />
-                </SelectTrigger>
-                <SelectContent>
-                  {GOALS.map(g => (
-                    <SelectItem key={g} value={g}>{g}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <LegalConsentCheckbox
-              checked={legalConsent}
-              onCheckedChange={(v) => { setLegalConsent(v); if (v) setLegalConsentError(""); }}
-              variant="signup"
-              error={legalConsentError}
-            />
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Criando..." : "Criar conta"}
-            </Button>
-          </form>
-          <p className="text-center text-sm text-muted-foreground mt-4">
-            Já tem uma conta?{" "}
-            <Link to="/login" className="text-primary hover:underline font-medium">Entrar</Link>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-background px-2 text-muted-foreground">ou</span>
+          </div>
+        </div>
+
+        <form onSubmit={handleSignup} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="fullName">Nome completo</Label>
+            <Input id="fullName" value={fullName} onChange={e => setFullName(e.target.value)} required placeholder="Seu nome" autoComplete="name" />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="email">E-mail</Label>
+            <Input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="seu@email.com" autoComplete="email" />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="password">Senha</Label>
+            <PasswordInput id="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={8} placeholder="Mínimo 8 caracteres" autoComplete="new-password" />
+            <PasswordStrengthMeter password={password} />
+          </div>
+          <LegalConsentCheckbox
+            checked={legalConsent}
+            onCheckedChange={(v) => { setLegalConsent(v); if (v) setLegalConsentError(""); }}
+            variant="signup"
+            error={legalConsentError}
+          />
+          <Button type="submit" className="w-full" disabled={loading}>
+            {loading ? "Criando..." : "Criar conta"}
+          </Button>
+          <p className="text-center text-xs text-muted-foreground">
+            Em seguida você completará seu perfil em 1 minuto e começará seu diagnóstico.
           </p>
-        </CardContent>
-      </Card>
-    </main>
+        </form>
+
+        <p className="text-center text-sm text-muted-foreground">
+          Já tem uma conta? <Link to="/login" className="text-primary hover:underline font-medium">Entrar</Link>
+        </p>
+      </div>
+    </AuthLayout>
   );
 };
 
