@@ -808,7 +808,9 @@ const Report = () => {
             </div>
           </section>
         )}
+          </TabsContent>
 
+          <TabsContent value="narrativa" className="space-y-10 mt-6">
         {/* SECTION: StoryBrand */}
         {content.storybrand && (
           <section data-pdf-section>
@@ -837,23 +839,67 @@ const Report = () => {
             </div>
           </section>
         )}
+          </TabsContent>
+        </Tabs>
 
-      </div>
+        {/* Bottom actions: Download PDF + Editorial CTA */}
+        <div data-hide-pdf className="space-y-6 pt-4">
+          <div className="flex justify-center">
+            <Button onClick={handleDownloadPDF} disabled={downloadingPdf} size="lg" className="gap-2">
+              {downloadingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+              {downloadingPdf ? "Gerando PDF..." : "Baixar PDF"}
+            </Button>
+          </div>
 
-      {/* Hidden PDF-export-only document — text-first layout */}
-      <div
-        aria-hidden="true"
-        style={{ position: "absolute", left: -9999, top: 0, width: 900, pointerEvents: "none" }}
-      >
-        <div ref={pdfRef}>
-          <ReportPdfDocument
-            content={content}
-            archetypes={archetypeData}
-            createdAt={report?.created_at}
-            userName={userName}
-          />
+          {!report?.content?.is_fallback && (
+            <Card className="relative overflow-hidden border-2 border-primary/30 bg-gradient-to-br from-primary/5 via-background to-accent/5">
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary to-accent" />
+              <CardContent className="pt-6 pb-6 flex flex-col md:flex-row md:items-center gap-4 md:gap-6">
+                <div className="flex items-start gap-3 flex-1">
+                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                    <Calendar className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-display text-lg font-semibold tracking-tight">
+                      {(report?.editorial_weeks?.length ?? 0) > 0 ? "Sua Linha Editorial está pronta" : "Próximo passo: sua Linha Editorial"}
+                    </h3>
+                    <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
+                      {(report?.editorial_weeks?.length ?? 0) > 0
+                        ? "Acesse as 6 semanas de conteúdo construídas a partir desta estratégia."
+                        : "Transforme sua estratégia em 6 semanas de conteúdo prontas para postar."}
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  onClick={() => navigate("/editorial")}
+                  size="lg"
+                  className="gap-2 shrink-0 w-full md:w-auto"
+                >
+                  {(report?.editorial_weeks?.length ?? 0) > 0 ? "Acessar Linha Editorial" : "Gerar Linha Editorial"}
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
+
+      {/* Floating back-to-top */}
+      <button
+        type="button"
+        aria-label="Voltar ao topo"
+        onClick={scrollToTop}
+        className={cn(
+          "fixed right-6 z-40 h-11 w-11 rounded-full",
+          "bg-card/95 backdrop-blur-md border border-border shadow-lg",
+          "flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-primary/40",
+          "transition-all duration-300 ease-out",
+          showBackTop ? "opacity-100 translate-y-0 pointer-events-auto" : "opacity-0 translate-y-2 pointer-events-none",
+        )}
+        style={{ bottom: "calc(5.5rem + env(safe-area-inset-bottom))" }}
+      >
+        <ArrowUp className="h-5 w-5" />
+      </button>
     </DashboardLayout>
   );
 };
