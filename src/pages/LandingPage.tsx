@@ -800,7 +800,8 @@ const LandingPage = () => {
                   {loadingSlug === p.slug ? "Processando..." : "Começar agora"}
                 </Button>
               </div>
-            ))}
+            );
+            })}
           </div>
         </div>
       </section>
