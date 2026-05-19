@@ -54,7 +54,7 @@ const plans = [
       "3 créditos de ajuste de conteúdo",
     ],
     notIncluded: ["Retratos não inclusos"],
-    footer: "Upgrade em até 7 dias e desconte R$ 197",
+    footer: "Faça upgrade em até 7 dias e ganhe R$ 197 de desconto no plano superior",
   },
   {
     name: "Presença Mensal",
@@ -119,7 +119,7 @@ const DemoCarousel = ({ navigate }: { navigate: ReturnType<typeof useNavigate> }
 
   return (
     <section className="py-12 md:py-16 px-4 bg-landing-bg-secondary/40">
-      <div className="max-w-5xl mx-auto space-y-8 text-center">
+      <div className="max-w-5xl lg:max-w-[1280px] mx-auto space-y-8 text-center">
         <div className="space-y-3">
           <h2 className="text-2xl md:text-3xl font-display font-semibold">
             Veja o Posiciona{" "}
@@ -150,7 +150,7 @@ const DemoCarousel = ({ navigate }: { navigate: ReturnType<typeof useNavigate> }
 
           {/* Image */}
           <div
-            className="overflow-hidden rounded-xl border border-landing-border/50 bg-landing-bg/80 shadow-[0_8px_40px_rgba(0,0,0,0.4)] mx-8 md:mx-0"
+            className="overflow-hidden rounded-xl border border-border/40 bg-landing-bg/80 shadow-2xl shadow-purple-900/30 mx-8 md:mx-0 lg:w-[90%] lg:mx-auto"
             onTouchStart={(e) => (touchStartX.current = e.touches[0].clientX)}
             onTouchEnd={(e) => {
               const diff = touchStartX.current - e.changedTouches[0].clientX;
@@ -188,7 +188,7 @@ const DemoCarousel = ({ navigate }: { navigate: ReturnType<typeof useNavigate> }
         </div>
 
         <Button size="lg" onClick={() => navigate("/signup")} className="bg-landing-purple hover:bg-landing-purple/90 text-foreground text-base h-12 px-8">
-          Começar meu posicionamento agora <ArrowRight className="h-4 w-4 ml-2" />
+          Criar meu posicionamento <ArrowRight className="h-4 w-4 ml-2" />
         </Button>
       </div>
     </section>
@@ -211,6 +211,7 @@ const PortraitComparison = () => {
   const [activePortrait, setActivePortrait] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
+  const hasAnimated = useRef(false);
 
   const handleMove = useCallback((clientX: number) => {
     if (!isDragging.current || !containerRef.current) return;
@@ -234,6 +235,39 @@ const PortraitComparison = () => {
       window.removeEventListener("touchmove", onTouch);
     };
   }, [handleMove]);
+
+  // Auto-animate slider once when entering viewport: 50 → 100 → 0 → 50 (~4s, ease-in-out)
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting && !hasAnimated.current) {
+          hasAnimated.current = true;
+          observer.disconnect();
+          const start = performance.now();
+          const duration = 4000;
+          const keyframes = [50, 100, 0, 50];
+          const easeInOut = (t: number) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
+          let raf = 0;
+          const tick = (now: number) => {
+            if (isDragging.current) return; // user took control
+            const t = Math.min(1, (now - start) / duration);
+            const seg = t * (keyframes.length - 1);
+            const i = Math.min(keyframes.length - 2, Math.floor(seg));
+            const localT = easeInOut(seg - i);
+            const value = keyframes[i] + (keyframes[i + 1] - keyframes[i]) * localT;
+            setSliderPos(value);
+            if (t < 1) raf = requestAnimationFrame(tick);
+          };
+          raf = requestAnimationFrame(tick);
+          return () => cancelAnimationFrame(raf);
+        }
+      });
+    }, { threshold: 0.4 });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   return (
     <section className="py-12 md:py-16 px-4">
@@ -415,11 +449,11 @@ const LandingPage = () => {
 
       <main>
       {/* ── HERO ── */}
-      <section className="pt-12 pb-16 md:pt-20 md:pb-24 px-4">
+      <section className="pt-12 pb-16 md:pt-20 md:pb-14 px-4">
         <div className="max-w-3xl mx-auto text-center space-y-6">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-landing-border bg-landing-bg-secondary/50 text-xs md:text-sm text-landing-text-secondary">
             <img src={posicionaLogo} alt="Posiciona" className="h-6 w-6" />
-            Posicionamento estratégico para profissionais que querem cobrar pelo valor que entregam
+            Posicionamento estratégico para profissionais liberais
           </div>
 
           <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-display font-semibold leading-[1.15] tracking-tight">
@@ -557,7 +591,7 @@ const LandingPage = () => {
 
       {/* ── PROVA CONCRETA (entregáveis) ── */}
       <section id="resultados" className="py-12 md:py-16 px-4">
-        <div className="max-w-5xl mx-auto space-y-10">
+        <div className="max-w-5xl lg:max-w-[1280px] mx-auto space-y-10">
           <div className="text-center space-y-2">
             <h2 className="text-2xl md:text-3xl font-display font-semibold">
               Veja o que o Posiciona entrega{" "}
@@ -567,18 +601,18 @@ const LandingPage = () => {
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {[
-              { icon: Brain, title: "Mapa de Arquétipos", desc: "Top 3 arquétipos com pontuação, forças, tom de voz e direção visual.", color: "text-purple-400" },
-              { icon: Target, title: "Narrativa de Marca", desc: "Narrativa completa: personagem, problema, guia, plano e transformação.", color: "text-amber-400" },
-              { icon: BarChart3, title: "Diagnóstico de Perfil", desc: "Análise estratégica da bio, conteúdo, hashtags e oportunidades.", color: "text-emerald-400" },
-              { icon: Calendar, title: "Calendário Editorial", desc: "Semanas inteiras de conteúdo com temas, formatos e CTAs definidos.", color: "text-blue-400" },
-              { icon: MessageSquare, title: "Conteúdos Prontos", desc: "Posts, carrosséis e roteiros de reels com legendas e chamadas para ação.", color: "text-pink-400" },
-              { icon: Camera, title: "Retratos de Posicionamento", desc: "Retratos profissionais gerados por IA com base nos seus arquétipos.", color: "text-landing-gold" },
+              { icon: Brain, title: "Mapa de Arquétipos", desc: "Top 3 arquétipos com pontuação, forças, tom de voz e direção visual.", color: "text-purple-400", accent: "border-t-purple-500/60" },
+              { icon: Target, title: "Narrativa de Marca", desc: "Narrativa completa: personagem, problema, guia, plano e transformação.", color: "text-amber-400", accent: "border-t-landing-gold/70" },
+              { icon: BarChart3, title: "Diagnóstico de Perfil", desc: "Análise estratégica da bio, conteúdo, hashtags e oportunidades.", color: "text-emerald-400", accent: "border-t-emerald-500/60" },
+              { icon: Calendar, title: "Calendário Editorial", desc: "Semanas inteiras de conteúdo com temas, formatos e CTAs definidos.", color: "text-blue-400", accent: "border-t-blue-500/60" },
+              { icon: MessageSquare, title: "Conteúdos Prontos", desc: "Posts, carrosséis e roteiros de reels com legendas e chamadas para ação.", color: "text-pink-400", accent: "border-t-pink-500/60" },
+              { icon: Camera, title: "Retratos de Posicionamento", desc: "Retratos profissionais gerados por IA com base nos seus arquétipos.", color: "text-landing-gold", accent: "border-t-landing-gold/70" },
             ].map((item, i) => {
               const isHighlighted = HIGHLIGHTED_DELIVERABLES.includes(item.title);
               return (
                 <div
                   key={i}
-                  className={`group p-5 rounded-xl border border-landing-border/40 transition-colors space-y-3 ${
+                  className={`group p-5 rounded-xl border border-landing-border/40 border-t-2 ${item.accent} transition-all duration-200 hover:-translate-y-0.5 space-y-3 ${
                     isHighlighted
                       ? "bg-landing-bg-secondary/40 ring-1 ring-landing-purple/10"
                       : "bg-landing-bg-secondary/20 hover:bg-landing-bg-secondary/40"
@@ -598,7 +632,7 @@ const LandingPage = () => {
 
       {/* ── DEPOIMENTOS ── */}
       <section id="depoimentos" className="py-12 md:py-16 px-4 bg-landing-bg">
-        <div className="max-w-6xl mx-auto space-y-10">
+        <div className="max-w-6xl lg:max-w-[1280px] mx-auto space-y-10">
           <div className="text-center space-y-2">
             <p className="text-xs font-semibold uppercase tracking-widest text-landing-gold">Quem já usou</p>
             <h2 className="text-2xl md:text-3xl font-display font-semibold leading-tight">
@@ -614,68 +648,92 @@ const LandingPage = () => {
                   "Fui afortunada com o sistema Posiciona.ia.br e ele trouxe muita clareza para o meu posicionamento. O relatório de nicho e arquétipo direciona bem, e o plano de conteúdo facilita a execução com qualidade. É uma ferramenta essencial para quem busca consistência e um processo contínuo na comunicação profissional.",
                 name: "Girlaydy Costa",
                 role: "Fotógrafa",
+                avatar: "/testimonials/girlaydy.jpg",
               },
               {
                 quote:
                   "Estou gostando muito do Posiciona. Achei demais a funcionalidade dos arquétipos, e a elaboração do calendário editorial está me ajudando muito a manter a constância na produção de conteúdo. Por fim, a geração de retratos foi um diferencial que me auxiliou a ter novas fotos profissionais para utilizar nas minhas publicações.",
                 name: "Júnior Sales",
                 role: "Gestor de tráfego",
+                avatar: "/testimonials/junior.jpg",
               },
               {
                 quote:
                   "O Posiciona é uma facilidade incrível para nós, profissionais! Fiquei encantada com todas as funções: desde o branding e a análise estratégica do Instagram, até a linha editorial que organiza a rotina. Com Posiciona é possível manter uma presença digital forte, e ainda sobram horas preciosas para focar nos nossos pacientes. E as fotos geradas? Simplesmente elevam o nível do perfil para outro patamar!",
                 name: "Elisama Delmond",
                 role: "Psicóloga",
+                avatar: "/testimonials/elisama.jpg",
               },
               {
                 quote:
                   "Adorei! Facilitou muito a minha vida, a administrar a minha própria rotina de trabalho de maneira mais eficiente. Me guiou, de maneira muito fácil de entender e pôr em prática. Me ajudou a decidir desde a bio do Instagram até as cores que transmitem a minha essência da maneira mais natural possível.",
                 name: "Ângela Macário",
                 role: "Fotógrafa",
+                avatar: "/testimonials/angela.jpg",
               },
               {
                 quote:
                   "Eu trabalho com estratégia de conteúdo para profissionais, então sou extremamente criteriosa com tudo que envolve esse tema. Usei a ferramenta Posiciona e o que mais me chamou atenção foi a objetividade e clareza na construção do posicionamento. Ela organiza toda a comunicação, direciona ajustes práticos que impactam diretamente na forma como o profissional é percebido no mercado de forma muito completa. Para quem precisa comunicar valor e sair do genérico, é uma ferramenta que acelera muito esse processo. Hoje, recomendo com segurança, principalmente para profissionais que querem ser vistos com mais autoridade e intenção no digital.",
                 name: "Mariana Bertoldo",
                 role: "Estrategista de conteúdo",
+                avatar: "/testimonials/mariana.jpg",
               },
-            ].map((t) => (
-              <figure
-                key={t.name}
-                className="relative flex flex-col rounded-xl border border-landing-border/40 bg-landing-bg-secondary/30 p-6 pt-8"
-              >
-                <span
-                  aria-hidden="true"
-                  className="absolute top-2 left-5 font-display text-6xl leading-none text-landing-gold/30 select-none"
+            ].map((t) => {
+              const initials = t.name.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase();
+              return (
+                <figure
+                  key={t.name}
+                  className="relative flex flex-col rounded-xl border border-landing-border/40 bg-landing-bg-secondary/30 p-6 pt-8"
                 >
-                  &ldquo;
-                </span>
-                <blockquote className="text-sm md:text-base leading-relaxed text-landing-text/90">
-                  {t.quote}
-                </blockquote>
-                <div className="mt-5 pt-5 border-t border-landing-border/30 flex items-center gap-3">
-                  <span className="block w-8 h-px bg-landing-gold/50" aria-hidden="true" />
-                  <figcaption className="space-y-0.5">
-                    <p className="text-sm md:text-base font-semibold text-landing-text">{t.name}</p>
-                    <p className="text-xs md:text-sm text-landing-text-secondary">{t.role}</p>
-                  </figcaption>
-                </div>
-              </figure>
-            ))}
+                  <span
+                    aria-hidden="true"
+                    className="absolute top-2 left-5 font-display text-6xl leading-none text-landing-gold/30 select-none"
+                  >
+                    &ldquo;
+                  </span>
+                  <blockquote className="text-sm md:text-base leading-relaxed text-landing-text/90">
+                    {t.quote}
+                  </blockquote>
+                  <div className="mt-5 pt-5 border-t border-landing-border/30 flex items-center gap-3">
+                    {t.avatar ? (
+                      <img
+                        src={t.avatar}
+                        alt={t.name}
+                        loading="lazy"
+                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; (e.currentTarget.nextElementSibling as HTMLElement)?.style.removeProperty("display"); }}
+                        className="w-14 h-14 rounded-full object-cover object-top border border-landing-border/40 flex-shrink-0"
+                      />
+                    ) : null}
+                    <div
+                      style={{ display: t.avatar ? "none" : undefined }}
+                      className="w-14 h-14 rounded-full bg-muted text-foreground flex items-center justify-center text-sm font-semibold flex-shrink-0"
+                    >
+                      {initials}
+                    </div>
+                    <figcaption className="space-y-0.5">
+                      <p className="text-sm md:text-base font-semibold text-landing-text">{t.name}</p>
+                      <p className="text-xs md:text-sm text-landing-text-secondary">{t.role}</p>
+                    </figcaption>
+                  </div>
+                </figure>
+              );
+            })}
           </div>
         </div>
       </section>
 
       {/* ── PLANOS ── */}
       <section id="planos" className="py-12 md:py-16 px-4 bg-landing-bg-secondary/40">
-        <div className="max-w-5xl mx-auto space-y-10">
+        <div className="max-w-5xl lg:max-w-[1280px] mx-auto space-y-10">
           <div className="text-center space-y-2">
             <h2 className="text-2xl md:text-3xl font-display font-semibold">Escolha seu plano</h2>
             <p className="text-sm text-landing-text-secondary">Um social media custa R$ 2.000–5.000/mês. Uma consultoria de marca, R$ 3.000 a sessão. O Posiciona entrega os dois — por uma fração do custo.</p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-5">
-            {plans.map((p) => (
+            {plans.map((p) => {
+              const isStarter = !p.highlight && p.slug !== "autoridade_total";
+              return (
               <div
                 key={p.slug}
                 className={`relative flex flex-col rounded-xl border p-6 transition-all ${
@@ -683,7 +741,7 @@ const LandingPage = () => {
                     ? "border-landing-purple/60 bg-landing-bg-secondary/60 ring-1 ring-landing-purple/30"
                     : p.slug === "autoridade_total"
                       ? "border-landing-gold/30 bg-landing-bg-secondary/30"
-                      : "border-landing-border/50 bg-landing-bg/50"
+                      : "border-landing-border/50 border-t-2 border-t-muted-foreground/30 bg-landing-bg/50"
                 }`}
               >
                 {p.badge && (
@@ -694,6 +752,11 @@ const LandingPage = () => {
                   </span>
                 )}
                 <div className="space-y-3 mb-5">
+                  {isStarter && (
+                    <span className="inline-block px-2 py-0.5 rounded-full border border-landing-border/60 text-[10px] font-medium tracking-wide uppercase text-landing-text-secondary">
+                      Para começar
+                    </span>
+                  )}
                   <h3 className="text-base md:text-lg font-semibold">{p.name}</h3>
                   <div className="flex items-baseline gap-1">
                     <span className="text-xs text-landing-text-secondary">R$</span>
@@ -737,7 +800,8 @@ const LandingPage = () => {
                   {loadingSlug === p.slug ? "Processando..." : "Começar agora"}
                 </Button>
               </div>
-            ))}
+            );
+            })}
           </div>
         </div>
       </section>
@@ -772,7 +836,7 @@ const LandingPage = () => {
             Responda o diagnóstico hoje. Amanhã você já tem posicionamento, narrativa e conteúdo prontos para publicar.
           </p>
           <Button size="lg" onClick={() => navigate("/signup")} className="bg-landing-purple hover:bg-landing-purple/90 text-foreground text-base h-12 px-8">
-            Criar meu posicionamento agora <ArrowRight className="h-4 w-4 ml-2" />
+            Criar meu posicionamento <ArrowRight className="h-4 w-4 ml-2" />
           </Button>
           <p className="text-xs text-landing-text-secondary/50">Sem agência. Sem contrato. Resultado em minutos.</p>
         </div>
@@ -782,8 +846,13 @@ const LandingPage = () => {
 
       {/* ── FOOTER ── */}
       <footer className="border-t border-landing-border/40 py-8 px-4">
-        <div className="max-w-3xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-          <p className="text-xs text-landing-text-secondary/50">© {new Date().getFullYear()} Posiciona. Todos os direitos reservados.</p>
+        <div className="max-w-3xl mx-auto flex flex-col items-center gap-5">
+          <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+            <img src={posicionaLogo} alt="Posiciona" className="h-7 w-7" />
+            <span className="text-base font-semibold tracking-tight text-landing-text">Posiciona</span>
+          </Link>
+          <div className="w-full flex flex-col md:flex-row items-center justify-between gap-4">
+            <p className="text-xs text-landing-text-secondary/50">© {new Date().getFullYear()} Posiciona. Todos os direitos reservados.</p>
           <div className="flex flex-col sm:flex-row items-center gap-3 text-xs text-landing-text-secondary/60">
             <Link to="/termos-de-servico" className="hover:text-landing-gold transition-colors">Termos de Serviço</Link>
             <span className="hidden sm:inline text-landing-border">|</span>
@@ -795,6 +864,7 @@ const LandingPage = () => {
             </a>
             <span className="hidden sm:inline text-landing-border">|</span>
             <a href="mailto:contato@posiciona.ia.br" className="hover:text-landing-gold transition-colors">contato@posiciona.ia.br</a>
+          </div>
           </div>
         </div>
       </footer>
