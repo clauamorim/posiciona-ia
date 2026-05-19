@@ -468,6 +468,14 @@ const Report = () => {
           </div>
         )}
 
+        <Tabs defaultValue="identidade" className="space-y-8">
+          <TabsList className="w-full overflow-x-auto flex justify-start md:justify-center gap-1 h-auto p-1" data-hide-pdf>
+            <TabsTrigger value="identidade" className="whitespace-nowrap">Identidade</TabsTrigger>
+            <TabsTrigger value="apresentacao" className="whitespace-nowrap">Apresentação</TabsTrigger>
+            <TabsTrigger value="narrativa" className="whitespace-nowrap">Narrativa</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="identidade" className="space-y-10 mt-6">
         {/* SECTION: Archetypes — from user_top_archetypes table */}
         <section data-pdf-section>
           <div className="flex items-center gap-2 mb-4">
