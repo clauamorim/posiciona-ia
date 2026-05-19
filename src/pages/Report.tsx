@@ -469,10 +469,31 @@ const Report = () => {
         )}
 
         <Tabs defaultValue="identidade" className="space-y-8">
-          <TabsList className="w-full overflow-x-auto flex justify-start md:justify-center gap-1 h-auto p-1" data-hide-pdf>
-            <TabsTrigger value="identidade" className="whitespace-nowrap">Identidade</TabsTrigger>
-            <TabsTrigger value="apresentacao" className="whitespace-nowrap">Apresentação</TabsTrigger>
-            <TabsTrigger value="narrativa" className="whitespace-nowrap">Narrativa</TabsTrigger>
+          <TabsList
+            className="w-full overflow-x-auto flex justify-start md:justify-center gap-2 h-auto p-2 bg-card/40 rounded-lg"
+            data-hide-pdf
+          >
+            <TabsTrigger
+              value="identidade"
+              className="whitespace-nowrap px-6 py-3 text-base md:text-lg gap-2 border border-border/60 text-muted-foreground hover:border-primary/40 hover:text-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:border-transparent data-[state=active]:shadow-md data-[state=active]:shadow-primary/20"
+            >
+              <Sparkles className="h-4 w-4 hidden md:inline" />
+              Identidade
+            </TabsTrigger>
+            <TabsTrigger
+              value="apresentacao"
+              className="whitespace-nowrap px-6 py-3 text-base md:text-lg gap-2 border border-border/60 text-muted-foreground hover:border-primary/40 hover:text-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:border-transparent data-[state=active]:shadow-md data-[state=active]:shadow-primary/20"
+            >
+              <Shirt className="h-4 w-4 hidden md:inline" />
+              Apresentação
+            </TabsTrigger>
+            <TabsTrigger
+              value="narrativa"
+              className="whitespace-nowrap px-6 py-3 text-base md:text-lg gap-2 border border-border/60 text-muted-foreground hover:border-primary/40 hover:text-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:border-transparent data-[state=active]:shadow-md data-[state=active]:shadow-primary/20"
+            >
+              <BookOpen className="h-4 w-4 hidden md:inline" />
+              Narrativa
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="identidade" className="space-y-10 mt-6">
