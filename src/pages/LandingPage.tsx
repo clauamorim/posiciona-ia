@@ -753,7 +753,7 @@ const LandingPage = () => {
                 )}
                 <div className="space-y-3 mb-5">
                   {isStarter && (
-                    <span className="inline-block px-2 py-0.5 rounded-full border border-landing-border/60 text-[10px] font-medium tracking-wide uppercase text-landing-text-secondary">
+                    <span className="inline-block px-2 py-0.5 rounded-full bg-[#7DD3C0]/15 border border-[#7DD3C0]/40 text-[10px] font-medium tracking-wide uppercase text-[#7DD3C0]">
                       Para começar
                     </span>
                   )}
