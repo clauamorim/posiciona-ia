@@ -64,7 +64,6 @@ const plans = [
     description: "Nunca mais improvise. 4 semanas de conteúdo estratégico por mês, com reanálise mensal do seu posicionamento.",
     highlight: true,
     badge: "Mais escolhido",
-    badgeColor: null,
     features: [
       "Tudo do Semana de Conteúdo",
       "4 ciclos semanais por mês",
