@@ -82,7 +82,6 @@ const plans = [
     description: "Posicionamento, conteúdo e imagem profissional no mesmo lugar. O pacote completo para ser referência visível no seu nicho.",
     highlight: false,
     badge: "Mais completo",
-    badgeColor: null,
     features: [
       "Tudo do Presença Mensal",
       "2 reanálises estratégicas/mês",
