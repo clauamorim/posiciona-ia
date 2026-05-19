@@ -43,7 +43,8 @@ const plans = [
     period: "pagamento único",
     description: "Teste o Posiciona sem compromisso. Saia com posicionamento, narrativa e 7 dias de conteúdo prontos para publicar.",
     highlight: false,
-    badge: null,
+    badge: "Para começar",
+    badgeColor: "#7DD3C0",
     features: [
       "Diagnóstico inicial completo",
       "Guia de posicionamento e narrativa de marca",
@@ -64,6 +65,7 @@ const plans = [
     description: "Nunca mais improvise. 4 semanas de conteúdo estratégico por mês, com reanálise mensal do seu posicionamento.",
     highlight: true,
     badge: "Mais escolhido",
+    badgeColor: null,
     features: [
       "Tudo do Semana de Conteúdo",
       "4 ciclos semanais por mês",
@@ -82,6 +84,7 @@ const plans = [
     description: "Posicionamento, conteúdo e imagem profissional no mesmo lugar. O pacote completo para ser referência visível no seu nicho.",
     highlight: false,
     badge: "Mais completo",
+    badgeColor: null,
     features: [
       "Tudo do Presença Mensal",
       "2 reanálises estratégicas/mês",
