@@ -101,6 +101,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsAdmin(false);
     setSubscription(null);
     setBalances(null);
+    setProfileCompleted(true);
     sessionUserIdRef.current = null;
     hydrationDoneRef.current = false;
     clearScopedSession();
