@@ -5,11 +5,11 @@ import { SeoHead } from "@/components/SeoHead";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Loader2, Save, Sparkles, Info } from "lucide-react";
+import { QuestionnaireStatusBadge } from "@/components/questionnaire/QuestionnaireStatusBadge";
 
 interface Field {
   key: string;
