@@ -724,14 +724,16 @@ const LandingPage = () => {
 
       {/* ── PLANOS ── */}
       <section id="planos" className="py-12 md:py-16 px-4 bg-landing-bg-secondary/40">
-        <div className="max-w-5xl mx-auto space-y-10">
+        <div className="max-w-5xl lg:max-w-[1280px] mx-auto space-y-10">
           <div className="text-center space-y-2">
             <h2 className="text-2xl md:text-3xl font-display font-semibold">Escolha seu plano</h2>
             <p className="text-sm text-landing-text-secondary">Um social media custa R$ 2.000–5.000/mês. Uma consultoria de marca, R$ 3.000 a sessão. O Posiciona entrega os dois — por uma fração do custo.</p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-5">
-            {plans.map((p) => (
+            {plans.map((p) => {
+              const isStarter = !p.highlight && p.slug !== "autoridade_total";
+              return (
               <div
                 key={p.slug}
                 className={`relative flex flex-col rounded-xl border p-6 transition-all ${
@@ -739,7 +741,7 @@ const LandingPage = () => {
                     ? "border-landing-purple/60 bg-landing-bg-secondary/60 ring-1 ring-landing-purple/30"
                     : p.slug === "autoridade_total"
                       ? "border-landing-gold/30 bg-landing-bg-secondary/30"
-                      : "border-landing-border/50 bg-landing-bg/50"
+                      : "border-landing-border/50 border-t-2 border-t-muted-foreground/30 bg-landing-bg/50"
                 }`}
               >
                 {p.badge && (
@@ -750,6 +752,11 @@ const LandingPage = () => {
                   </span>
                 )}
                 <div className="space-y-3 mb-5">
+                  {isStarter && (
+                    <span className="inline-block px-2 py-0.5 rounded-full border border-landing-border/60 text-[10px] font-medium tracking-wide uppercase text-landing-text-secondary">
+                      Para começar
+                    </span>
+                  )}
                   <h3 className="text-base md:text-lg font-semibold">{p.name}</h3>
                   <div className="flex items-baseline gap-1">
                     <span className="text-xs text-landing-text-secondary">R$</span>
