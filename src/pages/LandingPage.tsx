@@ -865,6 +865,7 @@ const LandingPage = () => {
             <span className="hidden sm:inline text-landing-border">|</span>
             <a href="mailto:contato@posiciona.ia.br" className="hover:text-landing-gold transition-colors">contato@posiciona.ia.br</a>
           </div>
+          </div>
         </div>
       </footer>
 
