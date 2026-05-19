@@ -390,31 +390,36 @@ const Report = () => {
         {/* CTA: Linha Editorial — próximo passo */}
         {!report?.content?.is_fallback && (
           <div data-hide-pdf>
-            <Card className="relative overflow-hidden border-2 border-primary/30 bg-gradient-to-br from-primary/5 via-background to-accent/5">
-              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary to-accent" />
-              <CardContent className="pt-6 pb-6 flex flex-col md:flex-row md:items-center gap-4 md:gap-6">
-                <div className="flex items-start gap-3 flex-1">
-                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                    <Calendar className="h-5 w-5 text-primary" />
-                  </div>
-                  <div>
-                    <h3 className="font-display text-lg font-semibold tracking-tight">
+            <Card className="relative overflow-hidden border border-primary/30 bg-gradient-to-r from-primary/5 via-background to-accent/5">
+              <CardContent className="p-4 flex flex-col md:flex-row md:items-center gap-3 md:gap-4">
+                <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                  <Calendar className="h-4.5 w-4.5 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm md:text-base leading-snug">
+                    <span className="font-display font-semibold tracking-tight">
                       {(report?.editorial_weeks?.length ?? 0) > 0 ? "Sua Linha Editorial está pronta" : "Próximo passo: sua Linha Editorial"}
-                    </h3>
-                    <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
+                    </span>
+                    <span className="text-muted-foreground hidden md:inline">
+                      {" — "}
                       {(report?.editorial_weeks?.length ?? 0) > 0
-                        ? "Acesse as 6 semanas de conteúdo construídas a partir desta estratégia."
-                        : "Transforme sua estratégia em 6 semanas de conteúdo prontas para postar."}
-                    </p>
-                  </div>
+                        ? "6 semanas de conteúdo prontas"
+                        : "transforme sua estratégia em 6 semanas de conteúdo"}
+                    </span>
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5 md:hidden">
+                    {(report?.editorial_weeks?.length ?? 0) > 0
+                      ? "6 semanas de conteúdo prontas"
+                      : "Transforme sua estratégia em 6 semanas de conteúdo"}
+                  </p>
                 </div>
                 <Button
                   onClick={() => navigate("/editorial")}
-                  size="lg"
-                  className="gap-2 shrink-0 w-full md:w-auto"
+                  size="sm"
+                  className="gap-1.5 shrink-0 w-full md:w-auto"
                 >
-                  {(report?.editorial_weeks?.length ?? 0) > 0 ? "Acessar Linha Editorial" : "Gerar Linha Editorial"}
-                  <ArrowRight className="h-4 w-4" />
+                  {(report?.editorial_weeks?.length ?? 0) > 0 ? "Acessar" : "Gerar"}
+                  <ArrowRight className="h-3.5 w-3.5" />
                 </Button>
               </CardContent>
             </Card>
