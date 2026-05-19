@@ -54,7 +54,7 @@ const plans = [
       "3 créditos de ajuste de conteúdo",
     ],
     notIncluded: ["Retratos não inclusos"],
-    footer: "Upgrade em até 7 dias e desconte R$ 197",
+    footer: "Faça upgrade em até 7 dias e ganhe R$ 197 de desconto no plano superior",
   },
   {
     name: "Presença Mensal",
