@@ -42,6 +42,7 @@ import TermosDeServico from "./pages/TermosDeServico";
 import PoliticaDePrivacidade from "./pages/PoliticaDePrivacidade";
 import Conta from "./pages/Conta";
 import SubscriptionExpired from "./pages/SubscriptionExpired";
+import CompleteProfile from "./pages/CompleteProfile";
 import AdminDeletionRequests from "./pages/admin/AdminDeletionRequests";
 import { AssistantButton } from "./components/assistant/AssistantButton";
 
@@ -66,6 +67,7 @@ const App = () => (
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/choose-plan" element={<ProtectedRoute><ChoosePlan /></ProtectedRoute>} />
+            <Route path="/complete-profile" element={<ProtectedRoute><CompleteProfile /></ProtectedRoute>} />
             <Route path="/dashboard" element={<ProtectedRoute requirePlan><Dashboard /></ProtectedRoute>} />
             <Route path="/business-questionnaire" element={<ProtectedRoute requireFullAccess><BusinessQuestionnaire /></ProtectedRoute>} />
             <Route path="/personal-questionnaire" element={<ProtectedRoute requireFullAccess><PersonalQuestionnaire /></ProtectedRoute>} />

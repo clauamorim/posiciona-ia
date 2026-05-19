@@ -36,8 +36,10 @@ interface AuthContextType {
   expirationReason: ExpirationReason;
   subscription: UserSubscription | null;
   balances: UserBalances | null;
+  profileCompleted: boolean;
   adoptSession: (session: Session) => Promise<void>;
   refreshSubscription: () => Promise<void>;
+  refreshProfileCompletion: () => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -52,8 +54,10 @@ const AuthContext = createContext<AuthContextType>({
   expirationReason: null,
   subscription: null,
   balances: null,
+  profileCompleted: true,
   adoptSession: async () => {},
   refreshSubscription: async () => {},
+  refreshProfileCompletion: async () => {},
   signOut: async () => {},
 });
 
@@ -65,6 +69,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
   const [subscription, setSubscription] = useState<UserSubscription | null>(null);
   const [balances, setBalances] = useState<UserBalances | null>(null);
+  const [profileCompleted, setProfileCompleted] = useState<boolean>(true);
   const authRequestRef = useRef(0);
   // Track the current user ID via ref so the onAuthStateChange closure always
   // has access to the latest value (avoids the stale-closure problem).
@@ -96,6 +101,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsAdmin(false);
     setSubscription(null);
     setBalances(null);
+    setProfileCompleted(true);
     sessionUserIdRef.current = null;
     hydrationDoneRef.current = false;
     clearScopedSession();
@@ -163,6 +169,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const loadProfileCompleted = async (userId: string): Promise<boolean> => {
+    try {
+      const { data } = await supabase
+        .from("profiles")
+        .select("profile_completed")
+        .eq("user_id", userId)
+        .maybeSingle();
+      // Default to true if the profile row hasn't been created yet to avoid loops.
+      return data ? !!data.profile_completed : true;
+    } catch (e) {
+      console.error("loadProfileCompleted error:", e);
+      return true;
+    }
+  };
+
   const hydrateUser = async (newSession: Session, requestId: number) => {
     const userId = newSession.user.id;
 
@@ -174,6 +195,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       checkAdmin(userId),
       loadSubscription(userId),
       loadBalances(userId),
+      loadProfileCompleted(userId),
     ]);
 
     const result = await Promise.race([dataPromise, timeoutPromise]);
@@ -186,21 +208,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       hydrationDoneRef.current = true;
       setIsLoading(false);
       // Retry in background; UI is already usable.
-      dataPromise.then(([adminResult, subResult, balResult]) => {
+      dataPromise.then(([adminResult, subResult, balResult, profileResult]) => {
         if (authRequestRef.current !== requestId) return;
         setIsAdmin(adminResult);
         setSubscription(subResult);
         setBalances(balResult);
+        setProfileCompleted(profileResult);
       }).catch(() => {});
       return;
     }
 
-    const [adminResult, subResult, balResult] = result;
+    const [adminResult, subResult, balResult, profileResult] = result;
     setSession(newSession);
     sessionUserIdRef.current = userId;
     setIsAdmin(adminResult);
     setSubscription(subResult);
     setBalances(balResult);
+    setProfileCompleted(profileResult);
     hydrationDoneRef.current = true;
     setIsLoading(false);
   };
@@ -214,6 +238,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     ]);
     setSubscription(subResult);
     setBalances(balResult);
+  };
+
+  const refreshProfileCompletion = async () => {
+    const userId = sessionUserIdRef.current;
+    if (!userId) return;
+    const completed = await loadProfileCompleted(userId);
+    setProfileCompleted(completed);
   };
 
   const adoptSession = async (newSession: Session) => {
@@ -347,8 +378,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         expirationReason,
         subscription,
         balances,
+        profileCompleted,
         adoptSession,
         refreshSubscription,
+        refreshProfileCompletion,
         signOut,
       }}
     >

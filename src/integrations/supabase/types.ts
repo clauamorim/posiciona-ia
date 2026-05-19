@@ -765,6 +765,7 @@ export type Database = {
           niche: string | null
           phone: string | null
           profession: string | null
+          profile_completed: boolean
           updated_at: string
           user_id: string
           whatsapp: string | null
@@ -780,6 +781,7 @@ export type Database = {
           niche?: string | null
           phone?: string | null
           profession?: string | null
+          profile_completed?: boolean
           updated_at?: string
           user_id: string
           whatsapp?: string | null
@@ -795,6 +797,7 @@ export type Database = {
           niche?: string | null
           phone?: string | null
           profession?: string | null
+          profile_completed?: boolean
           updated_at?: string
           user_id?: string
           whatsapp?: string | null
