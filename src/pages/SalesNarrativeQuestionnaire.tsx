@@ -111,15 +111,15 @@ const SalesNarrativeQuestionnaire = () => {
 
   return (
     <DashboardLayout>
-      <div className="max-w-2xl mx-auto space-y-5">
+      <div className="max-w-2xl lg:max-w-[1100px] mx-auto space-y-5">
         <div className="flex items-center justify-between gap-3">
           <div>
             <h1 className="text-xl md:text-2xl font-display font-semibold tracking-tight">História de Venda</h1>
-            <p className="text-muted-foreground text-sm mt-0.5">Questionário opcional · ~10 min</p>
+            <p className="text-muted-foreground text-sm mt-0.5">
+              Opcional · {Object.values(answers).filter(v => (v || "").trim().length > 0).length}/{fields.length} respondidas · ~10 min
+            </p>
           </div>
-          <Badge variant="outline" className={isComplete ? "bg-success/10 text-success border-success/20" : "bg-amber-500/10 text-amber-600 border-amber-200"}>
-            {isComplete ? "Completo" : "Em preenchimento"}
-          </Badge>
+          <QuestionnaireStatusBadge status={isComplete ? "completed" : "in_progress"} />
         </div>
 
         <div className="border-l-2 border-primary/40 bg-primary/5 px-4 py-3 rounded-r-md flex items-start gap-3">
