@@ -42,6 +42,7 @@ import TermosDeServico from "./pages/TermosDeServico";
 import PoliticaDePrivacidade from "./pages/PoliticaDePrivacidade";
 import Conta from "./pages/Conta";
 import SubscriptionExpired from "./pages/SubscriptionExpired";
+import CompleteProfile from "./pages/CompleteProfile";
 import AdminDeletionRequests from "./pages/admin/AdminDeletionRequests";
 import { AssistantButton } from "./components/assistant/AssistantButton";
 
