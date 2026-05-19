@@ -352,10 +352,13 @@ const Report = () => {
         <div data-pdf-section className="flex items-start justify-between flex-wrap gap-4">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Seu Relatório</h1>
-            <p className="text-sm text-muted-foreground mt-1">Gerado em {new Date(report.created_at).toLocaleDateString("pt-BR")}</p>
+            <p className="text-sm text-muted-foreground mt-1">Gerado em {formatGeneratedAt(report.created_at)}</p>
           </div>
           <div className="flex gap-2" data-hide-pdf>
-            <Button onClick={handleDownloadPDF} variant="outline" size="sm" className="gap-2"><Download className="h-4 w-4" /> Baixar PDF</Button>
+            <Button onClick={handleDownloadPDF} disabled={downloadingPdf} variant="outline" size="sm" className="gap-2">
+              {downloadingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+              {downloadingPdf ? "Gerando PDF..." : "Baixar PDF"}
+            </Button>
           </div>
         </div>
 
