@@ -12,7 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { ChevronLeft, ChevronRight, Lock, RefreshCw, Pencil, Trash2 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { InlineHelpButton } from "@/components/assistant/InlineHelpButton";
+
 import { QuestionnaireStatusBadge } from "@/components/questionnaire/QuestionnaireStatusBadge";
 
 const QUESTIONS_PER_PAGE = 12;
@@ -193,15 +193,11 @@ const ArchetypeQuestionnaire = () => {
           {pageQuestions.map(q => (
             <Card key={q.id} className="border-border/60">
               <CardContent className="pt-4 pb-3.5">
-                <div className="flex items-start gap-2 mb-3">
-                  <p className="text-sm font-medium leading-relaxed flex-1 min-w-0">
+                <div className="mb-3">
+                  <p className="text-sm font-medium leading-relaxed">
                     <span className="text-muted-foreground mr-1.5 text-xs">{q.question_number}.</span>
                     {q.statement}
                   </p>
-                  <InlineHelpButton
-                    className="flex-shrink-0 mt-0.5"
-                    questionContext={`Questionário de Arquétipos · Pergunta ${q.question_number}: "${q.statement}"`}
-                  />
                 </div>
                 <div className="flex items-center gap-2">
                   {[1, 2, 3, 4, 5].map(n => (
