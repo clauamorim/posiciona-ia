@@ -1,5 +1,5 @@
 import { useAuth } from "@/contexts/AuthContext";
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface ProtectedRouteProps {
@@ -10,7 +10,8 @@ interface ProtectedRouteProps {
 }
 
 export const ProtectedRoute = ({ children, requireAdmin = false, requirePlan = false, requireFullAccess = false }: ProtectedRouteProps) => {
-  const { user, isAdmin, isLoading, hasActivePlan, isReadOnly } = useAuth();
+  const { user, isAdmin, isLoading, hasActivePlan, isReadOnly, profileCompleted } = useAuth();
+  const location = useLocation();
 
   if (isLoading) {
     return (
@@ -26,6 +27,10 @@ export const ProtectedRoute = ({ children, requireAdmin = false, requirePlan = f
 
   if (!user) return <Navigate to="/login" replace />;
   if (requireAdmin && !isAdmin) return <Navigate to="/dashboard" replace />;
+  // Force profile completion before reaching dashboard / questionnaires / report.
+  if (!profileCompleted && !isAdmin && location.pathname !== "/complete-profile") {
+    return <Navigate to="/complete-profile" replace />;
+  }
   if ((requirePlan || requireFullAccess) && !hasActivePlan && !isAdmin) return <Navigate to="/choose-plan" replace />;
   if (requireFullAccess && isReadOnly && !isAdmin) return <Navigate to="/assinatura-expirada" replace />;
 
