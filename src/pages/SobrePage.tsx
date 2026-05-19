@@ -13,7 +13,7 @@ const SobrePage = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-landing-bg text-landing-text">
+    <div className="min-h-dvh bg-landing-bg text-landing-text">
       <SeoHead
         title="Sobre · Posiciona"
         description="Conheça a história e o método por trás do Posiciona, criado por Cláudia Amorim para profissionais que vendem expertise."
@@ -34,11 +34,11 @@ const SobrePage = () => {
 
           <div className="hidden md:flex items-center gap-3">
             {user ? (
-              <Button size="sm" onClick={() => navigate("/dashboard")} className="bg-landing-purple hover:bg-landing-purple/90 text-white">Dashboard</Button>
+              <Button size="sm" onClick={() => navigate("/dashboard")} className="bg-landing-purple hover:bg-landing-purple/90 text-foreground">Dashboard</Button>
             ) : (
               <>
                 <button onClick={() => navigate("/login")} className="text-sm text-landing-text-secondary hover:text-landing-text transition-colors">Entrar</button>
-                <Button size="sm" onClick={() => navigate("/signup")} className="bg-landing-purple hover:bg-landing-purple/90 text-white">Criar conta</Button>
+                <Button size="sm" onClick={() => navigate("/signup")} className="bg-landing-purple hover:bg-landing-purple/90 text-foreground">Criar conta</Button>
               </>
             )}
           </div>
@@ -54,11 +54,11 @@ const SobrePage = () => {
             <Link to="/sobre" className="block text-sm text-landing-text font-medium w-full text-left py-1">Sobre</Link>
             <div className="pt-2 border-t border-landing-border/40 flex gap-3">
               {user ? (
-                <Button size="sm" onClick={() => navigate("/dashboard")} className="bg-landing-purple text-white w-full">Dashboard</Button>
+                <Button size="sm" onClick={() => navigate("/dashboard")} className="bg-landing-purple text-foreground w-full">Dashboard</Button>
               ) : (
                 <>
                   <Button variant="ghost" size="sm" onClick={() => navigate("/login")} className="text-landing-text-secondary flex-1">Entrar</Button>
-                  <Button size="sm" onClick={() => navigate("/signup")} className="bg-landing-purple text-white flex-1">Criar conta</Button>
+                  <Button size="sm" onClick={() => navigate("/signup")} className="bg-landing-purple text-foreground flex-1">Criar conta</Button>
                 </>
               )}
             </div>
@@ -211,7 +211,7 @@ const SobrePage = () => {
             <Button
               size="lg"
               onClick={() => navigate("/")}
-              className="bg-landing-purple hover:bg-landing-purple/90 text-white text-base h-12 px-8"
+              className="bg-landing-purple hover:bg-landing-purple/90 text-foreground text-base h-12 px-8"
             >
               Começar meu posicionamento agora <ArrowRight className="h-4 w-4 ml-2" />
             </Button>
@@ -242,7 +242,7 @@ const SobrePage = () => {
 
       {/* Floating WhatsApp */}
       <div className="fixed z-50 group" style={{ right: 20, bottom: "calc(20px + env(safe-area-inset-bottom, 0px))" }}>
-        <span className="hidden md:block absolute -top-9 right-0 whitespace-nowrap rounded-lg bg-[#13102A] border border-landing-border px-3 py-1.5 text-xs text-landing-text-secondary opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none shadow-lg">
+        <span className="hidden md:block absolute -top-9 right-0 whitespace-nowrap rounded-lg bg-card border border-landing-border px-3 py-1.5 text-xs text-landing-text-secondary opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none shadow-lg">
           Fale no WhatsApp
         </span>
         <a

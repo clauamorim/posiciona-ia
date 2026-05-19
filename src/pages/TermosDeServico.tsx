@@ -1,7 +1,7 @@
 import LegalPageLayout from "@/components/LegalPageLayout";
 
 const H2 = ({ children }: { children: React.ReactNode }) => (
-  <h2 className="font-display text-xl md:text-2xl font-semibold text-white mt-10 mb-4">{children}</h2>
+  <h2 className="font-display text-xl md:text-2xl font-semibold text-foreground mt-10 mb-4">{children}</h2>
 );
 
 const P = ({ children }: { children: React.ReactNode }) => (
@@ -20,7 +20,7 @@ const TermosDeServico = () => {
     >
       <H2>1. Quem somos</H2>
       <P>
-        Estes Termos de Serviço regulam o acesso e o uso da plataforma <strong className="text-white">Posiciona</strong>, disponível em <code className="text-[#C9A84C]">posiciona.ia.br</code>, oferecida por <strong className="text-white">Cláudia Macedo Amorim</strong>.
+        Estes Termos de Serviço regulam o acesso e o uso da plataforma <strong className="text-foreground">Posiciona</strong>, disponível em <code className="text-gold">posiciona.ia.br</code>, oferecida por <strong className="text-foreground">Cláudia Macedo Amorim</strong>.
       </P>
       <P>
         Ao criar uma conta, contratar um plano, acessar ou utilizar a plataforma, o usuário declara que leu, compreendeu e concorda com estes Termos e com a Política de Privacidade. Estes Termos são regidos pela legislação brasileira aplicável, incluindo o Código de Defesa do Consumidor, a Lei Geral de Proteção de Dados Pessoais e o Marco Civil da Internet.
@@ -66,9 +66,9 @@ const TermosDeServico = () => {
       </P>
       <P>Os planos atualmente podem incluir, por exemplo:</P>
       <ul className="list-disc pl-6 space-y-1.5 mb-3">
-        <li><strong className="text-white">Semana de Conteúdo</strong> — acesso pontual com pagamento único;</li>
-        <li><strong className="text-white">Presença Mensal</strong> — assinatura recorrente mensal;</li>
-        <li><strong className="text-white">Autoridade Total</strong> — plano completo com recursos ampliados.</li>
+        <li><strong className="text-foreground">Semana de Conteúdo</strong> — acesso pontual com pagamento único;</li>
+        <li><strong className="text-foreground">Presença Mensal</strong> — assinatura recorrente mensal;</li>
+        <li><strong className="text-foreground">Autoridade Total</strong> — plano completo com recursos ampliados.</li>
       </ul>
       <P>
         Os recursos disponíveis, limites de uso, créditos, reanálises, retratos, ciclos e ajustes dependerão do plano contratado ou da oferta vigente no momento da compra.
@@ -167,15 +167,15 @@ const TermosDeServico = () => {
       <H2>14. Lei aplicável e foro</H2>
       <P>Estes Termos serão regidos pelas leis da República Federativa do Brasil.</P>
       <P>
-        Fica eleito o foro da comarca de <strong className="text-white">Goiânia/GO</strong>, com renúncia a qualquer outro, por mais privilegiado que seja, ressalvadas as hipóteses de foro legalmente obrigatório.
+        Fica eleito o foro da comarca de <strong className="text-foreground">Goiânia/GO</strong>, com renúncia a qualquer outro, por mais privilegiado que seja, ressalvadas as hipóteses de foro legalmente obrigatório.
       </P>
 
       <H2>15. Contato</H2>
       <P>Em caso de dúvidas, solicitações ou suporte:</P>
       <ul className="list-disc pl-6 space-y-1.5 mb-3">
          <li>
-          <strong className="text-white">Contato geral e suporte:</strong>{" "}
-          <a href="mailto:suporte@posiciona.ia.br" className="text-[#C9A84C] hover:text-[#E2C06A] transition-colors">suporte@posiciona.ia.br</a>
+          <strong className="text-foreground">Contato geral e suporte:</strong>{" "}
+          <a href="mailto:suporte@posiciona.ia.br" className="text-gold hover:text-gold-hover transition-colors">suporte@posiciona.ia.br</a>
         </li>
       </ul>
     </LegalPageLayout>

@@ -187,7 +187,7 @@ const DemoCarousel = ({ navigate }: { navigate: ReturnType<typeof useNavigate> }
           </div>
         </div>
 
-        <Button size="lg" onClick={() => navigate("/signup")} className="bg-landing-purple hover:bg-landing-purple/90 text-white text-base h-12 px-8">
+        <Button size="lg" onClick={() => navigate("/signup")} className="bg-landing-purple hover:bg-landing-purple/90 text-foreground text-base h-12 px-8">
           Começar meu posicionamento agora <ArrowRight className="h-4 w-4 ml-2" />
         </Button>
       </div>
@@ -277,20 +277,20 @@ const PortraitComparison = () => {
           </div>
 
           {/* Labels */}
-          <div className="absolute top-3 left-3 z-20 px-2.5 py-1 rounded-md bg-[#0D0B1A]/70 backdrop-blur-sm text-[10px] font-medium text-landing-text-secondary tracking-wide uppercase">
+          <div className="absolute top-3 left-3 z-20 px-2.5 py-1 rounded-md bg-background/70 backdrop-blur-sm text-[10px] font-medium text-landing-text-secondary tracking-wide uppercase">
             Retrato de estúdio
           </div>
-          <div className="absolute top-3 right-3 z-20 px-2.5 py-1 rounded-md bg-[#0D0B1A]/70 backdrop-blur-sm text-[10px] font-medium text-landing-purple tracking-wide uppercase">
+          <div className="absolute top-3 right-3 z-20 px-2.5 py-1 rounded-md bg-background/70 backdrop-blur-sm text-[10px] font-medium text-landing-purple tracking-wide uppercase">
             Retrato do Posiciona
           </div>
 
           {/* Divider */}
           <div
-            className="absolute top-0 bottom-0 w-0.5 bg-white/80 z-10"
+            className="absolute top-0 bottom-0 w-0.5 bg-foreground/80 z-10"
             style={{ left: `${sliderPos}%` }}
           >
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-landing-gold flex items-center justify-center shadow-[0_2px_12px_rgba(201,168,76,0.5)]">
-              <GripVertical className="h-4 w-4 text-[#0D0B1A]" />
+              <GripVertical className="h-4 w-4 text-background" />
             </div>
           </div>
         </div>
@@ -345,7 +345,7 @@ const LandingPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-landing-bg text-landing-text">
+    <div className="min-h-dvh bg-landing-bg text-landing-text">
       <SeoHead
         title="Posiciona — Estratégia de Marca Pessoal com IA"
         description="Posicionamento estratégico para profissionais que querem cobrar pelo valor que entregam: arquétipos, narrativa StoryBrand, linha editorial e retratos de marca com IA."
@@ -378,11 +378,11 @@ const LandingPage = () => {
 
           <div className="hidden md:flex items-center gap-3">
             {user ? (
-              <Button size="sm" onClick={() => navigate("/dashboard")} className="bg-landing-purple hover:bg-landing-purple/90 text-white">Dashboard</Button>
+              <Button size="sm" onClick={() => navigate("/dashboard")} className="bg-landing-purple hover:bg-landing-purple/90 text-foreground">Dashboard</Button>
             ) : (
               <>
                 <button onClick={() => navigate("/login")} className="text-sm text-landing-text-secondary hover:text-landing-text transition-colors">Entrar</button>
-                <Button size="sm" onClick={() => navigate("/signup")} className="bg-landing-purple hover:bg-landing-purple/90 text-white">Criar conta</Button>
+                <Button size="sm" onClick={() => navigate("/signup")} className="bg-landing-purple hover:bg-landing-purple/90 text-foreground">Criar conta</Button>
               </>
             )}
           </div>
@@ -401,11 +401,11 @@ const LandingPage = () => {
             <Link to="/sobre" onClick={() => setMobileMenuOpen(false)} className="block text-sm text-landing-text-secondary hover:text-landing-text w-full text-left py-1">Sobre</Link>
             <div className="pt-2 border-t border-landing-border/40 flex gap-3">
               {user ? (
-                <Button size="sm" onClick={() => navigate("/dashboard")} className="bg-landing-purple text-white w-full">Dashboard</Button>
+                <Button size="sm" onClick={() => navigate("/dashboard")} className="bg-landing-purple text-foreground w-full">Dashboard</Button>
               ) : (
                 <>
                   <Button variant="ghost" size="sm" onClick={() => navigate("/login")} className="text-landing-text-secondary flex-1">Entrar</Button>
-                  <Button size="sm" onClick={() => navigate("/signup")} className="bg-landing-purple text-white flex-1">Criar conta</Button>
+                  <Button size="sm" onClick={() => navigate("/signup")} className="bg-landing-purple text-foreground flex-1">Criar conta</Button>
                 </>
               )}
             </div>
@@ -432,14 +432,14 @@ const LandingPage = () => {
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
-            <Button size="lg" onClick={() => navigate("/signup")} className="bg-landing-purple hover:bg-landing-purple/90 text-white text-base h-12 px-8">
+            <Button size="lg" onClick={() => navigate("/signup")} className="bg-landing-purple hover:bg-landing-purple/90 text-foreground text-base h-12 px-8">
               Criar meu posicionamento <ArrowRight className="h-4 w-4 ml-2" />
             </Button>
             <Button
               size="lg"
               variant="outline"
               onClick={() => scrollTo("como-funciona")}
-              className="bg-white/10 border border-white/30 text-white hover:bg-white/15 hover:text-white text-base h-12 px-8 backdrop-blur-sm"
+              className="bg-foreground/10 border border-foreground/30 text-foreground hover:bg-foreground/15 hover:text-foreground text-base h-12 px-8 backdrop-blur-sm"
             >
               Ver como funciona
             </Button>
@@ -687,7 +687,7 @@ const LandingPage = () => {
                 }`}
               >
                 {p.badge && (
-                  <span className={`absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full text-white text-[10px] font-semibold tracking-wide uppercase ${
+                  <span className={`absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full text-foreground text-[10px] font-semibold tracking-wide uppercase ${
                     p.highlight ? "bg-landing-purple" : "bg-landing-gold"
                   }`}>
                     {p.badge}
@@ -725,9 +725,9 @@ const LandingPage = () => {
                 <Button
                   className={`w-full ${
                     p.highlight
-                      ? "bg-landing-purple hover:bg-landing-purple/90 text-white"
+                      ? "bg-landing-purple hover:bg-landing-purple/90 text-foreground"
                       : p.slug === "autoridade_total"
-                        ? "bg-landing-gold/90 hover:bg-landing-gold text-white"
+                        ? "bg-landing-gold/90 hover:bg-landing-gold text-foreground"
                         : "bg-transparent border border-landing-border hover:bg-landing-bg-secondary text-landing-text"
                   }`}
                   onClick={() => handleCheckout(p.slug)}
@@ -771,7 +771,7 @@ const LandingPage = () => {
           <p className="text-sm text-landing-text-secondary leading-relaxed">
             Responda o diagnóstico hoje. Amanhã você já tem posicionamento, narrativa e conteúdo prontos para publicar.
           </p>
-          <Button size="lg" onClick={() => navigate("/signup")} className="bg-landing-purple hover:bg-landing-purple/90 text-white text-base h-12 px-8">
+          <Button size="lg" onClick={() => navigate("/signup")} className="bg-landing-purple hover:bg-landing-purple/90 text-foreground text-base h-12 px-8">
             Criar meu posicionamento agora <ArrowRight className="h-4 w-4 ml-2" />
           </Button>
           <p className="text-xs text-landing-text-secondary/50">Sem agência. Sem contrato. Resultado em minutos.</p>
@@ -801,7 +801,7 @@ const LandingPage = () => {
 
       {/* Floating WhatsApp button */}
       <div className="fixed z-50 group" style={{ right: 20, bottom: "calc(20px + env(safe-area-inset-bottom, 0px))" }}>
-        <span className="hidden md:block absolute -top-9 right-0 whitespace-nowrap rounded-lg bg-[#13102A] border border-landing-border px-3 py-1.5 text-xs text-landing-text-secondary opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none shadow-lg">
+        <span className="hidden md:block absolute -top-9 right-0 whitespace-nowrap rounded-lg bg-card border border-landing-border px-3 py-1.5 text-xs text-landing-text-secondary opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none shadow-lg">
           Fale no WhatsApp
         </span>
         <a

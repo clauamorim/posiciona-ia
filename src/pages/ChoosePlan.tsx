@@ -386,7 +386,7 @@ const ChoosePlan = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col px-4 py-12">
+    <div className="min-h-dvh bg-background flex flex-col px-4 py-12">
       <div className="flex justify-end max-w-4xl w-full mx-auto mb-4">
         <Button
           variant="ghost"

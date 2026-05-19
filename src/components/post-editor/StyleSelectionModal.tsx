@@ -95,10 +95,10 @@ const StyleSelectionModal: React.FC<StyleSelectionModalProps> = ({
       icon: <Palette className="h-4 w-4" />,
       preview: (
         <div className={`w-full ${previewSize} rounded-md overflow-hidden`} style={{ background: minimalGradient }}>
-          <div className="w-full h-full flex flex-col items-center justify-center p-2 text-white/90">
-            <div className="w-7 h-7 sm:w-9 sm:h-9 rounded-full bg-white/20 mb-2" />
-            <div className="h-1.5 w-3/4 bg-white/30 rounded mb-1" />
-            <div className="h-1.5 w-1/2 bg-white/20 rounded" />
+          <div className="w-full h-full flex flex-col items-center justify-center p-2 text-foreground/90">
+            <div className="w-7 h-7 sm:w-9 sm:h-9 rounded-full bg-foreground/20 mb-2" />
+            <div className="h-1.5 w-3/4 bg-foreground/30 rounded mb-1" />
+            <div className="h-1.5 w-1/2 bg-foreground/20 rounded" />
           </div>
         </div>
       ),
@@ -124,8 +124,8 @@ const StyleSelectionModal: React.FC<StyleSelectionModalProps> = ({
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-3">
             <div className="w-full">
-              <div className="h-2 w-3/4 bg-white/80 rounded mb-1" />
-              <div className="h-2 w-1/2 bg-white/60 rounded" />
+              <div className="h-2 w-3/4 bg-foreground/80 rounded mb-1" />
+              <div className="h-2 w-1/2 bg-foreground/60 rounded" />
             </div>
           </div>
         </div>
@@ -140,7 +140,7 @@ const StyleSelectionModal: React.FC<StyleSelectionModalProps> = ({
       preview: (
         <div className={`w-full ${previewSize} rounded-md overflow-hidden relative`}
           style={{ background: `linear-gradient(135deg, ${c1}40, ${c2}80, #00000080)` }}>
-          <div className="absolute inset-0 flex flex-col items-center justify-center text-white/90">
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-foreground/90">
             <Sparkles className="h-8 w-8 mb-2 opacity-70" />
             <span className="text-[11px] uppercase tracking-widest opacity-70">Gerar por IA</span>
           </div>
