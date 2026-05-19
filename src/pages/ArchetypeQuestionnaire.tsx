@@ -235,9 +235,11 @@ const ArchetypeQuestionnaire = () => {
 
         {/* Navigation */}
         <div className="flex justify-between pt-1">
-          <Button variant="ghost" size="sm" onClick={async () => { if (!isLocked) await saveAnswers(); setPage(p => p - 1); window.scrollTo({ top: 0, behavior: "smooth" }); }} disabled={page === 0 || saving}>
-            <ChevronLeft className="h-4 w-4 mr-1" /> Anterior
-          </Button>
+          {page === 0 ? <span /> : (
+            <Button variant="ghost" size="sm" onClick={async () => { if (!isLocked) await saveAnswers(); setPage(p => p - 1); window.scrollTo({ top: 0, behavior: "smooth" }); }} disabled={saving}>
+              <ChevronLeft className="h-4 w-4 mr-1" /> Anterior
+            </Button>
+          )}
           {page < totalPages - 1 ? (
             <Button size="sm" onClick={async () => { if (!isLocked) await saveAnswers(); setPage(p => p + 1); window.scrollTo({ top: 0, behavior: "smooth" }); }} disabled={saving}>
               Próximo <ChevronRight className="h-4 w-4 ml-1" />
