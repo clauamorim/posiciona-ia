@@ -69,6 +69,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
   const [subscription, setSubscription] = useState<UserSubscription | null>(null);
   const [balances, setBalances] = useState<UserBalances | null>(null);
+  const [profileCompleted, setProfileCompleted] = useState<boolean>(true);
   const authRequestRef = useRef(0);
   // Track the current user ID via ref so the onAuthStateChange closure always
   // has access to the latest value (avoids the stale-closure problem).
