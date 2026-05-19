@@ -744,22 +744,21 @@ const LandingPage = () => {
                     ? "border-landing-purple/60 bg-landing-bg-secondary/60 ring-1 ring-landing-purple/30"
                     : p.slug === "autoridade_total"
                       ? "border-landing-gold/30 bg-landing-bg-secondary/30"
-                      : "border-landing-border/50 border-t-2 border-t-[#7DD3C0] bg-landing-bg/50"
+                      : "border-2 border-[#7DD3C0]/60 bg-landing-bg/50"
                 }`}
               >
                 {p.badge && (
-                  <span className={`absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full text-foreground text-[10px] font-semibold tracking-wide uppercase ${
-                    p.highlight ? "bg-landing-purple" : "bg-landing-gold"
+                  <span className={`absolute -top-3 left-1/2 -translate-x-1/2 rounded-full text-xs font-medium tracking-wide uppercase ${
+                    p.highlight
+                      ? "bg-landing-purple text-foreground px-4 py-1"
+                      : isStarter
+                        ? "bg-[#7DD3C0] text-[#0B0820] px-4 py-1"
+                        : "bg-landing-gold text-foreground px-4 py-1"
                   }`}>
                     {p.badge}
                   </span>
                 )}
                 <div className="space-y-3 mb-5">
-                  {isStarter && (
-                    <span className="inline-block px-2 py-0.5 rounded-full bg-[#7DD3C0]/15 border border-[#7DD3C0]/40 text-[10px] font-medium tracking-wide uppercase text-[#7DD3C0]">
-                      Para começar
-                    </span>
-                  )}
                   <h3 className="text-base md:text-lg font-semibold">{p.name}</h3>
                   <div className="flex items-baseline gap-1">
                     <span className="text-xs text-landing-text-secondary">R$</span>
@@ -794,7 +793,7 @@ const LandingPage = () => {
                       ? "bg-landing-purple hover:bg-landing-purple/90 text-foreground"
                       : p.slug === "autoridade_total"
                         ? "bg-landing-gold/90 hover:bg-landing-gold text-foreground"
-                        : "bg-transparent border border-[#7DD3C0]/60 text-[#7DD3C0] hover:bg-[#7DD3C0]/10"
+                        : "bg-[#7DD3C0] text-[#0B0820] hover:bg-[#7DD3C0]/90"
                   }`}
                   onClick={() => handleCheckout(p.slug)}
                   disabled={loadingSlug === p.slug}
