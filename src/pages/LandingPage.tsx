@@ -211,6 +211,7 @@ const PortraitComparison = () => {
   const [activePortrait, setActivePortrait] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
+  const hasAnimated = useRef(false);
 
   const handleMove = useCallback((clientX: number) => {
     if (!isDragging.current || !containerRef.current) return;
@@ -234,6 +235,39 @@ const PortraitComparison = () => {
       window.removeEventListener("touchmove", onTouch);
     };
   }, [handleMove]);
+
+  // Auto-animate slider once when entering viewport: 50 → 100 → 0 → 50 (~4s, ease-in-out)
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting && !hasAnimated.current) {
+          hasAnimated.current = true;
+          observer.disconnect();
+          const start = performance.now();
+          const duration = 4000;
+          const keyframes = [50, 100, 0, 50];
+          const easeInOut = (t: number) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
+          let raf = 0;
+          const tick = (now: number) => {
+            if (isDragging.current) return; // user took control
+            const t = Math.min(1, (now - start) / duration);
+            const seg = t * (keyframes.length - 1);
+            const i = Math.min(keyframes.length - 2, Math.floor(seg));
+            const localT = easeInOut(seg - i);
+            const value = keyframes[i] + (keyframes[i + 1] - keyframes[i]) * localT;
+            setSliderPos(value);
+            if (t < 1) raf = requestAnimationFrame(tick);
+          };
+          raf = requestAnimationFrame(tick);
+          return () => cancelAnimationFrame(raf);
+        }
+      });
+    }, { threshold: 0.4 });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   return (
     <section className="py-12 md:py-16 px-4">
