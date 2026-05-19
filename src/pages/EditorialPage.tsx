@@ -749,7 +749,8 @@ const EditorialPage = () => {
 
       // Render TITLE separately (avoids it being lost in pagination)
       const titleContainer = document.createElement("div");
-      titleContainer.style.cssText = "position:absolute;left:-9999px;top:0;width:900px;background:#f2eeea;padding:24px;font-family:Inter,sans-serif;";
+      titleContainer.className = "font-sans";
+      titleContainer.style.cssText = "position:absolute;left:-9999px;top:0;width:900px;background:#f2eeea;padding:24px;";
       const subtitle = filterKeys
         ? `${weeksToExport.length} semana${weeksToExport.length > 1 ? "s" : ""} selecionada${weeksToExport.length > 1 ? "s" : ""}`
         : `${weeksToExport.length} semana${weeksToExport.length > 1 ? "s" : ""} de conteúdo`;
