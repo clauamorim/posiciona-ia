@@ -378,8 +378,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         expirationReason,
         subscription,
         balances,
+        profileCompleted,
         adoptSession,
         refreshSubscription,
+        refreshProfileCompletion,
         signOut,
       }}
     >
