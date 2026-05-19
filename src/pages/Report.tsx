@@ -622,7 +622,9 @@ const Report = () => {
             </div>
           </section>
         )}
+          </TabsContent>
 
+          <TabsContent value="apresentacao" className="space-y-10 mt-6">
         {/* SECTION: Figurino Estratégico */}
         {content.figurino && (
           <section data-pdf-section className="bg-muted/30 rounded-2xl p-6 md:p-8 break-inside-avoid">
