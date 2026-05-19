@@ -57,8 +57,9 @@ const Report = () => {
   const [userName, setUserName] = useState<string | null>(null);
   const [regenerating, setRegenerating] = useState(false);
   const [showNarrativeBanner, setShowNarrativeBanner] = useState(false);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [showBackTop, setShowBackTop] = useState(false);
   const reportRef = useRef<HTMLDivElement>(null);
-  const pdfRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!user) return;
