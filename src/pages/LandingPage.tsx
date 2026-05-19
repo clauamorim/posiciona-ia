@@ -44,7 +44,6 @@ const plans = [
     description: "Teste o Posiciona sem compromisso. Saia com posicionamento, narrativa e 7 dias de conteúdo prontos para publicar.",
     highlight: false,
     badge: "Para começar",
-    badgeColor: "#7DD3C0",
     features: [
       "Diagnóstico inicial completo",
       "Guia de posicionamento e narrativa de marca",
