@@ -77,7 +77,7 @@ export const AuthLayout = ({ children, showValueProp = false }: AuthLayoutProps)
                   className="h-7 w-7 rounded-full object-cover object-top"
                   onError={(e) => ((e.target as HTMLImageElement).style.display = "none")}
                 />
-                Elisama · Designer de moda
+                Elisama · Psicóloga
               </figcaption>
             </figure>
           </div>
