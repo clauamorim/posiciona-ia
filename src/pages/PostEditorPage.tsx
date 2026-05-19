@@ -578,6 +578,16 @@ const PostEditorPage = () => {
         // Decorativos do arquétipo agora vêm exclusivamente de buildArchetypeOverlays
         // (chamado dentro de buildAutoLayout). O template legado continua aplicando
         // cores, fontes e layout via setState acima, mas não traz mais overlays.
+
+        // Tipografia por arquétipo: sobrepõe quaisquer fontes herdadas do template.
+        if (primaryArchetype) {
+          const typo = getArchetypeTypography(primaryArchetype);
+          loadGoogleFont(typo.displayFont);
+          setDisplayFont(typo.displayFont);
+          setTitleFontFamily(typo.displayFont);
+          loadGoogleFont(typo.bodyFont);
+          setBodyFont(typo.bodyFont);
+        }
       } catch (err) {
         console.warn("[archetype-template] failed", err);
         archetypeTemplateAppliedRef.current = false;
