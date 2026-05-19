@@ -326,9 +326,12 @@ const Report = () => {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold font-display">Seu Relatório</h1>
-              <p className="text-sm text-muted-foreground">Gerado em {new Date(report.created_at).toLocaleDateString("pt-BR")}</p>
+              <p className="text-sm text-muted-foreground">Gerado em {formatGeneratedAt(report.created_at)}</p>
             </div>
-            <Button onClick={handleDownloadPDF} className="gap-2"><Download className="h-4 w-4" /> Baixar PDF</Button>
+            <Button onClick={handleDownloadPDF} disabled={downloadingPdf} className="gap-2">
+              {downloadingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+              {downloadingPdf ? "Gerando PDF..." : "Baixar PDF"}
+            </Button>
           </div>
           <Card>
             <CardContent className="pt-6 prose prose-sm max-w-none">
