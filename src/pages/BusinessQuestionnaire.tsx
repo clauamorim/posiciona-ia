@@ -34,6 +34,18 @@ const fields = [
   { key: "promised_transformations", label: "Conquistas e transformações prometidas", type: "textarea", placeholder: "Como a vida do cliente muda após seu serviço?", help: "Descreva a transformação que você entrega.", max: 600 },
 ];
 
+// Agrupamento visual em 4 blocos temáticos (3 perguntas cada, respeitando a ordem original).
+// IMPORTANTE: as keys das perguntas e a ordem dentro de cada bloco são preservadas.
+const blocks = [
+  { title: "Negócio e público", subtitle: "Quem você é e para quem trabalha.", range: [0, 3] as const },
+  { title: "Dores e empatia", subtitle: "O que seu cliente sente — e como você demonstra entender.", range: [3, 6] as const },
+  { title: "Autoridade e jornada", subtitle: "Por que confiar em você e como começar.", range: [6, 9] as const },
+  { title: "Ação e transformação", subtitle: "O convite, o risco de não agir e o resultado prometido.", range: [9, 12] as const },
+];
+
+// Mapeia step antigo (0-11) para bloco novo (0-3). Mantém compatibilidade visual.
+const stepToBlock = (s: number) => Math.min(blocks.length - 1, Math.max(0, Math.floor(s / 3)));
+
 type QStatus = "draft" | "submitted" | "locked";
 
 const BusinessQuestionnaire = () => {
@@ -205,10 +217,14 @@ const BusinessQuestionnaire = () => {
     toast({ title: mode === "edit" ? "Questionário desbloqueado para edição" : "Questionário reiniciado" });
   };
 
-  const field = fields[step];
-  const progress = Math.round(((step + 1) / fields.length) * 100);
+  // `step` agora representa o índice do BLOCO (0..3), não mais da pergunta individual.
+  const blockIndex = stepToBlock(step);
+  const currentBlock = blocks[blockIndex];
+  const blockFields = fields.slice(currentBlock.range[0], currentBlock.range[1]);
+  const progress = Math.round(((blockIndex + 1) / blocks.length) * 100);
   const filledCount = fields.filter(f => (answers[f.key] || "").trim().length > 0).length;
   const allFilled = filledCount === fields.length;
+  const filledInBlock = blockFields.filter(f => (answers[f.key] || "").trim().length > 0).length;
 
   return (
     <DashboardLayout>
@@ -267,23 +283,21 @@ const BusinessQuestionnaire = () => {
           </div>
         )}
 
-        {/* Progress stepper */}
+        {/* Progress + tabs por bloco */}
         <div className="space-y-2">
           <Progress value={progress} className="h-1.5" />
-          <div className="flex gap-1.5 flex-wrap">
-            {fields.map((f, i) => (
+          <div className="flex gap-1.5">
+            {blocks.map((b, i) => (
               <button
-                key={f.key}
-                onClick={() => goToStep(i)}
-                className={`w-7 h-7 rounded-md text-[11px] font-medium transition-all ${
-                  i === step
+                key={b.title}
+                onClick={() => goToStep(i * 3)}
+                className={`flex-1 h-9 rounded-md text-[11px] font-medium transition-all px-2 ${
+                  i === blockIndex
                     ? "bg-primary text-primary-foreground shadow-sm"
-                    : (answers[f.key] || "").trim()
-                      ? "bg-success/10 text-success border border-success/20"
-                      : "bg-muted text-muted-foreground hover:bg-muted/80"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
                 }`}
               >
-                {i + 1}
+                Bloco {i + 1}
               </button>
             ))}
           </div>
@@ -297,63 +311,81 @@ const BusinessQuestionnaire = () => {
           )}
         </div>
 
-        {/* Current question */}
+        {/* Bloco atual */}
         <Card className="border-primary/10">
-          <CardContent className="pt-5 pb-5 space-y-4">
-            <div className="flex items-start gap-2">
-              <div className="flex-1 min-w-0">
-                <p className="text-xs text-primary/60 font-semibold uppercase tracking-wider mb-1">
-                  Etapa {step + 1} de {fields.length}
-                </p>
-                <h2 className="text-base md:text-lg font-display font-semibold leading-snug flex items-center gap-2 flex-wrap">
-                  <span>{field.label}</span>
-                  {field.help && (
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <button type="button" className="text-muted-foreground hover:text-foreground transition-colors flex-shrink-0">
-                          <HelpCircle className="h-4 w-4" />
-                        </button>
-                      </PopoverTrigger>
-                      <PopoverContent className="text-sm max-w-xs" side="top">
-                        {field.help}
-                      </PopoverContent>
-                    </Popover>
-                  )}
-                  <InlineHelpButton
-                    className="ml-auto"
-                    questionContext={`Diagnóstico do Negócio · Etapa ${step + 1}/${fields.length}: "${field.label}"`}
-                  />
-                </h2>
-              </div>
+          <CardContent className="pt-5 pb-5 space-y-5">
+            <div>
+              <p className="text-xs text-primary/60 font-semibold uppercase tracking-wider mb-1">
+                Bloco {blockIndex + 1} de {blocks.length}
+              </p>
+              <h2 className="text-base md:text-lg font-display font-semibold leading-snug">
+                {currentBlock.title}
+              </h2>
+              <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                {currentBlock.subtitle}
+              </p>
             </div>
 
-            {field.type === "input" ? (
-              <Input
-                value={answers[field.key] || ""}
-                onChange={e => setAnswers(prev => ({ ...prev, [field.key]: e.target.value.slice(0, field.max) }))}
-                placeholder={field.placeholder}
-                disabled={isLocked || isSubmitted}
-                maxLength={field.max}
-                className="bg-background"
-              />
-            ) : (
-              <Textarea
-                value={answers[field.key] || ""}
-                onChange={e => setAnswers(prev => ({ ...prev, [field.key]: e.target.value.slice(0, field.max) }))}
-                placeholder={field.placeholder}
-                rows={4}
-                disabled={isLocked || isSubmitted}
-                maxLength={field.max}
-                className="bg-background resize-none"
-              />
-            )}
-            <p className={`text-[11px] text-right -mt-2 ${(answers[field.key] || "").length >= field.max ? "text-amber-600" : "text-muted-foreground"}`}>
-              {(answers[field.key] || "").length}/{field.max}
-            </p>
+            <div className="space-y-5">
+              {blockFields.map((field, idxInBlock) => {
+                const globalIdx = currentBlock.range[0] + idxInBlock;
+                return (
+                  <div key={field.key} className="space-y-1.5">
+                    <label className="text-sm font-medium flex items-center gap-1.5 flex-wrap">
+                      <span className="text-muted-foreground text-xs mr-1">{globalIdx + 1}.</span>
+                      <span>{field.label}</span>
+                      {field.help && (
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button type="button" className="text-muted-foreground hover:text-foreground transition-colors flex-shrink-0">
+                              <HelpCircle className="h-3.5 w-3.5" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent className="text-sm max-w-xs" side="top">
+                            {field.help}
+                          </PopoverContent>
+                        </Popover>
+                      )}
+                      <InlineHelpButton
+                        className="ml-auto"
+                        questionContext={`Diagnóstico do Negócio · Bloco ${blockIndex + 1} (${currentBlock.title}) — "${field.label}"`}
+                      />
+                    </label>
+                    {field.type === "input" ? (
+                      <Input
+                        value={answers[field.key] || ""}
+                        onChange={e => setAnswers(prev => ({ ...prev, [field.key]: e.target.value.slice(0, field.max) }))}
+                        placeholder={field.placeholder}
+                        disabled={isLocked || isSubmitted}
+                        maxLength={field.max}
+                        className="bg-background"
+                      />
+                    ) : (
+                      <Textarea
+                        value={answers[field.key] || ""}
+                        onChange={e => setAnswers(prev => ({ ...prev, [field.key]: e.target.value.slice(0, field.max) }))}
+                        placeholder={field.placeholder}
+                        rows={3}
+                        disabled={isLocked || isSubmitted}
+                        maxLength={field.max}
+                        className="bg-background resize-none text-sm"
+                      />
+                    )}
+                    <p className={`text-[11px] text-right ${(answers[field.key] || "").length >= field.max ? "text-amber-600" : "text-muted-foreground"}`}>
+                      {(answers[field.key] || "").length}/{field.max}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
 
-            <div className="flex items-center justify-between pt-1">
-              {step === 0 ? <span /> : (
-                <Button variant="ghost" size="sm" onClick={() => goToStep(step - 1)}>
+            <div className="text-[11px] text-muted-foreground italic">
+              {filledInBlock}/{blockFields.length} respondidas neste bloco
+            </div>
+
+            <div className="flex items-center justify-between pt-2 border-t border-border/40">
+              {blockIndex === 0 ? <span /> : (
+                <Button variant="ghost" size="sm" onClick={() => goToStep((blockIndex - 1) * 3)}>
                   <ChevronLeft className="h-4 w-4 mr-1" /> Anterior
                 </Button>
               )}
@@ -364,9 +396,9 @@ const BusinessQuestionnaire = () => {
                     <Save className="h-3.5 w-3.5 mr-1" /> {saveStatus === "saving" ? "..." : "Salvar"}
                   </Button>
                 )}
-                {step < fields.length - 1 ? (
-                  <Button size="sm" onClick={() => goToStep(step + 1)}>
-                    Próximo <ChevronRight className="h-4 w-4 ml-1" />
+                {blockIndex < blocks.length - 1 ? (
+                  <Button size="sm" onClick={() => goToStep((blockIndex + 1) * 3)}>
+                    Próximo bloco <ChevronRight className="h-4 w-4 ml-1" />
                   </Button>
                 ) : isEditable ? (
                   <Button size="sm" onClick={submit} disabled={!allFilled || submitting || saveStatus === "saving"}>
@@ -378,6 +410,7 @@ const BusinessQuestionnaire = () => {
           </CardContent>
         </Card>
       </div>
+
 
       {/* Reanalysis Dialog */}
       <Dialog open={showReanalysisDialog} onOpenChange={setShowReanalysisDialog}>
