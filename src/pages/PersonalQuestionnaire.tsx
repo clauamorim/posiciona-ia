@@ -243,23 +243,16 @@ const PersonalQuestionnaire = () => {
   return (
     <DashboardLayout>
       <SeoHead title="Questionário Pessoal · Posiciona" description="Personalidade de marca e voz." path="/personal-questionnaire" />
-      <div className="max-w-2xl mx-auto space-y-5">
+      <div className="max-w-2xl lg:max-w-[1100px] mx-auto space-y-5">
         {/* Header */}
         <div className="flex items-center justify-between gap-3">
           <div>
             <h1 className="text-xl md:text-2xl font-display font-semibold tracking-tight">Sua História</h1>
             <p className="text-muted-foreground text-sm mt-0.5">
-              {filledCount}/{totalFields} respondidas
+              {filledCount}/{totalFields} respondidas · ~12 min
             </p>
           </div>
-          <Badge
-            variant="outline"
-            className={isSubmitted
-              ? "bg-success/10 text-success border-success/20"
-              : "bg-amber-500/10 text-amber-600 border-amber-200"}
-          >
-            {isSubmitted ? "Concluído" : "Em preenchimento"}
-          </Badge>
+          <QuestionnaireStatusBadge status={isSubmitted ? "completed" : "in_progress"} />
         </div>
 
         {/* Persuasion / context */}
