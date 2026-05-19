@@ -14,6 +14,7 @@ import { toast } from "@/hooks/use-toast";
 import { ChevronLeft, ChevronRight, Save, Sparkles, ShieldAlert, HelpCircle, Heart, Briefcase, Compass, BookOpen, Loader2, Check, AlertTriangle } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { InlineHelpButton } from "@/components/assistant/InlineHelpButton";
+import { QuestionnaireStatusBadge } from "@/components/questionnaire/QuestionnaireStatusBadge";
 import { useQuestionnaireAutosave, SaveStatusLabel } from "@/hooks/useQuestionnaireAutosave";
 
 type QStatus = "draft" | "submitted";
