@@ -625,85 +625,99 @@ const Report = () => {
             {content.figurino.resumo && (
               <p className="text-sm leading-relaxed mb-6">{content.figurino.resumo}</p>
             )}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <Accordion type="multiple" defaultValue={["pecas_chave"]} className="w-full">
               {content.figurino.pecas_chave?.length > 0 && (
-                <Card>
-                  <CardContent className="pt-5 pb-4">
-                    <div className="flex items-center gap-2 mb-3 text-primary">
+                <AccordionItem value="pecas_chave">
+                  <AccordionTrigger className="hover:no-underline">
+                    <span className="flex items-center gap-2 text-primary">
                       <Shirt className="h-4 w-4" />
-                      <h3 className="font-bold font-display text-sm">Peças-chave</h3>
-                    </div>
-                    <ul className="space-y-1.5">{content.figurino.pecas_chave.map((p: string, i: number) => <li key={i} className="text-sm text-foreground/80">• {p}</li>)}</ul>
-                  </CardContent>
-                </Card>
+                      <span className="font-bold font-display text-sm">Peças-chave</span>
+                    </span>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <ul className="space-y-1.5 pt-1">{content.figurino.pecas_chave.map((p: string, i: number) => <li key={i} className="text-sm text-foreground/80">• {p}</li>)}</ul>
+                  </AccordionContent>
+                </AccordionItem>
               )}
               {content.figurino.cores_roupa?.length > 0 && (
-                <Card>
-                  <CardContent className="pt-5 pb-4">
-                    <div className="flex items-center gap-2 mb-3 text-primary">
+                <AccordionItem value="cores_roupa">
+                  <AccordionTrigger className="hover:no-underline">
+                    <span className="flex items-center gap-2 text-primary">
                       <Palette className="h-4 w-4" />
-                      <h3 className="font-bold font-display text-sm">Cores de Roupa</h3>
-                    </div>
-                    <div className="flex flex-wrap gap-1.5">{content.figurino.cores_roupa.map((c: string, i: number) => <Badge key={i} variant="outline" className="text-xs">{c}</Badge>)}</div>
-                  </CardContent>
-                </Card>
+                      <span className="font-bold font-display text-sm">Cores de Roupa</span>
+                    </span>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="flex flex-wrap gap-1.5 pt-1">{content.figurino.cores_roupa.map((c: string, i: number) => <Badge key={i} variant="outline" className="text-xs">{c}</Badge>)}</div>
+                  </AccordionContent>
+                </AccordionItem>
               )}
               {content.figurino.sapatos?.length > 0 && (
-                <Card>
-                  <CardContent className="pt-5 pb-4">
-                    <div className="flex items-center gap-2 mb-3 text-primary">
+                <AccordionItem value="sapatos">
+                  <AccordionTrigger className="hover:no-underline">
+                    <span className="flex items-center gap-2 text-primary">
                       <Compass className="h-4 w-4" />
-                      <h3 className="font-bold font-display text-sm">Sapatos</h3>
-                    </div>
-                    <ul className="space-y-1.5">{content.figurino.sapatos.map((s: string, i: number) => <li key={i} className="text-sm text-foreground/80">• {s}</li>)}</ul>
-                  </CardContent>
-                </Card>
+                      <span className="font-bold font-display text-sm">Sapatos</span>
+                    </span>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <ul className="space-y-1.5 pt-1">{content.figurino.sapatos.map((s: string, i: number) => <li key={i} className="text-sm text-foreground/80">• {s}</li>)}</ul>
+                  </AccordionContent>
+                </AccordionItem>
               )}
               {content.figurino.acessorios?.length > 0 && (
-                <Card>
-                  <CardContent className="pt-5 pb-4">
-                    <div className="flex items-center gap-2 mb-3 text-primary">
+                <AccordionItem value="acessorios">
+                  <AccordionTrigger className="hover:no-underline">
+                    <span className="flex items-center gap-2 text-primary">
                       <Gem className="h-4 w-4" />
-                      <h3 className="font-bold font-display text-sm">Acessórios</h3>
-                    </div>
-                    <ul className="space-y-1.5">{content.figurino.acessorios.map((a: string, i: number) => <li key={i} className="text-sm text-foreground/80">• {a}</li>)}</ul>
-                  </CardContent>
-                </Card>
+                      <span className="font-bold font-display text-sm">Acessórios</span>
+                    </span>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <ul className="space-y-1.5 pt-1">{content.figurino.acessorios.map((a: string, i: number) => <li key={i} className="text-sm text-foreground/80">• {a}</li>)}</ul>
+                  </AccordionContent>
+                </AccordionItem>
               )}
               {content.figurino.cabelo && (
-                <Card>
-                  <CardContent className="pt-5 pb-4">
-                    <div className="flex items-center gap-2 mb-3 text-primary">
+                <AccordionItem value="cabelo">
+                  <AccordionTrigger className="hover:no-underline">
+                    <span className="flex items-center gap-2 text-primary">
                       <Scissors className="h-4 w-4" />
-                      <h3 className="font-bold font-display text-sm">Cabelo</h3>
-                    </div>
-                    <p className="text-sm text-foreground/80 leading-relaxed">{content.figurino.cabelo}</p>
-                  </CardContent>
-                </Card>
+                      <span className="font-bold font-display text-sm">Cabelo</span>
+                    </span>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <p className="text-sm text-foreground/80 leading-relaxed pt-1">{content.figurino.cabelo}</p>
+                  </AccordionContent>
+                </AccordionItem>
               )}
               {content.figurino.maquiagem_grooming && (
-                <Card>
-                  <CardContent className="pt-5 pb-4">
-                    <div className="flex items-center gap-2 mb-3 text-primary">
+                <AccordionItem value="maquiagem">
+                  <AccordionTrigger className="hover:no-underline">
+                    <span className="flex items-center gap-2 text-primary">
                       <Eye className="h-4 w-4" />
-                      <h3 className="font-bold font-display text-sm">Maquiagem / Grooming</h3>
-                    </div>
-                    <p className="text-sm text-foreground/80 leading-relaxed">{content.figurino.maquiagem_grooming}</p>
-                  </CardContent>
-                </Card>
+                      <span className="font-bold font-display text-sm">Maquiagem / Grooming</span>
+                    </span>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <p className="text-sm text-foreground/80 leading-relaxed pt-1">{content.figurino.maquiagem_grooming}</p>
+                  </AccordionContent>
+                </AccordionItem>
               )}
               {content.figurino.evitar?.length > 0 && (
-                <Card>
-                  <CardContent className="pt-5 pb-4">
-                    <div className="flex items-center gap-2 mb-3 text-destructive">
+                <AccordionItem value="evitar">
+                  <AccordionTrigger className="hover:no-underline">
+                    <span className="flex items-center gap-2 text-destructive">
                       <Ban className="h-4 w-4" />
-                      <h3 className="font-bold font-display text-sm">Evitar</h3>
-                    </div>
-                    <ul className="space-y-1.5">{content.figurino.evitar.map((e: string, i: number) => <li key={i} className="text-sm text-foreground/80">• {e}</li>)}</ul>
-                  </CardContent>
-                </Card>
+                      <span className="font-bold font-display text-sm">Evitar</span>
+                    </span>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <ul className="space-y-1.5 pt-1">{content.figurino.evitar.map((e: string, i: number) => <li key={i} className="text-sm text-foreground/80">• {e}</li>)}</ul>
+                  </AccordionContent>
+                </AccordionItem>
               )}
-            </div>
+            </Accordion>
           </section>
         )}
 
