@@ -352,9 +352,11 @@ const BusinessQuestionnaire = () => {
             </p>
 
             <div className="flex items-center justify-between pt-1">
-              <Button variant="ghost" size="sm" onClick={() => goToStep(step - 1)} disabled={step === 0}>
-                <ChevronLeft className="h-4 w-4 mr-1" /> Anterior
-              </Button>
+              {step === 0 ? <span /> : (
+                <Button variant="ghost" size="sm" onClick={() => goToStep(step - 1)}>
+                  <ChevronLeft className="h-4 w-4 mr-1" /> Anterior
+                </Button>
+              )}
 
               <div className="flex items-center gap-2">
                 {isEditable && (
