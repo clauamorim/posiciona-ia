@@ -98,6 +98,31 @@ export const DashboardLayout = ({ children, wide = false }: { children: React.Re
     load();
   }, [user, isAdmin]);
 
+  // Journey progress for sidebar collapsing
+  const JOURNEY_KEYS = ["/business-questionnaire","/personal-questionnaire","/archetype-questionnaire","/results","/report","/instagram-analysis","/editorial","/portraits"];
+  const journeyDoneAll = JOURNEY_KEYS.every(k => journeyStatus[k] === "done");
+  const CONTINUOUS_HREFS = new Set(["/editorial", "/stories-de-venda", "/portraits", "/report"]);
+
+  const [journeyGroupOpen, setJourneyGroupOpen] = useState<boolean>(true);
+  useEffect(() => {
+    const saved = localStorage.getItem("sidebar.journey.expanded");
+    if (saved !== null) setJourneyGroupOpen(saved === "true");
+    else setJourneyGroupOpen(!journeyDoneAll);
+  }, [journeyDoneAll]);
+  const toggleJourneyGroup = () => {
+    setJourneyGroupOpen(prev => {
+      const next = !prev;
+      localStorage.setItem("sidebar.journey.expanded", String(next));
+      return next;
+    });
+  };
+        "/editorial": hasEditorial ? "done" : (rDone && pqSubmitted) ? "in_progress" : "blocked",
+        "/portraits": hasPortraits ? "done" : rDone ? "in_progress" : "blocked",
+      });
+    };
+    load();
+  }, [user, isAdmin]);
+
   const userGroups: NavGroup[] = [
     {
       label: "",
