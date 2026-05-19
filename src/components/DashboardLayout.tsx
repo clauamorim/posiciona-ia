@@ -112,7 +112,7 @@ export const DashboardLayout = ({ children, wide = false }: { children: React.Re
         { label: "Sua História", href: "/personal-questionnaire", icon: Sparkles, status: journeyStatus["/personal-questionnaire"] },
         { label: "Arquétipos", href: "/archetype-questionnaire", icon: Brain, status: journeyStatus["/archetype-questionnaire"] },
         { label: "Resultados", href: "/results", icon: BarChart3, status: journeyStatus["/results"] },
-        { label: "Narrativa da Marca", href: "/storybrand", icon: Target, status: journeyStatus["/storybrand"] },
+        // "Narrativa da Marca" consolidada como tab dentro do Relatório — /storybrand permanece acessível por links antigos
         { label: "Relatório", href: "/report", icon: FileText, status: journeyStatus["/report"] },
         { label: "Instagram", href: "/instagram-analysis", icon: Instagram, status: journeyStatus["/instagram-analysis"] },
         { label: "Linha Editorial", href: "/editorial", icon: Calendar, status: journeyStatus["/editorial"] },

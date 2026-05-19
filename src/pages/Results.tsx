@@ -289,9 +289,6 @@ const Results = () => {
                 <Button size="sm" onClick={() => navigate("/report")} className="gap-1.5">
                   Relatório <ArrowRight className="h-3.5 w-3.5" />
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => navigate("/storybrand")}>
-                  Narrativa
-                </Button>
               </div>
             )}
             {stage === "generating_report" && (
