@@ -741,7 +741,7 @@ const LandingPage = () => {
                     ? "border-landing-purple/60 bg-landing-bg-secondary/60 ring-1 ring-landing-purple/30"
                     : p.slug === "autoridade_total"
                       ? "border-landing-gold/30 bg-landing-bg-secondary/30"
-                      : "border-landing-border/50 border-t-2 border-t-muted-foreground/30 bg-landing-bg/50"
+                      : "border-landing-border/50 border-t-2 border-t-[#7DD3C0] bg-landing-bg/50"
                 }`}
               >
                 {p.badge && (
