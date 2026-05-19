@@ -168,6 +168,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const loadProfileCompleted = async (userId: string): Promise<boolean> => {
+    try {
+      const { data } = await supabase
+        .from("profiles")
+        .select("profile_completed")
+        .eq("user_id", userId)
+        .maybeSingle();
+      // Default to true if the profile row hasn't been created yet to avoid loops.
+      return data ? !!data.profile_completed : true;
+    } catch (e) {
+      console.error("loadProfileCompleted error:", e);
+      return true;
+    }
+  };
+
   const hydrateUser = async (newSession: Session, requestId: number) => {
     const userId = newSession.user.id;
 
