@@ -365,9 +365,11 @@ const PersonalQuestionnaire = () => {
             </div>
 
             <div className="flex items-center justify-between pt-1 border-t border-border/40">
-              <Button variant="ghost" size="sm" onClick={() => goToBlock(blockIndex - 1)} disabled={isFirst}>
-                <ChevronLeft className="h-4 w-4 mr-1" /> Anterior
-              </Button>
+              {isFirst ? <span /> : (
+                <Button variant="ghost" size="sm" onClick={() => goToBlock(blockIndex - 1)}>
+                  <ChevronLeft className="h-4 w-4 mr-1" /> Anterior
+                </Button>
+              )}
 
               <div className="flex items-center gap-2">
                 {!isSubmitted && (
