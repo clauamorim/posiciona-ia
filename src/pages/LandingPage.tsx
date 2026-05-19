@@ -791,7 +791,7 @@ const LandingPage = () => {
                       ? "bg-landing-purple hover:bg-landing-purple/90 text-foreground"
                       : p.slug === "autoridade_total"
                         ? "bg-landing-gold/90 hover:bg-landing-gold text-foreground"
-                        : "bg-transparent border border-landing-border hover:bg-landing-bg-secondary text-landing-text"
+                        : "bg-transparent border border-[#7DD3C0]/60 text-[#7DD3C0] hover:bg-[#7DD3C0]/10"
                   }`}
                   onClick={() => handleCheckout(p.slug)}
                   disabled={loadingSlug === p.slug}
