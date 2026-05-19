@@ -846,8 +846,13 @@ const LandingPage = () => {
 
       {/* ── FOOTER ── */}
       <footer className="border-t border-landing-border/40 py-8 px-4">
-        <div className="max-w-3xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-          <p className="text-xs text-landing-text-secondary/50">© {new Date().getFullYear()} Posiciona. Todos os direitos reservados.</p>
+        <div className="max-w-3xl mx-auto flex flex-col items-center gap-5">
+          <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+            <img src={posicionaLogo} alt="Posiciona" className="h-7 w-7" />
+            <span className="text-base font-semibold tracking-tight text-landing-text">Posiciona</span>
+          </Link>
+          <div className="w-full flex flex-col md:flex-row items-center justify-between gap-4">
+            <p className="text-xs text-landing-text-secondary/50">© {new Date().getFullYear()} Posiciona. Todos os direitos reservados.</p>
           <div className="flex flex-col sm:flex-row items-center gap-3 text-xs text-landing-text-secondary/60">
             <Link to="/termos-de-servico" className="hover:text-landing-gold transition-colors">Termos de Serviço</Link>
             <span className="hidden sm:inline text-landing-border">|</span>
