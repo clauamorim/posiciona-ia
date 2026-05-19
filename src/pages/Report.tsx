@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from "react";
+import { createRoot } from "react-dom/client";
 import { useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { SeoHead } from "@/components/SeoHead";
@@ -6,14 +7,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import {
+  Accordion, AccordionItem, AccordionTrigger, AccordionContent,
+} from "@/components/ui/accordion";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 import {
   Loader2, Download, FileText, Palette, Type, MessageSquare,
   Target, Crown, Shield, Heart,
   Users, Zap, BookOpen, Compass, Star, Megaphone,
-  Shirt, Gem, Scissors, Eye, Ban, AlertTriangle, RefreshCw, Calendar, ArrowRight, Sparkles, X
+  Shirt, Gem, Scissors, Eye, Ban, AlertTriangle, RefreshCw, Calendar, ArrowRight, Sparkles, X, ArrowUp,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getReportFallbackText, parseReportContent } from "@/lib/reportParser";
@@ -51,8 +57,9 @@ const Report = () => {
   const [userName, setUserName] = useState<string | null>(null);
   const [regenerating, setRegenerating] = useState(false);
   const [showNarrativeBanner, setShowNarrativeBanner] = useState(false);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [showBackTop, setShowBackTop] = useState(false);
   const reportRef = useRef<HTMLDivElement>(null);
-  const pdfRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -219,16 +226,61 @@ const Report = () => {
   };
 
   const handleDownloadPDF = async () => {
-    const target = pdfRef.current || reportRef.current;
-    if (!target) return;
+    if (downloadingPdf) return;
+    setDownloadingPdf(true);
+
+    // Mount the PDF document on-demand in a hidden off-screen container,
+    // capture it, then unmount — avoids permanently duplicating the report DOM.
+    const host = document.createElement("div");
+    host.setAttribute("aria-hidden", "true");
+    host.style.cssText = "position:absolute;left:-9999px;top:0;width:900px;pointer-events:none;";
+    document.body.appendChild(host);
+    const root = createRoot(host);
+
     try {
+      await new Promise<void>((resolve) => {
+        root.render(
+          <ReportPdfDocument
+            content={content}
+            archetypes={archetypeData}
+            createdAt={report?.created_at}
+            userName={userName}
+          />
+        );
+        // Wait two frames so layout settles before html2canvas captures.
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+      });
+
       const { exportSectionBasedPDF } = await import("@/lib/pdfExport");
-      await exportSectionBasedPDF(target, "posiciona-relatorio.pdf", "#FAF8F5");
+      await exportSectionBasedPDF(host, "posiciona-relatorio.pdf", "#FAF8F5");
     } catch (error) {
       console.error("Error generating PDF:", error);
       toast({ title: "Erro ao gerar PDF", description: "Tente novamente.", variant: "destructive" });
+    } finally {
+      root.unmount();
+      host.remove();
+      setDownloadingPdf(false);
     }
   };
+
+  // Back-to-top button visibility
+  useEffect(() => {
+    const onScroll = () => setShowBackTop(window.scrollY > 800);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  const scrollToTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
+
+  const formatGeneratedAt = (iso?: string | null) => {
+    if (!iso) return "";
+    const d = new Date(iso);
+    const date = d.toLocaleDateString("pt-BR");
+    const time = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+    return `${date} às ${time}`;
+  };
+
 
   if (loading) {
     return (
@@ -274,9 +326,12 @@ const Report = () => {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold font-display">Seu Relatório</h1>
-              <p className="text-sm text-muted-foreground">Gerado em {new Date(report.created_at).toLocaleDateString("pt-BR")}</p>
+              <p className="text-sm text-muted-foreground">Gerado em {formatGeneratedAt(report.created_at)}</p>
             </div>
-            <Button onClick={handleDownloadPDF} className="gap-2"><Download className="h-4 w-4" /> Baixar PDF</Button>
+            <Button onClick={handleDownloadPDF} disabled={downloadingPdf} className="gap-2">
+              {downloadingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+              {downloadingPdf ? "Gerando PDF..." : "Baixar PDF"}
+            </Button>
           </div>
           <Card>
             <CardContent className="pt-6 prose prose-sm max-w-none">
@@ -297,10 +352,13 @@ const Report = () => {
         <div data-pdf-section className="flex items-start justify-between flex-wrap gap-4">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Seu Relatório</h1>
-            <p className="text-sm text-muted-foreground mt-1">Gerado em {new Date(report.created_at).toLocaleDateString("pt-BR")}</p>
+            <p className="text-sm text-muted-foreground mt-1">Gerado em {formatGeneratedAt(report.created_at)}</p>
           </div>
           <div className="flex gap-2" data-hide-pdf>
-            <Button onClick={handleDownloadPDF} variant="outline" size="sm" className="gap-2"><Download className="h-4 w-4" /> Baixar PDF</Button>
+            <Button onClick={handleDownloadPDF} disabled={downloadingPdf} variant="outline" size="sm" className="gap-2">
+              {downloadingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+              {downloadingPdf ? "Gerando PDF..." : "Baixar PDF"}
+            </Button>
           </div>
         </div>
 
@@ -410,6 +468,14 @@ const Report = () => {
           </div>
         )}
 
+        <Tabs defaultValue="identidade" className="space-y-8">
+          <TabsList className="w-full overflow-x-auto flex justify-start md:justify-center gap-1 h-auto p-1" data-hide-pdf>
+            <TabsTrigger value="identidade" className="whitespace-nowrap">Identidade</TabsTrigger>
+            <TabsTrigger value="apresentacao" className="whitespace-nowrap">Apresentação</TabsTrigger>
+            <TabsTrigger value="narrativa" className="whitespace-nowrap">Narrativa</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="identidade" className="space-y-10 mt-6">
         {/* SECTION: Archetypes — from user_top_archetypes table */}
         <section data-pdf-section>
           <div className="flex items-center gap-2 mb-4">
@@ -556,7 +622,9 @@ const Report = () => {
             </div>
           </section>
         )}
+          </TabsContent>
 
+          <TabsContent value="apresentacao" className="space-y-10 mt-6">
         {/* SECTION: Figurino Estratégico */}
         {content.figurino && (
           <section data-pdf-section className="bg-muted/30 rounded-2xl p-6 md:p-8 break-inside-avoid">
@@ -567,85 +635,99 @@ const Report = () => {
             {content.figurino.resumo && (
               <p className="text-sm leading-relaxed mb-6">{content.figurino.resumo}</p>
             )}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <Accordion type="multiple" defaultValue={["pecas_chave"]} className="w-full">
               {content.figurino.pecas_chave?.length > 0 && (
-                <Card>
-                  <CardContent className="pt-5 pb-4">
-                    <div className="flex items-center gap-2 mb-3 text-primary">
+                <AccordionItem value="pecas_chave">
+                  <AccordionTrigger className="hover:no-underline">
+                    <span className="flex items-center gap-2 text-primary">
                       <Shirt className="h-4 w-4" />
-                      <h3 className="font-bold font-display text-sm">Peças-chave</h3>
-                    </div>
-                    <ul className="space-y-1.5">{content.figurino.pecas_chave.map((p: string, i: number) => <li key={i} className="text-sm text-foreground/80">• {p}</li>)}</ul>
-                  </CardContent>
-                </Card>
+                      <span className="font-bold font-display text-sm">Peças-chave</span>
+                    </span>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <ul className="space-y-1.5 pt-1">{content.figurino.pecas_chave.map((p: string, i: number) => <li key={i} className="text-sm text-foreground/80">• {p}</li>)}</ul>
+                  </AccordionContent>
+                </AccordionItem>
               )}
               {content.figurino.cores_roupa?.length > 0 && (
-                <Card>
-                  <CardContent className="pt-5 pb-4">
-                    <div className="flex items-center gap-2 mb-3 text-primary">
+                <AccordionItem value="cores_roupa">
+                  <AccordionTrigger className="hover:no-underline">
+                    <span className="flex items-center gap-2 text-primary">
                       <Palette className="h-4 w-4" />
-                      <h3 className="font-bold font-display text-sm">Cores de Roupa</h3>
-                    </div>
-                    <div className="flex flex-wrap gap-1.5">{content.figurino.cores_roupa.map((c: string, i: number) => <Badge key={i} variant="outline" className="text-xs">{c}</Badge>)}</div>
-                  </CardContent>
-                </Card>
+                      <span className="font-bold font-display text-sm">Cores de Roupa</span>
+                    </span>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="flex flex-wrap gap-1.5 pt-1">{content.figurino.cores_roupa.map((c: string, i: number) => <Badge key={i} variant="outline" className="text-xs">{c}</Badge>)}</div>
+                  </AccordionContent>
+                </AccordionItem>
               )}
               {content.figurino.sapatos?.length > 0 && (
-                <Card>
-                  <CardContent className="pt-5 pb-4">
-                    <div className="flex items-center gap-2 mb-3 text-primary">
+                <AccordionItem value="sapatos">
+                  <AccordionTrigger className="hover:no-underline">
+                    <span className="flex items-center gap-2 text-primary">
                       <Compass className="h-4 w-4" />
-                      <h3 className="font-bold font-display text-sm">Sapatos</h3>
-                    </div>
-                    <ul className="space-y-1.5">{content.figurino.sapatos.map((s: string, i: number) => <li key={i} className="text-sm text-foreground/80">• {s}</li>)}</ul>
-                  </CardContent>
-                </Card>
+                      <span className="font-bold font-display text-sm">Sapatos</span>
+                    </span>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <ul className="space-y-1.5 pt-1">{content.figurino.sapatos.map((s: string, i: number) => <li key={i} className="text-sm text-foreground/80">• {s}</li>)}</ul>
+                  </AccordionContent>
+                </AccordionItem>
               )}
               {content.figurino.acessorios?.length > 0 && (
-                <Card>
-                  <CardContent className="pt-5 pb-4">
-                    <div className="flex items-center gap-2 mb-3 text-primary">
+                <AccordionItem value="acessorios">
+                  <AccordionTrigger className="hover:no-underline">
+                    <span className="flex items-center gap-2 text-primary">
                       <Gem className="h-4 w-4" />
-                      <h3 className="font-bold font-display text-sm">Acessórios</h3>
-                    </div>
-                    <ul className="space-y-1.5">{content.figurino.acessorios.map((a: string, i: number) => <li key={i} className="text-sm text-foreground/80">• {a}</li>)}</ul>
-                  </CardContent>
-                </Card>
+                      <span className="font-bold font-display text-sm">Acessórios</span>
+                    </span>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <ul className="space-y-1.5 pt-1">{content.figurino.acessorios.map((a: string, i: number) => <li key={i} className="text-sm text-foreground/80">• {a}</li>)}</ul>
+                  </AccordionContent>
+                </AccordionItem>
               )}
               {content.figurino.cabelo && (
-                <Card>
-                  <CardContent className="pt-5 pb-4">
-                    <div className="flex items-center gap-2 mb-3 text-primary">
+                <AccordionItem value="cabelo">
+                  <AccordionTrigger className="hover:no-underline">
+                    <span className="flex items-center gap-2 text-primary">
                       <Scissors className="h-4 w-4" />
-                      <h3 className="font-bold font-display text-sm">Cabelo</h3>
-                    </div>
-                    <p className="text-sm text-foreground/80 leading-relaxed">{content.figurino.cabelo}</p>
-                  </CardContent>
-                </Card>
+                      <span className="font-bold font-display text-sm">Cabelo</span>
+                    </span>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <p className="text-sm text-foreground/80 leading-relaxed pt-1">{content.figurino.cabelo}</p>
+                  </AccordionContent>
+                </AccordionItem>
               )}
               {content.figurino.maquiagem_grooming && (
-                <Card>
-                  <CardContent className="pt-5 pb-4">
-                    <div className="flex items-center gap-2 mb-3 text-primary">
+                <AccordionItem value="maquiagem">
+                  <AccordionTrigger className="hover:no-underline">
+                    <span className="flex items-center gap-2 text-primary">
                       <Eye className="h-4 w-4" />
-                      <h3 className="font-bold font-display text-sm">Maquiagem / Grooming</h3>
-                    </div>
-                    <p className="text-sm text-foreground/80 leading-relaxed">{content.figurino.maquiagem_grooming}</p>
-                  </CardContent>
-                </Card>
+                      <span className="font-bold font-display text-sm">Maquiagem / Grooming</span>
+                    </span>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <p className="text-sm text-foreground/80 leading-relaxed pt-1">{content.figurino.maquiagem_grooming}</p>
+                  </AccordionContent>
+                </AccordionItem>
               )}
               {content.figurino.evitar?.length > 0 && (
-                <Card>
-                  <CardContent className="pt-5 pb-4">
-                    <div className="flex items-center gap-2 mb-3 text-destructive">
+                <AccordionItem value="evitar">
+                  <AccordionTrigger className="hover:no-underline">
+                    <span className="flex items-center gap-2 text-destructive">
                       <Ban className="h-4 w-4" />
-                      <h3 className="font-bold font-display text-sm">Evitar</h3>
-                    </div>
-                    <ul className="space-y-1.5">{content.figurino.evitar.map((e: string, i: number) => <li key={i} className="text-sm text-foreground/80">• {e}</li>)}</ul>
-                  </CardContent>
-                </Card>
+                      <span className="font-bold font-display text-sm">Evitar</span>
+                    </span>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <ul className="space-y-1.5 pt-1">{content.figurino.evitar.map((e: string, i: number) => <li key={i} className="text-sm text-foreground/80">• {e}</li>)}</ul>
+                  </AccordionContent>
+                </AccordionItem>
               )}
-            </div>
+            </Accordion>
           </section>
         )}
 
@@ -726,7 +808,9 @@ const Report = () => {
             </div>
           </section>
         )}
+          </TabsContent>
 
+          <TabsContent value="narrativa" className="space-y-10 mt-6">
         {/* SECTION: StoryBrand */}
         {content.storybrand && (
           <section data-pdf-section>
@@ -755,23 +839,67 @@ const Report = () => {
             </div>
           </section>
         )}
+          </TabsContent>
+        </Tabs>
 
-      </div>
+        {/* Bottom actions: Download PDF + Editorial CTA */}
+        <div data-hide-pdf className="space-y-6 pt-4">
+          <div className="flex justify-center">
+            <Button onClick={handleDownloadPDF} disabled={downloadingPdf} size="lg" className="gap-2">
+              {downloadingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+              {downloadingPdf ? "Gerando PDF..." : "Baixar PDF"}
+            </Button>
+          </div>
 
-      {/* Hidden PDF-export-only document — text-first layout */}
-      <div
-        aria-hidden="true"
-        style={{ position: "absolute", left: -9999, top: 0, width: 900, pointerEvents: "none" }}
-      >
-        <div ref={pdfRef}>
-          <ReportPdfDocument
-            content={content}
-            archetypes={archetypeData}
-            createdAt={report?.created_at}
-            userName={userName}
-          />
+          {!report?.content?.is_fallback && (
+            <Card className="relative overflow-hidden border-2 border-primary/30 bg-gradient-to-br from-primary/5 via-background to-accent/5">
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary to-accent" />
+              <CardContent className="pt-6 pb-6 flex flex-col md:flex-row md:items-center gap-4 md:gap-6">
+                <div className="flex items-start gap-3 flex-1">
+                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                    <Calendar className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-display text-lg font-semibold tracking-tight">
+                      {(report?.editorial_weeks?.length ?? 0) > 0 ? "Sua Linha Editorial está pronta" : "Próximo passo: sua Linha Editorial"}
+                    </h3>
+                    <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
+                      {(report?.editorial_weeks?.length ?? 0) > 0
+                        ? "Acesse as 6 semanas de conteúdo construídas a partir desta estratégia."
+                        : "Transforme sua estratégia em 6 semanas de conteúdo prontas para postar."}
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  onClick={() => navigate("/editorial")}
+                  size="lg"
+                  className="gap-2 shrink-0 w-full md:w-auto"
+                >
+                  {(report?.editorial_weeks?.length ?? 0) > 0 ? "Acessar Linha Editorial" : "Gerar Linha Editorial"}
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
+
+      {/* Floating back-to-top */}
+      <button
+        type="button"
+        aria-label="Voltar ao topo"
+        onClick={scrollToTop}
+        className={cn(
+          "fixed right-6 z-40 h-11 w-11 rounded-full",
+          "bg-card/95 backdrop-blur-md border border-border shadow-lg",
+          "flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-primary/40",
+          "transition-all duration-300 ease-out",
+          showBackTop ? "opacity-100 translate-y-0 pointer-events-auto" : "opacity-0 translate-y-2 pointer-events-none",
+        )}
+        style={{ bottom: "calc(5.5rem + env(safe-area-inset-bottom))" }}
+      >
+        <ArrowUp className="h-5 w-5" />
+      </button>
     </DashboardLayout>
   );
 };
