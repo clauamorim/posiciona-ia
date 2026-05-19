@@ -226,16 +226,61 @@ const Report = () => {
   };
 
   const handleDownloadPDF = async () => {
-    const target = pdfRef.current || reportRef.current;
-    if (!target) return;
+    if (downloadingPdf) return;
+    setDownloadingPdf(true);
+
+    // Mount the PDF document on-demand in a hidden off-screen container,
+    // capture it, then unmount — avoids permanently duplicating the report DOM.
+    const host = document.createElement("div");
+    host.setAttribute("aria-hidden", "true");
+    host.style.cssText = "position:absolute;left:-9999px;top:0;width:900px;pointer-events:none;";
+    document.body.appendChild(host);
+    const root = createRoot(host);
+
     try {
+      await new Promise<void>((resolve) => {
+        root.render(
+          <ReportPdfDocument
+            content={content}
+            archetypes={archetypeData}
+            createdAt={report?.created_at}
+            userName={userName}
+          />
+        );
+        // Wait two frames so layout settles before html2canvas captures.
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+      });
+
       const { exportSectionBasedPDF } = await import("@/lib/pdfExport");
-      await exportSectionBasedPDF(target, "posiciona-relatorio.pdf", "#FAF8F5");
+      await exportSectionBasedPDF(host, "posiciona-relatorio.pdf", "#FAF8F5");
     } catch (error) {
       console.error("Error generating PDF:", error);
       toast({ title: "Erro ao gerar PDF", description: "Tente novamente.", variant: "destructive" });
+    } finally {
+      root.unmount();
+      host.remove();
+      setDownloadingPdf(false);
     }
   };
+
+  // Back-to-top button visibility
+  useEffect(() => {
+    const onScroll = () => setShowBackTop(window.scrollY > 800);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  const scrollToTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
+
+  const formatGeneratedAt = (iso?: string | null) => {
+    if (!iso) return "";
+    const d = new Date(iso);
+    const date = d.toLocaleDateString("pt-BR");
+    const time = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+    return `${date} às ${time}`;
+  };
+
 
   if (loading) {
     return (
