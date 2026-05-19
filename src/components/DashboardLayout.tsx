@@ -116,12 +116,6 @@ export const DashboardLayout = ({ children, wide = false }: { children: React.Re
       return next;
     });
   };
-        "/editorial": hasEditorial ? "done" : (rDone && pqSubmitted) ? "in_progress" : "blocked",
-        "/portraits": hasPortraits ? "done" : rDone ? "in_progress" : "blocked",
-      });
-    };
-    load();
-  }, [user, isAdmin]);
 
   const userGroups: NavGroup[] = [
     {
