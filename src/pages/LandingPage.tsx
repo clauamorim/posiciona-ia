@@ -591,7 +591,7 @@ const LandingPage = () => {
 
       {/* ── PROVA CONCRETA (entregáveis) ── */}
       <section id="resultados" className="py-12 md:py-16 px-4">
-        <div className="max-w-5xl mx-auto space-y-10">
+        <div className="max-w-5xl lg:max-w-[1280px] mx-auto space-y-10">
           <div className="text-center space-y-2">
             <h2 className="text-2xl md:text-3xl font-display font-semibold">
               Veja o que o Posiciona entrega{" "}
@@ -601,18 +601,18 @@ const LandingPage = () => {
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {[
-              { icon: Brain, title: "Mapa de Arquétipos", desc: "Top 3 arquétipos com pontuação, forças, tom de voz e direção visual.", color: "text-purple-400" },
-              { icon: Target, title: "Narrativa de Marca", desc: "Narrativa completa: personagem, problema, guia, plano e transformação.", color: "text-amber-400" },
-              { icon: BarChart3, title: "Diagnóstico de Perfil", desc: "Análise estratégica da bio, conteúdo, hashtags e oportunidades.", color: "text-emerald-400" },
-              { icon: Calendar, title: "Calendário Editorial", desc: "Semanas inteiras de conteúdo com temas, formatos e CTAs definidos.", color: "text-blue-400" },
-              { icon: MessageSquare, title: "Conteúdos Prontos", desc: "Posts, carrosséis e roteiros de reels com legendas e chamadas para ação.", color: "text-pink-400" },
-              { icon: Camera, title: "Retratos de Posicionamento", desc: "Retratos profissionais gerados por IA com base nos seus arquétipos.", color: "text-landing-gold" },
+              { icon: Brain, title: "Mapa de Arquétipos", desc: "Top 3 arquétipos com pontuação, forças, tom de voz e direção visual.", color: "text-purple-400", accent: "border-t-purple-500/60" },
+              { icon: Target, title: "Narrativa de Marca", desc: "Narrativa completa: personagem, problema, guia, plano e transformação.", color: "text-amber-400", accent: "border-t-landing-gold/70" },
+              { icon: BarChart3, title: "Diagnóstico de Perfil", desc: "Análise estratégica da bio, conteúdo, hashtags e oportunidades.", color: "text-emerald-400", accent: "border-t-emerald-500/60" },
+              { icon: Calendar, title: "Calendário Editorial", desc: "Semanas inteiras de conteúdo com temas, formatos e CTAs definidos.", color: "text-blue-400", accent: "border-t-blue-500/60" },
+              { icon: MessageSquare, title: "Conteúdos Prontos", desc: "Posts, carrosséis e roteiros de reels com legendas e chamadas para ação.", color: "text-pink-400", accent: "border-t-pink-500/60" },
+              { icon: Camera, title: "Retratos de Posicionamento", desc: "Retratos profissionais gerados por IA com base nos seus arquétipos.", color: "text-landing-gold", accent: "border-t-landing-gold/70" },
             ].map((item, i) => {
               const isHighlighted = HIGHLIGHTED_DELIVERABLES.includes(item.title);
               return (
                 <div
                   key={i}
-                  className={`group p-5 rounded-xl border border-landing-border/40 transition-colors space-y-3 ${
+                  className={`group p-5 rounded-xl border border-landing-border/40 border-t-2 ${item.accent} transition-all duration-200 hover:-translate-y-0.5 space-y-3 ${
                     isHighlighted
                       ? "bg-landing-bg-secondary/40 ring-1 ring-landing-purple/10"
                       : "bg-landing-bg-secondary/20 hover:bg-landing-bg-secondary/40"
@@ -632,7 +632,7 @@ const LandingPage = () => {
 
       {/* ── DEPOIMENTOS ── */}
       <section id="depoimentos" className="py-12 md:py-16 px-4 bg-landing-bg">
-        <div className="max-w-6xl mx-auto space-y-10">
+        <div className="max-w-6xl lg:max-w-[1280px] mx-auto space-y-10">
           <div className="text-center space-y-2">
             <p className="text-xs font-semibold uppercase tracking-widest text-landing-gold">Quem já usou</p>
             <h2 className="text-2xl md:text-3xl font-display font-semibold leading-tight">
