@@ -1,11 +1,11 @@
 import LegalPageLayout from "@/components/LegalPageLayout";
 
 const H2 = ({ children }: { children: React.ReactNode }) => (
-  <h2 className="font-display text-xl md:text-2xl font-semibold text-white mt-10 mb-4">{children}</h2>
+  <h2 className="font-display text-xl md:text-2xl font-semibold text-foreground mt-10 mb-4">{children}</h2>
 );
 
 const H3 = ({ children }: { children: React.ReactNode }) => (
-  <h3 className="font-display text-lg font-semibold text-white mt-6 mb-3">{children}</h3>
+  <h3 className="font-display text-lg font-semibold text-foreground mt-6 mb-3">{children}</h3>
 );
 
 const P = ({ children }: { children: React.ReactNode }) => (
@@ -30,9 +30,9 @@ const PoliticaDePrivacidade = () => {
       <H2>2. Quem é o responsável pelo tratamento</H2>
       <P>O controlador dos dados pessoais tratados no contexto da plataforma é:</P>
       <P>
-        <strong className="text-white">Cláudia Macedo Amorim</strong><br />
-        <strong className="text-white">E-mail de contato:</strong>{" "}
-        <a href="mailto:contato@posiciona.ia.br" className="text-[#C9A84C] hover:text-[#E2C06A] transition-colors">contato@posiciona.ia.br</a>
+        <strong className="text-foreground">Cláudia Macedo Amorim</strong><br />
+        <strong className="text-foreground">E-mail de contato:</strong>{" "}
+        <a href="mailto:contato@posiciona.ia.br" className="text-gold hover:text-gold-hover transition-colors">contato@posiciona.ia.br</a>
       </P>
       <P>
         A ANPD prevê que agentes de tratamento de pequeno porte podem ser dispensados da indicação formal de encarregado, desde que disponibilizem canal de comunicação com o titular.
@@ -227,8 +227,8 @@ const PoliticaDePrivacidade = () => {
       <P>Para dúvidas, solicitações ou exercício de direitos relacionados a dados pessoais:</P>
       <ul className="list-disc pl-6 space-y-1.5 mb-3">
         <li>
-          <strong className="text-white">Contato geral e suporte:</strong>{" "}
-          <a href="mailto:suporte@posiciona.ia.br" className="text-[#C9A84C] hover:text-[#E2C06A] transition-colors">suporte@posiciona.ia.br</a>
+          <strong className="text-foreground">Contato geral e suporte:</strong>{" "}
+          <a href="mailto:suporte@posiciona.ia.br" className="text-gold hover:text-gold-hover transition-colors">suporte@posiciona.ia.br</a>
         </li>
       </ul>
     </LegalPageLayout>
