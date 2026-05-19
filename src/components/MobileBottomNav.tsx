@@ -39,7 +39,7 @@ export const MobileBottomNav = () => {
                 aria-current={active ? "page" : undefined}
                 className={cn(
                   "flex flex-col items-center justify-center gap-1 h-full transition-colors",
-                  active ? "text-primary" : "text-white/40 hover:text-white/70"
+                  active ? "text-primary" : "text-foreground/40 hover:text-foreground/70"
                 )}
               >
                 <Icon size={22} strokeWidth={1.5} />
