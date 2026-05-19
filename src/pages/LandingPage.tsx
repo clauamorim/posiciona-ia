@@ -836,7 +836,7 @@ const LandingPage = () => {
             Responda o diagnóstico hoje. Amanhã você já tem posicionamento, narrativa e conteúdo prontos para publicar.
           </p>
           <Button size="lg" onClick={() => navigate("/signup")} className="bg-landing-purple hover:bg-landing-purple/90 text-foreground text-base h-12 px-8">
-            Criar meu posicionamento agora <ArrowRight className="h-4 w-4 ml-2" />
+            Criar meu posicionamento <ArrowRight className="h-4 w-4 ml-2" />
           </Button>
           <p className="text-xs text-landing-text-secondary/50">Sem agência. Sem contrato. Resultado em minutos.</p>
         </div>
