@@ -134,33 +134,41 @@ const ArchetypeQuestionnaire = () => {
   return (
     <DashboardLayout>
       <SeoHead title="Questionário de Arquétipos · Posiciona" description="Diagnóstico de arquétipos de marca." path="/archetype-questionnaire" />
-      <div className="max-w-2xl mx-auto space-y-5">
+      <div className="max-w-2xl lg:max-w-[1100px] mx-auto space-y-5">
         {/* Header */}
         <div className="flex items-center justify-between gap-3">
           <div>
             <h1 className="text-xl md:text-2xl font-display font-semibold tracking-tight">Questionário de Arquétipos</h1>
             <p className="text-muted-foreground text-sm mt-0.5">
-              Página {page + 1} de {totalPages} · {answeredCount}/72 respondidas
+              {answeredCount}/72 respondidas · ~15 min
+            </p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              Página {page + 1} de {totalPages}
             </p>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             {isLocked && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1.5"
-                onClick={() => setShowReanalysisDialog(true)}
-                disabled={reanalysisCredits < 1}
-              >
-                <RefreshCw className="h-3 w-3" />
-                <span className="hidden sm:inline">Refazer</span> ({reanalysisCredits})
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5"
+                    onClick={() => setShowReanalysisDialog(true)}
+                    disabled={reanalysisCredits < 1}
+                  >
+                    <RefreshCw className="h-3 w-3" />
+                    <span className="hidden sm:inline">Refazer</span> ({reanalysisCredits})
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Você tem {reanalysisCredits} crédito{reanalysisCredits !== 1 ? "s" : ""} de reanálise disponível{reanalysisCredits !== 1 ? "is" : ""}
+                </TooltipContent>
+              </Tooltip>
             )}
-            {isLocked && (
-              <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20">
-                <Lock className="h-3 w-3 mr-1" /> Bloqueado
-              </Badge>
-            )}
+            <QuestionnaireStatusBadge
+              status={isLocked ? "in_use" : answeredCount === 72 ? "completed" : "in_progress"}
+            />
           </div>
         </div>
 
