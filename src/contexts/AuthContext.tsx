@@ -194,6 +194,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       checkAdmin(userId),
       loadSubscription(userId),
       loadBalances(userId),
+      loadProfileCompleted(userId),
     ]);
 
     const result = await Promise.race([dataPromise, timeoutPromise]);
@@ -206,21 +207,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       hydrationDoneRef.current = true;
       setIsLoading(false);
       // Retry in background; UI is already usable.
-      dataPromise.then(([adminResult, subResult, balResult]) => {
+      dataPromise.then(([adminResult, subResult, balResult, profileResult]) => {
         if (authRequestRef.current !== requestId) return;
         setIsAdmin(adminResult);
         setSubscription(subResult);
         setBalances(balResult);
+        setProfileCompleted(profileResult);
       }).catch(() => {});
       return;
     }
 
-    const [adminResult, subResult, balResult] = result;
+    const [adminResult, subResult, balResult, profileResult] = result;
     setSession(newSession);
     sessionUserIdRef.current = userId;
     setIsAdmin(adminResult);
     setSubscription(subResult);
     setBalances(balResult);
+    setProfileCompleted(profileResult);
     hydrationDoneRef.current = true;
     setIsLoading(false);
   };
@@ -234,6 +237,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     ]);
     setSubscription(subResult);
     setBalances(balResult);
+  };
+
+  const refreshProfileCompletion = async () => {
+    const userId = sessionUserIdRef.current;
+    if (!userId) return;
+    const completed = await loadProfileCompleted(userId);
+    setProfileCompleted(completed);
   };
 
   const adoptSession = async (newSession: Session) => {
