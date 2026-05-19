@@ -36,8 +36,10 @@ interface AuthContextType {
   expirationReason: ExpirationReason;
   subscription: UserSubscription | null;
   balances: UserBalances | null;
+  profileCompleted: boolean;
   adoptSession: (session: Session) => Promise<void>;
   refreshSubscription: () => Promise<void>;
+  refreshProfileCompletion: () => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -52,8 +54,10 @@ const AuthContext = createContext<AuthContextType>({
   expirationReason: null,
   subscription: null,
   balances: null,
+  profileCompleted: true,
   adoptSession: async () => {},
   refreshSubscription: async () => {},
+  refreshProfileCompletion: async () => {},
   signOut: async () => {},
 });
 
