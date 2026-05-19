@@ -741,7 +741,7 @@ const LandingPage = () => {
                     ? "border-landing-purple/60 bg-landing-bg-secondary/60 ring-1 ring-landing-purple/30"
                     : p.slug === "autoridade_total"
                       ? "border-landing-gold/30 bg-landing-bg-secondary/30"
-                      : "border-landing-border/50 border-t-2 border-t-muted-foreground/30 bg-landing-bg/50"
+                      : "border-landing-border/50 border-t-2 border-t-[#7DD3C0] bg-landing-bg/50"
                 }`}
               >
                 {p.badge && (
@@ -753,7 +753,7 @@ const LandingPage = () => {
                 )}
                 <div className="space-y-3 mb-5">
                   {isStarter && (
-                    <span className="inline-block px-2 py-0.5 rounded-full border border-landing-border/60 text-[10px] font-medium tracking-wide uppercase text-landing-text-secondary">
+                    <span className="inline-block px-2 py-0.5 rounded-full bg-[#7DD3C0]/15 border border-[#7DD3C0]/40 text-[10px] font-medium tracking-wide uppercase text-[#7DD3C0]">
                       Para começar
                     </span>
                   )}
@@ -791,7 +791,7 @@ const LandingPage = () => {
                       ? "bg-landing-purple hover:bg-landing-purple/90 text-foreground"
                       : p.slug === "autoridade_total"
                         ? "bg-landing-gold/90 hover:bg-landing-gold text-foreground"
-                        : "bg-transparent border border-landing-border hover:bg-landing-bg-secondary text-landing-text"
+                        : "bg-transparent border border-[#7DD3C0]/60 text-[#7DD3C0] hover:bg-[#7DD3C0]/10"
                   }`}
                   onClick={() => handleCheckout(p.slug)}
                   disabled={loadingSlug === p.slug}
