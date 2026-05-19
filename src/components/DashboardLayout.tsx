@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   LayoutDashboard, Building2, Brain, BarChart3,
-  FileText, History, LogOut, Shield, Menu, X, Target, Calendar, Instagram, Camera, HelpCircle, CreditCard, FileUp, Image, User, ChevronRight, Layers, ImageIcon, Sparkles, MessageSquareQuote
+  FileText, History, LogOut, Shield, Menu, X, Target, Calendar, Instagram, Camera, HelpCircle, CreditCard, FileUp, Image, User, ChevronRight, ChevronDown, Layers, ImageIcon, Sparkles, MessageSquareQuote
 } from "lucide-react";
 import posicionaLogo from "@/assets/posiciona-logo.png";
 import { useState, useEffect } from "react";
