@@ -403,14 +403,14 @@ const Report = () => {
                     <span className="text-muted-foreground hidden md:inline">
                       {" — "}
                       {(report?.editorial_weeks?.length ?? 0) > 0
-                        ? "6 semanas de conteúdo prontas"
-                        : "transforme sua estratégia em 6 semanas de conteúdo"}
+                        ? "Acesse o conteúdo construído a partir desta estratégia."
+                        : "Transforme sua estratégia em conteúdo pronto para postar."}
                     </span>
                   </p>
                   <p className="text-xs text-muted-foreground mt-0.5 md:hidden">
                     {(report?.editorial_weeks?.length ?? 0) > 0
-                      ? "6 semanas de conteúdo prontas"
-                      : "Transforme sua estratégia em 6 semanas de conteúdo"}
+                      ? "Acesse o conteúdo construído a partir desta estratégia."
+                      : "Transforme sua estratégia em conteúdo pronto para postar."}
                   </p>
                 </div>
                 <Button
@@ -891,8 +891,8 @@ const Report = () => {
                     <span className="text-muted-foreground hidden md:inline">
                       {" — "}
                       {(report?.editorial_weeks?.length ?? 0) > 0
-                        ? "6 semanas de conteúdo prontas"
-                        : "transforme sua estratégia em 6 semanas de conteúdo"}
+                        ? "Acesse o conteúdo construído a partir desta estratégia."
+                        : "Transforme sua estratégia em conteúdo pronto para postar."}
                     </span>
                   </p>
                 </div>
