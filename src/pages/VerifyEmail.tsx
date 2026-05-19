@@ -10,7 +10,7 @@ const VerifyEmail = () => {
   const email = searchParams.get("email");
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-4">
+    <div className="min-h-dvh bg-background flex items-center justify-center px-4">
       <Card className="max-w-md w-full border-border/50 shadow-xl">
         <CardContent className="pt-8 pb-8 text-center space-y-6">
           <div className="flex items-center justify-center gap-2 mb-2">

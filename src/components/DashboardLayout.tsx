@@ -168,7 +168,7 @@ export const DashboardLayout = ({ children, wide = false }: { children: React.Re
   };
 
   return (
-    <div className="min-h-screen flex bg-background">
+    <div className="min-h-dvh flex bg-background">
       {/* Sidebar / Drawer */}
       <aside className={cn(
         "fixed inset-y-0 left-0 z-50 w-[280px] bg-background flex flex-col border-r border-border transition-transform duration-300 ease-out lg:relative lg:translate-x-0",
@@ -256,7 +256,7 @@ export const DashboardLayout = ({ children, wide = false }: { children: React.Re
       )}
 
       {/* Main */}
-      <main className="flex-1 min-h-screen flex flex-col w-full max-w-full [overflow-x:clip]">
+      <main className="flex-1 min-h-dvh flex flex-col w-full max-w-full [overflow-x:clip]">
         <ReadOnlyBanner />
         {/* Mobile header */}
         <header className="sticky top-0 z-30 bg-background/85 backdrop-blur-md border-b border-border h-12 flex items-center px-4 lg:hidden">

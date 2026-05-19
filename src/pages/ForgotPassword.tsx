@@ -41,7 +41,7 @@ const ForgotPassword = () => {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4 bg-background relative">
+    <div className="flex min-h-dvh items-center justify-center px-4 bg-background relative">
       <Button
         variant="ghost"
         size="sm"
