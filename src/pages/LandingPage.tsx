@@ -119,7 +119,7 @@ const DemoCarousel = ({ navigate }: { navigate: ReturnType<typeof useNavigate> }
 
   return (
     <section className="py-12 md:py-16 px-4 bg-landing-bg-secondary/40">
-      <div className="max-w-5xl mx-auto space-y-8 text-center">
+      <div className="max-w-5xl lg:max-w-[1280px] mx-auto space-y-8 text-center">
         <div className="space-y-3">
           <h2 className="text-2xl md:text-3xl font-display font-semibold">
             Veja o Posiciona{" "}
@@ -150,7 +150,7 @@ const DemoCarousel = ({ navigate }: { navigate: ReturnType<typeof useNavigate> }
 
           {/* Image */}
           <div
-            className="overflow-hidden rounded-xl border border-landing-border/50 bg-landing-bg/80 shadow-[0_8px_40px_rgba(0,0,0,0.4)] mx-8 md:mx-0"
+            className="overflow-hidden rounded-xl border border-border/40 bg-landing-bg/80 shadow-2xl shadow-purple-900/30 mx-8 md:mx-0 lg:w-[90%] lg:mx-auto"
             onTouchStart={(e) => (touchStartX.current = e.touches[0].clientX)}
             onTouchEnd={(e) => {
               const diff = touchStartX.current - e.changedTouches[0].clientX;
@@ -188,7 +188,7 @@ const DemoCarousel = ({ navigate }: { navigate: ReturnType<typeof useNavigate> }
         </div>
 
         <Button size="lg" onClick={() => navigate("/signup")} className="bg-landing-purple hover:bg-landing-purple/90 text-foreground text-base h-12 px-8">
-          Começar meu posicionamento agora <ArrowRight className="h-4 w-4 ml-2" />
+          Criar meu posicionamento <ArrowRight className="h-4 w-4 ml-2" />
         </Button>
       </div>
     </section>
