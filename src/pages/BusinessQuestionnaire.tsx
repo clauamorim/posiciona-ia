@@ -34,6 +34,18 @@ const fields = [
   { key: "promised_transformations", label: "Conquistas e transformações prometidas", type: "textarea", placeholder: "Como a vida do cliente muda após seu serviço?", help: "Descreva a transformação que você entrega.", max: 600 },
 ];
 
+// Agrupamento visual em 4 blocos temáticos (3 perguntas cada, respeitando a ordem original).
+// IMPORTANTE: as keys das perguntas e a ordem dentro de cada bloco são preservadas.
+const blocks = [
+  { title: "Negócio e público", subtitle: "Quem você é e para quem trabalha.", range: [0, 3] as const },
+  { title: "Dores e empatia", subtitle: "O que seu cliente sente — e como você demonstra entender.", range: [3, 6] as const },
+  { title: "Autoridade e jornada", subtitle: "Por que confiar em você e como começar.", range: [6, 9] as const },
+  { title: "Ação e transformação", subtitle: "O convite, o risco de não agir e o resultado prometido.", range: [9, 12] as const },
+];
+
+// Mapeia step antigo (0-11) para bloco novo (0-3). Mantém compatibilidade visual.
+const stepToBlock = (s: number) => Math.min(blocks.length - 1, Math.max(0, Math.floor(s / 3)));
+
 type QStatus = "draft" | "submitted" | "locked";
 
 const BusinessQuestionnaire = () => {
