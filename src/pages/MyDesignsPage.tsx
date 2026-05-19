@@ -55,7 +55,7 @@ function bucketLabel(iso: string): "Hoje" | "Esta semana" | "Mais antigos" {
 }
 
 const MyDesignsPage = () => {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const navigate = useNavigate();
   const [designs, setDesigns] = useState<UserDesign[]>([]);
   const [loading, setLoading] = useState(true);
