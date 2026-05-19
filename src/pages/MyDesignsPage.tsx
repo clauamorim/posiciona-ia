@@ -55,7 +55,7 @@ function bucketLabel(iso: string): "Hoje" | "Esta semana" | "Mais antigos" {
 }
 
 const MyDesignsPage = () => {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const navigate = useNavigate();
   const [designs, setDesigns] = useState<UserDesign[]>([]);
   const [loading, setLoading] = useState(true);
@@ -275,7 +275,9 @@ const MyDesignsPage = () => {
         <Tabs defaultValue="designs" className="space-y-6">
           <TabsList>
             <TabsTrigger value="designs">Meus designs ({designsOnly.length})</TabsTrigger>
-            <TabsTrigger value="templates">Meus modelos ({templatesOnly.length})</TabsTrigger>
+            {isAdmin && (
+              <TabsTrigger value="templates">Meus modelos ({templatesOnly.length})</TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="designs">
@@ -286,13 +288,15 @@ const MyDesignsPage = () => {
             )}
           </TabsContent>
 
-          <TabsContent value="templates">
-            {renderList(
-              templatesOnly,
-              'No editor, use "Salvar como modelo" para reutilizar layouts depois.',
-              <BookmarkPlus className="h-12 w-12 mx-auto opacity-40" />,
-            )}
-          </TabsContent>
+          {isAdmin && (
+            <TabsContent value="templates">
+              {renderList(
+                templatesOnly,
+                'No editor, use "Salvar como modelo" para reutilizar layouts depois.',
+                <BookmarkPlus className="h-12 w-12 mx-auto opacity-40" />,
+              )}
+            </TabsContent>
+          )}
         </Tabs>
       </div>
     </DashboardLayout>

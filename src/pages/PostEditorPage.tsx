@@ -28,6 +28,7 @@ import { useEditorHistory } from "@/hooks/useEditorHistory";
 import { normalizeWeekToV6 } from "@/lib/editorialShape";
 import { normalizeTemplateStateForCanvas, rewriteDecorativeOverlaySvg } from "@/lib/template-normalize";
 import { getArchetypePalette } from "@/lib/archetypePalettes";
+import { getArchetypeTypography } from "@/lib/archetypeTypography";
 
 function getContrastColor(hex: string): string {
   const r = parseInt(hex.slice(1, 3), 16);
@@ -524,17 +525,21 @@ const PostEditorPage = () => {
         if (typeof s.gradientColor2Index === "number") setGradientColor2Index(s.gradientColor2Index);
         if (!primaryArchetype && s.customGradientColor2 !== undefined) setCustomGradientColor2(s.customGradientColor2);
         if (s.gradientDirection) setGradientDirection(s.gradientDirection);
-        if (s.displayFont) { loadGoogleFont(s.displayFont); setDisplayFont(s.displayFont); }
-        if (s.bodyFont) { loadGoogleFont(s.bodyFont); setBodyFont(s.bodyFont); }
-        // Título: usa titleFontFamily salva; senão deriva do displayFont do template,
-        // garantindo que a serifa do template global apareça no canvas.
-        const resolvedTitleFamily =
-          s.titleFontFamily !== undefined && s.titleFontFamily !== null
-            ? s.titleFontFamily
-            : (s.displayFont || null);
-        if (resolvedTitleFamily) {
-          loadGoogleFont(resolvedTitleFamily);
-          setTitleFontFamily(resolvedTitleFamily);
+        // Fontes do template legado são puladas quando há primaryArchetype
+        // (a tipografia do arquétipo governa display/body/title font).
+        if (!primaryArchetype && s.displayFont) { loadGoogleFont(s.displayFont); setDisplayFont(s.displayFont); }
+        if (!primaryArchetype && s.bodyFont) { loadGoogleFont(s.bodyFont); setBodyFont(s.bodyFont); }
+        if (!primaryArchetype) {
+          // Título: usa titleFontFamily salva; senão deriva do displayFont do template,
+          // garantindo que a serifa do template global apareça no canvas.
+          const resolvedTitleFamily =
+            s.titleFontFamily !== undefined && s.titleFontFamily !== null
+              ? s.titleFontFamily
+              : (s.displayFont || null);
+          if (resolvedTitleFamily) {
+            loadGoogleFont(resolvedTitleFamily);
+            setTitleFontFamily(resolvedTitleFamily);
+          }
         }
         if (typeof s.fontSize === "number") setFontSize(s.fontSize);
         if (s.fontWeight) setFontWeight(s.fontWeight);
@@ -574,6 +579,16 @@ const PostEditorPage = () => {
         // Decorativos do arquétipo agora vêm exclusivamente de buildArchetypeOverlays
         // (chamado dentro de buildAutoLayout). O template legado continua aplicando
         // cores, fontes e layout via setState acima, mas não traz mais overlays.
+
+        // Tipografia por arquétipo: sobrepõe quaisquer fontes herdadas do template.
+        if (primaryArchetype) {
+          const typo = getArchetypeTypography(primaryArchetype);
+          loadGoogleFont(typo.displayFont);
+          setDisplayFont(typo.displayFont);
+          setTitleFontFamily(typo.displayFont);
+          loadGoogleFont(typo.bodyFont);
+          setBodyFont(typo.bodyFont);
+        }
       } catch (err) {
         console.warn("[archetype-template] failed", err);
         archetypeTemplateAppliedRef.current = false;
