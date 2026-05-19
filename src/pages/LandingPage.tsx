@@ -648,54 +648,76 @@ const LandingPage = () => {
                   "Fui afortunada com o sistema Posiciona.ia.br e ele trouxe muita clareza para o meu posicionamento. O relatório de nicho e arquétipo direciona bem, e o plano de conteúdo facilita a execução com qualidade. É uma ferramenta essencial para quem busca consistência e um processo contínuo na comunicação profissional.",
                 name: "Girlaydy Costa",
                 role: "Fotógrafa",
+                avatar: "/testimonials/girlaydy.jpg",
               },
               {
                 quote:
                   "Estou gostando muito do Posiciona. Achei demais a funcionalidade dos arquétipos, e a elaboração do calendário editorial está me ajudando muito a manter a constância na produção de conteúdo. Por fim, a geração de retratos foi um diferencial que me auxiliou a ter novas fotos profissionais para utilizar nas minhas publicações.",
                 name: "Júnior Sales",
                 role: "Gestor de tráfego",
+                avatar: "/testimonials/junior.jpg",
               },
               {
                 quote:
                   "O Posiciona é uma facilidade incrível para nós, profissionais! Fiquei encantada com todas as funções: desde o branding e a análise estratégica do Instagram, até a linha editorial que organiza a rotina. Com Posiciona é possível manter uma presença digital forte, e ainda sobram horas preciosas para focar nos nossos pacientes. E as fotos geradas? Simplesmente elevam o nível do perfil para outro patamar!",
                 name: "Elisama Delmond",
                 role: "Psicóloga",
+                avatar: "/testimonials/elisama.jpg",
               },
               {
                 quote:
                   "Adorei! Facilitou muito a minha vida, a administrar a minha própria rotina de trabalho de maneira mais eficiente. Me guiou, de maneira muito fácil de entender e pôr em prática. Me ajudou a decidir desde a bio do Instagram até as cores que transmitem a minha essência da maneira mais natural possível.",
                 name: "Ângela Macário",
                 role: "Fotógrafa",
+                avatar: "/testimonials/angela.jpg",
               },
               {
                 quote:
                   "Eu trabalho com estratégia de conteúdo para profissionais, então sou extremamente criteriosa com tudo que envolve esse tema. Usei a ferramenta Posiciona e o que mais me chamou atenção foi a objetividade e clareza na construção do posicionamento. Ela organiza toda a comunicação, direciona ajustes práticos que impactam diretamente na forma como o profissional é percebido no mercado de forma muito completa. Para quem precisa comunicar valor e sair do genérico, é uma ferramenta que acelera muito esse processo. Hoje, recomendo com segurança, principalmente para profissionais que querem ser vistos com mais autoridade e intenção no digital.",
                 name: "Mariana Bertoldo",
                 role: "Estrategista de conteúdo",
+                avatar: "/testimonials/mariana.jpg",
               },
-            ].map((t) => (
-              <figure
-                key={t.name}
-                className="relative flex flex-col rounded-xl border border-landing-border/40 bg-landing-bg-secondary/30 p-6 pt-8"
-              >
-                <span
-                  aria-hidden="true"
-                  className="absolute top-2 left-5 font-display text-6xl leading-none text-landing-gold/30 select-none"
+            ].map((t) => {
+              const initials = t.name.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase();
+              return (
+                <figure
+                  key={t.name}
+                  className="relative flex flex-col rounded-xl border border-landing-border/40 bg-landing-bg-secondary/30 p-6 pt-8"
                 >
-                  &ldquo;
-                </span>
-                <blockquote className="text-sm md:text-base leading-relaxed text-landing-text/90">
-                  {t.quote}
-                </blockquote>
-                <div className="mt-5 pt-5 border-t border-landing-border/30 flex items-center gap-3">
-                  <span className="block w-8 h-px bg-landing-gold/50" aria-hidden="true" />
-                  <figcaption className="space-y-0.5">
-                    <p className="text-sm md:text-base font-semibold text-landing-text">{t.name}</p>
-                    <p className="text-xs md:text-sm text-landing-text-secondary">{t.role}</p>
-                  </figcaption>
-                </div>
-              </figure>
-            ))}
+                  <span
+                    aria-hidden="true"
+                    className="absolute top-2 left-5 font-display text-6xl leading-none text-landing-gold/30 select-none"
+                  >
+                    &ldquo;
+                  </span>
+                  <blockquote className="text-sm md:text-base leading-relaxed text-landing-text/90">
+                    {t.quote}
+                  </blockquote>
+                  <div className="mt-5 pt-5 border-t border-landing-border/30 flex items-center gap-3">
+                    {t.avatar ? (
+                      <img
+                        src={t.avatar}
+                        alt={t.name}
+                        loading="lazy"
+                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; (e.currentTarget.nextElementSibling as HTMLElement)?.style.removeProperty("display"); }}
+                        className="w-14 h-14 rounded-full object-cover object-top border border-landing-border/40 flex-shrink-0"
+                      />
+                    ) : null}
+                    <div
+                      style={{ display: t.avatar ? "none" : undefined }}
+                      className="w-14 h-14 rounded-full bg-muted text-foreground flex items-center justify-center text-sm font-semibold flex-shrink-0"
+                    >
+                      {initials}
+                    </div>
+                    <figcaption className="space-y-0.5">
+                      <p className="text-sm md:text-base font-semibold text-landing-text">{t.name}</p>
+                      <p className="text-xs md:text-sm text-landing-text-secondary">{t.role}</p>
+                    </figcaption>
+                  </div>
+                </figure>
+              );
+            })}
           </div>
         </div>
       </section>
