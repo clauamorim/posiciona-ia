@@ -5,7 +5,7 @@ import { SeoHead } from "@/components/SeoHead";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
+
 import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/contexts/AuthContext";
@@ -14,6 +14,7 @@ import { toast } from "@/hooks/use-toast";
 import { ChevronLeft, ChevronRight, Save, Sparkles, ShieldAlert, HelpCircle, Heart, Briefcase, Compass, BookOpen, Loader2, Check, AlertTriangle } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { InlineHelpButton } from "@/components/assistant/InlineHelpButton";
+import { QuestionnaireStatusBadge } from "@/components/questionnaire/QuestionnaireStatusBadge";
 import { useQuestionnaireAutosave, SaveStatusLabel } from "@/hooks/useQuestionnaireAutosave";
 
 type QStatus = "draft" | "submitted";
@@ -242,23 +243,16 @@ const PersonalQuestionnaire = () => {
   return (
     <DashboardLayout>
       <SeoHead title="Questionário Pessoal · Posiciona" description="Personalidade de marca e voz." path="/personal-questionnaire" />
-      <div className="max-w-2xl mx-auto space-y-5">
+      <div className="max-w-2xl lg:max-w-[1100px] mx-auto space-y-5">
         {/* Header */}
         <div className="flex items-center justify-between gap-3">
           <div>
             <h1 className="text-xl md:text-2xl font-display font-semibold tracking-tight">Sua História</h1>
             <p className="text-muted-foreground text-sm mt-0.5">
-              {filledCount}/{totalFields} respondidas
+              {filledCount}/{totalFields} respondidas · ~12 min
             </p>
           </div>
-          <Badge
-            variant="outline"
-            className={isSubmitted
-              ? "bg-success/10 text-success border-success/20"
-              : "bg-amber-500/10 text-amber-600 border-amber-200"}
-          >
-            {isSubmitted ? "Concluído" : "Em preenchimento"}
-          </Badge>
+          <QuestionnaireStatusBadge status={isSubmitted ? "completed" : "in_progress"} />
         </div>
 
         {/* Persuasion / context */}
@@ -371,9 +365,11 @@ const PersonalQuestionnaire = () => {
             </div>
 
             <div className="flex items-center justify-between pt-1 border-t border-border/40">
-              <Button variant="ghost" size="sm" onClick={() => goToBlock(blockIndex - 1)} disabled={isFirst}>
-                <ChevronLeft className="h-4 w-4 mr-1" /> Anterior
-              </Button>
+              {isFirst ? <span /> : (
+                <Button variant="ghost" size="sm" onClick={() => goToBlock(blockIndex - 1)}>
+                  <ChevronLeft className="h-4 w-4 mr-1" /> Anterior
+                </Button>
+              )}
 
               <div className="flex items-center gap-2">
                 {!isSubmitted && (
