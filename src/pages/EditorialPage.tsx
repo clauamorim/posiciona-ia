@@ -800,7 +800,8 @@ const EditorialPage = () => {
       // Render ONE WEEK AT A TIME (avoids canvas size limit)
       for (const { week, key } of weeksToExport) {
         const weekContainer = document.createElement("div");
-        weekContainer.style.cssText = "position:absolute;left:-9999px;top:0;width:900px;background:#f2eeea;padding:24px;font-family:Inter,sans-serif;";
+        weekContainer.className = "font-sans";
+        weekContainer.style.cssText = "position:absolute;left:-9999px;top:0;width:900px;background:#f2eeea;padding:24px;";
         document.body.appendChild(weekContainer);
 
         const weekHeader = document.createElement("h2");
