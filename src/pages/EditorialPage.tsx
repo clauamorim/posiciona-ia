@@ -1130,6 +1130,24 @@ const EditorialPage = () => {
                 )}
                 <h2 className="text-sm font-semibold tracking-tight flex-1">
                   Semana {weekKey + 1}
+                  {(() => {
+                    const counts = week.days.reduce(
+                      (acc, d) => {
+                        const s = d._status || "pending";
+                        if (s === "posted") acc.posted++;
+                        else if (s === "skipped") acc.skipped++;
+                        else acc.pending++;
+                        return acc;
+                      },
+                      { posted: 0, skipped: 0, pending: 0 }
+                    );
+                    if (counts.posted === 0 && counts.skipped === 0) return null;
+                    return (
+                      <span className="ml-2 text-xs font-normal text-muted-foreground">
+                        · {counts.posted} postado{counts.posted !== 1 ? "s" : ""} · {counts.skipped} pulado{counts.skipped !== 1 ? "s" : ""} · {counts.pending} pendente{counts.pending !== 1 ? "s" : ""}
+                      </span>
+                    );
+                  })()}
                 </h2>
                 {!isReadOnly && (
                   <Button
