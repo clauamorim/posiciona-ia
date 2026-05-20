@@ -1698,7 +1698,7 @@ const PostEditorPage = () => {
     );
   }
 
-  const realWeekNumber = ((allWeeks[weekIndex] as any)?._week_index ?? weekIndex) + 1;
+  const realWeekNumber = ((allWeeks[resolvedWeekIdx] as any)?._week_index ?? weekIndex) + 1;
   const formattedSavedAt = lastSavedAt
     ? lastSavedAt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
     : null;
