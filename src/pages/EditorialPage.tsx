@@ -1260,32 +1260,56 @@ const EditorialPage = () => {
                                     </CollapsibleContent>
                                   </Collapsible>
                                 )}
-                                <div className="flex flex-wrap gap-1.5 pt-1" data-hide-pdf>
-                                  {feed.caption && (
-                                    <Button variant="ghost" size="sm" className="h-7 text-[11px] gap-1 px-2" onClick={() => copyCaption(feed.caption)}>
-                                      <Copy className="h-3 w-3" /> Copiar
-                                    </Button>
-                                  )}
+                                <div className="flex flex-wrap items-center gap-1.5 pt-1" data-hide-pdf>
                                   {(feed.format === "carrossel" || feed.format === "post") && (
-                                    <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1 px-2" onClick={() => handleOpenEditor(wi, di, feed, false)}>
+                                    <Button size="sm" className="h-8 text-[11px] gap-1 px-3" onClick={() => handleOpenEditor(wi, di, feed, false)}>
                                       <PenTool className="h-3 w-3" /> Criar
                                     </Button>
                                   )}
                                   {feed.format === "reels" && (
-                                    <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1 px-2" onClick={() => handleOpenEditor(wi, di, feed, true)}>
-                                      <Image className="h-3 w-3" /> Capa
+                                    <Button size="sm" className="h-8 text-[11px] gap-1 px-3" onClick={() => handleOpenEditor(wi, di, feed, true)}>
+                                      <Image className="h-3 w-3" /> Criar capa
                                     </Button>
                                   )}
-                                  <Button
-                                    variant="ghost" size="sm" className="h-7 text-[11px] gap-1 px-2"
-                                    onClick={() => handleRegenerateItem(wi, di, "feed")}
-                                    disabled={regeneratingPost === `${regenKey}-feed` || regenerationCredits < 1}
-                                    title="O story deste dia será atualizado junto."
-                                  >
-                                    {regeneratingPost === `${regenKey}-feed` ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
-                                    Regenerar
-                                  </Button>
+                                  {feed.caption && (
+                                    <Button variant="outline" size="sm" className="h-8 text-[11px] gap-1 px-3" onClick={() => copyCaption(feed.caption)}>
+                                      <Copy className="h-3 w-3" /> Copiar
+                                    </Button>
+                                  )}
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Mais ações">
+                                        <MoreVertical className="h-4 w-4" />
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="w-56">
+                                      <DropdownMenuItem
+                                        onClick={() => handleRegenerateItem(wi, di, "feed")}
+                                        disabled={regeneratingPost === `${regenKey}-feed` || regenerationCredits < 1}
+                                      >
+                                        {regeneratingPost === `${regenKey}-feed` ? (
+                                          <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
+                                        ) : (
+                                          <RefreshCw className="h-3.5 w-3.5 mr-2" />
+                                        )}
+                                        Regenerar post (e story do dia)
+                                      </DropdownMenuItem>
+                                      {feed.format === "reels" && (
+                                        <DropdownMenuItem onClick={() => handleOpenEditor(wi, di, feed, true)}>
+                                          <Image className="h-3.5 w-3.5 mr-2" />
+                                          Criar capa do Reels
+                                        </DropdownMenuItem>
+                                      )}
+                                      {(feed.format === "carrossel" || feed.format === "post") && (
+                                        <DropdownMenuItem onClick={() => handleOpenEditor(wi, di, feed, true)}>
+                                          <Image className="h-3.5 w-3.5 mr-2" />
+                                          Criar capa de Reels
+                                        </DropdownMenuItem>
+                                      )}
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
                                 </div>
+
                               </>
                             ) : (
                               <p className="text-xs text-muted-foreground italic">Este dia não tem post no feed — só story.</p>
