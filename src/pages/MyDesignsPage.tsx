@@ -222,7 +222,12 @@ const MyDesignsPage = () => {
     );
   };
 
-  const renderList = (items: UserDesign[], emptyHint: string, emptyIcon: JSX.Element) => {
+  const renderList = (
+    items: UserDesign[],
+    emptyHint: string,
+    emptyIcon: JSX.Element,
+    emptyCta?: { label: string; route: string },
+  ) => {
     if (loading) {
       return (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -232,9 +237,14 @@ const MyDesignsPage = () => {
     }
     if (items.length === 0) {
       return (
-        <div className="text-center py-16 text-muted-foreground">
-          {emptyIcon}
-          <p className="text-sm mt-3">{emptyHint}</p>
+        <div className="text-center py-16 text-muted-foreground space-y-4">
+          <div className="opacity-60">{emptyIcon}</div>
+          <p className="text-sm max-w-md mx-auto leading-relaxed">{emptyHint}</p>
+          {emptyCta && (
+            <Button onClick={() => navigate(emptyCta.route)} className="mt-2">
+              {emptyCta.label}
+            </Button>
+          )}
         </div>
       );
     }
@@ -264,31 +274,39 @@ const MyDesignsPage = () => {
   return (
     <DashboardLayout>
       <SeoHead title="Meus Designs · Posiciona" description="Seus designs salvos." path="/my-designs" />
-      <div className="space-y-6">
+      <div className="space-y-6 lg:max-w-[1100px] lg:mx-auto">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
-            <Layers className="h-5 w-5 text-muted-foreground" /> Meus Designs
-          </h1>
-          <p className="text-muted-foreground text-sm mt-1">Suas artes salvas e modelos prontos para reutilizar.</p>
+          <div className="flex items-baseline gap-3 flex-wrap">
+            <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
+              <Layers className="h-5 w-5 text-muted-foreground" /> Meus Designs
+            </h1>
+            {!isAdmin && designsOnly.length > 0 && (
+              <span className="text-sm text-muted-foreground">({designsOnly.length})</span>
+            )}
+          </div>
+          <p className="text-muted-foreground text-sm mt-1">
+            {isAdmin
+              ? "Suas artes salvas e modelos prontos para reutilizar."
+              : "Suas artes salvas. Edite um post da Linha Editorial e use \"Salvar design\" para guardá-lo aqui."}
+          </p>
         </div>
 
-        <Tabs defaultValue="designs" className="space-y-6">
-          <TabsList>
-            <TabsTrigger value="designs">Meus designs ({designsOnly.length})</TabsTrigger>
-            {isAdmin && (
+        {isAdmin ? (
+          <Tabs defaultValue="designs" className="space-y-6">
+            <TabsList>
+              <TabsTrigger value="designs">Meus designs ({designsOnly.length})</TabsTrigger>
               <TabsTrigger value="templates">Meus modelos ({templatesOnly.length})</TabsTrigger>
-            )}
-          </TabsList>
+            </TabsList>
 
-          <TabsContent value="designs">
-            {renderList(
-              designsOnly,
-              'Edite um post na Linha Editorial e use "Salvar design".',
-              <Layers className="h-12 w-12 mx-auto opacity-40" />,
-            )}
-          </TabsContent>
+            <TabsContent value="designs">
+              {renderList(
+                designsOnly,
+                'Edite um post na Linha Editorial e use "Salvar design".',
+                <Layers className="h-12 w-12 mx-auto opacity-40" />,
+                { label: "Ir para Linha Editorial", route: "/editorial" },
+              )}
+            </TabsContent>
 
-          {isAdmin && (
             <TabsContent value="templates">
               {renderList(
                 templatesOnly,
@@ -296,8 +314,15 @@ const MyDesignsPage = () => {
                 <BookmarkPlus className="h-12 w-12 mx-auto opacity-40" />,
               )}
             </TabsContent>
-          )}
-        </Tabs>
+          </Tabs>
+        ) : (
+          renderList(
+            designsOnly,
+            'Você ainda não salvou nenhum design. Abra um post na Linha Editorial, edite-o e clique em "Salvar design".',
+            <Layers className="h-12 w-12 mx-auto opacity-40" />,
+            { label: "Ir para Linha Editorial", route: "/editorial" },
+          )
+        )}
       </div>
     </DashboardLayout>
   );
