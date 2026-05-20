@@ -655,7 +655,11 @@ const PostEditorPage = () => {
             const others = next.filter(o => !o.id.startsWith("tpl-bg-"));
             return [...bgs, ...others];
           });
-          setAutoLayoutBanner(true);
+          try {
+            if (!localStorage.getItem("posiciona.editor.welcomeSeen")) {
+              setAutoLayoutBanner(true);
+            }
+          } catch { setAutoLayoutBanner(true); }
         }
         if (result.slots) setInitialTextBoxes(result.slots);
         const s = result.suggestions;
