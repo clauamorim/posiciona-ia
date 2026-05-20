@@ -249,37 +249,60 @@ const PostToolbar: React.FC<PostToolbarProps> = (props) => {
       <div className="border-t border-border" />
 
       {/* Actions */}
-      <div className="flex flex-col gap-1.5">
-        {props.onUndo && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-2 w-full h-8 text-xs"
-            onClick={props.onUndo}
-            disabled={!props.canUndo}
-            title="Desfazer (Ctrl+Z)"
-          >
-            <Undo2 className="h-3.5 w-3.5" /> Desfazer
-          </Button>
-        )}
-        <div className="flex gap-1.5">
+      <TooltipProvider delayDuration={200}>
+        <div className="flex flex-col gap-1.5">
+          <div className="flex gap-1.5">
+            {props.onUndo && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-1.5 flex-1 h-8 text-xs" onClick={props.onUndo} disabled={!props.canUndo}>
+                    <Undo2 className="h-3.5 w-3.5" /> Desfazer
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Desfazer (Ctrl+Z)</TooltipContent>
+              </Tooltip>
+            )}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="flex-1">
+                  <Button variant="outline" size="sm" className="gap-1.5 w-full h-8 text-xs" disabled>
+                    <Redo2 className="h-3.5 w-3.5" /> Refazer
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>Em breve</TooltipContent>
+            </Tooltip>
+          </div>
+
           {props.onSaveDesign && (
-            <Button variant="outline" size="sm" className="gap-2 flex-1 h-9 text-xs" onClick={props.onSaveDesign} disabled={props.saving}>
-              <Save className="h-3.5 w-3.5" /> {props.saving ? "Salvando…" : "Salvar design"}
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2 w-full h-9 text-xs" onClick={props.onSaveDesign} disabled={props.saving}>
+                  <Save className="h-3.5 w-3.5" /> {props.saving ? "Salvando…" : "Salvar design"}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Salva este post na sua galeria.</TooltipContent>
+            </Tooltip>
           )}
+
+          {props.onSaveAsTemplate && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2 w-full h-8 text-xs" onClick={props.onSaveAsTemplate} disabled={props.saving}>
+                  <BookmarkPlus className="h-3.5 w-3.5" /> Salvar como modelo
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Salva o layout como template reutilizável em outros dias.</TooltipContent>
+            </Tooltip>
+          )}
+
           {props.showDownloadAction !== false && (
-            <Button onClick={props.onDownload} className="gap-2 flex-1 h-9 text-xs" disabled={!!props.exporting}>
+            <Button onClick={props.onDownload} className="gap-2 w-full h-9 text-xs" disabled={!!props.exporting}>
               <Download className="h-3.5 w-3.5" /> {props.exporting === "slide" ? "Baixando…" : "Baixar PNG"}
             </Button>
           )}
         </div>
-        {props.onSaveAsTemplate && (
-          <Button variant="outline" size="sm" className="gap-2 w-full h-8 text-xs" onClick={props.onSaveAsTemplate} disabled={props.saving}>
-            <BookmarkPlus className="h-3.5 w-3.5" /> Salvar como modelo
-          </Button>
-        )}
-      </div>
+      </TooltipProvider>
     </div>
   );
 };
