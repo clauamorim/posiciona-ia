@@ -1652,7 +1652,7 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
                 });
                 const top = Array.isArray(data) && data.length > 0 ? Number(data[0].similarity) || 0 : 0;
                 if (top > postRetryMax) postRetryMax = top;
-                if (top > 0.80) failingAfterFirst.push({ day, sim: top });
+                if (top > adaptiveThreshold) failingAfterFirst.push({ day, sim: top });
                 console.log(
                   `[semantic-dedup] post-retry week=${wkIdxForPartial} day=${day} pre=${(embByDay.get(day)?.topSim || 0).toFixed(3)} post=${top.toFixed(3)}`,
                 );
