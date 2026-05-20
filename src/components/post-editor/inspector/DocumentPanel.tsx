@@ -159,7 +159,28 @@ const DocumentPanel: React.FC<DocumentPanelProps> = ({
         </div>
       )}
 
-      <p className="text-[10px] text-muted-foreground/70">Setas: 1px · Shift+setas: 10px · Para trocar a foto de fundo, abra a aba <strong>Adicionar</strong>.</p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[10px] text-muted-foreground/70">
+          Para trocar a foto de fundo, abra a aba <strong>Adicionar</strong>.
+        </p>
+        <TooltipProvider delayDuration={150}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button type="button" className="text-muted-foreground/70 hover:text-foreground" aria-label="Atalhos de teclado">
+                <HelpCircle className="h-3.5 w-3.5" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="left" className="text-xs">
+              <div className="space-y-0.5">
+                <div><strong>Setas:</strong> mover 1px</div>
+                <div><strong>Shift + setas:</strong> mover 10px</div>
+                <div><strong>Delete:</strong> remover selecionado</div>
+                <div><strong>Ctrl+Z:</strong> desfazer</div>
+              </div>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
 
       {/* Reset */}
       <Button variant="outline" size="sm" onClick={onReset} className="gap-2 w-full h-8 text-xs">
