@@ -1002,6 +1002,47 @@ export type Database = {
         }
         Relationships: []
       }
+      story_embeddings: {
+        Row: {
+          created_at: string
+          day_index: number
+          embedding: string
+          id: string
+          report_id: string | null
+          story_text: string
+          user_id: string
+          week_index: number
+        }
+        Insert: {
+          created_at?: string
+          day_index: number
+          embedding: string
+          id?: string
+          report_id?: string | null
+          story_text: string
+          user_id: string
+          week_index: number
+        }
+        Update: {
+          created_at?: string
+          day_index?: number
+          embedding?: string
+          id?: string
+          report_id?: string | null
+          story_text?: string
+          user_id?: string
+          week_index?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "story_embeddings_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subscriptions: {
         Row: {
           created_at: string
@@ -1470,6 +1511,22 @@ export type Database = {
           report_id: string
           similarity: number
           text_used: string
+          week_index: number
+        }[]
+      }
+      match_story_embeddings: {
+        Args: {
+          p_day_index: number
+          p_exclude_report_id?: string
+          p_query_embedding: string
+          p_threshold?: number
+          p_user_id: string
+          p_window_days?: number
+        }
+        Returns: {
+          id: string
+          similarity: number
+          story_text: string
           week_index: number
         }[]
       }

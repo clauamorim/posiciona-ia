@@ -75,6 +75,27 @@ const AUDIENCE_QUALIFICATION_WINDOW_DAYS = 14;
 const THESIS_COSINE_THRESHOLD = 0.70;
 const RECENT_HISTORY_WEEKS = 8;
 
+// === STORIES DEDUP ===
+// Apenas DIA 5 (recap/gancho livre) — DIAS 1-4 espelham feed (coberto pelo feed dedup),
+// DIAS 6-7 são pessoais autênticos (repetição natural é desejável).
+const STORIES_DEDUP_DAYS = [5];
+const STORIES_DEDUP_THRESHOLD = 0.78;
+const STORIES_DEDUP_WINDOW_DAYS = 56;
+const STORIES_MAX_RETRIES = 2;
+
+interface StoryDedupViolation {
+  day: number;
+  similarity: number;
+  similar_story_text: string;
+  similar_week_index: number;
+}
+
+function storyToEmbedText(s: { theme?: string; frames?: string[] }): string {
+  const theme = (s?.theme || "").trim();
+  const frames = Array.isArray(s?.frames) ? s.frames.filter(Boolean).join(" | ") : "";
+  return [theme ? `Tema: ${theme}` : "", frames ? `Frames: ${frames}` : ""].filter(Boolean).join("\n").trim();
+}
+
 // Bug E fix: normaliza padrões (brand/framework/opening_form) para casamento
 // robusto entre semanas. "método de 4 cortes" e "método de N cortes" precisam
 // bater. Lower + strip acentos + numerais e palavras-número viram N + remove
@@ -1970,9 +1991,166 @@ Gere agora os 7 stories da semana.`;
         };
       });
 
+      // === LOOP DE DEDUP DE STORIES (apenas DIA 5) ===
+      // Escopo cirúrgico: apenas dias em STORIES_DEDUP_DAYS. Falha não bloqueia
+      // a entrega — registramos métrica e seguimos.
+      const storiesDedupMeta: Record<string, any> = {};
+      try {
+        const checkViolations = async (
+          targets: StoryDay[],
+        ): Promise<StoryDedupViolation[]> => {
+          const out: StoryDedupViolation[] = [];
+          const eligible = targets.filter((s) => STORIES_DEDUP_DAYS.includes(s.day));
+          if (eligible.length === 0) return out;
+          const texts = eligible.map((s) => storyToEmbedText(s));
+          const vecs = await embedTextBatch(texts);
+          for (let i = 0; i < eligible.length; i++) {
+            const story = eligible[i];
+            const text = texts[i];
+            const vec = vecs[i];
+            if (!text || text.length < 20 || !vec) continue;
+            const { data: matches, error: matchErr } = await admin.rpc("match_story_embeddings", {
+              p_user_id: userId,
+              p_query_embedding: vec as any,
+              p_day_index: story.day,
+              p_threshold: STORIES_DEDUP_THRESHOLD,
+              p_window_days: STORIES_DEDUP_WINDOW_DAYS,
+              p_exclude_report_id: job.report_id,
+            });
+            if (matchErr) {
+              console.warn(`[stories-dedup] match_story_embeddings erro:`, matchErr.message);
+              continue;
+            }
+            if (Array.isArray(matches) && matches.length > 0) {
+              const top = matches[0] as any;
+              out.push({
+                day: story.day,
+                similarity: Number(top.similarity) || 0,
+                similar_story_text: String(top.story_text || ""),
+                similar_week_index: Number(top.week_index) || 0,
+              });
+            }
+          }
+          return out;
+        };
+
+        const regenerateOne = async (
+          violation: StoryDedupViolation,
+          attempt: number,
+        ): Promise<StoryDay | null> => {
+          const antiPrompt = `# REPETIÇÃO DETECTADA — REGERAR STORY DO DIA ${violation.day}
+A story do DIA ${violation.day} desta semana está MUITO PARECIDA (${(violation.similarity * 100).toFixed(0)}% de similaridade) com uma story da semana ${violation.similar_week_index}:
+
+TEMA PROIBIDO (já usado anteriormente): "${violation.similar_story_text.slice(0, 300)}"
+
+REGRA: gere APENAS a story do DIA ${violation.day} com tema completamente diferente. Mude o ângulo, a pergunta-gancho, a estrutura narrativa. NÃO toque nas stories dos outros dias.
+
+OUTPUT: retorne UM ÚNICO objeto JSON (não array) com a forma:
+{ "day": ${violation.day}, "theme": "...", "frames": ["...", "..."], "is_personal": false, "mirrors_feed": false }
+
+Esta é a tentativa ${attempt} de ${STORIES_MAX_RETRIES}.`;
+
+          const regenSystem =
+            NARRATIVE_PRINCIPLES_BLOCK +
+            POSITIONING_GUARDRAIL_BLOCK +
+            ethicalBlock +
+            "\n\n" +
+            buildStoriesSystemPrompt(feedSummaryForStories, FEED_DAYS, antiPrompt) +
+            renderPillarsBlock() +
+            renderEditorialFrameworks();
+          try {
+            const regenRaw = await callClaude({
+              systemPrompt: regenSystem,
+              userText: storiesUser + `\n\n${antiPrompt}`,
+              model: "claude-opus-4-7",
+              max_tokens: 1500,
+              timeoutMs: 90000,
+              disableRetries: true,
+            });
+            let parsed: any = extractJsonFromLLM(regenRaw);
+            if (Array.isArray(parsed)) parsed = parsed.find((p: any) => Number(p?.day) === violation.day) || parsed[0];
+            if (!parsed || typeof parsed !== "object") {
+              const partial = extractPartialDayObjects(regenRaw);
+              parsed = partial.find((p: any) => Number(p?.day) === violation.day) || partial[0];
+            }
+            if (!parsed || typeof parsed !== "object") return null;
+            const cleaned = sanitizeStory(parsed as Record<string, any>) as StoryDay;
+            cleaned.day = violation.day;
+            cleaned.is_personal = false;
+            cleaned.mirrors_feed = false;
+            if (!Array.isArray(cleaned.frames)) cleaned.frames = [];
+            return cleaned;
+          } catch (regenErr: any) {
+            console.warn(`[stories-dedup] regen DIA ${violation.day} falhou:`, regenErr?.message || regenErr);
+            return null;
+          }
+        };
+
+        let storiesAttempt = 0;
+        let violations = await checkViolations(storiesFinal);
+        while (violations.length > 0 && storiesAttempt < STORIES_MAX_RETRIES) {
+          storiesAttempt++;
+          console.log(
+            `[stories-dedup] Tentativa ${storiesAttempt}: ${violations.length} violações no(s) DIA(s) ${violations.map((v) => v.day).join(",")}`,
+          );
+          const regenerated: StoryDay[] = [];
+          for (const v of violations) {
+            const nw = await regenerateOne(v, storiesAttempt);
+            if (nw) {
+              const idx = storiesFinal.findIndex((s) => s.day === v.day);
+              if (idx >= 0) storiesFinal[idx] = nw;
+              regenerated.push(nw);
+            }
+          }
+          if (regenerated.length === 0) break;
+          violations = await checkViolations(regenerated);
+        }
+
+        if (violations.length > 0) {
+          console.warn(`[stories-dedup] FALHA: ${violations.length} violações persistem após ${STORIES_MAX_RETRIES} retries`);
+          storiesDedupMeta.stories_dedup_failed_days = violations.map((v) => v.day);
+          storiesDedupMeta.stories_dedup_violations = violations;
+        } else {
+          storiesDedupMeta.stories_dedup_success = true;
+          storiesDedupMeta.stories_dedup_attempts = storiesAttempt;
+        }
+
+        // Persiste embeddings APENAS dos dias deduplicados
+        for (const story of storiesFinal) {
+          if (!STORIES_DEDUP_DAYS.includes(story.day)) continue;
+          const text = storyToEmbedText(story);
+          if (!text || text.length < 20) continue;
+          try {
+            const vec = (await embedTextBatch([text]))[0];
+            if (!vec) continue;
+            const { error: insErr } = await admin.from("story_embeddings").insert({
+              user_id: userId,
+              report_id: job.report_id,
+              week_index: wkIdxForPartial,
+              day_index: story.day,
+              embedding: vec as any,
+              story_text: text,
+            });
+            if (insErr) {
+              console.warn(`[stories-dedup] insert embedding DIA ${story.day} falhou:`, insErr.message);
+            }
+          } catch (e: any) {
+            console.warn(`[stories-dedup] persist DIA ${story.day} erro:`, e?.message || e);
+          }
+        }
+      } catch (storiesDedupErr: any) {
+        console.warn(`[stories-dedup] erro geral (ignorado):`, storiesDedupErr?.message || storiesDedupErr);
+      }
+
+      // Mescla métricas de dedup de stories no extraMeta da semana
+      const weekExtraMetaWithStories: Record<string, any> | undefined =
+        weekExtraMeta || Object.keys(storiesDedupMeta).length > 0
+          ? { ...(weekExtraMeta || {}), ...storiesDedupMeta }
+          : undefined;
+
       // Persiste a semana completa
       await updateJob(jobId, { progress_message: "Salvando conteúdo…" });
-      const weekObj = await persistWeek(job.report_id, feedFinal, storiesFinal, jobId, marketTrends, wkIdxForPartial, false, weekExtraMeta);
+      const weekObj = await persistWeek(job.report_id, feedFinal, storiesFinal, jobId, marketTrends, wkIdxForPartial, false, weekExtraMetaWithStories);
       console.log(`[content-job] week=${wkIdxForPartial} user=${userId} stage=B status=success partial_saved=true`);
 
       // Embeddings já foram upsertados ANTES do save parcial (Fix D).
