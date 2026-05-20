@@ -31,6 +31,12 @@ import {
 } from "../_shared/editorialPillars.ts";
 import { NARRATIVE_PRINCIPLES_BLOCK } from "../_shared/narrativePrinciples.ts";
 import {
+  extractSignaturesForWeek,
+  findProhibitedTags,
+  renderProhibitedMoldsBlock,
+  type PostSignature,
+} from "../_shared/patternSignature.ts";
+import {
   detectProfession,
   getEthicalRulesBlock,
   renderMarketTrendsBlock,
@@ -813,6 +819,22 @@ async function processJob(jobId: string) {
         console.warn(`[job ${jobId}] buildDiversityHints falhou (ignorado):`, (hintErr as any)?.message || hintErr);
       }
 
+      // === MOLDES PROIBIDOS — Pattern signature memory ===
+      // Lê signatures persistidas nas últimas 8 semanas (_dedup_metrics._pattern_signatures)
+      // e detecta tags saturadas (3+ ocorrências). Injeta como restrição negativa no feed.
+      const historicalSignaturesByWeek: Array<{ weekIndex: number; signatures: PostSignature[] }> = [];
+      for (const week of (previousWeeks || []).slice(-8)) {
+        const meta = (week as any)?._dedup_metrics || (week as any)?._meta || {};
+        const wkIdx = (week as any)?._week_index ?? (week as any)?.week_index ?? 0;
+        const sigs = Array.isArray(meta._pattern_signatures) ? meta._pattern_signatures as PostSignature[] : [];
+        if (sigs.length > 0) {
+          historicalSignaturesByWeek.push({ weekIndex: wkIdx, signatures: sigs });
+        }
+      }
+      const prohibitedTags = findProhibitedTags(historicalSignaturesByWeek, 3);
+      const prohibitedMoldsBlock = renderProhibitedMoldsBlock(historicalSignaturesByWeek, prohibitedTags);
+      console.log(`[pattern-signature] ${prohibitedTags.length} tags proibidas detectadas:`, prohibitedTags.map((t) => t.tag).join(", "));
+
       // ==== ESTÁGIO A: Feed (4 posts) ====
       await updateJob(jobId, { progress_message: "Gerando seus 4 posts de feed (etapa 1 de 2)…" });
 
@@ -825,6 +847,7 @@ async function processJob(jobId: string) {
         "\n\n" +
         buildFeedSystemPrompt(rotationOffset) +
         renderPillarsBlock() +
+        prohibitedMoldsBlock +
         renderEditorialFrameworks();
       const feedUser = `# NEGÓCIO
 Empresa: ${business?.company_name || "Não informado"}
@@ -1815,13 +1838,37 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
       }
 
 
+      // === EXTRAIR SIGNATURES DO FEED RECÉM-GERADO ===
+      // Roda APÓS o dedup do feed (feedFinal é o conjunto final). As signatures
+      // são persistidas em _dedup_metrics._pattern_signatures e usadas pela
+      // próxima semana como restrição negativa. Falha silenciosa — nunca bloqueia.
+      let weekPatternSignatures: PostSignature[] = [];
+      try {
+        const postsForSignature = feedFinal.map((p) => ({
+          day: p.day,
+          theme: (p as any).theme,
+          caption: (p as any).caption,
+          card_copy: (p as any).card_copy,
+          script: (p as any).script,
+        }));
+        weekPatternSignatures = await extractSignaturesForWeek(postsForSignature);
+        console.log(`[pattern-signature] extraídas ${weekPatternSignatures.length} signatures pra semana ${wkIdxForPartial}`);
+      } catch (e: any) {
+        console.warn("[pattern-signature] extract para semana atual falhou (continuando):", e?.message || e);
+      }
+
       // Monta extraMeta para persistir flag/métricas no JSONB editorial_weeks[i]
-      const weekExtraMeta: Record<string, any> | undefined = dedupMeta
-        ? {
-            _dedup_metrics: dedupMeta,
-            ...((dedupMeta as any)._dedup_warning ? { _dedup_warning: true } : {}),
-          }
-        : undefined;
+      const dedupMetricsWithSigs = {
+        ...(dedupMeta || {}),
+        ...(weekPatternSignatures.length > 0 ? { _pattern_signatures: weekPatternSignatures } : {}),
+      };
+      const weekExtraMeta: Record<string, any> | undefined =
+        dedupMeta || weekPatternSignatures.length > 0
+          ? {
+              _dedup_metrics: dedupMetricsWithSigs,
+              ...((dedupMeta as any)?._dedup_warning ? { _dedup_warning: true } : {}),
+            }
+          : undefined;
 
       // ==== Persistência de embeddings ANTES do save parcial ====
       // Garante que mesmo semanas que falham no Estágio B alimentem o guardrail
