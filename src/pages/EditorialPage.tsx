@@ -14,8 +14,9 @@ import {
   Loader2, Sparkles, ChevronDown, Calendar, Video, Image, Smartphone,
   ImageIcon, PenTool, FileText, RefreshCw, Copy, Download, AlertTriangle, Wand2,
   Trash2, X, CheckSquare, MoreVertical, Check, CircleDashed, Ban, CalendarCheck,
-  Filter, Search,
+  Filter, Search, ChevronLeft, ChevronRight,
 } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
