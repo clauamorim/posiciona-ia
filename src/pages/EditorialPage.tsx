@@ -1176,15 +1176,26 @@ const EditorialPage = () => {
                     : isFriday
                       ? "Story · gancho de fim de semana"
                       : null;
+                  const dateLabel = formatDayLabel({
+                    weekStartDate: (week as any).start_date ?? null,
+                    reportCreatedAt: (report as any)?.created_at ?? null,
+                    weekIndex: weekKey,
+                    dayNumber,
+                  });
                   return (
                     <Card key={di} className={`flex flex-col break-inside-avoid border border-border ${isStoriesOnly && (isWeekend || isFriday) ? "bg-card/30" : ""}`}>
                       <CardContent className="py-4 flex-1 space-y-3">
                         <div className="flex items-center justify-between">
-                          <div className="flex items-baseline gap-2">
-                            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Dia {dayNumber}</span>
-                            {storiesSubLabel && (
-                              <span className="text-[10px] italic text-muted-foreground/80">{storiesSubLabel}</span>
-                            )}
+                          <div className="flex flex-col gap-0.5">
+                            <div className="flex items-baseline gap-2">
+                              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Dia {dayNumber}</span>
+                              {dateLabel && (
+                                <span className="text-[11px] font-medium text-foreground/70">{dateLabel}</span>
+                              )}
+                              {storiesSubLabel && (
+                                <span className="text-[10px] italic text-muted-foreground/80">{storiesSubLabel}</span>
+                              )}
+                            </div>
                           </div>
                           {false && dayOutdated && (
                             <Badge variant="outline" className="text-[10px] gap-1 bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-900">
