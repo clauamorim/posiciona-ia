@@ -1667,8 +1667,11 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
             }
           }
 
-          // ---- 11) 2º retry agressivo (só dias ainda >0.80) ----
-          if (failingAfterFirst.length > 0) {
+          // ---- 11) 2º retry agressivo (só dias ainda > adaptiveThreshold) ----
+          if (failingAfterFirst.length > 0 && dedupTimeBudgetExceeded()) {
+            console.warn(`[semantic-dedup] time-budget-exceeded antes do 2º retry week=${wkIdxForPartial} — aceitando posts do 1º retry`);
+            dedupMeta._dedup_partial_due_to_timeout = true;
+          } else if (failingAfterFirst.length > 0) {
             const failingDayNums = failingAfterFirst.map((f) => f.day);
             console.log(`[semantic-dedup] second-retry week=${wkIdxForPartial} days=${JSON.stringify(failingDayNums)}`);
 
