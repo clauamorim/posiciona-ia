@@ -547,12 +547,19 @@ export default function SalesStoriesPage() {
                   className="hover:border-primary/40 transition-colors flex flex-col"
                 >
                   <CardHeader className="pb-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <Badge variant="outline" className="text-xs gap-1">
-                        <span>{SEQUENCE_EMOJI[type] || "•"}</span>
-                        <span className="truncate max-w-[140px]">{SEQUENCE_LABELS[type] || seq.sequence_type}</span>
-                      </Badge>
-                      <span className="text-xs text-muted-foreground shrink-0">{formatDate(seq.generated_at)}</span>
+                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-1.5 md:gap-2">
+                      <TooltipProvider delayDuration={200}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Badge variant="outline" className="text-xs gap-1 max-w-full md:max-w-[60%] self-start">
+                              <span className="shrink-0">{SEQUENCE_EMOJI[type] || "•"}</span>
+                              <span className="truncate">{SEQUENCE_LABELS[type] || seq.sequence_type}</span>
+                            </Badge>
+                          </TooltipTrigger>
+                          <TooltipContent>{SEQUENCE_LABELS[type] || seq.sequence_type}</TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                      <span className="text-xs text-muted-foreground flex-shrink-0">{formatDate(seq.generated_at)}</span>
                     </div>
                     <CardTitle
                       className="text-base font-medium leading-snug pt-1 cursor-pointer hover:text-primary"
