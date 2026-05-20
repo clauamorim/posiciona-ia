@@ -22,12 +22,31 @@ Sua tarefa: gerar EXATAMENTE 7 sugestões de STORIES para a semana, uma por dia 
 
 ⚠️ CRÍTICO — FORMATO DE SAÍDA: array começando com "[" e terminando com "]". SEM \`\`\`, sem texto fora do JSON, sem vírgula final.
 
-ESPELHAMENTO DE TEMA (CRÍTICO):
-Nos dias ${mirrorDays.join(", ")} a marca terá um post no feed (resumo abaixo). O story DESSES DIAS deve ABORDAR O MESMO TEMA do post de feed daquele dia, complementando-o (bastidor, dúvida frequente, enquete, depoimento, mini-prova). NÃO copie a copy do feed — explore o tema em formato Stories.
+# RITMO DA SEMANA — OBRIGATÓRIO (cada dia tem um TOM diferente):
 
-Nos OUTROS 3 dias (sem feed), os stories são livres e devem ter PREDOMINÂNCIA PESSOAL: cenas do cotidiano do criador, hobbies, opiniões, micro-aprendizados, perguntas para a audiência.
+DIAS ${mirrorDays.join(", ")} (Seg-Qui) — STORIES DE AUTORIDADE / ESPELHO DO FEED:
+- A marca terá um post no feed nesses dias (resumo abaixo).
+- O story DESSES DIAS deve ABORDAR O MESMO TEMA do post de feed daquele dia, complementando-o (bastidor do raciocínio, dúvida frequente, enquete, mini-prova, depoimento).
+- NÃO copie a copy do feed — explore o tema em formato Stories.
+- Tom: estratégico, autoridade, conexão direta com o post do dia.
+- mirrors_feed=true, is_personal=false.
 
-# RESUMO DOS POSTS DE FEED DA SEMANA (espelhe nos dias indicados)
+DIA 5 (Sexta) — STORY DE TRANSIÇÃO / GANCHO DE FIM DE SEMANA:
+- SEM post de feed. Story livre, mas funciona como encerramento da semana.
+- Use UM destes ângulos: (a) teaser/recap do tema dominante da semana, (b) pergunta aberta para a audiência ("o que faltou abordar?"), (c) caixa de pergunta convidando dúvidas para a próxima semana, (d) enquete provocativa sobre o tema mais polêmico da semana.
+- Tom: conversacional, conectivo, transição entre semana de trabalho e fim de semana.
+- mirrors_feed=false, is_personal=false (ainda profissional).
+
+DIAS 6-7 (Sáb-Dom) — STORIES PESSOAIS E LEVES:
+- SEM post de feed. Stories de vida pessoal, bastidores, hobbies, momentos íntimos.
+- OBRIGATÓRIO usar matéria-prima REAL do bloco "CONTEXTO PESSOAL DO CRIADOR" (hobbies, pets, esportes, família, rotina de domingo, viagens, leituras, comidas favoritas).
+- Sábado: tom de bastidor leve — algo que o criador faz no fim de semana, hobby, lazer, pessoas próximas. Pode incluir foto-momento, opinião não-profissional, descoberta da semana.
+- Domingo: tom mais intimista — reflexão pessoal, inspiração, ritual de domingo, leitura, gratidão, planos da semana. SEM vender, SEM CTA agressivo.
+- NUNCA invente fatos pessoais — se o bloco "CONTEXTO PESSOAL DO CRIADOR" não tiver matéria-prima suficiente para o dia, use micro-observação genuína (clima, comida, descoberta) em vez de inventar hobby/família.
+- Conecte vida pessoal ao posicionamento profissional de forma SUTIL (ex: hobby revela valor que também aparece no trabalho), mas sem fechar com CTA de venda.
+- mirrors_feed=false, is_personal=true.
+
+# RESUMO DOS POSTS DE FEED DA SEMANA (espelhe nos dias ${mirrorDays.join(", ")})
 ${feedSummary}
 
 REGRA DE LINGUAGEM:
@@ -38,9 +57,7 @@ ESTILO STORIES:
 - Linguagem direta, falada, em primeira pessoa.
 - Cada story tem 3 a 5 frames (telas).
 - Use formatos típicos do Stories: enquete, caixa de pergunta, slider, quiz, depoimento, bastidor, mini-tutorial, opinião quente.
-- Storytelling pessoal: ver bloco "LIMITE PESSOAL PARA STORIES" abaixo (regra crítica).
 - Toda evidência concreta (número, caso, métrica) precisa vir do bloco FATOS VERIFICÁVEIS. Sem fato disponível, use pergunta/hipótese sinalizada ("e se...", "imagine que...").
-- Nos dias com feed, mirrors_feed=true. Nos demais, mirrors_feed=false.
 
 OUTPUT — array com EXATAMENTE 7 objetos, na ordem dos dias 1..7:
 [
@@ -48,8 +65,8 @@ OUTPUT — array com EXATAMENTE 7 objetos, na ordem dos dias 1..7:
     "day": 1,
     "theme": "tema do story",
     "frames": ["texto frame 1", "texto frame 2", "texto frame 3"],
-    "is_personal": true,
-    "mirrors_feed": false
+    "is_personal": false,
+    "mirrors_feed": true
   }
 ]
 
@@ -58,16 +75,10 @@ REGRAS ESTRUTURAIS:
 - "frames": 3 a 5 itens, cada um com texto curto (até ~120 caracteres) representando o que vai na tela.
 - Português brasileiro.
 
-🟥 LIMITE PESSOAL PARA STORIES (CRÍTICO):
-- NO MÁXIMO 1 das 7 stories da semana pode ser pessoal (is_personal=true).
-- As demais stories devem ser de TIPOS NÃO-PESSOAIS, escolhendo entre:
-  • Dúvida frequente da audiência (com pergunta literal entre aspas)
-  • Observação técnica/profissional do nicho (sem vivência pessoal)
-  • Comentário sobre uma decisão/erro/acerto comum no mercado
-  • Dica prática aplicável (sem narrativa pessoal)
-  • Bastidor do TRABALHO (não da vida pessoal): mostrar etapa de atendimento, decisão técnica, ferramenta usada
-- NUNCA use hobby, esporte, família, rotina doméstica ou ritual matinal em mais de 1 story por semana.
-- Se "bastidor" não estiver sub-representado nesta semana (ver ROTAÇÃO DE PILARES), NENHUMA story pode ser pessoal.`;
+🟥 LIMITES DE PESSOAL (CRÍTICO):
+- Stories pessoais (is_personal=true) PERMITIDOS APENAS nos dias 6 e 7 (sáb-dom).
+- Dias 1-5: is_personal=false obrigatoriamente.
+- Mesmo nos dias 6-7, NUNCA invente hobby/família/pet — só use o que está no bloco "CONTEXTO PESSOAL DO CRIADOR".`;
 }
 
 /**
