@@ -83,6 +83,7 @@ export const DashboardLayout = ({ children, wide = false }: { children: React.Re
       const hasEditorial = hasEditorialWeeks || hasContentEditorial;
       const hasPortraits = (portraitRes.data?.length ?? 0) > 0;
       const pqSubmitted = pqRes.data?.[0]?.status === "submitted";
+      const snSubmitted = snRes.data?.[0]?.status === "submitted";
 
       setJourneyStatus({
         "/business-questionnaire": bComplete ? "done" : "in_progress",
@@ -93,6 +94,7 @@ export const DashboardLayout = ({ children, wide = false }: { children: React.Re
         "/report": rDone ? "done" : "blocked",
         "/instagram-analysis": hasIg ? "done" : rDone ? "in_progress" : "blocked",
         "/editorial": hasEditorial ? "done" : (rDone && pqSubmitted) ? "in_progress" : "blocked",
+        "/stories-de-venda": snSubmitted ? "done" : rDone ? "in_progress" : "blocked",
         "/portraits": hasPortraits ? "done" : rDone ? "in_progress" : "blocked",
       });
     };
