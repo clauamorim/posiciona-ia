@@ -1587,8 +1587,11 @@ const PostEditorPage = () => {
         if (data && !asTemplate) setCurrentDesignId(data.id);
         toast({ title: asTemplate ? (adminTemplate ? "Template global salvo" : "Modelo salvo") : "Design salvo", description: galleryNote || undefined });
       }
+      setLastSavedAt(new Date());
+      setSaveStatus("saved");
     } catch (err: any) {
       console.error(err);
+      setSaveStatus("error");
       toast({ title: "Erro ao salvar", description: err?.message, variant: "destructive" });
     } finally {
       setSavingDesign(false);
