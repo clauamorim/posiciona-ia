@@ -75,6 +75,20 @@ const AUDIENCE_QUALIFICATION_WINDOW_DAYS = 14;
 const THESIS_COSINE_THRESHOLD = 0.70;
 const RECENT_HISTORY_WEEKS = 8;
 
+/**
+ * Threshold adaptativo de dedup por embedding.
+ * Conforme o histórico cresce, a consistência de voz da marca eleva o baseline
+ * de similaridade — threshold precisa subir para não entrar em loop de retentativas.
+ */
+function getAdaptiveDedupThreshold(historyWeekCount: number): number {
+  if (historyWeekCount < 10) return 0.80; // Histórico pequeno: rigoroso
+  if (historyWeekCount < 20) return 0.83; // Voz começando a saturar
+  return 0.86; // Voz consolidada: baseline alto, threshold sobe
+}
+
+// Hard cap de tempo total na fase de dedup de feed (evita worker shutdown por timeout).
+const DEDUP_TOTAL_TIMEOUT_MS = 90_000;
+
 // === STORIES DEDUP ===
 // Apenas DIA 5 (recap/gancho livre) — DIAS 1-4 espelham feed (coberto pelo feed dedup),
 // DIAS 6-7 são pessoais autênticos (repetição natural é desejável).
@@ -1126,6 +1140,10 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
       const dedupFailedDays: number[] = [];
 
       // ==== Dedup v3: extração SEMPRE + 5 dimensões + 2 retries ====
+      const dedupStartTime = Date.now();
+      const adaptiveThreshold = getAdaptiveDedupThreshold(previousWeeks?.length || 0);
+      const dedupTimeBudgetExceeded = () => (Date.now() - dedupStartTime) > DEDUP_TOTAL_TIMEOUT_MS;
+      console.log(`[semantic-dedup] adaptive-threshold week=${typeof job.week_index === "number" ? job.week_index : 0} history=${previousWeeks?.length || 0} threshold=${adaptiveThreshold}`);
       try {
         const candidates = feedFinal
           .map((p, idx) => ({ p, idx }))
@@ -1153,7 +1171,7 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
             p_user_id: userId,
             p_query: vec as any,
             p_since: since,
-            p_threshold: 0.80,
+            p_threshold: adaptiveThreshold,
             p_limit: 5,
           });
           if (error) {
@@ -1464,7 +1482,7 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
           days_regenerated: embeddingViolations.map((v) => v.day),
           matches_blocked: Array.from(new Set([...recentBrands, ...recentFrameworks])),
           entity_extraction_source: extractionSource,
-          threshold: 0.80,
+          threshold: adaptiveThreshold,
           thesis_threshold: THESIS_COSINE_THRESHOLD,
           window_days: DEDUP_WINDOW_DAYS,
           extracted_brands_by_day,
@@ -1497,6 +1515,10 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
           await updateJob(jobId, { progress_message: "Removendo repetições semânticas…" });
 
           // ---- 9) Anti-prompt 1º retry ----
+          if (dedupTimeBudgetExceeded()) {
+            console.warn(`[semantic-dedup] time-budget-exceeded antes do 1º retry week=${wkIdxForPartial} — aceitando posts atuais`);
+            dedupMeta._dedup_partial_due_to_timeout = true;
+          } else {
           const violatingDays = Array.from(violatingDaysSet);
           dedupMeta.days_regenerated = violatingDays;
           const dayTargetsByDay = new Map(dayTargets.map((t) => [t.day, t]));
@@ -1634,7 +1656,7 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
                 });
                 const top = Array.isArray(data) && data.length > 0 ? Number(data[0].similarity) || 0 : 0;
                 if (top > postRetryMax) postRetryMax = top;
-                if (top > 0.80) failingAfterFirst.push({ day, sim: top });
+                if (top > adaptiveThreshold) failingAfterFirst.push({ day, sim: top });
                 console.log(
                   `[semantic-dedup] post-retry week=${wkIdxForPartial} day=${day} pre=${(embByDay.get(day)?.topSim || 0).toFixed(3)} post=${top.toFixed(3)}`,
                 );
@@ -1645,8 +1667,11 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
             }
           }
 
-          // ---- 11) 2º retry agressivo (só dias ainda >0.80) ----
-          if (failingAfterFirst.length > 0) {
+          // ---- 11) 2º retry agressivo (só dias ainda > adaptiveThreshold) ----
+          if (failingAfterFirst.length > 0 && dedupTimeBudgetExceeded()) {
+            console.warn(`[semantic-dedup] time-budget-exceeded antes do 2º retry week=${wkIdxForPartial} — aceitando posts do 1º retry`);
+            dedupMeta._dedup_partial_due_to_timeout = true;
+          } else if (failingAfterFirst.length > 0) {
             const failingDayNums = failingAfterFirst.map((f) => f.day);
             console.log(`[semantic-dedup] second-retry week=${wkIdxForPartial} days=${JSON.stringify(failingDayNums)}`);
 
@@ -1768,9 +1793,9 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
               console.warn(`[semantic-dedup] second-retry falhou (mantendo melhor versão):`, rr?.message || rr);
             }
 
-            // Marca dias que ainda excedem 0.80
+            // Marca dias que ainda excedem o threshold adaptativo
             for (const f of failingAfterFirst) {
-              if (f.sim > 0.80) {
+              if (f.sim > adaptiveThreshold) {
                 dedupFailedDays.push(f.day);
                 const idx = feedFinal.findIndex((p) => p.day === f.day);
                 if (idx >= 0) (feedFinal[idx] as any)._dedup_failed = true;
@@ -1783,6 +1808,7 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
               (dedupMeta as any)._dedup_warning = true;
             }
           }
+          } // end else (time budget ok for 1st retry)
         }
       } catch (semErr: any) {
         console.warn(`[semantic-dedup] erro geral (ignorado):`, semErr?.message || semErr);
