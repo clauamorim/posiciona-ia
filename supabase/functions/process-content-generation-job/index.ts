@@ -31,6 +31,12 @@ import {
 } from "../_shared/editorialPillars.ts";
 import { NARRATIVE_PRINCIPLES_BLOCK } from "../_shared/narrativePrinciples.ts";
 import {
+  extractSignaturesForWeek,
+  findProhibitedTags,
+  renderProhibitedMoldsBlock,
+  type PostSignature,
+} from "../_shared/patternSignature.ts";
+import {
   detectProfession,
   getEthicalRulesBlock,
   renderMarketTrendsBlock,
