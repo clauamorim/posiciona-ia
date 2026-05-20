@@ -3,7 +3,9 @@
 // pelo worker de recuperação (process-stories-generation-job) para garantir
 // que a regeneração de stories use exatamente o mesmo prompt do fluxo original.
 
-export const FEED_DAYS = [1, 3, 5, 7];
+// Ritmo semanal fixo: posts de feed apenas Seg-Qui (dias 1-4).
+// Sex (5), Sáb (6) e Dom (7) são exclusivamente stories.
+export const FEED_DAYS = [1, 2, 3, 4];
 
 export interface StoryDay {
   day: number;
