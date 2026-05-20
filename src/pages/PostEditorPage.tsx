@@ -1838,7 +1838,7 @@ const PostEditorPage = () => {
               onBgChange: (i: number) => { setCustomBgColor(null); setBgIndex(i); },
               onCustomBgColorChange: setCustomBgColor,
               onDownload: () => handleDownloadSlide(isCarousel ? currentSlide : 0),
-              showDownloadAction: false,
+              showDownloadAction: true,
               exporting,
               onReset: handleReset,
               onAddImage: handleAddImage,
