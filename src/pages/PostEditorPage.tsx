@@ -1817,18 +1817,7 @@ const PostEditorPage = () => {
                 onTextBoxesChange={(boxes) => handleSlideTextBoxesChange(0, boxes)}
               />
             )}
-            {!isCarousel && (
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10">
-                <Button
-                  size="sm"
-                  className="gap-2 shadow-lg"
-                  disabled={!!exporting}
-                  onClick={() => handleDownloadSlide(0)}
-                >
-                  <Download className="h-3.5 w-3.5" /> {exporting === "slide" ? "Baixando…" : "Baixar PNG"}
-                </Button>
-              </div>
-            )}
+            {/* Botão "Baixar PNG" foi movido para o painel de ações à direita para não sobrepor o canvas. */}
           </div>
 
           {(() => {
