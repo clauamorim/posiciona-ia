@@ -88,7 +88,9 @@ const PortraitGenerator = () => {
   const [backgrounds, setBackgrounds] = useState<string[]>([]);
   const [originalIndices, setOriginalIndices] = useState<number[]>([]);
   const [generationId, setGenerationId] = useState<string | null>(null);
+  const [generationCreatedAt, setGenerationCreatedAt] = useState<string | null>(null);
   const [discardingIndex, setDiscardingIndex] = useState<number | null>(null);
+  const [confirmDiscardIndex, setConfirmDiscardIndex] = useState<number | null>(null);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const [hydratedFromHistory, setHydratedFromHistory] = useState(false);
 
