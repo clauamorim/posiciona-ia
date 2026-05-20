@@ -1838,13 +1838,37 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
       }
 
 
+      // === EXTRAIR SIGNATURES DO FEED RECÉM-GERADO ===
+      // Roda APÓS o dedup do feed (feedFinal é o conjunto final). As signatures
+      // são persistidas em _dedup_metrics._pattern_signatures e usadas pela
+      // próxima semana como restrição negativa. Falha silenciosa — nunca bloqueia.
+      let weekPatternSignatures: PostSignature[] = [];
+      try {
+        const postsForSignature = feedFinal.map((p) => ({
+          day: p.day,
+          theme: (p as any).theme,
+          caption: (p as any).caption,
+          card_copy: (p as any).card_copy,
+          script: (p as any).script,
+        }));
+        weekPatternSignatures = await extractSignaturesForWeek(postsForSignature);
+        console.log(`[pattern-signature] extraídas ${weekPatternSignatures.length} signatures pra semana ${wkIdxForPartial}`);
+      } catch (e: any) {
+        console.warn("[pattern-signature] extract para semana atual falhou (continuando):", e?.message || e);
+      }
+
       // Monta extraMeta para persistir flag/métricas no JSONB editorial_weeks[i]
-      const weekExtraMeta: Record<string, any> | undefined = dedupMeta
-        ? {
-            _dedup_metrics: dedupMeta,
-            ...((dedupMeta as any)._dedup_warning ? { _dedup_warning: true } : {}),
-          }
-        : undefined;
+      const dedupMetricsWithSigs = {
+        ...(dedupMeta || {}),
+        ...(weekPatternSignatures.length > 0 ? { _pattern_signatures: weekPatternSignatures } : {}),
+      };
+      const weekExtraMeta: Record<string, any> | undefined =
+        dedupMeta || weekPatternSignatures.length > 0
+          ? {
+              _dedup_metrics: dedupMetricsWithSigs,
+              ...((dedupMeta as any)?._dedup_warning ? { _dedup_warning: true } : {}),
+            }
+          : undefined;
 
       // ==== Persistência de embeddings ANTES do save parcial ====
       // Garante que mesmo semanas que falham no Estágio B alimentem o guardrail
