@@ -1688,31 +1688,54 @@ const PostEditorPage = () => {
     );
   }
 
+  const realWeekNumber = ((allWeeks[weekIndex] as any)?._week_index ?? weekIndex) + 1;
+  const formattedSavedAt = lastSavedAt
+    ? lastSavedAt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
+    : null;
+  const saveLabel =
+    saveStatus === "saving" ? "Salvando…" :
+    saveStatus === "error" ? "⚠ Erro ao salvar" :
+    saveStatus === "saved" && formattedSavedAt ? `✓ Salvo às ${formattedSavedAt}` : null;
+
   return (
     <DashboardLayout>
-      <div className="space-y-6 pb-24 md:pb-6">
+      <div className="space-y-6 pb-32 md:pb-6">
         <div className="flex items-center gap-4 flex-wrap">
           <Button variant="ghost" size="icon" onClick={() => navigate("/editorial")}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <div>
+          <div className="flex-1 min-w-0">
             <h1 className="text-xl font-bold font-display">Dia {day.day || dayIndex + 1}: {cleanText(day.theme)}</h1>
-            <p className="text-sm text-muted-foreground">
-              Semana {weekIndex + 1} · {day.format}
-              {isCarousel && ` · ${editedTexts.length} slides`}
-              {canvasFormat === "reels" && " · Capa de Reels"}
-              {selectedImageId && " · Pressione Delete para remover elemento selecionado"}
-            </p>
+            <div className="flex items-center gap-3 flex-wrap text-sm text-muted-foreground">
+              <span>
+                Semana {realWeekNumber} · {day.format}
+                {isCarousel && ` · ${editedTexts.length} slides`}
+                {canvasFormat === "reels" && " · Capa de Reels"}
+              </span>
+              {saveLabel && (
+                <span className={`text-xs ${saveStatus === "error" ? "text-destructive" : "text-muted-foreground"}`}>
+                  {saveLabel}
+                </span>
+              )}
+              {selectedImageId && (
+                <span className="text-xs">Pressione Delete para remover elemento selecionado</span>
+              )}
+            </div>
           </div>
         </div>
 
         {autoLayoutBanner && (
           <div className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-lg border border-primary/30 bg-primary/5">
-            <div className="flex items-center gap-2 text-sm">
-              <Sparkles className="h-4 w-4 text-primary" />
-              <span className="text-foreground/80">Montagem inicial gerada. Personalize como quiser.</span>
+            <div className="flex items-start gap-2 text-sm">
+              <Sparkles className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+              <span className="text-foreground/80">
+                <strong>Montagem inicial gerada.</strong> Clique no texto ou na imagem para editar. Use o painel à direita para trocar fundo, formato e adicionar elementos.
+              </span>
             </div>
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setAutoLayoutBanner(false)}>
+            <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0" onClick={() => {
+              setAutoLayoutBanner(false);
+              try { localStorage.setItem("posiciona.editor.welcomeSeen", "1"); } catch {}
+            }}>
               <X className="h-4 w-4" />
             </Button>
           </div>
