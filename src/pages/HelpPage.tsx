@@ -3,12 +3,11 @@ import { DashboardLayout } from "@/components/DashboardLayout";
 import { SeoHead } from "@/components/SeoHead";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { HelpCircle, Search, Shield } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { HelpCircle, Search, Mail, MessageCircle, Copy, Check, Sparkles } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { openAssistant } from "@/lib/assistantBus";
 
 const HELP_TOPICS = [
   {
@@ -59,34 +58,61 @@ const HELP_TOPICS = [
     content:
       "Existem dois questionários principais:\n\n1. Questionário do Negócio: coleta informações sobre sua empresa, público-alvo, serviços, problemas que resolve, provas de autoridade, etc. Essas informações alimentam a narrativa de marca.\n\n2. Questionário de Arquétipos: uma série de afirmações que você avalia de 1 a 5, revelando quais arquétipos são mais fortes na sua personalidade de marca.\n\nApós completar ambos, você gera suas análises (relatório completo). Os questionários ficam bloqueados após a geração — para editá-los, use a função 'Refazer análise' (consome 1 crédito de reanálise).",
   },
+  {
+    id: "cancel-subscription",
+    title: "Como cancelar minha assinatura?",
+    content:
+      "Acesse Conta > seção Assinatura > Gerenciar assinatura. Você será redirecionada ao portal externo do Stripe, onde pode cancelar a renovação automática a qualquer momento. Ao cancelar, você continua com acesso até o fim do ciclo já pago.",
+  },
+  {
+    id: "change-plan",
+    title: "Como mudar de plano (upgrade ou downgrade)?",
+    content:
+      "Acesse Plano e Créditos no menu lateral. No momento, mudanças de plano são feitas por contato com o suporte para preservar seu histórico de créditos e ciclos pagos. Use o WhatsApp ou e-mail abaixo para solicitar.",
+  },
+  {
+    id: "update-profile",
+    title: "Como atualizar meus dados (profissão, nicho, e-mail)?",
+    content:
+      "Profissão e Nicho são alterados editando o Diagnóstico do Negócio (consome 1 crédito de reanálise para refazer a análise). Para alterar o e-mail de login, entre em contato com o suporte por segurança — não fazemos pela interface.",
+  },
+  {
+    id: "refund",
+    title: "Política de reembolso",
+    content:
+      "Conforme o Código de Defesa do Consumidor, você tem direito a desistir da compra em até 7 dias corridos do pagamento (direito de arrependimento). Após esse prazo, créditos já consumidos não são reembolsáveis, mas créditos não-usados podem ser analisados caso a caso. Entre em contato com o suporte.",
+  },
+  {
+    id: "edit-questionnaire",
+    title: "Posso editar minhas respostas dos questionários depois?",
+    content:
+      "Sim. Após sua estratégia ser gerada, os questionários ficam marcados como 'Em uso'. Para editar respostas, é necessário consumir 1 crédito de reanálise — isso reaproveita seu progresso, regerando o relatório com as novas respostas.",
+  },
+  {
+    id: "lgpd",
+    title: "LGPD: meus dados pessoais",
+    content:
+      "Você pode solicitar a qualquer momento: (1) acesso aos seus dados pessoais, (2) correção de dados incorretos, (3) portabilidade (exportação dos dados), (4) exclusão da conta e remoção dos dados (em até 15 dias úteis, conforme LGPD). Para excluir conta vá em Conta > Zona de perigo. Para os outros direitos, entre em contato com o suporte.",
+  },
 ];
+
+const SUPPORT_EMAIL = "contato@posiciona.ia.br";
+const SUPPORT_WHATSAPP_DISPLAY = "(62) 99440-0707";
+const SUPPORT_WHATSAPP_LINK = "https://wa.me/5562994400707";
 
 const HelpPage = () => {
   const [search, setSearch] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [updatingPassword, setUpdatingPassword] = useState(false);
+  const [copiedEmail, setCopiedEmail] = useState(false);
 
-  const handlePasswordUpdate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (newPassword.length < 8) {
-      toast({ title: "Senha muito curta", description: "Use ao menos 8 caracteres.", variant: "destructive" });
-      return;
+  const copyEmail = async () => {
+    try {
+      await navigator.clipboard.writeText(SUPPORT_EMAIL);
+      setCopiedEmail(true);
+      setTimeout(() => setCopiedEmail(false), 1500);
+      toast({ title: "E-mail copiado", description: SUPPORT_EMAIL });
+    } catch {
+      toast({ title: "Não foi possível copiar", variant: "destructive" });
     }
-    if (newPassword !== confirmPassword) {
-      toast({ title: "Senhas não coincidem", description: "Confirme a nova senha corretamente.", variant: "destructive" });
-      return;
-    }
-    setUpdatingPassword(true);
-    const { error } = await supabase.auth.updateUser({ password: newPassword });
-    setUpdatingPassword(false);
-    if (error) {
-      toast({ title: "Não foi possível atualizar", description: error.message || "Tente novamente.", variant: "destructive" });
-      return;
-    }
-    toast({ title: "Senha atualizada", description: "Sua nova senha já está ativa." });
-    setNewPassword("");
-    setConfirmPassword("");
   };
 
   const filtered = HELP_TOPICS.filter(
@@ -98,7 +124,7 @@ const HelpPage = () => {
   return (
     <DashboardLayout>
       <SeoHead title="Ajuda · Posiciona" description="Suporte e perguntas frequentes." path="/help" />
-      <div className="space-y-6 max-w-3xl">
+      <div className="space-y-6 lg:max-w-[1100px] lg:mx-auto">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
             <HelpCircle className="h-5 w-5 text-muted-foreground" /> Ajuda
@@ -138,54 +164,74 @@ const HelpPage = () => {
           </Accordion>
         )}
 
-        {/* Card de Segurança */}
-        <Card className="border-border/60">
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Shield className="h-4 w-4 text-muted-foreground" />
-              <CardTitle className="text-base">Segurança</CardTitle>
+        {/* Assistente IA callout */}
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="flex items-start sm:items-center gap-3">
+              <div className="h-10 w-10 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
+                <Sparkles className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <p className="font-medium text-sm">Não achou sua resposta?</p>
+                <p className="text-xs text-muted-foreground">
+                  Pergunte ao Assistente IA — ele conhece seu plano, arquétipos e a metodologia da Posiciona.
+                </p>
+              </div>
             </div>
-            <CardDescription>Atualize a senha da sua conta</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handlePasswordUpdate} className="space-y-4 max-w-sm">
-              <div className="space-y-2">
-                <Label htmlFor="new-password">Nova senha</Label>
-                <Input
-                  id="new-password"
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="Mínimo de 8 caracteres"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="confirm-password">Confirmar nova senha</Label>
-                <Input
-                  id="confirm-password"
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Repita a nova senha"
-                  required
-                />
-              </div>
-              <Button type="submit" disabled={updatingPassword}>
-                {updatingPassword ? "Atualizando..." : "Atualizar senha"}
-              </Button>
-            </form>
+            <Button size="sm" onClick={() => openAssistant()} className="gap-2 shrink-0">
+              <Sparkles className="h-4 w-4" /> Abrir Assistente IA
+            </Button>
           </CardContent>
         </Card>
 
-        {/* Rodapé de suporte */}
-        <div className="mt-10 pt-6 border-t border-border">
-          <p className="text-sm text-muted-foreground">
-            Precisa de ajuda adicional? Entre em contato:{" "}
-            <a href="mailto:suporte@posiciona.ia.br" className="text-primary hover:underline">
-              suporte@posiciona.ia.br
+        {/* Rodapé de suporte humano */}
+        <div className="mt-10 pt-6 border-t border-border space-y-4">
+          <div>
+            <h2 className="text-base font-semibold">Falar com o suporte</h2>
+            <p className="text-xs text-muted-foreground mt-1">
+              Para dúvidas que exigem atendimento humano (mudança de plano, reembolso, alteração de e-mail, LGPD).
+            </p>
+          </div>
+
+          <div className="grid sm:grid-cols-2 gap-3">
+            {/* WhatsApp */}
+            <a
+              href={SUPPORT_WHATSAPP_LINK}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-3 p-3 rounded-lg border border-border hover:border-primary/40 hover:bg-card transition-colors"
+            >
+              <div className="h-9 w-9 rounded-full bg-emerald-500/15 flex items-center justify-center shrink-0">
+                <MessageCircle className="h-4 w-4 text-emerald-500" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-muted-foreground">WhatsApp</p>
+                <p className="text-sm font-medium truncate">{SUPPORT_WHATSAPP_DISPLAY}</p>
+              </div>
             </a>
-          </p>
+
+            {/* E-mail */}
+            <div className="flex items-center gap-3 p-3 rounded-lg border border-border">
+              <div className="h-9 w-9 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
+                <Mail className="h-4 w-4 text-primary" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-muted-foreground">E-mail</p>
+                <a href={`mailto:${SUPPORT_EMAIL}`} className="text-sm font-medium hover:underline truncate block">
+                  {SUPPORT_EMAIL}
+                </a>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 shrink-0"
+                onClick={copyEmail}
+                aria-label="Copiar e-mail"
+              >
+                {copiedEmail ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
     </DashboardLayout>
