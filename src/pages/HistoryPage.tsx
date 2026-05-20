@@ -72,6 +72,14 @@ const HistoryPage = () => {
   const formatDate = (d: string) =>
     new Date(d).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
 
+  // Versão com hora — usada nas listas para diferenciar múltiplos itens no mesmo dia
+  const formatDateTime = (d: string) => {
+    const date = new Date(d);
+    const dateStr = date.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
+    const timeStr = date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+    return `${dateStr} · ${timeStr}`;
+  };
+
   const downloadPortrait = async (url: string, index: number) => {
     try {
       await downloadAsBlob(url, `retrato-marca-${index + 1}.png`);
@@ -150,7 +158,7 @@ const HistoryPage = () => {
   return (
     <DashboardLayout>
       <SeoHead title="Histórico · Posiciona" description="Seus relatórios, análises e retratos gerados." path="/history" />
-      <div className="space-y-6">
+      <div className="space-y-6 lg:max-w-[1200px] lg:mx-auto">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
             <History className="h-5 w-5 text-muted-foreground" /> Histórico
@@ -168,14 +176,17 @@ const HistoryPage = () => {
         {!loading && (
           <Tabs defaultValue="reports">
             <TabsList>
-              <TabsTrigger value="reports" className="gap-1">
+              <TabsTrigger value="reports" className="gap-1.5">
                 <FileText className="h-4 w-4" /> Relatórios
+                <span className="text-[10px] tabular-nums opacity-70">({reports.length})</span>
               </TabsTrigger>
-              <TabsTrigger value="analyses" className="gap-1">
+              <TabsTrigger value="analyses" className="gap-1.5">
                 <Instagram className="h-4 w-4" /> Análises Instagram
+                <span className="text-[10px] tabular-nums opacity-70">({analyses.length})</span>
               </TabsTrigger>
-              <TabsTrigger value="portraits" className="gap-1">
+              <TabsTrigger value="portraits" className="gap-1.5">
                 <Camera className="h-4 w-4" /> Retratos
+                <span className="text-[10px] tabular-nums opacity-70">({flatPortraits.length})</span>
               </TabsTrigger>
             </TabsList>
 
@@ -194,10 +205,17 @@ const HistoryPage = () => {
                       <CardContent className="flex items-center justify-between py-4">
                         <div>
                           <p className="font-medium font-display">Versão {r.version}</p>
-                          <p className="text-sm text-muted-foreground">{formatDate(r.created_at)}</p>
+                          <p className="text-sm text-muted-foreground">{formatDateTime(r.created_at)}</p>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Badge variant={r.status === "completed" ? "default" : r.status === "error" ? "destructive" : "secondary"}>
+                          <Badge
+                            variant={r.status === "completed" ? "default" : r.status === "error" ? "destructive" : "outline"}
+                            className={
+                              r.status !== "completed" && r.status !== "error"
+                                ? "border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                                : ""
+                            }
+                          >
                             {r.status === "completed" ? "Completo" : r.status === "error" ? "Erro" : "Pendente"}
                           </Badge>
                           <Eye className="h-4 w-4 text-muted-foreground" />
@@ -226,7 +244,16 @@ const HistoryPage = () => {
                           <div className="flex items-center justify-between">
                             <div>
                               <p className="font-medium font-display">{a.username ? `@${a.username}` : "Perfil Instagram"}</p>
-                              <p className="text-sm text-muted-foreground">{formatDate(a.created_at)} • {items.length} aspectos analisados</p>
+                              <p className="text-sm text-muted-foreground">
+                                {formatDateTime(a.created_at)}
+                                {items.length === 0 ? (
+                                  <span className="ml-1.5 inline-flex items-center gap-1 text-amber-600 dark:text-amber-400 font-medium">
+                                    · Sem aspectos extraídos
+                                  </span>
+                                ) : (
+                                  <> · {items.length} aspectos analisados</>
+                                )}
+                              </p>
                             </div>
                             <div className="flex items-center gap-2">
                               <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); downloadAnalysisPDF(a); }}>
@@ -267,7 +294,7 @@ const HistoryPage = () => {
                             tabIndex={0}
                             onClick={(e) => { e.stopPropagation(); downloadPortrait(fp.url, idx); }}
                             onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); downloadPortrait(fp.url, idx); } }}
-                            className="absolute bottom-2 right-2 bg-background/80 backdrop-blur-sm border border-border rounded-full p-2 opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center justify-center"
+                            className="absolute bottom-2 right-2 bg-background/80 backdrop-blur-sm border border-border rounded-full p-2 opacity-90 md:opacity-0 md:group-hover:opacity-100 transition-opacity inline-flex items-center justify-center"
                           >
                             <Download className="h-4 w-4" />
                           </span>
@@ -276,14 +303,14 @@ const HistoryPage = () => {
                             tabIndex={0}
                             onClick={(e) => { e.stopPropagation(); handleDiscardHistory(fp.parentId, fp.parentIndex); }}
                             onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); handleDiscardHistory(fp.parentId, fp.parentIndex); } }}
-                            className="absolute top-2 right-2 bg-background/80 backdrop-blur-sm border border-border rounded-full p-2 opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center justify-center text-muted-foreground hover:text-destructive"
+                            className="absolute top-2 right-2 bg-background/80 backdrop-blur-sm border border-border rounded-full p-2 opacity-90 md:opacity-0 md:group-hover:opacity-100 transition-opacity inline-flex items-center justify-center text-muted-foreground hover:text-destructive"
                             aria-label="Descartar retrato"
                             title="Descartar do histórico"
                           >
                             {discardingKey === dKey ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                           </span>
                         </button>
-                        <p className="text-xs text-center text-muted-foreground">{formatDate(fp.createdAt)}</p>
+                        <p className="text-xs text-center text-muted-foreground">{formatDateTime(fp.createdAt)}</p>
                       </div>
                     );
                   })}
