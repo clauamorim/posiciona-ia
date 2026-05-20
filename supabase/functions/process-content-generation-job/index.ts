@@ -844,7 +844,13 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
         for (const p of arr) {
           if (!p || typeof p !== "object") continue;
           const dayN = Number((p as any).day);
-          if (!FEED_DAYS.includes(dayN)) continue;
+          if (!FEED_DAYS.includes(dayN)) {
+            // Ritmo semanal: feed só em dias 1-4. Descarta o resto com log.
+            if (Number.isFinite(dayN)) {
+              console.warn(`[job ${jobId}] Ritmo: descartado post de feed do dia ${dayN} (fora de Seg-Qui).`);
+            }
+            continue;
+          }
           if (feedByDay.has(dayN)) continue; // mantém o primeiro válido
           const cleaned = sanitizePost(p as Record<string, any>) as FeedPost;
           cleaned.day = dayN;
