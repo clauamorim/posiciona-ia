@@ -1526,6 +1526,7 @@ const PostEditorPage = () => {
   const doSaveDesign = useCallback(async (asTemplate: boolean) => {
     if (!user || savingDesign) return;
     setSavingDesign(true);
+    setSaveStatus("saving");
     try {
       const html2canvas = (await import("html2canvas")).default;
       const el = isCarousel ? slideRefs.current[currentSlide] : singleCanvasRef.current;
