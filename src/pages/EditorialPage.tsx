@@ -1319,8 +1319,10 @@ const EditorialPage = () => {
                               <p className="text-xs text-muted-foreground italic">Este dia não tem post no feed — só story.</p>
                             )}
                           </div>
+                          )}
 
                           {/* ===== Coluna STORIES ===== */}
+
                           <div className="rounded-md border border-l-[3px] border-l-amber-500 p-3 space-y-2">
                             <div className="flex items-center justify-between">
                               <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Stories</span>
