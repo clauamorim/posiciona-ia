@@ -7,31 +7,80 @@
 import { callClaude } from "./claudeClient.ts";
 import { extractJsonFromLLM } from "./jsonExtract.ts";
 
+// Taxonomia canônica — Haiku deve escolher tags APENAS desta lista.
+// Tags fora dessa lista são descartadas no pós-processamento.
+export const CANONICAL_TAGS = {
+  openers: [
+    "gancho_ano_evento_historico",
+    "gancho_pergunta_recorrente",
+    "gancho_dado_pesquisa",
+    "gancho_anedota_primeira_pessoa",
+    "gancho_observacao_clinica",
+    "gancho_conselho_circulante",
+    "gancho_paradoxo_imediato",
+    "gancho_definicao_contraste",
+    "gancho_situacao_hipotetica",
+    "gancho_critica_pratica_comum",
+  ],
+  structures: [
+    "estrutura_framework_numerico",
+    "estrutura_case_empresa_analogia",
+    "estrutura_mito_refutacao",
+    "estrutura_caso_pessoal_licao",
+    "estrutura_diagnostico_perguntas",
+    "estrutura_comparacao_alternativas",
+    "estrutura_lista_horizontal",
+    "estrutura_definicao_contraste",
+    "estrutura_observacao_extrapolada",
+  ],
+  closers: [
+    "fechamento_cta_acionavel",
+    "fechamento_pergunta_aberta",
+    "fechamento_reflexao_implicita",
+    "fechamento_redefinicao_conceito",
+    "fechamento_salvar_post",
+  ],
+} as const;
+
+export const ALL_CANONICAL_TAGS = new Set<string>([
+  ...CANONICAL_TAGS.openers,
+  ...CANONICAL_TAGS.structures,
+  ...CANONICAL_TAGS.closers,
+]);
+
 export interface PostSignature {
   day: number;
-  /** Descrição free-form do molde estrutural (1 frase, sem tema). */
   signature: string;
-  /** Tags categóricas em snake_case para comparação determinística. */
   tags: string[];
 }
 
 const SIGNATURE_SYSTEM_PROMPT = `Você é um analista editorial. Sua tarefa é extrair o MOLDE ESTRUTURAL/NARRATIVO de cada post — NÃO o tema.
 
 Para cada post, retorne:
-1. signature: descrição em 1 frase do MOLDE NARRATIVO (não do tema). Foque em:
-   - Tipo de gancho de abertura (ano histórico nomeado, número, pergunta, comparação, anedota pessoal, dado, etc.)
-   - Estrutura narrativa interna (case → analogia, framework numerado, mito → refutação, definição → contraste, etc.)
-   - Tipo de fechamento (CTA específico, pergunta aberta, reflexão, etc.)
+1. signature: 1 frase descrevendo o MOLDE (não o tema)
+2. tags: EXATAMENTE 3 tags — uma de cada categoria abaixo, escolhidas LITERALMENTE da lista canônica:
 
-2. tags: 2-4 tags categóricas curtas em snake_case que classificam o molde (ex: "framework_numerico_4_elementos", "caso_empresa_historica_com_analogia", "mito_refutacao", "pergunta_abertura", "anedota_primeira_pessoa", "comparacao_concorrente")
+## TAGS DE GANCHO (escolher EXATAMENTE 1):
+${CANONICAL_TAGS.openers.join("\n")}
 
-REGRAS:
-- IGNORE o tema/assunto do post. Foque APENAS no molde estrutural.
-- Use tags genéricas o suficiente pra capturar repetições futuras (ex: "framework_numerico_N" agnostic ao número).
-- Se um post mistura múltiplos moldes, escolha o DOMINANTE.
+## TAGS DE ESTRUTURA (escolher EXATAMENTE 1):
+${CANONICAL_TAGS.structures.join("\n")}
 
-Retorne APENAS JSON válido no formato:
-{ "signatures": [{ "day": 1, "signature": "...", "tags": [...] }, ...] }`;
+## TAGS DE FECHAMENTO (escolher EXATAMENTE 1):
+${CANONICAL_TAGS.closers.join("\n")}
+
+REGRAS ABSOLUTAS:
+- USE APENAS tags da lista acima. NÃO invente, NÃO crie variantes, NÃO inclua números específicos.
+- Sempre exatamente 3 tags por post: 1 gancho + 1 estrutura + 1 fechamento.
+- Se o post não bater perfeitamente com nenhuma opção, escolha a MAIS PRÓXIMA da lista.
+- IGNORE o tema/assunto. Foque apenas no molde estrutural.
+
+Exemplos de mapeamento:
+- "Os 4 cortes que aplico..." → estrutura = estrutura_framework_numerico (NÃO "framework_4_cortes")
+- "Os 7 sinais que leio..." → estrutura = estrutura_framework_numerico (mesmo tag, número não importa)
+- "Em 2018, a Bayer comprou Monsanto..." → gancho = gancho_ano_evento_historico, estrutura = estrutura_case_empresa_analogia
+
+Retorne JSON: { "signatures": [{ "day": N, "signature": "...", "tags": ["tag1", "tag2", "tag3"] }, ...] }`;
 
 export async function extractSignaturesForWeek(
   posts: Array<{ day: number; theme?: string; caption?: string; card_copy?: string[]; script?: string }>,
@@ -67,8 +116,13 @@ Extraia o molde estrutural de cada um. Retorne JSON.`;
       .map((s: any) => ({
         day: Number(s.day),
         signature: String(s.signature).slice(0, 300),
-        tags: s.tags.map((t: any) => String(t).toLowerCase().slice(0, 50)).slice(0, 6),
-      }));
+        // Manter APENAS tags canônicas — descarta variantes inventadas pelo Haiku
+        tags: s.tags
+          .map((t: any) => String(t).toLowerCase().slice(0, 50))
+          .filter((t: string) => ALL_CANONICAL_TAGS.has(t))
+          .slice(0, 4),
+      }))
+      .filter((s: PostSignature) => s.tags.length > 0);
   } catch (e: any) {
     console.warn("[pattern-signature] extraction falhou:", e?.message || e);
     return [];
