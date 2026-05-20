@@ -1326,8 +1326,18 @@ const EditorialPage = () => {
                   const isPosted = dayStatus === "posted";
                   const isSkipped = dayStatus === "skipped";
                   const cardOpacity = isPosted ? "opacity-60" : isSkipped ? "opacity-40" : "";
+                  const isTodayCard = todayListIndex === wi && todayDayNumber === dayNumber;
+                  const todayBorder = isTodayCard ? "border-primary/40 ring-1 ring-primary/20" : "";
                   return (
-                    <Card key={di} className={`flex flex-col break-inside-avoid border border-border ${isStoriesOnly && (isWeekend || isFriday) ? "bg-card/30" : ""} ${cardOpacity}`}>
+                    <Card
+                      key={di}
+                      ref={(el) => {
+                        const k = `${wi}-${di}`;
+                        if (el) dayCardRefs.current.set(k, el as unknown as HTMLDivElement);
+                        else dayCardRefs.current.delete(k);
+                      }}
+                      className={`flex flex-col break-inside-avoid border border-border ${todayBorder} ${isStoriesOnly && (isWeekend || isFriday) ? "bg-card/30" : ""} ${cardOpacity}`}
+                    >
                       <CardContent className="py-4 flex-1 space-y-3">
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex flex-col gap-0.5 min-w-0">
