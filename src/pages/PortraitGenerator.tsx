@@ -159,6 +159,20 @@ const PortraitGenerator = () => {
     enabled: !!user,
   });
 
+  const { data: planAllotmentData } = useQuery({
+    queryKey: ["plan-portrait-credits", subscription?.plan_id],
+    queryFn: async () => {
+      if (!subscription?.plan_id) return 0;
+      const { data } = await supabase
+        .from("plans")
+        .select("portrait_credits")
+        .eq("id", subscription.plan_id)
+        .maybeSingle();
+      return data?.portrait_credits ?? 0;
+    },
+    enabled: !!subscription?.plan_id,
+  });
+
   // Carrega selfies de referência via edge function (signed URLs)
   const { data: referencesData, refetch: refetchReferences } = useQuery({
     queryKey: ["portrait-references", user?.id],
@@ -431,14 +445,26 @@ const PortraitGenerator = () => {
                   <strong>{totalCredits}</strong> retrato{totalCredits !== 1 ? "s" : ""} disponíve{totalCredits !== 1 ? "is" : "l"}
                 </p>
                 <div className="text-xs text-muted-foreground space-y-0.5">
-                  {includedCredits > 0 ? (
-                    <p>
-                      Seu plano inclui <strong>{includedCredits} retrato{includedCredits !== 1 ? "s" : ""}/mês</strong>
-                      {renewalDate ? ` (próxima renovação em ${renewalDate})` : ""}.
-                    </p>
-                  ) : (
-                    <p>Seu plano não inclui retratos mensais.</p>
-                  )}
+                  {(() => {
+                    const planAllotment = planAllotmentData ?? 0;
+                    if (planAllotment === 0) {
+                      return <p>Seu plano não inclui retratos mensais.</p>;
+                    }
+                    if (includedCredits === 0) {
+                      return (
+                        <p>
+                          Você já usou todos os <strong>{planAllotment} retrato{planAllotment !== 1 ? "s" : ""} inclusos</strong> este mês
+                          {renewalDate ? `. Renova em ${renewalDate}` : ""}.
+                        </p>
+                      );
+                    }
+                    return (
+                      <p>
+                        <strong>{includedCredits} de {planAllotment}</strong> retratos inclusos disponíveis este mês
+                        {renewalDate ? `. Renova em ${renewalDate}` : ""}.
+                      </p>
+                    );
+                  })()}
                   {extraCredits > 0 && (
                     <p>
                       <strong>{extraCredits} retrato{extraCredits !== 1 ? "s" : ""} extra{extraCredits !== 1 ? "s" : ""}</strong> adquirido{extraCredits !== 1 ? "s" : ""} separadamente — não expira{extraCredits !== 1 ? "m" : ""}.
