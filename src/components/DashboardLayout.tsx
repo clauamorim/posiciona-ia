@@ -54,7 +54,7 @@ export const DashboardLayout = ({ children, wide = false }: { children: React.Re
   useEffect(() => {
     if (!user || isAdmin) return;
     const load = async () => {
-      const [bqRes, answersRes, reportRes, igRes, portraitRes, pqRes, snRes] = await Promise.all([
+      const [bqRes, answersRes, reportRes, igRes, portraitRes, pqRes, snRes, ssRes] = await Promise.all([
         supabase.from("business_questionnaires").select("is_complete").eq("user_id", user.id).order("version", { ascending: false }).limit(1),
         supabase.from("archetype_answers").select("question_id").eq("user_id", user.id),
         supabase.from("reports").select("status, editorial_weeks, content").eq("user_id", user.id).order("version", { ascending: false }).limit(1),
@@ -62,6 +62,7 @@ export const DashboardLayout = ({ children, wide = false }: { children: React.Re
         supabase.from("portrait_generations").select("id").eq("user_id", user.id).limit(1),
         supabase.from("personal_questionnaires").select("status").eq("user_id", user.id).order("version", { ascending: false }).limit(1),
         supabase.from("sales_narrative_questionnaires").select("status").eq("user_id", user.id).order("version", { ascending: false }).limit(1),
+        supabase.from("sales_story_sequences").select("id").eq("user_id", user.id).limit(1),
       ]);
       const bComplete = bqRes.data?.[0]?.is_complete ?? false;
       const uniqueQ = new Set(answersRes.data?.map(a => a.question_id) ?? []);
@@ -84,6 +85,7 @@ export const DashboardLayout = ({ children, wide = false }: { children: React.Re
       const hasPortraits = (portraitRes.data?.length ?? 0) > 0;
       const pqSubmitted = pqRes.data?.[0]?.status === "submitted";
       const snSubmitted = snRes.data?.[0]?.status === "submitted";
+      const hasSalesStories = (ssRes.data?.length ?? 0) > 0;
 
       setJourneyStatus({
         "/business-questionnaire": bComplete ? "done" : "in_progress",
@@ -94,7 +96,7 @@ export const DashboardLayout = ({ children, wide = false }: { children: React.Re
         "/report": rDone ? "done" : "blocked",
         "/instagram-analysis": hasIg ? "done" : rDone ? "in_progress" : "blocked",
         "/editorial": hasEditorial ? "done" : (rDone && pqSubmitted) ? "in_progress" : "blocked",
-        "/stories-de-venda": snSubmitted ? "done" : rDone ? "in_progress" : "blocked",
+        "/stories-de-venda": hasSalesStories ? "done" : (snSubmitted ? "in_progress" : "blocked"),
         "/portraits": hasPortraits ? "done" : rDone ? "in_progress" : "blocked",
       });
     };
