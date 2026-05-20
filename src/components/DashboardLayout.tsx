@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   LayoutDashboard, Building2, Brain, BarChart3,
-  FileText, History, LogOut, Shield, Menu, X, Target, Calendar, Instagram, Camera, HelpCircle, CreditCard, FileUp, Image, User, ChevronRight, Layers, ImageIcon, Sparkles, MessageSquareQuote
+  FileText, History, LogOut, Shield, Menu, X, Target, Calendar, Instagram, Camera, HelpCircle, CreditCard, FileUp, Image, User, ChevronRight, ChevronDown, Layers, ImageIcon, Sparkles, MessageSquareQuote
 } from "lucide-react";
 import posicionaLogo from "@/assets/posiciona-logo.png";
 import { useState, useEffect } from "react";
@@ -97,6 +97,25 @@ export const DashboardLayout = ({ children, wide = false }: { children: React.Re
     };
     load();
   }, [user, isAdmin]);
+
+  // Journey progress for sidebar collapsing
+  const JOURNEY_KEYS = ["/business-questionnaire","/personal-questionnaire","/archetype-questionnaire","/results","/report","/instagram-analysis","/editorial","/portraits"];
+  const journeyDoneAll = JOURNEY_KEYS.every(k => journeyStatus[k] === "done");
+  const CONTINUOUS_HREFS = new Set(["/editorial", "/stories-de-venda", "/portraits", "/report"]);
+
+  const [journeyGroupOpen, setJourneyGroupOpen] = useState<boolean>(true);
+  useEffect(() => {
+    const saved = localStorage.getItem("sidebar.journey.expanded");
+    if (saved !== null) setJourneyGroupOpen(saved === "true");
+    else setJourneyGroupOpen(!journeyDoneAll);
+  }, [journeyDoneAll]);
+  const toggleJourneyGroup = () => {
+    setJourneyGroupOpen(prev => {
+      const next = !prev;
+      localStorage.setItem("sidebar.journey.expanded", String(next));
+      return next;
+    });
+  };
 
   const userGroups: NavGroup[] = [
     {
@@ -192,16 +211,32 @@ export const DashboardLayout = ({ children, wide = false }: { children: React.Re
 
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto py-3 px-3 space-y-3">
-          {groups.map((group, gi) => (
+          {groups.map((group, gi) => {
+            const isJourneyGroup = group.label === "Sua jornada";
+            const collapsed = isJourneyGroup && !journeyGroupOpen;
+            const visibleItems = collapsed
+              ? group.items.filter(it => CONTINUOUS_HREFS.has(it.href))
+              : group.items;
+            return (
             <div key={group.label || `top-${gi}`}>
               {gi > 0 && <div className="border-t border-border/60 my-2 mx-1" />}
               {group.label && (
-                <p className="px-3 mb-1.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50">
-                  {group.label}
-                </p>
+                isJourneyGroup ? (
+                  <button
+                    onClick={toggleJourneyGroup}
+                    className="w-full flex items-center justify-between px-3 mb-1.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+                  >
+                    <span>{group.label}</span>
+                    {journeyGroupOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                  </button>
+                ) : (
+                  <p className="px-3 mb-1.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50">
+                    {group.label}
+                  </p>
+                )
               )}
               <div className="space-y-0.5">
-                {group.items.map(item => {
+                {visibleItems.map(item => {
                   const active = location.pathname === item.href;
                   return (
                     <Link
@@ -228,7 +263,8 @@ export const DashboardLayout = ({ children, wide = false }: { children: React.Re
                 })}
               </div>
             </div>
-          ))}
+            );
+          })}
         </nav>
 
         {/* Footer — e-mail + botão Sair (sempre visível) */}

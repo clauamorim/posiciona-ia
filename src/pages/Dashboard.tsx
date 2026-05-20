@@ -1,17 +1,19 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { SeoHead } from "@/components/SeoHead";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { cn } from "@/lib/utils";
 import {
-  Building2, Brain, FileText, ArrowRight, CreditCard, Calendar,
+  Building2, Brain, ArrowRight, CreditCard, Calendar,
   Camera, RefreshCw, Sparkles, Repeat, BarChart3, Target, Instagram,
-  CheckCircle2, Clock, Circle, ChevronRight, Lock
+  CheckCircle2, ChevronRight, ChevronDown, Lock
 } from "lucide-react";
 
 type JourneyStep = {
@@ -20,6 +22,13 @@ type JourneyStep = {
   href: string;
   icon: any;
   statusLabel: string;
+};
+
+type PlanLimits = {
+  weekly_cycles: number;
+  reanalysis_credits: number;
+  portrait_credits: number;
+  regeneration_credits: number;
 };
 
 const Dashboard = () => {
@@ -33,6 +42,8 @@ const Dashboard = () => {
   const [hasEditorial, setHasEditorial] = useState(false);
   const [hasPortraits, setHasPortraits] = useState(false);
   const [personalSubmitted, setPersonalSubmitted] = useState(false);
+  const [editorialWeeks, setEditorialWeeks] = useState<any[]>([]);
+  const [planLimits, setPlanLimits] = useState<PlanLimits | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -53,18 +64,18 @@ const Dashboard = () => {
       const reportData = reportRes.data?.[0];
       const reportCompleted = reportData?.status === "completed";
       setHasReport(reportCompleted);
-      const hasEditorialWeeks = !!(reportData?.editorial_weeks && (reportData.editorial_weeks as any[]).length > 0);
-      let hasContentEditorial = false;
+      const weeks = (reportData?.editorial_weeks as any[]) || [];
+      let contentWeeks: any[] = [];
       if (reportData) {
         try {
-          let c = reportData.content;
+          let c: any = reportData.content;
           if (typeof c === "string") c = JSON.parse(c);
-          if (c && typeof c === "object" && Array.isArray((c as any).editorial) && (c as any).editorial.length > 0) {
-            hasContentEditorial = true;
-          }
+          if (c && Array.isArray(c.editorial)) contentWeeks = c.editorial;
         } catch {}
       }
-      setHasEditorial(hasEditorialWeeks || hasContentEditorial);
+      const allWeeks = weeks.length > 0 ? weeks : contentWeeks;
+      setEditorialWeeks(allWeeks);
+      setHasEditorial(allWeeks.length > 0);
       setHasInstagram((igRes.data?.length ?? 0) > 0);
       setHasPortraits((portraitRes.data?.length ?? 0) > 0);
       setPersonalSubmitted(pqRes.data?.[0]?.status === "submitted");
@@ -72,64 +83,86 @@ const Dashboard = () => {
     load();
   }, [user]);
 
+  // Load plan limits from subscription
+  useEffect(() => {
+    if (!subscription?.plan_id) { setPlanLimits(null); return; }
+    supabase.from("plans")
+      .select("weekly_cycles, reanalysis_credits, portrait_credits, regeneration_credits")
+      .eq("id", subscription.plan_id)
+      .maybeSingle()
+      .then(({ data }) => { if (data) setPlanLimits(data as PlanLimits); });
+  }, [subscription?.plan_id]);
+
   const archetypesDone = archetypeCount === 72;
+  const firstName = profile?.full_name?.trim()?.split(/\s+/)[0] || "";
+
+  // Pick first non-empty theme from editorial weeks
+  const weeklyTheme = useMemo(() => {
+    for (const w of editorialWeeks) {
+      const days = (w?.days as any[]) || [];
+      for (const d of days) {
+        const t = d?.feed?.theme || d?.story?.theme || d?.theme;
+        if (t && typeof t === "string" && t.trim()) return t.trim();
+      }
+    }
+    return null;
+  }, [editorialWeeks]);
 
   const getNextStep = () => {
     if (!businessComplete) return {
-      label: "Preencher diagnóstico",
+      label: "Próximo passo: Responder o Diagnóstico",
       description: "Preencha o diagnóstico do negócio para liberar sua estratégia.",
       hint: "Leva cerca de 5 minutos",
       href: "/business-questionnaire",
       icon: Building2,
-      cta: "Preencher agora"
+      cta: "Preencher agora",
+      eyebrow: "Próximo passo",
     };
     if (!personalSubmitted) return {
-      label: "Conte sua história",
+      label: "Próximo passo: Conte sua história",
       description: "Antes dos arquétipos, responda o questionário pessoal para humanizar sua estratégia.",
       hint: "Hobbies, valores e memórias que viram conteúdo autêntico",
       href: "/personal-questionnaire",
       icon: Sparkles,
-      cta: "Preencher agora"
+      cta: "Preencher agora",
+      eyebrow: "Próximo passo",
     };
     if (!archetypesDone) return {
-      label: "Questionário de arquétipos",
+      label: "Próximo passo: Questionário de Arquétipos",
       description: "Complete o questionário para revelar a essência da sua marca.",
       hint: "72 afirmações, escala de 1 a 5",
       href: "/archetype-questionnaire",
       icon: Brain,
-      cta: "Continuar"
+      cta: "Continuar",
+      eyebrow: "Próximo passo",
     };
     if (!hasReport) return {
-      label: "Gerar estratégia",
+      label: "Próximo passo: Gerar Estratégia",
       description: "Seus questionários estão completos. Hora de gerar sua estratégia.",
       hint: null,
       href: "/results",
       icon: BarChart3,
-      cta: "Gerar agora"
+      cta: "Gerar agora",
+      eyebrow: "Próximo passo",
     };
     if (!hasEditorial) return {
-      label: "Linha editorial",
-      description: "Sua estratégia está pronta. Gere sua primeira semana de conteúdo.",
+      label: "Próximo passo: gerar sua Linha Editorial",
+      description: "Sua estratégia está pronta. Transforme em conteúdo semanal.",
       hint: null,
       href: "/editorial",
       icon: Calendar,
-      cta: "Gerar conteúdo"
+      cta: "Gerar Linha Editorial",
+      eyebrow: "Próximo passo",
     };
-    if (!hasPortraits) return {
-      label: "Retratos de marca",
-      description: "Seus conteúdos estão prontos. Gere seus retratos de marca.",
-      hint: null,
-      href: "/portraits",
-      icon: Camera,
-      cta: "Gerar retratos"
-    };
+    // Fully complete
     return {
-      label: "Criar conteúdos",
-      description: "Sua estratégia está completa. Continue produzindo com consistência.",
+      label: "Esta semana",
+      description: weeklyTheme ? `Tema da semana: ${weeklyTheme}` : "Continue produzindo com consistência.",
       hint: null,
       href: "/editorial",
       icon: Calendar,
-      cta: "Continuar"
+      cta: weeklyTheme ? "Ver Linha Editorial" : "Acessar Linha Editorial",
+      eyebrow: "Esta semana",
     };
   };
 
@@ -175,10 +208,27 @@ const Dashboard = () => {
 
   const completedSteps = journeySteps.filter(s => s.status === "done").length;
   const progressPercent = Math.round((completedSteps / journeySteps.length) * 100);
+  const journeyComplete = progressPercent === 100;
+
+  // Journey collapsed state — default collapsed when complete, persisted
+  const [journeyOpen, setJourneyOpen] = useState<boolean>(true);
+  useEffect(() => {
+    const saved = localStorage.getItem("dashboard.journey.expanded");
+    if (saved !== null) setJourneyOpen(saved === "true");
+    else setJourneyOpen(!journeyComplete);
+  }, [journeyComplete]);
+  const toggleJourney = (open: boolean) => {
+    setJourneyOpen(open);
+    localStorage.setItem("dashboard.journey.expanded", String(open));
+  };
 
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return "—";
     return new Date(dateStr).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
+  };
+  const formatRenewDate = (dateStr: string | null) => {
+    if (!dateStr) return null;
+    return new Date(dateStr).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
   };
 
   const contextualSuggestion = (() => {
@@ -196,16 +246,65 @@ const Dashboard = () => {
     return null;
   })();
 
+  const renewLabel = subscription?.current_period_end && subscription?.billing_type !== "one_time"
+    ? `Renova em ${formatRenewDate(subscription.current_period_end)}`
+    : "Créditos do seu plano";
+
+  const totalPortraits = balances ? balances.portrait_credits_included + balances.portrait_credits_extra : 0;
+
+  const topChips = balances ? [
+    { icon: Calendar, value: balances.weekly_cycles, label: "Ciclos" },
+    { icon: RefreshCw, value: balances.reanalysis_credits, label: "Reanálises" },
+    { icon: Camera, value: totalPortraits, label: "Retratos" },
+    { icon: Repeat, value: balances.regeneration_credits, label: "Ajustes" },
+  ] : [];
+
+  const creditDetailed = balances ? [
+    { icon: Calendar, value: balances.weekly_cycles, total: planLimits?.weekly_cycles ?? 0, label: "Ciclos", planCredit: true },
+    { icon: RefreshCw, value: balances.reanalysis_credits, total: planLimits?.reanalysis_credits ?? 0, label: "Reanálises", planCredit: true },
+    { icon: Camera, value: totalPortraits, total: (planLimits?.portrait_credits ?? 0) + balances.portrait_credits_extra, label: "Retratos", planCredit: false },
+    { icon: Repeat, value: balances.regeneration_credits, total: planLimits?.regeneration_credits ?? 0, label: "Ajustes", planCredit: true },
+  ] : [];
+
+  const progressBarClass = (value: number, total: number) => {
+    if (!total) return "[&>div]:bg-primary";
+    const pct = (value / total) * 100;
+    if (pct < 20) return "[&>div]:bg-destructive";
+    if (pct < 50) return "[&>div]:bg-amber-500";
+    return "[&>div]:bg-primary";
+  };
+
   return (
     <DashboardLayout>
       <SeoHead title="Dashboard · Posiciona" description="Sua central de posicionamento de marca pessoal." path="/dashboard" />
+      <TooltipProvider delayDuration={150}>
       <div className="space-y-5">
         {/* Compact greeting */}
         <div className="space-y-0.5">
           <h1 className="text-xl md:text-2xl font-display font-semibold tracking-tight">
-            Olá, {profile?.full_name || "Usuário"}
+            {firstName ? `Olá, ${firstName}` : "Olá!"}
           </h1>
         </div>
+
+        {/* TOP CREDIT CHIPS — shortcut */}
+        {balances && (
+          <div className="-mx-1 overflow-x-auto">
+            <div className="flex items-center gap-2 px-1 min-w-max">
+              {topChips.map((chip, i) => (
+                <Tooltip key={i}>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center gap-2 bg-card/50 border border-border/40 rounded-lg px-3 py-2 text-sm flex-shrink-0">
+                      <chip.icon className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="font-semibold text-foreground tabular-nums">{chip.value}</span>
+                      <span className="text-muted-foreground text-xs">{chip.label}</span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>{renewLabel}</TooltipContent>
+                </Tooltip>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* NEXT STEP — Hero block */}
         <Card className="border-primary/30 bg-card relative overflow-hidden">
@@ -217,7 +316,7 @@ const Dashboard = () => {
                   <nextStep.icon className="h-5 w-5 text-primary" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-primary mb-0.5">Próximo passo</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-primary mb-0.5">{nextStep.eyebrow}</p>
                   <p className="font-sans font-semibold text-sm text-foreground leading-snug">{nextStep.label}</p>
                 </div>
               </div>
@@ -235,15 +334,29 @@ const Dashboard = () => {
         </Card>
 
         {/* JOURNEY PROGRESS */}
-        <div className="space-y-3">
+        <Collapsible open={journeyOpen} onOpenChange={toggleJourney} className="space-y-3">
           <div className="flex items-center justify-between">
             <p className="text-xs font-sans font-semibold uppercase tracking-wider text-muted-foreground">Sua jornada</p>
             <span className="text-xs text-muted-foreground">{progressPercent}%</span>
           </div>
           <Progress value={progressPercent} className="h-1.5 bg-secondary" />
 
-          <div className="space-y-1">
-            {journeySteps.map((step, i) => (
+          {journeyComplete && (
+            <CollapsibleTrigger asChild>
+              <button className="flex items-center justify-between w-full py-2 px-3 rounded-lg bg-success/10 border border-success/20 hover:bg-success/15 transition-colors text-sm">
+                <span className="flex items-center gap-2 text-success">
+                  <CheckCircle2 className="h-4 w-4" /> Sua jornada está completa
+                </span>
+                <span className="flex items-center gap-1 text-muted-foreground text-xs">
+                  {journeyOpen ? "Ocultar" : "Revisar"}
+                  <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", journeyOpen && "rotate-180")} />
+                </span>
+              </button>
+            </CollapsibleTrigger>
+          )}
+
+          <CollapsibleContent className="space-y-1 data-[state=closed]:hidden">
+            {(!journeyComplete || journeyOpen) && journeySteps.map((step, i) => (
               <Link
                 key={i}
                 to={step.href}
@@ -283,33 +396,38 @@ const Dashboard = () => {
                 <ChevronRight className="h-4 w-4 text-muted-foreground/30 group-hover:text-muted-foreground transition-colors flex-shrink-0" />
               </Link>
             ))}
-          </div>
-        </div>
+          </CollapsibleContent>
+        </Collapsible>
 
-        {/* CREDITS — Compact */}
+        {/* CREDITS — Detailed with progress */}
         {balances && (
           <div className="space-y-2">
             <p className="text-xs font-sans font-semibold uppercase tracking-wider text-muted-foreground">Créditos</p>
             <div className="grid grid-cols-2 gap-2">
-              {[
-                { icon: Calendar, value: balances.weekly_cycles, label: "Ciclos", planCredit: true },
-                { icon: RefreshCw, value: balances.reanalysis_credits, label: "Reanálises", planCredit: true },
-                { icon: Camera, value: balances.portrait_credits_included + balances.portrait_credits_extra, label: "Retratos", planCredit: false },
-                { icon: Repeat, value: balances.regeneration_credits, label: "Ajustes", planCredit: true },
-              ].map((item, i) => (
-                <div key={i} className="flex flex-col gap-0.5 p-3 rounded-lg bg-card border border-border">
-                  <div className="flex items-center gap-2.5">
-                    <item.icon className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                    <span className="text-base font-bold text-foreground">{item.value}</span>
-                    <span className="text-[11px] text-muted-foreground truncate">{item.label}</span>
+              {creditDetailed.map((item, i) => {
+                const total = item.total || 0;
+                const pct = total > 0 ? Math.min(100, Math.round((item.value / total) * 100)) : 0;
+                return (
+                  <div key={i} className="flex flex-col gap-1 p-3 rounded-lg bg-card border border-border">
+                    <div className="flex items-center gap-2.5">
+                      <item.icon className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                      <span className="text-base font-bold text-foreground">{item.value}</span>
+                      <span className="text-[11px] text-muted-foreground truncate">{item.label}</span>
+                    </div>
+                    {total > 0 && (
+                      <>
+                        <Progress value={pct} className={cn("h-1 mt-1", progressBarClass(item.value, total))} />
+                        <p className="text-[10px] text-muted-foreground/70 leading-tight">{item.value}/{total} disponíveis</p>
+                      </>
+                    )}
+                    {item.planCredit && subscription?.current_period_end && subscription?.billing_type !== "one_time" && (
+                      <p className="text-[10px] text-muted-foreground/60 leading-tight">
+                        Renova em {formatDate((subscription as any).current_period_end)}
+                      </p>
+                    )}
                   </div>
-                  {item.planCredit && subscription?.current_period_end && subscription?.billing_type !== "one_time" && (
-                    <p className="text-[10px] text-muted-foreground/60 leading-tight">
-                      Renova em {formatDate((subscription as any).current_period_end)}. Não acumulam.
-                    </p>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
             <p className="text-[11px] text-muted-foreground/70 leading-snug pt-1">
               Créditos comprados separadamente (semanas avulsas, pacotes de retrato) não expiram.
@@ -359,6 +477,7 @@ const Dashboard = () => {
           </Link>
         )}
       </div>
+      </TooltipProvider>
     </DashboardLayout>
   );
 };
