@@ -54,13 +54,14 @@ export const DashboardLayout = ({ children, wide = false }: { children: React.Re
   useEffect(() => {
     if (!user || isAdmin) return;
     const load = async () => {
-      const [bqRes, answersRes, reportRes, igRes, portraitRes, pqRes] = await Promise.all([
+      const [bqRes, answersRes, reportRes, igRes, portraitRes, pqRes, snRes] = await Promise.all([
         supabase.from("business_questionnaires").select("is_complete").eq("user_id", user.id).order("version", { ascending: false }).limit(1),
         supabase.from("archetype_answers").select("question_id").eq("user_id", user.id),
         supabase.from("reports").select("status, editorial_weeks, content").eq("user_id", user.id).order("version", { ascending: false }).limit(1),
         supabase.from("instagram_analyses").select("id").eq("user_id", user.id).limit(1),
         supabase.from("portrait_generations").select("id").eq("user_id", user.id).limit(1),
         supabase.from("personal_questionnaires").select("status").eq("user_id", user.id).order("version", { ascending: false }).limit(1),
+        supabase.from("sales_narrative_questionnaires").select("status").eq("user_id", user.id).order("version", { ascending: false }).limit(1),
       ]);
       const bComplete = bqRes.data?.[0]?.is_complete ?? false;
       const uniqueQ = new Set(answersRes.data?.map(a => a.question_id) ?? []);
