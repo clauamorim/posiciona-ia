@@ -32,29 +32,64 @@ import type { PhotographerInfo } from "@/lib/postAutoLayout";
 import { clearLogoCache, chromaKeyAndValidate } from "@/lib/postAutoLayout";
 import type { OverlayImage } from "../PostToolbar";
 
-const GRAPHIC_ELEMENTS = [
-  { icon: Star, name: "Estrela" }, { icon: Heart, name: "Coração" },
-  { icon: CheckCircle, name: "Check" }, { icon: Quote, name: "Aspas" },
-  { icon: ArrowRight, name: "Seta direita" }, { icon: ArrowUpIcon, name: "Seta cima" },
-  { icon: Zap, name: "Raio" }, { icon: Award, name: "Prêmio" },
-  { icon: Circle, name: "Círculo" }, { icon: SquareIcon, name: "Quadrado" },
-  { icon: Triangle, name: "Triângulo" }, { icon: Hexagon, name: "Hexágono" },
-  { icon: Diamond, name: "Diamante" }, { icon: Flame, name: "Chama" },
-  { icon: Target, name: "Alvo" }, { icon: Crown, name: "Coroa" },
-  { icon: ThumbsUp, name: "Curtir" }, { icon: Bookmark, name: "Salvar" },
-  { icon: Send, name: "Enviar" }, { icon: AtSign, name: "Arroba" },
-  { icon: Hash, name: "Hashtag" }, { icon: MapPin, name: "Local" },
-  { icon: Clock, name: "Relógio" }, { icon: Eye, name: "Olho" },
-  { icon: Lightbulb, name: "Lâmpada" }, { icon: Gift, name: "Presente" },
-  { icon: CameraIcon, name: "Câmera" }, { icon: Coffee, name: "Café" },
-  { icon: Smile, name: "Sorriso" }, { icon: Bell, name: "Sino" },
-  { icon: Flag, name: "Bandeira" }, { icon: Shield, name: "Escudo" },
-  { icon: Layers, name: "Camadas" }, { icon: Feather, name: "Pena" },
-  { icon: Music, name: "Música" }, { icon: Pen, name: "Caneta" },
-  { icon: Globe, name: "Globo" }, { icon: Sparkles, name: "Brilho" },
-  { icon: Lock, name: "Cadeado" }, { icon: Unlock, name: "Desbloq." },
-  { icon: Settings, name: "Config." },
+type GraphicEl = { icon: React.FC<any>; name: string };
+
+const ICON_CATEGORIES: { key: string; label: string; items: GraphicEl[] }[] = [
+  {
+    key: "shapes",
+    label: "Formas básicas",
+    items: [
+      { icon: Circle, name: "Círculo" }, { icon: SquareIcon, name: "Quadrado" },
+      { icon: Triangle, name: "Triângulo" }, { icon: Hexagon, name: "Hexágono" },
+      { icon: Diamond, name: "Diamante" },
+    ],
+  },
+  {
+    key: "arrows",
+    label: "Setas e direções",
+    items: [
+      { icon: ArrowRight, name: "Seta direita" }, { icon: ArrowUpIcon, name: "Seta cima" },
+      { icon: Send, name: "Enviar" },
+    ],
+  },
+  {
+    key: "decor",
+    label: "Símbolos decorativos",
+    items: [
+      { icon: Star, name: "Estrela" }, { icon: Heart, name: "Coração" },
+      { icon: Sparkles, name: "Brilho" }, { icon: Crown, name: "Coroa" },
+      { icon: Award, name: "Prêmio" }, { icon: Flame, name: "Chama" },
+      { icon: Gift, name: "Presente" }, { icon: Feather, name: "Pena" },
+    ],
+  },
+  {
+    key: "functional",
+    label: "Ícones funcionais",
+    items: [
+      { icon: CheckCircle, name: "Check" }, { icon: Quote, name: "Aspas" },
+      { icon: Zap, name: "Raio" }, { icon: Target, name: "Alvo" },
+      { icon: Lightbulb, name: "Lâmpada" }, { icon: ThumbsUp, name: "Curtir" },
+      { icon: Bookmark, name: "Salvar" }, { icon: AtSign, name: "Arroba" },
+      { icon: Hash, name: "Hashtag" }, { icon: MapPin, name: "Local" },
+      { icon: Clock, name: "Relógio" }, { icon: Eye, name: "Olho" },
+      { icon: Bell, name: "Sino" }, { icon: Flag, name: "Bandeira" },
+      { icon: Shield, name: "Escudo" },
+    ],
+  },
+  {
+    key: "other",
+    label: "Outros",
+    items: [
+      { icon: CameraIcon, name: "Câmera" }, { icon: Coffee, name: "Café" },
+      { icon: Smile, name: "Sorriso" }, { icon: Layers, name: "Camadas" },
+      { icon: Music, name: "Música" }, { icon: Pen, name: "Caneta" },
+      { icon: Globe, name: "Globo" }, { icon: Lock, name: "Cadeado" },
+      { icon: Unlock, name: "Desbloq." }, { icon: Settings, name: "Config." },
+    ],
+  },
 ];
+
+const GRAPHIC_ELEMENTS: GraphicEl[] = ICON_CATEGORIES.flatMap((c) => c.items);
 
 const SVG_ELEMENTS: { name: string; svg: string }[] = [
   { name: "Barra fina", svg: `<svg width="400" height="8" xmlns="http://www.w3.org/2000/svg"><rect width="400" height="8" rx="4" fill="currentColor"/></svg>` },
