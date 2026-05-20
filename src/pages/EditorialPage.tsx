@@ -1489,8 +1489,27 @@ const EditorialPage = () => {
                 <CalendarCheck className="h-4 w-4" /> Hoje
               </Button>
             )}
+            {!selectionMode && (
+              <Button
+                onClick={() => setFilterBarOpen((v) => !v)}
+                variant={hasActiveFilters ? "default" : "outline"}
+                size="sm"
+                className="gap-2"
+                aria-label="Filtrar posts"
+                aria-expanded={filterBarOpen}
+              >
+                <Filter className="h-4 w-4" />
+                Filtrar
+                {hasActiveFilters && (
+                  <span className="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary-foreground/20 px-1.5 text-[10px] font-semibold">
+                    {(hasQuery ? 1 : 0) + (hasFormatFilter ? 1 : 0) + (hasStatusFilter ? 1 : 0)}
+                  </span>
+                )}
+              </Button>
+            )}
           </div>
         </div>
+
 
 
 
