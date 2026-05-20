@@ -83,6 +83,7 @@ REGRAS ESTRUTURAIS:
 - Stories pessoais (is_personal=true) PERMITIDOS APENAS nos dias 6 e 7 (sáb-dom).
 - Dias 1-5: is_personal=false obrigatoriamente.
 - Mesmo nos dias 6-7, NUNCA invente hobby/família/pet — só use o que está no bloco "CONTEXTO PESSOAL DO CRIADOR".`;
+  return forbiddenContext ? `${base}\n\n${forbiddenContext}` : base;
 }
 
 /**
