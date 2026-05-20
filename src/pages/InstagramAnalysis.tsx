@@ -30,6 +30,7 @@ const InstagramAnalysis = () => {
   const [imageBase64, setImageBase64] = useState<string | null>(null);
   const [loadingExisting, setLoadingExisting] = useState(true);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
+  const [copiedSuggestionIdx, setCopiedSuggestionIdx] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -125,6 +126,16 @@ const InstagramAnalysis = () => {
       await navigator.clipboard.writeText(text);
       setCopiedIdx(idx);
       setTimeout(() => setCopiedIdx(null), 1500);
+    } catch {
+      toast({ title: "Não foi possível copiar", variant: "destructive" });
+    }
+  };
+
+  const copySuggestion = async (text: string, idx: number) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedSuggestionIdx(idx);
+      setTimeout(() => setCopiedSuggestionIdx(null), 1500);
     } catch {
       toast({ title: "Não foi possível copiar", variant: "destructive" });
     }
@@ -238,17 +249,25 @@ const InstagramAnalysis = () => {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
+      <div className="space-y-6 lg:max-w-[1100px] lg:mx-auto">
         <div>
           <h1 className="text-xl font-semibold tracking-tight">Análise do Instagram</h1>
-          <p className="text-sm text-muted-foreground mt-1">Faça upload de um print do seu perfil para análise com base na sua narrativa de marca e arquétipos.</p>
+          <p className="text-sm text-muted-foreground mt-1">Faça upload de uma captura de tela do seu perfil para análise com base na sua narrativa de marca e arquétipos.</p>
         </div>
 
         <Card>
           <CardContent className="pt-6 space-y-4">
             <div>
-              <Label className="font-medium">Screenshot do perfil *</Label>
-              <p className="text-xs text-muted-foreground mb-3">Envie um print da página principal do seu perfil mostrando bio, foto de perfil e os 9 primeiros posts.</p>
+              <Label className="font-medium">Captura de tela do perfil *</Label>
+              <div className="text-xs text-muted-foreground mb-3 space-y-1">
+                <p>Envie uma captura da página principal do seu perfil mostrando:</p>
+                <ul className="list-disc list-inside ml-1 space-y-0.5">
+                  <li>Foto de perfil, nome e bio completa</li>
+                  <li>Destaques (highlights) visíveis</li>
+                  <li>Os 9 primeiros posts do feed</li>
+                </ul>
+                <p className="pt-1 italic">Dica: no celular abra o seu perfil, role até o topo e tire um screenshot. No desktop: abra instagram.com/seuperfil e capture a tela.</p>
+              </div>
               {imagePreview ? (
                 <div className="relative inline-block">
                   <img src={imagePreview} alt="Preview" className="rounded-lg border max-h-64 object-contain" />
@@ -272,6 +291,7 @@ const InstagramAnalysis = () => {
             <div>
               <Label htmlFor="username">@ do Instagram (opcional)</Label>
               <Input id="username" placeholder="seuperfil" value={username} onChange={(e) => setUsername(e.target.value)} disabled={loading} />
+              <p className="text-xs text-muted-foreground mt-1">Usamos pra personalizar exemplos com o seu handle nas sugestões. Pode deixar em branco.</p>
             </div>
 
             <Button onClick={handleAnalyze} disabled={loading || !imageBase64} className="w-full">
@@ -315,12 +335,27 @@ const InstagramAnalysis = () => {
                   {bioOptions.filter((b) => b.text).map((bio, i) => {
                     const count = bio.text.length;
                     const within = count <= BIO_HARD_LIMIT;
+                    const isNearLimit = within && count >= 140;
+                    const isRecommended = i === 0;
                     return (
-                      <Card key={i} className="border-primary/20">
+                      <Card key={i} className={`relative ${isRecommended ? "border-primary/60 ring-1 ring-primary/20" : "border-primary/20"}`}>
+                        {isRecommended && (
+                          <span className="absolute -top-2.5 left-3 inline-flex items-center gap-1 rounded-full bg-primary text-primary-foreground px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider shadow">
+                            Recomendada
+                          </span>
+                        )}
                         <CardContent className="pt-5 pb-4 space-y-3">
                           <div className="flex items-center justify-between">
                             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Opção {i + 1}</span>
-                            <span className={`text-xs font-mono ${within ? "text-emerald-600" : "text-destructive"}`}>
+                            <span
+                              className={`text-xs font-mono ${
+                                !within
+                                  ? "text-destructive"
+                                  : isNearLimit
+                                    ? "text-amber-500"
+                                    : "text-emerald-600"
+                              }`}
+                            >
                               {count}/150
                             </span>
                           </div>
@@ -329,7 +364,7 @@ const InstagramAnalysis = () => {
                             <p className="text-xs text-muted-foreground italic">{bio.rationale}</p>
                           )}
                           <Button
-                            variant="outline"
+                            variant={isRecommended ? "default" : "outline"}
                             size="sm"
                             className="w-full gap-2"
                             onClick={() => copyBio(bio.text, i)}
@@ -360,10 +395,21 @@ const InstagramAnalysis = () => {
                       <div className="flex justify-center">
                         <ArrowRight className="h-4 w-4 text-primary" />
                       </div>
-                      <div className="bg-primary/5 border border-primary/20 rounded-lg p-3">
-                        <p className="text-xs font-semibold text-primary mb-1 flex items-center gap-1">
-                          <CheckCircle2 className="h-3 w-3" /> Sugestão
-                        </p>
+                      <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs font-semibold text-primary flex items-center gap-1">
+                            <CheckCircle2 className="h-3 w-3" /> Sugestão
+                          </p>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2 gap-1 text-xs"
+                            onClick={() => copySuggestion(item.suggestion, i)}
+                          >
+                            {copiedSuggestionIdx === i ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                            {copiedSuggestionIdx === i ? "Copiado" : "Copiar"}
+                          </Button>
+                        </div>
                         <p className="text-sm">{item.suggestion}</p>
                       </div>
                     </CardContent>
