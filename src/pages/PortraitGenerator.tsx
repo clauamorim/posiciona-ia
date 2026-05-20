@@ -305,6 +305,7 @@ const PortraitGenerator = () => {
       setBackgrounds(generated.map((g) => g.background));
       setOriginalIndices(generated.map((_, i) => i));
       setGenerationId(data?.generation_id ?? null);
+      setGenerationCreatedAt(new Date().toISOString());
       await refreshSubscription();
 
       toast({
