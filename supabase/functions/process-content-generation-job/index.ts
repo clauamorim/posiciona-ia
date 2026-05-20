@@ -831,7 +831,7 @@ async function processJob(jobId: string) {
           historicalSignaturesByWeek.push({ weekIndex: wkIdx, signatures: sigs });
         }
       }
-      const prohibitedTags = findProhibitedTags(historicalSignaturesByWeek, 3);
+      const prohibitedTags = findProhibitedTags(historicalSignaturesByWeek);
       const prohibitedMoldsBlock = renderProhibitedMoldsBlock(historicalSignaturesByWeek, prohibitedTags);
       console.log(`[pattern-signature] ${prohibitedTags.length} tags proibidas detectadas:`, prohibitedTags.map((t) => t.tag).join(", "));
 
