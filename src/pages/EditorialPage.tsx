@@ -1173,11 +1173,20 @@ const EditorialPage = () => {
         <Tabs value={activeWeek} onValueChange={setActiveWeek} className="w-full">
           {allWeeks.length > 1 && (
             <TabsList className="mb-4 flex-wrap h-auto bg-muted/50">
-              {allWeeks.map((w, i) => (
-                <TabsTrigger key={i} value={`week-${i}`} className="text-xs">
-                  Semana {getWeekKey(w, i) + 1}
-                </TabsTrigger>
-              ))}
+              {allWeeks.map((w, i) => {
+                const isTodayWeek = todayListIndex === i;
+                return (
+                  <TabsTrigger key={i} value={`week-${i}`} className="text-xs gap-1.5">
+                    <span>Semana {getWeekKey(w, i) + 1}</span>
+                    {isTodayWeek && (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-medium text-primary">
+                        <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden />
+                        atual
+                      </span>
+                    )}
+                  </TabsTrigger>
+                );
+              })}
             </TabsList>
           )}
 
