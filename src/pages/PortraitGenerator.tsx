@@ -159,6 +159,20 @@ const PortraitGenerator = () => {
     enabled: !!user,
   });
 
+  const { data: planAllotmentData } = useQuery({
+    queryKey: ["plan-portrait-credits", subscription?.plan_id],
+    queryFn: async () => {
+      if (!subscription?.plan_id) return 0;
+      const { data } = await supabase
+        .from("plans")
+        .select("portrait_credits")
+        .eq("id", subscription.plan_id)
+        .maybeSingle();
+      return data?.portrait_credits ?? 0;
+    },
+    enabled: !!subscription?.plan_id,
+  });
+
   // Carrega selfies de referência via edge function (signed URLs)
   const { data: referencesData, refetch: refetchReferences } = useQuery({
     queryKey: ["portrait-references", user?.id],
