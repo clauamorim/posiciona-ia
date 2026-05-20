@@ -30,7 +30,7 @@ import { parseReportContent, normalizeReportContent } from "@/lib/reportParser";
 import { cleanText } from "@/lib/textCleanup";
 import { isOutdated, isWeekOutdated, EDITORIAL_GENERATOR_VERSION } from "@/lib/generatorVersion";
 import { normalizeWeekToV6, type WeekV6, type DayV6, type FeedPostV6, type DayStatus } from "@/lib/editorialShape";
-import { formatDayLabel } from "@/lib/editorialDates";
+import { formatDayLabel, pickTodayWeek } from "@/lib/editorialDates";
 import StyleSelectionModal from "@/components/post-editor/StyleSelectionModal";
 import { MarketTrendsSection } from "@/components/editorial/MarketTrendsSection";
 import type { PostStyle } from "@/lib/postAutoLayout";
