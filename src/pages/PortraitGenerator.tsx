@@ -365,7 +365,7 @@ const PortraitGenerator = () => {
       removeLocal();
       return;
     }
-    if (!confirm("Descartar este retrato do histórico? Essa ação não pode ser desfeita.")) return;
+    // Confirmation handled by AlertDialog (confirmDiscardIndex)
     const originalIdx = originalIndices[index];
     if (originalIdx === undefined) {
       removeLocal();
