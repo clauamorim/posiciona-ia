@@ -1140,6 +1140,10 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
       const dedupFailedDays: number[] = [];
 
       // ==== Dedup v3: extração SEMPRE + 5 dimensões + 2 retries ====
+      const dedupStartTime = Date.now();
+      const adaptiveThreshold = getAdaptiveDedupThreshold(previousWeeks?.length || 0);
+      const dedupTimeBudgetExceeded = () => (Date.now() - dedupStartTime) > DEDUP_TOTAL_TIMEOUT_MS;
+      console.log(`[semantic-dedup] adaptive-threshold week=${typeof job.week_index === "number" ? job.week_index : 0} history=${previousWeeks?.length || 0} threshold=${adaptiveThreshold}`);
       try {
         const candidates = feedFinal
           .map((p, idx) => ({ p, idx }))
