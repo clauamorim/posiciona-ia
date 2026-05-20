@@ -13,8 +13,10 @@ import { toast } from "@/hooks/use-toast";
 import {
   Loader2, Sparkles, ChevronDown, Calendar, Video, Image, Smartphone,
   ImageIcon, PenTool, FileText, RefreshCw, Copy, Download, AlertTriangle, Wand2,
-  Trash2, X, CheckSquare, MoreVertical, Check, CircleDashed, Ban, CalendarCheck
+  Trash2, X, CheckSquare, MoreVertical, Check, CircleDashed, Ban, CalendarCheck,
+  Filter, Search,
 } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
