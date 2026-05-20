@@ -14,8 +14,9 @@ import {
   Loader2, Sparkles, ChevronDown, Calendar, Video, Image, Smartphone,
   ImageIcon, PenTool, FileText, RefreshCw, Copy, Download, AlertTriangle, Wand2,
   Trash2, X, CheckSquare, MoreVertical, Check, CircleDashed, Ban, CalendarCheck,
-  Filter, Search,
+  Filter, Search, ChevronLeft, ChevronRight,
 } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
@@ -32,7 +33,7 @@ import { parseReportContent, normalizeReportContent } from "@/lib/reportParser";
 import { cleanText } from "@/lib/textCleanup";
 import { isOutdated, isWeekOutdated, EDITORIAL_GENERATOR_VERSION } from "@/lib/generatorVersion";
 import { normalizeWeekToV6, type WeekV6, type DayV6, type FeedPostV6, type DayStatus } from "@/lib/editorialShape";
-import { formatDayLabel, pickTodayWeek } from "@/lib/editorialDates";
+import { formatDayLabel, formatWeekRangeLabel, formatMonthYearLabel, pickTodayWeek } from "@/lib/editorialDates";
 import StyleSelectionModal from "@/components/post-editor/StyleSelectionModal";
 import { MarketTrendsSection } from "@/components/editorial/MarketTrendsSection";
 import type { PostStyle } from "@/lib/postAutoLayout";
@@ -1681,24 +1682,121 @@ const EditorialPage = () => {
           </div>
         ) : (
         <Tabs value={activeWeek} onValueChange={setActiveWeek} className="w-full">
-          {allWeeks.length > 1 && (
-            <TabsList className="mb-4 flex-wrap h-auto bg-muted/50">
-              {allWeeks.map((w, i) => {
-                const isTodayWeek = todayListIndex === i;
-                return (
-                  <TabsTrigger key={i} value={`week-${i}`} className="text-xs gap-1.5">
-                    <span>Semana {getWeekKey(w, i) + 1}</span>
-                    {isTodayWeek && (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-medium text-primary">
+          {allWeeks.length > 1 && (() => {
+            const reportCreatedAt = (report as any)?.created_at ?? null;
+            const weekMeta = allWeeks.map((w, i) => {
+              const wk = getWeekKey(w, i);
+              const opts = {
+                weekStartDate: (w as any)?.start_date ?? null,
+                reportCreatedAt,
+                weekIndex: wk,
+              };
+              return {
+                i,
+                wk,
+                range: formatWeekRangeLabel(opts),
+                month: formatMonthYearLabel(opts),
+                isToday: todayListIndex === i,
+              };
+            });
+            const active = weekMeta[activeWeekIndex];
+            const prevDisabled = activeWeekIndex <= 0;
+            const nextDisabled = activeWeekIndex >= allWeeks.length - 1;
+            const goPrev = () => { if (!prevDisabled) setActiveWeek(`week-${activeWeekIndex - 1}`); };
+            const goNext = () => { if (!nextDisabled) setActiveWeek(`week-${activeWeekIndex + 1}`); };
+
+            // Agrupar por mês mantendo ordem original
+            const groups: { month: string; items: typeof weekMeta }[] = [];
+            for (const m of weekMeta) {
+              const key = m.month || "Sem data";
+              const last = groups[groups.length - 1];
+              if (last && last.month === key) last.items.push(m);
+              else groups.push({ month: key, items: [m] });
+            }
+
+            return (
+              <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-center md:gap-3" data-hide-pdf>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={goPrev}
+                    disabled={prevDisabled}
+                    className="hidden md:inline-flex"
+                    aria-label="Semana anterior"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    Anterior
+                  </Button>
+                  <div className="inline-flex items-center gap-2 rounded-md border border-border bg-card/60 px-3 py-1.5 text-sm flex-1 md:flex-none">
+                    <span className="font-semibold">Semana {active ? active.wk + 1 : 1}</span>
+                    {active?.range && (
+                      <span className="text-muted-foreground">· {active.range}</span>
+                    )}
+                    {active?.isToday && (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-primary">
                         <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden />
                         atual
                       </span>
                     )}
-                  </TabsTrigger>
-                );
-              })}
-            </TabsList>
-          )}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={goNext}
+                    disabled={nextDisabled}
+                    className="hidden md:inline-flex"
+                    aria-label="Próxima semana"
+                  >
+                    Próxima
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="ghost" size="sm" className="md:ml-auto">
+                      Ver todas as semanas
+                      <ChevronDown className="h-4 w-4" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent align="end" className="w-72 p-0">
+                    <div className="max-h-96 overflow-y-auto py-2">
+                      {groups.map((g) => (
+                        <div key={g.month} className="px-2 py-1">
+                          <div className="px-2 py-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                            {g.month}
+                          </div>
+                          {g.items.map((m) => {
+                            const isActive = m.i === activeWeekIndex;
+                            return (
+                              <button
+                                key={m.i}
+                                type="button"
+                                onClick={() => setActiveWeek(`week-${m.i}`)}
+                                className={`flex w-full items-center justify-between gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent ${
+                                  isActive ? "bg-primary/15 text-foreground" : "text-foreground"
+                                }`}
+                              >
+                                <span>
+                                  <span className="font-medium">Semana {m.wk + 1}</span>
+                                  {m.range && (
+                                    <span className="ml-2 text-muted-foreground">· {m.range}</span>
+                                  )}
+                                </span>
+                                {m.isToday && (
+                                  <span className="text-[10px] font-medium text-primary">atual</span>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
+            );
+          })()}
 
           {allWeeks.map((week, wi) => {
             const weekOutdated = isWeekOutdated(week.days as any);

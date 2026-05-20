@@ -127,3 +127,37 @@ export function formatDayLabel(opts: {
     return raw.charAt(0).toUpperCase() + raw.slice(1);
   } catch { return null; }
 }
+
+/** "18-24 mai" ou "27 abr - 3 mai" (semana = start + 6d). */
+export function formatWeekRangeLabel(opts: {
+  weekStartDate?: string | null;
+  reportCreatedAt?: string | null;
+  weekIndex: number;
+}): string | null {
+  const start = resolveWeekStart(opts);
+  if (!start) return null;
+  const end = new Date(start);
+  end.setUTCDate(end.getUTCDate() + 6);
+  try {
+    const sm = format(start, "MMM", { locale: ptBR }).replace(/\./g, "").toLowerCase();
+    const em = format(end, "MMM", { locale: ptBR }).replace(/\./g, "").toLowerCase();
+    const sd = start.getUTCDate();
+    const ed = end.getUTCDate();
+    if (sm === em) return `${sd}-${ed} ${sm}`;
+    return `${sd} ${sm} - ${ed} ${em}`;
+  } catch { return null; }
+}
+
+/** "maio 2026" — capitalizado, em SP. */
+export function formatMonthYearLabel(opts: {
+  weekStartDate?: string | null;
+  reportCreatedAt?: string | null;
+  weekIndex: number;
+}): string | null {
+  const start = resolveWeekStart(opts);
+  if (!start) return null;
+  try {
+    const raw = format(start, "LLLL yyyy", { locale: ptBR });
+    return raw.charAt(0).toUpperCase() + raw.slice(1);
+  } catch { return null; }
+}
