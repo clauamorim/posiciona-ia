@@ -132,7 +132,7 @@ serve(async (req) => {
         _dedup_metrics: updatedMeta,
       };
       weeks[i] = updatedWeek;
-      summary.push({ weekIndex: wkIdx, status: "ok", signatures: sigs.length });
+      summary.push({ weekIndex: wkIdx, status: "ok", signatures: sigs.length, details: sigs } as any);
     } catch (e: any) {
       summary.push({ weekIndex: wkIdx, status: "failed", error: e?.message || String(e) });
     }
