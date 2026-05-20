@@ -326,10 +326,13 @@ const InstagramAnalysis = () => {
 
             {/* Dedicated Bio block */}
             {bioOptions.filter((b) => b.text).length > 0 && (
-              <div className="space-y-3">
-                <div>
-                  <h3 className="text-base font-semibold">Sugestões de Bio</h3>
-                  <p className="text-xs text-muted-foreground">3 opções otimizadas para o limite de 150 caracteres do Instagram.</p>
+              <div className="space-y-4">
+                <div className="flex items-start gap-2.5">
+                  <div className="h-6 w-1 bg-primary rounded-full mt-1" aria-hidden="true" />
+                  <div>
+                    <h3 className="text-lg lg:text-xl font-display font-semibold tracking-tight">Sugestões de Bio</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">3 opções otimizadas para o limite de 150 caracteres do Instagram.</p>
+                  </div>
                 </div>
                 <div className="grid gap-3 md:grid-cols-3">
                   {bioOptions.filter((b) => b.text).map((bio, i) => {
