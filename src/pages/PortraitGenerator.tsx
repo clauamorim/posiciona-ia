@@ -282,6 +282,7 @@ const PortraitGenerator = () => {
     setBackgrounds([]);
     setOriginalIndices([]);
     setGenerationId(null);
+    setGenerationCreatedAt(null);
 
     try {
       const { data, error } = await supabase.functions.invoke("generate-portrait", {
