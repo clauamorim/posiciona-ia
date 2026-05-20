@@ -65,12 +65,12 @@ const Login = () => {
   const attemptRef = useRef(0);
 
   useEffect(() => {
-    if (!loginTriggered || authLoading) return;
+    if (authLoading) return;
     if (user) {
       if (!profileCompleted && !isAdmin) navigate("/complete-profile", { replace: true });
       else navigate(isAdmin ? "/admin" : "/dashboard", { replace: true });
     }
-  }, [loginTriggered, authLoading, user, isAdmin, profileCompleted, navigate]);
+  }, [authLoading, user, isAdmin, profileCompleted, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
