@@ -14,7 +14,22 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, ExternalLink, Trash2 } from "lucide-react";
+import { Loader2, ExternalLink, Trash2, Eye, EyeOff } from "lucide-react";
+
+type PasswordStrength = { score: number; label: string; color: string };
+
+function evaluatePasswordStrength(pwd: string): PasswordStrength | null {
+  if (!pwd) return null;
+  let score = 0;
+  if (pwd.length >= 8) score++;
+  if (pwd.length >= 12) score++;
+  if (/[A-Z]/.test(pwd) && /[a-z]/.test(pwd)) score++;
+  if (/\d/.test(pwd)) score++;
+  if (/[^A-Za-z0-9]/.test(pwd)) score++;
+  if (score <= 2) return { score, label: "Fraca", color: "bg-destructive" };
+  if (score <= 3) return { score, label: "Média", color: "bg-amber-500" };
+  return { score, label: "Forte", color: "bg-emerald-500" };
+}
 
 const Conta = () => {
   const { user, subscription, planAccessLevel, signOut } = useAuth();
@@ -27,6 +42,11 @@ const Conta = () => {
   const [pwdConfirm, setPwdConfirm] = useState("");
   const [pwdLoading, setPwdLoading] = useState(false);
   const [portalLoading, setPortalLoading] = useState(false);
+  const [showCurrent, setShowCurrent] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+
+  const pwdStrength = evaluatePasswordStrength(pwdNew);
 
   const [confirmText, setConfirmText] = useState("");
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -122,7 +142,7 @@ const Conta = () => {
   return (
     <DashboardLayout>
       <SeoHead title="Conta · Posiciona" description="Suas informações de conta e assinatura." path="/conta" />
-      <div className="space-y-5 max-w-2xl mx-auto">
+      <div className="space-y-5 max-w-3xl mx-auto">
         <div>
           <h1 className="text-2xl font-display font-semibold tracking-tight">Conta</h1>
           <p className="text-sm text-muted-foreground mt-1">Gerencie seus dados, segurança e assinatura.</p>
@@ -136,12 +156,14 @@ const Conta = () => {
           <CardContent className="space-y-4">
             <div>
               <Label className="text-xs text-muted-foreground">Email</Label>
-              <Input value={user?.email ?? ""} readOnly className="mt-1" />
-              <p className="text-xs text-muted-foreground/70 mt-1">Para alterar, contate o suporte.</p>
+              <Input value={user?.email ?? ""} readOnly className="mt-1 bg-muted/30 cursor-default" />
+              <p className="text-xs text-muted-foreground/70 mt-1">
+                Para alterar, contate o suporte: <a href="mailto:contato@posiciona.ia.br" className="underline hover:text-foreground">contato@posiciona.ia.br</a>
+              </p>
             </div>
             <div>
               <Label className="text-xs text-muted-foreground">Profissão</Label>
-              <Input value={profile?.profession ?? ""} readOnly className="mt-1" />
+              <Input value={profile?.profession ?? ""} readOnly className="mt-1 bg-muted/30 cursor-default" />
               <p className="text-xs text-muted-foreground/70 mt-1">
                 Para alterar, edite o{" "}
                 <Link to="/business-questionnaire" className="underline hover:text-foreground">Diagnóstico do Negócio</Link>.
@@ -149,7 +171,7 @@ const Conta = () => {
             </div>
             <div>
               <Label className="text-xs text-muted-foreground">Nicho</Label>
-              <Input value={profile?.niche ?? ""} readOnly className="mt-1" />
+              <Input value={profile?.niche ?? ""} readOnly className="mt-1 bg-muted/30 cursor-default" />
               <p className="text-xs text-muted-foreground/70 mt-1">
                 Para alterar, edite o{" "}
                 <Link to="/business-questionnaire" className="underline hover:text-foreground">Diagnóstico do Negócio</Link>.
@@ -166,18 +188,92 @@ const Conta = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <Label htmlFor="pwd-current" className="text-xs text-muted-foreground">Senha atual</Label>
-              <Input id="pwd-current" type="password" value={pwdCurrent} onChange={(e) => setPwdCurrent(e.target.value)} className="mt-1" />
+              <div className="flex items-center justify-between mb-1">
+                <Label htmlFor="pwd-current" className="text-xs text-muted-foreground">Senha atual</Label>
+                <Link to="/forgot-password" className="text-xs text-primary hover:underline">Esqueci minha senha</Link>
+              </div>
+              <div className="relative">
+                <Input
+                  id="pwd-current"
+                  type={showCurrent ? "text" : "password"}
+                  value={pwdCurrent}
+                  onChange={(e) => setPwdCurrent(e.target.value)}
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowCurrent((v) => !v)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  aria-label={showCurrent ? "Ocultar senha" : "Mostrar senha"}
+                  tabIndex={-1}
+                >
+                  {showCurrent ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
             </div>
             <div>
               <Label htmlFor="pwd-new" className="text-xs text-muted-foreground">Nova senha (mínimo 8 caracteres)</Label>
-              <Input id="pwd-new" type="password" value={pwdNew} onChange={(e) => setPwdNew(e.target.value)} className="mt-1" />
+              <div className="relative mt-1">
+                <Input
+                  id="pwd-new"
+                  type={showNew ? "text" : "password"}
+                  value={pwdNew}
+                  onChange={(e) => setPwdNew(e.target.value)}
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNew((v) => !v)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  aria-label={showNew ? "Ocultar senha" : "Mostrar senha"}
+                  tabIndex={-1}
+                >
+                  {showNew ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              {pwdStrength && (
+                <div className="mt-2 space-y-1">
+                  <div className="flex h-1 gap-1">
+                    {[1, 2, 3, 4, 5].map((bar) => (
+                      <div
+                        key={bar}
+                        className={`flex-1 rounded-full ${
+                          bar <= pwdStrength.score ? pwdStrength.color : "bg-muted"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Força: <span className="font-medium text-foreground/80">{pwdStrength.label}</span>
+                  </p>
+                </div>
+              )}
             </div>
             <div>
               <Label htmlFor="pwd-confirm" className="text-xs text-muted-foreground">Confirmar nova senha</Label>
-              <Input id="pwd-confirm" type="password" value={pwdConfirm} onChange={(e) => setPwdConfirm(e.target.value)} className="mt-1" />
+              <div className="relative mt-1">
+                <Input
+                  id="pwd-confirm"
+                  type={showConfirm ? "text" : "password"}
+                  value={pwdConfirm}
+                  onChange={(e) => setPwdConfirm(e.target.value)}
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirm((v) => !v)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  aria-label={showConfirm ? "Ocultar senha" : "Mostrar senha"}
+                  tabIndex={-1}
+                >
+                  {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              {pwdConfirm && pwdNew !== pwdConfirm && (
+                <p className="text-[11px] text-destructive mt-1">As senhas não coincidem.</p>
+              )}
             </div>
-            <Button onClick={handleUpdatePassword} disabled={pwdLoading || !pwdCurrent || !pwdNew}>
+            <Button onClick={handleUpdatePassword} disabled={pwdLoading || !pwdCurrent || !pwdNew || pwdNew !== pwdConfirm}>
               {pwdLoading && <Loader2 className="h-4 w-4 animate-spin" />}
               Atualizar senha
             </Button>
@@ -205,10 +301,15 @@ const Conta = () => {
               <span className="text-sm">{formatDate(subscription?.current_period_end)}</span>
             </div>
             {subscription && (
-              <Button variant="outline" onClick={openPortal} disabled={portalLoading} className="w-full gap-2 mt-2">
-                {portalLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ExternalLink className="h-4 w-4" />}
-                Gerenciar assinatura
-              </Button>
+              <>
+                <Button variant="outline" onClick={openPortal} disabled={portalLoading} className="w-full gap-2 mt-2">
+                  {portalLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ExternalLink className="h-4 w-4" />}
+                  Gerenciar assinatura
+                </Button>
+                <p className="text-[11px] text-muted-foreground/80 mt-1.5 text-center">
+                  Abre portal externo do Stripe — atualizar cartão, baixar faturas ou cancelar.
+                </p>
+              </>
             )}
             {!subscription && (
               <Link to="/choose-plan">
