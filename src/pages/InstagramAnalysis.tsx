@@ -381,15 +381,20 @@ const InstagramAnalysis = () => {
             )}
 
             {displayedAnalysis.length > 0 && (
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-5 md:grid-cols-2">
                 {displayedAnalysis.map((item, i) => (
-                  <Card key={i}>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-base">{item.aspect}</CardTitle>
+                  <Card key={i} className="overflow-hidden">
+                    <CardHeader className="pb-4 border-b border-border/50 bg-card/60">
+                      <div className="flex items-center gap-2.5">
+                        <div className="h-5 w-1 bg-primary rounded-full" aria-hidden="true" />
+                        <CardTitle className="text-lg lg:text-xl font-display font-semibold tracking-tight">
+                          {item.aspect}
+                        </CardTitle>
+                      </div>
                     </CardHeader>
-                    <CardContent className="space-y-3">
+                    <CardContent className="space-y-3 pt-4">
                       <div className="bg-muted/50 rounded-lg p-3">
-                        <p className="text-xs font-semibold text-muted-foreground mb-1">Situação Atual</p>
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">Situação Atual</p>
                         <p className="text-sm">{item.current}</p>
                       </div>
                       <div className="flex justify-center">
@@ -397,7 +402,7 @@ const InstagramAnalysis = () => {
                       </div>
                       <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 space-y-2">
                         <div className="flex items-center justify-between">
-                          <p className="text-xs font-semibold text-primary flex items-center gap-1">
+                          <p className="text-[11px] font-semibold uppercase tracking-wider text-primary flex items-center gap-1.5">
                             <CheckCircle2 className="h-3 w-3" /> Sugestão
                           </p>
                           <Button
