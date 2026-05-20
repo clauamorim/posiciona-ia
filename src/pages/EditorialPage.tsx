@@ -1135,7 +1135,7 @@ const EditorialPage = () => {
                   </div>
                 </div>
               )}
-              {(week as any)._dedup_warning === true && (
+              {EDITORIAL_SHOW_DEDUP_WARNINGS && (week as any)._dedup_warning === true && (
                 <div className="mb-4 rounded-md border border-amber-300 bg-amber-50 p-4 text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100">
                   <strong className="block font-semibold mb-1">Repetição detectada nesta semana</strong>
                   <span className="text-sm opacity-90">
