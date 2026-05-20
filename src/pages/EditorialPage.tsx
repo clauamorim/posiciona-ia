@@ -1334,12 +1334,12 @@ const EditorialPage = () => {
                     )}
                     <div className="flex flex-wrap items-center gap-1.5 pt-1" data-hide-pdf>
                       {(feed.format === "carrossel" || feed.format === "post") && (
-                        <Button size="sm" className="h-8 text-[11px] gap-1 px-3" onClick={() => handleOpenEditor(wi, di, feed, false)}>
+                        <Button size="sm" className="h-8 text-[11px] gap-1 px-3" onClick={() => handleOpenEditor(weekKey, di, feed, false)}>
                           <PenTool className="h-3 w-3" /> Criar
                         </Button>
                       )}
                       {feed.format === "reels" && (
-                        <Button size="sm" className="h-8 text-[11px] gap-1 px-3" onClick={() => handleOpenEditor(wi, di, feed, true)}>
+                        <Button size="sm" className="h-8 text-[11px] gap-1 px-3" onClick={() => handleOpenEditor(weekKey, di, feed, true)}>
                           <Image className="h-3 w-3" /> Criar capa
                         </Button>
                       )}

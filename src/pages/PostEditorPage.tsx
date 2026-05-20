@@ -326,7 +326,13 @@ const PostEditorPage = () => {
   ];
   const allWeeks = allWeeksRaw.map((w) => normalizeWeekToV6(w));
 
-  const dayV6 = allWeeks[weekIndex]?.days?.[dayIndex];
+  // weekIndex (param) refere-se ao _week_index real do banco. Localizar pela
+  // chave preservada para evitar abrir a semana errada após exclusões.
+  const resolvedWeekIdx = (() => {
+    const byKey = allWeeks.findIndex((w: any) => (w?._week_index ?? w?.week_index) === weekIndex);
+    return byKey >= 0 ? byKey : weekIndex;
+  })();
+  const dayV6 = allWeeks[resolvedWeekIdx]?.days?.[dayIndex];
   // Compat: o restante do editor ainda lê day.theme / day.caption / day.card_copy / day.cta / day.format
   // como no shape v5. Expomos um objeto v5-like a partir do feed v6 para evitar
   // refatorar centenas de linhas dependentes desses campos.
@@ -1692,7 +1698,7 @@ const PostEditorPage = () => {
     );
   }
 
-  const realWeekNumber = ((allWeeks[weekIndex] as any)?._week_index ?? weekIndex) + 1;
+  const realWeekNumber = ((allWeeks[resolvedWeekIdx] as any)?._week_index ?? weekIndex) + 1;
   const formattedSavedAt = lastSavedAt
     ? lastSavedAt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
     : null;
