@@ -2,13 +2,49 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { buildJourneyContext } from "@/lib/assistantJourney";
+import { buildJourneyContext, getRouteLabel } from "@/lib/assistantJourney";
 import { consumeQuestionContext, clearQuestionContext } from "@/lib/assistantBus";
 
 export type Msg = { id?: string; role: "user" | "assistant"; content: string };
 
-const WELCOME =
+const WELCOME_DEFAULT =
   "Olá! Sou a assistente da Posiciona. Estou aqui para guiar você em cada etapa da plataforma — seja para explicar um conceito, esclarecer uma dúvida ou indicar o próximo passo. Em que posso ajudar?";
+
+// Mensagens de boas-vindas contextuais por rota.
+// Quando a rota tem mensagem dedicada, ela substitui o WELCOME_DEFAULT.
+const ROUTE_WELCOMES: Record<string, string> = {
+  "/dashboard": "Olá! Vejo que você está no Dashboard. Posso explicar o resumo da sua jornada, ajudar a interpretar seus créditos disponíveis ou orientar o próximo passo. O que precisa?",
+  "/business-questionnaire": "Olá! Você está no Diagnóstico do Negócio. Posso ajudar com qualquer pergunta — basta clicar em 'Precisa de ajuda?' ao lado dela ou me perguntar diretamente. Por onde quer começar?",
+  "/personal-questionnaire": "Olá! Esse é o questionário Sua História — onde a sua trajetória pessoal vira matéria-prima de storytelling. Se travar em alguma pergunta, posso ajudar com exemplos. Qual é a dúvida?",
+  "/archetype-questionnaire": "Olá! Aqui são as 72 afirmações que vão identificar seus 3 arquétipos dominantes. Responda com honestidade — não há resposta certa ou errada. Posso explicar qualquer arquétipo se quiser entender melhor.",
+  "/sales-narrative": "Olá! Você está na Narrativa de Vendas. Esse questionário é opcional, mas alimenta as sequências de Stories de Venda. Posso ajudar com exemplos ou explicar o que cada pergunta busca.",
+  "/results": "Olá! Sua estratégia está sendo gerada — pode levar alguns minutos. Posso aproveitar pra explicar os arquétipos identificados ou o que vem a seguir. O que prefere?",
+  "/report": "Olá! Você está no seu Relatório Estratégico. Ele tem 3 capítulos: Identidade, Apresentação e Narrativa. Posso explicar qualquer seção ou ajudar a aplicar o que está aqui na prática.",
+  "/storybrand": "Olá! Aqui está sua Narrativa de Marca no formato StoryBrand. Posso explicar cada elemento (Herói, Guia, Problema, Plano, CTA) ou como usar isso no seu Instagram.",
+  "/instagram-analysis": "Olá! Essa é a análise do seu perfil atual comparado à estratégia ideal. Posso explicar cada gap identificado e como ajustar.",
+  "/editorial": "Olá! Você está na Linha Editorial. Cada semana segue ritmo Seg-Qui com feed + stories e Sex-Dom só com stories. Posso explicar qualquer post, ajudar a criar variações ou orientar como gerar nova semana.",
+  "/post-editor": "Olá! Você está editando um post. Posso ajudar com escolha de imagem (Pexels grátis vs IA paga), variações de layout, ou explicar o tom de voz adequado pro arquétipo do post.",
+  "/portraits": "Olá! Você está nos Retratos de Marca. Apenas o seu arquétipo primário guia o estilo dos retratos. Posso explicar como melhorar suas fotos de referência ou interpretar os retratos gerados.",
+  "/stories-de-venda": "Olá! Aqui você gera sequências de 7 stories para conversão. Cada sequência usa um dos 7 templates testados e custa 1 ajuste de conteúdo. Posso explicar quando usar cada template.",
+  "/my-designs": "Olá! Aqui ficam seus designs salvos. Posso ajudar a organizá-los ou orientar quando vale criar uma variação de um post existente.",
+  "/my-gallery": "Olá! Aqui ficam todas as suas imagens (uploads, retratos, geradas por IA). Posso orientar como reutilizá-las em posts da Linha Editorial.",
+  "/choose-plan": "Olá! Aqui você escolhe o plano. Cada um tem combinação diferente de ciclos, reanálises, retratos e ajustes mensais. Posso ajudar a entender qual melhor encaixa no seu uso.",
+};
+
+function getWelcomeMessage(pathname: string): string {
+  // Match exato primeiro
+  if (ROUTE_WELCOMES[pathname]) return ROUTE_WELCOMES[pathname];
+  // Match por prefixo (ex: /post-editor/abc também usa o welcome de /post-editor)
+  for (const key of Object.keys(ROUTE_WELCOMES)) {
+    if (pathname.startsWith(key + "/")) return ROUTE_WELCOMES[key];
+  }
+  // Fallback genérico, com nome da página se houver
+  const routeLabel = getRouteLabel(pathname);
+  if (routeLabel) {
+    return `Olá! Vejo que você está em ${routeLabel}. Posso explicar essa tela, orientar o próximo passo ou esclarecer dúvidas sobre a metodologia. Em que posso ajudar?`;
+  }
+  return WELCOME_DEFAULT;
+}
 
 export function useAssistantChat(open: boolean) {
   const { user } = useAuth();
@@ -51,7 +87,7 @@ export function useAssistantChat(open: boolean) {
 
       if (cancelled) return;
       if (!msgs || msgs.length === 0) {
-        setMessages([{ role: "assistant", content: WELCOME }]);
+        setMessages([{ role: "assistant", content: getWelcomeMessage(location.pathname) }]);
       } else {
         setMessages(msgs.map((m: any) => ({ id: m.id, role: m.role, content: m.content })));
       }
@@ -59,7 +95,7 @@ export function useAssistantChat(open: boolean) {
     return () => {
       cancelled = true;
     };
-  }, [open, user]);
+  }, [open, user, location.pathname]);
 
   const sendMessage = useCallback(
     async (text: string) => {

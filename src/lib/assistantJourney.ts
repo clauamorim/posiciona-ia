@@ -34,17 +34,33 @@ export function getRouteLabel(pathname: string): string | null {
 }
 
 export async function buildJourneyContext(userId: string, currentRoute: string): Promise<string> {
-  const [bqRes, pqRes, answersRes, reportRes, igRes, portraitRes] = await Promise.all([
+  const [
+    bqRes,
+    pqRes,
+    snRes,
+    answersRes,
+    reportRes,
+    igRes,
+    portraitRes,
+    archetypesRes,
+    profileRes,
+    balanceRes,
+  ] = await Promise.all([
     supabase.from("business_questionnaires").select("is_complete").eq("user_id", userId).order("version", { ascending: false }).limit(1),
     supabase.from("personal_questionnaires").select("status").eq("user_id", userId).order("version", { ascending: false }).limit(1),
+    supabase.from("sales_narrative_questionnaires").select("status").eq("user_id", userId).order("version", { ascending: false }).limit(1),
     supabase.from("archetype_answers").select("question_id").eq("user_id", userId),
     supabase.from("reports").select("status, editorial_weeks, content").eq("user_id", userId).order("version", { ascending: false }).limit(1),
     supabase.from("instagram_analyses").select("id").eq("user_id", userId).limit(1),
     supabase.from("portrait_generations").select("id").eq("user_id", userId).limit(1),
+    supabase.from("user_top_archetypes").select("archetype_name, rank").eq("user_id", userId).order("rank", { ascending: true }).limit(3),
+    supabase.from("profiles").select("profession, niche, full_name").eq("user_id", userId).maybeSingle(),
+    supabase.from("user_balances").select("weekly_cycles, reanalysis_credits, portrait_credits_included, portrait_credits_extra, regeneration_credits").eq("user_id", userId).maybeSingle(),
   ]);
 
   const businessComplete = bqRes.data?.[0]?.is_complete ?? false;
   const personalSubmitted = pqRes.data?.[0]?.status === "submitted";
+  const salesNarrativeSubmitted = snRes.data?.[0]?.status === "submitted";
   const uniqueQuestions = new Set(answersRes.data?.map((a: any) => a.question_id) ?? []);
   const archetypesDone = uniqueQuestions.size === 72;
   const reportData = reportRes.data?.[0];
@@ -65,6 +81,7 @@ export async function buildJourneyContext(userId: string, currentRoute: string):
   if (businessComplete) completed.push("Diagnóstico");
   if (personalSubmitted) completed.push("Sua História");
   if (archetypesDone) completed.push("Arquétipos");
+  if (salesNarrativeSubmitted) completed.push("Narrativa de Vendas (opcional)");
   if (hasReport) completed.push("Relatório");
   if (hasInstagram) completed.push("Análise do Instagram");
   if (hasEditorial) completed.push("Linha Editorial");
@@ -79,11 +96,49 @@ export async function buildJourneyContext(userId: string, currentRoute: string):
   else if (!hasPortraits) nextStep = "Retratos com IA";
   else nextStep = "Continuar produzindo conteúdo";
 
+  // Arquétipos do usuário (rank 1=primário, 2=secundário, 3=terciário)
+  const archetypes = archetypesRes.data ?? [];
+  const primary = archetypes.find((a: any) => a.rank === 1)?.archetype_name;
+  const secondary = archetypes.find((a: any) => a.rank === 2)?.archetype_name;
+  const tertiary = archetypes.find((a: any) => a.rank === 3)?.archetype_name;
+
+  // Perfil
+  const profile = profileRes.data;
+  const profession = profile?.profession;
+  const niche = profile?.niche;
+  const firstName = profile?.full_name?.split(" ")[0];
+
+  // Saldos
+  const bal = balanceRes.data;
+  const balanceLines: string[] = [];
+  if (bal) {
+    balanceLines.push(`Saldo de créditos: ${bal.weekly_cycles ?? 0} ciclos semanais, ${bal.reanalysis_credits ?? 0} reanálises, ${(bal.portrait_credits_included ?? 0) + (bal.portrait_credits_extra ?? 0)} retratos, ${bal.regeneration_credits ?? 0} ajustes de conteúdo.`);
+  }
+
+  const archetypeLines: string[] = [];
+  if (primary || secondary || tertiary) {
+    const parts: string[] = [];
+    if (primary) parts.push(`primário ${primary}`);
+    if (secondary) parts.push(`secundário ${secondary}`);
+    if (tertiary) parts.push(`terciário ${tertiary}`);
+    archetypeLines.push(`Arquétipos do usuário: ${parts.join(", ")}.`);
+  }
+
+  const profileLines: string[] = [];
+  if (firstName) profileLines.push(`Primeiro nome: ${firstName}.`);
+  if (profession) profileLines.push(`Profissão: ${profession}.`);
+  if (niche) profileLines.push(`Nicho: ${niche}.`);
+
   const routeLabel = getRouteLabel(currentRoute);
 
-  return [
+  const lines: string[] = [
     routeLabel ? `Página atual: ${routeLabel}` : `Rota atual: ${currentRoute}`,
+    ...profileLines,
+    ...archetypeLines,
+    ...balanceLines,
     `Etapas concluídas: ${completed.length > 0 ? completed.join(", ") : "nenhuma ainda"}`,
     `Próximo passo recomendado: ${nextStep}`,
-  ].join("\n");
+  ];
+
+  return lines.join("\n");
 }
