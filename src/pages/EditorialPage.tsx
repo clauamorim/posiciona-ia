@@ -1294,18 +1294,6 @@ const EditorialPage = () => {
                                         )}
                                         Regenerar post (e story do dia)
                                       </DropdownMenuItem>
-                                      {feed.format === "reels" && (
-                                        <DropdownMenuItem onClick={() => handleOpenEditor(wi, di, feed, true)}>
-                                          <Image className="h-3.5 w-3.5 mr-2" />
-                                          Criar capa do Reels
-                                        </DropdownMenuItem>
-                                      )}
-                                      {(feed.format === "carrossel" || feed.format === "post") && (
-                                        <DropdownMenuItem onClick={() => handleOpenEditor(wi, di, feed, true)}>
-                                          <Image className="h-3.5 w-3.5 mr-2" />
-                                          Criar capa de Reels
-                                        </DropdownMenuItem>
-                                      )}
                                     </DropdownMenuContent>
                                   </DropdownMenu>
                                 </div>
