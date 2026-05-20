@@ -15,8 +15,12 @@ export interface StoryDay {
   mirrors_feed?: boolean;
 }
 
-export function buildStoriesSystemPrompt(feedSummary: string, mirrorDays: number[]): string {
-  return `Você é um especialista em copy para Instagram Stories. Domina StoryBrand, Obviously Awesome e Made to Stick (descritos ao final).
+export function buildStoriesSystemPrompt(
+  feedSummary: string,
+  mirrorDays: number[],
+  forbiddenContext?: string,
+): string {
+  const base = `Você é um especialista em copy para Instagram Stories. Domina StoryBrand, Obviously Awesome e Made to Stick (descritos ao final).
 
 Sua tarefa: gerar EXATAMENTE 7 sugestões de STORIES para a semana, uma por dia (dias 1 a 7).
 
