@@ -1659,7 +1659,15 @@ const EditorialPage = () => {
                 />
               )}
               <div className="grid gap-3 sm:grid-cols-1 lg:grid-cols-2">
-                {week.days.map((day: DayV6, di: number) => {
+                {week.days.map((day: DayV6, di: number) =>
+                  matchesDay(day) ? renderDayCard(week, wi, day, di, weekKey, false) : null
+                )}
+                {hasActiveFilters && week.days.every((d) => !matchesDay(d)) && (
+                  <p className="text-sm text-muted-foreground italic col-span-full py-6 text-center">
+                    Nenhum post desta semana corresponde aos filtros atuais.
+                  </p>
+                )}
+              </div>
                   const feed = day.feed;
                   const story = day.story;
                   const fmt = FORMAT_CONFIG[(feed?.format || "post").toLowerCase()] || FORMAT_CONFIG.post;
