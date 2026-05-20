@@ -1234,13 +1234,17 @@ const EditorialPage = () => {
                     weekIndex: weekKey,
                     dayNumber,
                   });
+                  const dayStatus: DayStatus = day._status || "pending";
+                  const isPosted = dayStatus === "posted";
+                  const isSkipped = dayStatus === "skipped";
+                  const cardOpacity = isPosted ? "opacity-60" : isSkipped ? "opacity-40" : "";
                   return (
-                    <Card key={di} className={`flex flex-col break-inside-avoid border border-border ${isStoriesOnly && (isWeekend || isFriday) ? "bg-card/30" : ""}`}>
+                    <Card key={di} className={`flex flex-col break-inside-avoid border border-border ${isStoriesOnly && (isWeekend || isFriday) ? "bg-card/30" : ""} ${cardOpacity}`}>
                       <CardContent className="py-4 flex-1 space-y-3">
-                        <div className="flex items-center justify-between">
-                          <div className="flex flex-col gap-0.5">
-                            <div className="flex items-baseline gap-2">
-                              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Dia {dayNumber}</span>
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex flex-col gap-0.5 min-w-0">
+                            <div className="flex items-baseline gap-2 flex-wrap">
+                              <span className={`text-[10px] font-semibold uppercase tracking-wider text-muted-foreground ${isPosted || isSkipped ? "line-through" : ""}`}>Dia {dayNumber}</span>
                               {dateLabel && (
                                 <span className="text-[11px] font-medium text-foreground/70">{dateLabel}</span>
                               )}
@@ -1249,10 +1253,38 @@ const EditorialPage = () => {
                               )}
                             </div>
                           </div>
-                          {false && dayOutdated && (
-                            <Badge variant="outline" className="text-[10px] gap-1 bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-900">
-                              <AlertTriangle className="h-2.5 w-2.5" /> Desatualizado
-                            </Badge>
+                          {!isReadOnly && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <button
+                                  type="button"
+                                  data-hide-pdf
+                                  className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium transition-colors ${
+                                    isPosted
+                                      ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
+                                      : isSkipped
+                                        ? "border-muted bg-muted/50 text-muted-foreground"
+                                        : "border-border bg-background text-muted-foreground hover:text-foreground"
+                                  }`}
+                                  aria-label="Marcar status do dia"
+                                >
+                                  {isPosted ? <Check className="h-3 w-3" /> : isSkipped ? <Ban className="h-3 w-3" /> : <CircleDashed className="h-3 w-3" />}
+                                  {isPosted ? "Postado" : isSkipped ? "Pulado" : "Pendente"}
+                                  <ChevronDown className="h-3 w-3 opacity-60" />
+                                </button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="text-xs">
+                                <DropdownMenuItem onClick={() => handleSetDayStatus(wi, di, "pending")}>
+                                  <CircleDashed className="h-3.5 w-3.5 mr-2" /> Pendente
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleSetDayStatus(wi, di, "posted")}>
+                                  <Check className="h-3.5 w-3.5 mr-2 text-emerald-600" /> Postado
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleSetDayStatus(wi, di, "skipped")}>
+                                  <Ban className="h-3.5 w-3.5 mr-2 text-muted-foreground" /> Pulado
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           )}
                         </div>
 
