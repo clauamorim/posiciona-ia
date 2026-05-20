@@ -13,7 +13,7 @@ import { toast } from "@/hooks/use-toast";
 import {
   Loader2, Sparkles, ChevronDown, Calendar, Video, Image, Smartphone,
   ImageIcon, PenTool, FileText, RefreshCw, Copy, Download, AlertTriangle, Wand2,
-  Trash2, X, CheckSquare, MoreVertical
+  Trash2, X, CheckSquare, MoreVertical, Check, CircleDashed, Ban
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
