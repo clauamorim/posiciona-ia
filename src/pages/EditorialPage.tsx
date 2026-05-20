@@ -136,6 +136,13 @@ const EditorialPage = () => {
   const contentRef = useRef<HTMLDivElement>(null);
   const pollingRef = useRef<{ stop: boolean }>({ stop: false });
 
+  // Filtros + busca (somente client-side, não persistem entre sessões)
+  const [filterBarOpen, setFilterBarOpen] = useState(false);
+  const [filterQuery, setFilterQuery] = useState("");
+  const [filterFormats, setFilterFormats] = useState<Set<string>>(new Set());
+  const [filterStatuses, setFilterStatuses] = useState<Set<DayStatus>>(new Set());
+  const [filterScope, setFilterScope] = useState<"current" | "all">("current");
+
   // Modal de seleção de estilo antes de abrir o editor
   const [styleModal, setStyleModal] = useState<{
     open: boolean;
