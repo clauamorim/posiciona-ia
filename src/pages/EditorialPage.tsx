@@ -13,7 +13,7 @@ import { toast } from "@/hooks/use-toast";
 import {
   Loader2, Sparkles, ChevronDown, Calendar, Video, Image, Smartphone,
   ImageIcon, PenTool, FileText, RefreshCw, Copy, Download, AlertTriangle, Wand2,
-  Trash2, X, CheckSquare
+  Trash2, X, CheckSquare, MoreVertical
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
@@ -22,6 +22,10 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { parseReportContent, normalizeReportContent } from "@/lib/reportParser";
 import { cleanText } from "@/lib/textCleanup";
 import { isOutdated, isWeekOutdated, EDITORIAL_GENERATOR_VERSION } from "@/lib/generatorVersion";
@@ -29,6 +33,13 @@ import { normalizeWeekToV6, type WeekV6, type DayV6, type FeedPostV6 } from "@/l
 import StyleSelectionModal from "@/components/post-editor/StyleSelectionModal";
 import { MarketTrendsSection } from "@/components/editorial/MarketTrendsSection";
 import type { PostStyle } from "@/lib/postAutoLayout";
+
+// Feature flag: exibir badges/warnings de deduplicação ao usuário.
+// Mantido false porque o produto se posiciona como "conteúdo único" e o
+// flag _dedup_failed tem falsos positivos conhecidos. A detecção/retry
+// continuam rodando no backend — apenas a UI fica oculta.
+const EDITORIAL_SHOW_DEDUP_WARNINGS = false;
+
 
 // Escape HTML to prevent injection in raw innerHTML strings used for PDF
 function esc(s: string): string {
@@ -971,11 +982,25 @@ const EditorialPage = () => {
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Linha Editorial</h1>
             <p className="text-sm text-muted-foreground mt-1">
-              {allWeeks.length} semana{allWeeks.length > 1 ? "s" : ""} de conteúdo
-              {regenerationCredits > 0 && ` · ${regenerationCredits} ajuste${regenerationCredits > 1 ? "s" : ""} de conteúdo`}
+              {allWeeks.length} semana{allWeeks.length > 1 ? "s" : ""} gerada{allWeeks.length > 1 ? "s" : ""}
+              {regenerationCredits > 0 && ` · ${regenerationCredits} ajuste${regenerationCredits > 1 ? "s" : ""} disponíve${regenerationCredits > 1 ? "is" : "l"} este mês`}
             </p>
           </div>
-          <div className="flex items-center gap-2" data-hide-pdf>
+          <div className="flex items-center gap-2 flex-wrap" data-hide-pdf>
+            {!selectionMode && !needsPersonal && (
+              <Button
+                onClick={handleGenerateWeek}
+                disabled={generatingWeek || weeklyCycles < 1 || personalSubmitted === null || isReadOnly}
+                size="sm"
+                className="gap-2"
+              >
+                {generatingWeek ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                Gerar +7 dias
+                {weeklyCycles > 0 && (
+                  <span className="text-[11px] opacity-80 font-normal">· {weeklyCycles} ciclo{weeklyCycles > 1 ? "s" : ""}</span>
+                )}
+              </Button>
+            )}
             {!selectionMode && (
               <Button
                 variant="outline" size="sm" className="gap-2"
@@ -993,6 +1018,7 @@ const EditorialPage = () => {
             )}
           </div>
         </div>
+
 
         {selectionMode && (
           <div
@@ -1109,7 +1135,7 @@ const EditorialPage = () => {
                   </div>
                 </div>
               )}
-              {(week as any)._dedup_warning === true && (
+              {EDITORIAL_SHOW_DEDUP_WARNINGS && (week as any)._dedup_warning === true && (
                 <div className="mb-4 rounded-md border border-amber-300 bg-amber-50 p-4 text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100">
                   <strong className="block font-semibold mb-1">Repetição detectada nesta semana</strong>
                   <span className="text-sm opacity-90">
@@ -1159,18 +1185,39 @@ const EditorialPage = () => {
                               <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Feed</span>
                               {feed ? (
                                 <div className="flex items-center gap-1.5">
-                                  {(feed as any)._dedup_failed === true && (
-                                    <span className="inline-flex items-center rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100">
-                                      Repetição
-                                    </span>
+                                  {EDITORIAL_SHOW_DEDUP_WARNINGS && (feed as any)._dedup_failed === true && (
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <span className="inline-flex items-center rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100 cursor-help">
+                                          Repetição
+                                        </span>
+                                      </TooltipTrigger>
+                                      <TooltipContent>Conteúdo com alta similaridade vs semanas anteriores</TooltipContent>
+                                    </Tooltip>
                                   )}
-                                  <Badge variant="outline" className={`text-[10px] gap-1 ${fmt.color}`}>
-                                    {fmt.icon} {fmt.label}
-                                  </Badge>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Badge variant="outline" className={`text-[10px] gap-1 cursor-help ${fmt.color}`}>
+                                        {fmt.icon} {fmt.label}
+                                      </Badge>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      {fmt.label === "Carrossel" && "Post em formato carrossel (múltiplos slides)"}
+                                      {fmt.label === "Reels" && "Vídeo curto vertical para Reels"}
+                                      {fmt.label === "Post" && "Post estático único no feed"}
+                                      {fmt.label === "Stories" && "Conteúdo efêmero de 24h"}
+                                    </TooltipContent>
+                                  </Tooltip>
                                 </div>
                               ) : (
-                                <span className="text-[10px] text-muted-foreground italic">Sem post</span>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className="text-[10px] text-muted-foreground italic cursor-help">Sem post</span>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Este dia não tem post no feed — apenas stories</TooltipContent>
+                                </Tooltip>
                               )}
+
                             </div>
                             {feed ? (
                               <>
@@ -1213,32 +1260,44 @@ const EditorialPage = () => {
                                     </CollapsibleContent>
                                   </Collapsible>
                                 )}
-                                <div className="flex flex-wrap gap-1.5 pt-1" data-hide-pdf>
-                                  {feed.caption && (
-                                    <Button variant="ghost" size="sm" className="h-7 text-[11px] gap-1 px-2" onClick={() => copyCaption(feed.caption)}>
-                                      <Copy className="h-3 w-3" /> Copiar
-                                    </Button>
-                                  )}
+                                <div className="flex flex-wrap items-center gap-1.5 pt-1" data-hide-pdf>
                                   {(feed.format === "carrossel" || feed.format === "post") && (
-                                    <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1 px-2" onClick={() => handleOpenEditor(wi, di, feed, false)}>
+                                    <Button size="sm" className="h-8 text-[11px] gap-1 px-3" onClick={() => handleOpenEditor(wi, di, feed, false)}>
                                       <PenTool className="h-3 w-3" /> Criar
                                     </Button>
                                   )}
                                   {feed.format === "reels" && (
-                                    <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1 px-2" onClick={() => handleOpenEditor(wi, di, feed, true)}>
-                                      <Image className="h-3 w-3" /> Capa
+                                    <Button size="sm" className="h-8 text-[11px] gap-1 px-3" onClick={() => handleOpenEditor(wi, di, feed, true)}>
+                                      <Image className="h-3 w-3" /> Criar capa
                                     </Button>
                                   )}
-                                  <Button
-                                    variant="ghost" size="sm" className="h-7 text-[11px] gap-1 px-2"
-                                    onClick={() => handleRegenerateItem(wi, di, "feed")}
-                                    disabled={regeneratingPost === `${regenKey}-feed` || regenerationCredits < 1}
-                                    title="O story deste dia será atualizado junto."
-                                  >
-                                    {regeneratingPost === `${regenKey}-feed` ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
-                                    Regenerar
-                                  </Button>
+                                  {feed.caption && (
+                                    <Button variant="outline" size="sm" className="h-8 text-[11px] gap-1 px-3" onClick={() => copyCaption(feed.caption)}>
+                                      <Copy className="h-3 w-3" /> Copiar
+                                    </Button>
+                                  )}
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Mais ações">
+                                        <MoreVertical className="h-4 w-4" />
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="w-56">
+                                      <DropdownMenuItem
+                                        onClick={() => handleRegenerateItem(wi, di, "feed")}
+                                        disabled={regeneratingPost === `${regenKey}-feed` || regenerationCredits < 1}
+                                      >
+                                        {regeneratingPost === `${regenKey}-feed` ? (
+                                          <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
+                                        ) : (
+                                          <RefreshCw className="h-3.5 w-3.5 mr-2" />
+                                        )}
+                                        Regenerar post (e story do dia)
+                                      </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
                                 </div>
+
                               </>
                             ) : (
                               <p className="text-xs text-muted-foreground italic">Este dia não tem post no feed — só story.</p>
@@ -1251,16 +1310,27 @@ const EditorialPage = () => {
                               <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Stories</span>
                               <div className="flex items-center gap-1">
                                 {story.mirrors_feed && (
-                                  <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200">
-                                    Mesmo tema do feed
-                                  </Badge>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200 cursor-help">
+                                        Mesmo tema do feed
+                                      </Badge>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Story que aprofunda o tema do post do feed deste dia</TooltipContent>
+                                  </Tooltip>
                                 )}
                                 {story.is_personal && !story.mirrors_feed && (
-                                  <Badge variant="outline" className="text-[10px] bg-pink-50 text-pink-700 border-pink-200">
-                                    Pessoal
-                                  </Badge>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Badge variant="outline" className="text-[10px] bg-pink-50 text-pink-700 border-pink-200 cursor-help">
+                                        Pessoal
+                                      </Badge>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Story pessoal — sem post de feed pareado neste dia</TooltipContent>
+                                  </Tooltip>
                                 )}
                               </div>
+
                             </div>
                             {story.theme || story.frames?.length ? (
                               <>
@@ -1330,13 +1400,12 @@ const EditorialPage = () => {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              Excluir semana {confirmDeleteWeek !== null ? confirmDeleteWeek + 1 : ""}?
+              Excluir Semana {confirmDeleteWeek !== null ? confirmDeleteWeek + 1 : ""}?
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Esta ação removerá os 7 dias desta semana permanentemente. Os embeddings
-              e padrões de detecção também serão limpos para que esse conteúdo não
-              influencie futuras gerações.
+              Esta ação não pode ser desfeita. Todos os 7 dias de conteúdo (posts, stories, legendas, roteiros) desta semana serão perdidos permanentemente.
             </AlertDialogDescription>
+
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={deletingWeek !== null}>Cancelar</AlertDialogCancel>
