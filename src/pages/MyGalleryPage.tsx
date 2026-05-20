@@ -148,17 +148,17 @@ const MyGalleryPage = () => {
   return (
     <DashboardLayout>
       <SeoHead title="Minha Galeria · Posiciona" description="Imagens e retratos da sua marca." path="/my-gallery" />
-      <div className="space-y-6">
+      <div className="space-y-6 lg:max-w-[1200px] lg:mx-auto">
         <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
           <div className="space-y-1">
             <h1 className="text-2xl font-display font-semibold tracking-tight">Minha galeria</h1>
             <p className="text-sm text-muted-foreground">
-              Todas as imagens que você gerou, salvou ou enviou. Reutilize em novos posts sem gastar créditos.
+              Todas as imagens que você gerou, salvou ou enviou. <span className="text-foreground/80">Reutilizar daqui é grátis</span> — só consume crédito ao gerar uma nova imagem por IA.
             </p>
           </div>
           <Button asChild variant="outline" size="sm" className="gap-2">
             <Link to="/post-editor">
-              <Plus className="h-4 w-4" /> Novo post
+              <Plus className="h-4 w-4" /> Novo design
             </Link>
           </Button>
         </header>
@@ -196,17 +196,33 @@ const MyGalleryPage = () => {
           </div>
         ) : filtered.length === 0 ? (
           <EmptyState
-            icon={ImageIcon}
-            title={filter === "all" ? "Sua galeria está vazia" : "Nada por aqui ainda"}
+            icon={filter === "logos" ? Star : ImageIcon}
+            title={
+              filter === "all"
+                ? "Sua galeria está vazia"
+                : filter === "logos"
+                  ? "Nenhuma logo cadastrada"
+                  : filter === "upload"
+                    ? "Nenhuma imagem enviada por você ainda"
+                    : filter === "ai"
+                      ? "Nenhuma imagem gerada por IA ainda"
+                      : "Nenhuma imagem do Pexels salva ainda"
+            }
             description={
               filter === "all"
                 ? "As imagens IA, Pexels e uploads dos seus posts aparecerão automaticamente aqui ao salvar um design."
-                : "Mude o filtro ou crie um novo post para popular esta categoria."
+                : filter === "logos"
+                  ? "Logos são marcadas no Editor de Posts ao enviar uma imagem como logo da marca. Abra um post e clique em Enviar imagem para adicionar."
+                  : filter === "upload"
+                    ? "Suas imagens enviadas no Editor de Posts (Enviar imagem) aparecerão aqui."
+                    : filter === "ai"
+                      ? "Imagens geradas pela IA no Editor de Posts ficam guardadas aqui pra você reutilizar sem gastar crédito de novo."
+                      : "Imagens do Pexels salvas no Editor de Posts aparecerão aqui."
             }
           >
             <Button asChild variant="default" size="sm" className="gap-2">
               <Link to="/post-editor">
-                <Plus className="h-4 w-4" /> Criar um post
+                <Plus className="h-4 w-4" /> Abrir Editor
               </Link>
             </Button>
           </EmptyState>
@@ -240,6 +256,11 @@ const MyGalleryPage = () => {
                       {photographerName && (
                         <p className="text-[10px] text-muted-foreground truncate">
                           Foto por {photographerName} / {item.source === "unsplash" ? "Unsplash" : "Pexels"}
+                        </p>
+                      )}
+                      {item.created_at && (
+                        <p className="text-[10px] text-muted-foreground/80">
+                          {new Date(item.created_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
                         </p>
                       )}
                     </div>
