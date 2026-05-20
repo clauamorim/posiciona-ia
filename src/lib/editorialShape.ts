@@ -39,11 +39,15 @@ export interface StoryDayV6 {
   generator_version?: string;
 }
 
+export type DayStatus = "pending" | "posted" | "skipped";
+
 export interface DayV6 {
   day: number;
   feed: FeedPostV6 | null;
   story: StoryDayV6;
   generator_version?: string;
+  /** Marca de publicação do usuário. Default "pending" quando ausente. */
+  _status?: DayStatus;
 }
 
 export interface WeekV6 {
@@ -94,6 +98,7 @@ export function normalizeWeekToV6(week: any): WeekV6 {
           feed,
           story,
           generator_version: d.generator_version,
+          _status: (d._status === "posted" || d._status === "skipped") ? d._status : "pending",
         });
       } else {
         days.push({ day: i + 1, feed: null, story: emptyStory(i + 1, false) });
@@ -155,6 +160,9 @@ export function normalizeWeekToV6(week: any): WeekV6 {
         feed,
         story,
         generator_version: isObj(post) ? post.generator_version : undefined,
+        _status: (isObj(post) && (post._status === "posted" || post._status === "skipped"))
+          ? (post._status as DayStatus)
+          : "pending",
       });
     }
     return { days, legacy: true };
