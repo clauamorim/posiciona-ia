@@ -167,6 +167,18 @@ const AddElementPanel: React.FC<AddElementPanelProps> = ({
 }) => {
   const { user } = useAuth();
   const [elementColor, setElementColor] = useState(defaultElementColor || palette[0]?.hex || "#7c3aed");
+  const [iconSearch, setIconSearch] = useState("");
+  const [openCategories, setOpenCategories] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(ICON_CATEGORIES.map((c, i) => [c.key, i === 0]))
+  );
+  const normalize = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const filteredCategories = useMemo(() => {
+    const q = normalize(iconSearch.trim());
+    if (!q) return ICON_CATEGORIES;
+    return ICON_CATEGORIES
+      .map((c) => ({ ...c, items: c.items.filter((el) => normalize(el.name).includes(q)) }))
+      .filter((c) => c.items.length > 0);
+  }, [iconSearch]);
   const [userAssets, setUserAssets] = useState<UserAsset[]>([]);
   const [userAssetsLoaded, setUserAssetsLoaded] = useState(false);
   const [uploading, setUploading] = useState(false);
