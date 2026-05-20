@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
-import { Upload, X, Download, Loader2, ImageIcon, ShoppingCart, Camera, Maximize2, Sparkles, Trash2 } from "lucide-react";
+import { Upload, X, Download, Loader2, ImageIcon, ShoppingCart, Camera, Maximize2, Sparkles, Trash2, Compass } from "lucide-react";
 import JSZip from "jszip";
 import { compressImage } from "@/lib/imageUtils";
 import { PortraitPreviewDialog } from "@/components/PortraitPreviewDialog";
@@ -31,6 +31,34 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+
+const BACKGROUND_TOOLTIPS: Record<string, string> = {
+  neutro: "Fundo neutro com paleta base do arquétipo",
+  claro: "Fundo claro/luminoso (ex: cinza claro, taupe)",
+  escuro: "Fundo escuro/contemplativo (ex: carvão, deep)",
+};
+
+const formatDate = (iso: string | null | undefined) => {
+  if (!iso) return null;
+  try {
+    return new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+  } catch {
+    return null;
+  }
+};
+
+const formatDateTime = (iso: string | null | undefined) => {
+  if (!iso) return null;
+  try {
+    const d = new Date(iso);
+    const date = d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+    const time = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+    return `${date} às ${time}`;
+  } catch {
+    return null;
+  }
+};
 
 const MAX_REFERENCES = 5;
 const MIN_REFERENCES = 3;
