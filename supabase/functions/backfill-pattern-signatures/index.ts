@@ -97,7 +97,7 @@ serve(async (req) => {
     const wkIdx = (week as any)?._week_index ?? (week as any)?.week_index ?? i;
     const meta = (week as any)?._dedup_metrics || {};
 
-    if (Array.isArray(meta._pattern_signatures) && meta._pattern_signatures.length > 0) {
+    if (!body?.force && Array.isArray(meta._pattern_signatures) && meta._pattern_signatures.length > 0) {
       summary.push({ weekIndex: wkIdx, status: "skipped_already_has_signatures", signatures: meta._pattern_signatures.length });
       continue;
     }
