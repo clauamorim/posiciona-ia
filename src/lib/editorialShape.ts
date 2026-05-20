@@ -160,6 +160,9 @@ export function normalizeWeekToV6(week: any): WeekV6 {
         feed,
         story,
         generator_version: isObj(post) ? post.generator_version : undefined,
+        _status: (isObj(post) && (post._status === "posted" || post._status === "skipped"))
+          ? (post._status as DayStatus)
+          : "pending",
       });
     }
     return { days, legacy: true };
