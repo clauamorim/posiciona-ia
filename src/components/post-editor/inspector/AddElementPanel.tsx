@@ -619,17 +619,47 @@ const AddElementPanel: React.FC<AddElementPanelProps> = ({
             }}
           />
         </div>
-        <div className="grid grid-cols-6 gap-1">
-          {GRAPHIC_ELEMENTS.map((el) => (
-            <Tooltip key={el.name}>
-              <TooltipTrigger asChild>
-                <button onClick={() => handleAddIcon(el)} className="aspect-square flex items-center justify-center rounded-md border bg-muted/40 hover:bg-muted transition-colors">
-                  <el.icon className="h-3.5 w-3.5 text-foreground/70" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent>{el.name}</TooltipContent>
-            </Tooltip>
-          ))}
+        <Input
+          value={iconSearch}
+          onChange={(e) => setIconSearch(e.target.value)}
+          placeholder="Buscar elemento…"
+          className="h-8 text-xs"
+        />
+        <div className="space-y-1.5">
+          {filteredCategories.length === 0 && (
+            <p className="text-[11px] text-muted-foreground text-center py-3">Nada encontrado.</p>
+          )}
+          {filteredCategories.map((cat) => {
+            const forceOpen = !!iconSearch.trim();
+            const isOpen = forceOpen ? true : !!openCategories[cat.key];
+            return (
+              <Collapsible
+                key={cat.key}
+                open={isOpen}
+                onOpenChange={(v) => !forceOpen && setOpenCategories((prev) => ({ ...prev, [cat.key]: v }))}
+                className="rounded-md border bg-muted/20"
+              >
+                <CollapsibleTrigger className="w-full flex items-center justify-between px-2 py-1.5 text-[11px] font-semibold text-foreground/80 hover:bg-muted/40 transition-colors">
+                  <span>{cat.label} <span className="text-muted-foreground/70 font-normal">({cat.items.length})</span></span>
+                  <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="grid grid-cols-6 gap-1 p-1.5 pt-0.5">
+                    {cat.items.map((el) => (
+                      <Tooltip key={el.name}>
+                        <TooltipTrigger asChild>
+                          <button onClick={() => handleAddIcon(el)} className="aspect-square flex items-center justify-center rounded-md border bg-background hover:bg-muted transition-colors">
+                            <el.icon className="h-3.5 w-3.5 text-foreground/70" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent>{el.name}</TooltipContent>
+                      </Tooltip>
+                    ))}
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            );
+          })}
         </div>
       </TabsContent>
 
