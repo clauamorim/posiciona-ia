@@ -1549,6 +1549,137 @@ const EditorialPage = () => {
           </Alert>
         )}
 
+        {filterBarOpen && (
+          <div
+            className="rounded-md border border-border bg-card/40 p-3 space-y-3"
+            data-hide-pdf
+          >
+            <div className="flex items-center gap-2">
+              <Search className="h-4 w-4 text-muted-foreground shrink-0" />
+              <Input
+                value={filterQuery}
+                onChange={(e) => setFilterQuery(e.target.value)}
+                placeholder="Buscar por tema, legenda, CTA, frame..."
+                className="h-9"
+              />
+              {hasActiveFilters && (
+                <Button variant="ghost" size="sm" onClick={clearAllFilters} className="gap-1.5">
+                  <X className="h-3.5 w-3.5" /> Limpar
+                </Button>
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mr-1">Formato</span>
+              {[
+                { key: "post", label: "Post" },
+                { key: "carrossel", label: "Carrossel" },
+                { key: "reels", label: "Reels" },
+                { key: "stories", label: "Stories" },
+              ].map((f) => {
+                const active = filterFormats.has(f.key);
+                return (
+                  <button
+                    key={f.key}
+                    type="button"
+                    onClick={() => setFilterFormats((s) => toggleSetValue(s, f.key))}
+                    className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                      active
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-border bg-background text-muted-foreground hover:text-foreground"
+                    }`}
+                    aria-pressed={active}
+                  >
+                    {f.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mr-1">Status</span>
+              {[
+                { key: "pending" as DayStatus, label: "Pendente" },
+                { key: "posted" as DayStatus, label: "Postado" },
+                { key: "skipped" as DayStatus, label: "Pulado" },
+              ].map((s) => {
+                const active = filterStatuses.has(s.key);
+                return (
+                  <button
+                    key={s.key}
+                    type="button"
+                    onClick={() => setFilterStatuses((cur) => toggleSetValue(cur, s.key))}
+                    className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                      active
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-border bg-background text-muted-foreground hover:text-foreground"
+                    }`}
+                    aria-pressed={active}
+                  >
+                    {s.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-border/60">
+              <div className="inline-flex rounded-md border border-border bg-background p-0.5 text-xs">
+                {[
+                  { key: "current" as const, label: "Esta semana" },
+                  { key: "all" as const, label: "Todas as semanas" },
+                ].map((opt) => {
+                  const active = filterScope === opt.key;
+                  return (
+                    <button
+                      key={opt.key}
+                      type="button"
+                      onClick={() => setFilterScope(opt.key)}
+                      className={`rounded px-2.5 py-1 font-medium transition-colors ${
+                        active ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                      }`}
+                      aria-pressed={active}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
+              {hasActiveFilters && (
+                <p className="text-xs text-muted-foreground">
+                  {filterScope === "all"
+                    ? `${matchingAllTotal} post${matchingAllTotal !== 1 ? "s" : ""} encontrado${matchingAllTotal !== 1 ? "s" : ""} de ${totalDays}`
+                    : `${matchingCurrent} de ${currentWeekDays.length} nesta semana`}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {showAllList ? (
+          <div className="space-y-4">
+            <h2 className="text-sm font-semibold tracking-tight">
+              Resultados em todas as semanas
+              <span className="ml-2 text-xs font-normal text-muted-foreground">
+                · {matchingAllTotal} de {totalDays}
+              </span>
+            </h2>
+            {matchingAllTotal === 0 ? (
+              <p className="text-sm text-muted-foreground italic py-6 text-center">
+                Nenhum post corresponde aos filtros atuais.
+              </p>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-1 lg:grid-cols-2">
+                {allWeeks.flatMap((w, wi) => {
+                  const weekKey = getWeekKey(w, wi);
+                  return w.days
+                    .map((day, di) => ({ day, di }))
+                    .filter(({ day }) => matchesDay(day))
+                    .map(({ day, di }) => renderDayCard(w, wi, day, di, weekKey, true));
+                })}
+              </div>
+            )}
+          </div>
+        ) : (
         <Tabs value={activeWeek} onValueChange={setActiveWeek} className="w-full">
           {allWeeks.length > 1 && (
             <TabsList className="mb-4 flex-wrap h-auto bg-muted/50">
