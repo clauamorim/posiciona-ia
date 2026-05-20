@@ -285,10 +285,13 @@ const EditorialPage = () => {
   const todayInfo = (() => {
     if (allWeeks.length === 0) return null;
     return pickTodayWeek(
-      allWeeks.map((w, i) => ({
-        weekStartDate: (w as any).start_date ?? null,
-        weekIndex: getWeekKey(w, i),
-      })),
+      allWeeks.map((w: any, i) => {
+        const k = w?._week_index ?? w?.week_index;
+        return {
+          weekStartDate: w?.start_date ?? null,
+          weekIndex: typeof k === "number" ? k : i,
+        };
+      }),
       (report as any)?.created_at ?? null,
     );
   })();
