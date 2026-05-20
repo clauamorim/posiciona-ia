@@ -982,11 +982,25 @@ const EditorialPage = () => {
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Linha Editorial</h1>
             <p className="text-sm text-muted-foreground mt-1">
-              {allWeeks.length} semana{allWeeks.length > 1 ? "s" : ""} de conteúdo
-              {regenerationCredits > 0 && ` · ${regenerationCredits} ajuste${regenerationCredits > 1 ? "s" : ""} de conteúdo`}
+              {allWeeks.length} semana{allWeeks.length > 1 ? "s" : ""} gerada{allWeeks.length > 1 ? "s" : ""}
+              {regenerationCredits > 0 && ` · ${regenerationCredits} ajuste${regenerationCredits > 1 ? "s" : ""} disponíve${regenerationCredits > 1 ? "is" : "l"} este mês`}
             </p>
           </div>
-          <div className="flex items-center gap-2" data-hide-pdf>
+          <div className="flex items-center gap-2 flex-wrap" data-hide-pdf>
+            {!selectionMode && !needsPersonal && (
+              <Button
+                onClick={handleGenerateWeek}
+                disabled={generatingWeek || weeklyCycles < 1 || personalSubmitted === null || isReadOnly}
+                size="sm"
+                className="gap-2"
+              >
+                {generatingWeek ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                Gerar +7 dias
+                {weeklyCycles > 0 && (
+                  <span className="text-[11px] opacity-80 font-normal">· {weeklyCycles} ciclo{weeklyCycles > 1 ? "s" : ""}</span>
+                )}
+              </Button>
+            )}
             {!selectionMode && (
               <Button
                 variant="outline" size="sm" className="gap-2"
@@ -1004,6 +1018,7 @@ const EditorialPage = () => {
             )}
           </div>
         </div>
+
 
         {selectionMode && (
           <div
