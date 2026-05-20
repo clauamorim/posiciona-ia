@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
-import { Upload, X, Download, Loader2, ImageIcon, ShoppingCart, Camera, Maximize2, Sparkles, Trash2 } from "lucide-react";
+import { Upload, X, Download, Loader2, ImageIcon, ShoppingCart, Camera, Maximize2, Sparkles, Trash2, Compass } from "lucide-react";
 import JSZip from "jszip";
 import { compressImage } from "@/lib/imageUtils";
 import { PortraitPreviewDialog } from "@/components/PortraitPreviewDialog";
@@ -31,6 +31,34 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+
+const BACKGROUND_TOOLTIPS: Record<string, string> = {
+  neutro: "Fundo neutro com paleta base do arquétipo",
+  claro: "Fundo claro/luminoso (ex: cinza claro, taupe)",
+  escuro: "Fundo escuro/contemplativo (ex: carvão, deep)",
+};
+
+const formatDate = (iso: string | null | undefined) => {
+  if (!iso) return null;
+  try {
+    return new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+  } catch {
+    return null;
+  }
+};
+
+const formatDateTime = (iso: string | null | undefined) => {
+  if (!iso) return null;
+  try {
+    const d = new Date(iso);
+    const date = d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+    const time = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+    return `${date} às ${time}`;
+  } catch {
+    return null;
+  }
+};
 
 const MAX_REFERENCES = 5;
 const MIN_REFERENCES = 3;
@@ -47,7 +75,7 @@ interface PortraitReference {
 }
 
 const PortraitGenerator = () => {
-  const { user, balances, refreshSubscription, isReadOnly } = useAuth();
+  const { user, balances, subscription, refreshSubscription, isReadOnly } = useAuth();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -60,7 +88,9 @@ const PortraitGenerator = () => {
   const [backgrounds, setBackgrounds] = useState<string[]>([]);
   const [originalIndices, setOriginalIndices] = useState<number[]>([]);
   const [generationId, setGenerationId] = useState<string | null>(null);
+  const [generationCreatedAt, setGenerationCreatedAt] = useState<string | null>(null);
   const [discardingIndex, setDiscardingIndex] = useState<number | null>(null);
+  const [confirmDiscardIndex, setConfirmDiscardIndex] = useState<number | null>(null);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const [hydratedFromHistory, setHydratedFromHistory] = useState(false);
 
@@ -90,6 +120,7 @@ const PortraitGenerator = () => {
       setBackgrounds(items.map((p: any) => p.background ?? ""));
       setOriginalIndices(indices);
       setGenerationId(data.id);
+      setGenerationCreatedAt(data.created_at ?? null);
       setHydratedFromHistory(true);
     })();
     return () => { cancelled = true; };
@@ -251,6 +282,7 @@ const PortraitGenerator = () => {
     setBackgrounds([]);
     setOriginalIndices([]);
     setGenerationId(null);
+    setGenerationCreatedAt(null);
 
     try {
       const { data, error } = await supabase.functions.invoke("generate-portrait", {
@@ -273,6 +305,7 @@ const PortraitGenerator = () => {
       setBackgrounds(generated.map((g) => g.background));
       setOriginalIndices(generated.map((_, i) => i));
       setGenerationId(data?.generation_id ?? null);
+      setGenerationCreatedAt(new Date().toISOString());
       await refreshSubscription();
 
       toast({
@@ -332,7 +365,7 @@ const PortraitGenerator = () => {
       removeLocal();
       return;
     }
-    if (!confirm("Descartar este retrato do histórico? Essa ação não pode ser desfeita.")) return;
+    // Confirmation handled by AlertDialog (confirmDiscardIndex)
     const originalIdx = originalIndices[index];
     if (originalIdx === undefined) {
       removeLocal();
@@ -369,10 +402,17 @@ const PortraitGenerator = () => {
     setLoadingPack(null);
   };
 
+  const primaryArchetype = archetypes?.[0]?.archetype_name ?? null;
+  const includedCredits = balances?.portrait_credits_included ?? 0;
+  const extraCredits = balances?.portrait_credits_extra ?? 0;
+  const renewalDate = formatDate(subscription?.current_period_end ?? null);
+  const generatedAtLabel = formatDateTime(generationCreatedAt);
+
   return (
+    <TooltipProvider delayDuration={200}>
     <DashboardLayout>
       <SeoHead title="Retratos de Marca · Posiciona" description="Retratos profissionais gerados por IA com base no seu posicionamento." path="/portraits" />
-      <div className="space-y-6">
+      <div className="space-y-6 max-w-full lg:max-w-[1100px] mx-auto pb-24 lg:pb-12">
         <div>
           <h1 className="text-xl font-semibold tracking-tight">Retratos de Marca</h1>
           <p className="text-sm text-muted-foreground mt-1">
@@ -382,20 +422,32 @@ const PortraitGenerator = () => {
 
         {/* Saldo */}
         <Card className="border-primary/20 bg-primary/5">
-          <CardContent className="flex items-center justify-between py-4">
-            <div className="flex items-center gap-3">
-              <Camera className="h-5 w-5 text-primary" />
-              <div>
+          <CardContent className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 py-4">
+            <div className="flex items-start gap-3">
+              <Camera className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+              <div className="space-y-1">
                 <p className="font-semibold">Saldo de Retratos</p>
-                <p className="text-xs text-muted-foreground">
-                  {balances?.portrait_credits_included ?? 0} inclusos · {balances?.portrait_credits_extra ?? 0} extras
+                <p className="text-sm text-foreground">
+                  <strong>{totalCredits}</strong> retrato{totalCredits !== 1 ? "s" : ""} disponíve{totalCredits !== 1 ? "is" : "l"}
                 </p>
-                <p className="text-[10px] text-muted-foreground/70 mt-0.5">
-                  Inclusos renovam mensalmente. Extras não expiram.
-                </p>
+                <div className="text-xs text-muted-foreground space-y-0.5">
+                  {includedCredits > 0 ? (
+                    <p>
+                      Seu plano inclui <strong>{includedCredits} retrato{includedCredits !== 1 ? "s" : ""}/mês</strong>
+                      {renewalDate ? ` (próxima renovação em ${renewalDate})` : ""}.
+                    </p>
+                  ) : (
+                    <p>Seu plano não inclui retratos mensais.</p>
+                  )}
+                  {extraCredits > 0 && (
+                    <p>
+                      <strong>{extraCredits} retrato{extraCredits !== 1 ? "s" : ""} extra{extraCredits !== 1 ? "s" : ""}</strong> adquirido{extraCredits !== 1 ? "s" : ""} separadamente — não expira{extraCredits !== 1 ? "m" : ""}.
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
-            <Badge variant={totalCredits > 0 ? "default" : "destructive"}>
+            <Badge variant={totalCredits > 0 ? "default" : "destructive"} className="self-start sm:self-center">
               {totalCredits} disponível{totalCredits !== 1 ? "is" : ""}
             </Badge>
           </CardContent>
@@ -420,6 +472,7 @@ const PortraitGenerator = () => {
             {/* Suas Referências */}
             <Card>
               <CardHeader>
+                <p className="text-xs uppercase tracking-wider text-muted-foreground/70">Etapa 1 · Suas selfies de referência</p>
                 <CardTitle className="flex items-center gap-2">
                   <Sparkles className="h-5 w-5 text-primary" />
                   Suas referências
@@ -491,14 +544,28 @@ const PortraitGenerator = () => {
             {/* Gerar Retratos */}
             <Card>
               <CardHeader>
+                <p className="text-xs uppercase tracking-wider text-muted-foreground/70">Etapa 2 · Geração editorial</p>
                 <CardTitle className="flex items-center gap-2">
                   <ImageIcon className="h-5 w-5 text-primary" />
                   Gerar retratos
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
+                {primaryArchetype && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="inline-flex items-center gap-1.5 bg-card/50 border border-primary/30 text-primary rounded-full px-3 py-1 text-sm w-fit cursor-help">
+                        <Compass className="h-3.5 w-3.5" />
+                        Retratos guiados pelo arquétipo <strong className="font-semibold">{primaryArchetype}</strong> (seu primário)
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      Cada arquétipo tem cenário, iluminação e expressão próprios. Apenas o primário guia os retratos — os secundário e terciário não interferem.
+                    </TooltipContent>
+                  </Tooltip>
+                )}
                 <p className="text-sm text-muted-foreground">
-                  Cada geração entrega até <strong>3 retratos</strong> (Neutro, Claro, Escuro) com variação de figurino e iluminação. <strong>1 crédito por retrato</strong> — só cobramos os que ficam prontos.
+                  Cada geração entrega <strong>3 retratos</strong> com variação de fundo e iluminação (Neutro, Claro, Escuro), mantendo o cenário do seu arquétipo. <strong>1 crédito por retrato</strong> — você só paga pelos que ficaram prontos.
                 </p>
                 <Button
                   onClick={requestGenerate}
@@ -563,19 +630,25 @@ const PortraitGenerator = () => {
 
             {portraits.length > 0 && (
               <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle className="flex items-center gap-2">
-                    <ImageIcon className="h-5 w-5" />
-                    Retratos Gerados
-                  </CardTitle>
-                  <Button variant="outline" size="sm" onClick={downloadAll}>
+                <CardHeader className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                  <div>
+                    <p className="text-xs uppercase tracking-wider text-muted-foreground/70">Etapa 3 · Seus resultados</p>
+                    <CardTitle className="flex items-center gap-2 mt-1">
+                      <ImageIcon className="h-5 w-5" />
+                      Retratos Gerados
+                    </CardTitle>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={downloadAll} className="self-start sm:self-auto">
                     <Download className="h-4 w-4 mr-1" />
-                    Baixar todos (ZIP)
+                    Baixar últimos {portraits.length} (ZIP)
                   </Button>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    {portraits.map((portrait, i) => (
+                    {portraits.map((portrait, i) => {
+                      const bgKey = (backgrounds[i] ?? "").toLowerCase();
+                      const tooltip = BACKGROUND_TOOLTIPS[bgKey];
+                      return (
                       <div key={i} className="space-y-2">
                         <button
                           type="button"
@@ -589,31 +662,49 @@ const PortraitGenerator = () => {
                             </div>
                           </div>
                           <div className="absolute top-2 left-2">
-                            <Badge variant="secondary" className="capitalize text-xs">{backgrounds[i] ?? `look ${i + 1}`}</Badge>
+                            {tooltip ? (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Badge variant="secondary" className="capitalize text-xs cursor-help">{backgrounds[i]}</Badge>
+                                </TooltipTrigger>
+                                <TooltipContent>{tooltip}</TooltipContent>
+                              </Tooltip>
+                            ) : (
+                              <Badge variant="secondary" className="capitalize text-xs">{backgrounds[i] ?? `look ${i + 1}`}</Badge>
+                            )}
                           </div>
                         </button>
-                        <div className="grid grid-cols-2 gap-2">
-                          <Button variant="outline" size="sm" onClick={() => downloadPortrait(portrait, i)}>
+                        {generatedAtLabel && (
+                          <p className="text-[11px] text-muted-foreground">Gerado em {generatedAtLabel}</p>
+                        )}
+                        <div className="flex items-center gap-2">
+                          <Button variant="default" size="sm" onClick={() => downloadPortrait(portrait, i)} className="flex-1">
                             <Download className="h-4 w-4 mr-1" />
                             Baixar
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDiscard(i)}
-                            disabled={discardingIndex === i}
-                            className="text-muted-foreground hover:text-destructive"
-                          >
-                            {discardingIndex === i ? (
-                              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                            ) : (
-                              <Trash2 className="h-4 w-4 mr-1" />
-                            )}
-                            Descartar
-                          </Button>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setConfirmDiscardIndex(i)}
+                                disabled={discardingIndex === i}
+                                className="text-muted-foreground hover:text-destructive shrink-0"
+                                aria-label="Descartar retrato"
+                              >
+                                {discardingIndex === i ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Trash2 className="h-4 w-4" />
+                                )}
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Descartar retrato</TooltipContent>
+                          </Tooltip>
                         </div>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </CardContent>
               </Card>
@@ -621,6 +712,32 @@ const PortraitGenerator = () => {
           </>
         )}
       </div>
+
+      {/* Confirmação de descarte */}
+      <AlertDialog open={confirmDiscardIndex !== null} onOpenChange={(o) => !o && setConfirmDiscardIndex(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir este retrato?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita. O crédito consumido para gerar este retrato <strong>não retorna</strong>.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                const idx = confirmDiscardIndex;
+                setConfirmDiscardIndex(null);
+                if (idx !== null) handleDiscard(idx);
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Excluir retrato
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
 
       {/* Confirmação de geração */}
       <AlertDialog open={confirmGenerateOpen} onOpenChange={setConfirmGenerateOpen}>
@@ -653,6 +770,7 @@ const PortraitGenerator = () => {
         downloadLabel="Baixar"
       />
     </DashboardLayout>
+    </TooltipProvider>
   );
 };
 
