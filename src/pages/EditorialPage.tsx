@@ -656,6 +656,40 @@ const EditorialPage = () => {
     setRegeneratingFreeWeek(null);
   };
 
+  const handleSetDayStatus = async (wi: number, di: number, status: DayStatus) => {
+    if (!user || !report) return;
+    try {
+      if (editorialWeeks.length > 0) {
+        const newWeeks = editorialWeeks.map((w: any, i: number) => {
+          if (i !== wi) return w;
+          if (w && Array.isArray(w.days)) {
+            const newDays = w.days.map((d: any, j: number) =>
+              j === di ? { ...d, _status: status } : d
+            );
+            return { ...w, days: newDays };
+          }
+          if (Array.isArray(w)) {
+            return w.map((d: any, j: number) => j === di ? { ...d, _status: status } : d);
+          }
+          return w;
+        });
+        await supabase.from("reports").update({ editorial_weeks: newWeeks as any })
+          .eq("user_id", user.id).eq("version", report.version);
+        setReport({ ...report, editorial_weeks: newWeeks });
+      } else if (hasEditorial && structuredEditorial.length > 0 && wi === 0) {
+        const newEditorial = structuredEditorial.map((d: any, j: number) =>
+          j === di ? { ...d, _status: status } : d
+        );
+        const newContent = { ...content, editorial: newEditorial };
+        await supabase.from("reports").update({ content: newContent as any })
+          .eq("user_id", user.id).eq("version", report.version);
+        setReport({ ...report, content: newContent });
+      }
+    } catch (err: any) {
+      toast({ title: "Não foi possível salvar o status", description: err.message, variant: "destructive" });
+    }
+  };
+
   const copyCaption = (caption: string) => {
     navigator.clipboard.writeText(cleanText(caption));
     toast({ title: "Legenda copiada!" });
