@@ -2135,6 +2135,22 @@ async function persistWeek(
   if (typeof weekIndex === "number") {
     weekObj._week_index = weekIndex;
   }
+  // start_date: segunda-feira (America/Sao_Paulo) da semana em que a semana foi gerada.
+  // Persistir como YYYY-MM-DD permite que a UI mostre datas reais sem recalcular.
+  try {
+    const nowFmt = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit",
+    }).format(new Date());
+    const [yy, mm, dd] = nowFmt.split("-").map(Number);
+    if (yy && mm && dd) {
+      const dt = new Date(Date.UTC(yy, mm - 1, dd, 12));
+      const dow = dt.getUTCDay();
+      const diff = dow === 0 ? -6 : 1 - dow;
+      dt.setUTCDate(dt.getUTCDate() + diff);
+      const iso = dt.toISOString().slice(0, 10);
+      weekObj.start_date = iso;
+    }
+  } catch (_e) { /* fallback silencioso — UI usa report.created_at */ }
   if (isPartial) {
     weekObj._partial = true;
     // Quando isPartial=false (chamada final), se stories vazio, marca falha do Estágio B
