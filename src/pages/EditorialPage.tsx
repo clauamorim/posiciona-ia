@@ -1412,13 +1412,12 @@ const EditorialPage = () => {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              Excluir semana {confirmDeleteWeek !== null ? confirmDeleteWeek + 1 : ""}?
+              Excluir Semana {confirmDeleteWeek !== null ? confirmDeleteWeek + 1 : ""}?
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Esta ação removerá os 7 dias desta semana permanentemente. Os embeddings
-              e padrões de detecção também serão limpos para que esse conteúdo não
-              influencie futuras gerações.
+              Esta ação não pode ser desfeita. Todos os 7 dias de conteúdo (posts, stories, legendas, roteiros) desta semana serão perdidos permanentemente.
             </AlertDialogDescription>
+
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={deletingWeek !== null}>Cancelar</AlertDialogCancel>
