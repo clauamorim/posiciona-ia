@@ -1515,6 +1515,10 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
           await updateJob(jobId, { progress_message: "Removendo repetições semânticas…" });
 
           // ---- 9) Anti-prompt 1º retry ----
+          if (dedupTimeBudgetExceeded()) {
+            console.warn(`[semantic-dedup] time-budget-exceeded antes do 1º retry week=${wkIdxForPartial} — aceitando posts atuais`);
+            dedupMeta._dedup_partial_due_to_timeout = true;
+          } else {
           const violatingDays = Array.from(violatingDaysSet);
           dedupMeta.days_regenerated = violatingDays;
           const dayTargetsByDay = new Map(dayTargets.map((t) => [t.day, t]));
