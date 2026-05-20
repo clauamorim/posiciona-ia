@@ -13,7 +13,7 @@ import { toast } from "@/hooks/use-toast";
 import {
   Loader2, Sparkles, ChevronDown, Calendar, Video, Image, Smartphone,
   ImageIcon, PenTool, FileText, RefreshCw, Copy, Download, AlertTriangle, Wand2,
-  Trash2, X, CheckSquare
+  Trash2, X, CheckSquare, MoreVertical
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
@@ -22,6 +22,10 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { parseReportContent, normalizeReportContent } from "@/lib/reportParser";
 import { cleanText } from "@/lib/textCleanup";
 import { isOutdated, isWeekOutdated, EDITORIAL_GENERATOR_VERSION } from "@/lib/generatorVersion";
@@ -29,6 +33,13 @@ import { normalizeWeekToV6, type WeekV6, type DayV6, type FeedPostV6 } from "@/l
 import StyleSelectionModal from "@/components/post-editor/StyleSelectionModal";
 import { MarketTrendsSection } from "@/components/editorial/MarketTrendsSection";
 import type { PostStyle } from "@/lib/postAutoLayout";
+
+// Feature flag: exibir badges/warnings de deduplicação ao usuário.
+// Mantido false porque o produto se posiciona como "conteúdo único" e o
+// flag _dedup_failed tem falsos positivos conhecidos. A detecção/retry
+// continuam rodando no backend — apenas a UI fica oculta.
+const EDITORIAL_SHOW_DEDUP_WARNINGS = false;
+
 
 // Escape HTML to prevent injection in raw innerHTML strings used for PDF
 function esc(s: string): string {
