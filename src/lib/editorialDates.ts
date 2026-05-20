@@ -26,6 +26,60 @@ function spYMD(d: Date): { y: number; m: number; d: number } | null {
   } catch { return null; }
 }
 
+/** Hoje (UTC noon) na timezone São Paulo. */
+export function todaySP(): Date | null {
+  const ymd = spYMD(new Date());
+  if (!ymd) return null;
+  return new Date(Date.UTC(ymd.y, ymd.m - 1, ymd.d, 12));
+}
+
+function diffDaysUTC(a: Date, b: Date): number {
+  return Math.round((b.getTime() - a.getTime()) / 86400000);
+}
+
+/**
+ * Identifica a semana "de hoje" em uma lista. Preferência:
+ *  1) semana que contém a data atual (start <= hoje < start+7),
+ *  2) semana futura mais próxima,
+ *  3) semana passada mais recente,
+ *  4) última da lista (fallback).
+ *
+ * Retorna o índice na lista e o dayNumber (1..7) se hoje cair na semana.
+ */
+export function pickTodayWeek(
+  weeks: Array<{ weekStartDate?: string | null; weekIndex: number }>,
+  reportCreatedAt?: string | null,
+): { listIndex: number; dayNumber: number | null } | null {
+  if (!weeks.length) return null;
+  const today = todaySP();
+  if (!today) return { listIndex: weeks.length - 1, dayNumber: null };
+
+  const rows = weeks.map((w, i) => {
+    const start = resolveWeekStart({
+      weekStartDate: w.weekStartDate ?? null,
+      reportCreatedAt: reportCreatedAt ?? null,
+      weekIndex: w.weekIndex,
+    });
+    const diff = start ? diffDaysUTC(start, today) : null;
+    return { i, diff };
+  });
+
+  const current = rows.find((r) => r.diff !== null && r.diff >= 0 && r.diff < 7);
+  if (current) return { listIndex: current.i, dayNumber: (current.diff as number) + 1 };
+
+  const future = rows
+    .filter((r) => r.diff !== null && (r.diff as number) < 0)
+    .sort((a, b) => (b.diff as number) - (a.diff as number))[0];
+  if (future) return { listIndex: future.i, dayNumber: null };
+
+  const past = rows
+    .filter((r) => r.diff !== null && (r.diff as number) >= 7)
+    .sort((a, b) => (a.diff as number) - (b.diff as number))[0];
+  if (past) return { listIndex: past.i, dayNumber: null };
+
+  return { listIndex: weeks.length - 1, dayNumber: null };
+}
+
 /** Segunda-feira (UTC noon) da semana que contém a data {y,m,d}. */
 function mondayUTC(y: number, m: number, d: number): Date {
   const dt = new Date(Date.UTC(y, m - 1, d, 12));

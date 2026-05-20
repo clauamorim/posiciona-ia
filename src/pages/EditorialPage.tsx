@@ -13,7 +13,7 @@ import { toast } from "@/hooks/use-toast";
 import {
   Loader2, Sparkles, ChevronDown, Calendar, Video, Image, Smartphone,
   ImageIcon, PenTool, FileText, RefreshCw, Copy, Download, AlertTriangle, Wand2,
-  Trash2, X, CheckSquare, MoreVertical, Check, CircleDashed, Ban
+  Trash2, X, CheckSquare, MoreVertical, Check, CircleDashed, Ban, CalendarCheck
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
@@ -30,7 +30,7 @@ import { parseReportContent, normalizeReportContent } from "@/lib/reportParser";
 import { cleanText } from "@/lib/textCleanup";
 import { isOutdated, isWeekOutdated, EDITORIAL_GENERATOR_VERSION } from "@/lib/generatorVersion";
 import { normalizeWeekToV6, type WeekV6, type DayV6, type FeedPostV6, type DayStatus } from "@/lib/editorialShape";
-import { formatDayLabel } from "@/lib/editorialDates";
+import { formatDayLabel, pickTodayWeek } from "@/lib/editorialDates";
 import StyleSelectionModal from "@/components/post-editor/StyleSelectionModal";
 import { MarketTrendsSection } from "@/components/editorial/MarketTrendsSection";
 import type { PostStyle } from "@/lib/postAutoLayout";
@@ -272,21 +272,88 @@ const EditorialPage = () => {
     };
   }, []);
 
-  // Aba ativa do Tabs de semanas (controlado para abrir sempre na mais recente)
+  // Aba ativa do Tabs de semanas (controlado para abrir sempre na semana de hoje)
   const [activeWeek, setActiveWeek] = useState<string>("week-0");
   const tabInitializedRef = useRef(false);
   const lastWeekCountRef = useRef(0);
+
+  // Refs por card de dia, para scroll suave até "hoje"
+  const dayCardRefs = useRef<Map<string, HTMLDivElement | null>>(new Map());
+  const pendingScrollRef = useRef<string | null>(null);
+
+  // Resolve, dadas as semanas atuais, qual é a "semana de hoje" e o dia (1..7).
+  const todayInfo = (() => {
+    if (allWeeks.length === 0) return null;
+    return pickTodayWeek(
+      allWeeks.map((w: any, i) => {
+        const k = w?._week_index ?? w?.week_index;
+        return {
+          weekStartDate: w?.start_date ?? null,
+          weekIndex: typeof k === "number" ? k : i,
+        };
+      }),
+      (report as any)?.created_at ?? null,
+    );
+  })();
+  const todayListIndex = todayInfo?.listIndex ?? null;
+  const todayDayNumber = todayInfo?.dayNumber ?? null;
+  const todayIsInActiveWeek =
+    todayListIndex !== null && activeWeek === `week-${todayListIndex}`;
+
+  const goToToday = () => {
+    if (todayListIndex === null) return;
+    const target = `week-${todayListIndex}`;
+    if (todayDayNumber !== null) {
+      pendingScrollRef.current = `${todayListIndex}-${todayDayNumber - 1}`;
+    }
+    if (activeWeek !== target) setActiveWeek(target);
+    else triggerScrollToToday();
+  };
+
+  const triggerScrollToToday = () => {
+    if (todayListIndex === null || todayDayNumber === null) return;
+    const key = `${todayListIndex}-${todayDayNumber - 1}`;
+    const el = dayCardRefs.current.get(key);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+    } else {
+      pendingScrollRef.current = key;
+    }
+  };
+
   useEffect(() => {
     const count = allWeeks.length;
     if (count === 0) return;
-    // 1ª vez que conhecemos as semanas → abrir na última gerada.
-    // Quando uma nova semana é adicionada (count cresce) → saltar para ela.
-    if (!tabInitializedRef.current || count > lastWeekCountRef.current) {
-      setActiveWeek(`week-${count - 1}`);
+    // 1ª vez que conhecemos as semanas → abrir na semana de hoje (ou fallback).
+    if (!tabInitializedRef.current) {
+      const target = todayListIndex !== null ? todayListIndex : count - 1;
+      setActiveWeek(`week-${target}`);
       tabInitializedRef.current = true;
+      if (todayDayNumber !== null && todayListIndex !== null) {
+        pendingScrollRef.current = `${todayListIndex}-${todayDayNumber - 1}`;
+      }
+    } else if (count > lastWeekCountRef.current) {
+      // Nova semana adicionada → saltar pra ela (comportamento anterior).
+      setActiveWeek(`week-${count - 1}`);
     }
     lastWeekCountRef.current = count;
-  }, [allWeeks.length]);
+  }, [allWeeks.length, todayListIndex, todayDayNumber]);
+
+  // Após renderizar, se houver scroll pendente para o dia de hoje, executa.
+  useEffect(() => {
+    const key = pendingScrollRef.current;
+    if (!key) return;
+    // Pequeno timeout para garantir que o TabsContent montou.
+    const t = window.setTimeout(() => {
+      const el = dayCardRefs.current.get(key);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        pendingScrollRef.current = null;
+      }
+    }, 120);
+    return () => window.clearTimeout(t);
+  }, [activeWeek]);
+
 
   const handleGenerateWeek = async () => {
     if (!user || weeklyCycles < 1) {
@@ -1051,8 +1118,20 @@ const EditorialPage = () => {
                 Baixar PDF
               </Button>
             )}
+            {!selectionMode && todayListIndex !== null && !todayIsInActiveWeek && (
+              <Button
+                onClick={goToToday}
+                variant="default"
+                size="sm"
+                className="gap-2"
+                aria-label="Ir para hoje"
+              >
+                <CalendarCheck className="h-4 w-4" /> Hoje
+              </Button>
+            )}
           </div>
         </div>
+
 
 
         {selectionMode && (
@@ -1094,11 +1173,20 @@ const EditorialPage = () => {
         <Tabs value={activeWeek} onValueChange={setActiveWeek} className="w-full">
           {allWeeks.length > 1 && (
             <TabsList className="mb-4 flex-wrap h-auto bg-muted/50">
-              {allWeeks.map((w, i) => (
-                <TabsTrigger key={i} value={`week-${i}`} className="text-xs">
-                  Semana {getWeekKey(w, i) + 1}
-                </TabsTrigger>
-              ))}
+              {allWeeks.map((w, i) => {
+                const isTodayWeek = todayListIndex === i;
+                return (
+                  <TabsTrigger key={i} value={`week-${i}`} className="text-xs gap-1.5">
+                    <span>Semana {getWeekKey(w, i) + 1}</span>
+                    {isTodayWeek && (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-medium text-primary">
+                        <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden />
+                        atual
+                      </span>
+                    )}
+                  </TabsTrigger>
+                );
+              })}
             </TabsList>
           )}
 
@@ -1238,8 +1326,18 @@ const EditorialPage = () => {
                   const isPosted = dayStatus === "posted";
                   const isSkipped = dayStatus === "skipped";
                   const cardOpacity = isPosted ? "opacity-60" : isSkipped ? "opacity-40" : "";
+                  const isTodayCard = todayListIndex === wi && todayDayNumber === dayNumber;
+                  const todayBorder = isTodayCard ? "border-primary/40 ring-1 ring-primary/20" : "";
                   return (
-                    <Card key={di} className={`flex flex-col break-inside-avoid border border-border ${isStoriesOnly && (isWeekend || isFriday) ? "bg-card/30" : ""} ${cardOpacity}`}>
+                    <Card
+                      key={di}
+                      ref={(el) => {
+                        const k = `${wi}-${di}`;
+                        if (el) dayCardRefs.current.set(k, el as unknown as HTMLDivElement);
+                        else dayCardRefs.current.delete(k);
+                      }}
+                      className={`flex flex-col break-inside-avoid border border-border ${todayBorder} ${isStoriesOnly && (isWeekend || isFriday) ? "bg-card/30" : ""} ${cardOpacity}`}
+                    >
                       <CardContent className="py-4 flex-1 space-y-3">
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex flex-col gap-0.5 min-w-0">
