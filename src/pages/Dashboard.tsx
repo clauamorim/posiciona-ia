@@ -226,10 +226,6 @@ const Dashboard = () => {
     if (!dateStr) return "—";
     return new Date(dateStr).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
   };
-  const formatRenewDate = (dateStr: string | null) => {
-    if (!dateStr) return null;
-    return new Date(dateStr).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
-  };
 
   const contextualSuggestion = (() => {
     if (!hasActivePlan || !balances || !subscription) return null;
