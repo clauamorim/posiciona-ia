@@ -13,8 +13,10 @@ import { toast } from "@/hooks/use-toast";
 import {
   Loader2, Sparkles, ChevronDown, Calendar, Video, Image, Smartphone,
   ImageIcon, PenTool, FileText, RefreshCw, Copy, Download, AlertTriangle, Wand2,
-  Trash2, X, CheckSquare, MoreVertical, Check, CircleDashed, Ban, CalendarCheck
+  Trash2, X, CheckSquare, MoreVertical, Check, CircleDashed, Ban, CalendarCheck,
+  Filter, Search,
 } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -135,6 +137,13 @@ const EditorialPage = () => {
   const [selectedWeeks, setSelectedWeeks] = useState<Set<number>>(new Set());
   const contentRef = useRef<HTMLDivElement>(null);
   const pollingRef = useRef<{ stop: boolean }>({ stop: false });
+
+  // Filtros + busca (somente client-side, não persistem entre sessões)
+  const [filterBarOpen, setFilterBarOpen] = useState(false);
+  const [filterQuery, setFilterQuery] = useState("");
+  const [filterFormats, setFilterFormats] = useState<Set<string>>(new Set());
+  const [filterStatuses, setFilterStatuses] = useState<Set<DayStatus>>(new Set());
+  const [filterScope, setFilterScope] = useState<"current" | "all">("current");
 
   // Modal de seleção de estilo antes de abrir o editor
   const [styleModal, setStyleModal] = useState<{
@@ -1077,6 +1086,357 @@ const EditorialPage = () => {
     );
   }
 
+  // ============================================================
+  // Filtros + busca (client-side, sem queries)
+  // ============================================================
+  const normalizedQuery = filterQuery.trim().toLowerCase();
+  const hasQuery = normalizedQuery.length > 0;
+  const hasFormatFilter = filterFormats.size > 0;
+  const hasStatusFilter = filterStatuses.size > 0;
+  const hasActiveFilters = hasQuery || hasFormatFilter || hasStatusFilter;
+
+  const matchesDay = (day: DayV6): boolean => {
+    // Status
+    if (hasStatusFilter) {
+      const s: DayStatus = day._status || "pending";
+      if (!filterStatuses.has(s)) return false;
+    }
+    // Formato
+    if (hasFormatFilter) {
+      const feedFmt = day.feed?.format;
+      const hasStoryContent = !!(day.story?.theme || (day.story?.frames?.length ?? 0) > 0);
+      const matchesFmt =
+        (feedFmt && filterFormats.has(feedFmt)) ||
+        (filterFormats.has("stories") && hasStoryContent);
+      if (!matchesFmt) return false;
+    }
+    // Texto
+    if (hasQuery) {
+      const parts: string[] = [];
+      if (day.feed) {
+        parts.push(day.feed.theme || "", day.feed.caption || "", day.feed.cta || "", day.feed.script || "");
+        if (Array.isArray(day.feed.card_copy)) parts.push(...day.feed.card_copy);
+      }
+      if (day.story) {
+        parts.push(day.story.theme || "");
+        if (Array.isArray(day.story.frames)) parts.push(...day.story.frames);
+      }
+      const blob = parts.join(" \n ").toLowerCase();
+      if (!blob.includes(normalizedQuery)) return false;
+    }
+    return true;
+  };
+
+  const totalDays = allWeeks.reduce((acc, w) => acc + w.days.length, 0);
+  const matchingAllTotal = hasActiveFilters
+    ? allWeeks.reduce((acc, w) => acc + w.days.filter(matchesDay).length, 0)
+    : totalDays;
+  const activeWeekIndex = Number(activeWeek.replace("week-", "")) || 0;
+  const currentWeekDays = allWeeks[activeWeekIndex]?.days ?? [];
+  const matchingCurrent = hasActiveFilters
+    ? currentWeekDays.filter(matchesDay).length
+    : currentWeekDays.length;
+  const showAllList = filterScope === "all" && hasActiveFilters;
+
+  const toggleSetValue = <T,>(set: Set<T>, value: T): Set<T> => {
+    const next = new Set(set);
+    if (next.has(value)) next.delete(value);
+    else next.add(value);
+    return next;
+  };
+
+  const clearAllFilters = () => {
+    setFilterQuery("");
+    setFilterFormats(new Set());
+    setFilterStatuses(new Set());
+  };
+
+  // ============================================================
+  // Card de um dia (extraído para reuso entre Tabs e lista global)
+  // ============================================================
+  const renderDayCard = (
+    week: WeekV6,
+    wi: number,
+    day: DayV6,
+    di: number,
+    weekKey: number,
+    showContext: boolean,
+  ) => {
+    const feed = day.feed;
+    const story = day.story;
+    const fmt = FORMAT_CONFIG[(feed?.format || "post").toLowerCase()] || FORMAT_CONFIG.post;
+    const regenKey = `${wi}-${di}`;
+    const dayNumber = day.day || di + 1;
+    const isWeekend = dayNumber >= 6;
+    const isFriday = dayNumber === 5;
+    const isStoriesOnly = !feed;
+    const storiesSubLabel = isWeekend
+      ? "Story leve · pessoal"
+      : isFriday
+        ? "Story · gancho de fim de semana"
+        : null;
+    const dateLabel = formatDayLabel({
+      weekStartDate: (week as any).start_date ?? null,
+      reportCreatedAt: (report as any)?.created_at ?? null,
+      weekIndex: weekKey,
+      dayNumber,
+    });
+    const dayStatus: DayStatus = day._status || "pending";
+    const isPosted = dayStatus === "posted";
+    const isSkipped = dayStatus === "skipped";
+    const cardOpacity = isPosted ? "opacity-60" : isSkipped ? "opacity-40" : "";
+    const isTodayCard = todayListIndex === wi && todayDayNumber === dayNumber;
+    const todayBorder = isTodayCard ? "border-primary/40 ring-1 ring-primary/20" : "";
+    return (
+      <Card
+        key={`${wi}-${di}`}
+        ref={(el) => {
+          const k = `${wi}-${di}`;
+          if (el) dayCardRefs.current.set(k, el as unknown as HTMLDivElement);
+          else dayCardRefs.current.delete(k);
+        }}
+        className={`flex flex-col break-inside-avoid border border-border ${todayBorder} ${isStoriesOnly && (isWeekend || isFriday) ? "bg-card/30" : ""} ${cardOpacity}`}
+      >
+        <CardContent className="py-4 flex-1 space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-col gap-0.5 min-w-0">
+              {showContext && (
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-primary/80">
+                  Semana {weekKey + 1}
+                </span>
+              )}
+              <div className="flex items-baseline gap-2 flex-wrap">
+                <span className={`text-[10px] font-semibold uppercase tracking-wider text-muted-foreground ${isPosted || isSkipped ? "line-through" : ""}`}>Dia {dayNumber}</span>
+                {dateLabel && (
+                  <span className="text-[11px] font-medium text-foreground/70">{dateLabel}</span>
+                )}
+                {storiesSubLabel && (
+                  <span className="text-[10px] italic text-muted-foreground/80">{storiesSubLabel}</span>
+                )}
+              </div>
+            </div>
+            {!isReadOnly && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    data-hide-pdf
+                    className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium transition-colors ${
+                      isPosted
+                        ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
+                        : isSkipped
+                          ? "border-muted bg-muted/50 text-muted-foreground"
+                          : "border-border bg-background text-muted-foreground hover:text-foreground"
+                    }`}
+                    aria-label="Marcar status do dia"
+                  >
+                    {isPosted ? <Check className="h-3 w-3" /> : isSkipped ? <Ban className="h-3 w-3" /> : <CircleDashed className="h-3 w-3" />}
+                    {isPosted ? "Postado" : isSkipped ? "Pulado" : "Pendente"}
+                    <ChevronDown className="h-3 w-3 opacity-60" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="text-xs">
+                  <DropdownMenuItem onClick={() => handleSetDayStatus(wi, di, "pending")}>
+                    <CircleDashed className="h-3.5 w-3.5 mr-2" /> Pendente
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleSetDayStatus(wi, di, "posted")}>
+                    <Check className="h-3.5 w-3.5 mr-2 text-emerald-600" /> Postado
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleSetDayStatus(wi, di, "skipped")}>
+                    <Ban className="h-3.5 w-3.5 mr-2 text-muted-foreground" /> Pulado
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
+
+          <div className={`grid gap-3 ${isStoriesOnly ? "" : "md:grid-cols-2"}`}>
+            {!isStoriesOnly && (
+              <div className={`rounded-md border p-3 space-y-2 ${feed ? `border-l-[3px] ${fmt.border}` : "border-dashed border-muted"}`}>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Feed</span>
+                  {feed ? (
+                    <div className="flex items-center gap-1.5">
+                      {EDITORIAL_SHOW_DEDUP_WARNINGS && (feed as any)._dedup_failed === true && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="inline-flex items-center rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100 cursor-help">
+                              Repetição
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent>Conteúdo com alta similaridade vs semanas anteriores</TooltipContent>
+                        </Tooltip>
+                      )}
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Badge variant="outline" className={`text-[10px] gap-1 cursor-help ${fmt.color}`}>
+                            {fmt.icon} {fmt.label}
+                          </Badge>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          {fmt.label === "Carrossel" && "Post em formato carrossel (múltiplos slides)"}
+                          {fmt.label === "Reels" && "Vídeo curto vertical para Reels"}
+                          {fmt.label === "Post" && "Post estático único no feed"}
+                          {fmt.label === "Stories" && "Conteúdo efêmero de 24h"}
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                  ) : (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="text-[10px] text-muted-foreground italic cursor-help">Sem post</span>
+                      </TooltipTrigger>
+                      <TooltipContent>Este dia não tem post no feed — apenas stories</TooltipContent>
+                    </Tooltip>
+                  )}
+                </div>
+                {feed ? (
+                  <>
+                    <h3 className="text-base lg:text-lg font-semibold leading-tight">{cleanText(feed.theme || "")}</h3>
+                    {feed.caption && (
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Legenda</p>
+                        <p className="text-sm lg:text-[15px] text-foreground/80 leading-relaxed line-clamp-3">{cleanText(feed.caption)}</p>
+                      </div>
+                    )}
+                    {feed.cta && (
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-0.5">CTA</p>
+                        <p className="text-sm lg:text-[15px] font-medium text-primary">{cleanText(feed.cta)}</p>
+                      </div>
+                    )}
+                    {feed.card_copy && feed.card_copy.length > 0 && (
+                      <Collapsible>
+                        <CollapsibleTrigger className="flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+                          <ChevronDown className="h-3 w-3" /> Ver slides
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                          <div className="mt-2 space-y-1.5 p-3 rounded-lg bg-muted/30 border">
+                            {feed.card_copy.map((copy: string, idx: number) => (
+                              <p key={idx} className="text-sm lg:text-[15px] text-foreground/80 leading-relaxed">{cleanText(copy)}</p>
+                            ))}
+                          </div>
+                        </CollapsibleContent>
+                      </Collapsible>
+                    )}
+                    {feed.script && feed.format === "reels" && (
+                      <Collapsible>
+                        <CollapsibleTrigger className="flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+                          <ChevronDown className="h-3 w-3" /> Ver roteiro
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                          <div className="mt-2 p-3 rounded-lg bg-muted/30 border text-sm lg:text-[15px] leading-relaxed whitespace-pre-wrap">
+                            {feed.script}
+                          </div>
+                        </CollapsibleContent>
+                      </Collapsible>
+                    )}
+                    <div className="flex flex-wrap items-center gap-1.5 pt-1" data-hide-pdf>
+                      {(feed.format === "carrossel" || feed.format === "post") && (
+                        <Button size="sm" className="h-8 text-[11px] gap-1 px-3" onClick={() => handleOpenEditor(wi, di, feed, false)}>
+                          <PenTool className="h-3 w-3" /> Criar
+                        </Button>
+                      )}
+                      {feed.format === "reels" && (
+                        <Button size="sm" className="h-8 text-[11px] gap-1 px-3" onClick={() => handleOpenEditor(wi, di, feed, true)}>
+                          <Image className="h-3 w-3" /> Criar capa
+                        </Button>
+                      )}
+                      {feed.caption && (
+                        <Button variant="outline" size="sm" className="h-8 text-[11px] gap-1 px-3" onClick={() => copyCaption(feed.caption)}>
+                          <Copy className="h-3 w-3" /> Copiar
+                        </Button>
+                      )}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Mais ações">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-56">
+                          <DropdownMenuItem
+                            onClick={() => handleRegenerateItem(wi, di, "feed")}
+                            disabled={regeneratingPost === `${regenKey}-feed` || regenerationCredits < 1}
+                          >
+                            {regeneratingPost === `${regenKey}-feed` ? (
+                              <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
+                            ) : (
+                              <RefreshCw className="h-3.5 w-3.5 mr-2" />
+                            )}
+                            Regenerar post (e story do dia)
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-xs text-muted-foreground italic">Este dia não tem post no feed — só story.</p>
+                )}
+              </div>
+            )}
+
+            <div className="rounded-md border border-l-[3px] border-l-amber-500 p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Stories</span>
+                <div className="flex items-center gap-1">
+                  {story.mirrors_feed && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200 cursor-help">
+                          Mesmo tema do feed
+                        </Badge>
+                      </TooltipTrigger>
+                      <TooltipContent>Story que aprofunda o tema do post do feed deste dia</TooltipContent>
+                    </Tooltip>
+                  )}
+                  {story.is_personal && !story.mirrors_feed && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Badge variant="outline" className="text-[10px] bg-pink-50 text-pink-700 border-pink-200 cursor-help">
+                          Pessoal
+                        </Badge>
+                      </TooltipTrigger>
+                      <TooltipContent>Story pessoal — sem post de feed pareado neste dia</TooltipContent>
+                    </Tooltip>
+                  )}
+                </div>
+              </div>
+              {story.theme || story.frames?.length ? (
+                <>
+                  <h4 className="text-base lg:text-lg font-semibold leading-tight">{cleanText(story.theme || "")}</h4>
+                  {story.frames?.length > 0 && (
+                    <div className="space-y-1.5">
+                      {story.frames.map((f: string, idx: number) => (
+                        <div key={idx} className="flex gap-2 items-start">
+                          <span className="text-[10px] font-semibold text-amber-600 mt-0.5">{idx + 1}.</span>
+                          <p className="text-sm lg:text-[15px] text-foreground/80 leading-relaxed">{cleanText(f)}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <p className="text-xs text-muted-foreground italic">Story ainda não gerado.</p>
+              )}
+              {!feed && (
+                <div className="flex flex-wrap gap-1.5 pt-1" data-hide-pdf>
+                  <Button
+                    variant="ghost" size="sm" className="h-7 text-[11px] gap-1 px-2"
+                    onClick={() => handleRegenerateItem(wi, di, "story")}
+                    disabled={regeneratingPost === `${regenKey}-story` || regenerationCredits < 1}
+                  >
+                    {regeneratingPost === `${regenKey}-story` ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                    Regenerar story
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6" ref={contentRef}>
@@ -1129,8 +1489,27 @@ const EditorialPage = () => {
                 <CalendarCheck className="h-4 w-4" /> Hoje
               </Button>
             )}
+            {!selectionMode && (
+              <Button
+                onClick={() => setFilterBarOpen((v) => !v)}
+                variant={hasActiveFilters ? "default" : "outline"}
+                size="sm"
+                className="gap-2"
+                aria-label="Filtrar posts"
+                aria-expanded={filterBarOpen}
+              >
+                <Filter className="h-4 w-4" />
+                Filtrar
+                {hasActiveFilters && (
+                  <span className="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary-foreground/20 px-1.5 text-[10px] font-semibold">
+                    {(hasQuery ? 1 : 0) + (hasFormatFilter ? 1 : 0) + (hasStatusFilter ? 1 : 0)}
+                  </span>
+                )}
+              </Button>
+            )}
           </div>
         </div>
+
 
 
 
@@ -1170,6 +1549,137 @@ const EditorialPage = () => {
           </Alert>
         )}
 
+        {filterBarOpen && (
+          <div
+            className="rounded-md border border-border bg-card/40 p-3 space-y-3"
+            data-hide-pdf
+          >
+            <div className="flex items-center gap-2">
+              <Search className="h-4 w-4 text-muted-foreground shrink-0" />
+              <Input
+                value={filterQuery}
+                onChange={(e) => setFilterQuery(e.target.value)}
+                placeholder="Buscar por tema, legenda, CTA, frame..."
+                className="h-9"
+              />
+              {hasActiveFilters && (
+                <Button variant="ghost" size="sm" onClick={clearAllFilters} className="gap-1.5">
+                  <X className="h-3.5 w-3.5" /> Limpar
+                </Button>
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mr-1">Formato</span>
+              {[
+                { key: "post", label: "Post" },
+                { key: "carrossel", label: "Carrossel" },
+                { key: "reels", label: "Reels" },
+                { key: "stories", label: "Stories" },
+              ].map((f) => {
+                const active = filterFormats.has(f.key);
+                return (
+                  <button
+                    key={f.key}
+                    type="button"
+                    onClick={() => setFilterFormats((s) => toggleSetValue(s, f.key))}
+                    className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                      active
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-border bg-background text-muted-foreground hover:text-foreground"
+                    }`}
+                    aria-pressed={active}
+                  >
+                    {f.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mr-1">Status</span>
+              {[
+                { key: "pending" as DayStatus, label: "Pendente" },
+                { key: "posted" as DayStatus, label: "Postado" },
+                { key: "skipped" as DayStatus, label: "Pulado" },
+              ].map((s) => {
+                const active = filterStatuses.has(s.key);
+                return (
+                  <button
+                    key={s.key}
+                    type="button"
+                    onClick={() => setFilterStatuses((cur) => toggleSetValue(cur, s.key))}
+                    className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                      active
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-border bg-background text-muted-foreground hover:text-foreground"
+                    }`}
+                    aria-pressed={active}
+                  >
+                    {s.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-border/60">
+              <div className="inline-flex rounded-md border border-border bg-background p-0.5 text-xs">
+                {[
+                  { key: "current" as const, label: "Esta semana" },
+                  { key: "all" as const, label: "Todas as semanas" },
+                ].map((opt) => {
+                  const active = filterScope === opt.key;
+                  return (
+                    <button
+                      key={opt.key}
+                      type="button"
+                      onClick={() => setFilterScope(opt.key)}
+                      className={`rounded px-2.5 py-1 font-medium transition-colors ${
+                        active ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                      }`}
+                      aria-pressed={active}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
+              {hasActiveFilters && (
+                <p className="text-xs text-muted-foreground">
+                  {filterScope === "all"
+                    ? `${matchingAllTotal} post${matchingAllTotal !== 1 ? "s" : ""} encontrado${matchingAllTotal !== 1 ? "s" : ""} de ${totalDays}`
+                    : `${matchingCurrent} de ${currentWeekDays.length} nesta semana`}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {showAllList ? (
+          <div className="space-y-4">
+            <h2 className="text-sm font-semibold tracking-tight">
+              Resultados em todas as semanas
+              <span className="ml-2 text-xs font-normal text-muted-foreground">
+                · {matchingAllTotal} de {totalDays}
+              </span>
+            </h2>
+            {matchingAllTotal === 0 ? (
+              <p className="text-sm text-muted-foreground italic py-6 text-center">
+                Nenhum post corresponde aos filtros atuais.
+              </p>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-1 lg:grid-cols-2">
+                {allWeeks.flatMap((w, wi) => {
+                  const weekKey = getWeekKey(w, wi);
+                  return w.days
+                    .map((day, di) => ({ day, di }))
+                    .filter(({ day }) => matchesDay(day))
+                    .map(({ day, di }) => renderDayCard(w, wi, day, di, weekKey, true));
+                })}
+              </div>
+            )}
+          </div>
+        ) : (
         <Tabs value={activeWeek} onValueChange={setActiveWeek} className="w-full">
           {allWeeks.length > 1 && (
             <TabsList className="mb-4 flex-wrap h-auto bg-muted/50">
@@ -1301,290 +1811,19 @@ const EditorialPage = () => {
                 />
               )}
               <div className="grid gap-3 sm:grid-cols-1 lg:grid-cols-2">
-                {week.days.map((day: DayV6, di: number) => {
-                  const feed = day.feed;
-                  const story = day.story;
-                  const fmt = FORMAT_CONFIG[(feed?.format || "post").toLowerCase()] || FORMAT_CONFIG.post;
-                  const regenKey = `${wi}-${di}`;
-                  const dayOutdated = isOutdated({ generator_version: day.generator_version });
-                  const dayNumber = day.day || di + 1;
-                  const isWeekend = dayNumber >= 6;
-                  const isFriday = dayNumber === 5;
-                  const isStoriesOnly = !feed;
-                  const storiesSubLabel = isWeekend
-                    ? "Story leve · pessoal"
-                    : isFriday
-                      ? "Story · gancho de fim de semana"
-                      : null;
-                  const dateLabel = formatDayLabel({
-                    weekStartDate: (week as any).start_date ?? null,
-                    reportCreatedAt: (report as any)?.created_at ?? null,
-                    weekIndex: weekKey,
-                    dayNumber,
-                  });
-                  const dayStatus: DayStatus = day._status || "pending";
-                  const isPosted = dayStatus === "posted";
-                  const isSkipped = dayStatus === "skipped";
-                  const cardOpacity = isPosted ? "opacity-60" : isSkipped ? "opacity-40" : "";
-                  const isTodayCard = todayListIndex === wi && todayDayNumber === dayNumber;
-                  const todayBorder = isTodayCard ? "border-primary/40 ring-1 ring-primary/20" : "";
-                  return (
-                    <Card
-                      key={di}
-                      ref={(el) => {
-                        const k = `${wi}-${di}`;
-                        if (el) dayCardRefs.current.set(k, el as unknown as HTMLDivElement);
-                        else dayCardRefs.current.delete(k);
-                      }}
-                      className={`flex flex-col break-inside-avoid border border-border ${todayBorder} ${isStoriesOnly && (isWeekend || isFriday) ? "bg-card/30" : ""} ${cardOpacity}`}
-                    >
-                      <CardContent className="py-4 flex-1 space-y-3">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex flex-col gap-0.5 min-w-0">
-                            <div className="flex items-baseline gap-2 flex-wrap">
-                              <span className={`text-[10px] font-semibold uppercase tracking-wider text-muted-foreground ${isPosted || isSkipped ? "line-through" : ""}`}>Dia {dayNumber}</span>
-                              {dateLabel && (
-                                <span className="text-[11px] font-medium text-foreground/70">{dateLabel}</span>
-                              )}
-                              {storiesSubLabel && (
-                                <span className="text-[10px] italic text-muted-foreground/80">{storiesSubLabel}</span>
-                              )}
-                            </div>
-                          </div>
-                          {!isReadOnly && (
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <button
-                                  type="button"
-                                  data-hide-pdf
-                                  className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium transition-colors ${
-                                    isPosted
-                                      ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
-                                      : isSkipped
-                                        ? "border-muted bg-muted/50 text-muted-foreground"
-                                        : "border-border bg-background text-muted-foreground hover:text-foreground"
-                                  }`}
-                                  aria-label="Marcar status do dia"
-                                >
-                                  {isPosted ? <Check className="h-3 w-3" /> : isSkipped ? <Ban className="h-3 w-3" /> : <CircleDashed className="h-3 w-3" />}
-                                  {isPosted ? "Postado" : isSkipped ? "Pulado" : "Pendente"}
-                                  <ChevronDown className="h-3 w-3 opacity-60" />
-                                </button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="text-xs">
-                                <DropdownMenuItem onClick={() => handleSetDayStatus(wi, di, "pending")}>
-                                  <CircleDashed className="h-3.5 w-3.5 mr-2" /> Pendente
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleSetDayStatus(wi, di, "posted")}>
-                                  <Check className="h-3.5 w-3.5 mr-2 text-emerald-600" /> Postado
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleSetDayStatus(wi, di, "skipped")}>
-                                  <Ban className="h-3.5 w-3.5 mr-2 text-muted-foreground" /> Pulado
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          )}
-                        </div>
-
-                        <div className={`grid gap-3 ${isStoriesOnly ? "" : "md:grid-cols-2"}`}>
-                          {/* ===== Coluna FEED (omitida em dias só de stories) ===== */}
-                          {!isStoriesOnly && (
-                          <div className={`rounded-md border p-3 space-y-2 ${feed ? `border-l-[3px] ${fmt.border}` : "border-dashed border-muted"}`}>
-
-                            <div className="flex items-center justify-between">
-                              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Feed</span>
-                              {feed ? (
-                                <div className="flex items-center gap-1.5">
-                                  {EDITORIAL_SHOW_DEDUP_WARNINGS && (feed as any)._dedup_failed === true && (
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <span className="inline-flex items-center rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100 cursor-help">
-                                          Repetição
-                                        </span>
-                                      </TooltipTrigger>
-                                      <TooltipContent>Conteúdo com alta similaridade vs semanas anteriores</TooltipContent>
-                                    </Tooltip>
-                                  )}
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Badge variant="outline" className={`text-[10px] gap-1 cursor-help ${fmt.color}`}>
-                                        {fmt.icon} {fmt.label}
-                                      </Badge>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                      {fmt.label === "Carrossel" && "Post em formato carrossel (múltiplos slides)"}
-                                      {fmt.label === "Reels" && "Vídeo curto vertical para Reels"}
-                                      {fmt.label === "Post" && "Post estático único no feed"}
-                                      {fmt.label === "Stories" && "Conteúdo efêmero de 24h"}
-                                    </TooltipContent>
-                                  </Tooltip>
-                                </div>
-                              ) : (
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <span className="text-[10px] text-muted-foreground italic cursor-help">Sem post</span>
-                                  </TooltipTrigger>
-                                  <TooltipContent>Este dia não tem post no feed — apenas stories</TooltipContent>
-                                </Tooltip>
-                              )}
-
-                            </div>
-                            {feed ? (
-                              <>
-                                <h3 className="text-base lg:text-lg font-semibold leading-tight">{cleanText(feed.theme || "")}</h3>
-                                {feed.caption && (
-                                  <div>
-                                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Legenda</p>
-                                    <p className="text-sm lg:text-[15px] text-foreground/80 leading-relaxed line-clamp-3">{cleanText(feed.caption)}</p>
-                                  </div>
-                                )}
-                                {feed.cta && (
-                                  <div>
-                                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-0.5">CTA</p>
-                                    <p className="text-sm lg:text-[15px] font-medium text-primary">{cleanText(feed.cta)}</p>
-                                  </div>
-                                )}
-                                {feed.card_copy && feed.card_copy.length > 0 && (
-                                  <Collapsible>
-                                    <CollapsibleTrigger className="flex items-center gap-1 text-xs font-medium text-primary hover:underline">
-                                      <ChevronDown className="h-3 w-3" /> Ver slides
-                                    </CollapsibleTrigger>
-                                    <CollapsibleContent>
-                                      <div className="mt-2 space-y-1.5 p-3 rounded-lg bg-muted/30 border">
-                                        {feed.card_copy.map((copy: string, idx: number) => (
-                                          <p key={idx} className="text-sm lg:text-[15px] text-foreground/80 leading-relaxed">{cleanText(copy)}</p>
-                                        ))}
-                                      </div>
-                                    </CollapsibleContent>
-                                  </Collapsible>
-                                )}
-                                {feed.script && feed.format === "reels" && (
-                                  <Collapsible>
-                                    <CollapsibleTrigger className="flex items-center gap-1 text-xs font-medium text-primary hover:underline">
-                                      <ChevronDown className="h-3 w-3" /> Ver roteiro
-                                    </CollapsibleTrigger>
-                                    <CollapsibleContent>
-                                      <div className="mt-2 p-3 rounded-lg bg-muted/30 border text-sm lg:text-[15px] leading-relaxed whitespace-pre-wrap">
-                                        {feed.script}
-                                      </div>
-                                    </CollapsibleContent>
-                                  </Collapsible>
-                                )}
-                                <div className="flex flex-wrap items-center gap-1.5 pt-1" data-hide-pdf>
-                                  {(feed.format === "carrossel" || feed.format === "post") && (
-                                    <Button size="sm" className="h-8 text-[11px] gap-1 px-3" onClick={() => handleOpenEditor(wi, di, feed, false)}>
-                                      <PenTool className="h-3 w-3" /> Criar
-                                    </Button>
-                                  )}
-                                  {feed.format === "reels" && (
-                                    <Button size="sm" className="h-8 text-[11px] gap-1 px-3" onClick={() => handleOpenEditor(wi, di, feed, true)}>
-                                      <Image className="h-3 w-3" /> Criar capa
-                                    </Button>
-                                  )}
-                                  {feed.caption && (
-                                    <Button variant="outline" size="sm" className="h-8 text-[11px] gap-1 px-3" onClick={() => copyCaption(feed.caption)}>
-                                      <Copy className="h-3 w-3" /> Copiar
-                                    </Button>
-                                  )}
-                                  <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                      <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Mais ações">
-                                        <MoreVertical className="h-4 w-4" />
-                                      </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end" className="w-56">
-                                      <DropdownMenuItem
-                                        onClick={() => handleRegenerateItem(wi, di, "feed")}
-                                        disabled={regeneratingPost === `${regenKey}-feed` || regenerationCredits < 1}
-                                      >
-                                        {regeneratingPost === `${regenKey}-feed` ? (
-                                          <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
-                                        ) : (
-                                          <RefreshCw className="h-3.5 w-3.5 mr-2" />
-                                        )}
-                                        Regenerar post (e story do dia)
-                                      </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                  </DropdownMenu>
-                                </div>
-
-                              </>
-                            ) : (
-                              <p className="text-xs text-muted-foreground italic">Este dia não tem post no feed — só story.</p>
-                            )}
-                          </div>
-                          )}
-
-                          {/* ===== Coluna STORIES ===== */}
-
-                          <div className="rounded-md border border-l-[3px] border-l-amber-500 p-3 space-y-2">
-                            <div className="flex items-center justify-between">
-                              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Stories</span>
-                              <div className="flex items-center gap-1">
-                                {story.mirrors_feed && (
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200 cursor-help">
-                                        Mesmo tema do feed
-                                      </Badge>
-                                    </TooltipTrigger>
-                                    <TooltipContent>Story que aprofunda o tema do post do feed deste dia</TooltipContent>
-                                  </Tooltip>
-                                )}
-                                {story.is_personal && !story.mirrors_feed && (
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Badge variant="outline" className="text-[10px] bg-pink-50 text-pink-700 border-pink-200 cursor-help">
-                                        Pessoal
-                                      </Badge>
-                                    </TooltipTrigger>
-                                    <TooltipContent>Story pessoal — sem post de feed pareado neste dia</TooltipContent>
-                                  </Tooltip>
-                                )}
-                              </div>
-
-                            </div>
-                            {story.theme || story.frames?.length ? (
-                              <>
-                                <h4 className="text-base lg:text-lg font-semibold leading-tight">{cleanText(story.theme || "")}</h4>
-                                {story.frames?.length > 0 && (
-                                  <div className="space-y-1.5">
-                                    {story.frames.map((f: string, idx: number) => (
-                                      <div key={idx} className="flex gap-2 items-start">
-                                        <span className="text-[10px] font-semibold text-amber-600 mt-0.5">{idx + 1}.</span>
-                                        <p className="text-sm lg:text-[15px] text-foreground/80 leading-relaxed">{cleanText(f)}</p>
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
-                              </>
-                            ) : (
-                              <p className="text-xs text-muted-foreground italic">Story ainda não gerado.</p>
-                            )}
-                            {/* Botão de regenerar story aparece SOMENTE em dias sem post de feed.
-                                Stories que espelham o feed são atualizados junto com a regeneração do feed. */}
-                            {!feed && (
-                              <div className="flex flex-wrap gap-1.5 pt-1" data-hide-pdf>
-                                <Button
-                                  variant="ghost" size="sm" className="h-7 text-[11px] gap-1 px-2"
-                                  onClick={() => handleRegenerateItem(wi, di, "story")}
-                                  disabled={regeneratingPost === `${regenKey}-story` || regenerationCredits < 1}
-                                >
-                                  {regeneratingPost === `${regenKey}-story` ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
-                                  Regenerar story
-                                </Button>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
+                {week.days.map((day: DayV6, di: number) =>
+                  matchesDay(day) ? renderDayCard(week, wi, day, di, weekKey, false) : null
+                )}
+                {hasActiveFilters && week.days.every((d) => !matchesDay(d)) && (
+                  <p className="text-sm text-muted-foreground italic col-span-full py-6 text-center">
+                    Nenhum post desta semana corresponde aos filtros atuais.
+                  </p>
+                )}
               </div>
             </TabsContent>
           );})}
         </Tabs>
+        )}
 
         <div className="flex justify-center pt-2" data-hide-pdf>
           {generateButton}
