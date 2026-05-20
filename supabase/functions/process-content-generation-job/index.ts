@@ -75,6 +75,27 @@ const AUDIENCE_QUALIFICATION_WINDOW_DAYS = 14;
 const THESIS_COSINE_THRESHOLD = 0.70;
 const RECENT_HISTORY_WEEKS = 8;
 
+// === STORIES DEDUP ===
+// Apenas DIA 5 (recap/gancho livre) — DIAS 1-4 espelham feed (coberto pelo feed dedup),
+// DIAS 6-7 são pessoais autênticos (repetição natural é desejável).
+const STORIES_DEDUP_DAYS = [5];
+const STORIES_DEDUP_THRESHOLD = 0.78;
+const STORIES_DEDUP_WINDOW_DAYS = 56;
+const STORIES_MAX_RETRIES = 2;
+
+interface StoryDedupViolation {
+  day: number;
+  similarity: number;
+  similar_story_text: string;
+  similar_week_index: number;
+}
+
+function storyToEmbedText(s: { theme?: string; frames?: string[] }): string {
+  const theme = (s?.theme || "").trim();
+  const frames = Array.isArray(s?.frames) ? s.frames.filter(Boolean).join(" | ") : "";
+  return [theme ? `Tema: ${theme}` : "", frames ? `Frames: ${frames}` : ""].filter(Boolean).join("\n").trim();
+}
+
 // Bug E fix: normaliza padrões (brand/framework/opening_form) para casamento
 // robusto entre semanas. "método de 4 cortes" e "método de N cortes" precisam
 // bater. Lower + strip acentos + numerais e palavras-número viram N + remove
