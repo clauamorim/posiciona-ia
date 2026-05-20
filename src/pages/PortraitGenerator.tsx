@@ -120,6 +120,7 @@ const PortraitGenerator = () => {
       setBackgrounds(items.map((p: any) => p.background ?? ""));
       setOriginalIndices(indices);
       setGenerationId(data.id);
+      setGenerationCreatedAt(data.created_at ?? null);
       setHydratedFromHistory(true);
     })();
     return () => { cancelled = true; };
