@@ -1,8 +1,9 @@
 import React from "react";
-import { Square, Maximize, RotateCcw } from "lucide-react";
+import { Square, Maximize, RotateCcw, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import ColorPicker, { PaletteColor } from "./ColorPicker";
 
 const GRADIENT_DIRECTIONS = [
