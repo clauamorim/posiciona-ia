@@ -229,9 +229,23 @@ const ChoosePlan = () => {
 
       {/* Credits summary for active subscribers */}
       {currentSlug && balances && (
-        <Card className="max-w-2xl mx-auto">
+        <Card className="max-w-3xl mx-auto">
           <CardContent className="py-5 space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Seus Créditos</p>
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Seus Créditos</p>
+              {subscription?.current_period_end && (
+                <p className="text-[11px] text-muted-foreground">
+                  Renovam em{" "}
+                  <span className="font-medium text-foreground/80">
+                    {new Date(subscription.current_period_end).toLocaleDateString("pt-BR", {
+                      day: "2-digit",
+                      month: "long",
+                      year: "numeric",
+                    })}
+                  </span>
+                </p>
+              )}
+            </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
               {[
                 { icon: Calendar, value: balances.weekly_cycles, label: "Ciclos semanais" },
@@ -246,6 +260,9 @@ const ChoosePlan = () => {
                 </div>
               ))}
             </div>
+            <p className="text-[10px] text-muted-foreground/80 mt-1">
+              Créditos inclusos no plano renovam mensalmente. Extras comprados separadamente não expiram.
+            </p>
           </CardContent>
         </Card>
       )}

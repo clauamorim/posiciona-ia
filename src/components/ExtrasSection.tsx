@@ -8,6 +8,7 @@ import { toast } from "@/hooks/use-toast";
 import { Calendar, Camera, Loader2, ShoppingCart } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import PreCheckoutModal from "@/components/PreCheckoutModal";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const SEMANA_EXTRA_LABELS: Record<string, string> = {
   semana_conteudo: "R$ 87",
@@ -128,7 +129,14 @@ const ExtrasSection = () => {
             <div className="text-right">
               <span className="font-bold text-sm">{SEMANA_EXTRA_LABELS[planSlug] || "R$ 87"}</span>
               {hasDiscount && (
-                <Badge variant="secondary" className="ml-2 text-[10px]">Preço especial</Badge>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge variant="secondary" className="ml-2 text-[10px] cursor-help">Preço especial</Badge>
+                    </TooltipTrigger>
+                    <TooltipContent>Desconto exclusivo do seu plano atual.</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               )}
             </div>
             <Button
@@ -161,13 +169,23 @@ const ExtrasSection = () => {
                   <Camera className="h-4 w-4 text-muted-foreground" />
                   <p className="font-semibold text-sm">{pack.name}</p>
                 </div>
-                <p className="text-xs text-muted-foreground">{pack.credits} retratos</p>
-                <div className="flex items-center gap-2">
+                <div className="space-y-0.5">
+                  <p className="text-xs text-muted-foreground">{pack.credits} retratos</p>
+                  <p className="text-[10px] text-muted-foreground/70">Cada retrato é 1 imagem editorial gerada pela IA.</p>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-bold">R$ {priceStr}</span>
                   {showDiscount && (
                     <>
                       <span className="text-xs text-muted-foreground line-through">R$ {(pack.price_cents / 100).toFixed(0)}</span>
-                      <Badge variant="secondary" className="text-[10px]">Especial</Badge>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Badge variant="secondary" className="text-[10px] cursor-help">Especial</Badge>
+                          </TooltipTrigger>
+                          <TooltipContent>Desconto exclusivo do seu plano atual.</TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     </>
                   )}
                 </div>
