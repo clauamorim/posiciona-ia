@@ -1805,6 +1805,7 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
               (dedupMeta as any)._dedup_warning = true;
             }
           }
+          } // end else (time budget ok for 1st retry)
         }
       } catch (semErr: any) {
         console.warn(`[semantic-dedup] erro geral (ignorado):`, semErr?.message || semErr);
