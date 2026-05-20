@@ -1,8 +1,9 @@
 import React from "react";
-import { Square, Maximize, RotateCcw } from "lucide-react";
+import { Square, Maximize, RotateCcw, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import ColorPicker, { PaletteColor } from "./ColorPicker";
 
 const GRADIENT_DIRECTIONS = [
@@ -60,12 +61,24 @@ const DocumentPanel: React.FC<DocumentPanelProps> = ({
         <div>
           <h4 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-2">Formato</h4>
           <div className="flex gap-1.5">
-            <Button variant={canvasFormat === "square" ? "default" : "outline"} size="sm" onClick={() => onCanvasFormatChange("square")} className="gap-1.5 text-xs flex-1 h-8">
-              <Square className="h-3.5 w-3.5" /> 4:5
-            </Button>
-            <Button variant={canvasFormat === "reels" ? "default" : "outline"} size="sm" onClick={() => onCanvasFormatChange("reels")} className="gap-1.5 text-xs flex-1 h-8">
-              <Maximize className="h-3.5 w-3.5" /> 9:16
-            </Button>
+            <button
+              type="button"
+              onClick={() => onCanvasFormatChange("square")}
+              className={`flex-1 flex flex-col items-center gap-1 px-2 py-2 rounded-md border text-xs transition-colors ${canvasFormat === "square" ? "border-primary bg-primary/10 text-foreground" : "border-border bg-muted/40 text-muted-foreground hover:bg-muted"}`}
+            >
+              <Square className="h-3.5 w-3.5" />
+              <span className="font-semibold">4:5</span>
+              <span className="text-[10px] text-muted-foreground/80">Feed</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => onCanvasFormatChange("reels")}
+              className={`flex-1 flex flex-col items-center gap-1 px-2 py-2 rounded-md border text-xs transition-colors ${canvasFormat === "reels" ? "border-primary bg-primary/10 text-foreground" : "border-border bg-muted/40 text-muted-foreground hover:bg-muted"}`}
+            >
+              <Maximize className="h-3.5 w-3.5" />
+              <span className="font-semibold">9:16</span>
+              <span className="text-[10px] text-muted-foreground/80">Stories/Reels</span>
+            </button>
           </div>
         </div>
       )}
@@ -146,7 +159,28 @@ const DocumentPanel: React.FC<DocumentPanelProps> = ({
         </div>
       )}
 
-      <p className="text-[10px] text-muted-foreground/70">Setas: 1px · Shift+setas: 10px · Para trocar a foto de fundo, abra a aba <strong>Adicionar</strong>.</p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[10px] text-muted-foreground/70">
+          Para trocar a foto de fundo, abra a aba <strong>Adicionar</strong>.
+        </p>
+        <TooltipProvider delayDuration={150}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button type="button" className="text-muted-foreground/70 hover:text-foreground" aria-label="Atalhos de teclado">
+                <HelpCircle className="h-3.5 w-3.5" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="left" className="text-xs">
+              <div className="space-y-0.5">
+                <div><strong>Setas:</strong> mover 1px</div>
+                <div><strong>Shift + setas:</strong> mover 10px</div>
+                <div><strong>Delete:</strong> remover selecionado</div>
+                <div><strong>Ctrl+Z:</strong> desfazer</div>
+              </div>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
 
       {/* Reset */}
       <Button variant="outline" size="sm" onClick={onReset} className="gap-2 w-full h-8 text-xs">

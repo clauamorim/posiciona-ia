@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { ImagePlus, PlusSquare, Type as TypeIcon, Shapes, Minus, Camera, Image as ImageIcon, Trash2, Loader2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ChevronDown, ImagePlus, PlusSquare, Type as TypeIcon, Shapes, Minus, Camera, Image as ImageIcon, Trash2, Loader2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -30,29 +32,64 @@ import type { PhotographerInfo } from "@/lib/postAutoLayout";
 import { clearLogoCache, chromaKeyAndValidate } from "@/lib/postAutoLayout";
 import type { OverlayImage } from "../PostToolbar";
 
-const GRAPHIC_ELEMENTS = [
-  { icon: Star, name: "Estrela" }, { icon: Heart, name: "Coração" },
-  { icon: CheckCircle, name: "Check" }, { icon: Quote, name: "Aspas" },
-  { icon: ArrowRight, name: "Seta direita" }, { icon: ArrowUpIcon, name: "Seta cima" },
-  { icon: Zap, name: "Raio" }, { icon: Award, name: "Prêmio" },
-  { icon: Circle, name: "Círculo" }, { icon: SquareIcon, name: "Quadrado" },
-  { icon: Triangle, name: "Triângulo" }, { icon: Hexagon, name: "Hexágono" },
-  { icon: Diamond, name: "Diamante" }, { icon: Flame, name: "Chama" },
-  { icon: Target, name: "Alvo" }, { icon: Crown, name: "Coroa" },
-  { icon: ThumbsUp, name: "Curtir" }, { icon: Bookmark, name: "Salvar" },
-  { icon: Send, name: "Enviar" }, { icon: AtSign, name: "Arroba" },
-  { icon: Hash, name: "Hashtag" }, { icon: MapPin, name: "Local" },
-  { icon: Clock, name: "Relógio" }, { icon: Eye, name: "Olho" },
-  { icon: Lightbulb, name: "Lâmpada" }, { icon: Gift, name: "Presente" },
-  { icon: CameraIcon, name: "Câmera" }, { icon: Coffee, name: "Café" },
-  { icon: Smile, name: "Sorriso" }, { icon: Bell, name: "Sino" },
-  { icon: Flag, name: "Bandeira" }, { icon: Shield, name: "Escudo" },
-  { icon: Layers, name: "Camadas" }, { icon: Feather, name: "Pena" },
-  { icon: Music, name: "Música" }, { icon: Pen, name: "Caneta" },
-  { icon: Globe, name: "Globo" }, { icon: Sparkles, name: "Brilho" },
-  { icon: Lock, name: "Cadeado" }, { icon: Unlock, name: "Desbloq." },
-  { icon: Settings, name: "Config." },
+type GraphicEl = { icon: React.FC<any>; name: string };
+
+const ICON_CATEGORIES: { key: string; label: string; items: GraphicEl[] }[] = [
+  {
+    key: "shapes",
+    label: "Formas básicas",
+    items: [
+      { icon: Circle, name: "Círculo" }, { icon: SquareIcon, name: "Quadrado" },
+      { icon: Triangle, name: "Triângulo" }, { icon: Hexagon, name: "Hexágono" },
+      { icon: Diamond, name: "Diamante" },
+    ],
+  },
+  {
+    key: "arrows",
+    label: "Setas e direções",
+    items: [
+      { icon: ArrowRight, name: "Seta direita" }, { icon: ArrowUpIcon, name: "Seta cima" },
+      { icon: Send, name: "Enviar" },
+    ],
+  },
+  {
+    key: "decor",
+    label: "Símbolos decorativos",
+    items: [
+      { icon: Star, name: "Estrela" }, { icon: Heart, name: "Coração" },
+      { icon: Sparkles, name: "Brilho" }, { icon: Crown, name: "Coroa" },
+      { icon: Award, name: "Prêmio" }, { icon: Flame, name: "Chama" },
+      { icon: Gift, name: "Presente" }, { icon: Feather, name: "Pena" },
+    ],
+  },
+  {
+    key: "functional",
+    label: "Ícones funcionais",
+    items: [
+      { icon: CheckCircle, name: "Check" }, { icon: Quote, name: "Aspas" },
+      { icon: Zap, name: "Raio" }, { icon: Target, name: "Alvo" },
+      { icon: Lightbulb, name: "Lâmpada" }, { icon: ThumbsUp, name: "Curtir" },
+      { icon: Bookmark, name: "Salvar" }, { icon: AtSign, name: "Arroba" },
+      { icon: Hash, name: "Hashtag" }, { icon: MapPin, name: "Local" },
+      { icon: Clock, name: "Relógio" }, { icon: Eye, name: "Olho" },
+      { icon: Bell, name: "Sino" }, { icon: Flag, name: "Bandeira" },
+      { icon: Shield, name: "Escudo" },
+    ],
+  },
+  {
+    key: "other",
+    label: "Outros",
+    items: [
+      { icon: CameraIcon, name: "Câmera" }, { icon: Coffee, name: "Café" },
+      { icon: Smile, name: "Sorriso" }, { icon: Layers, name: "Camadas" },
+      { icon: Music, name: "Música" }, { icon: Pen, name: "Caneta" },
+      { icon: Globe, name: "Globo" }, { icon: Lock, name: "Cadeado" },
+      { icon: Unlock, name: "Desbloq." }, { icon: Settings, name: "Config." },
+    ],
+  },
 ];
+
+const GRAPHIC_ELEMENTS: GraphicEl[] = ICON_CATEGORIES.flatMap((c) => c.items);
 
 const SVG_ELEMENTS: { name: string; svg: string }[] = [
   { name: "Barra fina", svg: `<svg width="400" height="8" xmlns="http://www.w3.org/2000/svg"><rect width="400" height="8" rx="4" fill="currentColor"/></svg>` },
@@ -130,6 +167,18 @@ const AddElementPanel: React.FC<AddElementPanelProps> = ({
 }) => {
   const { user } = useAuth();
   const [elementColor, setElementColor] = useState(defaultElementColor || palette[0]?.hex || "#7c3aed");
+  const [iconSearch, setIconSearch] = useState("");
+  const [openCategories, setOpenCategories] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(ICON_CATEGORIES.map((c, i) => [c.key, i === 0]))
+  );
+  const normalize = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const filteredCategories = useMemo(() => {
+    const q = normalize(iconSearch.trim());
+    if (!q) return ICON_CATEGORIES;
+    return ICON_CATEGORIES
+      .map((c) => ({ ...c, items: c.items.filter((el) => normalize(el.name).includes(q)) }))
+      .filter((c) => c.items.length > 0);
+  }, [iconSearch]);
   const [userAssets, setUserAssets] = useState<UserAsset[]>([]);
   const [userAssetsLoaded, setUserAssetsLoaded] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -570,17 +619,47 @@ const AddElementPanel: React.FC<AddElementPanelProps> = ({
             }}
           />
         </div>
-        <div className="grid grid-cols-6 gap-1">
-          {GRAPHIC_ELEMENTS.map((el) => (
-            <Tooltip key={el.name}>
-              <TooltipTrigger asChild>
-                <button onClick={() => handleAddIcon(el)} className="aspect-square flex items-center justify-center rounded-md border bg-muted/40 hover:bg-muted transition-colors">
-                  <el.icon className="h-3.5 w-3.5 text-foreground/70" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent>{el.name}</TooltipContent>
-            </Tooltip>
-          ))}
+        <Input
+          value={iconSearch}
+          onChange={(e) => setIconSearch(e.target.value)}
+          placeholder="Buscar elemento…"
+          className="h-8 text-xs"
+        />
+        <div className="space-y-1.5">
+          {filteredCategories.length === 0 && (
+            <p className="text-[11px] text-muted-foreground text-center py-3">Nada encontrado.</p>
+          )}
+          {filteredCategories.map((cat) => {
+            const forceOpen = !!iconSearch.trim();
+            const isOpen = forceOpen ? true : !!openCategories[cat.key];
+            return (
+              <Collapsible
+                key={cat.key}
+                open={isOpen}
+                onOpenChange={(v) => !forceOpen && setOpenCategories((prev) => ({ ...prev, [cat.key]: v }))}
+                className="rounded-md border bg-muted/20"
+              >
+                <CollapsibleTrigger className="w-full flex items-center justify-between px-2 py-1.5 text-[11px] font-semibold text-foreground/80 hover:bg-muted/40 transition-colors">
+                  <span>{cat.label} <span className="text-muted-foreground/70 font-normal">({cat.items.length})</span></span>
+                  <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="grid grid-cols-6 gap-1 p-1.5 pt-0.5">
+                    {cat.items.map((el) => (
+                      <Tooltip key={el.name}>
+                        <TooltipTrigger asChild>
+                          <button onClick={() => handleAddIcon(el)} className="aspect-square flex items-center justify-center rounded-md border bg-background hover:bg-muted transition-colors">
+                            <el.icon className="h-3.5 w-3.5 text-foreground/70" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent>{el.name}</TooltipContent>
+                      </Tooltip>
+                    ))}
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            );
+          })}
         </div>
       </TabsContent>
 

@@ -234,6 +234,8 @@ const PostEditorPage = () => {
   const [showRulers, setShowRulers] = useState(false);
   const [slideTextBoxes, setSlideTextBoxes] = useState<Record<number, TextBox[]>>(draft?.slideTextBoxes ?? {});
   const [exporting, setExporting] = useState<null | "slide" | "all">(null);
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   // Imagem de fundo independente por slide do carrossel + variação visual sutil
   // (opacidade e object-position alternados) — gera ritmo entre os cards.
   const [slideBackgrounds, setSlideBackgrounds] = useState<Record<number, { url: string; opacity: number; objectPosition: string }>>({});
@@ -653,7 +655,11 @@ const PostEditorPage = () => {
             const others = next.filter(o => !o.id.startsWith("tpl-bg-"));
             return [...bgs, ...others];
           });
-          setAutoLayoutBanner(true);
+          try {
+            if (!localStorage.getItem("posiciona.editor.welcomeSeen")) {
+              setAutoLayoutBanner(true);
+            }
+          } catch { setAutoLayoutBanner(true); }
         }
         if (result.slots) setInitialTextBoxes(result.slots);
         const s = result.suggestions;
@@ -1524,6 +1530,7 @@ const PostEditorPage = () => {
   const doSaveDesign = useCallback(async (asTemplate: boolean) => {
     if (!user || savingDesign) return;
     setSavingDesign(true);
+    setSaveStatus("saving");
     try {
       const html2canvas = (await import("html2canvas")).default;
       const el = isCarousel ? slideRefs.current[currentSlide] : singleCanvasRef.current;
@@ -1584,8 +1591,11 @@ const PostEditorPage = () => {
         if (data && !asTemplate) setCurrentDesignId(data.id);
         toast({ title: asTemplate ? (adminTemplate ? "Template global salvo" : "Modelo salvo") : "Design salvo", description: galleryNote || undefined });
       }
+      setLastSavedAt(new Date());
+      setSaveStatus("saved");
     } catch (err: any) {
       console.error(err);
+      setSaveStatus("error");
       toast({ title: "Erro ao salvar", description: err?.message, variant: "destructive" });
     } finally {
       setSavingDesign(false);
@@ -1682,31 +1692,54 @@ const PostEditorPage = () => {
     );
   }
 
+  const realWeekNumber = ((allWeeks[weekIndex] as any)?._week_index ?? weekIndex) + 1;
+  const formattedSavedAt = lastSavedAt
+    ? lastSavedAt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
+    : null;
+  const saveLabel =
+    saveStatus === "saving" ? "Salvando…" :
+    saveStatus === "error" ? "⚠ Erro ao salvar" :
+    saveStatus === "saved" && formattedSavedAt ? `✓ Salvo às ${formattedSavedAt}` : null;
+
   return (
     <DashboardLayout>
-      <div className="space-y-6 pb-24 md:pb-6">
+      <div className="space-y-6 pb-32 md:pb-6">
         <div className="flex items-center gap-4 flex-wrap">
           <Button variant="ghost" size="icon" onClick={() => navigate("/editorial")}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <div>
+          <div className="flex-1 min-w-0">
             <h1 className="text-xl font-bold font-display">Dia {day.day || dayIndex + 1}: {cleanText(day.theme)}</h1>
-            <p className="text-sm text-muted-foreground">
-              Semana {weekIndex + 1} · {day.format}
-              {isCarousel && ` · ${editedTexts.length} slides`}
-              {canvasFormat === "reels" && " · Capa de Reels"}
-              {selectedImageId && " · Pressione Delete para remover elemento selecionado"}
-            </p>
+            <div className="flex items-center gap-3 flex-wrap text-sm text-muted-foreground">
+              <span>
+                Semana {realWeekNumber} · {day.format}
+                {isCarousel && ` · ${editedTexts.length} slides`}
+                {canvasFormat === "reels" && " · Capa de Reels"}
+              </span>
+              {saveLabel && (
+                <span className={`text-xs ${saveStatus === "error" ? "text-destructive" : "text-muted-foreground"}`}>
+                  {saveLabel}
+                </span>
+              )}
+              {selectedImageId && (
+                <span className="text-xs">Pressione Delete para remover elemento selecionado</span>
+              )}
+            </div>
           </div>
         </div>
 
         {autoLayoutBanner && (
           <div className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-lg border border-primary/30 bg-primary/5">
-            <div className="flex items-center gap-2 text-sm">
-              <Sparkles className="h-4 w-4 text-primary" />
-              <span className="text-foreground/80">Montagem inicial gerada. Personalize como quiser.</span>
+            <div className="flex items-start gap-2 text-sm">
+              <Sparkles className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+              <span className="text-foreground/80">
+                <strong>Montagem inicial gerada.</strong> Clique no texto ou na imagem para editar. Use o painel à direita para trocar fundo, formato e adicionar elementos.
+              </span>
             </div>
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setAutoLayoutBanner(false)}>
+            <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0" onClick={() => {
+              setAutoLayoutBanner(false);
+              try { localStorage.setItem("posiciona.editor.welcomeSeen", "1"); } catch {}
+            }}>
               <X className="h-4 w-4" />
             </Button>
           </div>
@@ -1788,18 +1821,7 @@ const PostEditorPage = () => {
                 onTextBoxesChange={(boxes) => handleSlideTextBoxesChange(0, boxes)}
               />
             )}
-            {!isCarousel && (
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10">
-                <Button
-                  size="sm"
-                  className="gap-2 shadow-lg"
-                  disabled={!!exporting}
-                  onClick={() => handleDownloadSlide(0)}
-                >
-                  <Download className="h-3.5 w-3.5" /> {exporting === "slide" ? "Baixando…" : "Baixar PNG"}
-                </Button>
-              </div>
-            )}
+            {/* Botão "Baixar PNG" foi movido para o painel de ações à direita para não sobrepor o canvas. */}
           </div>
 
           {(() => {
@@ -1820,7 +1842,7 @@ const PostEditorPage = () => {
               onBgChange: (i: number) => { setCustomBgColor(null); setBgIndex(i); },
               onCustomBgColorChange: setCustomBgColor,
               onDownload: () => handleDownloadSlide(isCarousel ? currentSlide : 0),
-              showDownloadAction: false,
+              showDownloadAction: true,
               exporting,
               onReset: handleReset,
               onAddImage: handleAddImage,

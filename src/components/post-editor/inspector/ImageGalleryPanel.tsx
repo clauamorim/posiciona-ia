@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Loader2, Sparkles, Image as ImageIcon, Check, ArrowLeft } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Search, Loader2, Sparkles, Image as ImageIcon, Check, ArrowLeft, Upload, Camera } from "lucide-react";
 import { fetchImageGallery, generateAIImage, type PhotographerInfo } from "@/lib/postAutoLayout";
 import { signedUserUploadUrl } from "@/lib/userGalleryUrl";
 import { toast } from "@/hooks/use-toast";
@@ -211,7 +213,33 @@ const ImageGalleryPanel: React.FC<ImageGalleryPanelProps> = ({
   };
 
 
+  // Mapa de fontes → metadados de exibição (tooltip + ícone).
+  // Suporte legado: "UN" / "unsplash" continuam reconhecidos para imagens antigas, mas
+  // o produto não usa mais Unsplash como fonte ativa (apenas Pexels, IA, Upload e Retratos).
+  const renderSourceBadge = (source: string) => {
+    const s = (source || "upload").toLowerCase();
+    let label = "Imagem enviada por você";
+    let short = "↑";
+    let Icon: any = Upload;
+    if (s === "ai") { label = "Gerado por IA"; short = "IA"; Icon = Sparkles; }
+    else if (s === "pexels") { label = "Pexels"; short = "PX"; Icon = ImageIcon; }
+    else if (s === "portrait") { label = "Retrato de marca"; short = "RT"; Icon = Camera; }
+    else if (s === "unsplash" || s === "un") { label = "Legacy Unsplash (descontinuado)"; short = "UN"; Icon = ImageIcon; }
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="absolute bottom-0.5 right-0.5 px-1 py-px rounded bg-background/90 text-[9px] font-semibold uppercase tracking-wider text-foreground/80 flex items-center gap-0.5">
+            <Icon className="h-2.5 w-2.5" />
+            {short}
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="text-xs">{label}</TooltipContent>
+      </Tooltip>
+    );
+  };
+
   return (
+    <TooltipProvider delayDuration={150}>
     <div className="space-y-3">
       {savedImages.length > 0 && (
         <div>
@@ -235,11 +263,7 @@ const ImageGalleryPanel: React.FC<ImageGalleryPanelProps> = ({
                 title={item.name}
               >
                 <img src={item.url} alt={item.name} loading="lazy" className="w-full h-full object-cover" />
-                {item.source !== "upload" && (
-                  <span className="absolute bottom-0.5 right-0.5 px-1 py-px rounded bg-background/80 text-[8px] font-semibold uppercase tracking-wider text-foreground/70">
-                    {item.source === "ai" ? "IA" : "UN"}
-                  </span>
-                )}
+                {renderSourceBadge(item.source)}
               </button>
             ))}
           </div>
@@ -247,7 +271,10 @@ const ImageGalleryPanel: React.FC<ImageGalleryPanelProps> = ({
       )}
 
       <div>
-        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-2">Buscar no Pexels</p>
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Buscar no Pexels</p>
+          <Badge variant="outline" className="text-[9px] h-4 px-1.5 border-emerald-500/40 text-emerald-700 dark:text-emerald-400 bg-emerald-500/5">Grátis</Badge>
+        </div>
         <form
           onSubmit={(e) => { e.preventDefault(); runSearch(1, false); }}
           className="flex gap-1.5"
@@ -302,7 +329,10 @@ const ImageGalleryPanel: React.FC<ImageGalleryPanelProps> = ({
       )}
 
       <div className="pt-2 border-t border-border/50">
-        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-1.5">Não gostou?</p>
+        <div className="flex items-center justify-between mb-1.5">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Não gostou?</p>
+          <Badge variant="outline" className="text-[9px] h-4 px-1.5 border-amber-500/40 text-amber-700 dark:text-amber-400 bg-amber-500/5">1 crédito</Badge>
+        </div>
         <Button
           variant="outline" size="sm"
           onClick={openAiDialog}
@@ -450,6 +480,7 @@ const ImageGalleryPanel: React.FC<ImageGalleryPanelProps> = ({
         </DialogContent>
       </Dialog>
     </div>
+    </TooltipProvider>
   );
 };
 
