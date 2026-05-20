@@ -98,6 +98,7 @@ export function normalizeWeekToV6(week: any): WeekV6 {
           feed,
           story,
           generator_version: d.generator_version,
+          _status: (d._status === "posted" || d._status === "skipped") ? d._status : "pending",
         });
       } else {
         days.push({ day: i + 1, feed: null, story: emptyStory(i + 1, false) });
