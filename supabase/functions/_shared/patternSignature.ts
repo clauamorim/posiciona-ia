@@ -129,13 +129,25 @@ Extraia o molde estrutural de cada um. Retorne JSON.`;
   }
 }
 
+export interface ProhibitionThresholds {
+  openers: number;     // default 3
+  structures: number;  // default 3
+  closers: number;     // default 4 (categoria com menos opções, threshold mais permissivo)
+}
+
+export const DEFAULT_PROHIBITION_THRESHOLDS: ProhibitionThresholds = {
+  openers: 3,
+  structures: 3,
+  closers: 4,
+};
+
 /**
- * Analisa histórico de signatures e identifica tags que aparecem
- * em N ou mais semanas distintas (= padrão saturado).
+ * Identifica tags saturadas, aplicando threshold específico por categoria.
+ * Categoria é inferida pelo prefixo da tag (gancho_*, estrutura_*, fechamento_*).
  */
 export function findProhibitedTags(
   historicalSignaturesByWeek: Array<{ weekIndex: number; signatures: PostSignature[] }>,
-  minOccurrences: number = 3,
+  thresholds: ProhibitionThresholds = DEFAULT_PROHIBITION_THRESHOLDS,
 ): Array<{ tag: string; occurrences: number; weeks: number[] }> {
   const tagWeeks = new Map<string, Set<number>>();
 
@@ -150,7 +162,13 @@ export function findProhibitedTags(
 
   const result: Array<{ tag: string; occurrences: number; weeks: number[] }> = [];
   for (const [tag, weeks] of tagWeeks) {
-    if (weeks.size >= minOccurrences) {
+    let threshold: number;
+    if (tag.startsWith("gancho_")) threshold = thresholds.openers;
+    else if (tag.startsWith("estrutura_")) threshold = thresholds.structures;
+    else if (tag.startsWith("fechamento_")) threshold = thresholds.closers;
+    else threshold = 3;
+
+    if (weeks.size >= threshold) {
       result.push({ tag, occurrences: weeks.size, weeks: Array.from(weeks).sort((a, b) => a - b) });
     }
   }
