@@ -1482,7 +1482,7 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
           days_regenerated: embeddingViolations.map((v) => v.day),
           matches_blocked: Array.from(new Set([...recentBrands, ...recentFrameworks])),
           entity_extraction_source: extractionSource,
-          threshold: 0.80,
+          threshold: adaptiveThreshold,
           thesis_threshold: THESIS_COSINE_THRESHOLD,
           window_days: DEDUP_WINDOW_DAYS,
           extracted_brands_by_day,
