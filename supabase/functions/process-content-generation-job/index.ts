@@ -75,6 +75,20 @@ const AUDIENCE_QUALIFICATION_WINDOW_DAYS = 14;
 const THESIS_COSINE_THRESHOLD = 0.70;
 const RECENT_HISTORY_WEEKS = 8;
 
+/**
+ * Threshold adaptativo de dedup por embedding.
+ * Conforme o histórico cresce, a consistência de voz da marca eleva o baseline
+ * de similaridade — threshold precisa subir para não entrar em loop de retentativas.
+ */
+function getAdaptiveDedupThreshold(historyWeekCount: number): number {
+  if (historyWeekCount < 10) return 0.80; // Histórico pequeno: rigoroso
+  if (historyWeekCount < 20) return 0.83; // Voz começando a saturar
+  return 0.86; // Voz consolidada: baseline alto, threshold sobe
+}
+
+// Hard cap de tempo total na fase de dedup de feed (evita worker shutdown por timeout).
+const DEDUP_TOTAL_TIMEOUT_MS = 90_000;
+
 // === STORIES DEDUP ===
 // Apenas DIA 5 (recap/gancho livre) — DIAS 1-4 espelham feed (coberto pelo feed dedup),
 // DIAS 6-7 são pessoais autênticos (repetição natural é desejável).
