@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Loader2, Sparkles, Image as ImageIcon, Check, ArrowLeft } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Search, Loader2, Sparkles, Image as ImageIcon, Check, ArrowLeft, Upload, Camera } from "lucide-react";
 import { fetchImageGallery, generateAIImage, type PhotographerInfo } from "@/lib/postAutoLayout";
 import { signedUserUploadUrl } from "@/lib/userGalleryUrl";
 import { toast } from "@/hooks/use-toast";
