@@ -1322,16 +1322,27 @@ const EditorialPage = () => {
                               <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Stories</span>
                               <div className="flex items-center gap-1">
                                 {story.mirrors_feed && (
-                                  <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200">
-                                    Mesmo tema do feed
-                                  </Badge>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200 cursor-help">
+                                        Mesmo tema do feed
+                                      </Badge>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Story que aprofunda o tema do post do feed deste dia</TooltipContent>
+                                  </Tooltip>
                                 )}
                                 {story.is_personal && !story.mirrors_feed && (
-                                  <Badge variant="outline" className="text-[10px] bg-pink-50 text-pink-700 border-pink-200">
-                                    Pessoal
-                                  </Badge>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Badge variant="outline" className="text-[10px] bg-pink-50 text-pink-700 border-pink-200 cursor-help">
+                                        Pessoal
+                                      </Badge>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Story pessoal — sem post de feed pareado neste dia</TooltipContent>
+                                  </Tooltip>
                                 )}
                               </div>
+
                             </div>
                             {story.theme || story.frames?.length ? (
                               <>
