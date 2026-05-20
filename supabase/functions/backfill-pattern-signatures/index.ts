@@ -25,17 +25,27 @@ serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
-  // Exige service-role key no Authorization. Não tem auth de usuário comum.
+  // Aceita service-role key OU JWT de usuário admin no Authorization.
   const authHeader = req.headers.get("Authorization") || "";
   const token = authHeader.replace(/^Bearer\s+/i, "").trim();
-  if (token !== SUPABASE_SERVICE_ROLE_KEY) {
+  const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  let authorized = token === SUPABASE_SERVICE_ROLE_KEY;
+  if (!authorized && token) {
+    try {
+      const { data: u } = await admin.auth.getUser(token);
+      if (u?.user?.id) {
+        const { data: roleRow } = await admin
+          .from("user_roles").select("role").eq("user_id", u.user.id).eq("role", "admin").maybeSingle();
+        if (roleRow) authorized = true;
+      }
+    } catch (_e) { /* noop */ }
+  }
+  if (!authorized) {
     return new Response(JSON.stringify({ error: "Forbidden" }), {
       status: 403,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
-
-  const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
   let body: any = {};
   try {
