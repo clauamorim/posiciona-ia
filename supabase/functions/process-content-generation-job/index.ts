@@ -819,21 +819,41 @@ async function processJob(jobId: string) {
         console.warn(`[job ${jobId}] buildDiversityHints falhou (ignorado):`, (hintErr as any)?.message || hintErr);
       }
 
-      // === MOLDES PROIBIDOS — Pattern signature memory ===
-      // Lê signatures persistidas nas últimas 8 semanas (_dedup_metrics._pattern_signatures)
-      // e detecta tags saturadas (3+ ocorrências). Injeta como restrição negativa no feed.
+      // === MOLDES PROIBIDOS — carrega signatures direto do DB, não do previousWeeks ===
+      // Razão: previousWeeks vem stripado do frontend (apenas {day, theme, format}),
+      // sem _dedup_metrics. As signatures estão persistidas em reports.editorial_weeks[].
+      const currentWeekIdx = typeof job.week_index === "number" ? job.week_index : -1;
       const historicalSignaturesByWeek: Array<{ weekIndex: number; signatures: PostSignature[] }> = [];
-      for (const week of (previousWeeks || []).slice(-8)) {
-        const meta = (week as any)?._dedup_metrics || (week as any)?._meta || {};
-        const wkIdx = (week as any)?._week_index ?? (week as any)?.week_index ?? 0;
-        const sigs = Array.isArray(meta._pattern_signatures) ? meta._pattern_signatures as PostSignature[] : [];
-        if (sigs.length > 0) {
-          historicalSignaturesByWeek.push({ weekIndex: wkIdx, signatures: sigs });
+      try {
+        const { data: reportRow } = await admin
+          .from("reports")
+          .select("editorial_weeks")
+          .eq("id", job.report_id)
+          .order("version", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        const allWeeks = (reportRow?.editorial_weeks || []) as any[];
+        const recent = allWeeks
+          .filter((w: any) => {
+            const wkIdx = w?._week_index ?? -1;
+            return wkIdx >= 0 && wkIdx !== currentWeekIdx;
+          })
+          .sort((a: any, b: any) => (b._week_index ?? 0) - (a._week_index ?? 0))
+          .slice(0, 8);
+        for (const week of recent) {
+          const wkIdx = week?._week_index ?? 0;
+          const sigs = week?._dedup_metrics?._pattern_signatures;
+          if (Array.isArray(sigs) && sigs.length > 0) {
+            historicalSignaturesByWeek.push({ weekIndex: wkIdx, signatures: sigs as PostSignature[] });
+          }
         }
+      } catch (e: any) {
+        console.warn("[pattern-signature] Falha ao carregar signatures históricas do DB:", e?.message || e);
       }
       const prohibitedTags = findProhibitedTags(historicalSignaturesByWeek);
       const prohibitedMoldsBlock = renderProhibitedMoldsBlock(historicalSignaturesByWeek, prohibitedTags);
-      console.log(`[pattern-signature] ${prohibitedTags.length} tags proibidas detectadas:`, prohibitedTags.map((t) => t.tag).join(", "));
+      console.log(`[pattern-signature] ${historicalSignaturesByWeek.length} semanas com signatures carregadas do DB | ${prohibitedTags.length} tags proibidas: ${prohibitedTags.map((t) => t.tag).join(", ")}`);
+      console.log(`[pattern-signature] prohibitedMoldsBlock length: ${prohibitedMoldsBlock.length} chars`);
 
       // ==== ESTÁGIO A: Feed (4 posts) ====
       await updateJob(jobId, { progress_message: "Gerando seus 4 posts de feed (etapa 1 de 2)…" });
