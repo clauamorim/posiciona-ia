@@ -480,6 +480,7 @@ const ImageGalleryPanel: React.FC<ImageGalleryPanelProps> = ({
         </DialogContent>
       </Dialog>
     </div>
+    </TooltipProvider>
   );
 };
 
