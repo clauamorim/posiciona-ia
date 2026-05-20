@@ -1118,8 +1118,20 @@ const EditorialPage = () => {
                 Baixar PDF
               </Button>
             )}
+            {!selectionMode && todayListIndex !== null && !todayIsInActiveWeek && (
+              <Button
+                onClick={goToToday}
+                variant="default"
+                size="sm"
+                className="gap-2"
+                aria-label="Ir para hoje"
+              >
+                <CalendarCheck className="h-4 w-4" /> Hoje
+              </Button>
+            )}
           </div>
         </div>
+
 
 
         {selectionMode && (
