@@ -1185,18 +1185,39 @@ const EditorialPage = () => {
                               <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Feed</span>
                               {feed ? (
                                 <div className="flex items-center gap-1.5">
-                                  {(feed as any)._dedup_failed === true && (
-                                    <span className="inline-flex items-center rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100">
-                                      Repetição
-                                    </span>
+                                  {EDITORIAL_SHOW_DEDUP_WARNINGS && (feed as any)._dedup_failed === true && (
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <span className="inline-flex items-center rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100 cursor-help">
+                                          Repetição
+                                        </span>
+                                      </TooltipTrigger>
+                                      <TooltipContent>Conteúdo com alta similaridade vs semanas anteriores</TooltipContent>
+                                    </Tooltip>
                                   )}
-                                  <Badge variant="outline" className={`text-[10px] gap-1 ${fmt.color}`}>
-                                    {fmt.icon} {fmt.label}
-                                  </Badge>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Badge variant="outline" className={`text-[10px] gap-1 cursor-help ${fmt.color}`}>
+                                        {fmt.icon} {fmt.label}
+                                      </Badge>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      {fmt.label === "Carrossel" && "Post em formato carrossel (múltiplos slides)"}
+                                      {fmt.label === "Reels" && "Vídeo curto vertical para Reels"}
+                                      {fmt.label === "Post" && "Post estático único no feed"}
+                                      {fmt.label === "Stories" && "Conteúdo efêmero de 24h"}
+                                    </TooltipContent>
+                                  </Tooltip>
                                 </div>
                               ) : (
-                                <span className="text-[10px] text-muted-foreground italic">Sem post</span>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className="text-[10px] text-muted-foreground italic cursor-help">Sem post</span>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Este dia não tem post no feed — apenas stories</TooltipContent>
+                                </Tooltip>
                               )}
+
                             </div>
                             {feed ? (
                               <>
