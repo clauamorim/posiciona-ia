@@ -1166,11 +1166,25 @@ const EditorialPage = () => {
                   const fmt = FORMAT_CONFIG[(feed?.format || "post").toLowerCase()] || FORMAT_CONFIG.post;
                   const regenKey = `${wi}-${di}`;
                   const dayOutdated = isOutdated({ generator_version: day.generator_version });
+                  const dayNumber = day.day || di + 1;
+                  const isWeekend = dayNumber >= 6;
+                  const isFriday = dayNumber === 5;
+                  const isStoriesOnly = !feed;
+                  const storiesSubLabel = isWeekend
+                    ? "Story leve · pessoal"
+                    : isFriday
+                      ? "Story · gancho de fim de semana"
+                      : null;
                   return (
-                    <Card key={di} className="flex flex-col break-inside-avoid border border-border">
+                    <Card key={di} className={`flex flex-col break-inside-avoid border border-border ${isStoriesOnly && (isWeekend || isFriday) ? "bg-card/30" : ""}`}>
                       <CardContent className="py-4 flex-1 space-y-3">
                         <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Dia {day.day || di + 1}</span>
+                          <div className="flex items-baseline gap-2">
+                            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Dia {dayNumber}</span>
+                            {storiesSubLabel && (
+                              <span className="text-[10px] italic text-muted-foreground/80">{storiesSubLabel}</span>
+                            )}
+                          </div>
                           {false && dayOutdated && (
                             <Badge variant="outline" className="text-[10px] gap-1 bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-900">
                               <AlertTriangle className="h-2.5 w-2.5" /> Desatualizado
@@ -1178,9 +1192,11 @@ const EditorialPage = () => {
                           )}
                         </div>
 
-                        <div className="grid gap-3 md:grid-cols-2">
-                          {/* ===== Coluna FEED ===== */}
+                        <div className={`grid gap-3 ${isStoriesOnly ? "" : "md:grid-cols-2"}`}>
+                          {/* ===== Coluna FEED (omitida em dias só de stories) ===== */}
+                          {!isStoriesOnly && (
                           <div className={`rounded-md border p-3 space-y-2 ${feed ? `border-l-[3px] ${fmt.border}` : "border-dashed border-muted"}`}>
+
                             <div className="flex items-center justify-between">
                               <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Feed</span>
                               {feed ? (
@@ -1303,8 +1319,10 @@ const EditorialPage = () => {
                               <p className="text-xs text-muted-foreground italic">Este dia não tem post no feed — só story.</p>
                             )}
                           </div>
+                          )}
 
                           {/* ===== Coluna STORIES ===== */}
+
                           <div className="rounded-md border border-l-[3px] border-l-amber-500 p-3 space-y-2">
                             <div className="flex items-center justify-between">
                               <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Stories</span>

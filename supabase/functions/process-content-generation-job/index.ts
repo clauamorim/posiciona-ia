@@ -394,6 +394,12 @@ function buildFeedSystemPrompt(rotationOffset: number = 0): string {
 
 Sua tarefa: gerar EXATAMENTE 4 posts de FEED para uma semana editorial. Os posts vão ocupar os DIAS ${FEED_DAYS.join(", ")} da semana.
 
+# RITMO DA SEMANA — REGRA ABSOLUTA:
+- DIAS 1, 2, 3, 4 (Seg-Qui): TÊM post de feed + stories temáticos.
+- DIAS 5, 6, 7 (Sex, Sáb, Dom): NUNCA têm post de feed. São EXCLUSIVAMENTE stories (sexta = gancho conversacional / recap; sáb-dom = stories pessoais leves).
+- Você NÃO gera nada para os dias 5, 6, 7. Eles serão preenchidos com stories em outra etapa.
+- Qualquer post que você gerar com "day" ≠ 1, 2, 3 ou 4 será DESCARTADO automaticamente.
+
 ⚠️ CRÍTICO — FORMATO DE SAÍDA: Sua resposta DEVE começar com "[" e terminar com "]". NÃO use \`\`\`. NÃO escreva texto antes/depois do JSON. Sem vírgulas finais.
 
 REGRA DE LINGUAGEM (CRÍTICA):
@@ -838,7 +844,13 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
         for (const p of arr) {
           if (!p || typeof p !== "object") continue;
           const dayN = Number((p as any).day);
-          if (!FEED_DAYS.includes(dayN)) continue;
+          if (!FEED_DAYS.includes(dayN)) {
+            // Ritmo semanal: feed só em dias 1-4. Descarta o resto com log.
+            if (Number.isFinite(dayN)) {
+              console.warn(`[job ${jobId}] Ritmo: descartado post de feed do dia ${dayN} (fora de Seg-Qui).`);
+            }
+            continue;
+          }
           if (feedByDay.has(dayN)) continue; // mantém o primeiro válido
           const cleaned = sanitizePost(p as Record<string, any>) as FeedPost;
           cleaned.day = dayN;
