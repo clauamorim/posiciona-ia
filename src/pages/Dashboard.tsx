@@ -246,18 +246,7 @@ const Dashboard = () => {
     return null;
   })();
 
-  const renewLabel = subscription?.current_period_end && subscription?.billing_type !== "one_time"
-    ? `Renova em ${formatRenewDate(subscription.current_period_end)}`
-    : "Créditos do seu plano";
-
   const totalPortraits = balances ? balances.portrait_credits_included + balances.portrait_credits_extra : 0;
-
-  const topChips = balances ? [
-    { icon: Calendar, value: balances.weekly_cycles, label: "Ciclos" },
-    { icon: RefreshCw, value: balances.reanalysis_credits, label: "Reanálises" },
-    { icon: Camera, value: totalPortraits, label: "Retratos" },
-    { icon: Repeat, value: balances.regeneration_credits, label: "Ajustes" },
-  ] : [];
 
   const creditDetailed = balances ? [
     { icon: Calendar, value: balances.weekly_cycles, total: planLimits?.weekly_cycles ?? 0, label: "Ciclos", planCredit: true },
@@ -285,26 +274,6 @@ const Dashboard = () => {
             {firstName ? `Olá, ${firstName}` : "Olá!"}
           </h1>
         </div>
-
-        {/* TOP CREDIT CHIPS — shortcut */}
-        {balances && (
-          <div className="-mx-1 overflow-x-auto">
-            <div className="flex items-center gap-2 px-1 min-w-max">
-              {topChips.map((chip, i) => (
-                <Tooltip key={i}>
-                  <TooltipTrigger asChild>
-                    <div className="flex items-center gap-2 bg-card/50 border border-border/40 rounded-lg px-3 py-2 text-sm flex-shrink-0">
-                      <chip.icon className="h-3.5 w-3.5 text-muted-foreground" />
-                      <span className="font-semibold text-foreground tabular-nums">{chip.value}</span>
-                      <span className="text-muted-foreground text-xs">{chip.label}</span>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent>{renewLabel}</TooltipContent>
-                </Tooltip>
-              ))}
-            </div>
-          </div>
-        )}
 
         {/* NEXT STEP — Hero block */}
         <Card className="border-primary/30 bg-card relative overflow-hidden">
