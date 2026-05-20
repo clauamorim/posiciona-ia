@@ -234,6 +234,8 @@ const PostEditorPage = () => {
   const [showRulers, setShowRulers] = useState(false);
   const [slideTextBoxes, setSlideTextBoxes] = useState<Record<number, TextBox[]>>(draft?.slideTextBoxes ?? {});
   const [exporting, setExporting] = useState<null | "slide" | "all">(null);
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   // Imagem de fundo independente por slide do carrossel + variação visual sutil
   // (opacidade e object-position alternados) — gera ritmo entre os cards.
   const [slideBackgrounds, setSlideBackgrounds] = useState<Record<number, { url: string; opacity: number; objectPosition: string }>>({});
