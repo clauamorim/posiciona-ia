@@ -1786,9 +1786,9 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
               console.warn(`[semantic-dedup] second-retry falhou (mantendo melhor versão):`, rr?.message || rr);
             }
 
-            // Marca dias que ainda excedem 0.80
+            // Marca dias que ainda excedem o threshold adaptativo
             for (const f of failingAfterFirst) {
-              if (f.sim > 0.80) {
+              if (f.sim > adaptiveThreshold) {
                 dedupFailedDays.push(f.day);
                 const idx = feedFinal.findIndex((p) => p.day === f.day);
                 if (idx >= 0) (feedFinal[idx] as any)._dedup_failed = true;
