@@ -1171,7 +1171,7 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
             p_user_id: userId,
             p_query: vec as any,
             p_since: since,
-            p_threshold: 0.80,
+            p_threshold: adaptiveThreshold,
             p_limit: 5,
           });
           if (error) {
