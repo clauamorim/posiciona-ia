@@ -770,6 +770,7 @@ const PortraitGenerator = () => {
         downloadLabel="Baixar"
       />
     </DashboardLayout>
+    </TooltipProvider>
   );
 };
 
