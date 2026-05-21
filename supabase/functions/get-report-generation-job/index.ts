@@ -16,7 +16,9 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 // Se um job está processing/queued e não recebe update há mais que isso,
 // consideramos que o worker morreu (wall-clock kill, OOM, redeploy, etc.).
-const STALE_MINUTES = 4;
+// Margem acima do ceiling de 4min do callClaude e dos heartbeats de 30s
+// emitidos durante chamadas longas pelo worker.
+const STALE_MINUTES = 5;
 
 const STALE_USER_MESSAGE =
   "A geração foi interrompida antes de concluir. Tente novamente — se receber esta mensagem mais de uma vez, fale com o suporte.";

@@ -159,13 +159,12 @@ async function callClaudeOnce({
   userContent.push({ type: "text", text: userText });
 
   // Streaming: idle timeout (gap entre chunks) + ceiling total como salvaguarda.
-  // Ceiling fica abaixo do watchdog (4min) — assim, mesmo no pior caso,
-  // a chamada aborta com erro antes do watchdog marcar o job como failed.
+  // Ceiling de 4min fica abaixo do watchdog (5min) — assim, mesmo no pior
+  // caso, a chamada aborta com erro antes do watchdog marcar o job como failed.
   // O caller (process-report-generation-job) é responsável por enviar
-  // heartbeats periódicos enquanto esta função está rodando, senão o
-  // watchdog pode disparar em chamadas longas.
+  // heartbeats periódicos enquanto esta função está rodando.
   const IDLE_TIMEOUT_MS = timeoutMs;
-  const TOTAL_CEILING_MS = 3 * 60 * 1000;
+  const TOTAL_CEILING_MS = 4 * 60 * 1000;
 
   const controller = new AbortController();
   let idleTimer: ReturnType<typeof setTimeout> | undefined;

@@ -236,39 +236,11 @@ Regras para o campo "editorial":
 - Varie os formatos ao longo da semana
 
 Regras para "visual_identity.palette":
-- EXATAMENTE 5 cores
-- Cada cor deve ter hex válido, nome descritivo em português e uso recomendado (ex: "Cor de fundo principal", "Cor de destaque para CTAs", "Cor de texto secundário")
-- A paleta DEVE ser determinística e baseada no arquétipo PRIMÁRIO, seguindo este mapeamento FIXO:
-  - Herói → #C0392B (Vermelho), #2C3E50 (Azul), #ECF0F1 (Branco), #F1C40F (Dourado), #1A1A2E (Preto)
-  - Mago → #6C3483 (Roxo), #1B2631 (Azul Noturno), #F4ECF7 (Lilás), #D4AC0D (Dourado), #117A65 (Esmeralda)
-  - Rebelde → #1C1C1C (Preto), #E74C3C (Vermelho), #F5F5F5 (Branco), #95A5A6 (Cinza), #3498DB (Azul)
-  - Explorador → #1ABC9C (Verde), #2C3E50 (Azul), #F0F3F4 (Branco), #F39C12 (Âmbar), #D35400 (Terracota)
-  - Sábio → #2C3E50 (Azul), #C0A96B (Dourado), #FDFEFE (Branco), #85929E (Cinza), #784212 (Marrom)
-  - Inocente → #F9E79F (Amarelo), #AED6F1 (Azul), #FDFEFE (Branco), #ABEBC6 (Verde), #C39BD3 (Lilás)
-  - Criador → #8E44AD (Roxo), #F39C12 (Laranja), #FDFEFE (Branco), #2ECC71 (Verde), #2C3E50 (Azul)
-  - Governante → #D4AC0D (Dourado), #1B2631 (Azul Marinho), #FDFEFE (Branco), #85929E (Prata), #6E2C00 (Bronze)
-  - Cuidador → #27AE60 (Verde), #2980B9 (Azul), #F8F9F9 (Branco), #82E0AA (Menta), #F9E79F (Amarelo)
-  - Cara-comum → #5D6D7E (Cinza), #2E86C1 (Azul), #F2F3F4 (Branco), #A9CCE3 (Azul Claro), #E8D5A3 (Areia)
-  - Bobo-da-corte → #F39C12 (Laranja), #E74C3C (Vermelho), #FDFEFE (Branco), #3498DB (Azul), #2ECC71 (Verde)
-  - Amante → #C0392B (Vermelho), #6C3483 (Roxo), #F4D03F (Dourado), #F5B7B1 (Rosa), #1A1A2E (Preto)
-- Você PODE ajustar levemente os tons para harmonizar com o nicho e os arquétipos secundário/terciário, mas a base DEVE seguir o mapeamento acima
+- EXATAMENTE 5 cores, cada uma com hex válido, nome descritivo em português e uso recomendado
+- A paleta final é normalizada determinísticamente no servidor por arquétipo primário; pode preencher com valores razoáveis, serão sobrescritos.
 
 Regras para "visual_identity.typography":
-- Use APENAS fontes do Google Fonts
-- A tipografia DEVE ser alinhada ao arquétipo primário da marca, seguindo este mapeamento:
-  - Herói/Guerreiro → Display: Oswald ou Bebas Neue | Body: Montserrat ou Source Sans Pro
-  - Mago → Display: Cinzel ou Cormorant Garamond | Body: Lora ou EB Garamond
-  - Fora-da-Lei/Rebelde → Display: Permanent Marker ou Rubik Mono One | Body: Barlow ou Work Sans
-  - Explorador → Display: Fjalla One ou Pathway Gothic One | Body: Open Sans ou Nunito
-  - Sábio → Display: Merriweather ou Libre Baskerville | Body: Source Serif Pro ou Noto Serif
-  - Inocente → Display: Quicksand ou Comfortaa | Body: Poppins ou Nunito Sans
-  - Criador → Display: Playfair Display ou DM Serif Display | Body: Inter ou Karla
-  - Governante → Display: Cormorant Garamond ou Libre Baskerville | Body: Raleway ou Lato
-  - Cuidador → Display: Lora ou Merriweather | Body: Open Sans ou Nunito
-  - Cara Comum → Display: Roboto Slab ou Bitter | Body: Roboto ou Open Sans
-  - Bobo da Corte → Display: Fredoka One ou Baloo 2 | Body: Nunito ou Quicksand
-  - Amante → Display: Playfair Display ou Cormorant | Body: Lora ou EB Garamond
-- Escolha as fontes mais adequadas dentre as opções do arquétipo primário
+- Use APENAS fontes do Google Fonts coerentes com o arquétipo primário (display + body); o pareamento final é normalizado no servidor.
 
 IMPORTANTE: Use os nomes dos arquétipos EXATAMENTE como fornecidos nos dados abaixo. NÃO invente nomes diferentes.
 
@@ -548,20 +520,19 @@ Gere o relatório estratégico completo em JSON conforme a estrutura exigida.`;
     let isFallback = false;
 
     let lastError: any = null;
-    // 2 tentativas com streaming + heartbeats. callClaude agora streama
-    // e usa idle timeout (não total), então gerações longas (>2min) cabem
-    // contanto que o Claude continue mandando bytes. Heartbeats a cada 30s
-    // impedem o watchdog (4min) de matar o job. 2×~180s = ~365s, dentro
-    // do wall-clock da Edge Function (~400s).
+    // 2 tentativas com streaming + heartbeats. callClaude usa idle timeout
+    // (não total) + ceiling interno de 4 min, abaixo do watchdog de 5 min.
+    // Heartbeats a cada 30s mantêm updated_at fresco no banco.
     const MAX_ATTEMPTS = 2;
     const BACKOFF_MS = [0, 5000];
-    // Idle timeout: 90s sem receber chunks → aborta. Ceiling interno do
-    // callClaude é 3min, abaixo do watchdog.
-    const PER_ATTEMPT_TIMEOUT_MS = 90000;
+    // Idle timeout: 120s sem receber chunks → aborta a chamada.
+    const PER_ATTEMPT_TIMEOUT_MS = 120000;
     const ATTEMPT_PROGRESS = (n: number) =>
       n === 0
-        ? "Gerando estratégia com IA… pode levar até 3 minutos."
+        ? "Gerando estratégia com IA… pode levar alguns minutos."
         : `Refinando estratégia (tentativa ${n + 1}/${MAX_ATTEMPTS})…`;
+
+    const promptChars = (systemPrompt?.length ?? 0) + (userPrompt?.length ?? 0);
 
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
       if (BACKOFF_MS[attempt] > 0) {
@@ -573,28 +544,43 @@ Gere o relatório estratégico completo em JSON conforme a estrutura exigida.`;
 
       await updateJob(jobId, { progress_message: ATTEMPT_PROGRESS(attempt) });
 
+      const t0 = Date.now();
       try {
         const rawContent = await withHeartbeat(jobId, ATTEMPT_PROGRESS(attempt), () =>
           callClaude({
             systemPrompt,
             userText: userPrompt,
-            max_tokens: 10000,
+            max_tokens: 7500,
             timeoutMs: PER_ATTEMPT_TIMEOUT_MS,
             disableRetries: true,
           })
         );
+        const durationMs = Date.now() - t0;
 
         const parsed = extractJsonFromLLM(rawContent);
         if (parsed && isValidReport(parsed)) {
+          console.log(JSON.stringify({
+            event: "report_attempt", job_id: jobId, attempt: attempt + 1,
+            status: "ok", duration_ms: durationMs, prompt_chars: promptChars,
+          }));
           reportContent = parsed;
           break;
         }
 
         lastError = new Error("Invalid JSON from Claude");
-        console.warn(`[report] job ${jobId} attempt ${attempt + 1}/${MAX_ATTEMPTS}: JSON inválido`);
+        console.warn(JSON.stringify({
+          event: "report_attempt", job_id: jobId, attempt: attempt + 1,
+          status: "invalid_json", duration_ms: durationMs, prompt_chars: promptChars,
+        }));
       } catch (claudeErr: any) {
+        const durationMs = Date.now() - t0;
         lastError = claudeErr;
-        console.warn(`[report] job ${jobId} attempt ${attempt + 1}/${MAX_ATTEMPTS} falhou (${claudeErr?.status || "?"}): ${claudeErr?.message}`);
+        console.warn(JSON.stringify({
+          event: "report_attempt", job_id: jobId, attempt: attempt + 1,
+          status: "error", duration_ms: durationMs, prompt_chars: promptChars,
+          error_status: claudeErr?.status ?? null,
+          error_message: claudeErr?.message ?? null,
+        }));
       }
     }
 
@@ -635,8 +621,8 @@ Gere o relatório estratégico completo em JSON conforme a estrutura exigida.`;
           callClaude({
             systemPrompt: buildSystemPrompt(genderLabel) + renderBrandscriptFramework() + getEthicalRulesBlock(professionCategory) + POSITIONING_GUARDRAIL_BLOCK,
             userText: userPrompt + "\n\n" + retryInstructions,
-            max_tokens: 10000,
-            timeoutMs: 90000,
+            max_tokens: 7500,
+            timeoutMs: 120000,
             disableRetries: true,
           })
         );
