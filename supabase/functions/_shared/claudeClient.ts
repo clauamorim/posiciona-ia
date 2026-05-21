@@ -7,7 +7,12 @@
 // - Mensagens user/assistant
 // - Anexar PDFs como conteúdo `document` (base64) — para passar referências
 //   como StoryBrand, Made to Stick e Obviously Awesome.
-// - Timeout configurável com AbortController.
+// - Streaming via SSE (sempre ligado): tokens chegam progressivamente, e
+//   o timeout configurável é um IDLE timeout (tempo máximo entre chunks),
+//   não um timeout total. Isso permite gerações longas (>2 min para 10k
+//   tokens) contanto que o Claude continue mandando bytes — antes, um
+//   timeout total curto matava o relatório estratégico mesmo com o Claude
+//   gerando normalmente, só devagar.
 //
 // Não usa SDK — fetch direto para manter zero dependências.
 
@@ -34,7 +39,12 @@ export interface CallClaudeOptions {
   pdfs?: ClaudePdfPart[];
   model?: string;
   max_tokens?: number;
-  /** Timeout em ms. Padrão: 120s. */
+  /**
+   * Idle timeout em ms (tempo máximo SEM receber chunks do stream). Padrão: 120s.
+   * Não é um timeout total — com streaming, gerações longas (>2 min) terminam
+   * normalmente contanto que o Claude continue mandando bytes. Um ceiling
+   * global de 5 min é aplicado internamente como salvaguarda.
+   */
   timeoutMs?: number;
   /**
    * Desativa o retry automático em 429/5xx. Útil para chamadas caras
@@ -149,8 +159,22 @@ async function callClaudeOnce({
   }
   userContent.push({ type: "text", text: userText });
 
+  // Streaming: idle timeout (gap entre chunks) + ceiling total como salvaguarda.
+  const IDLE_TIMEOUT_MS = timeoutMs;
+  const TOTAL_CEILING_MS = 5 * 60 * 1000;
+
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  let idleTimer: ReturnType<typeof setTimeout> | undefined;
+  const resetIdle = () => {
+    if (idleTimer !== undefined) clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => controller.abort(), IDLE_TIMEOUT_MS);
+  };
+  const totalTimer = setTimeout(() => controller.abort(), TOTAL_CEILING_MS);
+  const clearTimers = () => {
+    if (idleTimer !== undefined) clearTimeout(idleTimer);
+    clearTimeout(totalTimer);
+  };
+  resetIdle();
 
   let response: Response;
   try {
@@ -167,6 +191,7 @@ async function callClaudeOnce({
       body: JSON.stringify({
         model,
         max_tokens,
+        stream: true,
         system: systemPrompt,
         messages: [
           { role: "user", content: userContent },
@@ -174,7 +199,7 @@ async function callClaudeOnce({
       }),
     });
   } catch (e: any) {
-    clearTimeout(timeoutId);
+    clearTimers();
     if (e?.name === "AbortError") {
       throw new ClaudeError(
         "Tempo limite excedido na chamada à IA",
@@ -187,11 +212,10 @@ async function callClaudeOnce({
       502,
       "Falha de conexão com a IA. Tente novamente em alguns segundos."
     );
-  } finally {
-    clearTimeout(timeoutId);
   }
 
   if (!response.ok) {
+    clearTimers();
     const errText = await response.text().catch(() => "");
     let userMessage: string | undefined;
     let retryAfterMs: number | undefined;
@@ -230,23 +254,86 @@ async function callClaudeOnce({
     );
   }
 
-  let data: any;
-  try {
-    data = await response.json();
-  } catch {
+  const reader = response.body?.getReader();
+  if (!reader) {
+    clearTimers();
     throw new ClaudeError(
-      "Resposta inválida do Claude",
+      "Resposta sem corpo do Claude",
       502,
-      "A IA retornou uma resposta inválida. Tente novamente."
+      "A IA retornou resposta vazia. Tente novamente."
     );
   }
 
-  // Anthropic retorna `content: [{ type: "text", text: "..." }, ...]`
-  const blocks = Array.isArray(data?.content) ? data.content : [];
-  const text = blocks
-    .filter((b: any) => b?.type === "text" && typeof b.text === "string")
-    .map((b: any) => b.text)
-    .join("");
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let text = "";
+  let stopReason: ClaudeStopReason = null;
+  let streamError: ClaudeError | null = null;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      resetIdle();
+      // Normaliza CRLF→LF para o parser SSE.
+      buffer += decoder.decode(value, { stream: true }).replace(/\r\n/g, "\n");
+
+      // SSE: eventos separados por \n\n; dentro de cada evento, linhas
+      // event:/data:. Ignoramos `event:` (o tipo já vem no JSON de `data:`).
+      let sep = buffer.indexOf("\n\n");
+      while (sep !== -1) {
+        const rawEvent = buffer.slice(0, sep);
+        buffer = buffer.slice(sep + 2);
+        sep = buffer.indexOf("\n\n");
+
+        let dataPayload = "";
+        for (const line of rawEvent.split("\n")) {
+          if (line.startsWith("data:")) {
+            dataPayload += line.slice(line.startsWith("data: ") ? 6 : 5);
+          }
+        }
+        if (!dataPayload) continue;
+
+        let evt: any;
+        try {
+          evt = JSON.parse(dataPayload);
+        } catch {
+          continue;
+        }
+
+        if (evt.type === "content_block_delta" && evt.delta?.type === "text_delta") {
+          text += evt.delta.text || "";
+        } else if (evt.type === "message_delta" && evt.delta?.stop_reason) {
+          stopReason = evt.delta.stop_reason as ClaudeStopReason;
+        } else if (evt.type === "error") {
+          streamError = new ClaudeError(
+            `Erro no stream do Claude: ${evt.error?.message || "desconhecido"}`,
+            502,
+            "A IA retornou erro durante a geração. Tente novamente em alguns segundos."
+          );
+        }
+      }
+    }
+  } catch (e: any) {
+    clearTimers();
+    if (e?.name === "AbortError") {
+      throw new ClaudeError(
+        "Tempo limite excedido na chamada à IA",
+        504,
+        "A IA demorou para responder. Tente novamente em alguns segundos."
+      );
+    }
+    throw new ClaudeError(
+      `Falha lendo stream do Claude: ${e?.message || e}`,
+      502,
+      "Falha de conexão com a IA. Tente novamente em alguns segundos."
+    );
+  } finally {
+    clearTimers();
+    try { reader.releaseLock(); } catch { /* ignore */ }
+  }
+
+  if (streamError) throw streamError;
 
   if (!text.trim()) {
     throw new ClaudeError(
@@ -256,6 +343,5 @@ async function callClaudeOnce({
     );
   }
 
-  const stopReason: ClaudeStopReason = (data?.stop_reason ?? null) as ClaudeStopReason;
   return { text, stopReason };
 }
