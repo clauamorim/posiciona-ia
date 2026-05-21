@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { calculateScores, getTop3, ARCHETYPE_COLORS, type ArchetypeScore } from "@/lib/archetypes";
-import { Loader2, CheckCircle2, Sparkles, ArrowRight, AlertTriangle } from "lucide-react";
+import { Loader2, CheckCircle2, Sparkles, ArrowRight } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { normalizeReportContent } from "@/lib/reportParser";
 
@@ -41,6 +41,7 @@ const Results = () => {
   const [isRateLimited, setIsRateLimited] = useState(false);
   const [archetypeDetails, setArchetypeDetails] = useState<Record<string, any>>({});
   const [progressMessage, setProgressMessage] = useState<string>("");
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     if (!user) return;
@@ -103,7 +104,10 @@ const Results = () => {
           return;
         }
 
-        if (latestReport?.status === "error") {
+        // Em recarga normal, mostra o erro anterior e para. Em retry manual
+        // (botão "Tentar novamente"), pula esse early-return para deixar o
+        // fluxo seguir e enfileirar uma nova versão do relatório.
+        if (latestReport?.status === "error" && retryCount === 0) {
           setErrorMsg(latestReport.error_message || "A geração anterior falhou. Tente novamente.");
           setStage("error");
           return;
@@ -237,7 +241,15 @@ const Results = () => {
       cancelled = true;
       window.removeEventListener("app:signout", onSignout);
     };
-  }, [user]);
+  }, [user, retryCount]);
+
+  const handleRetry = () => {
+    setErrorMsg("");
+    setIsRateLimited(false);
+    setProgressMessage("");
+    setStage("calculating");
+    setRetryCount((c) => c + 1);
+  };
 
   const top3 = getTop3(scores);
   const maxScore = 30;
@@ -283,6 +295,11 @@ const Results = () => {
               {stage === "error" && errorMsg && (
                 <p className="text-xs text-muted-foreground mt-0.5">{errorMsg}</p>
               )}
+              {stage === "error" && (
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Você não foi cobrado por essa tentativa.
+                </p>
+              )}
             </div>
             {stage === "done" && (
               <div className="flex gap-2 flex-shrink-0">
@@ -297,9 +314,10 @@ const Results = () => {
               </Button>
             )}
             {stage === "error" && (
-              <div className="flex items-center gap-2 text-xs text-muted-foreground flex-shrink-0 max-w-xs">
-                <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
-                <span>Geração pausada para evitar nova cobrança automática.</span>
+              <div className="flex gap-2 flex-shrink-0">
+                <Button size="sm" onClick={handleRetry} className="gap-1.5">
+                  Tentar novamente
+                </Button>
               </div>
             )}
           </CardContent>
