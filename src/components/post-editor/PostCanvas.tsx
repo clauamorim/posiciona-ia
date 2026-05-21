@@ -6,6 +6,35 @@ import { sanitizeRichText } from "@/lib/richText";
 import { inlineFormatBus } from "@/lib/inlineFormatBus";
 import InlineFormatToolbar from "./InlineFormatToolbar";
 
+// Retorna a luminância percebida da cor (fórmula YIQ): valor >=128 = clara.
+// Usado para decidir se halo e text-shadow devem ser escuros (para texto claro)
+// ou claros (para texto escuro), garantindo legibilidade sobre fotos de fundo.
+function isLightColor(color: string | undefined | null): boolean {
+  if (!color) return true; // assume claro por default → halo escuro (comportamento histórico)
+  let r = 255, g = 255, b = 255;
+  const trimmed = color.trim();
+  if (trimmed.startsWith("#")) {
+    const hex = trimmed.slice(1);
+    if (hex.length === 3) {
+      r = parseInt(hex[0] + hex[0], 16);
+      g = parseInt(hex[1] + hex[1], 16);
+      b = parseInt(hex[2] + hex[2], 16);
+    } else if (hex.length === 6) {
+      r = parseInt(hex.slice(0, 2), 16);
+      g = parseInt(hex.slice(2, 4), 16);
+      b = parseInt(hex.slice(4, 6), 16);
+    }
+  } else {
+    const m = trimmed.match(/(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)/);
+    if (m) {
+      r = parseFloat(m[1]);
+      g = parseFloat(m[2]);
+      b = parseFloat(m[3]);
+    }
+  }
+  return (r * 299 + g * 587 + b * 114) / 1000 >= 128;
+}
+
 
 interface PostCanvasProps {
   text: string;
@@ -774,6 +803,13 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
     const isTitle = tb.type === "title";
     const content = isTitle ? title : text;
 
+    // Decide a cor do halo/shadow com base na luminância do texto:
+    // texto claro → halo escuro (preto); texto escuro → halo claro (branco).
+    // Sem isso, texto escuro sobre foto escura ficava ilegível.
+    const effectiveTextColor = isTitle ? (titleColor ?? resolvedTitleColor) : textColor;
+    const textIsLight = isLightColor(effectiveTextColor);
+    const haloRgb = textIsLight ? "0,0,0" : "255,255,255";
+
     // Halo localizado atrás do texto quando há foto de fundo (referência: blur amplo, suave)
     // Renderizado como pseudo-camada via box-shadow inset/blur SVG-like usando radial-gradient.
     const haloStyle: React.CSSProperties | undefined = hasPhotoBackground
@@ -785,7 +821,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
           width: tb.width * 1.3,
           height: tb.height * 1.7,
           background:
-            "radial-gradient(ellipse at center, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.6) 35%, rgba(0,0,0,0.25) 70%, rgba(0,0,0,0) 100%)",
+            `radial-gradient(ellipse at center, rgba(${haloRgb},0.78) 0%, rgba(${haloRgb},0.6) 35%, rgba(${haloRgb},0.25) 70%, rgba(${haloRgb},0) 100%)`,
           filter: "blur(28px)",
           pointerEvents: "none",
           zIndex: 0,
@@ -793,11 +829,12 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
         }
       : undefined;
 
-    // Text-shadow mais amplo e suave (em camadas) para reforçar legibilidade do próprio texto
+    // Text-shadow mais amplo e suave (em camadas) para reforçar legibilidade do próprio texto.
+    // Usa a mesma cor do halo (oposta à luminância do texto).
     const titleShadow =
-      "0 2px 6px rgba(0,0,0,0.65), 0 6px 24px rgba(0,0,0,0.55), 0 0 60px rgba(0,0,0,0.45)";
+      `0 2px 6px rgba(${haloRgb},0.65), 0 6px 24px rgba(${haloRgb},0.55), 0 0 60px rgba(${haloRgb},0.45)`;
     const bodyShadow =
-      "0 1px 4px rgba(0,0,0,0.6), 0 4px 18px rgba(0,0,0,0.5), 0 0 48px rgba(0,0,0,0.4)";
+      `0 1px 4px rgba(${haloRgb},0.6), 0 4px 18px rgba(${haloRgb},0.5), 0 0 48px rgba(${haloRgb},0.4)`;
 
     return (
       <div key={tb.id} data-overlay
