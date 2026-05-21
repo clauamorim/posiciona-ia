@@ -22,9 +22,10 @@ const STAGE_LABELS: Record<Stage, string> = {
   error: "Ocorreu um erro.",
 };
 
-// Polling: 3s entre checks, timeout total de 5min
+// Polling: 3s entre checks, timeout total de 10min
+// (10 min cobre worst case: 3 tentativas × 120s + delays + fallback ≈ 7-8min)
 const POLL_INTERVAL_MS = 3000;
-const POLL_TIMEOUT_MS = 5 * 60 * 1000;
+const POLL_TIMEOUT_MS = 10 * 60 * 1000;
 
 const RANK_LABELS: Record<string, { subtitle: string; size: string }> = {
   "Primário": { subtitle: "Arquétipo dominante — define o tom central da sua marca", size: "md:col-span-1" },
