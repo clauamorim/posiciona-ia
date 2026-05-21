@@ -153,7 +153,25 @@ serve(async (req) => {
       return json({ error: "Esta semana não tem feed salvo para gerar stories." }, 400);
     }
 
-    console.log(`[stories-only] week=${weekIndex} user=${userId} status=start feed_days=${feed.length}`);
+    // Stories pessoais de fim de semana de OUTRAS semanas — para anti-repetição
+    // do cenário/figura/ritual (haras, varanda, biografia da avó, etc.).
+    const previousPersonalStoryItems: string[] = [];
+    for (const w of weeks) {
+      const wkIdx = w?._week_index ?? w?.week_index;
+      if (wkIdx === weekIndex) continue; // pula a semana atual
+      const days = Array.isArray(w?.days) ? w.days : [];
+      for (const d of days) {
+        const story = d?.story;
+        if (story && typeof story.theme === "string" && story.theme.trim() && !story.mirrors_feed) {
+          const dayN = typeof d?.day === "number" ? d.day : null;
+          const labelDia = dayN === 6 ? "sábado" : dayN === 7 ? "domingo" : dayN === 5 ? "sexta" : `dia${dayN ?? "?"}`;
+          previousPersonalStoryItems.push(`[story-${labelDia}] ${story.theme.trim()}`);
+        }
+      }
+    }
+    const previousPersonalStoriesSummary = previousPersonalStoryItems.slice(-10).join("\n");
+
+    console.log(`[stories-only] week=${weekIndex} user=${userId} status=start feed_days=${feed.length} prev_personal_stories=${previousPersonalStoryItems.length}`);
 
     // Reúne contexto necessário para o prompt do Estágio B
     const [{ data: bq }, { data: profileRow }] = await Promise.all([
@@ -213,7 +231,12 @@ serve(async (req) => {
       POSITIONING_GUARDRAIL_BLOCK +
       ethicalBlock +
       "\n\n" +
-      buildStoriesSystemPrompt(feedSummary, FEED_DAYS) +
+      buildStoriesSystemPrompt(
+        feedSummary,
+        FEED_DAYS,
+        undefined,
+        previousPersonalStoriesSummary,
+      ) +
       renderPillarsBlock() +
       renderEditorialFrameworks();
 

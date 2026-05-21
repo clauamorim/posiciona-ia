@@ -19,6 +19,7 @@ export function buildStoriesSystemPrompt(
   feedSummary: string,
   mirrorDays: number[],
   forbiddenContext?: string,
+  previousPersonalStoriesContext?: string,
 ): string {
   const base = `Você é um especialista em copy para Instagram Stories. Domina StoryBrand, Obviously Awesome e Made to Stick (descritos ao final).
 
@@ -83,7 +84,29 @@ REGRAS ESTRUTURAIS:
 - Stories pessoais (is_personal=true) PERMITIDOS APENAS nos dias 6 e 7 (sáb-dom).
 - Dias 1-5: is_personal=false obrigatoriamente.
 - Mesmo nos dias 6-7, NUNCA invente hobby/família/pet — só use o que está no bloco "CONTEXTO PESSOAL DO CRIADOR".`;
-  return forbiddenContext ? `${base}\n\n${forbiddenContext}` : base;
+
+  // Bloco anti-repetição para Sex/Sáb/Dom: lista temas de stories pessoais já
+  // publicados em semanas anteriores. Sem isso, o modelo cria template
+  // (sábado no haras com o cachorro X, domingo de café na varanda com biografia)
+  // que se repete idêntico a cada semana.
+  const personalRepetitionBlock = (previousPersonalStoriesContext && previousPersonalStoriesContext.trim())
+    ? `
+
+# STORIES DE FIM DE SEMANA JÁ PUBLICADOS — NÃO REPETIR
+Os stories abaixo já foram publicados em sextas/sábados/domingos de semanas anteriores. NÃO repita cenário, lugar, figura nomeada (pet, parente, mentor), ritual ou citação específica entre eles e os stories desta semana.
+
+${previousPersonalStoriesContext.trim()}
+
+REGRAS DE VARIAÇÃO OBRIGATÓRIA PARA OS DIAS 5-6-7:
+- Cenário/lugar: se a semana passada teve "no haras", esta semana NÃO pode ser no haras. Varie entre cenários distintos (feira do agricultor, viagem técnica a fazenda, almoço com colega de turma, cafeteria, parque, viagem rápida, casa, escritório vazio no sábado, etc.).
+- Figura nomeada (pet, parente, mentor, lugar específico): não pode aparecer 2 semanas seguidas. Se o cachorro "Gavel" apareceu sábado passado, NÃO use Gavel este sábado — use outro elemento da vida do criador (outro pet, vizinho, livro, prato).
+- Ritual de domingo: se a semana passada teve "café na varanda + biografia + frase da avó", esta semana precisa de OUTRO ritual (caminhada matinal, almoço de família em outro lugar, livro de outro gênero, encontro com amigo, planejamento da semana, etc.).
+- Frase/citação específica (bordão, máxima de família, expressão pessoal): NÃO pode aparecer em 2 semanas consecutivas. Cada frase só pode ser usada 1 vez a cada 3 semanas.
+- Caixinha de pergunta/enquete da sexta: o TEMA da caixinha precisa variar (não pode ser sempre "qual desses temas você quer aprofundar"). Alterne entre recap, enquete provocativa, pergunta aberta, teaser do próximo conteúdo.`
+    : "";
+
+  const baseWithPersonal = base + personalRepetitionBlock;
+  return forbiddenContext ? `${baseWithPersonal}\n\n${forbiddenContext}` : baseWithPersonal;
 }
 
 /**

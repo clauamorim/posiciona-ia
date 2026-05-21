@@ -741,6 +741,9 @@ async function processJob(jobId: string) {
         previousPillarsByWeek.push(weekPillars);
       }
       const previousSummary = previousSummaryItems.slice(-30).join("\n");
+      // Stories pessoais (dias 5-7) de semanas anteriores. Carregado direto do
+      // DB no bloco abaixo porque previousWeeks vem stripado do frontend.
+      let previousPersonalStoriesSummary = "";
       const rotationHint = getPillarRotationHint(previousPillarsByWeek);
       const rotationBlock = renderRotationBlock(rotationHint);
       // Offset cíclico (0..3) para variar qual tipo de post (EDU/DES/POS/MER) vai para o Dia 1 a cada semana.
@@ -840,13 +843,28 @@ async function processJob(jobId: string) {
           })
           .sort((a: any, b: any) => (b._week_index ?? 0) - (a._week_index ?? 0))
           .slice(0, 8);
+        const personalItems: string[] = [];
         for (const week of recent) {
           const wkIdx = week?._week_index ?? 0;
           const sigs = week?._dedup_metrics?._pattern_signatures;
           if (Array.isArray(sigs) && sigs.length > 0) {
             historicalSignaturesByWeek.push({ weekIndex: wkIdx, signatures: sigs as PostSignature[] });
           }
+          // Stories pessoais (Sex/Sáb/Dom) — tema, para anti-repetição de
+          // cenário/figura/ritual no estágio B (haras, varanda, biografia da avó).
+          const days = Array.isArray(week?.days) ? week.days : [];
+          for (const d of days) {
+            const story = d?.story;
+            if (story && typeof story.theme === "string" && story.theme.trim() && !story.mirrors_feed) {
+              const dayN = typeof d?.day === "number" ? d.day : null;
+              const labelDia = dayN === 6 ? "sábado" : dayN === 7 ? "domingo" : dayN === 5 ? "sexta" : `dia${dayN ?? "?"}`;
+              personalItems.push(`[story-${labelDia}] ${story.theme.trim()}`);
+            }
+          }
         }
+        // Mantém apenas os 10 stories pessoais mais recentes (≈ 3-4 semanas).
+        previousPersonalStoriesSummary = personalItems.slice(-10).join("\n");
+        console.log(`[stories-anti-repeat] week=${currentWeekIdx} prev_personal_stories=${personalItems.length}`);
       } catch (e: any) {
         console.warn("[pattern-signature] Falha ao carregar signatures históricas do DB:", e?.message || e);
       }
@@ -1966,7 +1984,12 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
         POSITIONING_GUARDRAIL_BLOCK +
         ethicalBlock +
         "\n\n" +
-        buildStoriesSystemPrompt(feedSummaryForStories, FEED_DAYS) +
+        buildStoriesSystemPrompt(
+          feedSummaryForStories,
+          FEED_DAYS,
+          undefined,
+          previousPersonalStoriesSummary,
+        ) +
         renderPillarsBlock() +
         renderEditorialFrameworks();
       const storiesUser = `# NEGÓCIO
@@ -2148,7 +2171,12 @@ Esta é a tentativa ${attempt} de ${STORIES_MAX_RETRIES}.`;
             POSITIONING_GUARDRAIL_BLOCK +
             ethicalBlock +
             "\n\n" +
-            buildStoriesSystemPrompt(feedSummaryForStories, FEED_DAYS, antiPrompt) +
+            buildStoriesSystemPrompt(
+              feedSummaryForStories,
+              FEED_DAYS,
+              antiPrompt,
+              previousPersonalStoriesSummary,
+            ) +
             renderPillarsBlock() +
             renderEditorialFrameworks();
           try {
