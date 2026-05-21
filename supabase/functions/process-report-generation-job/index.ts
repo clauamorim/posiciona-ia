@@ -61,6 +61,28 @@ async function updateJob(jobId: string, patch: Record<string, any>) {
   await admin.from("report_generation_jobs").update(patch).eq("id", jobId);
 }
 
+// Executa uma chamada longa (tipicamente callClaude com streaming) e em
+// paralelo dispara updateJob periodicamente, para que o watchdog de
+// `get-report-generation-job` (4min sem updated_at) não marque o job como
+// failed enquanto o Claude ainda está gerando.
+async function withHeartbeat<T>(
+  jobId: string,
+  progressMessage: string,
+  fn: () => Promise<T>,
+  intervalMs = 30000,
+): Promise<T> {
+  const heartbeat = setInterval(() => {
+    updateJob(jobId, { progress_message: progressMessage }).catch((e) => {
+      console.warn(`[report] heartbeat update failed: ${e?.message || e}`);
+    });
+  }, intervalMs);
+  try {
+    return await fn();
+  } finally {
+    clearInterval(heartbeat);
+  }
+}
+
 function buildSystemPrompt(genderLabel: string): string {
   return `Você é um especialista em branding, arquétipos de marca e metodologia StoryBrand.
 Gere um relatório estratégico completo e personalizado para posicionamento de marca no Instagram.
@@ -526,14 +548,20 @@ Gere o relatório estratégico completo em JSON conforme a estrutura exigida.`;
     let isFallback = false;
 
     let lastError: any = null;
-    const MAX_ATTEMPTS = 3;
-    const BACKOFF_MS = [0, 5000, 10000];
-    // Timeouts dimensionados para caber no wall-clock da Edge Function
-    // E no watchdog (4 min sem heartbeat → job marcado como failed).
-    // Anthropic costuma demorar ~89s para gerar ~4500 tokens; 90s era
-    // muito justo e disparava 504 com frequência. 120s dá 30s de folga
-    // sem ultrapassar o watchdog (3×120s + delays ≈ 375s, cabe em 400s).
-    const PER_ATTEMPT_TIMEOUT_MS = 120000;
+    // 2 tentativas com streaming + heartbeats. callClaude agora streama
+    // e usa idle timeout (não total), então gerações longas (>2min) cabem
+    // contanto que o Claude continue mandando bytes. Heartbeats a cada 30s
+    // impedem o watchdog (4min) de matar o job. 2×~180s = ~365s, dentro
+    // do wall-clock da Edge Function (~400s).
+    const MAX_ATTEMPTS = 2;
+    const BACKOFF_MS = [0, 5000];
+    // Idle timeout: 90s sem receber chunks → aborta. Ceiling interno do
+    // callClaude é 3min, abaixo do watchdog.
+    const PER_ATTEMPT_TIMEOUT_MS = 90000;
+    const ATTEMPT_PROGRESS = (n: number) =>
+      n === 0
+        ? "Gerando estratégia com IA… pode levar até 3 minutos."
+        : `Refinando estratégia (tentativa ${n + 1}/${MAX_ATTEMPTS})…`;
 
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
       if (BACKOFF_MS[attempt] > 0) {
@@ -543,23 +571,18 @@ Gere o relatório estratégico completo em JSON conforme a estrutura exigida.`;
         await new Promise((r) => setTimeout(r, BACKOFF_MS[attempt]));
       }
 
-      // Heartbeat antes de cada tentativa para o watchdog
-      // (get-report-generation-job) não declarar o job stale durante uma
-      // chamada longa ao Claude.
-      await updateJob(jobId, {
-        progress_message: attempt === 0
-          ? "Gerando estratégia com IA… pode levar até 90 segundos."
-          : `Refinando estratégia (tentativa ${attempt + 1}/${MAX_ATTEMPTS})…`,
-      });
+      await updateJob(jobId, { progress_message: ATTEMPT_PROGRESS(attempt) });
 
       try {
-        const rawContent = await callClaude({
-          systemPrompt,
-          userText: userPrompt,
-          max_tokens: 10000,
-          timeoutMs: PER_ATTEMPT_TIMEOUT_MS,
-          disableRetries: true, // o loop externo controla o retry
-        });
+        const rawContent = await withHeartbeat(jobId, ATTEMPT_PROGRESS(attempt), () =>
+          callClaude({
+            systemPrompt,
+            userText: userPrompt,
+            max_tokens: 10000,
+            timeoutMs: PER_ATTEMPT_TIMEOUT_MS,
+            disableRetries: true,
+          })
+        );
 
         const parsed = extractJsonFromLLM(rawContent);
         if (parsed && isValidReport(parsed)) {
@@ -608,13 +631,15 @@ Gere o relatório estratégico completo em JSON conforme a estrutura exigida.`;
       try {
         await updateJob(jobId, { progress_message: "Refinando coerência da estratégia…" });
         const retryInstructions = renderCoherenceRetryInstructions(coherenceViolations);
-        const rawRetry = await callClaude({
-          systemPrompt: buildSystemPrompt(genderLabel) + renderBrandscriptFramework() + getEthicalRulesBlock(professionCategory) + POSITIONING_GUARDRAIL_BLOCK,
-          userText: userPrompt + "\n\n" + retryInstructions,
-          max_tokens: 10000,
-          timeoutMs: 120000,
-          disableRetries: true,
-        });
+        const rawRetry = await withHeartbeat(jobId, "Refinando coerência da estratégia…", () =>
+          callClaude({
+            systemPrompt: buildSystemPrompt(genderLabel) + renderBrandscriptFramework() + getEthicalRulesBlock(professionCategory) + POSITIONING_GUARDRAIL_BLOCK,
+            userText: userPrompt + "\n\n" + retryInstructions,
+            max_tokens: 10000,
+            timeoutMs: 90000,
+            disableRetries: true,
+          })
+        );
         const reparsed = extractJsonFromLLM(rawRetry);
         if (reparsed && isValidReport(reparsed)) {
           reportContent = professionCategory !== "outro"
