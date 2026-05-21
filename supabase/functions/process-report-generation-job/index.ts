@@ -528,12 +528,12 @@ Gere o relatório estratégico completo em JSON conforme a estrutura exigida.`;
     let lastError: any = null;
     const MAX_ATTEMPTS = 3;
     const BACKOFF_MS = [0, 5000, 10000];
-    // Timeouts reduzidos para caber no wall-clock da Edge Function.
-    // Antes: 3×180s + delays = até 568s → worker era morto silenciosamente
-    // e o catch nunca disparava, deixando job preso em "processing".
-    // Agora: 3×90s + delays ≈ 285s, bem dentro do limite (~400s) e ainda
-    // suficiente para o Claude responder o JSON do relatório (em geral 40-70s).
-    const PER_ATTEMPT_TIMEOUT_MS = 90000;
+    // Timeouts dimensionados para caber no wall-clock da Edge Function
+    // E no watchdog (4 min sem heartbeat → job marcado como failed).
+    // Anthropic costuma demorar ~89s para gerar ~4500 tokens; 90s era
+    // muito justo e disparava 504 com frequência. 120s dá 30s de folga
+    // sem ultrapassar o watchdog (3×120s + delays ≈ 375s, cabe em 400s).
+    const PER_ATTEMPT_TIMEOUT_MS = 120000;
 
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
       if (BACKOFF_MS[attempt] > 0) {
@@ -612,7 +612,7 @@ Gere o relatório estratégico completo em JSON conforme a estrutura exigida.`;
           systemPrompt: buildSystemPrompt(genderLabel) + renderBrandscriptFramework() + getEthicalRulesBlock(professionCategory) + POSITIONING_GUARDRAIL_BLOCK,
           userText: userPrompt + "\n\n" + retryInstructions,
           max_tokens: 10000,
-          timeoutMs: 75000,
+          timeoutMs: 120000,
           disableRetries: true,
         });
         const reparsed = extractJsonFromLLM(rawRetry);
