@@ -606,12 +606,13 @@ Gere o relatório estratégico completo em JSON conforme a estrutura exigida.`;
     if (coherenceViolations.length > 0 && !isFallback) {
       console.warn(`[generate-report] coherence violations=${coherenceViolations.length}`, coherenceViolations.slice(0, 5));
       try {
+        await updateJob(jobId, { progress_message: "Refinando coerência da estratégia…" });
         const retryInstructions = renderCoherenceRetryInstructions(coherenceViolations);
         const rawRetry = await callClaude({
           systemPrompt: buildSystemPrompt(genderLabel) + renderBrandscriptFramework() + getEthicalRulesBlock(professionCategory) + POSITIONING_GUARDRAIL_BLOCK,
           userText: userPrompt + "\n\n" + retryInstructions,
           max_tokens: 10000,
-          timeoutMs: 120000,
+          timeoutMs: 75000,
           disableRetries: true,
         });
         const reparsed = extractJsonFromLLM(rawRetry);
