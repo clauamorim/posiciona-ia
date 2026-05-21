@@ -799,6 +799,11 @@ Gere o relatório estratégico completo em JSON conforme a estrutura exigida.`;
   }
 }
 
+// Marker para confirmar qual versão do código está em produção.
+// Se aparecer nos logs, a chamada está usando o cliente Claude com streaming
+// (PR de 2026-05-21). Caso contrário, o deploy não pegou o shared/claudeClient.ts.
+const WORKER_VERSION = "streaming-v1";
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -807,6 +812,7 @@ serve(async (req) => {
   try {
     const body = await req.json().catch(() => ({}));
     const jobId = body?.jobId;
+    console.log(`[report] worker ${WORKER_VERSION} received jobId=${jobId}`);
 
     if (!jobId || typeof jobId !== "string") {
       return new Response(JSON.stringify({ error: "jobId é obrigatório" }), {
