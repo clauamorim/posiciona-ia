@@ -5,6 +5,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import DocumentPanel from "./inspector/DocumentPanel";
 import SelectionPanel, { SelectedKind } from "./inspector/SelectionPanel";
 import AddElementPanel from "./inspector/AddElementPanel";
+import TemplateSertaoPanel from "./inspector/TemplateSertaoPanel";
+import type { SertaoTokens } from "@/components/post-templates/governante/types";
 
 export interface OverlayImage {
   id: string;
@@ -125,11 +127,37 @@ interface PostToolbarProps {
   onReset: () => void;
   onUndo?: () => void;
   canUndo?: boolean;
+
+  // Template (quando um template está ativo, as seções Document/Selection/Add
+  // são substituídas por esta seção única — evita controles duplicados).
+  templateId?: string | null;
+  templateTokens?: Partial<SertaoTokens>;
+  onChangeTemplateTokens?: (patch: Partial<SertaoTokens>) => void;
+  onResetTemplateTokens?: () => void;
 }
 
 const PostToolbar: React.FC<PostToolbarProps> = (props) => {
+  // Quando um template está ativo, o template é a única fonte de cores,
+  // fontes e ornamentos. Esconde Documento/Elemento/Adicionar pra evitar
+  // controles conflitantes; mostra a seção do template no mesmo lugar.
+  const templateActive =
+    props.templateId === "governante.sertao-profundo" &&
+    !!props.onChangeTemplateTokens &&
+    !!props.onResetTemplateTokens;
+
   return (
     <div className="flex flex-col gap-4 p-3 rounded-xl bg-card border overflow-y-auto max-h-[80vh]">
+      {templateActive ? (
+        <section>
+          <h3 className="text-[11px] font-semibold uppercase tracking-wider text-foreground/80 mb-3">Template</h3>
+          <TemplateSertaoPanel
+            tokens={props.templateTokens ?? {}}
+            onChange={props.onChangeTemplateTokens!}
+            onReset={props.onResetTemplateTokens!}
+          />
+        </section>
+      ) : (
+        <>
       {/* Document */}
       <section>
         <h3 className="text-[11px] font-semibold uppercase tracking-wider text-foreground/80 mb-3">Documento</h3>
@@ -247,6 +275,8 @@ const PostToolbar: React.FC<PostToolbarProps> = (props) => {
       </section>
 
       <div className="border-t border-border" />
+        </>
+      )}
 
       {/* Actions */}
       <TooltipProvider delayDuration={200}>

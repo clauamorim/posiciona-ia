@@ -25,7 +25,6 @@ import { prepareSinglePostCardCopy, prepareCarouselCardCopy } from "@/lib/editor
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { mapPostToCards } from "@/components/post-templates/governante/mapPostToCards";
 import type { SertaoTokens } from "@/components/post-templates/governante/types";
-import TemplateSertaoPanel from "@/components/post-editor/inspector/TemplateSertaoPanel";
 
 import { Sparkles, X, Image as ImageIcon, Loader2, Download } from "lucide-react";
 import { useEditorHistory } from "@/hooks/useEditorHistory";
@@ -1998,20 +1997,18 @@ const PostEditorPage = () => {
               canUndo,
             };
 
+            const templateToolbarProps = {
+              templateId,
+              templateTokens,
+              onChangeTemplateTokens: updateTemplateTokens,
+              onResetTemplateTokens: resetTemplateTokens,
+            };
             return (
               <>
-                {templateId === "governante.sertao-profundo" && (
-                  <div className="hidden md:block mb-3">
-                    <TemplateSertaoPanel
-                      tokens={templateTokens}
-                      onChange={updateTemplateTokens}
-                      onReset={resetTemplateTokens}
-                    />
-                  </div>
-                )}
                 <div className="hidden md:block">
                   <PostToolbar
                     {...sharedToolbarProps}
+                    {...templateToolbarProps}
                     onSaveDesign={handleSaveDesign}
                     onSaveAsTemplate={handleSaveAsTemplate}
                     saving={savingDesign}
@@ -2020,6 +2017,7 @@ const PostEditorPage = () => {
                 {isMobile && (
                   <MobileEditorBar
                     {...sharedToolbarProps}
+                    {...templateToolbarProps}
                     onSaveDesign={handleSaveDesign}
                     saving={savingDesign}
                   />

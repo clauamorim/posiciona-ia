@@ -7,7 +7,9 @@ import { cn } from "@/lib/utils";
 import DocumentPanel from "./inspector/DocumentPanel";
 import SelectionPanel, { SelectedKind } from "./inspector/SelectionPanel";
 import AddElementPanel from "./inspector/AddElementPanel";
+import TemplateSertaoPanel from "./inspector/TemplateSertaoPanel";
 import type { OverlayImage } from "./PostToolbar";
+import type { SertaoTokens } from "@/components/post-templates/governante/types";
 
 interface PaletteColor { hex: string; name: string }
 
@@ -96,6 +98,13 @@ export interface MobileEditorBarProps {
   saving?: boolean;
   onUndo?: () => void;
   canUndo?: boolean;
+
+  // Template (quando ativo, a aba "Documento" passa a mostrar os controles
+  // do template em vez do DocumentPanel — evita controles conflitantes).
+  templateId?: string | null;
+  templateTokens?: Partial<SertaoTokens>;
+  onChangeTemplateTokens?: (patch: Partial<SertaoTokens>) => void;
+  onResetTemplateTokens?: () => void;
 }
 
 const KIND_LABEL: Record<NonNullable<SelectedKind>, string> = {
@@ -270,7 +279,14 @@ const MobileEditorBar: React.FC<MobileEditorBarProps> = (props) => {
                 postBody={(props as any).postBody}
               />
             )}
-            {tab === "document" && (
+            {tab === "document" && props.templateId === "governante.sertao-profundo" && props.onChangeTemplateTokens && props.onResetTemplateTokens && (
+              <TemplateSertaoPanel
+                tokens={props.templateTokens ?? {}}
+                onChange={props.onChangeTemplateTokens}
+                onReset={() => { props.onResetTemplateTokens!(); close(); }}
+              />
+            )}
+            {tab === "document" && props.templateId !== "governante.sertao-profundo" && (
               <DocumentPanel
                 palette={props.palette}
                 selectedBgIndex={props.selectedBgIndex}
