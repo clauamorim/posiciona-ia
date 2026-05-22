@@ -1710,6 +1710,16 @@ const PostEditorPage = () => {
     saveStatus === "error" ? "⚠ Erro ao salvar" :
     saveStatus === "saved" && formattedSavedAt ? `✓ Salvo às ${formattedSavedAt}` : null;
 
+  // Cards mapeados para o template editorial selecionado (Governante · Sertão).
+  // Quando não há templateId, fica null e o canvas legado é usado.
+  const templateCards = templateId === "governante.sertao-profundo"
+    ? mapPostToCards({
+        card_copy: editedTexts,
+        title: editedTitle,
+        cta: ctaText || day.cta || undefined,
+      })
+    : null;
+
   return (
     <DashboardLayout>
       <div className="space-y-6 pb-32 md:pb-6">
