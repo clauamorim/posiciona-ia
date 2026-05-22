@@ -1787,7 +1787,7 @@ const PostEditorPage = () => {
               <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Template</span>
               <Select
                 value={templateId ?? "none"}
-                onValueChange={(v) => setTemplateId(v === "none" ? null : v)}
+                onValueChange={(v) => handleTemplateIdChange(v === "none" ? null : v)}
               >
                 <SelectTrigger className="h-8 w-[260px] text-xs">
                   <SelectValue />
