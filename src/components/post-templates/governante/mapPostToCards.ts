@@ -27,17 +27,14 @@ export interface MapPostInput {
   };
 }
 
-// Defaults ESTRUTURAIS (neutros, não-temáticos) — usados apenas como
-// rótulos de navegação/ritmo, não como conteúdo.
-const NUMBER_WORD: Record<number, string> = {
-  1: "Uma",
-  2: "Duas",
-  3: "Três",
-  4: "Quatro",
-  5: "Cinco",
-  6: "Seis",
-  7: "Sete",
-};
+// ROMAN é o único default ESTRUTURAL (derivado do índice 1..5, não tem
+// equivalente no conteúdo do post). Os outros campos (countWord, footer,
+// closeEyebrow, kicker, eyebrow, topic, title da cláusula) ficam vazios
+// quando o post não traz o dado — o componente renderiza slot vazio
+// editável em vez de texto-exemplo do template. Sem isso, frases como
+// "Cinco", "arraste para começar" e "FECHAMENTO" vazavam como se
+// fossem conteúdo real, criando a sensação de mistura entre
+// linha editorial e demonstração do template.
 const ROMAN: Record<number, string> = {
   1: "I",
   2: "II",
@@ -56,10 +53,10 @@ export function mapPostToCards(input: MapPostInput): CardData[] {
     kind: "cover",
     eyebrow: meta?.eyebrow ?? "",
     kicker: meta?.kicker ?? "",
-    countWord: meta?.countWord ?? (NUMBER_WORD[clauseCount] || ""),
+    countWord: meta?.countWord ?? "",
     titleLead: input.title ?? "",
     titleTail: meta?.titleTail ?? "",
-    footer: meta?.footer ?? "arraste para começar",
+    footer: meta?.footer ?? "",
   };
 
   // ── Cláusulas (índices 1..5) ──────────────────────────────────────
@@ -79,7 +76,7 @@ export function mapPostToCards(input: MapPostInput): CardData[] {
   // ── Fechamento (índice 6) ─────────────────────────────────────────
   const close: CardData = {
     kind: "close",
-    eyebrow: meta?.closeEyebrow ?? "FECHAMENTO",
+    eyebrow: meta?.closeEyebrow ?? "",
     title: copy[6] ?? "",
     body: meta?.closeBody ?? "",
     cta: input.cta ?? "",

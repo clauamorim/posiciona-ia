@@ -92,33 +92,33 @@ const EditableSpan: React.FC<EditableSpanProps> = ({
   const isEditable = !!onEdit;
   const isEmpty = !value || value.length === 0;
 
-  // Sem editor e sem valor: não renderiza nada.
+  // Sem editor e sem valor: não renderiza nada (componente some).
   if (!isEditable && isEmpty) return null;
 
-  const showPlaceholder = isEditable && isEmpty && !!placeholder;
-  const displayValue = showPlaceholder ? (placeholder as string) : value;
+  // Editor + vazio: NÃO renderiza o texto de placeholder visualmente.
+  // O usuário queixou-se de "textos de exemplo misturados com o conteúdo
+  // real" — placeholders com opacity 0.35 eram legíveis e pareciam
+  // conteúdo. Agora o slot vazio fica invisível mas continua clicável
+  // (cursor de texto, contorno tracejado discreto no hover); o
+  // placeholder vai pro atributo `title` como tooltip nativa do browser
+  // e como `aria-label` para acessibilidade.
 
   const editableStyle: React.CSSProperties | undefined = isEditable
-    ? {
-        ...style,
-        ...editableBaseStyle,
-        ...(showPlaceholder
-          ? { opacity: 0.35, fontStyle: "italic" }
-          : null),
-      }
+    ? { ...style, ...editableBaseStyle }
     : style;
 
   const focusProps = isEditable
     ? {
+        onMouseEnter: (e: React.MouseEvent<HTMLElement>) => {
+          if (isEmpty) e.currentTarget.style.outline = "1px dashed rgba(196,166,77,0.45)";
+        },
+        onMouseLeave: (e: React.MouseEvent<HTMLElement>) => {
+          if (isEmpty) e.currentTarget.style.outline = "none";
+        },
         onFocus: (e: React.FocusEvent<HTMLElement>) => {
           e.currentTarget.style.boxShadow = "0 0 0 1px rgba(196,166,77,0.55)";
           e.currentTarget.style.backgroundColor = "rgba(196,166,77,0.06)";
-          if (showPlaceholder) {
-            // Limpa placeholder ao focar para começar a digitar do zero.
-            e.currentTarget.innerText = "";
-            e.currentTarget.style.opacity = "1";
-            e.currentTarget.style.fontStyle = (style?.fontStyle as string) ?? "normal";
-          }
+          e.currentTarget.style.outline = "none";
         },
         onBlurCapture: (e: React.FocusEvent<HTMLElement>) => {
           e.currentTarget.style.boxShadow = "none";
@@ -135,14 +135,16 @@ const EditableSpan: React.FC<EditableSpanProps> = ({
         onBlur: handleBlur,
         onKeyDown: handleKeyDown,
         onPaste: handlePaste,
+        title: placeholder,
+        "aria-label": placeholder,
         ...focusProps,
       }
     : {};
 
   const Tag = as as any;
   return (
-    <Tag key={`${value}__${showPlaceholder ? "ph" : "val"}`} style={editableStyle} {...commonProps}>
-      {displayValue}
+    <Tag key={value} style={editableStyle} {...commonProps}>
+      {value}
     </Tag>
   );
 };
