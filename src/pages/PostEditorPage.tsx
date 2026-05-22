@@ -2006,6 +2006,10 @@ const PostEditorPage = () => {
               onChangeTemplateTokens: updateTemplateTokens,
               onResetTemplateTokens: resetTemplateTokens,
               templateDefaultBrandMark: companyName,
+              templateCurrentCard: templateCards ? templateCards[currentSlide] ?? null : null,
+              templateCurrentSlideIndex: currentSlide,
+              onEditTemplateCurrentSlot: (field: string, value: string) =>
+                updateTemplateSlot(currentSlide, field, value),
             };
             return (
               <>

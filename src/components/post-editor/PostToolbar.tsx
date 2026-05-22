@@ -6,7 +6,7 @@ import DocumentPanel from "./inspector/DocumentPanel";
 import SelectionPanel, { SelectedKind } from "./inspector/SelectionPanel";
 import AddElementPanel from "./inspector/AddElementPanel";
 import TemplateSertaoPanel from "./inspector/TemplateSertaoPanel";
-import type { SertaoTokens } from "@/components/post-templates/governante/types";
+import type { CardData, SertaoTokens } from "@/components/post-templates/governante/types";
 
 export interface OverlayImage {
   id: string;
@@ -136,6 +136,12 @@ interface PostToolbarProps {
   onResetTemplateTokens?: () => void;
   /** Sugestão default pro brandMark do template (nome do negócio). */
   templateDefaultBrandMark?: string;
+  /** Card atualmente visível — usado pra renderizar inputs de slots do slide. */
+  templateCurrentCard?: CardData | null;
+  /** Índice do slide atual (0..6). */
+  templateCurrentSlideIndex?: number;
+  /** Edita um slot do slide atual (eyebrow, kicker, body, etc.). */
+  onEditTemplateCurrentSlot?: (field: string, value: string) => void;
 }
 
 const PostToolbar: React.FC<PostToolbarProps> = (props) => {
@@ -157,6 +163,9 @@ const PostToolbar: React.FC<PostToolbarProps> = (props) => {
             onChange={props.onChangeTemplateTokens!}
             onReset={props.onResetTemplateTokens!}
             defaultBrandMark={props.templateDefaultBrandMark}
+            currentCard={props.templateCurrentCard}
+            currentSlideIndex={props.templateCurrentSlideIndex}
+            onEditCurrentSlot={props.onEditTemplateCurrentSlot}
           />
         </section>
       ) : (

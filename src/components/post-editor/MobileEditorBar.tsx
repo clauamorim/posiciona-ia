@@ -9,7 +9,7 @@ import SelectionPanel, { SelectedKind } from "./inspector/SelectionPanel";
 import AddElementPanel from "./inspector/AddElementPanel";
 import TemplateSertaoPanel from "./inspector/TemplateSertaoPanel";
 import type { OverlayImage } from "./PostToolbar";
-import type { SertaoTokens } from "@/components/post-templates/governante/types";
+import type { CardData, SertaoTokens } from "@/components/post-templates/governante/types";
 
 interface PaletteColor { hex: string; name: string }
 
@@ -106,6 +106,9 @@ export interface MobileEditorBarProps {
   onChangeTemplateTokens?: (patch: Partial<SertaoTokens>) => void;
   onResetTemplateTokens?: () => void;
   templateDefaultBrandMark?: string;
+  templateCurrentCard?: CardData | null;
+  templateCurrentSlideIndex?: number;
+  onEditTemplateCurrentSlot?: (field: string, value: string) => void;
 }
 
 const KIND_LABEL: Record<NonNullable<SelectedKind>, string> = {
@@ -286,6 +289,9 @@ const MobileEditorBar: React.FC<MobileEditorBarProps> = (props) => {
                 onChange={props.onChangeTemplateTokens}
                 onReset={() => { props.onResetTemplateTokens!(); close(); }}
                 defaultBrandMark={props.templateDefaultBrandMark}
+                currentCard={props.templateCurrentCard}
+                currentSlideIndex={props.templateCurrentSlideIndex}
+                onEditCurrentSlot={props.onEditTemplateCurrentSlot}
               />
             )}
             {tab === "document" && props.templateId !== "governante.sertao-profundo" && (
