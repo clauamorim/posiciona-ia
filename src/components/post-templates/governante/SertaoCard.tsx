@@ -98,16 +98,12 @@ const EditableSpan: React.FC<EditableSpanProps> = ({
   const isEditable = !!onEdit;
   const isEmpty = !value || value.length === 0;
 
-  // Sem editor e sem valor: não renderiza nada (componente some).
-  if (!isEditable && isEmpty) return null;
-
-  // Editor + vazio: NÃO renderiza o texto de placeholder visualmente.
-  // O usuário queixou-se de "textos de exemplo misturados com o conteúdo
-  // real" — placeholders com opacity 0.35 eram legíveis e pareciam
-  // conteúdo. Agora o slot vazio fica invisível mas continua clicável
-  // (cursor de texto, contorno tracejado discreto no hover); o
-  // placeholder vai pro atributo `title` como tooltip nativa do browser
-  // e como `aria-label` para acessibilidade.
+  // Slot vazio: NÃO renderiza nada. Sem isso, o elemento vazio ainda
+  // ocupava espaço vertical correspondente ao tamanho de fonte do slot
+  // (96px no countWord, 32px no kicker), empurrando o título pra baixo e
+  // quebrando a hierarquia visual original do template. Para adicionar
+  // conteúdo a slots vazios, o usuário usa o painel do inspector (futuro).
+  if (isEmpty) return null;
 
   const editableStyle: React.CSSProperties | undefined = isEditable
     ? { ...style, ...editableBaseStyle }
@@ -115,16 +111,9 @@ const EditableSpan: React.FC<EditableSpanProps> = ({
 
   const focusProps = isEditable
     ? {
-        onMouseEnter: (e: React.MouseEvent<HTMLElement>) => {
-          if (isEmpty) e.currentTarget.style.outline = "1px dashed rgba(196,166,77,0.45)";
-        },
-        onMouseLeave: (e: React.MouseEvent<HTMLElement>) => {
-          if (isEmpty) e.currentTarget.style.outline = "none";
-        },
         onFocus: (e: React.FocusEvent<HTMLElement>) => {
           e.currentTarget.style.boxShadow = "0 0 0 1px rgba(196,166,77,0.55)";
           e.currentTarget.style.backgroundColor = "rgba(196,166,77,0.06)";
-          e.currentTarget.style.outline = "none";
         },
         onBlurCapture: (e: React.FocusEvent<HTMLElement>) => {
           e.currentTarget.style.boxShadow = "none";
