@@ -4,7 +4,7 @@ import { ArrowLeft, ArrowRight, Download, Package } from "lucide-react";
 import PostCanvas from "./PostCanvas";
 import type { TextBox } from "./PostCanvas";
 import type { OverlayImage } from "./PostToolbar";
-import type { CardData as GovernanteCardData } from "@/components/post-templates/governante/types";
+import type { CardData as GovernanteCardData, SertaoTokens } from "@/components/post-templates/governante/types";
 
 interface CarouselEditorProps {
   slides: string[];
