@@ -10,6 +10,9 @@ export interface CoverSlots {
   countWord: string;
   titleLead: string;
   titleTail: string;
+  /** Corpo opcional de abertura. Recebe copy[0] no carrossel para paridade
+   *  com o PostCanvas legado, que mostra título + corpo no slide 0. */
+  body?: string;
   footer: string;
 }
 
