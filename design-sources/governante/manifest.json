@@ -1,0 +1,184 @@
+{
+  "$schema": "../template-manifest.schema.json",
+  "archetype": "Governante",
+  "archetype_slug": "governante",
+  "source": {
+    "tool": "Claude Design (Research Preview)",
+    "date": "2026-05-22",
+    "project": "Posiciona Editorial · Cards do Governante",
+    "files": [
+      "cards-data.jsx",
+      "cards-sertao.jsx",
+      "cards-cartorio.jsx",
+      "cards-manuscrito.jsx"
+    ]
+  },
+  "design_system": {
+    "name": "Posiciona Editorial · Governante",
+    "vibe": "Editorial premium, sóbrio, autoridade. Tipografia serif italic + small caps tracked.",
+    "palette": {
+      "verde":    { "hex": "#1B3A2D", "name": "Verde Cerrado",    "usage": "Fundo principal / contraste forte" },
+      "ouro":     { "hex": "#C9A84C", "name": "Ouro do Sertão",   "usage": "Acento, eyebrow, rules, numerais" },
+      "areia":    { "hex": "#F5F0E8", "name": "Areia",            "usage": "Tipografia clara / fundo alternativo" },
+      "grafite":  { "hex": "#2C2C2C", "name": "Grafite",          "usage": "Body sobre fundo claro" },
+      "mogno":    { "hex": "#8B4513", "name": "Mogno",            "usage": "Acento marrom / numerais (Cartório)" },
+      "verdeInk": { "hex": "#102016", "name": "Verde Tinta",      "usage": "Variação escura do verde" },
+      "areiaTint":{ "hex": "#EEE7D7", "name": "Areia Suave",      "usage": "Variação clara do areia" },
+      "ouroInk":  { "hex": "#A98933", "name": "Ouro Tinta",       "usage": "Variação escura do ouro" }
+    },
+    "fonts": [
+      {
+        "family": "Cormorant Garamond",
+        "google_fonts_url": "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&display=swap",
+        "weights": [400, 500, 600],
+        "styles": ["normal", "italic"],
+        "role": "Display secundário (kicker / itálico)"
+      },
+      {
+        "family": "Playfair Display",
+        "google_fonts_url": "https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600;1,700&display=swap",
+        "weights": [400, 500, 600, 700],
+        "styles": ["normal", "italic"],
+        "role": "Display principal (headlines, numerais gigantes)"
+      },
+      {
+        "family": "Lato",
+        "google_fonts_url": "https://fonts.googleapis.com/css2?family=Lato:wght@400;700&display=swap",
+        "weights": [400, 700],
+        "styles": ["normal"],
+        "role": "Eyebrow, small caps tracked, body sans alternativo"
+      }
+    ]
+  },
+  "formats": [
+    {
+      "id": "4:5",
+      "width": 1080,
+      "height": 1350,
+      "preview_width": 540,
+      "preview_height": 675,
+      "label": "Carrossel Instagram (4:5)"
+    },
+    {
+      "id": "9:16",
+      "width": 1080,
+      "height": 1920,
+      "preview_width": 540,
+      "preview_height": 960,
+      "label": "Stories / Reels cover (9:16)"
+    }
+  ],
+  "card_kinds": [
+    {
+      "kind": "cover",
+      "position_in_carousel": 0,
+      "label": "Capa do carrossel",
+      "slots": [
+        { "key": "eyebrow",   "type": "text", "label": "Sobretítulo (small caps)", "max_chars": 80, "example": "POSICIONA EDITORIAL · DIREITO DO AGRO" },
+        { "key": "kicker",    "type": "text", "label": "Palavra-tema (itálica dourada)", "max_chars": 30, "example": "Cláusulas" },
+        { "key": "countWord", "type": "text", "label": "Número por extenso (display gigante)", "max_chars": 12, "example": "Sete" },
+        { "key": "titleLead", "type": "text", "label": "Continuação do título (em areia)", "max_chars": 80, "example": "cláusulas de arrendamento rural" },
+        { "key": "titleTail", "type": "text", "label": "Final do título (em itálico esmaecido)", "max_chars": 120, "example": "que eu releio antes de qualquer cliente assinar" },
+        { "key": "footer",    "type": "text", "label": "Dica de swipe (rodapé esquerdo)", "max_chars": 40, "example": "arraste para começar" }
+      ]
+    },
+    {
+      "kind": "clause",
+      "position_in_carousel": "1..5",
+      "label": "Item numerado da lista",
+      "occurrences_per_carousel": 5,
+      "slots": [
+        { "key": "num",   "type": "text", "label": "Número (01, 02…)", "max_chars": 3, "example": "01" },
+        { "key": "roman", "type": "text", "label": "Numeral romano (auto)", "max_chars": 6, "example": "I" },
+        { "key": "topic", "type": "text", "label": "Categoria (eyebrow ao lado do título)", "max_chars": 30, "example": "PRAZO" },
+        { "key": "title", "type": "text", "label": "Título do item", "max_chars": 80, "example": "Prazo e renovação automática" },
+        { "key": "body",  "type": "text", "label": "Frase-resumo", "max_chars": 140, "example": "Quem esquece de notificar, renova mais um ciclo inteiro." },
+        { "key": "detail","type": "text", "label": "Detalhe opcional (não usado em todas as variações)", "max_chars": 280, "example": "Marque na agenda o prazo de notificação prévia. A omissão prorroga o contrato pelas mesmas condições — e travar a renovação depois custa caro." }
+      ]
+    },
+    {
+      "kind": "close",
+      "position_in_carousel": 6,
+      "label": "Fechamento com CTA",
+      "slots": [
+        { "key": "eyebrow", "type": "text", "label": "Sobretítulo", "max_chars": 30, "example": "FECHAMENTO" },
+        { "key": "title",   "type": "text", "label": "Frase de fechamento (display itálico)", "max_chars": 80, "example": "Releia seu contrato esta semana." },
+        { "key": "body",    "type": "text", "label": "Apoio do fechamento", "max_chars": 140, "example": "Sem pressa. Onde você travar, está o nó." },
+        { "key": "cta",     "type": "text", "label": "Chamada à ação (rodapé esquerdo)", "max_chars": 50, "example": "Salve para a próxima revisão." }
+      ]
+    }
+  ],
+  "variations": [
+    {
+      "id": "sertao-profundo",
+      "name": "Sertão Profundo",
+      "style_family": "minimalista",
+      "description": "Fundo verde cerrado dominante. Tipografia em areia. Acento ouro em hairline rules e numerais gigantes. O mais clássico-editorial das três.",
+      "component_target": "src/components/post-templates/governante/SertaoCard.tsx",
+      "source_file": "cards-sertao.jsx",
+      "tokens": {
+        "verdeBg":        { "type": "color",   "default": "#1B3A2D", "label": "Cor de fundo" },
+        "areiaInk":       { "type": "color",   "default": "#F5F0E8", "label": "Cor da tipografia" },
+        "ouroAccent":     { "type": "color",   "default": "#C9A84C", "label": "Cor do acento (eyebrow, rules, numerais)" },
+        "bodyFont":       { "type": "enum",    "default": "lato",    "values": ["lato", "cormorant", "playfair"], "label": "Fonte do corpo" },
+        "numberingStyle": { "type": "enum",    "default": "roman",   "values": ["plain", "bracketed", "roman"],   "label": "Estilo de numeração" },
+        "showOrnaments":  { "type": "boolean", "default": true,      "label": "Mostrar losangos ornamentais" },
+        "showSwipeHint":  { "type": "boolean", "default": true,      "label": "Mostrar dica de swipe na capa" },
+        "eyebrowText":    { "type": "text",    "default": null,      "label": "Sobrescrever sobretítulo (opcional)" }
+      }
+    },
+    {
+      "id": "cartorio-de-bolso",
+      "name": "Cartório de Bolso",
+      "style_family": "minimalista",
+      "description": "Inverso da Sertão: fundo creme, títulos verde, body grafite. Numeração gigante em mogno na margem esquerda. Grade assimétrica. Tom mais técnico-cartorial.",
+      "component_target": "src/components/post-templates/governante/CartorioCard.tsx",
+      "source_file": "cards-cartorio.jsx",
+      "tokens": {
+        "areiaBg":        { "type": "color",   "default": "#F5F0E8", "label": "Cor de fundo" },
+        "verdeInk":       { "type": "color",   "default": "#1B3A2D", "label": "Cor dos títulos" },
+        "mognoAccent":    { "type": "color",   "default": "#8B4513", "label": "Cor da numeração / eyebrow" },
+        "bodyFont":       { "type": "enum",    "default": "lato",    "values": ["lato", "cormorant", "playfair"], "label": "Fonte do corpo" },
+        "numberingStyle": { "type": "enum",    "default": "plain",   "values": ["plain", "bracketed", "roman"],   "label": "Estilo de numeração" },
+        "showOrnaments":  { "type": "boolean", "default": true,      "label": "Mostrar losangos ornamentais" },
+        "eyebrowText":    { "type": "text",    "default": null,      "label": "Sobrescrever sobretítulo (opcional)" }
+      }
+    },
+    {
+      "id": "manuscrito",
+      "name": "Manuscrito",
+      "style_family": "minimalista",
+      "description": "Split panel verde/areia com proporção variável por card (cria ritmo de carrossel). Numeral dourado gigante atravessando a divisória. Mais arrojado-art-directed dos três.",
+      "component_target": "src/components/post-templates/governante/ManuscritoCard.tsx",
+      "source_file": "cards-manuscrito.jsx",
+      "tokens": {
+        "verdeBg":        { "type": "color",   "default": "#1B3A2D", "label": "Cor da metade superior" },
+        "areiaBg":        { "type": "color",   "default": "#F5F0E8", "label": "Cor da metade inferior" },
+        "ouroAccent":     { "type": "color",   "default": "#C9A84C", "label": "Cor do numeral atravessando a divisória" },
+        "mognoAccent":    { "type": "color",   "default": "#8B4513", "label": "Cor secundária do acento" },
+        "bodyFont":       { "type": "enum",    "default": "lato",    "values": ["lato", "cormorant", "playfair"], "label": "Fonte do corpo" },
+        "numberingStyle": { "type": "enum",    "default": "plain",   "values": ["plain", "bracketed", "roman"],   "label": "Estilo de numeração" },
+        "showOrnaments":  { "type": "boolean", "default": true,      "label": "Mostrar losangos ornamentais" }
+      }
+    }
+  ],
+  "content_defaults": {
+    "comment": "Conteúdo de exemplo usado durante o design. Quando a IA gerar conteúdo real, ela deve preencher os slots descritos em card_kinds.",
+    "cards": [
+      { "kind": "cover",  "eyebrow": "POSICIONA EDITORIAL · DIREITO DO AGRO", "kicker": "Cláusulas", "countWord": "Sete", "titleLead": "cláusulas de arrendamento rural", "titleTail": "que eu releio antes de qualquer cliente assinar", "footer": "arraste para começar" },
+      { "kind": "clause", "num": "01", "roman": "I",   "topic": "PRAZO",         "title": "Prazo e renovação automática",                        "body": "Quem esquece de notificar, renova mais um ciclo inteiro.",         "detail": "Marque na agenda o prazo de notificação prévia. A omissão prorroga o contrato pelas mesmas condições — e travar a renovação depois custa caro." },
+      { "kind": "clause", "num": "02", "roman": "II",  "topic": "REAJUSTE",      "title": "Sacas, arrobas ou índice fixo?",                      "body": "Misturar critérios destrói a previsibilidade do contrato.",        "detail": "Escolha um único parâmetro de reajuste e fixe a fórmula. Combinações híbridas viram disputa sempre que o mercado oscila." },
+      { "kind": "clause", "num": "03", "roman": "III", "topic": "BENFEITORIAS",  "title": "Quem faz, quem paga, quem leva.",                     "body": "Sem isso escrito, briga garantida no final do ciclo.",             "detail": "Classifique as benfeitorias em necessárias, úteis e voluptuárias. Defina indenização e direito de retenção antes da primeira obra." },
+      { "kind": "clause", "num": "04", "roman": "IV",  "topic": "MEIO AMBIENTE", "title": "Responsabilidade ambiental durante o arrendamento.",  "body": "É do dono da terra ou de quem produz nela? Defina antes.",         "detail": "O passivo ambiental persegue a matrícula. Estipule responsabilidades por licenciamento, reserva legal e eventuais autuações enquanto a posse está com o arrendatário." },
+      { "kind": "clause", "num": "05", "roman": "V",   "topic": "RESCISÃO",      "title": "Rescisão antecipada.",                                "body": "Aqui mora a maior parte das disputas que vejo no fórum.",          "detail": "Especifique hipóteses, prazos de notificação, multas e o destino da safra em curso. Sem isso, o juiz decide por você." },
+      { "kind": "close",  "eyebrow": "FECHAMENTO", "title": "Releia seu contrato esta semana.", "body": "Sem pressa. Onde você travar, está o nó.", "cta": "Salve para a próxima revisão." }
+    ]
+  },
+  "integration_notes": {
+    "babel_to_react": "Os arquivos-fonte usam `Object.assign(window, { ... })` pra expor componentes globalmente (padrão Babel-in-browser). Na refatoração pra Posiciona, substituir por `export` proper, importar via path alias, tipar props com TypeScript.",
+    "css_in_js": "Os estilos estão inline em objetos JS. Pode manter inline em produção (suficiente pra esses templates) ou migrar pra Tailwind/CSS modules conforme padrão do app.",
+    "fonts_loading": "Adicionar `<link rel=\"preconnect\">` e o `<link>` do Google Fonts no `index.html` do shell — não importar via @font-face nos componentes.",
+    "responsive": "Os templates são desenhados pra renderizar em tamanho fixo (1080×1350 ou 1080×1920) e depois serem exportados como imagem. NÃO são responsivos — usam preview_width/preview_height pra display no editor.",
+    "next_archetypes": "Esta estrutura deve ser replicada pros outros 11 arquétipos (Mago, Sábio, Herói, Explorador, Inocente, Criador, Cuidador, Rebelde, Cara-comum, Bobo-da-corte, Amante) — cada um com sua própria paleta, fontes e variações."
+  }
+}
