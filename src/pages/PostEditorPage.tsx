@@ -24,6 +24,8 @@ import { getAIStyleById, type AIStyleId } from "@/lib/aiImageStyles";
 import { prepareSinglePostCardCopy, prepareCarouselCardCopy } from "@/lib/editorialCardCopy";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { mapPostToCards } from "@/components/post-templates/governante/mapPostToCards";
+import type { SertaoTokens } from "@/components/post-templates/governante/types";
+import TemplateSertaoPanel from "@/components/post-editor/inspector/TemplateSertaoPanel";
 
 import { Sparkles, X, Image as ImageIcon, Loader2, Download } from "lucide-react";
 import { useEditorHistory } from "@/hooks/useEditorHistory";
