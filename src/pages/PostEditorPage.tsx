@@ -1859,9 +1859,12 @@ const PostEditorPage = () => {
                 resetKey={`${initialStyle || "minimal"}-${canvasFormat}`}
                 textBoxes={slideTextBoxes[0]}
                 onTextBoxesChange={(boxes) => handleSlideTextBoxesChange(0, boxes)}
+                templateId={templateId}
+                templateCard={templateCards?.[0] ?? null}
               />
             )}
             {/* Botão "Baixar PNG" foi movido para o painel de ações à direita para não sobrepor o canvas. */}
+            </div>
           </div>
 
           {(() => {
