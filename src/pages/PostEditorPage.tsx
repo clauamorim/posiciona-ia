@@ -1895,6 +1895,8 @@ const PostEditorPage = () => {
                 onTextBoxesChange={(boxes) => handleSlideTextBoxesChange(0, boxes)}
                 templateId={templateId}
                 templateCard={templateCards?.[0] ?? null}
+                templateTokens={templateTokens}
+                templateSlideIndex={0}
                 onEditTemplateSlot={(field, value) => updateTemplateSlot(0, field, value)}
               />
             )}
