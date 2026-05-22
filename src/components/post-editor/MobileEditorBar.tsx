@@ -105,6 +105,7 @@ export interface MobileEditorBarProps {
   templateTokens?: Partial<SertaoTokens>;
   onChangeTemplateTokens?: (patch: Partial<SertaoTokens>) => void;
   onResetTemplateTokens?: () => void;
+  templateDefaultBrandMark?: string;
 }
 
 const KIND_LABEL: Record<NonNullable<SelectedKind>, string> = {
@@ -284,6 +285,7 @@ const MobileEditorBar: React.FC<MobileEditorBarProps> = (props) => {
                 tokens={props.templateTokens ?? {}}
                 onChange={props.onChangeTemplateTokens}
                 onReset={() => { props.onResetTemplateTokens!(); close(); }}
+                defaultBrandMark={props.templateDefaultBrandMark}
               />
             )}
             {tab === "document" && props.templateId !== "governante.sertao-profundo" && (

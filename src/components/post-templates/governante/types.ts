@@ -43,4 +43,17 @@ export interface SertaoTokens {
   showOrnaments?: boolean;
   showSwipeHint?: boolean;
   eyebrowText?: string | null;
+  /**
+   * Rótulo de seção que aparece antes do tópico em cada slide de cláusula
+   * ("CLÁUSULA · TÓPICO"). Variável porque nem todo carrossel é sobre
+   * cláusulas — pode ser "SITUAÇÃO", "PASSO", "CAPÍTULO", "DICA", etc.
+   * Default: "CLÁUSULA".
+   */
+  sectionLabel?: string;
+  /**
+   * Marca/assinatura mostrada no rodapé dos slides de cláusula.
+   * Default: nome da empresa do usuário (lido do business questionnaire);
+   * caso vazio, cai para "Posiciona Editorial".
+   */
+  brandMark?: string;
 }

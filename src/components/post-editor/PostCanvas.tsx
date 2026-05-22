@@ -113,6 +113,8 @@ interface PostCanvasProps {
   templateTokens?: Partial<SertaoTokens> | null;
   /** Índice do slide dentro do carrossel — usado para paginação fixa do template. */
   templateSlideIndex?: number;
+  /** Nome do negócio do usuário — default do `brandMark` no rodapé do template. */
+  templateDefaultBrandMark?: string;
   // Legacy compat
   onImageMove?: (id: string, x: number, y: number) => void;
   onImageResize?: (id: string, width: number, height: number) => void;
@@ -182,7 +184,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   initialTextBoxes, resetKey,
   textBoxes: controlledTextBoxes, onTextBoxesChange,
   primaryArchetype,
-  templateId, templateCard, onEditTemplateSlot, templateTokens, templateSlideIndex,
+  templateId, templateCard, onEditTemplateSlot, templateTokens, templateSlideIndex, templateDefaultBrandMark,
 }) => {
   const typo = getArchetypeTypography(primaryArchetype);
   const isMobile = useIsMobile();
@@ -1106,6 +1108,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
               tokens={templateTokens ?? undefined}
               slideIndex={templateSlideIndex}
               onEditSlot={onEditTemplateSlot as any}
+              defaultBrandMark={templateDefaultBrandMark}
             />
 
           </div>

@@ -2,6 +2,7 @@ import React from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import ColorPicker, { PaletteColor } from "./ColorPicker";
 import {
   AREIA,
@@ -30,6 +31,8 @@ interface Props {
   tokens: Partial<SertaoTokens>;
   onChange: (patch: Partial<SertaoTokens>) => void;
   onReset: () => void;
+  /** Sugestão pro brandMark (geralmente o nome do negócio do usuário). */
+  defaultBrandMark?: string;
 }
 
 const Row: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
@@ -41,7 +44,8 @@ const Row: React.FC<{ label: string; children: React.ReactNode }> = ({ label, ch
   </div>
 );
 
-const TemplateSertaoPanel: React.FC<Props> = ({ tokens, onChange, onReset }) => {
+const TemplateSertaoPanel: React.FC<Props> = ({ tokens, onChange, onReset, defaultBrandMark }) => {
+  const brandMarkPlaceholder = (defaultBrandMark || "Posiciona Editorial").trim();
   return (
     <div className="rounded-2xl border border-border bg-card p-4 space-y-4">
       <div className="flex items-center justify-between">
@@ -53,6 +57,30 @@ const TemplateSertaoPanel: React.FC<Props> = ({ tokens, onChange, onReset }) => 
           Restaurar
         </Button>
       </div>
+
+      <Row label="Rótulo da seção">
+        <Input
+          className="h-8 text-xs"
+          placeholder="CLÁUSULA"
+          value={tokens.sectionLabel ?? ""}
+          onChange={(e) => onChange({ sectionLabel: e.target.value })}
+        />
+        <p className="text-[10px] text-muted-foreground">
+          Aparece antes do tópico em cada slide. Ex.: CLÁUSULA, SITUAÇÃO, PASSO, DICA, CAPÍTULO.
+        </p>
+      </Row>
+
+      <Row label="Marca no rodapé">
+        <Input
+          className="h-8 text-xs"
+          placeholder={brandMarkPlaceholder}
+          value={tokens.brandMark ?? ""}
+          onChange={(e) => onChange({ brandMark: e.target.value })}
+        />
+        <p className="text-[10px] text-muted-foreground">
+          Vazio usa o nome do seu negócio automaticamente.
+        </p>
+      </Row>
 
       <Row label="Cor de fundo">
         <ColorPicker

@@ -195,6 +195,7 @@ const PostEditorPage = () => {
   const [loading, setLoading] = useState(true);
   const [userNiche, setUserNiche] = useState<string>("");
   const [businessContext, setBusinessContext] = useState<string>("");
+  const [companyName, setCompanyName] = useState<string>("");
   const [imageContextLoaded, setImageContextLoaded] = useState(false);
   const [bgIndex, setBgIndex] = useState(draft?.bgIndex ?? 0);
   const [layout, setLayout] = useState<"centered" | "top" | "split">((draft?.layout as any) ?? "centered");
@@ -317,6 +318,7 @@ const PostEditorPage = () => {
         : "";
       const resolvedNiche = (profileRes.data?.niche || derivedNiche || "").trim();
       setBusinessContext(ctx);
+      setCompanyName((business?.company_name || "").toString().trim());
       setUserNiche(resolvedNiche);
       setImageContextLoaded(true);
       console.log("[PostEditor] image context loaded", {
@@ -1863,6 +1865,7 @@ const PostEditorPage = () => {
                 templateId={templateId}
                 templateCards={templateCards}
                 templateTokens={templateTokens}
+                templateDefaultBrandMark={companyName}
                 onEditTemplateSlot={updateTemplateSlot}
               />
             ) : (
@@ -2002,6 +2005,7 @@ const PostEditorPage = () => {
               templateTokens,
               onChangeTemplateTokens: updateTemplateTokens,
               onResetTemplateTokens: resetTemplateTokens,
+              templateDefaultBrandMark: companyName,
             };
             return (
               <>

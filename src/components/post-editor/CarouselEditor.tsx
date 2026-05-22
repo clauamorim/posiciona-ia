@@ -69,6 +69,7 @@ interface CarouselEditorProps {
   templateCards?: GovernanteCardData[] | null;
   templateTokens?: Partial<SertaoTokens> | null;
   onEditTemplateSlot?: (slideIndex: number, field: string, value: string) => void;
+  templateDefaultBrandMark?: string;
 }
 
 const CarouselEditor: React.FC<CarouselEditorProps> = ({
@@ -86,7 +87,7 @@ const CarouselEditor: React.FC<CarouselEditorProps> = ({
   initialTextBoxes, resetKey,
   slideTextBoxes, onSlideTextBoxesChange,
   primaryArchetype,
-  templateId, templateCards, templateTokens, onEditTemplateSlot,
+  templateId, templateCards, templateTokens, onEditTemplateSlot, templateDefaultBrandMark,
 }) => {
   const total = slides.length;
   const isCover = currentSlide === 0;
@@ -134,6 +135,7 @@ const CarouselEditor: React.FC<CarouselEditorProps> = ({
         templateCard={templateCards?.[currentSlide] ?? null}
         templateTokens={templateTokens}
         templateSlideIndex={currentSlide}
+        templateDefaultBrandMark={templateDefaultBrandMark}
         onEditTemplateSlot={
           onEditTemplateSlot
             ? (field, value) => onEditTemplateSlot(currentSlide, field, value)

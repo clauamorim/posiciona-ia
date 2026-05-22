@@ -134,6 +134,8 @@ interface PostToolbarProps {
   templateTokens?: Partial<SertaoTokens>;
   onChangeTemplateTokens?: (patch: Partial<SertaoTokens>) => void;
   onResetTemplateTokens?: () => void;
+  /** Sugestão default pro brandMark do template (nome do negócio). */
+  templateDefaultBrandMark?: string;
 }
 
 const PostToolbar: React.FC<PostToolbarProps> = (props) => {
@@ -154,6 +156,7 @@ const PostToolbar: React.FC<PostToolbarProps> = (props) => {
             tokens={props.templateTokens ?? {}}
             onChange={props.onChangeTemplateTokens!}
             onReset={props.onResetTemplateTokens!}
+            defaultBrandMark={props.templateDefaultBrandMark}
           />
         </section>
       ) : (

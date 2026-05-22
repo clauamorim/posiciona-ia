@@ -37,6 +37,12 @@ interface SertaoCardProps {
   totalSlides?: number;
   /** Quando definido, os textos do card viram contentEditable. */
   onEditSlot?: (field: SlotField, value: string) => void;
+  /**
+   * Nome do negócio do usuário, usado como default do `brandMark` no rodapé
+   * dos slides de cláusula. Vem de `business_questionnaires.company_name`.
+   * Se vazio, cai para "Posiciona Editorial".
+   */
+  defaultBrandMark?: string;
 }
 
 // ── EditableSpan ─────────────────────────────────────────────────────
@@ -156,7 +162,10 @@ const SertaoCard: React.FC<SertaoCardProps> = ({
   onEditSlot,
   slideIndex,
   totalSlides = 7,
+  defaultBrandMark,
 }) => {
+  const sectionLabel = (tokens.sectionLabel ?? "CLÁUSULA").trim();
+  const brandMark = (tokens.brandMark ?? defaultBrandMark ?? "Posiciona Editorial").trim();
   const { w, h } = FORMATS[format];
   const big = format === "9:16";
   const PAD_X = big ? 60 : 50;
@@ -459,7 +468,7 @@ const SertaoCard: React.FC<SertaoCardProps> = ({
           }}
         >
           <div style={peTinyCaps(ouro, big ? 13 : 11)}>
-            <span>CLÁUSULA &nbsp;·&nbsp; </span>
+            {sectionLabel ? <span>{sectionLabel}&nbsp;·&nbsp;</span> : null}
             <EditableSpan
               field="topic"
               value={card.topic}
@@ -534,7 +543,7 @@ const SertaoCard: React.FC<SertaoCardProps> = ({
             marginTop: big ? 18 : 12,
           }}
         >
-          <span style={peTinyCaps(ouro, big ? 12 : 10)}>Posiciona Editorial</span>
+          <span style={peTinyCaps(ouro, big ? 12 : 10)}>{brandMark}</span>
           {ornaments && <PeDiamond color={ouro} size={big ? 7 : 5} />}
           <span style={peTinyCaps(ouro, big ? 12 : 10)}>{pageLabel}</span>
         </div>
