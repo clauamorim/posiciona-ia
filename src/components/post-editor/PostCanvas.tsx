@@ -5,6 +5,8 @@ import { getArchetypeTypography, clampBodyWeight } from "@/lib/archetypeTypograp
 import { sanitizeRichText } from "@/lib/richText";
 import { inlineFormatBus } from "@/lib/inlineFormatBus";
 import InlineFormatToolbar from "./InlineFormatToolbar";
+import SertaoCard from "@/components/post-templates/governante/SertaoCard";
+import type { CardData as GovernanteCardData } from "@/components/post-templates/governante/types";
 
 // Retorna a luminância percebida da cor (fórmula YIQ): valor >=128 = clara.
 // Usado para decidir se halo e text-shadow devem ser escuros (para texto claro)
@@ -101,6 +103,10 @@ interface PostCanvasProps {
   onTextBoxesChange?: (boxes: TextBox[]) => void;
   /** Arquétipo primário do usuário — define hierarquia tipográfica do título/corpo. */
   primaryArchetype?: string | null;
+  /** ID do template editorial selecionado. Quando setado, faz bypass do canvas legado. */
+  templateId?: string | null;
+  /** Card já mapeado para o slide atual (usado em conjunto com templateId). */
+  templateCard?: GovernanteCardData | null;
   // Legacy compat
   onImageMove?: (id: string, x: number, y: number) => void;
   onImageResize?: (id: string, width: number, height: number) => void;
