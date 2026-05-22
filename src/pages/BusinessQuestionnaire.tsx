@@ -107,8 +107,12 @@ const BusinessQuestionnaire = () => {
   });
 
   // Hidrata do banco e mescla com backup local se existir.
+  // Só hidrata UMA vez. Sem o guard `hydrated`, mudar de aba/janela revalida
+  // a sessão do Supabase, gera um novo objeto `user` (mesmo id, referência
+  // nova), o effect re-roda, e sobrescreve as respostas digitadas que ainda
+  // não foram salvas no banco.
   useEffect(() => {
-    if (!user) return;
+    if (!user?.id || hydrated) return;
     let cancelled = false;
     (async () => {
       const { data } = await supabase
@@ -158,7 +162,7 @@ const BusinessQuestionnaire = () => {
       setHydrated(true);
     })();
     return () => { cancelled = true; };
-  }, [user]);
+  }, [user?.id, hydrated]);
 
   const submit = useCallback(async () => {
     if (!user || isLocked) return;

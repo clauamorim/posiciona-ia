@@ -79,20 +79,27 @@ const SalesNarrativeQuestionnaire = () => {
   const isLast = blockIndex === blocks.length - 1;
 
   useEffect(() => {
-    if (!user) return;
+    // Só hidrata UMA vez por id de usuário. Sem o guard `hydrated`, mudar de
+    // aba/janela revalida a sessão do Supabase, gera um novo objeto `user`
+    // (mesmo id, referência nova), o effect re-roda, e sobrescreve as
+    // respostas já digitadas que ainda não foram salvas no banco.
+    if (!user?.id || hydrated) return;
+    let cancelled = false;
     (async () => {
       const { data } = await supabase
         .from("sales_narrative_questionnaires")
         .select("*")
         .eq("user_id", user.id)
         .maybeSingle();
+      if (cancelled) return;
       const init: Record<string, string> = {};
       allFields.forEach(f => { init[f.key] = (data as any)?.[f.key] || ""; });
       setAnswers(init);
       setIsComplete(Boolean(data?.is_complete));
       setHydrated(true);
     })();
-  }, [user]);
+    return () => { cancelled = true; };
+  }, [user?.id, hydrated]);
 
   const persist = async (complete: boolean) => {
     if (!user) return false;
