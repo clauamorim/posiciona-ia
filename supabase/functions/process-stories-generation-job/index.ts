@@ -17,6 +17,8 @@ import { callClaudeWithMeta } from "../_shared/claudeClient.ts";
 import {
   fetchPersonalQuestionnaire,
   renderPersonalContext,
+  fetchSalesNarrative,
+  renderSalesNarrativeContext,
   renderStorybrandBlock,
   renderToneBlock,
   renderEditorialFrameworks,
@@ -193,6 +195,8 @@ serve(async (req) => {
 
     const personal = await fetchPersonalQuestionnaire(userId);
     const personalContext = renderPersonalContext(personal);
+    const salesNarrative = await fetchSalesNarrative(userId);
+    const salesNarrativeContext = renderSalesNarrativeContext(salesNarrative);
     const verifiableFactsBlock = renderVerifiableFactsBlock(bq);
     const storybrandContext = renderStorybrandBlock(storybrand);
     const toneContext = renderToneBlock(toneOfVoice);
@@ -244,7 +248,7 @@ serve(async (req) => {
 Empresa: ${bq?.company_name || "Não informado"}
 Serviços: ${bq?.services || "Não informado"}
 Público-alvo: ${bq?.target_audience || "Não informado"}
-Nicho: ${profileRow?.niche || "Não informado"}${verifiableFactsBlock}${storybrandContext}${toneContext}${personalContext}${marketTrendsBlock}
+Nicho: ${profileRow?.niche || "Não informado"}${verifiableFactsBlock}${storybrandContext}${toneContext}${personalContext}${salesNarrativeContext}${marketTrendsBlock}
 
 Gere agora os 7 stories da semana.`;
 

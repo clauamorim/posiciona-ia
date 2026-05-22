@@ -17,6 +17,8 @@ import { callClaude, callClaudeWithMeta } from "../_shared/claudeClient.ts";
 import {
   fetchPersonalQuestionnaire,
   renderPersonalContext,
+  fetchSalesNarrative,
+  renderSalesNarrativeContext,
   renderStorybrandBlock,
   renderToneBlock,
   renderEditorialFrameworks,
@@ -754,7 +756,11 @@ async function processJob(jobId: string) {
       const verifiableFactsBlock = renderVerifiableFactsBlock(business);
       const personal = await fetchPersonalQuestionnaire(userId);
       const personalContext = renderPersonalContext(personal);
-      // Narrativa de venda removida do editorial — usada apenas em generate-sales-stories.
+      // Narrativa de Venda: enriquece o feed com objeções reais, casos cadastrados
+      // e história de virada. Render block tem regras de uso por pilar e omite
+      // campos vazios — seguro pra rascunhos parciais.
+      const salesNarrative = await fetchSalesNarrative(userId);
+      const salesNarrativeContext = renderSalesNarrativeContext(salesNarrative);
 
       // Profissão regulamentada (OAB / CFM) e tendências de mercado
       const { data: profileRow } = await admin
@@ -891,7 +897,7 @@ async function processJob(jobId: string) {
 Empresa: ${business?.company_name || "Não informado"}
 Serviços: ${business?.services || "Não informado"}
 Público-alvo: ${business?.target_audience || "Não informado"}
-Nicho: ${niche || "Não informado"}${verifiableFactsBlock}${storybrandContext}${toneContext}${personalContext}${recentTraitsBlock}${rotationBlock}
+Nicho: ${niche || "Não informado"}${verifiableFactsBlock}${storybrandContext}${toneContext}${personalContext}${salesNarrativeContext}${recentTraitsBlock}${rotationBlock}
 
 # TEMAS JÁ PUBLICADOS (NÃO REPETIR — formato "[pilar] tema (formato)")
 ${previousSummary || "Nenhum conteúdo anterior."}${marketTrendsBlock}
@@ -1996,7 +2002,7 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
 Empresa: ${business?.company_name || "Não informado"}
 Serviços: ${business?.services || "Não informado"}
 Público-alvo: ${business?.target_audience || "Não informado"}
-Nicho: ${niche || "Não informado"}${verifiableFactsBlock}${storybrandContext}${toneContext}${personalContext}${marketTrendsBlock}
+Nicho: ${niche || "Não informado"}${verifiableFactsBlock}${storybrandContext}${toneContext}${personalContext}${salesNarrativeContext}${marketTrendsBlock}
 
 Gere agora os 7 stories da semana.`;
 
