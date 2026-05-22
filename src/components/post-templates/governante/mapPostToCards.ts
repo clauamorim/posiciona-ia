@@ -80,6 +80,10 @@ export function mapPostToCards(input: MapPostInput): CardData[] {
     countWord: meta?.countWord ?? "",
     titleLead: input.title ?? "",
     titleTail: meta?.titleTail ?? "",
+    // Paridade com o branch single-close: copy[0] é o corpo de abertura.
+    // Sem isso, no carrossel o texto do primeiro card seria descartado
+    // (cover não tinha slot de body).
+    body: copy[0] ?? "",
     footer: meta?.footer ?? "",
   };
 
