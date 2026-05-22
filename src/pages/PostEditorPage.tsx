@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { flushSync } from "react-dom";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
@@ -22,6 +22,8 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { buildAutoLayout, fetchBackgroundImage, type PostStyle, type PhotographerInfo } from "@/lib/postAutoLayout";
 import { getAIStyleById, type AIStyleId } from "@/lib/aiImageStyles";
 import { prepareSinglePostCardCopy, prepareCarouselCardCopy } from "@/lib/editorialCardCopy";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { mapPostToCards } from "@/components/post-templates/governante/mapPostToCards";
 
 import { Sparkles, X, Image as ImageIcon, Loader2, Download } from "lucide-react";
 import { useEditorHistory } from "@/hooks/useEditorHistory";
@@ -218,6 +220,7 @@ const PostEditorPage = () => {
   const [titleColor, setTitleColor] = useState<string | null>(draft?.titleColor ?? null);
   const [titleFontFamily, setTitleFontFamily] = useState<string | null>(draft?.titleFontFamily ?? null);
   const [ctaText, setCtaText] = useState(draft?.ctaText ?? "");
+  const [templateId, setTemplateId] = useState<string | null>((draft as any)?.templateId ?? null);
   const [ctaBgColor, setCtaBgColor] = useState<string | null>(draft?.ctaBgColor ?? null);
   const [ctaTextColor, setCtaTextColor] = useState<string | null>(draft?.ctaTextColor ?? null);
   const [ctaFontSize, setCtaFontSize] = useState(draft?.ctaFontSize ?? 28);
