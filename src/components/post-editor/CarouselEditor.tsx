@@ -67,6 +67,7 @@ interface CarouselEditorProps {
   primaryArchetype?: string | null;
   templateId?: string | null;
   templateCards?: GovernanteCardData[] | null;
+  onEditTemplateSlot?: (slideIndex: number, field: string, value: string) => void;
 }
 
 const CarouselEditor: React.FC<CarouselEditorProps> = ({
