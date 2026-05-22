@@ -1,172 +1,85 @@
-# Ativar template "Governante · Sertão Profundo" no editor
+# Tornar o template Sertão Profundo editável
 
-## Objetivo
+## Problema
 
-Trazer o material de `design-sources/governante/` (Babel-in-browser) para produção como componentes React/TS, ativando **apenas** a variação **Sertão Profundo** no editor, atrás de um `templateId` opcional. Sem mexer no gerador de IA nem nas outras variações/arquétipos.
+`SertaoCard` renderiza apenas `<div>`/`<span>` estáticos vindos de `CardData`. Como o canvas legado é bypassado, nenhum slot (eyebrow, kicker, countWord, titleLead, num, topic, title, body, cta…) é editável. O usuário precisa poder clicar em qualquer texto e alterar.
 
-## Passo 1 — Fontes no shell
+## Estratégia
 
-Em `index.html`, dentro do `<head>` (antes do `<title>`):
+Manter `mapPostToCards` como fonte base (defaults + `card_copy`/`title`/`cta`) e introduzir **overrides por slide e por slot** no estado do editor. Texto continua plano (sem rich text por enquanto, igual ao resto do canvas legado).
 
-- `<link rel="preconnect" href="https://fonts.googleapis.com">`
-- `<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>`
-- Três `<link rel="stylesheet">` com as URLs exatas do `manifest.json → design_system.fonts` (Cormorant Garamond ital+normal 400/500/600, Playfair Display ital+normal 400/500/600/700, Lato 400/700).
+## Passo 1 — Estado de overrides
 
-Sem `@font-face` em componentes.
+`src/pages/PostEditorPage.tsx`:
 
-## Passo 2 — Estrutura de templates
+- Novo state: `const [templateSlots, setTemplateSlots] = useState<Record<number, Record<string, string>>>(draft?.templateSlots ?? {})`.
+- Incluir `templateSlots` no `EditorDraft` (serialização) e no snapshot do `useEditorHistory` (undo/redo).
+- Limpar `templateSlots` quando `setTemplateId(null)` (mais simples; voltar ao template depois reinicia overrides).
+- No `useMemo` de `templateCards`, depois de `mapPostToCards(...)`, aplicar merge: para cada `i`, `cards[i] = { ...cards[i], ...(templateSlots[i] ?? {}) }`.
+- Callback `updateTemplateSlot(slideIdx, field, value)` que faz `setTemplateSlots(prev => ({ ...prev, [slideIdx]: { ...(prev[slideIdx] ?? {}), [field]: value } }))`.
 
-Criar `src/components/post-templates/governante/` com:
+## Passo 2 — Slot editável no SertaoCard
 
-### `types.ts`
-Tipos derivados do `manifest.json`:
+`src/components/post-templates/governante/SertaoCard.tsx`:
 
-```ts
-export type Format = "4:5" | "9:16";
-export type CardKind = "cover" | "clause" | "close";
+- Nova prop opcional `onEditSlot?: (field: keyof CoverSlots | keyof ClauseSlots | keyof CloseSlots, value: string) => void`.
+- Criar componente interno `EditableSpan({ field, value, style })`:
+  - Se `onEditSlot` está definido, renderiza `<span contentEditable suppressContentEditableWarning style={style} onBlur={e => onEditSlot(field, e.currentTarget.innerText)} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); (e.target as HTMLElement).blur(); } }}>{value}</span>` com `outline: none`, cursor `text`, e leve `:focus` ring via `onFocus` (border tracejado em ouro).
+  - Caso contrário, renderiza `<span style={style}>{value}</span>` (preserva render para export PNG futuro, se um dia precisar desabilitar).
+- Trocar todos os textos vindos de `card` por `EditableSpan` com o `field` correto (cover: eyebrow, kicker, countWord, titleLead, titleTail, footer; clause: topic, title, body, e opcionalmente num; close: eyebrow, title, body, cta).
+- O `numLabel` da cláusula continua derivado de `card.num` via `peRenderNum`; não tornar o número editável no v1 (mexer no `num` quebra paginação "02/07"). Documentar como fora de escopo.
 
-export interface CoverSlots { eyebrow: string; kicker: string; countWord: string; titleLead: string; titleTail: string; footer: string; }
-export interface ClauseSlots { num: string; roman?: string; topic: string; title: string; body: string; detail?: string; }
-export interface CloseSlots  { eyebrow: string; title: string; body: string; cta: string; }
+## Passo 3 — Wiring no canvas
 
-export type CardData =
-  | ({ kind: "cover"  } & CoverSlots)
-  | ({ kind: "clause" } & ClauseSlots)
-  | ({ kind: "close"  } & CloseSlots);
+`src/components/post-editor/PostCanvas.tsx`:
 
-export interface SertaoTokens {
-  verdeBg?: string; areiaInk?: string; ouroAccent?: string;
-  bodyFont?: "lato" | "cormorant" | "playfair";
-  numberingStyle?: "plain" | "bracketed" | "roman";
-  showOrnaments?: boolean;
-  showSwipeHint?: boolean;
-  eyebrowText?: string | null;
-}
-```
+- Adicionar prop opcional `onEditTemplateSlot?: (field: string, value: string) => void`.
+- No bloco que renderiza `<SertaoCard …/>`, repassar `onEditSlot={onEditTemplateSlot}`.
+- Wrapper do bypass: garantir que o container externo deixa o conteúdo receber `pointer-events: auto` (já está). Não alterar o `transform: scale(scale)` — `contentEditable` funciona normalmente dentro de elementos escalados; só a área de clique fica menor proporcionalmente, comportamento aceitável.
 
-### `tokens.ts`
-- Constantes da paleta (`VERDE`, `OURO`, `AREIA`, `GRAFITE`, `MOGNO`, `VERDE_INK`, `AREIA_TINT`, `OURO_INK`) extraídas do `manifest.json → design_system.palette`.
-- Helpers portados de `cards-data.jsx`: `peTinyCaps`, `peBodyFontFor`, `peRenderNum`, todos tipados.
-- `FORMATS: Record<Format, { w: number; h: number; label: string }>` a partir de `manifest.formats` (preview).
-- **`SERTAO_CONTENT_DEFAULTS: CardData[]`** copiado integralmente do `manifest.json → content_defaults.cards` — usado como fallback pelo mapper.
+`src/components/post-editor/CarouselEditor.tsx`:
 
-### `shared.tsx`
-Mini-componentes tipados (sem `window`): `PeEyebrow`, `PeRule`, `PeDiamond`. Mesma marcação inline-style de `cards-data.jsx`.
+- Nova prop `onEditTemplateSlot?: (slideIdx: number, field: string, value: string) => void`.
+- No mapeamento dos slides, repassar `onEditTemplateSlot={(field, value) => onEditTemplateSlot?.(slideIdx, field, value)}`.
 
-### `SertaoCard.tsx`
-Refatoração 1:1 de `cards-sertao.jsx`. Substitui `window.*` por imports proper. Props:
+`src/pages/PostEditorPage.tsx`:
 
-```ts
-interface SertaoCardProps {
-  card: CardData;
-  format: Format;
-  tokens?: SertaoTokens;
-}
-```
+- Passar `onEditTemplateSlot={updateTemplateSlot}` para `<CarouselEditor>` e, no fallback single-slide com `templateCards?.[0]`, passar `onEditTemplateSlot={(field, value) => updateTemplateSlot(0, field, value)}` para `<PostCanvas>`.
 
-Mantém os três branches (`cover` / `clause` / `close`), os paddings por formato, e os defaults vindos de `tokens.ts` quando o token não vem do prop.
+## Passo 4 — UX mínima de edição
 
-### `mapPostToCards.ts` — regras finais (com os 3 ajustes)
+No `EditableSpan`:
 
-Entrada: `{ card_copy: string[]; title?: string; cta?: string; meta?: { eyebrow?; kicker?; countWord?; topic?: string[]; titles?: string[]; } }`.
-Saída: `CardData[]` com 7 posições.
+- `cursor: text`.
+- `transition: box-shadow 120ms`.
+- Ao foco: `outline: 1px dashed <ouro com 60%>` ou `boxShadow: 0 0 0 1px <ouro 40%>` — sutil, não polui export visual em runtime de edição.
+- `onPaste`: `e.preventDefault(); document.execCommand("insertText", false, e.clipboardData.getData("text/plain"))` para evitar colar HTML formatado.
 
-Defaults: `import { SERTAO_CONTENT_DEFAULTS as D } from "./tokens";`
-
-1. **Fallbacks consistentes (capa)** — quando o slot não vier em `meta`, usar o valor de `D[0]`:
-   ```ts
-   cards[0] = {
-     kind: "cover",
-     eyebrow:   meta?.eyebrow   ?? D[0].eyebrow,
-     kicker:    meta?.kicker    ?? D[0].kicker,
-     countWord: meta?.countWord ?? D[0].countWord,
-     titleLead: title           ?? D[0].titleLead,
-     titleTail: D[0].titleTail,
-     footer:    D[0].footer,
-   };
-   ```
-
-2. **Segmentação simplificada (cláusulas 1..5)** — sem `firstSentence/rest`:
-   ```ts
-   for (let i = 0; i < 5; i++) {
-     const def = D[i + 1]; // clause default
-     cards[i + 1] = {
-       kind: "clause",
-       num:   def.num,
-       roman: def.roman,
-       topic: meta?.topic?.[i]  ?? def.topic,
-       title: meta?.titles?.[i] ?? def.title,
-       body:  card_copy[i + 1]  ?? def.body,
-     };
-   }
-   ```
-
-3. **`lastLine` explícito (fechamento)**:
-   ```ts
-   cards[6] = {
-     kind: "close",
-     eyebrow: D[6].eyebrow,
-     title:   card_copy[6] ?? D[6].title,
-     body:    D[6].body,
-     cta:     cta ?? D[6].cta,
-   };
-   ```
-
-Esse mapper é o ponto único de tradução; quando a IA passar a devolver slots nativos basta trocar.
-
-## Passo 3 — Integração mínima no canvas
-
-### `src/components/post-editor/PostCanvas.tsx`
-1. Adicionar props opcionais:
-   - `templateId?: string | null`
-   - `templateCard?: CardData | null` (o card já mapeado para o slide atual)
-2. No topo do `return`: se `templateId === "governante.sertao-profundo"` e `templateCard`, **bypass** completo do canvas legado e renderizar `<SertaoCard card={templateCard} format={canvasHeight === 1920 ? "9:16" : "4:5"} />` dentro do mesmo wrapper com `transform: scale(scale)` já calculado. Canvas legado fica inalterado para qualquer outro valor.
-
-### `src/components/post-editor/CarouselEditor.tsx`
-- Adicionar prop `templateId?: string | null` e `templateCards?: CardData[] | null`.
-- Repassar para `<PostCanvas>` como `templateId={templateId}` e `templateCard={templateCards?.[currentSlide] ?? null}`.
-
-### `src/pages/PostEditorPage.tsx`
-- Novo state local: `const [templateId, setTemplateId] = useState<string | null>(draft?.templateId ?? null)` (incluir em `historyState` para sobreviver ao undo e ao snapshot do editor — coerente com a memória "Post Editor é local state").
-- `const templateCards = useMemo(() => templateId === "governante.sertao-profundo" ? mapPostToCards({ card_copy: editedTexts, title: editedTitle, cta: ctaText || day?.cta }) : null, [templateId, editedTexts, editedTitle, ctaText, day]);`
-- Passar `templateId` + `templateCards`/`templateCard` para `<CarouselEditor>` e `<PostCanvas>`.
-
-## Passo 4 — UI mínima do seletor
-
-Adicionar um bloco compacto **"Template"** na coluna do canvas (logo acima do `<CarouselEditor>`/`<PostCanvas>` em `PostEditorPage.tsx`, dentro do mesmo container do canvas). Não mexer no `SelectionPanel.tsx` para não complicar.
-
-- `<Select value={templateId ?? "none"} onValueChange={(v) => setTemplateId(v === "none" ? null : v)}>` com duas opções:
-  - `"Padrão (sem template)"` → `none`
-  - `"Governante · Sertão Profundo"` → `governante.sertao-profundo`
-- Quando `templateId` está setado, mostrar uma nota discreta `"Cores e tipografia controladas pelo template"` ao invés de esconder os controles do inspector (mais simples; controles continuam visíveis mas viram no-op para o canvas até remover o template).
+Nada de toolbar de formatação por agora — alinhado ao escopo (apenas tornar editável).
 
 ## Persistência
 
-`templateId` é local-state. Vai dentro do `historyState`/snapshot do editor — segue o padrão já documentado em `mem://constraints/post-editor-persistence`. Persistência em banco fica para o PR de salvar designs.
+`templateSlots` segue o padrão do editor: localStorage draft + history snapshot. **Não** salva no Supabase ainda (coerente com `mem://constraints/post-editor-persistence`). Documentar.
 
 ## Fora de escopo
 
-- Variações Cartório e Manuscrito
-- Outros 11 arquétipos
-- Mudanças no `process-content-generation-job` / prompts de IA
-- Persistência do `templateId` no Supabase
-- QA dedicado de export PNG do template
+- Edição do número da cláusula (`num`/paginação).
+- Rich text (negrito/itálico) dentro do template.
+- Edição de cor/fonte por slot (tudo continua controlado pelo template).
+- Persistência de `templateSlots` no banco.
+- Variações Cartório/Manuscrito e demais arquétipos.
 
 ## Arquivos tocados
 
-- `index.html` — fontes
-- `src/components/post-templates/governante/types.ts` (novo)
-- `src/components/post-templates/governante/tokens.ts` (novo, inclui `SERTAO_CONTENT_DEFAULTS`)
-- `src/components/post-templates/governante/shared.tsx` (novo)
-- `src/components/post-templates/governante/SertaoCard.tsx` (novo)
-- `src/components/post-templates/governante/mapPostToCards.ts` (novo)
-- `src/components/post-editor/PostCanvas.tsx` — bypass por `templateId`
-- `src/components/post-editor/CarouselEditor.tsx` — repasse de `templateId` + `templateCards`
-- `src/pages/PostEditorPage.tsx` — state, mapper, seletor
+- `src/components/post-templates/governante/SertaoCard.tsx` — `EditableSpan` + prop `onEditSlot` em todos os textos.
+- `src/components/post-editor/PostCanvas.tsx` — prop `onEditTemplateSlot` repassada ao SertaoCard.
+- `src/components/post-editor/CarouselEditor.tsx` — prop `onEditTemplateSlot(slideIdx, …)`.
+- `src/pages/PostEditorPage.tsx` — state `templateSlots`, merge no `templateCards`, callback `updateTemplateSlot`, snapshot/draft.
 
-## Validação a confirmar ao final
+## Validação
 
 1. Build limpo.
-2. Posts antigos sem `templateId` → canvas idêntico ao atual.
-3. Selecionar "Governante · Sertão Profundo" → canvas troca pelo `SertaoCard` com conteúdo de `SERTAO_CONTENT_DEFAULTS` (já que `card_copy` real ainda não traz slots nativos).
-4. Selecionar "Padrão (sem template)" → canvas legado volta sem perder texto/imagens/posições.
+2. Selecionar "Governante · Sertão Profundo": clicar em qualquer texto entra em modo edição com outline ouro discreto; blur ou Enter confirma.
+3. Trocar de slide e voltar: edição preservada.
+4. Undo/redo desfaz edições de slot.
+5. Voltar para "Padrão (sem template)" e re-selecionar o template: overrides limpos (reinicia com defaults), sem perder texto/imagens do canvas legado.
