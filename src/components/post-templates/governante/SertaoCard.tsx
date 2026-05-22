@@ -31,19 +31,22 @@ interface SertaoCardProps {
   card: CardData;
   format: Format;
   tokens?: SertaoTokens;
+  /** Índice do slide dentro do carrossel (0..6). Usado para paginação `01/07`. */
+  slideIndex?: number;
+  /** Total de slides (default 7). */
+  totalSlides?: number;
   /** Quando definido, os textos do card viram contentEditable. */
   onEditSlot?: (field: SlotField, value: string) => void;
 }
 
 // ── EditableSpan ─────────────────────────────────────────────────────
-// Span que vira contentEditable quando há onEdit. Sem rich text:
-// quebra de linha vira espaço, paste é forçado a text/plain.
 interface EditableSpanProps {
   field: SlotField;
   value: string;
   style?: React.CSSProperties;
   onEdit?: (field: SlotField, value: string) => void;
   as?: "span" | "div";
+  placeholder?: string;
 }
 
 const editableBaseStyle: React.CSSProperties = {
@@ -51,6 +54,9 @@ const editableBaseStyle: React.CSSProperties = {
   cursor: "text",
   transition: "box-shadow 120ms ease, background-color 120ms ease",
   borderRadius: 2,
+  minWidth: 4,
+  minHeight: "1em",
+  display: "inline-block",
 };
 
 const EditableSpan: React.FC<EditableSpanProps> = ({
@@ -59,6 +65,7 @@ const EditableSpan: React.FC<EditableSpanProps> = ({
   style,
   onEdit,
   as = "span",
+  placeholder,
 }) => {
   const handleBlur = useCallback(
     (e: React.FocusEvent<HTMLElement>) => {
@@ -82,15 +89,36 @@ const EditableSpan: React.FC<EditableSpanProps> = ({
     document.execCommand("insertText", false, text);
   }, []);
 
-  const editableStyle: React.CSSProperties | undefined = onEdit
-    ? { ...style, ...editableBaseStyle }
+  const isEditable = !!onEdit;
+  const isEmpty = !value || value.length === 0;
+
+  // Sem editor e sem valor: não renderiza nada.
+  if (!isEditable && isEmpty) return null;
+
+  const showPlaceholder = isEditable && isEmpty && !!placeholder;
+  const displayValue = showPlaceholder ? (placeholder as string) : value;
+
+  const editableStyle: React.CSSProperties | undefined = isEditable
+    ? {
+        ...style,
+        ...editableBaseStyle,
+        ...(showPlaceholder
+          ? { opacity: 0.35, fontStyle: "italic" }
+          : null),
+      }
     : style;
 
-  const focusProps = onEdit
+  const focusProps = isEditable
     ? {
         onFocus: (e: React.FocusEvent<HTMLElement>) => {
           e.currentTarget.style.boxShadow = "0 0 0 1px rgba(196,166,77,0.55)";
           e.currentTarget.style.backgroundColor = "rgba(196,166,77,0.06)";
+          if (showPlaceholder) {
+            // Limpa placeholder ao focar para começar a digitar do zero.
+            e.currentTarget.innerText = "";
+            e.currentTarget.style.opacity = "1";
+            e.currentTarget.style.fontStyle = (style?.fontStyle as string) ?? "normal";
+          }
         },
         onBlurCapture: (e: React.FocusEvent<HTMLElement>) => {
           e.currentTarget.style.boxShadow = "none";
@@ -99,7 +127,7 @@ const EditableSpan: React.FC<EditableSpanProps> = ({
       }
     : {};
 
-  const commonProps = onEdit
+  const commonProps = isEditable
     ? {
         contentEditable: true as const,
         suppressContentEditableWarning: true,
@@ -111,12 +139,10 @@ const EditableSpan: React.FC<EditableSpanProps> = ({
       }
     : {};
 
-  // Usa key=value para forçar React a re-renderizar o conteúdo quando o
-  // valor externo muda (necessário pois contentEditable não é controlado).
   const Tag = as as any;
   return (
-    <Tag key={value} style={editableStyle} {...commonProps}>
-      {value}
+    <Tag key={`${value}__${showPlaceholder ? "ph" : "val"}`} style={editableStyle} {...commonProps}>
+      {displayValue}
     </Tag>
   );
 };
@@ -126,6 +152,8 @@ const SertaoCard: React.FC<SertaoCardProps> = ({
   format,
   tokens = {},
   onEditSlot,
+  slideIndex,
+  totalSlides = 7,
 }) => {
   const { w, h } = FORMATS[format];
   const big = format === "9:16";
@@ -149,6 +177,17 @@ const SertaoCard: React.FC<SertaoCardProps> = ({
     fontFamily: '"Lato", system-ui, sans-serif',
     letterSpacing: 0.02,
   };
+
+  // Paginação derivada do índice do slide (fallback p/ parse de card.num).
+  const pageNum =
+    typeof slideIndex === "number"
+      ? slideIndex + 1
+      : card.kind === "clause"
+        ? parseInt(card.num, 10) + 1
+        : card.kind === "cover"
+          ? 1
+          : totalSlides;
+  const pageLabel = `${String(pageNum).padStart(2, "0")} / ${String(totalSlides).padStart(2, "0")}`;
 
   // ── COVER ─────────────────────────────────────────────────────────
   if (card.kind === "cover") {
@@ -175,6 +214,7 @@ const SertaoCard: React.FC<SertaoCardProps> = ({
             value={tokens.eyebrowText || card.eyebrow}
             style={peTinyCaps(ouro, big ? 13 : 11)}
             onEdit={onEditSlot}
+            placeholder="EYEBROW · CATEGORIA"
           />
           <PeRule color={ouro} mt={big ? 28 : 18} />
 
@@ -193,6 +233,7 @@ const SertaoCard: React.FC<SertaoCardProps> = ({
                 lineHeight: 1,
               }}
               onEdit={onEditSlot}
+              placeholder="Kicker"
             />
           </div>
 
@@ -211,6 +252,7 @@ const SertaoCard: React.FC<SertaoCardProps> = ({
               letterSpacing: -1.5,
             }}
             onEdit={onEditSlot}
+            placeholder="Sete"
           />
 
           <div
@@ -229,20 +271,23 @@ const SertaoCard: React.FC<SertaoCardProps> = ({
               field="titleLead"
               value={card.titleLead}
               onEdit={onEditSlot}
+              placeholder="Título principal da capa"
             />
-            {card.titleTail ? (
+            {card.titleTail || onEditSlot ? (
               <>
-                <span
-                  style={{
-                    color: areia,
-                    opacity: 0.62,
-                    fontStyle: "italic",
-                    fontFamily: '"Cormorant Garamond", serif',
-                    fontWeight: 400,
-                  }}
-                >
-                  {" "}— {" "}
-                </span>
+                {card.titleTail ? (
+                  <span
+                    style={{
+                      color: areia,
+                      opacity: 0.62,
+                      fontStyle: "italic",
+                      fontFamily: '"Cormorant Garamond", serif',
+                      fontWeight: 400,
+                    }}
+                  >
+                    {" "}— {" "}
+                  </span>
+                ) : null}
                 <EditableSpan
                   field="titleTail"
                   value={card.titleTail}
@@ -254,6 +299,7 @@ const SertaoCard: React.FC<SertaoCardProps> = ({
                     fontWeight: 400,
                   }}
                   onEdit={onEditSlot}
+                  placeholder="complemento"
                 />
               </>
             ) : null}
@@ -272,12 +318,13 @@ const SertaoCard: React.FC<SertaoCardProps> = ({
           >
             <EditableSpan
               field="footer"
-              value={tokens.showSwipeHint !== false ? card.footer : "\u00A0"}
+              value={tokens.showSwipeHint !== false ? card.footer : ""}
               style={peTinyCaps(ouro, big ? 12 : 10)}
               onEdit={onEditSlot}
+              placeholder="arraste"
             />
             {ornaments && <PeDiamond color={ouro} size={big ? 9 : 7} />}
-            <span style={peTinyCaps(ouro, big ? 12 : 10)}>01 / 07</span>
+            <span style={peTinyCaps(ouro, big ? 12 : 10)}>{pageLabel}</span>
           </div>
         </div>
       </div>
@@ -301,6 +348,7 @@ const SertaoCard: React.FC<SertaoCardProps> = ({
             value={card.eyebrow}
             style={peTinyCaps(ouro, big ? 13 : 11)}
             onEdit={onEditSlot}
+            placeholder="FECHAMENTO"
           />
           <PeRule color={ouro} mt={big ? 28 : 18} />
 
@@ -327,6 +375,7 @@ const SertaoCard: React.FC<SertaoCardProps> = ({
                 textWrap: "balance" as any,
               }}
               onEdit={onEditSlot}
+              placeholder="Frase final"
             />
 
             <div style={{ height: big ? 36 : 24 }} />
@@ -346,6 +395,7 @@ const SertaoCard: React.FC<SertaoCardProps> = ({
                 fontStyle: bodyFam.includes("Cormorant") ? "italic" : "normal",
               }}
               onEdit={onEditSlot}
+              placeholder="Texto de apoio do fechamento"
             />
 
             {ornaments && (
@@ -378,8 +428,9 @@ const SertaoCard: React.FC<SertaoCardProps> = ({
               value={card.cta}
               style={peTinyCaps(ouro, big ? 12 : 10)}
               onEdit={onEditSlot}
+              placeholder="Chamada para ação"
             />
-            <span style={peTinyCaps(ouro, big ? 12 : 10)}>07 / 07</span>
+            <span style={peTinyCaps(ouro, big ? 12 : 10)}>{pageLabel}</span>
           </div>
         </div>
       </div>
@@ -411,6 +462,7 @@ const SertaoCard: React.FC<SertaoCardProps> = ({
               field="topic"
               value={card.topic}
               onEdit={onEditSlot}
+              placeholder="TÓPICO"
             />
           </div>
         </div>
@@ -446,6 +498,7 @@ const SertaoCard: React.FC<SertaoCardProps> = ({
             textWrap: "balance" as any,
           }}
           onEdit={onEditSlot}
+          placeholder="Título da cláusula"
         />
 
         <div style={{ height: big ? 24 : 16 }} />
@@ -465,6 +518,7 @@ const SertaoCard: React.FC<SertaoCardProps> = ({
             textWrap: "pretty" as any,
           }}
           onEdit={onEditSlot}
+          placeholder="Texto da cláusula"
         />
 
         <div style={{ flex: 1 }} />
@@ -480,9 +534,7 @@ const SertaoCard: React.FC<SertaoCardProps> = ({
         >
           <span style={peTinyCaps(ouro, big ? 12 : 10)}>Posiciona Editorial</span>
           {ornaments && <PeDiamond color={ouro} size={big ? 7 : 5} />}
-          <span style={peTinyCaps(ouro, big ? 12 : 10)}>
-            {String(parseInt(card.num, 10) + 1).padStart(2, "0")} / 07
-          </span>
+          <span style={peTinyCaps(ouro, big ? 12 : 10)}>{pageLabel}</span>
         </div>
       </div>
     </div>
