@@ -1103,6 +1103,8 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
             <SertaoCard
               card={templateCard}
               format={tplFormat}
+              tokens={templateTokens ?? undefined}
+              slideIndex={templateSlideIndex}
               onEditSlot={onEditTemplateSlot as any}
             />
 
