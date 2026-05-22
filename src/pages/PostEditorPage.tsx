@@ -221,6 +221,19 @@ const PostEditorPage = () => {
   const [titleFontFamily, setTitleFontFamily] = useState<string | null>(draft?.titleFontFamily ?? null);
   const [ctaText, setCtaText] = useState(draft?.ctaText ?? "");
   const [templateId, setTemplateId] = useState<string | null>((draft as any)?.templateId ?? null);
+  const [templateSlots, setTemplateSlots] = useState<Record<number, Record<string, string>>>(
+    (draft as any)?.templateSlots ?? {},
+  );
+  const updateTemplateSlot = useCallback((slideIdx: number, field: string, value: string) => {
+    setTemplateSlots((prev) => ({
+      ...prev,
+      [slideIdx]: { ...(prev[slideIdx] ?? {}), [field]: value },
+    }));
+  }, []);
+  const handleTemplateIdChange = useCallback((next: string | null) => {
+    setTemplateId(next);
+    if (next === null) setTemplateSlots({});
+  }, []);
   const [ctaBgColor, setCtaBgColor] = useState<string | null>(draft?.ctaBgColor ?? null);
   const [ctaTextColor, setCtaTextColor] = useState<string | null>(draft?.ctaTextColor ?? null);
   const [ctaFontSize, setCtaFontSize] = useState(draft?.ctaFontSize ?? 28);
