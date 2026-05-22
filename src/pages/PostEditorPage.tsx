@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { flushSync } from "react-dom";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
@@ -22,6 +22,8 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { buildAutoLayout, fetchBackgroundImage, type PostStyle, type PhotographerInfo } from "@/lib/postAutoLayout";
 import { getAIStyleById, type AIStyleId } from "@/lib/aiImageStyles";
 import { prepareSinglePostCardCopy, prepareCarouselCardCopy } from "@/lib/editorialCardCopy";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { mapPostToCards } from "@/components/post-templates/governante/mapPostToCards";
 
 import { Sparkles, X, Image as ImageIcon, Loader2, Download } from "lucide-react";
 import { useEditorHistory } from "@/hooks/useEditorHistory";
@@ -218,6 +220,7 @@ const PostEditorPage = () => {
   const [titleColor, setTitleColor] = useState<string | null>(draft?.titleColor ?? null);
   const [titleFontFamily, setTitleFontFamily] = useState<string | null>(draft?.titleFontFamily ?? null);
   const [ctaText, setCtaText] = useState(draft?.ctaText ?? "");
+  const [templateId, setTemplateId] = useState<string | null>((draft as any)?.templateId ?? null);
   const [ctaBgColor, setCtaBgColor] = useState<string | null>(draft?.ctaBgColor ?? null);
   const [ctaTextColor, setCtaTextColor] = useState<string | null>(draft?.ctaTextColor ?? null);
   const [ctaFontSize, setCtaFontSize] = useState(draft?.ctaFontSize ?? 28);
@@ -1707,6 +1710,16 @@ const PostEditorPage = () => {
     saveStatus === "error" ? "⚠ Erro ao salvar" :
     saveStatus === "saved" && formattedSavedAt ? `✓ Salvo às ${formattedSavedAt}` : null;
 
+  // Cards mapeados para o template editorial selecionado (Governante · Sertão).
+  // Quando não há templateId, fica null e o canvas legado é usado.
+  const templateCards = templateId === "governante.sertao-profundo"
+    ? mapPostToCards({
+        card_copy: editedTexts,
+        title: editedTitle,
+        cta: ctaText || day.cta || undefined,
+      })
+    : null;
+
   return (
     <DashboardLayout>
       <div className="space-y-6 pb-32 md:pb-6">
@@ -1752,7 +1765,28 @@ const PostEditorPage = () => {
         )}
 
         <div className="grid gap-6 md:grid-cols-[1fr_280px]">
-          <div className="relative flex items-center justify-center min-h-[400px] bg-muted/30 rounded-2xl p-4 overflow-hidden md:sticky md:top-4 md:self-start">
+          <div className="flex flex-col gap-3 md:sticky md:top-4 md:self-start">
+            <div className="flex items-center gap-2 px-1">
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Template</span>
+              <Select
+                value={templateId ?? "none"}
+                onValueChange={(v) => setTemplateId(v === "none" ? null : v)}
+              >
+                <SelectTrigger className="h-8 w-[260px] text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Padrão (sem template)</SelectItem>
+                  <SelectItem value="governante.sertao-profundo">Governante · Sertão Profundo</SelectItem>
+                </SelectContent>
+              </Select>
+              {templateId && (
+                <span className="text-[11px] text-muted-foreground italic">
+                  Cores e tipografia controladas pelo template
+                </span>
+              )}
+            </div>
+            <div className="relative flex items-center justify-center min-h-[400px] bg-muted/30 rounded-2xl p-4 overflow-hidden">
             {initializingLayout && (
               <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-background/80 backdrop-blur-sm rounded-2xl">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -1797,6 +1831,8 @@ const PostEditorPage = () => {
                 primaryArchetype={primaryArchetype}
                 slideTextBoxes={slideTextBoxes}
                 onSlideTextBoxesChange={handleSlideTextBoxesChange}
+                templateId={templateId}
+                templateCards={templateCards}
               />
             ) : (
               <PostCanvas
@@ -1825,9 +1861,12 @@ const PostEditorPage = () => {
                 resetKey={`${initialStyle || "minimal"}-${canvasFormat}`}
                 textBoxes={slideTextBoxes[0]}
                 onTextBoxesChange={(boxes) => handleSlideTextBoxesChange(0, boxes)}
+                templateId={templateId}
+                templateCard={templateCards?.[0] ?? null}
               />
             )}
             {/* Botão "Baixar PNG" foi movido para o painel de ações à direita para não sobrepor o canvas. */}
+            </div>
           </div>
 
           {(() => {
