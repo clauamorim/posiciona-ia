@@ -1831,6 +1831,8 @@ const PostEditorPage = () => {
                 primaryArchetype={primaryArchetype}
                 slideTextBoxes={slideTextBoxes}
                 onSlideTextBoxesChange={handleSlideTextBoxesChange}
+                templateId={templateId}
+                templateCards={templateCards}
               />
             ) : (
               <PostCanvas
