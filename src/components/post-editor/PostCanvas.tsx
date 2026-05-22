@@ -1096,7 +1096,12 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
               height: tplPreviewH,
             }}
           >
-            <SertaoCard card={templateCard} format={tplFormat} />
+            <SertaoCard
+              card={templateCard}
+              format={tplFormat}
+              onEditSlot={onEditTemplateSlot as any}
+            />
+
           </div>
         </div>
       </div>
