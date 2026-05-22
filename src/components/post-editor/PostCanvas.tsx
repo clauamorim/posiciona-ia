@@ -6,7 +6,7 @@ import { sanitizeRichText } from "@/lib/richText";
 import { inlineFormatBus } from "@/lib/inlineFormatBus";
 import InlineFormatToolbar from "./InlineFormatToolbar";
 import SertaoCard from "@/components/post-templates/governante/SertaoCard";
-import type { CardData as GovernanteCardData } from "@/components/post-templates/governante/types";
+import type { CardData as GovernanteCardData, SertaoTokens } from "@/components/post-templates/governante/types";
 
 // Retorna a luminância percebida da cor (fórmula YIQ): valor >=128 = clara.
 // Usado para decidir se halo e text-shadow devem ser escuros (para texto claro)
