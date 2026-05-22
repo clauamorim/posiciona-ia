@@ -307,7 +307,27 @@ const SertaoCard: React.FC<SertaoCardProps> = ({
             ) : null}
           </div>
 
+          <EditableSpan
+            field="body"
+            value={(card as any).body || ""}
+            as="div"
+            style={{
+              fontFamily: bodyFam,
+              fontStyle: bodyFam.includes("Cormorant") ? "italic" : "normal",
+              fontWeight: 400,
+              fontSize: big ? 24 : 18,
+              lineHeight: 1.4,
+              color: areia,
+              opacity: 0.78,
+              marginTop: big ? 28 : 18,
+              textWrap: "pretty" as any,
+            }}
+            onEdit={onEditSlot}
+            placeholder="Corpo de abertura"
+          />
+
           <div style={{ flex: 1 }} />
+
 
           <PeRule color={ouro} />
           <div

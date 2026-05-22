@@ -1,113 +1,83 @@
-# Template Sertão: parar de misturar conteúdo + tornar tudo editável
+# Plano — `copy[0]` na cover do template Sertão
 
-## Diagnóstico do problema atual
+## Causa-raiz
 
-`mapPostToCards` usa `SERTAO_CONTENT_DEFAULTS` (do `manifest.json`) como fallback para qualquer slot que o post não preenche. Esses defaults são **temáticos** ("DIREITO DO AGRO", "Sete cláusulas de arrendamento rural", "PRAZO", "REAJUSTE"…) e aparecem misturados com o body real do post, dando a sensação de "exemplo + post juntos".
+`mapPostToCards` tem dois caminhos:
 
-Além disso, cor de fundo (verde), tinta (areia) e accent (ouro) estão hard-coded no `SertaoCard`. Ornamentos, fonte do corpo e estilo de numeração existem como `SertaoTokens` mas ninguém edita.
+- **Post único** (`format !== "carrossel"`): retorna 1 card `close` com `title = editedTitle` e `body = copy[0] || caption`. Funciona — o `SertaoCard` close renderiza título + corpo + CTA.
+- **Carrossel** (`format === "carrossel"`): retorna 7 cards. A `cover` (slide 0) tem só `titleLead / kicker / countWord / titleTail / footer`. **Não existe slot que receba `copy[0]`**, então o corpo do primeiro card (que no `PostCanvas` legacy aparece junto do título) é descartado.
 
-## Estratégia
+O print IMG_4864 confirma: título alinhado ao topo (assinatura da cover), corpo ausente. O post é carrossel, mesmo aparentando ser único.
 
-1. **Separar defaults estruturais (neutros) dos defaults temáticos.** Mapper só preenche slots a partir do post; o que não vier vira string vazia (renderizada como placeholder discreto e editável). Numeração e paginação continuam derivadas do índice do slide, não do conteúdo.
-2. **`templateTokens` no estado do editor**, mesmo padrão de `templateSlots`: overrides parciais de `SertaoTokens` (cores, ornamentos, fontes, numeração, swipe hint). `SertaoCard` já aceita `tokens` — só falta passar.
-3. **Painel "Template" no inspector** quando `templateId` ativo, expondo cor/ornamentos/numeração/fontes. Edição de texto continua direto no card (contentEditable já implementado).
+## Mudanças
 
-## Passo 1 — Reescrever `mapPostToCards`
+### 1. `src/components/post-templates/governante/types.ts`
 
-`src/components/post-templates/governante/mapPostToCards.ts`:
+Adicionar campo opcional `body` em `CoverSlots`:
 
-- Remover qualquer fallback vindo de `SERTAO_CONTENT_DEFAULTS` para campos **temáticos** (eyebrow do cover, kicker, titleTail, topic, title de cláusula, eyebrow/body do close).
-- Manter apenas defaults **estruturais não-temáticos**:
-  - Cover `footer`: `"arraste para começar"` (instrução de UX, não tema).
-  - Cover `countWord`: derivado do número real de cláusulas (5 → `"Cinco"`). Mapa `1..7 → Uma/Duas/Três/Quatro/Cinco/Seis/Sete`.
-  - Clause `num`: `"01".."05"` por índice (fixo).
-  - Clause `roman`: `I..V` por índice.
-  - Close `eyebrow`: `"FECHAMENTO"` (rótulo estrutural).
-- Slots temáticos vazios passam `""`. O card renderiza placeholder cinza translúcido quando vazio.
-- Mapeamento de conteúdo do post:
-  - Cover `titleLead` ← `input.title`.
-  - Clause `body[i]` ← `copy[i+1]` (mantém).
-  - Close `title` ← `copy[6]`.
-  - Close `cta` ← `input.cta`.
-- Documentar no topo do arquivo: "defaults temáticos foram removidos para evitar que demo content vaze nos posts reais. Quando a IA passar a devolver slots nativos (eyebrow, topic, kicker), basta consumir aqui."
+```ts
+export interface CoverSlots {
+  eyebrow: string;
+  kicker: string;
+  countWord: string;
+  titleLead: string;
+  titleTail: string;
+  body?: string;     // ← novo (opcional p/ não quebrar tipos existentes)
+  footer: string;
+}
+```
 
-`SERTAO_CONTENT_DEFAULTS` em `tokens.ts` fica como referência morta (não é mais importada pelo mapper). Marcar com comentário "@deprecated — usar apenas para preview do template em catálogo futuro".
+### 2. `src/components/post-templates/governante/mapPostToCards.ts`
 
-## Passo 2 — Placeholder editável no SertaoCard
+No branch carrossel, popular `cover.body = copy[0] ?? ""`. Cláusulas continuam em `copy[i+1]` (1..5) e close em `copy[6]`. Nada mais muda.
 
-`src/components/post-templates/governante/SertaoCard.tsx`:
+```ts
+const cover: CardData = {
+  kind: "cover",
+  // ... campos atuais
+  body: copy[0] ?? "",   // ← novo
+  footer: meta?.footer ?? "",
+};
+```
 
-- `EditableSpan` ganha prop `placeholder?: string`. Quando `value === ""` e `onEdit` está presente, renderiza o placeholder com `opacity: 0.35`, `fontStyle: italic`, e ao receber foco o conteúdo fica vazio para começar a digitar (usar `onFocus` para limpar via `selectAll` se for placeholder). Sem `onEdit`, slot vazio simplesmente não renderiza.
-- Passar placeholders curtos por slot (ex: `"Eyebrow"`, `"Kicker"`, `"Tópico"`, `"Título da cláusula"`, `"Fechamento"`, `"CTA"`). Em PT-BR.
-- Numeração da cláusula (`numLabel`) e paginação `01/07..07/07` permanecem derivadas do índice do slide (`slideIndex`), **não** de `card.num`. Para isso, `SertaoCard` ganha prop opcional `slideIndex?: number` (default: parse de `card.num`). O carousel passa o índice real → mesmo que `card.num` seja editado, a paginação não quebra.
-  - Decisão: número da cláusula em si vira editável (slot `num`), mas a paginação do rodapé usa `slideIndex + 1`.
+### 3. `src/components/post-templates/governante/SertaoCard.tsx`
 
-## Passo 3 — Estado `templateTokens` no editor
+Na branch `kind === "cover"`, adicionar um `EditableSpan` para `body` **logo abaixo do bloco de título** (entre o título e o `flex: 1` que empurra o rodapé para o fundo). Tipografia que não compita com a `titleLead`: mesma família do `bodyFam` (Lato/Cormorant/Playfair conforme `tokens.bodyFont`), peso 400, tamanho menor (`big ? 24 : 18`), `opacity: 0.78`, `marginTop: big ? 28 : 18`. Quando `body` vier vazio, `EditableSpan` já retorna `null` (regra atual de slot vazio) — a cover continua idêntica à original.
 
-`src/pages/PostEditorPage.tsx`:
+```tsx
+<EditableSpan
+  field="body"
+  value={(card as any).body || ""}
+  as="div"
+  style={{
+    fontFamily: bodyFam,
+    fontStyle: bodyFam.includes("Cormorant") ? "italic" : "normal",
+    fontSize: big ? 24 : 18,
+    lineHeight: 1.4,
+    color: areia,
+    opacity: 0.78,
+    marginTop: big ? 28 : 18,
+    textWrap: "pretty" as any,
+  }}
+  onEdit={onEditSlot}
+  placeholder="Corpo de abertura"
+/>
+```
 
-- Novo state: `const [templateTokens, setTemplateTokens] = useState<Partial<SertaoTokens>>((draft as any)?.templateTokens ?? {})`.
-- Callback `updateTemplateTokens(patch: Partial<SertaoTokens>) → setTemplateTokens(prev => ({ ...prev, ...patch }))`.
-- `handleTemplateIdChange(null)` também limpa `templateTokens` (mesma lógica de `templateSlots`).
-- Incluir `templateTokens` no `saveDraft` (passar como any, mesmo padrão).
-- Passar `templateTokens` para `<CarouselEditor>` e `<PostCanvas>` via nova prop `templateTokens?: Partial<SertaoTokens> | null`.
-
-`PostCanvas` repassa `tokens={templateTokens ?? undefined}` ao `<SertaoCard>`.
-`CarouselEditor` apenas faz pass-through.
-
-## Passo 4 — Painel "Template" no inspector
-
-`src/pages/PostEditorPage.tsx`, no slot da coluna direita (onde vive o `<SelectionPanel>`):
-
-Quando `templateId` está setado, renderizar **acima** do `<SelectionPanel>` um novo card "Template · Sertão Profundo" com os controles abaixo. O `<SelectionPanel>` continua visível mas vira no-op enquanto o template está ativo (já tem a nota "Cores e tipografia controladas pelo template").
-
-Controles (componente novo `src/components/post-editor/inspector/TemplateSertaoPanel.tsx`):
-
-- **Cor de fundo** (`verdeBg`) — `ColorPicker` reutilizado, default `VERDE`.
-- **Cor da tinta** (`areiaInk`) — `ColorPicker`, default `AREIA`.
-- **Cor do accent** (`ouroAccent`) — `ColorPicker`, default `OURO`, controla réguas, eyebrow, diamantes, número grande.
-- **Fonte do corpo** — `Select` com 3 opções: Cormorant Garamond (default), Lato, Playfair Display.
-- **Numeração** — `Select`: Padrão (`01`), Colchetes (`[ 01 ]`), Romano (`I`).
-- **Ornamentos** — `Switch` (diamantes liga/desliga).
-- **Indicação "arraste"** — `Switch` (footer da capa).
-- Botão "Restaurar padrões do template" → `setTemplateTokens({})`.
-
-Reaproveitar `ColorPicker` existente; paleta sugerida com swatches da própria paleta Sertão (`VERDE`, `OURO`, `AREIA`, `GRAFITE`, `MOGNO`, `VERDE_INK`, `AREIA_TINT`, `OURO_INK`) + free-color.
-
-## Passo 5 — Wiring de props
-
-- `PostCanvasProps`: adicionar `templateTokens?: Partial<SertaoTokens> | null`.
-- `CarouselEditorProps`: mesmo.
-- Bypass do `PostCanvas` passa `tokens={templateTokens ?? undefined}` + `slideIndex={…}` (já tem `slideNumber`; reaproveitar).
-- `SertaoCard`: prop `slideIndex?: number` usada para paginação no rodapé.
-
-## Persistência
-
-- `templateSlots` e `templateTokens` continuam local-state, dentro do mesmo `saveDraft`. Sem migração de DB (alinhado a `mem://constraints/post-editor-persistence`).
+`SlotField` já é união de `keyof CoverSlots | keyof ClauseSlots | keyof CloseSlots`. Como `body` passa a existir em `CoverSlots` e já existe em `ClauseSlots/CloseSlots`, o tipo continua válido sem alteração.
 
 ## Fora de escopo
 
-- Editar a cor de cada slot individualmente (cores são globais ao template).
-- Variações Cartório/Manuscrito.
-- Persistência no Supabase.
-- Rich text (negrito/itálico dentro do card).
-- Edição dos diamantes como elementos arrastáveis (apenas toggle on/off por enquanto).
-
-## Arquivos tocados
-
-- `src/components/post-templates/governante/mapPostToCards.ts` — remover fallbacks temáticos, derivar `countWord` do total de cláusulas.
-- `src/components/post-templates/governante/SertaoCard.tsx` — `placeholder` no `EditableSpan`, prop `slideIndex` para paginação.
-- `src/components/post-editor/inspector/TemplateSertaoPanel.tsx` (novo) — UI de tokens.
-- `src/components/post-editor/PostCanvas.tsx` — prop `templateTokens` + `slideIndex` repassados.
-- `src/components/post-editor/CarouselEditor.tsx` — prop `templateTokens` pass-through.
-- `src/pages/PostEditorPage.tsx` — state `templateTokens`, callback, draft, render do painel.
+- Não muda branch single-close (já correto).
+- Não muda a estrutura de `copy[1..6]` para cláusulas/close.
+- Não muda `TemplateSertaoPanel` nem `PostEditorPage` (overrides em `templateSlots[0].body` continuam funcionando: o `EditableSpan` já é editável).
+- Cartório/Manuscrito ainda não existem como componentes, então não há impacto.
 
 ## Validação
 
-1. Build limpo.
-2. Selecionar "Governante · Sertão Profundo" em post de Direito do Agro: nenhum texto de outro nicho aparece. Slots não preenchidos pelo post mostram placeholder italic discreto.
-3. Paginação do rodapé permanece `01/07 … 07/07` mesmo após editar `num`.
-4. Painel "Template" troca a cor de fundo: todos os 7 slides atualizam ao vivo.
-5. Desligar ornamentos: diamantes somem dos 7 slides.
-6. Trocar numeração para "Romano": número grande vira `I..V`, paginação rodapé continua `01..07`.
-7. Voltar para "Padrão (sem template)": canvas legado volta, sem perder texto.
+1. Build limpo (sem erros TS).
+2. Carrossel + template Sertão na cover → corpo do `copy[0]` aparece abaixo do título.
+3. Carrossel cuja IA não devolveu `copy[0]` (vazio) → cover idêntica à original (slot vazio renderiza `null`).
+4. Post único + template Sertão → continua mostrando close com title+body+cta (sem regressão).
+5. Posts sem `templateId` → canvas legado intacto.
+6. Editar o novo slot de body na cover persiste em `templateSlots[0].body` no draft, igual aos outros slots.
