@@ -939,7 +939,7 @@ const PostEditorPage = () => {
         canvasFormat, showSlideNumber, slideNumberPosition,
         slideNumberBgColor, slideNumberTextColor, slideNumberSize,
         displayFont, bodyFont,
-        templateId, templateSlots,
+        templateId, templateSlots, templateTokens,
       } as any, initialStyle, canvasFormat);
     }, 300);
     return () => clearTimeout(timer);
