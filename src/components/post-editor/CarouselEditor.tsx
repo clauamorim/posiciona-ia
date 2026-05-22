@@ -85,7 +85,7 @@ const CarouselEditor: React.FC<CarouselEditorProps> = ({
   initialTextBoxes, resetKey,
   slideTextBoxes, onSlideTextBoxesChange,
   primaryArchetype,
-  templateId, templateCards,
+  templateId, templateCards, onEditTemplateSlot,
 }) => {
   const total = slides.length;
   const isCover = currentSlide === 0;
