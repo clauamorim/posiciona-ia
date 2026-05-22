@@ -938,7 +938,7 @@ const PostEditorPage = () => {
       ctaText, ctaBgColor, ctaTextColor, ctaFontSize, ctaPosition,
       canvasFormat, showSlideNumber, slideNumberPosition,
       slideNumberBgColor, slideNumberTextColor, slideNumberSize,
-      displayFont, bodyFont, weekIndex, dayIndex]);
+      displayFont, bodyFont, weekIndex, dayIndex, templateId, templateSlots]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
