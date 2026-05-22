@@ -927,7 +927,8 @@ const PostEditorPage = () => {
         canvasFormat, showSlideNumber, slideNumberPosition,
         slideNumberBgColor, slideNumberTextColor, slideNumberSize,
         displayFont, bodyFont,
-      }, initialStyle, canvasFormat);
+        templateId, templateSlots,
+      } as any, initialStyle, canvasFormat);
     }, 300);
     return () => clearTimeout(timer);
   }, [editedTexts, editedTitle, overlayImages, uploadedImages, bgIndex, layout, currentSlide,
