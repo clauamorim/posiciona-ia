@@ -2000,6 +2000,15 @@ const PostEditorPage = () => {
 
             return (
               <>
+                {templateId === "governante.sertao-profundo" && (
+                  <div className="hidden md:block mb-3">
+                    <TemplateSertaoPanel
+                      tokens={templateTokens}
+                      onChange={updateTemplateTokens}
+                      onReset={resetTemplateTokens}
+                    />
+                  </div>
+                )}
                 <div className="hidden md:block">
                   <PostToolbar
                     {...sharedToolbarProps}
