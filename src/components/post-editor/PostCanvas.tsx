@@ -1061,6 +1061,46 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   const RULER_PX = 18;
   const rulerTickEvery = 100; // canvas px
 
+  // ── BYPASS: template editorial por arquétipo ─────────────────────
+  // Quando há templateId + templateCard, ignoramos todo o canvas legado e
+  // renderizamos o componente do template aplicando o mesmo `scale` calculado.
+  if (templateId === "governante.sertao-profundo" && templateCard) {
+    const tplFormat: "4:5" | "9:16" = canvasHeight === 1920 ? "9:16" : "4:5";
+    const tplPreviewW = 540;
+    const tplPreviewH = tplFormat === "9:16" ? 960 : 675;
+    // O canvas do editor é dimensionado em px do canvas real (1080×1350/1920),
+    // depois multiplicado pelo `scale`. O SertaoCard renderiza em 540×(675|960).
+    // Para preencher o mesmo bounding box, escalamos o template proporcionalmente.
+    const tplScale = (canvasWidth * scale) / tplPreviewW;
+    return (
+      <div ref={containerRef} className="flex items-center justify-center w-full">
+        <div
+          ref={(el) => {
+            if (typeof canvasRef === "function") canvasRef(el);
+            else if (canvasRef && "current" in canvasRef) (canvasRef as any).current = el;
+          }}
+          style={{
+            width: tplPreviewW * tplScale,
+            height: tplPreviewH * tplScale,
+            overflow: "hidden",
+            position: "relative",
+          }}
+        >
+          <div
+            style={{
+              transform: `scale(${tplScale})`,
+              transformOrigin: "top left",
+              width: tplPreviewW,
+              height: tplPreviewH,
+            }}
+          >
+            <SertaoCard card={templateCard} format={tplFormat} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div ref={containerRef} className="flex items-center justify-center w-full">
       <style>{`
