@@ -135,6 +135,7 @@ const CarouselEditor: React.FC<CarouselEditorProps> = ({
         templateCard={templateCards?.[currentSlide] ?? null}
         templateTokens={templateTokens}
         templateSlideIndex={currentSlide}
+        templateTotalSlides={templateCards?.length ?? undefined}
         templateDefaultBrandMark={templateDefaultBrandMark}
         onEditTemplateSlot={
           onEditTemplateSlot

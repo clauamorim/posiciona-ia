@@ -14,6 +14,14 @@ export interface MapPostInput {
   card_copy?: string[];
   title?: string;
   cta?: string;
+  /**
+   * Formato do post no editorial: "carrossel" gera 7 cards (cover + 5 + close).
+   * "post" (qualquer valor que não seja carrossel) gera 1 card único do tipo
+   * close, que tem slots de título + corpo + CTA — adequado pra peça única.
+   */
+  format?: string;
+  /** Legenda completa do post, usada como fallback do body em post único. */
+  caption?: string;
   meta?: {
     eyebrow?: string;
     kicker?: string;
@@ -47,6 +55,22 @@ export function mapPostToCards(input: MapPostInput): CardData[] {
   const copy = input.card_copy ?? [];
   const meta = input.meta;
   const clauseCount = 5;
+
+  // ── Post único (não-carrossel) ────────────────────────────────────
+  // Gera APENAS 1 card do tipo "close" (que tem slots de título + corpo
+  // + CTA + sobretítulo). Cover seria errado porque cover não tem slot
+  // de body — perderíamos o texto principal da peça.
+  const isCarrossel = (input.format || "").toLowerCase() === "carrossel";
+  if (!isCarrossel) {
+    const singleClose: CardData = {
+      kind: "close",
+      eyebrow: meta?.closeEyebrow ?? "",
+      title: input.title ?? "",
+      body: (copy[0] || input.caption || meta?.closeBody || "").trim(),
+      cta: input.cta ?? "",
+    };
+    return [singleClose];
+  }
 
   // ── Cover (índice 0) ──────────────────────────────────────────────
   const cover: CardData = {

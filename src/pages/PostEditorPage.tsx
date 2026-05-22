@@ -1744,6 +1744,8 @@ const PostEditorPage = () => {
         card_copy: editedTexts,
         title: editedTitle,
         cta: ctaText || day.cta || undefined,
+        format: day?.format,
+        caption: day?.caption,
       }).map((card, i) => {
         const overrides = templateSlots[i];
         return overrides ? { ...card, ...overrides } as typeof card : card;
@@ -1899,6 +1901,8 @@ const PostEditorPage = () => {
                 templateCard={templateCards?.[0] ?? null}
                 templateTokens={templateTokens}
                 templateSlideIndex={0}
+                templateTotalSlides={templateCards?.length ?? undefined}
+                templateDefaultBrandMark={companyName}
                 onEditTemplateSlot={(field, value) => updateTemplateSlot(0, field, value)}
               />
             )}

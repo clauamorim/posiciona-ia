@@ -187,6 +187,8 @@ const SertaoCard: React.FC<SertaoCardProps> = ({
         : card.kind === "cover"
           ? 1
           : totalSlides;
+  // Em post único (totalSlides=1) não faz sentido mostrar "01 / 01".
+  const showPageLabel = totalSlides > 1;
   const pageLabel = `${String(pageNum).padStart(2, "0")} / ${String(totalSlides).padStart(2, "0")}`;
 
   // ── COVER ─────────────────────────────────────────────────────────
@@ -324,7 +326,7 @@ const SertaoCard: React.FC<SertaoCardProps> = ({
               placeholder="arraste"
             />
             {ornaments && <PeDiamond color={ouro} size={big ? 9 : 7} />}
-            <span style={peTinyCaps(ouro, big ? 12 : 10)}>{pageLabel}</span>
+            {showPageLabel && <span style={peTinyCaps(ouro, big ? 12 : 10)}>{pageLabel}</span>}
           </div>
         </div>
       </div>
@@ -430,7 +432,7 @@ const SertaoCard: React.FC<SertaoCardProps> = ({
               onEdit={onEditSlot}
               placeholder="Chamada para ação"
             />
-            <span style={peTinyCaps(ouro, big ? 12 : 10)}>{pageLabel}</span>
+            {showPageLabel && <span style={peTinyCaps(ouro, big ? 12 : 10)}>{pageLabel}</span>}
           </div>
         </div>
       </div>
@@ -534,7 +536,7 @@ const SertaoCard: React.FC<SertaoCardProps> = ({
         >
           <span style={peTinyCaps(ouro, big ? 12 : 10)}>{brandMark}</span>
           {ornaments && <PeDiamond color={ouro} size={big ? 7 : 5} />}
-          <span style={peTinyCaps(ouro, big ? 12 : 10)}>{pageLabel}</span>
+          {showPageLabel && <span style={peTinyCaps(ouro, big ? 12 : 10)}>{pageLabel}</span>}
         </div>
       </div>
     </div>
