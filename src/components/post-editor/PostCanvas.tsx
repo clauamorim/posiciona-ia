@@ -178,7 +178,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   initialTextBoxes, resetKey,
   textBoxes: controlledTextBoxes, onTextBoxesChange,
   primaryArchetype,
-  templateId, templateCard,
+  templateId, templateCard, onEditTemplateSlot,
 }) => {
   const typo = getArchetypeTypography(primaryArchetype);
   const isMobile = useIsMobile();
