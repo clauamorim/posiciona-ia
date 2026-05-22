@@ -1881,6 +1881,7 @@ const PostEditorPage = () => {
                 onTextBoxesChange={(boxes) => handleSlideTextBoxesChange(0, boxes)}
                 templateId={templateId}
                 templateCard={templateCards?.[0] ?? null}
+                onEditTemplateSlot={(field, value) => updateTemplateSlot(0, field, value)}
               />
             )}
             {/* Botão "Baixar PNG" foi movido para o painel de ações à direita para não sobrepor o canvas. */}
