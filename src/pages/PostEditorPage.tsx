@@ -230,9 +230,19 @@ const PostEditorPage = () => {
       [slideIdx]: { ...(prev[slideIdx] ?? {}), [field]: value },
     }));
   }, []);
+  const [templateTokens, setTemplateTokens] = useState<Partial<SertaoTokens>>(
+    (draft as any)?.templateTokens ?? {},
+  );
+  const updateTemplateTokens = useCallback((patch: Partial<SertaoTokens>) => {
+    setTemplateTokens((prev) => ({ ...prev, ...patch }));
+  }, []);
+  const resetTemplateTokens = useCallback(() => setTemplateTokens({}), []);
   const handleTemplateIdChange = useCallback((next: string | null) => {
     setTemplateId(next);
-    if (next === null) setTemplateSlots({});
+    if (next === null) {
+      setTemplateSlots({});
+      setTemplateTokens({});
+    }
   }, []);
   const [ctaBgColor, setCtaBgColor] = useState<string | null>(draft?.ctaBgColor ?? null);
   const [ctaTextColor, setCtaTextColor] = useState<string | null>(draft?.ctaTextColor ?? null);
