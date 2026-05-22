@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight, Download, Package } from "lucide-react";
 import PostCanvas from "./PostCanvas";
 import type { TextBox } from "./PostCanvas";
 import type { OverlayImage } from "./PostToolbar";
+import type { CardData as GovernanteCardData } from "@/components/post-templates/governante/types";
 
 interface CarouselEditorProps {
   slides: string[];
@@ -64,6 +65,8 @@ interface CarouselEditorProps {
   slideTextBoxes?: Record<number, TextBox[]>;
   onSlideTextBoxesChange?: (slideIndex: number, boxes: TextBox[]) => void;
   primaryArchetype?: string | null;
+  templateId?: string | null;
+  templateCards?: GovernanteCardData[] | null;
 }
 
 const CarouselEditor: React.FC<CarouselEditorProps> = ({
@@ -81,6 +84,7 @@ const CarouselEditor: React.FC<CarouselEditorProps> = ({
   initialTextBoxes, resetKey,
   slideTextBoxes, onSlideTextBoxesChange,
   primaryArchetype,
+  templateId, templateCards,
 }) => {
   const total = slides.length;
   const isCover = currentSlide === 0;
@@ -124,6 +128,8 @@ const CarouselEditor: React.FC<CarouselEditorProps> = ({
         resetKey={resetKey ? `${resetKey}-${currentSlide}` : undefined}
         textBoxes={slideTextBoxes?.[currentSlide]}
         onTextBoxesChange={onSlideTextBoxesChange ? (boxes) => onSlideTextBoxesChange(currentSlide, boxes) : undefined}
+        templateId={templateId}
+        templateCard={templateCards?.[currentSlide] ?? null}
       />
 
       <div className="flex items-center gap-4">
