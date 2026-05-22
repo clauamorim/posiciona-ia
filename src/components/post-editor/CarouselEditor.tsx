@@ -132,6 +132,8 @@ const CarouselEditor: React.FC<CarouselEditorProps> = ({
         onTextBoxesChange={onSlideTextBoxesChange ? (boxes) => onSlideTextBoxesChange(currentSlide, boxes) : undefined}
         templateId={templateId}
         templateCard={templateCards?.[currentSlide] ?? null}
+        templateTokens={templateTokens}
+        templateSlideIndex={currentSlide}
         onEditTemplateSlot={
           onEditTemplateSlot
             ? (field, value) => onEditTemplateSlot(currentSlide, field, value)
