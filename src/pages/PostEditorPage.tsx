@@ -1730,8 +1730,12 @@ const PostEditorPage = () => {
         card_copy: editedTexts,
         title: editedTitle,
         cta: ctaText || day.cta || undefined,
+      }).map((card, i) => {
+        const overrides = templateSlots[i];
+        return overrides ? { ...card, ...overrides } as typeof card : card;
       })
     : null;
+
 
   return (
     <DashboardLayout>
