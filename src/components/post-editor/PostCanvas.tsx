@@ -109,6 +109,10 @@ interface PostCanvasProps {
   templateCard?: GovernanteCardData | null;
   /** Callback para edição de slots do template (cover/clause/close). */
   onEditTemplateSlot?: (field: string, value: string) => void;
+  /** Tokens visuais do template (cores, ornamentos, numeração…). */
+  templateTokens?: Partial<SertaoTokens> | null;
+  /** Índice do slide dentro do carrossel — usado para paginação fixa do template. */
+  templateSlideIndex?: number;
   // Legacy compat
   onImageMove?: (id: string, x: number, y: number) => void;
   onImageResize?: (id: string, width: number, height: number) => void;
