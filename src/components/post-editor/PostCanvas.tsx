@@ -107,6 +107,8 @@ interface PostCanvasProps {
   templateId?: string | null;
   /** Card já mapeado para o slide atual (usado em conjunto com templateId). */
   templateCard?: GovernanteCardData | null;
+  /** Callback para edição de slots do template (cover/clause/close). */
+  onEditTemplateSlot?: (field: string, value: string) => void;
   // Legacy compat
   onImageMove?: (id: string, x: number, y: number) => void;
   onImageResize?: (id: string, width: number, height: number) => void;
