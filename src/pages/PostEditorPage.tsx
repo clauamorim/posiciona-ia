@@ -1765,7 +1765,28 @@ const PostEditorPage = () => {
         )}
 
         <div className="grid gap-6 md:grid-cols-[1fr_280px]">
-          <div className="relative flex items-center justify-center min-h-[400px] bg-muted/30 rounded-2xl p-4 overflow-hidden md:sticky md:top-4 md:self-start">
+          <div className="flex flex-col gap-3 md:sticky md:top-4 md:self-start">
+            <div className="flex items-center gap-2 px-1">
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Template</span>
+              <Select
+                value={templateId ?? "none"}
+                onValueChange={(v) => setTemplateId(v === "none" ? null : v)}
+              >
+                <SelectTrigger className="h-8 w-[260px] text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Padrão (sem template)</SelectItem>
+                  <SelectItem value="governante.sertao-profundo">Governante · Sertão Profundo</SelectItem>
+                </SelectContent>
+              </Select>
+              {templateId && (
+                <span className="text-[11px] text-muted-foreground italic">
+                  Cores e tipografia controladas pelo template
+                </span>
+              )}
+            </div>
+            <div className="relative flex items-center justify-center min-h-[400px] bg-muted/30 rounded-2xl p-4 overflow-hidden">
             {initializingLayout && (
               <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-background/80 backdrop-blur-sm rounded-2xl">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
