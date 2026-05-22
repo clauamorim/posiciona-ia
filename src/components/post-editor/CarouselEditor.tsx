@@ -4,7 +4,7 @@ import { ArrowLeft, ArrowRight, Download, Package } from "lucide-react";
 import PostCanvas from "./PostCanvas";
 import type { TextBox } from "./PostCanvas";
 import type { OverlayImage } from "./PostToolbar";
-import type { CardData as GovernanteCardData } from "@/components/post-templates/governante/types";
+import type { CardData as GovernanteCardData, SertaoTokens } from "@/components/post-templates/governante/types";
 
 interface CarouselEditorProps {
   slides: string[];
@@ -67,6 +67,7 @@ interface CarouselEditorProps {
   primaryArchetype?: string | null;
   templateId?: string | null;
   templateCards?: GovernanteCardData[] | null;
+  templateTokens?: Partial<SertaoTokens> | null;
   onEditTemplateSlot?: (slideIndex: number, field: string, value: string) => void;
 }
 
@@ -85,7 +86,7 @@ const CarouselEditor: React.FC<CarouselEditorProps> = ({
   initialTextBoxes, resetKey,
   slideTextBoxes, onSlideTextBoxesChange,
   primaryArchetype,
-  templateId, templateCards, onEditTemplateSlot,
+  templateId, templateCards, templateTokens, onEditTemplateSlot,
 }) => {
   const total = slides.length;
   const isCover = currentSlide === 0;
@@ -131,6 +132,8 @@ const CarouselEditor: React.FC<CarouselEditorProps> = ({
         onTextBoxesChange={onSlideTextBoxesChange ? (boxes) => onSlideTextBoxesChange(currentSlide, boxes) : undefined}
         templateId={templateId}
         templateCard={templateCards?.[currentSlide] ?? null}
+        templateTokens={templateTokens}
+        templateSlideIndex={currentSlide}
         onEditTemplateSlot={
           onEditTemplateSlot
             ? (field, value) => onEditTemplateSlot(currentSlide, field, value)

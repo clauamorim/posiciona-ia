@@ -6,7 +6,7 @@ import { sanitizeRichText } from "@/lib/richText";
 import { inlineFormatBus } from "@/lib/inlineFormatBus";
 import InlineFormatToolbar from "./InlineFormatToolbar";
 import SertaoCard from "@/components/post-templates/governante/SertaoCard";
-import type { CardData as GovernanteCardData } from "@/components/post-templates/governante/types";
+import type { CardData as GovernanteCardData, SertaoTokens } from "@/components/post-templates/governante/types";
 
 // Retorna a luminância percebida da cor (fórmula YIQ): valor >=128 = clara.
 // Usado para decidir se halo e text-shadow devem ser escuros (para texto claro)
@@ -109,6 +109,10 @@ interface PostCanvasProps {
   templateCard?: GovernanteCardData | null;
   /** Callback para edição de slots do template (cover/clause/close). */
   onEditTemplateSlot?: (field: string, value: string) => void;
+  /** Tokens visuais do template (cores, ornamentos, numeração…). */
+  templateTokens?: Partial<SertaoTokens> | null;
+  /** Índice do slide dentro do carrossel — usado para paginação fixa do template. */
+  templateSlideIndex?: number;
   // Legacy compat
   onImageMove?: (id: string, x: number, y: number) => void;
   onImageResize?: (id: string, width: number, height: number) => void;
@@ -178,7 +182,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   initialTextBoxes, resetKey,
   textBoxes: controlledTextBoxes, onTextBoxesChange,
   primaryArchetype,
-  templateId, templateCard, onEditTemplateSlot,
+  templateId, templateCard, onEditTemplateSlot, templateTokens, templateSlideIndex,
 }) => {
   const typo = getArchetypeTypography(primaryArchetype);
   const isMobile = useIsMobile();
@@ -1099,6 +1103,8 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
             <SertaoCard
               card={templateCard}
               format={tplFormat}
+              tokens={templateTokens ?? undefined}
+              slideIndex={templateSlideIndex}
               onEditSlot={onEditTemplateSlot as any}
             />
 

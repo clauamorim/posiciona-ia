@@ -24,6 +24,8 @@ import { getAIStyleById, type AIStyleId } from "@/lib/aiImageStyles";
 import { prepareSinglePostCardCopy, prepareCarouselCardCopy } from "@/lib/editorialCardCopy";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { mapPostToCards } from "@/components/post-templates/governante/mapPostToCards";
+import type { SertaoTokens } from "@/components/post-templates/governante/types";
+import TemplateSertaoPanel from "@/components/post-editor/inspector/TemplateSertaoPanel";
 
 import { Sparkles, X, Image as ImageIcon, Loader2, Download } from "lucide-react";
 import { useEditorHistory } from "@/hooks/useEditorHistory";
@@ -230,9 +232,19 @@ const PostEditorPage = () => {
       [slideIdx]: { ...(prev[slideIdx] ?? {}), [field]: value },
     }));
   }, []);
+  const [templateTokens, setTemplateTokens] = useState<Partial<SertaoTokens>>(
+    (draft as any)?.templateTokens ?? {},
+  );
+  const updateTemplateTokens = useCallback((patch: Partial<SertaoTokens>) => {
+    setTemplateTokens((prev) => ({ ...prev, ...patch }));
+  }, []);
+  const resetTemplateTokens = useCallback(() => setTemplateTokens({}), []);
   const handleTemplateIdChange = useCallback((next: string | null) => {
     setTemplateId(next);
-    if (next === null) setTemplateSlots({});
+    if (next === null) {
+      setTemplateSlots({});
+      setTemplateTokens({});
+    }
   }, []);
   const [ctaBgColor, setCtaBgColor] = useState<string | null>(draft?.ctaBgColor ?? null);
   const [ctaTextColor, setCtaTextColor] = useState<string | null>(draft?.ctaTextColor ?? null);
@@ -927,7 +939,7 @@ const PostEditorPage = () => {
         canvasFormat, showSlideNumber, slideNumberPosition,
         slideNumberBgColor, slideNumberTextColor, slideNumberSize,
         displayFont, bodyFont,
-        templateId, templateSlots,
+        templateId, templateSlots, templateTokens,
       } as any, initialStyle, canvasFormat);
     }, 300);
     return () => clearTimeout(timer);
@@ -938,7 +950,7 @@ const PostEditorPage = () => {
       ctaText, ctaBgColor, ctaTextColor, ctaFontSize, ctaPosition,
       canvasFormat, showSlideNumber, slideNumberPosition,
       slideNumberBgColor, slideNumberTextColor, slideNumberSize,
-      displayFont, bodyFont, weekIndex, dayIndex, templateId, templateSlots]);
+      displayFont, bodyFont, weekIndex, dayIndex, templateId, templateSlots, templateTokens]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -1851,6 +1863,7 @@ const PostEditorPage = () => {
                 onSlideTextBoxesChange={handleSlideTextBoxesChange}
                 templateId={templateId}
                 templateCards={templateCards}
+                templateTokens={templateTokens}
                 onEditTemplateSlot={updateTemplateSlot}
               />
             ) : (
@@ -1882,6 +1895,8 @@ const PostEditorPage = () => {
                 onTextBoxesChange={(boxes) => handleSlideTextBoxesChange(0, boxes)}
                 templateId={templateId}
                 templateCard={templateCards?.[0] ?? null}
+                templateTokens={templateTokens}
+                templateSlideIndex={0}
                 onEditTemplateSlot={(field, value) => updateTemplateSlot(0, field, value)}
               />
             )}
@@ -1985,6 +2000,15 @@ const PostEditorPage = () => {
 
             return (
               <>
+                {templateId === "governante.sertao-profundo" && (
+                  <div className="hidden md:block mb-3">
+                    <TemplateSertaoPanel
+                      tokens={templateTokens}
+                      onChange={updateTemplateTokens}
+                      onReset={resetTemplateTokens}
+                    />
+                  </div>
+                )}
                 <div className="hidden md:block">
                   <PostToolbar
                     {...sharedToolbarProps}
