@@ -221,6 +221,19 @@ const PostEditorPage = () => {
   const [titleFontFamily, setTitleFontFamily] = useState<string | null>(draft?.titleFontFamily ?? null);
   const [ctaText, setCtaText] = useState(draft?.ctaText ?? "");
   const [templateId, setTemplateId] = useState<string | null>((draft as any)?.templateId ?? null);
+  const [templateSlots, setTemplateSlots] = useState<Record<number, Record<string, string>>>(
+    (draft as any)?.templateSlots ?? {},
+  );
+  const updateTemplateSlot = useCallback((slideIdx: number, field: string, value: string) => {
+    setTemplateSlots((prev) => ({
+      ...prev,
+      [slideIdx]: { ...(prev[slideIdx] ?? {}), [field]: value },
+    }));
+  }, []);
+  const handleTemplateIdChange = useCallback((next: string | null) => {
+    setTemplateId(next);
+    if (next === null) setTemplateSlots({});
+  }, []);
   const [ctaBgColor, setCtaBgColor] = useState<string | null>(draft?.ctaBgColor ?? null);
   const [ctaTextColor, setCtaTextColor] = useState<string | null>(draft?.ctaTextColor ?? null);
   const [ctaFontSize, setCtaFontSize] = useState(draft?.ctaFontSize ?? 28);
@@ -914,7 +927,8 @@ const PostEditorPage = () => {
         canvasFormat, showSlideNumber, slideNumberPosition,
         slideNumberBgColor, slideNumberTextColor, slideNumberSize,
         displayFont, bodyFont,
-      }, initialStyle, canvasFormat);
+        templateId, templateSlots,
+      } as any, initialStyle, canvasFormat);
     }, 300);
     return () => clearTimeout(timer);
   }, [editedTexts, editedTitle, overlayImages, uploadedImages, bgIndex, layout, currentSlide,
@@ -924,7 +938,7 @@ const PostEditorPage = () => {
       ctaText, ctaBgColor, ctaTextColor, ctaFontSize, ctaPosition,
       canvasFormat, showSlideNumber, slideNumberPosition,
       slideNumberBgColor, slideNumberTextColor, slideNumberSize,
-      displayFont, bodyFont, weekIndex, dayIndex]);
+      displayFont, bodyFont, weekIndex, dayIndex, templateId, templateSlots]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -1717,8 +1731,12 @@ const PostEditorPage = () => {
         card_copy: editedTexts,
         title: editedTitle,
         cta: ctaText || day.cta || undefined,
+      }).map((card, i) => {
+        const overrides = templateSlots[i];
+        return overrides ? { ...card, ...overrides } as typeof card : card;
       })
     : null;
+
 
   return (
     <DashboardLayout>
@@ -1770,7 +1788,7 @@ const PostEditorPage = () => {
               <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Template</span>
               <Select
                 value={templateId ?? "none"}
-                onValueChange={(v) => setTemplateId(v === "none" ? null : v)}
+                onValueChange={(v) => handleTemplateIdChange(v === "none" ? null : v)}
               >
                 <SelectTrigger className="h-8 w-[260px] text-xs">
                   <SelectValue />
@@ -1833,6 +1851,7 @@ const PostEditorPage = () => {
                 onSlideTextBoxesChange={handleSlideTextBoxesChange}
                 templateId={templateId}
                 templateCards={templateCards}
+                onEditTemplateSlot={updateTemplateSlot}
               />
             ) : (
               <PostCanvas
@@ -1863,6 +1882,7 @@ const PostEditorPage = () => {
                 onTextBoxesChange={(boxes) => handleSlideTextBoxesChange(0, boxes)}
                 templateId={templateId}
                 templateCard={templateCards?.[0] ?? null}
+                onEditTemplateSlot={(field, value) => updateTemplateSlot(0, field, value)}
               />
             )}
             {/* Botão "Baixar PNG" foi movido para o painel de ações à direita para não sobrepor o canvas. */}

@@ -67,6 +67,7 @@ interface CarouselEditorProps {
   primaryArchetype?: string | null;
   templateId?: string | null;
   templateCards?: GovernanteCardData[] | null;
+  onEditTemplateSlot?: (slideIndex: number, field: string, value: string) => void;
 }
 
 const CarouselEditor: React.FC<CarouselEditorProps> = ({
@@ -84,7 +85,7 @@ const CarouselEditor: React.FC<CarouselEditorProps> = ({
   initialTextBoxes, resetKey,
   slideTextBoxes, onSlideTextBoxesChange,
   primaryArchetype,
-  templateId, templateCards,
+  templateId, templateCards, onEditTemplateSlot,
 }) => {
   const total = slides.length;
   const isCover = currentSlide === 0;
@@ -130,6 +131,11 @@ const CarouselEditor: React.FC<CarouselEditorProps> = ({
         onTextBoxesChange={onSlideTextBoxesChange ? (boxes) => onSlideTextBoxesChange(currentSlide, boxes) : undefined}
         templateId={templateId}
         templateCard={templateCards?.[currentSlide] ?? null}
+        onEditTemplateSlot={
+          onEditTemplateSlot
+            ? (field, value) => onEditTemplateSlot(currentSlide, field, value)
+            : undefined
+        }
       />
 
       <div className="flex items-center gap-4">
