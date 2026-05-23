@@ -368,18 +368,37 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   useEffect(() => {
     const updateScale = () => {
       if (containerRef.current) {
-        const parent = containerRef.current.parentElement;
-        if (parent) {
-          const sW = parent.clientWidth / canvasWidth;
-          const sH = parent.clientHeight ? parent.clientHeight / canvasHeight : 1;
-          const s = Math.min(sW, sH, 0.55);
-          setScale(s);
+        const bounds = containerRef.current.closest<HTMLElement>("[data-canvas-viewport]") ?? containerRef.current.parentElement;
+        if (bounds) {
+          const rect = bounds.getBoundingClientRect();
+          const styles = window.getComputedStyle(bounds);
+          const horizontalPadding = parseFloat(styles.paddingLeft || "0") + parseFloat(styles.paddingRight || "0");
+          const verticalPadding = parseFloat(styles.paddingTop || "0") + parseFloat(styles.paddingBottom || "0");
+          const viewportWidth = window.visualViewport?.width ?? document.documentElement.clientWidth;
+          const safeWidth = Math.max(1, viewportWidth - Math.max(rect.left, 0) - 2);
+          const availableWidth = Math.max(1, Math.min(rect.width, safeWidth) - horizontalPadding);
+          const availableHeight = Math.max(1, bounds.clientHeight - verticalPadding);
+          const sW = availableWidth / canvasWidth;
+          const sH = bounds.clientHeight ? availableHeight / canvasHeight : 1;
+          const s = Math.floor(Math.min(sW, sH, 0.55) * 1000) / 1000;
+          setScale(Math.max(0.05, s));
         }
       }
     };
     updateScale();
+    const resizeObserver = typeof ResizeObserver !== "undefined" && containerRef.current?.parentElement
+      ? new ResizeObserver(updateScale)
+      : null;
+    if (resizeObserver && containerRef.current?.parentElement) {
+      resizeObserver.observe(containerRef.current.parentElement);
+    }
     window.addEventListener("resize", updateScale);
-    return () => window.removeEventListener("resize", updateScale);
+    window.visualViewport?.addEventListener("resize", updateScale);
+    return () => {
+      window.removeEventListener("resize", updateScale);
+      window.visualViewport?.removeEventListener("resize", updateScale);
+      resizeObserver?.disconnect();
+    };
   }, [canvasWidth, canvasHeight]);
 
   const capturePointer = (e: React.PointerEvent) => {
@@ -1101,6 +1120,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
           style={{
             width: tplPreviewW * tplScale,
             height: tplPreviewH * tplScale,
+            maxWidth: "100%",
             overflow: "hidden",
             position: "relative",
           }}
@@ -1130,7 +1150,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   }
 
   return (
-    <div ref={containerRef} className="flex items-center justify-center w-full">
+    <div ref={containerRef} className="flex items-center justify-center w-full max-w-full min-w-0 overflow-hidden">
       <style>{`
         .post-title-editable strong, .post-title-editable b { font-weight: 900 !important; }
         .post-title-editable em, .post-title-editable i { font-style: italic !important; }

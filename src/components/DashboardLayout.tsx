@@ -192,7 +192,7 @@ export const DashboardLayout = ({ children, wide = false }: { children: React.Re
   };
 
   return (
-    <div className="min-h-dvh flex bg-background">
+    <div className="min-h-dvh flex min-w-0 overflow-x-hidden bg-background">
       {/* Sidebar / Drawer */}
       <aside className={cn(
         "fixed inset-y-0 left-0 z-50 w-[280px] bg-background flex flex-col border-r border-border transition-transform duration-300 ease-out lg:relative lg:translate-x-0",
@@ -297,7 +297,7 @@ export const DashboardLayout = ({ children, wide = false }: { children: React.Re
       )}
 
       {/* Main */}
-      <main className="flex-1 min-h-dvh flex flex-col w-full max-w-full [overflow-x:clip]">
+      <main className="flex-1 min-w-0 min-h-dvh flex flex-col w-full max-w-full overflow-x-hidden [overflow-x:clip]">
         <ReadOnlyBanner />
         {/* Mobile header */}
         <header className="sticky top-0 z-30 bg-background/85 backdrop-blur-md border-b border-border h-12 flex items-center px-4 lg:hidden">
@@ -309,7 +309,7 @@ export const DashboardLayout = ({ children, wide = false }: { children: React.Re
             <span className="text-base font-display font-semibold tracking-tight">Posiciona</span>
           </Link>
         </header>
-        <div className={cn("flex-1 px-4 py-5 lg:px-8 lg:py-8 mx-auto w-full pb-[calc(72px+env(safe-area-inset-bottom))] md:pb-[calc(1.5rem+env(safe-area-inset-bottom))]", wide ? "max-w-[1400px]" : "max-w-4xl")}>
+        <div className={cn("flex-1 min-w-0 px-4 py-5 lg:px-8 lg:py-8 mx-auto w-full max-w-full pb-[calc(72px+env(safe-area-inset-bottom))] md:pb-[calc(1.5rem+env(safe-area-inset-bottom))]", wide ? "lg:max-w-[1400px]" : "lg:max-w-4xl")}>
           {children}
         </div>
         <BackToTopButton />
