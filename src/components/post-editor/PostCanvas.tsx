@@ -374,8 +374,13 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
           const styles = window.getComputedStyle(bounds);
           const horizontalPadding = parseFloat(styles.paddingLeft || "0") + parseFloat(styles.paddingRight || "0");
           const verticalPadding = parseFloat(styles.paddingTop || "0") + parseFloat(styles.paddingBottom || "0");
-          const viewportWidth = window.visualViewport?.width ?? document.documentElement.clientWidth;
-          const safeWidth = Math.max(1, viewportWidth - Math.max(rect.left, 0) - 2);
+          const viewportWidth = Math.min(
+            window.visualViewport?.width ?? Number.POSITIVE_INFINITY,
+            window.innerWidth || Number.POSITIVE_INFINITY,
+            document.documentElement.clientWidth || Number.POSITIVE_INFINITY,
+          );
+          const mobileViewportCap = isMobile ? 390 : viewportWidth;
+          const safeWidth = Math.max(1, Math.min(viewportWidth, mobileViewportCap) - Math.max(rect.left, 0) - 2);
           const availableWidth = Math.max(1, Math.min(rect.width, safeWidth) - horizontalPadding);
           const availableHeight = Math.max(1, bounds.clientHeight - verticalPadding);
           const sW = availableWidth / canvasWidth;
