@@ -94,7 +94,7 @@ const CarouselEditor: React.FC<CarouselEditorProps> = ({
   const isLast = currentSlide === total - 1;
 
   return (
-    <div className="flex flex-col items-center gap-4 w-full">
+    <div className="flex w-full max-w-full min-w-0 flex-col items-center gap-4 overflow-hidden">
       <PostCanvas
         text={slides[currentSlide]}
         title={isCover ? theme : undefined}
@@ -144,7 +144,7 @@ const CarouselEditor: React.FC<CarouselEditorProps> = ({
         }
       />
 
-      <div className="flex items-center gap-4">
+      <div className="flex max-w-full items-center gap-4">
         <Button variant="outline" size="icon" disabled={currentSlide === 0} onClick={() => onSlideChange(currentSlide - 1)}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
@@ -154,7 +154,7 @@ const CarouselEditor: React.FC<CarouselEditorProps> = ({
         </Button>
       </div>
 
-      <div className="flex gap-2 flex-wrap justify-center">
+      <div className="flex max-w-full flex-wrap justify-center gap-2">
         {slides.map((_, i) => (
           <button key={i} onClick={() => onSlideChange(i)}
             className={`w-8 h-8 rounded-md text-xs font-bold transition-all ${i === currentSlide ? "ring-2 ring-primary scale-110" : "opacity-60 hover:opacity-100"}`}
@@ -164,11 +164,11 @@ const CarouselEditor: React.FC<CarouselEditorProps> = ({
         ))}
       </div>
 
-      <div className="flex gap-2">
-        <Button variant="outline" size="sm" className="gap-2" disabled={!!exporting} onClick={() => onDownloadSlide(currentSlide)}>
+      <div className="flex max-w-full flex-wrap justify-center gap-2">
+        <Button variant="outline" size="sm" className="gap-2 min-w-0" disabled={!!exporting} onClick={() => onDownloadSlide(currentSlide)}>
           <Download className="h-3 w-3" /> {exporting === "slide" ? "Baixando…" : `Baixar slide ${currentSlide + 1}`}
         </Button>
-        <Button size="sm" className="gap-2" disabled={!!exporting} onClick={onDownloadAll}>
+        <Button size="sm" className="gap-2 min-w-0" disabled={!!exporting} onClick={onDownloadAll}>
           <Package className="h-3 w-3" /> {exporting === "all" ? "Preparando ZIP…" : "Baixar todos (ZIP)"}
         </Button>
       </div>

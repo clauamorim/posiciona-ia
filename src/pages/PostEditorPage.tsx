@@ -1769,7 +1769,7 @@ const PostEditorPage = () => {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6 pb-32 md:pb-6">
+      <div className="space-y-6 pb-32 md:pb-6 w-full max-w-full min-w-0 overflow-x-hidden">
         <div className="flex items-center gap-4 flex-wrap">
           <Button variant="ghost" size="icon" onClick={() => navigate("/editorial")}>
             <ArrowLeft className="h-5 w-5" />
@@ -1811,15 +1811,15 @@ const PostEditorPage = () => {
           </div>
         )}
 
-        <div className="grid gap-6 md:grid-cols-[1fr_280px] min-w-0">
+        <div className="grid w-full max-w-full min-w-0 gap-6 md:grid-cols-[minmax(0,1fr)_280px]">
           <div className="flex flex-col gap-3 md:sticky md:top-4 md:self-start min-w-0">
-            <div className="flex flex-wrap items-center gap-2 px-1 min-w-0">
-              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Template</span>
+            <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1 px-1 min-w-0 sm:flex sm:flex-wrap">
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide whitespace-nowrap">Template</span>
               <Select
                 value={templateId ?? "none"}
                 onValueChange={(v) => handleTemplateIdChange(v === "none" ? null : v)}
               >
-                <SelectTrigger className="h-8 w-full sm:w-[260px] max-w-full text-xs">
+                <SelectTrigger className="h-8 w-full min-w-0 max-w-full sm:w-[260px] text-xs [&>span]:truncate">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -1836,12 +1836,12 @@ const PostEditorPage = () => {
                 </SelectContent>
               </Select>
               {templateId && (
-                <span className="text-[11px] text-muted-foreground italic truncate min-w-0">
+                <span className="col-span-2 max-w-full min-w-0 truncate text-[11px] italic text-muted-foreground sm:col-span-1 sm:max-w-[240px]">
                   Cores e tipografia controladas pelo template
                 </span>
               )}
             </div>
-            <div className="relative flex items-center justify-center min-h-[400px] w-full max-w-full min-w-0 bg-muted/30 rounded-2xl p-4 overflow-hidden">
+            <div data-canvas-viewport className="relative flex items-center justify-center min-h-[400px] w-full max-w-full min-w-0 bg-muted/30 rounded-2xl p-2 sm:p-4 overflow-hidden">
 
             {initializingLayout && (
               <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-background/80 backdrop-blur-sm rounded-2xl">

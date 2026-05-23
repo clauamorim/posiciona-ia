@@ -368,19 +368,40 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   useEffect(() => {
     const updateScale = () => {
       if (containerRef.current) {
-        const parent = containerRef.current.parentElement;
-        if (parent) {
-          const sW = parent.clientWidth / canvasWidth;
-          const sH = parent.clientHeight ? parent.clientHeight / canvasHeight : 1;
-          const s = Math.min(sW, sH, 0.55);
-          setScale(s);
+        const bounds = containerRef.current.closest<HTMLElement>("[data-canvas-viewport]") ?? containerRef.current.parentElement;
+        if (bounds) {
+          const rect = bounds.getBoundingClientRect();
+          const styles = window.getComputedStyle(bounds);
+          const horizontalPadding = parseFloat(styles.paddingLeft || "0") + parseFloat(styles.paddingRight || "0");
+          const viewportWidth = Math.min(
+            window.visualViewport?.width ?? Number.POSITIVE_INFINITY,
+            window.innerWidth || Number.POSITIVE_INFINITY,
+            document.documentElement.clientWidth || Number.POSITIVE_INFINITY,
+          );
+          const mobileViewportCap = isMobile ? 390 : viewportWidth;
+          const safeWidth = Math.max(1, Math.min(viewportWidth, mobileViewportCap) - Math.max(rect.left, 0) - 2);
+          const availableWidth = Math.max(1, Math.min(rect.width, safeWidth) - horizontalPadding);
+          const sW = availableWidth / canvasWidth;
+          const s = Math.floor(Math.min(sW, 0.55) * 1000) / 1000;
+          setScale(Math.max(0.05, s));
         }
       }
     };
     updateScale();
+    const resizeObserver = typeof ResizeObserver !== "undefined" && containerRef.current?.parentElement
+      ? new ResizeObserver(updateScale)
+      : null;
+    if (resizeObserver && containerRef.current?.parentElement) {
+      resizeObserver.observe(containerRef.current.parentElement);
+    }
     window.addEventListener("resize", updateScale);
-    return () => window.removeEventListener("resize", updateScale);
-  }, [canvasWidth, canvasHeight]);
+    window.visualViewport?.addEventListener("resize", updateScale);
+    return () => {
+      window.removeEventListener("resize", updateScale);
+      window.visualViewport?.removeEventListener("resize", updateScale);
+      resizeObserver?.disconnect();
+    };
+  }, [canvasWidth, canvasHeight, isMobile]);
 
   const capturePointer = (e: React.PointerEvent) => {
     try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch {}
@@ -1101,6 +1122,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
           style={{
             width: tplPreviewW * tplScale,
             height: tplPreviewH * tplScale,
+            maxWidth: "100%",
             overflow: "hidden",
             position: "relative",
           }}
@@ -1130,7 +1152,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   }
 
   return (
-    <div ref={containerRef} className="flex items-center justify-center w-full">
+    <div ref={containerRef} className="flex items-center justify-center w-full max-w-full min-w-0 overflow-hidden">
       <style>{`
         .post-title-editable strong, .post-title-editable b { font-weight: 900 !important; }
         .post-title-editable em, .post-title-editable i { font-style: italic !important; }
