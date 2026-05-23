@@ -1,83 +1,66 @@
-# Plano — `copy[0]` na cover do template Sertão
+# Plano — Autofit dos templates + overflow mobile global
 
-## Causa-raiz
+## Problema 1 — Autofit não funciona, textos cortados
 
-`mapPostToCards` tem dois caminhos:
+Causa raiz no `EditableSpan` (`shared.tsx`):
 
-- **Post único** (`format !== "carrossel"`): retorna 1 card `close` com `title = editedTitle` e `body = copy[0] || caption`. Funciona — o `SertaoCard` close renderiza título + corpo + CTA.
-- **Carrossel** (`format === "carrossel"`): retorna 7 cards. A `cover` (slide 0) tem só `titleLead / kicker / countWord / titleTail / footer`. **Não existe slot que receba `copy[0]`**, então o corpo do primeiro card (que no `PostCanvas` legacy aparece junto do título) é descartado.
+- `autoFit` mede `parent.clientHeight` para decidir quando reduzir a fonte.
+- No `SertaoCard`, cada slot vive dentro de uma coluna **sem altura fixa** (o pai cresce com o conteúdo). Então `limitH = Infinity` e o autofit só dispara por largura.
+- O conteúdo então passa do `styleBase` (card 540×675 / 540×960) e é cortado por `overflow: hidden`.
+- Slots novos (ex.: `body` da cover, `kicker`, `countWord`) não têm `autoFit` ativado, e o `titleLead` da cover concorre com o novo `body` sem teto.
 
-O print IMG_4864 confirma: título alinhado ao topo (assinatura da cover), corpo ausente. O post é carrossel, mesmo aparentando ser único.
+## Problema 2 — No mobile, o aplicativo inteiro fica maior que a tela
+
+Não é só o canvas. Investigando o `PostEditorPage`:
+
+- O `SelectTrigger` do seletor de template (linha 1822) é `w-[260px]` dentro de um `flex items-center` sem `flex-wrap` nem `min-w-0`, somando ~310px de largura mínima de uma linha de UI antes do canvas.
+- A grid `grid gap-6 md:grid-cols-[1fr_280px]` (linha 1814) e a coluna `flex flex-col gap-3` (linha 1815) não têm `min-w-0`. Em grid/flex, isso permite que o filho (canvas) empurre a coluna além da viewport.
+- O canvas em si (Problema 1 acima): com `parent.clientWidth` não constrangido, o cálculo de `scale` estabiliza num tamanho maior que a viewport mobile.
+
+O `DashboardLayout` já tem `[overflow-x:clip]` no `main`, mas o conteúdo interno ainda renderiza maior que a viewport — clip esconde o overflow porém o layout “parece” ter sido cortado/maior. Precisamos corrigir as larguras reais, não só esconder.
+
+---
 
 ## Mudanças
 
-### 1. `src/components/post-templates/governante/types.ts`
+### 1) `src/components/post-templates/governante/SertaoCard.tsx`
+- Envolver cada slot tipográfico “pesado” em um wrapper com altura máxima explícita (em px do canvas 540×675/960), com `data-fit-bounds` e `overflow: hidden`, para o `autoFit` ter um teto real:
+  - **Cover**: `titleLead+titleTail` (`maxHeight ~ big?220:150`), `body` (`maxHeight ~ big?180:110`), `countWord` (`maxHeight ~ big?150:110`), `kicker` (`maxHeight ~ big?60:42`).
+  - **Clause**: `title` (`maxHeight ~ big?180:120`), `body` (`maxHeight ~ big?260:170`).
+  - **Close**: `title` (`maxHeight ~ big?260:180`), `body` (`maxHeight ~ big?220:150`).
+- Ativar `autoFit` nos slots que ainda não o têm: `kicker`, `countWord`, `body` da cover.
+- Manter o `flex: 1` pusher para o conteúdo continuar distribuído verticalmente.
 
-Adicionar campo opcional `body` em `CoverSlots`:
+### 2) `src/components/post-templates/governante/shared.tsx` — `EditableSpan`
+- No `useLayoutEffect` do `autoFit`, procurar o ancestral mais próximo com `data-fit-bounds` (o wrapper acima); cair de volta para `parent.clientHeight` se não houver.
+- Reduzir o piso padrão de `0.45*base` para `0.35*base` para acomodar textos longos.
+- Aumentar `guard` de 80 para 200.
 
-```ts
-export interface CoverSlots {
-  eyebrow: string;
-  kicker: string;
-  countWord: string;
-  titleLead: string;
-  titleTail: string;
-  body?: string;     // ← novo (opcional p/ não quebrar tipos existentes)
-  footer: string;
-}
-```
+### 3) `src/components/post-editor/PostCanvas.tsx` (bloco do template, linhas ~1085–1128)
+- Wrapper externo: `className="flex items-center justify-center w-full max-w-full min-w-0 overflow-hidden"`.
+- No cálculo de `scale` (effect existente), usar `Math.floor(... * 100)/100` para evitar reflow oscilando; garantir que `scale <= sW` mesmo se o filho tiver expandido o pai (medir via `getBoundingClientRect`).
 
-### 2. `src/components/post-templates/governante/mapPostToCards.ts`
+### 4) `src/pages/PostEditorPage.tsx` — corrigir overflow mobile
 
-No branch carrossel, popular `cover.body = copy[0] ?? ""`. Cláusulas continuam em `copy[i+1]` (1..5) e close em `copy[6]`. Nada mais muda.
+Pontos identificados que empurram o layout além da viewport:
 
-```ts
-const cover: CardData = {
-  kind: "cover",
-  // ... campos atuais
-  body: copy[0] ?? "",   // ← novo
-  footer: meta?.footer ?? "",
-};
-```
+- **Linha 1814** (grid container): adicionar `min-w-0` na grid e em cada coluna filha (`<div className="flex flex-col gap-3 ... min-w-0">`).
+- **Linhas 1816–1843** (cabeçalho do seletor de template): trocar a row `flex items-center gap-2` por `flex flex-wrap items-center gap-2 min-w-0`; trocar `SelectTrigger w-[260px]` por `w-full sm:w-[260px] max-w-full`; envolver o texto auxiliar “Cores e tipografia…” com `truncate min-w-0`.
+- **Linha 1844** (wrapper do canvas): adicionar `w-full max-w-full min-w-0` para constranger a largura efetiva no mobile.
+- Auditar rápido o resto da página (`grid gap-6 md:grid-cols-...`, banner de auto-layout linha 1797, header linha 1773) e adicionar `min-w-0` / `flex-wrap` onde houver risco de empurrar a viewport.
 
-### 3. `src/components/post-templates/governante/SertaoCard.tsx`
+### 5) Sanity-check do shell
 
-Na branch `kind === "cover"`, adicionar um `EditableSpan` para `body` **logo abaixo do bloco de título** (entre o título e o `flex: 1` que empurra o rodapé para o fundo). Tipografia que não compita com a `titleLead`: mesma família do `bodyFam` (Lato/Cormorant/Playfair conforme `tokens.bodyFont`), peso 400, tamanho menor (`big ? 24 : 18`), `opacity: 0.78`, `marginTop: big ? 28 : 18`. Quando `body` vier vazio, `EditableSpan` já retorna `null` (regra atual de slot vazio) — a cover continua idêntica à original.
-
-```tsx
-<EditableSpan
-  field="body"
-  value={(card as any).body || ""}
-  as="div"
-  style={{
-    fontFamily: bodyFam,
-    fontStyle: bodyFam.includes("Cormorant") ? "italic" : "normal",
-    fontSize: big ? 24 : 18,
-    lineHeight: 1.4,
-    color: areia,
-    opacity: 0.78,
-    marginTop: big ? 28 : 18,
-    textWrap: "pretty" as any,
-  }}
-  onEdit={onEditSlot}
-  placeholder="Corpo de abertura"
-/>
-```
-
-`SlotField` já é união de `keyof CoverSlots | keyof ClauseSlots | keyof CloseSlots`. Como `body` passa a existir em `CoverSlots` e já existe em `ClauseSlots/CloseSlots`, o tipo continua válido sem alteração.
+- Confirmar que `DashboardLayout main` (`[overflow-x:clip]`) e `html/body/#root` (`overflow-x: hidden` no `index.css`) continuam aplicados.
+- Não alterar o shell — as correções vão na página que está expandindo.
 
 ## Fora de escopo
-
-- Não muda branch single-close (já correto).
-- Não muda a estrutura de `copy[1..6]` para cláusulas/close.
-- Não muda `TemplateSertaoPanel` nem `PostEditorPage` (overrides em `templateSlots[0].body` continuam funcionando: o `EditableSpan` já é editável).
-- Cartório/Manuscrito ainda não existem como componentes, então não há impacto.
+- `CartorioCard` e `ManuscritoCard` (mesma técnica pode ser aplicada depois se necessário).
+- Layout do canvas legado (sem template).
+- Outras páginas além de `PostEditorPage`.
 
 ## Validação
-
-1. Build limpo (sem erros TS).
-2. Carrossel + template Sertão na cover → corpo do `copy[0]` aparece abaixo do título.
-3. Carrossel cuja IA não devolveu `copy[0]` (vazio) → cover idêntica à original (slot vazio renderiza `null`).
-4. Post único + template Sertão → continua mostrando close com title+body+cta (sem regressão).
-5. Posts sem `templateId` → canvas legado intacto.
-6. Editar o novo slot de body na cover persiste em `templateSlots[0].body` no draft, igual aos outros slots.
+- Carrossel Sertão com texto longo em `titleLead`, `body` (cover) e `body` (clause): nada cortado, fonte reduz suavemente.
+- Posts curtos: tamanho base preservado.
+- Mobile (390×844 e 360×800): sem scroll horizontal em **nenhum** elemento da página do editor; canvas cabe na largura da viewport; seletor de template quebra linha sem furar o grid.
+- Desktop (≥1024px): layout idêntico ao atual.
