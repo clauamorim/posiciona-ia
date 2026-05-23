@@ -24,6 +24,7 @@ import { getAIStyleById, type AIStyleId } from "@/lib/aiImageStyles";
 import { prepareSinglePostCardCopy, prepareCarouselCardCopy } from "@/lib/editorialCardCopy";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { mapPostToCards } from "@/components/post-templates/governante/mapPostToCards";
+import { getArchetypeSertaoDefaults } from "@/components/post-templates/governante/archetypeSertaoDefaults";
 import type { SertaoTokens } from "@/components/post-templates/governante/types";
 
 import { Sparkles, X, Image as ImageIcon, Loader2, Download } from "lucide-react";
@@ -388,6 +389,18 @@ const PostEditorPage = () => {
     content?.archetypes?.["1"]?.name ||
     content?.archetypes?.[1]?.name ||
     null;
+
+  // Quando o usuário ativa um template editorial e ainda não há tokens
+  // customizados, carrega defaults (cores + fonte de corpo) derivados do
+  // arquétipo primário. Mantém o que já tem se já houver overrides — ou
+  // seja, mudar de arquétipo depois NÃO sobrescreve customizações.
+  useEffect(() => {
+    if (!templateId) return;
+    setTemplateTokens((prev) => {
+      if (Object.keys(prev).length > 0) return prev;
+      return getArchetypeSertaoDefaults(primaryArchetype);
+    });
+  }, [templateId, primaryArchetype]);
 
   const [displayFont, setDisplayFont] = useState(draft?.displayFont || typography.display || "Space Grotesk");
   const [bodyFont, setBodyFont] = useState(draft?.bodyFont || typography.body || "Inter");
@@ -1810,7 +1823,9 @@ const PostEditorPage = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Padrão (sem template)</SelectItem>
-                  <SelectItem value="governante.sertao-profundo">Governante · Sertão Profundo</SelectItem>
+                  <SelectItem value="governante.sertao-profundo">
+                    Sertão Profundo (editorial){primaryArchetype ? ` · ${primaryArchetype}` : ""}
+                  </SelectItem>
                 </SelectContent>
               </Select>
               {templateId && (

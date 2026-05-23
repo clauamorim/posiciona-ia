@@ -126,7 +126,7 @@ const TemplateSertaoPanel: React.FC<Props> = ({
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-sm font-semibold">Template</h3>
-          <p className="text-[11px] text-muted-foreground">Governante · Sertão Profundo</p>
+          <p className="text-[11px] text-muted-foreground">Sertão Profundo · Editorial</p>
         </div>
         <Button variant="ghost" size="sm" className="h-7 text-[11px]" onClick={onReset}>
           Restaurar
