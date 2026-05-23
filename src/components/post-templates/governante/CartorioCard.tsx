@@ -136,6 +136,7 @@ const CartorioCard: React.FC<CartorioCardProps> = ({
               field="titleLead"
               value={card.titleLead}
               as="div"
+              autoFit
               style={{
                 fontFamily: '"Playfair Display", serif',
                 fontWeight: 400,
@@ -204,6 +205,7 @@ const CartorioCard: React.FC<CartorioCardProps> = ({
               field="title"
               value={card.title}
               as="div"
+              autoFit
               style={{
                 fontFamily: '"Playfair Display", serif',
                 fontStyle: "italic",
@@ -222,6 +224,7 @@ const CartorioCard: React.FC<CartorioCardProps> = ({
               field="body"
               value={card.body}
               as="div"
+              autoFit
               style={{
                 fontFamily: bodyFam,
                 fontWeight: 400,
@@ -270,6 +273,7 @@ const CartorioCard: React.FC<CartorioCardProps> = ({
               field="title"
               value={card.title}
               as="div"
+              autoFit
               style={{
                 fontFamily: '"Playfair Display", serif',
                 fontWeight: 400,
@@ -287,6 +291,7 @@ const CartorioCard: React.FC<CartorioCardProps> = ({
               field="body"
               value={card.body}
               as="div"
+              autoFit
               style={{
                 fontFamily: bodyFam,
                 fontWeight: 400,

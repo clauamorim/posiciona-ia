@@ -173,6 +173,7 @@ const SertaoCard: React.FC<SertaoCardProps> = ({
             <EditableSpan
               field="titleLead"
               value={card.titleLead}
+              autoFit
               onEdit={onEditSlot}
               placeholder="Título principal da capa"
             />
@@ -287,6 +288,7 @@ const SertaoCard: React.FC<SertaoCardProps> = ({
               field="title"
               value={card.title}
               as="div"
+              autoFit
               style={{
                 fontFamily: '"Playfair Display", serif',
                 fontStyle: "italic",
@@ -307,6 +309,7 @@ const SertaoCard: React.FC<SertaoCardProps> = ({
               field="body"
               value={card.body}
               as="div"
+              autoFit
               style={{
                 fontFamily: bodyFam,
                 fontWeight: 400,
@@ -410,6 +413,7 @@ const SertaoCard: React.FC<SertaoCardProps> = ({
           field="title"
           value={card.title}
           as="div"
+          autoFit
           style={{
             fontFamily: '"Playfair Display", serif',
             fontWeight: 400,
@@ -430,6 +434,7 @@ const SertaoCard: React.FC<SertaoCardProps> = ({
           field="body"
           value={card.body}
           as="div"
+          autoFit
           style={{
             fontFamily: bodyFam,
             fontWeight: 400,

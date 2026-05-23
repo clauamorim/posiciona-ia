@@ -176,6 +176,7 @@ const ManuscritoCard: React.FC<ManuscritoCardProps> = ({
             field="titleLead"
             value={card.titleLead}
             as="div"
+              autoFit
             style={{
               fontFamily: '"Playfair Display", serif',
               fontWeight: 400,
@@ -271,6 +272,7 @@ const ManuscritoCard: React.FC<ManuscritoCardProps> = ({
             field="title"
             value={card.title}
             as="div"
+              autoFit
             style={{
               fontFamily: '"Playfair Display", serif',
               fontStyle: "italic",
@@ -289,6 +291,7 @@ const ManuscritoCard: React.FC<ManuscritoCardProps> = ({
             field="body"
             value={card.body}
             as="div"
+              autoFit
             style={{
               fontFamily: bodyFam,
               fontWeight: 400,
@@ -386,6 +389,7 @@ const ManuscritoCard: React.FC<ManuscritoCardProps> = ({
           field="title"
           value={card.title}
           as="div"
+              autoFit
           style={{
             fontFamily: '"Playfair Display", serif',
             fontWeight: 400,
@@ -404,6 +408,7 @@ const ManuscritoCard: React.FC<ManuscritoCardProps> = ({
           field="body"
           value={card.body}
           as="div"
+              autoFit
           style={{
             fontFamily: bodyFam,
             fontWeight: 400,
