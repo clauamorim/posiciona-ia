@@ -1,66 +1,49 @@
-# Plano — Autofit dos templates + overflow mobile global
+## Diagnóstico
 
-## Problema 1 — Autofit não funciona, textos cortados
+O **post único** funciona porque é renderizado como `close`, cujos 3 slots (`title`, `body`, `cta`) batem 1:1 com o que a IA devolve (`title`, `card_copy[0]`/`caption`, `cta`). Toda a copy aparece e o layout fica cheio.
 
-Causa raiz no `EditableSpan` (`shared.tsx`):
+O **carrossel** quebra porque o `SertaoCard` capa+cláusulas tem 9 slots especializados (`eyebrow`, `kicker`, `countWord`, `titleLead`, `titleTail`, `footer`, `topic[]`, `titles[]`, `body[]`) mas a IA só entrega `title` + `card_copy[]` + `caption` + `cta`. Sem `meta`, `mapPostToCards` devolve strings vazias em quase todos esses slots — daí a capa com só um título solto e um corpo, sem o eyebrow/régua/kicker italic/numeral gigante que dá personalidade ao template (IMG_4881). As cláusulas (slides 1–5) ficam só com `body`, sem topic nem título.
 
-- `autoFit` mede `parent.clientHeight` para decidir quando reduzir a fonte.
-- No `SertaoCard`, cada slot vive dentro de uma coluna **sem altura fixa** (o pai cresce com o conteúdo). Então `limitH = Infinity` e o autofit só dispara por largura.
-- O conteúdo então passa do `styleBase` (card 540×675 / 540×960) e é cortado por `overflow: hidden`.
-- Slots novos (ex.: `body` da cover, `kicker`, `countWord`) não têm `autoFit` ativado, e o `titleLead` da cover concorre com o novo `body` sem teto.
+## O que vou fazer
 
-## Problema 2 — No mobile, o aplicativo inteiro fica maior que a tela
+### 1. `mapPostToCards.ts` — sintetizar slots a partir do que existe
 
-Não é só o canvas. Investigando o `PostEditorPage`:
+**Capa (índice 0):**
+- `eyebrow`: deriva de `meta.eyebrow` → senão `"POSICIONA EDITORIAL"` (ou nome do negócio quando passado) + categoria/semana opcional. Hoje fica vazio.
+- `kicker`: deriva do `sectionLabel` no plural ("Cláusulas", "Situações", "Passos") quando ausente.
+- `countWord`: número de cláusulas por extenso em pt-BR (`"Sete"` para 5+cover+close=7, mas usamos a contagem real de cláusulas: 1→"Uma", 2→"Duas", …, 10→"Dez"). Hoje fica vazio.
+- `titleLead`: já vem do `title`.
+- `body`: já vem do `copy[0]`.
+- `footer`: default `"arraste para começar"` quando vazio.
 
-- O `SelectTrigger` do seletor de template (linha 1822) é `w-[260px]` dentro de um `flex items-center` sem `flex-wrap` nem `min-w-0`, somando ~310px de largura mínima de uma linha de UI antes do canvas.
-- A grid `grid gap-6 md:grid-cols-[1fr_280px]` (linha 1814) e a coluna `flex flex-col gap-3` (linha 1815) não têm `min-w-0`. Em grid/flex, isso permite que o filho (canvas) empurre a coluna além da viewport.
-- O canvas em si (Problema 1 acima): com `parent.clientWidth` não constrangido, o cálculo de `scale` estabiliza num tamanho maior que a viewport mobile.
+**Cláusulas (índices 1..N):**
+- Parser `splitTitleBody(copy[i])`: se o slide tiver "Título.\nCorpo" ou primeira frase curta (<70 chars terminada em `.`/`?`/`:`), separa em `title` + `body`. Senão a primeira frase vira `title` e o resto vai pro `body`.
+- `topic`: deriva de `meta.topic[i]` → senão tenta extrair de prefixo MAIÚSCULO no início do slide ("PRAZO: ...") → senão vazio (renderiza placeholder).
+- `title`: do parser acima.
+- `body`: do parser.
 
-O `DashboardLayout` já tem `[overflow-x:clip]` no `main`, mas o conteúdo interno ainda renderiza maior que a viewport — clip esconde o overflow porém o layout “parece” ter sido cortado/maior. Precisamos corrigir as larguras reais, não só esconder.
+**Close (índice último):**
+- Sem mudança — já funciona.
 
----
+### 2. `SertaoCard.tsx` — fallback elegante quando capa está incompleta
 
-## Mudanças
+Quando, mesmo após a síntese, a capa não tiver `kicker` E `countWord` preenchidos (cenário raro mas possível com posts de outras estruturas), trocar o layout da capa para o **modo "editorial enxuto"**: igual ao close — eyebrow + régua + título Playfair italic grande centralizado + body + régua + footer. Assim a capa nunca aparece esvaziada como em IMG_4881.
 
-### 1) `src/components/post-templates/governante/SertaoCard.tsx`
-- Envolver cada slot tipográfico “pesado” em um wrapper com altura máxima explícita (em px do canvas 540×675/960), com `data-fit-bounds` e `overflow: hidden`, para o `autoFit` ter um teto real:
-  - **Cover**: `titleLead+titleTail` (`maxHeight ~ big?220:150`), `body` (`maxHeight ~ big?180:110`), `countWord` (`maxHeight ~ big?150:110`), `kicker` (`maxHeight ~ big?60:42`).
-  - **Clause**: `title` (`maxHeight ~ big?180:120`), `body` (`maxHeight ~ big?260:170`).
-  - **Close**: `title` (`maxHeight ~ big?260:180`), `body` (`maxHeight ~ big?220:150`).
-- Ativar `autoFit` nos slots que ainda não o têm: `kicker`, `countWord`, `body` da cover.
-- Manter o `flex: 1` pusher para o conteúdo continuar distribuído verticalmente.
+Condição: `!card.kicker?.trim() && !card.countWord?.trim()` → renderiza o branch "cover-as-close".
 
-### 2) `src/components/post-templates/governante/shared.tsx` — `EditableSpan`
-- No `useLayoutEffect` do `autoFit`, procurar o ancestral mais próximo com `data-fit-bounds` (o wrapper acima); cair de volta para `parent.clientHeight` se não houver.
-- Reduzir o piso padrão de `0.45*base` para `0.35*base` para acomodar textos longos.
-- Aumentar `guard` de 80 para 200.
+### 3. Helper `numberToPortuguese(n)` em `mapPostToCards.ts`
 
-### 3) `src/components/post-editor/PostCanvas.tsx` (bloco do template, linhas ~1085–1128)
-- Wrapper externo: `className="flex items-center justify-center w-full max-w-full min-w-0 overflow-hidden"`.
-- No cálculo de `scale` (effect existente), usar `Math.floor(... * 100)/100` para evitar reflow oscilando; garantir que `scale <= sW` mesmo se o filho tiver expandido o pai (medir via `getBoundingClientRect`).
-
-### 4) `src/pages/PostEditorPage.tsx` — corrigir overflow mobile
-
-Pontos identificados que empurram o layout além da viewport:
-
-- **Linha 1814** (grid container): adicionar `min-w-0` na grid e em cada coluna filha (`<div className="flex flex-col gap-3 ... min-w-0">`).
-- **Linhas 1816–1843** (cabeçalho do seletor de template): trocar a row `flex items-center gap-2` por `flex flex-wrap items-center gap-2 min-w-0`; trocar `SelectTrigger w-[260px]` por `w-full sm:w-[260px] max-w-full`; envolver o texto auxiliar “Cores e tipografia…” com `truncate min-w-0`.
-- **Linha 1844** (wrapper do canvas): adicionar `w-full max-w-full min-w-0` para constranger a largura efetiva no mobile.
-- Auditar rápido o resto da página (`grid gap-6 md:grid-cols-...`, banner de auto-layout linha 1797, header linha 1773) e adicionar `min-w-0` / `flex-wrap` onde houver risco de empurrar a viewport.
-
-### 5) Sanity-check do shell
-
-- Confirmar que `DashboardLayout main` (`[overflow-x:clip]`) e `html/body/#root` (`overflow-x: hidden` no `index.css`) continuam aplicados.
-- Não alterar o shell — as correções vão na página que está expandindo.
+Pequeno mapa 1–20 + fallback numérico. Usado para sintetizar `countWord`.
 
 ## Fora de escopo
-- `CartorioCard` e `ManuscritoCard` (mesma técnica pode ser aplicada depois se necessário).
-- Layout do canvas legado (sem template).
-- Outras páginas além de `PostEditorPage`.
+
+- Não vou tocar na edge function `generate-content-week` nem alterar o prompt da IA. A síntese é totalmente client-side.
+- Não vou mudar `CartorioCard` nem `ManuscritoCard`.
+- Não vou refatorar o pipeline de salvamento — overrides em `templateSlots` continuam funcionando por cima dos slots sintetizados.
 
 ## Validação
-- Carrossel Sertão com texto longo em `titleLead`, `body` (cover) e `body` (clause): nada cortado, fonte reduz suavemente.
-- Posts curtos: tamanho base preservado.
-- Mobile (390×844 e 360×800): sem scroll horizontal em **nenhum** elemento da página do editor; canvas cabe na largura da viewport; seletor de template quebra linha sem furar o grid.
-- Desktop (≥1024px): layout idêntico ao atual.
+
+- Carrossel atual (IMG_4881): capa passa a mostrar eyebrow + régua dourada + "Cláusulas" italic + "Cinco" gigante + título Playfair + corpo + footer "arraste para começar" + paginação.
+- Cláusulas 1–5: mostram "CLÁUSULA · TÓPICO" (quando deriva) + numeral romano/árabe grande + título + body.
+- Post único (IMG_4884): inalterado.
+- Posts com `meta` futuro vindo da IA: overrides prevalecem sobre os defaults sintetizados.

@@ -1,12 +1,12 @@
 // Mapeia o conteúdo atual do editor (card_copy + title + cta + meta opcional)
-// para o array de 7 CardData esperado pelo SertaoCard.
+// para o array de CardData esperado pelo SertaoCard.
 //
-// IMPORTANTE: defaults TEMÁTICOS (textos sobre Direito do Agro, "Sete cláusulas
-// de arrendamento rural", "PRAZO", "REAJUSTE"…) foram REMOVIDOS para evitar
-// que conteúdo de demonstração vaze nos posts reais. Slots não preenchidos
-// pelo post agora retornam string vazia; o SertaoCard renderiza placeholder
-// editável. Quando a IA passar a devolver slots nativos (eyebrow, kicker,
-// topic, titles), basta plugar em `meta` e o mapper já preenche.
+// Estratégia: a IA hoje só devolve `title`, `card_copy[]`, `caption`, `cta` —
+// não há `meta` editorial (eyebrow, kicker, countWord, topic[], titles[]).
+// Para que o carrossel não fique com 80% dos slots vazios, sintetizamos
+// defaults sensatos a partir do que existe (theme/title/copy). Quando o
+// post passar a vir com `meta` real (fluxo futuro), os campos sobrescrevem
+// os sintetizados.
 
 import type { CardData } from "./types";
 
@@ -14,14 +14,12 @@ export interface MapPostInput {
   card_copy?: string[];
   title?: string;
   cta?: string;
-  /**
-   * Formato do post no editorial: "carrossel" gera 7 cards (cover + 5 + close).
-   * "post" (qualquer valor que não seja carrossel) gera 1 card único do tipo
-   * close, que tem slots de título + corpo + CTA — adequado pra peça única.
-   */
   format?: string;
-  /** Legenda completa do post, usada como fallback do body em post único. */
   caption?: string;
+  /** Nome do negócio do usuário, usado para enriquecer eyebrow da capa. */
+  brandName?: string;
+  /** Rótulo de seção (ex. "CLÁUSULA"); usado para derivar `kicker` no plural. */
+  sectionLabel?: string;
   meta?: {
     eyebrow?: string;
     kicker?: string;
@@ -35,77 +33,133 @@ export interface MapPostInput {
   };
 }
 
-// ROMAN é o único default ESTRUTURAL (derivado do índice 1..5, não tem
-// equivalente no conteúdo do post). Os outros campos (countWord, footer,
-// closeEyebrow, kicker, eyebrow, topic, title da cláusula) ficam vazios
-// quando o post não traz o dado — o componente renderiza slot vazio
-// editável em vez de texto-exemplo do template. Sem isso, frases como
-// "Cinco", "arraste para começar" e "FECHAMENTO" vazavam como se
-// fossem conteúdo real, criando a sensação de mistura entre
-// linha editorial e demonstração do template.
 const ROMAN: Record<number, string> = {
-  1: "I",
-  2: "II",
-  3: "III",
-  4: "IV",
-  5: "V",
+  1: "I", 2: "II", 3: "III", 4: "IV", 5: "V",
+  6: "VI", 7: "VII", 8: "VIII", 9: "IX", 10: "X",
 };
+
+const NUM_PT: Record<number, string> = {
+  1: "Uma", 2: "Duas", 3: "Três", 4: "Quatro", 5: "Cinco",
+  6: "Seis", 7: "Sete", 8: "Oito", 9: "Nove", 10: "Dez",
+  11: "Onze", 12: "Doze", 13: "Treze", 14: "Quatorze", 15: "Quinze",
+  16: "Dezesseis", 17: "Dezessete", 18: "Dezoito", 19: "Dezenove", 20: "Vinte",
+};
+
+function numberToPortuguese(n: number): string {
+  return NUM_PT[n] ?? String(n);
+}
+
+/** Pluraliza rótulos simples (CLÁUSULA → Cláusulas, PASSO → Passos). */
+function pluralizeKicker(label: string): string {
+  const cleaned = (label || "").trim();
+  if (!cleaned) return "Cláusulas";
+  // Title-case a primeira letra, restante minúsculo (CLÁUSULA → Cláusula).
+  const titled = cleaned[0].toUpperCase() + cleaned.slice(1).toLowerCase();
+  // Regras simples PT-BR.
+  if (/ão$/i.test(titled)) return titled.replace(/ão$/i, "ões"); // SITUAÇÃO → Situações
+  if (/m$/i.test(titled)) return titled.replace(/m$/i, "ns");    // ITEM → Itens
+  if (/[rzs]$/i.test(titled)) return titled + "es";              // MULHER → Mulheres
+  if (/al$/i.test(titled)) return titled.replace(/al$/i, "ais"); // CAPITAL → Capitais
+  return titled + "s";
+}
+
+/**
+ * Tenta dividir o texto de um slide em (topic, title, body).
+ * Reconhece três padrões da IA:
+ *   1. "TÓPICO: Título da cláusula. Corpo..."  → topic, title, body
+ *   2. "Título curto.\nCorpo desenvolvido"      → "", title, body
+ *   3. "Frase única."                            → "", "", body
+ */
+function splitSlide(raw: string): { topic: string; title: string; body: string } {
+  const text = (raw || "").trim();
+  if (!text) return { topic: "", title: "", body: "" };
+
+  let working = text;
+  let topic = "";
+
+  // Padrão "TÓPICO: ..." (até ~24 chars, all caps + opcional acento, antes de ":")
+  const topicMatch = working.match(/^([A-ZÀ-Ú0-9 ]{2,28}):\s+(.+)$/s);
+  if (topicMatch) {
+    topic = topicMatch[1].trim();
+    working = topicMatch[2].trim();
+  }
+
+  // Split por quebra de linha primeiro (cobre "Título\nCorpo").
+  const lineParts = working.split(/\n+/).map((s) => s.trim()).filter(Boolean);
+  if (lineParts.length >= 2) {
+    return { topic, title: lineParts[0], body: lineParts.slice(1).join(" ") };
+  }
+
+  // Senão tenta separar por 1ª frase terminada em .!?: (e curta o suficiente
+  // para parecer título — até 80 chars).
+  const sentMatch = working.match(/^(.{1,80}?[.!?:])\s+(.+)$/s);
+  if (sentMatch) {
+    return { topic, title: sentMatch[1].replace(/[.:]$/, "").trim(), body: sentMatch[2].trim() };
+  }
+
+  // Texto curto único: vira só body para não inventar um título igual ao corpo.
+  return { topic, title: "", body: working };
+}
 
 export function mapPostToCards(input: MapPostInput): CardData[] {
   const copy = input.card_copy ?? [];
   const meta = input.meta;
-  const clauseCount = 5;
-
-  // ── Post único (não-carrossel) ────────────────────────────────────
-  // Gera APENAS 1 card do tipo "close" (que tem slots de título + corpo
-  // + CTA + sobretítulo). Cover seria errado porque cover não tem slot
-  // de body — perderíamos o texto principal da peça.
   const isCarrossel = (input.format || "").toLowerCase() === "carrossel";
+
+  // ── Post único ────────────────────────────────────────────────────
   if (!isCarrossel) {
-    const singleClose: CardData = {
+    return [{
       kind: "close",
       eyebrow: meta?.closeEyebrow ?? "",
       title: input.title ?? "",
       body: (copy[0] || input.caption || meta?.closeBody || "").trim(),
       cta: input.cta ?? "",
-    };
-    return [singleClose];
+    }];
   }
 
-  // ── Cover (índice 0) ──────────────────────────────────────────────
+  // ── Carrossel ─────────────────────────────────────────────────────
+  // No carrossel, copy[0] é abertura (capa), copy[1..N-2] são cláusulas e
+  // copy[N-1] é fechamento. Quando vierem menos slides, ajustamos.
+  const total = copy.length;
+  const clauseCopies = total >= 3 ? copy.slice(1, total - 1) : [];
+  const closeCopy = total >= 2 ? copy[total - 1] : "";
+  const clauseCount = clauseCopies.length || 5;
+
+  const brand = (input.brandName || "Posiciona Editorial").trim();
+  const sectionLabel = (input.sectionLabel || "CLÁUSULA").trim();
+
+  // ── Cover ────────────────────────────────────────────────────────
   const cover: CardData = {
     kind: "cover",
-    eyebrow: meta?.eyebrow ?? "",
-    kicker: meta?.kicker ?? "",
-    countWord: meta?.countWord ?? "",
+    eyebrow: meta?.eyebrow || brand.toUpperCase(),
+    kicker: meta?.kicker || pluralizeKicker(sectionLabel),
+    countWord: meta?.countWord || numberToPortuguese(clauseCount),
     titleLead: input.title ?? "",
     titleTail: meta?.titleTail ?? "",
-    // Paridade com o branch single-close: copy[0] é o corpo de abertura.
-    // Sem isso, no carrossel o texto do primeiro card seria descartado
-    // (cover não tinha slot de body).
     body: copy[0] ?? "",
-    footer: meta?.footer ?? "",
+    footer: meta?.footer || "arraste para começar",
   };
 
-  // ── Cláusulas (índices 1..5) ──────────────────────────────────────
+  // ── Clauses ──────────────────────────────────────────────────────
   const clauses: CardData[] = [];
   for (let i = 0; i < clauseCount; i++) {
     const n = i + 1;
+    const split = splitSlide(clauseCopies[i] ?? "");
     clauses.push({
       kind: "clause",
       num: String(n).padStart(2, "0"),
       roman: ROMAN[n],
-      topic: meta?.topic?.[i] ?? "",
-      title: meta?.titles?.[i] ?? "",
-      body: copy[i + 1] ?? "",
+      topic: meta?.topic?.[i] || split.topic,
+      title: meta?.titles?.[i] || split.title,
+      body: split.body,
     });
   }
 
-  // ── Fechamento (índice 6) ─────────────────────────────────────────
+  // ── Close ────────────────────────────────────────────────────────
   const close: CardData = {
     kind: "close",
-    eyebrow: meta?.closeEyebrow ?? "",
-    title: copy[6] ?? "",
+    eyebrow: meta?.closeEyebrow || "FECHAMENTO",
+    title: closeCopy || "",
     body: meta?.closeBody ?? "",
     cta: input.cta ?? "",
   };
