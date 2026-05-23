@@ -176,15 +176,24 @@ export const EditableSpan: React.FC<EditableSpanProps> = ({
     const el = fitRef.current;
     if (!el) return;
 
+    const findBoundsHost = (): HTMLElement | null => {
+      let node: HTMLElement | null = el.parentElement;
+      while (node) {
+        if (node.dataset && node.dataset.fitBounds != null) return node;
+        node = node.parentElement;
+      }
+      return el.parentElement;
+    };
+
     const fit = () => {
-      const parent = el.parentElement;
-      const limitH = parent ? parent.clientHeight : Infinity;
-      const limitW = parent ? parent.clientWidth : Infinity;
-      const min = minFontSize ?? Math.max(10, Math.round(baseSize * 0.45));
+      const host = findBoundsHost();
+      const limitH = host ? host.clientHeight : Infinity;
+      const limitW = host ? host.clientWidth : Infinity;
+      const min = minFontSize ?? Math.max(10, Math.round(baseSize * 0.35));
 
       let s = baseSize;
       el.style.fontSize = `${s}px`;
-      let guard = 80;
+      let guard = 200;
       while (
         guard-- > 0 &&
         s > min &&
@@ -200,10 +209,12 @@ export const EditableSpan: React.FC<EditableSpanProps> = ({
 
     if (typeof ResizeObserver === "undefined") return;
     const ro = new ResizeObserver(fit);
-    if (el.parentElement) ro.observe(el.parentElement);
+    const host = findBoundsHost();
+    if (host) ro.observe(host);
     ro.observe(el);
     return () => ro.disconnect();
   }, [autoFit, baseSize, minFontSize, value]);
+
 
   const handleBlur = useCallback(
     (e: React.FocusEvent<HTMLElement>) => {

@@ -121,11 +121,15 @@ const SertaoCard: React.FC<SertaoCardProps> = ({
           />
           <PeRule color={ouro} mt={big ? 28 : 18} />
 
-          <div style={{ marginTop: big ? 56 : 36 }}>
+          <div
+            data-fit-bounds="kicker"
+            style={{ marginTop: big ? 56 : 36, maxHeight: big ? 60 : 42, overflow: "hidden" }}
+          >
             <EditableSpan
               field="kicker"
               value={card.kicker}
               as="div"
+              autoFit
               style={{
                 fontFamily: '"Cormorant Garamond", serif',
                 fontStyle: "italic",
@@ -140,25 +144,31 @@ const SertaoCard: React.FC<SertaoCardProps> = ({
             />
           </div>
 
-          <EditableSpan
-            field="countWord"
-            value={card.countWord}
-            as="div"
-            style={{
-              fontFamily: '"Playfair Display", serif',
-              fontWeight: 500,
-              fontStyle: "italic",
-              fontSize: big ? 132 : 96,
-              lineHeight: 0.9,
-              color: areia,
-              marginTop: big ? 18 : 10,
-              letterSpacing: -1.5,
-            }}
-            onEdit={onEditSlot}
-            placeholder="Sete"
-          />
+          <div
+            data-fit-bounds="countWord"
+            style={{ marginTop: big ? 18 : 10, maxHeight: big ? 150 : 110, overflow: "hidden" }}
+          >
+            <EditableSpan
+              field="countWord"
+              value={card.countWord}
+              as="div"
+              autoFit
+              style={{
+                fontFamily: '"Playfair Display", serif',
+                fontWeight: 500,
+                fontStyle: "italic",
+                fontSize: big ? 132 : 96,
+                lineHeight: 0.9,
+                color: areia,
+                letterSpacing: -1.5,
+              }}
+              onEdit={onEditSlot}
+              placeholder="Sete"
+            />
+          </div>
 
           <div
+            data-fit-bounds="titleLead"
             style={{
               fontFamily: '"Playfair Display", serif',
               fontWeight: 400,
@@ -168,6 +178,8 @@ const SertaoCard: React.FC<SertaoCardProps> = ({
               marginTop: big ? 22 : 14,
               letterSpacing: -0.2,
               textWrap: "pretty" as any,
+              maxHeight: big ? 220 : 150,
+              overflow: "hidden",
             }}
           >
             <EditableSpan
@@ -209,24 +221,31 @@ const SertaoCard: React.FC<SertaoCardProps> = ({
             ) : null}
           </div>
 
-          <EditableSpan
-            field="body"
-            value={(card as any).body || ""}
-            as="div"
-            style={{
-              fontFamily: bodyFam,
-              fontStyle: bodyFam.includes("Cormorant") ? "italic" : "normal",
-              fontWeight: 400,
-              fontSize: big ? 24 : 18,
-              lineHeight: 1.4,
-              color: areia,
-              opacity: 0.78,
-              marginTop: big ? 28 : 18,
-              textWrap: "pretty" as any,
-            }}
-            onEdit={onEditSlot}
-            placeholder="Corpo de abertura"
-          />
+          <div
+            data-fit-bounds="coverBody"
+            style={{ marginTop: big ? 28 : 18, maxHeight: big ? 180 : 110, overflow: "hidden" }}
+          >
+            <EditableSpan
+              field="body"
+              value={(card as any).body || ""}
+              as="div"
+              autoFit
+              style={{
+                fontFamily: bodyFam,
+                fontStyle: bodyFam.includes("Cormorant") ? "italic" : "normal",
+                fontWeight: 400,
+                fontSize: big ? 24 : 18,
+                lineHeight: 1.4,
+                color: areia,
+                opacity: 0.78,
+                textWrap: "pretty" as any,
+              }}
+              onEdit={onEditSlot}
+              placeholder="Corpo de abertura"
+            />
+          </div>
+
+
 
           <div style={{ flex: 1 }} />
 
@@ -284,45 +303,56 @@ const SertaoCard: React.FC<SertaoCardProps> = ({
               justifyContent: "center",
             }}
           >
-            <EditableSpan
-              field="title"
-              value={card.title}
-              as="div"
-              autoFit
-              style={{
-                fontFamily: '"Playfair Display", serif',
-                fontStyle: "italic",
-                fontWeight: 400,
-                fontSize: big ? 72 : 52,
-                lineHeight: 1.05,
-                color: areia,
-                letterSpacing: -1,
-                textWrap: "balance" as any,
-              }}
-              onEdit={onEditSlot}
-              placeholder="Frase final"
-            />
+            <div
+              data-fit-bounds="closeTitle"
+              style={{ maxHeight: big ? 260 : 180, overflow: "hidden" }}
+            >
+              <EditableSpan
+                field="title"
+                value={card.title}
+                as="div"
+                autoFit
+                style={{
+                  fontFamily: '"Playfair Display", serif',
+                  fontStyle: "italic",
+                  fontWeight: 400,
+                  fontSize: big ? 72 : 52,
+                  lineHeight: 1.05,
+                  color: areia,
+                  letterSpacing: -1,
+                  textWrap: "balance" as any,
+                }}
+                onEdit={onEditSlot}
+                placeholder="Frase final"
+              />
+            </div>
 
             <div style={{ height: big ? 36 : 24 }} />
 
-            <EditableSpan
-              field="body"
-              value={card.body}
-              as="div"
-              autoFit
-              style={{
-                fontFamily: bodyFam,
-                fontWeight: 400,
-                fontSize: big ? 28 : 22,
-                lineHeight: 1.45,
-                color: areia,
-                opacity: 0.86,
-                textWrap: "pretty" as any,
-                fontStyle: bodyFam.includes("Cormorant") ? "italic" : "normal",
-              }}
-              onEdit={onEditSlot}
-              placeholder="Texto de apoio do fechamento"
-            />
+            <div
+              data-fit-bounds="closeBody"
+              style={{ maxHeight: big ? 220 : 150, overflow: "hidden" }}
+            >
+              <EditableSpan
+                field="body"
+                value={card.body}
+                as="div"
+                autoFit
+                style={{
+                  fontFamily: bodyFam,
+                  fontWeight: 400,
+                  fontSize: big ? 28 : 22,
+                  lineHeight: 1.45,
+                  color: areia,
+                  opacity: 0.86,
+                  textWrap: "pretty" as any,
+                  fontStyle: bodyFam.includes("Cormorant") ? "italic" : "normal",
+                }}
+                onEdit={onEditSlot}
+                placeholder="Texto de apoio do fechamento"
+              />
+            </div>
+
 
             {ornaments && (
               <div
@@ -409,45 +439,55 @@ const SertaoCard: React.FC<SertaoCardProps> = ({
           {numLabel}
         </div>
 
-        <EditableSpan
-          field="title"
-          value={card.title}
-          as="div"
-          autoFit
-          style={{
-            fontFamily: '"Playfair Display", serif',
-            fontWeight: 400,
-            fontSize: big ? 48 : 36,
-            lineHeight: 1.08,
-            color: areia,
-            marginTop: big ? 36 : 24,
-            letterSpacing: -0.4,
-            textWrap: "balance" as any,
-          }}
-          onEdit={onEditSlot}
-          placeholder="Título da cláusula"
-        />
+        <div
+          data-fit-bounds="clauseTitle"
+          style={{ marginTop: big ? 36 : 24, maxHeight: big ? 180 : 120, overflow: "hidden" }}
+        >
+          <EditableSpan
+            field="title"
+            value={card.title}
+            as="div"
+            autoFit
+            style={{
+              fontFamily: '"Playfair Display", serif',
+              fontWeight: 400,
+              fontSize: big ? 48 : 36,
+              lineHeight: 1.08,
+              color: areia,
+              letterSpacing: -0.4,
+              textWrap: "balance" as any,
+            }}
+            onEdit={onEditSlot}
+            placeholder="Título da cláusula"
+          />
+        </div>
 
         <div style={{ height: big ? 24 : 16 }} />
 
-        <EditableSpan
-          field="body"
-          value={card.body}
-          as="div"
-          autoFit
-          style={{
-            fontFamily: bodyFam,
-            fontWeight: 400,
-            fontStyle: bodyFam.includes("Cormorant") ? "italic" : "normal",
-            fontSize: big ? 26 : 21,
-            lineHeight: 1.4,
-            color: areia,
-            opacity: 0.78,
-            textWrap: "pretty" as any,
-          }}
-          onEdit={onEditSlot}
-          placeholder="Texto da cláusula"
-        />
+        <div
+          data-fit-bounds="clauseBody"
+          style={{ maxHeight: big ? 260 : 170, overflow: "hidden" }}
+        >
+          <EditableSpan
+            field="body"
+            value={card.body}
+            as="div"
+            autoFit
+            style={{
+              fontFamily: bodyFam,
+              fontWeight: 400,
+              fontStyle: bodyFam.includes("Cormorant") ? "italic" : "normal",
+              fontSize: big ? 26 : 21,
+              lineHeight: 1.4,
+              color: areia,
+              opacity: 0.78,
+              textWrap: "pretty" as any,
+            }}
+            onEdit={onEditSlot}
+            placeholder="Texto da cláusula"
+          />
+        </div>
+
 
         <div style={{ flex: 1 }} />
 
