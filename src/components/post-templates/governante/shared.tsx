@@ -12,6 +12,34 @@ export const TEMPLATE_IDS = {
   MANUSCRITO: "governante.manuscrito",
 } as const;
 
+/**
+ * Luminância YIQ percebida (0..255) de uma cor hex. Usada para decidir
+ * cor de body dinamicamente — se o fundo é escuro o body precisa ser
+ * claro, e vice-versa.
+ */
+export function colorLuma(hex?: string | null): number {
+  if (!hex) return 128;
+  const clean = hex.replace("#", "");
+  if (clean.length !== 6) return 128;
+  const r = parseInt(clean.slice(0, 2), 16);
+  const g = parseInt(clean.slice(2, 4), 16);
+  const b = parseInt(clean.slice(4, 6), 16);
+  return (r * 299 + g * 587 + b * 114) / 1000;
+}
+
+/**
+ * Escolhe a cor de body com contraste adequado ao fundo. Se o bg é
+ * claro (luma > 140), usa `darkInk` (default grafite). Se é escuro,
+ * usa `lightInk` (default areia).
+ */
+export function pickBodyColor(
+  bgHex: string | undefined,
+  darkInk: string = "#2C2C2C",
+  lightInk: string = "#F5F0E8",
+): string {
+  return colorLuma(bgHex) > 140 ? darkInk : lightInk;
+}
+
 export const ALL_TEMPLATE_IDS: string[] = Object.values(TEMPLATE_IDS);
 
 export function isKnownTemplate(templateId?: string | null): boolean {
@@ -116,14 +144,15 @@ interface EditableSpanProps {
   minFontSize?: number;
 }
 
+// Style aplicado em editáveis sem display forçado. Sem isso, o
+// display: inline-block antigo impedia o texto longo de quebrar
+// linha naturalmente — o que furava o auto-fit e empurrava o título
+// pra fora do canvas.
 const editableBaseStyle: React.CSSProperties = {
   outline: "none",
   cursor: "text",
   transition: "box-shadow 120ms ease, background-color 120ms ease",
   borderRadius: 2,
-  minWidth: 4,
-  minHeight: "1em",
-  display: "inline-block",
 };
 
 export const EditableSpan: React.FC<EditableSpanProps> = ({

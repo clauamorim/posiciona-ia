@@ -16,7 +16,7 @@ import type {
   SertaoTokens,
 } from "./types";
 import { AREIA, FORMATS, MOGNO, OURO, VERDE, peBodyFontFor, peRenderNum, peTinyCaps } from "./tokens";
-import { EditableSpan, PeDiamond, PeRule } from "./shared";
+import { EditableSpan, PeDiamond, PeRule, pickBodyColor } from "./shared";
 
 type SlotField = keyof CoverSlots | keyof ClauseSlots | keyof CloseSlots;
 
@@ -29,8 +29,6 @@ interface ManuscritoCardProps {
   onEditSlot?: (field: SlotField, value: string) => void;
   defaultBrandMark?: string;
 }
-
-const GRAFITE = "#2C2C2C";
 
 // Proporção do split por card — cria ritmo visual ao longo do carrossel.
 const SPLIT_RATIOS: Record<string, number> = {
@@ -63,6 +61,10 @@ const ManuscritoCard: React.FC<ManuscritoCardProps> = ({
   const areia = tokens.areiaInk || AREIA; // bottom
   const ouro = tokens.ouroAccent || OURO;
   const mogno = tokens.secondaryAccent || tokens.ouroAccent || MOGNO;
+  // O body sempre aparece na faixa inferior (cor `areia`). Se essa for
+  // escura (arquétipo energia), body precisa ser claro; caso contrário,
+  // grafite. Sem isso, o texto ficava ilegível em paletas escuras.
+  const bodyColor = pickBodyColor(areia, "#2C2C2C", "#F5F0E8");
 
   const ornaments = tokens.showOrnaments !== false;
   const bodyFam = peBodyFontFor(tokens.bodyFont);
@@ -78,7 +80,7 @@ const ManuscritoCard: React.FC<ManuscritoCardProps> = ({
     width: w,
     height: h,
     background: areia,
-    color: GRAFITE,
+    color: bodyColor,
     position: "relative",
     overflow: "hidden",
     fontFamily: '"Lato", system-ui, sans-serif',
@@ -198,7 +200,7 @@ const ManuscritoCard: React.FC<ManuscritoCardProps> = ({
               fontStyle: "italic",
               fontSize: big ? 28 : 22,
               lineHeight: 1.3,
-              color: GRAFITE,
+              color: bodyColor,
               opacity: 0.78,
               marginTop: big ? 14 : 10,
             }}
@@ -298,7 +300,7 @@ const ManuscritoCard: React.FC<ManuscritoCardProps> = ({
               fontStyle: bodyFam.includes("Cormorant") ? "italic" : "normal",
               fontSize: big ? 28 : 22,
               lineHeight: 1.45,
-              color: GRAFITE,
+              color: bodyColor,
               opacity: 0.88,
               maxWidth: "88%",
             }}
@@ -415,7 +417,7 @@ const ManuscritoCard: React.FC<ManuscritoCardProps> = ({
             fontStyle: bodyFam.includes("Cormorant") ? "italic" : "normal",
             fontSize: big ? 26 : 21,
             lineHeight: 1.42,
-            color: GRAFITE,
+            color: bodyColor,
             opacity: 0.82,
             textWrap: "pretty" as any,
             maxWidth: "88%",
