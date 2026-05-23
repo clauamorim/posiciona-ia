@@ -373,7 +373,6 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
           const rect = bounds.getBoundingClientRect();
           const styles = window.getComputedStyle(bounds);
           const horizontalPadding = parseFloat(styles.paddingLeft || "0") + parseFloat(styles.paddingRight || "0");
-          const verticalPadding = parseFloat(styles.paddingTop || "0") + parseFloat(styles.paddingBottom || "0");
           const viewportWidth = Math.min(
             window.visualViewport?.width ?? Number.POSITIVE_INFINITY,
             window.innerWidth || Number.POSITIVE_INFINITY,
@@ -382,10 +381,8 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
           const mobileViewportCap = isMobile ? 390 : viewportWidth;
           const safeWidth = Math.max(1, Math.min(viewportWidth, mobileViewportCap) - Math.max(rect.left, 0) - 2);
           const availableWidth = Math.max(1, Math.min(rect.width, safeWidth) - horizontalPadding);
-          const availableHeight = Math.max(1, bounds.clientHeight - verticalPadding);
           const sW = availableWidth / canvasWidth;
-          const sH = bounds.clientHeight ? availableHeight / canvasHeight : 1;
-          const s = Math.floor(Math.min(sW, sH, 0.55) * 1000) / 1000;
+          const s = Math.floor(Math.min(sW, 0.55) * 1000) / 1000;
           setScale(Math.max(0.05, s));
         }
       }
@@ -404,7 +401,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
       window.visualViewport?.removeEventListener("resize", updateScale);
       resizeObserver?.disconnect();
     };
-  }, [canvasWidth, canvasHeight]);
+  }, [canvasWidth, canvasHeight, isMobile]);
 
   const capturePointer = (e: React.PointerEvent) => {
     try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch {}
