@@ -1091,7 +1091,8 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
     // Para preencher o mesmo bounding box, escalamos o template proporcionalmente.
     const tplScale = (canvasWidth * scale) / tplPreviewW;
     return (
-      <div ref={containerRef} className="flex items-center justify-center w-full">
+      <div ref={containerRef} className="flex items-center justify-center w-full max-w-full min-w-0 overflow-hidden">
+
         <div
           ref={(el) => {
             if (typeof canvasRef === "function") canvasRef(el);
