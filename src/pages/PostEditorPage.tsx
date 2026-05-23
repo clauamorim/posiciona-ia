@@ -1760,6 +1760,8 @@ const PostEditorPage = () => {
         cta: ctaText || day.cta || undefined,
         format: day?.format,
         caption: day?.caption,
+        brandName: companyName,
+        sectionLabel: templateTokens.sectionLabel,
       }).map((card, i) => {
         const overrides = templateSlots[i];
         return overrides ? { ...card, ...overrides } as typeof card : card;
