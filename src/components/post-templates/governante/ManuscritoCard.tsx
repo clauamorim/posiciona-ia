@@ -68,7 +68,7 @@ const ManuscritoCard: React.FC<ManuscritoCardProps> = ({
 
   const ornaments = tokens.showOrnaments !== false;
   const bodyFam = peBodyFontFor(tokens.bodyFont);
-  const numLabel = peRenderNum(card.num, tokens.numberingStyle);
+  const numLabel = card.kind === "clause" ? peRenderNum(card.num, tokens.numberingStyle) : "";
   const showPageLabel = totalSlides > 1;
 
   const splitKey =
