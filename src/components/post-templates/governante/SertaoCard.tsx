@@ -303,45 +303,56 @@ const SertaoCard: React.FC<SertaoCardProps> = ({
               justifyContent: "center",
             }}
           >
-            <EditableSpan
-              field="title"
-              value={card.title}
-              as="div"
-              autoFit
-              style={{
-                fontFamily: '"Playfair Display", serif',
-                fontStyle: "italic",
-                fontWeight: 400,
-                fontSize: big ? 72 : 52,
-                lineHeight: 1.05,
-                color: areia,
-                letterSpacing: -1,
-                textWrap: "balance" as any,
-              }}
-              onEdit={onEditSlot}
-              placeholder="Frase final"
-            />
+            <div
+              data-fit-bounds="closeTitle"
+              style={{ maxHeight: big ? 260 : 180, overflow: "hidden" }}
+            >
+              <EditableSpan
+                field="title"
+                value={card.title}
+                as="div"
+                autoFit
+                style={{
+                  fontFamily: '"Playfair Display", serif',
+                  fontStyle: "italic",
+                  fontWeight: 400,
+                  fontSize: big ? 72 : 52,
+                  lineHeight: 1.05,
+                  color: areia,
+                  letterSpacing: -1,
+                  textWrap: "balance" as any,
+                }}
+                onEdit={onEditSlot}
+                placeholder="Frase final"
+              />
+            </div>
 
             <div style={{ height: big ? 36 : 24 }} />
 
-            <EditableSpan
-              field="body"
-              value={card.body}
-              as="div"
-              autoFit
-              style={{
-                fontFamily: bodyFam,
-                fontWeight: 400,
-                fontSize: big ? 28 : 22,
-                lineHeight: 1.45,
-                color: areia,
-                opacity: 0.86,
-                textWrap: "pretty" as any,
-                fontStyle: bodyFam.includes("Cormorant") ? "italic" : "normal",
-              }}
-              onEdit={onEditSlot}
-              placeholder="Texto de apoio do fechamento"
-            />
+            <div
+              data-fit-bounds="closeBody"
+              style={{ maxHeight: big ? 220 : 150, overflow: "hidden" }}
+            >
+              <EditableSpan
+                field="body"
+                value={card.body}
+                as="div"
+                autoFit
+                style={{
+                  fontFamily: bodyFam,
+                  fontWeight: 400,
+                  fontSize: big ? 28 : 22,
+                  lineHeight: 1.45,
+                  color: areia,
+                  opacity: 0.86,
+                  textWrap: "pretty" as any,
+                  fontStyle: bodyFam.includes("Cormorant") ? "italic" : "normal",
+                }}
+                onEdit={onEditSlot}
+                placeholder="Texto de apoio do fechamento"
+              />
+            </div>
+
 
             {ornaments && (
               <div
