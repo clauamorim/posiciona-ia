@@ -1,0 +1,317 @@
+// Variação B — "Cartório de Bolso" do arquétipo Governante.
+// Refatoração 1:1 de design-sources/governante/cards-cartorio.jsx
+// (sem globals window.*, tipado).
+//
+// Visual: fundo claro (verdeBg renderiza como base "areia"), título em
+// "areiaInk" (cor escura forte), numeração e detalhes em "ouroAccent"
+// (renderiza como o mogno marrom-bronze original). Grafite (#2C2C2C)
+// fica hardcoded como body — readability em qualquer paleta clara.
+
+import React from "react";
+import type {
+  CardData,
+  ClauseSlots,
+  CloseSlots,
+  CoverSlots,
+  Format,
+  SertaoTokens,
+} from "./types";
+import { AREIA, FORMATS, MOGNO, VERDE, peBodyFontFor, peRenderNum, peTinyCaps } from "./tokens";
+import { EditableSpan, PeDiamond, PeRule } from "./shared";
+
+type SlotField = keyof CoverSlots | keyof ClauseSlots | keyof CloseSlots;
+
+interface CartorioCardProps {
+  card: CardData;
+  format: Format;
+  tokens?: SertaoTokens;
+  slideIndex?: number;
+  totalSlides?: number;
+  onEditSlot?: (field: SlotField, value: string) => void;
+  defaultBrandMark?: string;
+}
+
+const GRAFITE = "#2C2C2C";
+
+const CartorioCard: React.FC<CartorioCardProps> = ({
+  card,
+  format,
+  tokens = {},
+  onEditSlot,
+  slideIndex,
+  totalSlides = 7,
+  defaultBrandMark,
+}) => {
+  const sectionLabel = (tokens.sectionLabel ?? "CLÁUSULA").trim();
+  const brandMark = (tokens.brandMark ?? defaultBrandMark ?? "Posiciona Editorial").trim();
+  const { w, h } = FORMATS[format];
+  const big = format === "9:16";
+  const PAD_X = big ? 60 : 50;
+  const PAD_Y = big ? 86 : 56;
+
+  // Token roles em Cartório:
+  // - verdeBg => fundo claro (areia)
+  // - areiaInk => título / cor forte (verde)
+  // - ouroAccent => detalhes / numerais (mogno)
+  const areia = tokens.verdeBg || AREIA;
+  const verde = tokens.areiaInk || VERDE;
+  const mogno = tokens.ouroAccent || MOGNO;
+
+  const ornaments = tokens.showOrnaments !== false;
+  const bodyFam = peBodyFontFor(tokens.bodyFont);
+
+  const styleBase: React.CSSProperties = {
+    width: w,
+    height: h,
+    background: areia,
+    color: GRAFITE,
+    position: "relative",
+    overflow: "hidden",
+    fontFamily: '"Lato", system-ui, sans-serif',
+  };
+
+  const pageNum =
+    typeof slideIndex === "number"
+      ? slideIndex + 1
+      : card.kind === "clause"
+        ? parseInt(card.num, 10) + 1
+        : card.kind === "cover"
+          ? 1
+          : totalSlides;
+  const showPageLabel = totalSlides > 1;
+  const pageLabel = `${String(pageNum).padStart(2, "0")} / ${String(totalSlides).padStart(2, "0")}`;
+
+  // ── COVER ─────────────────────────────────────────────────────────
+  if (card.kind === "cover") {
+    return (
+      <div style={styleBase}>
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            background: "radial-gradient(120% 80% at 50% 0%, rgba(27,58,45,0.045) 0%, rgba(27,58,45,0) 50%)",
+          }}
+        />
+        <div style={{ position: "absolute", inset: `${PAD_Y}px ${PAD_X}px`, display: "flex", flexDirection: "column" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+            <EditableSpan field="eyebrow" value={tokens.eyebrowText || card.eyebrow} style={peTinyCaps(mogno, big ? 12 : 10)} onEdit={onEditSlot as any} placeholder="EYEBROW · CATEGORIA" />
+            {showPageLabel && <span style={peTinyCaps(mogno, big ? 12 : 10)}>2026</span>}
+          </div>
+          <PeRule color={mogno} mt={big ? 22 : 14} />
+
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+            <EditableSpan
+              field="kicker"
+              value={card.kicker}
+              as="div"
+              style={{
+                fontFamily: '"Cormorant Garamond", serif',
+                fontStyle: "italic",
+                fontWeight: 400,
+                fontSize: big ? 38 : 28,
+                color: mogno,
+                lineHeight: 1,
+                marginBottom: big ? 18 : 12,
+              }}
+              onEdit={onEditSlot as any}
+              placeholder="Kicker"
+            />
+            <EditableSpan
+              field="countWord"
+              value={card.countWord}
+              as="div"
+              style={{
+                fontFamily: '"Playfair Display", serif',
+                fontWeight: 500,
+                fontStyle: "italic",
+                fontSize: big ? 168 : 120,
+                lineHeight: 0.86,
+                color: verde,
+                letterSpacing: -3,
+              }}
+              onEdit={onEditSlot as any}
+              placeholder="Sete"
+            />
+            <EditableSpan
+              field="titleLead"
+              value={card.titleLead}
+              as="div"
+              style={{
+                fontFamily: '"Playfair Display", serif',
+                fontWeight: 400,
+                fontSize: big ? 40 : 30,
+                lineHeight: 1.12,
+                color: verde,
+                marginTop: big ? 26 : 18,
+                letterSpacing: -0.3,
+                textWrap: "pretty" as any,
+                maxWidth: "92%",
+              }}
+              onEdit={onEditSlot as any}
+              placeholder="Título principal"
+            />
+            <EditableSpan
+              field="titleTail"
+              value={card.titleTail}
+              as="div"
+              style={{
+                fontFamily: '"Cormorant Garamond", serif',
+                fontStyle: "italic",
+                fontSize: big ? 28 : 22,
+                lineHeight: 1.3,
+                color: GRAFITE,
+                opacity: 0.78,
+                marginTop: big ? 16 : 10,
+                maxWidth: "88%",
+              }}
+              onEdit={onEditSlot as any}
+              placeholder="complemento do título"
+            />
+          </div>
+
+          <PeRule color={mogno} />
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: big ? 16 : 10 }}>
+            <EditableSpan
+              field="footer"
+              value={tokens.showSwipeHint !== false ? card.footer : ""}
+              style={peTinyCaps(mogno, big ? 12 : 10)}
+              onEdit={onEditSlot as any}
+              placeholder="arraste"
+            />
+            {ornaments && <PeDiamond color={mogno} size={big ? 8 : 6} />}
+            {showPageLabel && <span style={peTinyCaps(mogno, big ? 12 : 10)}>I — VII</span>}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── CLOSING ───────────────────────────────────────────────────────
+  if (card.kind === "close") {
+    return (
+      <div style={styleBase}>
+        <div style={{ position: "absolute", inset: `${PAD_Y}px ${PAD_X}px`, display: "flex", flexDirection: "column" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+            <EditableSpan field="eyebrow" value={card.eyebrow} style={peTinyCaps(mogno, big ? 12 : 10)} onEdit={onEditSlot as any} placeholder="FECHAMENTO" />
+            {showPageLabel && <span style={peTinyCaps(mogno, big ? 12 : 10)}>VII / VII</span>}
+          </div>
+          <PeRule color={mogno} mt={big ? 22 : 14} />
+
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+            {ornaments && <PeDiamond color={mogno} size={big ? 12 : 10} />}
+            <div style={{ height: big ? 36 : 26 }} />
+            <EditableSpan
+              field="title"
+              value={card.title}
+              as="div"
+              style={{
+                fontFamily: '"Playfair Display", serif',
+                fontStyle: "italic",
+                fontWeight: 500,
+                fontSize: big ? 76 : 56,
+                lineHeight: 1.02,
+                color: verde,
+                letterSpacing: -1.2,
+                textWrap: "balance" as any,
+              }}
+              onEdit={onEditSlot as any}
+              placeholder="Frase de fechamento"
+            />
+            <div style={{ height: big ? 32 : 22 }} />
+            <EditableSpan
+              field="body"
+              value={card.body}
+              as="div"
+              style={{
+                fontFamily: bodyFam,
+                fontWeight: 400,
+                fontStyle: bodyFam.includes("Cormorant") ? "italic" : "normal",
+                fontSize: big ? 28 : 22,
+                lineHeight: 1.45,
+                color: GRAFITE,
+                opacity: 0.88,
+                maxWidth: "88%",
+              }}
+              onEdit={onEditSlot as any}
+              placeholder="Texto de apoio"
+            />
+          </div>
+
+          <PeRule color={mogno} />
+          <div style={{ marginTop: big ? 16 : 10, display: "flex", justifyContent: "space-between" }}>
+            <EditableSpan field="cta" value={card.cta} style={peTinyCaps(verde, big ? 13 : 11)} onEdit={onEditSlot as any} placeholder="Chamada à ação" />
+            <span style={peTinyCaps(mogno, big ? 12 : 10)}>{brandMark}</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── CLAUSE ────────────────────────────────────────────────────────
+  const numLabel = peRenderNum(card.num, tokens.numberingStyle);
+  return (
+    <div style={styleBase}>
+      <div style={{ position: "absolute", inset: `${PAD_Y}px ${PAD_X}px`, display: "flex", flexDirection: "column" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+          <div style={peTinyCaps(mogno, big ? 12 : 10)}>
+            {sectionLabel ? <span>{sectionLabel}&nbsp;·&nbsp;</span> : null}
+            <EditableSpan field="topic" value={card.topic} onEdit={onEditSlot as any} placeholder="TÓPICO" />
+          </div>
+          {showPageLabel && <span style={peTinyCaps(mogno, big ? 12 : 10)}>{pageLabel}</span>}
+        </div>
+        <PeRule color={mogno} mt={big ? 22 : 14} />
+
+        <div style={{ flex: 1, display: "grid", gridTemplateColumns: "auto 1fr", columnGap: big ? 40 : 28, alignContent: "center", alignItems: "start", paddingTop: big ? 40 : 24 }}>
+          <div style={{ fontFamily: '"Playfair Display", serif', fontStyle: "italic", fontWeight: 500, fontSize: big ? 240 : 180, lineHeight: 0.78, color: mogno, letterSpacing: -6, alignSelf: "start", marginTop: -8 }}>
+            {numLabel}
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", justifyContent: "flex-start", paddingTop: big ? 18 : 10 }}>
+            <EditableSpan
+              field="title"
+              value={card.title}
+              as="div"
+              style={{
+                fontFamily: '"Playfair Display", serif',
+                fontWeight: 400,
+                fontSize: big ? 44 : 32,
+                lineHeight: 1.08,
+                color: verde,
+                letterSpacing: -0.3,
+                textWrap: "balance" as any,
+              }}
+              onEdit={onEditSlot as any}
+              placeholder="Título da cláusula"
+            />
+            <div style={{ height: big ? 22 : 14 }} />
+            <EditableSpan
+              field="body"
+              value={card.body}
+              as="div"
+              style={{
+                fontFamily: bodyFam,
+                fontWeight: 400,
+                fontStyle: bodyFam.includes("Cormorant") ? "italic" : "normal",
+                fontSize: big ? 26 : 20,
+                lineHeight: 1.42,
+                color: GRAFITE,
+                opacity: 0.82,
+                textWrap: "pretty" as any,
+              }}
+              onEdit={onEditSlot as any}
+              placeholder="Texto da cláusula"
+            />
+          </div>
+        </div>
+
+        <PeRule color={mogno} />
+        <div style={{ display: "flex", justifyContent: "space-between", marginTop: big ? 16 : 10 }}>
+          <span style={peTinyCaps(verde, big ? 12 : 10)}>Releia antes de assinar</span>
+          {ornaments && <PeDiamond color={mogno} size={big ? 7 : 5} />}
+          <span style={peTinyCaps(mogno, big ? 12 : 10)}>{brandMark}</span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default CartorioCard;

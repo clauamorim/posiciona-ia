@@ -6,6 +6,7 @@ import DocumentPanel from "./inspector/DocumentPanel";
 import SelectionPanel, { SelectedKind } from "./inspector/SelectionPanel";
 import AddElementPanel from "./inspector/AddElementPanel";
 import TemplateSertaoPanel from "./inspector/TemplateSertaoPanel";
+import { isKnownTemplate } from "@/components/post-templates/governante/shared";
 import type { CardData, SertaoTokens } from "@/components/post-templates/governante/types";
 
 export interface OverlayImage {
@@ -142,6 +143,8 @@ interface PostToolbarProps {
   templateCurrentSlideIndex?: number;
   /** Edita um slot do slide atual (eyebrow, kicker, body, etc.). */
   onEditTemplateCurrentSlot?: (field: string, value: string) => void;
+  /** Nome legível do template ativo, exibido no header do painel. */
+  templateName?: string;
 }
 
 const PostToolbar: React.FC<PostToolbarProps> = (props) => {
@@ -149,7 +152,7 @@ const PostToolbar: React.FC<PostToolbarProps> = (props) => {
   // fontes e ornamentos. Esconde Documento/Elemento/Adicionar pra evitar
   // controles conflitantes; mostra a seção do template no mesmo lugar.
   const templateActive =
-    props.templateId === "governante.sertao-profundo" &&
+    isKnownTemplate(props.templateId) &&
     !!props.onChangeTemplateTokens &&
     !!props.onResetTemplateTokens;
 
@@ -166,6 +169,7 @@ const PostToolbar: React.FC<PostToolbarProps> = (props) => {
             currentCard={props.templateCurrentCard}
             currentSlideIndex={props.templateCurrentSlideIndex}
             onEditCurrentSlot={props.onEditTemplateCurrentSlot}
+            templateName={props.templateName}
           />
         </section>
       ) : (

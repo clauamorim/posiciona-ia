@@ -25,6 +25,7 @@ import { prepareSinglePostCardCopy, prepareCarouselCardCopy } from "@/lib/editor
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { mapPostToCards } from "@/components/post-templates/governante/mapPostToCards";
 import { getArchetypeSertaoDefaults } from "@/components/post-templates/governante/archetypeSertaoDefaults";
+import { isKnownTemplate } from "@/components/post-templates/governante/shared";
 import type { SertaoTokens } from "@/components/post-templates/governante/types";
 
 import { Sparkles, X, Image as ImageIcon, Loader2, Download } from "lucide-react";
@@ -1752,7 +1753,7 @@ const PostEditorPage = () => {
 
   // Cards mapeados para o template editorial selecionado (Governante · Sertão).
   // Quando não há templateId, fica null e o canvas legado é usado.
-  const templateCards = templateId === "governante.sertao-profundo"
+  const templateCards = isKnownTemplate(templateId)
     ? mapPostToCards({
         card_copy: editedTexts,
         title: editedTitle,
@@ -1824,7 +1825,13 @@ const PostEditorPage = () => {
                 <SelectContent>
                   <SelectItem value="none">Padrão (sem template)</SelectItem>
                   <SelectItem value="governante.sertao-profundo">
-                    Sertão Profundo (editorial){primaryArchetype ? ` · ${primaryArchetype}` : ""}
+                    Sertão Profundo · Editorial{primaryArchetype ? ` · ${primaryArchetype}` : ""}
+                  </SelectItem>
+                  <SelectItem value="governante.cartorio-de-bolso">
+                    Cartório de Bolso · Editorial{primaryArchetype ? ` · ${primaryArchetype}` : ""}
+                  </SelectItem>
+                  <SelectItem value="governante.manuscrito">
+                    Manuscrito · Editorial{primaryArchetype ? ` · ${primaryArchetype}` : ""}
                   </SelectItem>
                 </SelectContent>
               </Select>
@@ -2019,6 +2026,11 @@ const PostEditorPage = () => {
               canUndo,
             };
 
+            const templateNameById: Record<string, string> = {
+              "governante.sertao-profundo": "Sertão Profundo · Editorial",
+              "governante.cartorio-de-bolso": "Cartório de Bolso · Editorial",
+              "governante.manuscrito": "Manuscrito · Editorial",
+            };
             const templateToolbarProps = {
               templateId,
               templateTokens,
@@ -2029,6 +2041,7 @@ const PostEditorPage = () => {
               templateCurrentSlideIndex: currentSlide,
               onEditTemplateCurrentSlot: (field: string, value: string) =>
                 updateTemplateSlot(currentSlide, field, value),
+              templateName: templateId ? templateNameById[templateId] : undefined,
             };
             return (
               <>

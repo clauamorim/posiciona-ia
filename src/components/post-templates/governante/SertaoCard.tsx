@@ -2,7 +2,7 @@
 // Refatoração 1:1 de design-sources/governante/cards-sertao.jsx
 // (sem globals window.*, tipado com TypeScript).
 
-import React, { useCallback } from "react";
+import React from "react";
 import type {
   CardData,
   ClauseSlots,
@@ -20,7 +20,7 @@ import {
   peRenderNum,
   peTinyCaps,
 } from "./tokens";
-import { PeDiamond, PeEyebrow, PeRule } from "./shared";
+import { EditableSpan, PeDiamond, PeRule } from "./shared";
 
 type SlotField =
   | keyof CoverSlots
@@ -44,105 +44,6 @@ interface SertaoCardProps {
    */
   defaultBrandMark?: string;
 }
-
-// ── EditableSpan ─────────────────────────────────────────────────────
-interface EditableSpanProps {
-  field: SlotField;
-  value: string;
-  style?: React.CSSProperties;
-  onEdit?: (field: SlotField, value: string) => void;
-  as?: "span" | "div";
-  placeholder?: string;
-}
-
-const editableBaseStyle: React.CSSProperties = {
-  outline: "none",
-  cursor: "text",
-  transition: "box-shadow 120ms ease, background-color 120ms ease",
-  borderRadius: 2,
-  minWidth: 4,
-  minHeight: "1em",
-  display: "inline-block",
-};
-
-const EditableSpan: React.FC<EditableSpanProps> = ({
-  field,
-  value,
-  style,
-  onEdit,
-  as = "span",
-  placeholder,
-}) => {
-  const handleBlur = useCallback(
-    (e: React.FocusEvent<HTMLElement>) => {
-      if (!onEdit) return;
-      const next = (e.currentTarget.innerText || "").replace(/\s+\n/g, "\n").trim();
-      if (next !== value) onEdit(field, next);
-    },
-    [field, value, onEdit],
-  );
-
-  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      (e.target as HTMLElement).blur();
-    }
-  }, []);
-
-  const handlePaste = useCallback((e: React.ClipboardEvent<HTMLElement>) => {
-    e.preventDefault();
-    const text = e.clipboardData.getData("text/plain");
-    document.execCommand("insertText", false, text);
-  }, []);
-
-  const isEditable = !!onEdit;
-  const isEmpty = !value || value.length === 0;
-
-  // Slot vazio: NÃO renderiza nada. Sem isso, o elemento vazio ainda
-  // ocupava espaço vertical correspondente ao tamanho de fonte do slot
-  // (96px no countWord, 32px no kicker), empurrando o título pra baixo e
-  // quebrando a hierarquia visual original do template. Para adicionar
-  // conteúdo a slots vazios, o usuário usa o painel do inspector (futuro).
-  if (isEmpty) return null;
-
-  const editableStyle: React.CSSProperties | undefined = isEditable
-    ? { ...style, ...editableBaseStyle }
-    : style;
-
-  const focusProps = isEditable
-    ? {
-        onFocus: (e: React.FocusEvent<HTMLElement>) => {
-          e.currentTarget.style.boxShadow = "0 0 0 1px rgba(196,166,77,0.55)";
-          e.currentTarget.style.backgroundColor = "rgba(196,166,77,0.06)";
-        },
-        onBlurCapture: (e: React.FocusEvent<HTMLElement>) => {
-          e.currentTarget.style.boxShadow = "none";
-          e.currentTarget.style.backgroundColor = "transparent";
-        },
-      }
-    : {};
-
-  const commonProps = isEditable
-    ? {
-        contentEditable: true as const,
-        suppressContentEditableWarning: true,
-        spellCheck: false,
-        onBlur: handleBlur,
-        onKeyDown: handleKeyDown,
-        onPaste: handlePaste,
-        title: placeholder,
-        "aria-label": placeholder,
-        ...focusProps,
-      }
-    : {};
-
-  const Tag = as as any;
-  return (
-    <Tag key={value} style={editableStyle} {...commonProps}>
-      {value}
-    </Tag>
-  );
-};
 
 const SertaoCard: React.FC<SertaoCardProps> = ({
   card,

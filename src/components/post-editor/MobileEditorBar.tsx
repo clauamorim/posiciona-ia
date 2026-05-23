@@ -8,6 +8,7 @@ import DocumentPanel from "./inspector/DocumentPanel";
 import SelectionPanel, { SelectedKind } from "./inspector/SelectionPanel";
 import AddElementPanel from "./inspector/AddElementPanel";
 import TemplateSertaoPanel from "./inspector/TemplateSertaoPanel";
+import { isKnownTemplate } from "@/components/post-templates/governante/shared";
 import type { OverlayImage } from "./PostToolbar";
 import type { CardData, SertaoTokens } from "@/components/post-templates/governante/types";
 
@@ -109,6 +110,7 @@ export interface MobileEditorBarProps {
   templateCurrentCard?: CardData | null;
   templateCurrentSlideIndex?: number;
   onEditTemplateCurrentSlot?: (field: string, value: string) => void;
+  templateName?: string;
 }
 
 const KIND_LABEL: Record<NonNullable<SelectedKind>, string> = {
@@ -283,7 +285,7 @@ const MobileEditorBar: React.FC<MobileEditorBarProps> = (props) => {
                 postBody={(props as any).postBody}
               />
             )}
-            {tab === "document" && props.templateId === "governante.sertao-profundo" && props.onChangeTemplateTokens && props.onResetTemplateTokens && (
+            {tab === "document" && isKnownTemplate(props.templateId) && props.onChangeTemplateTokens && props.onResetTemplateTokens && (
               <TemplateSertaoPanel
                 tokens={props.templateTokens ?? {}}
                 onChange={props.onChangeTemplateTokens}
@@ -292,9 +294,10 @@ const MobileEditorBar: React.FC<MobileEditorBarProps> = (props) => {
                 currentCard={props.templateCurrentCard}
                 currentSlideIndex={props.templateCurrentSlideIndex}
                 onEditCurrentSlot={props.onEditTemplateCurrentSlot}
+                templateName={props.templateName}
               />
             )}
-            {tab === "document" && props.templateId !== "governante.sertao-profundo" && (
+            {tab === "document" && !isKnownTemplate(props.templateId) && (
               <DocumentPanel
                 palette={props.palette}
                 selectedBgIndex={props.selectedBgIndex}

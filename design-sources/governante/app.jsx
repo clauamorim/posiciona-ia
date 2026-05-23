@@ -16,7 +16,8 @@ const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
   "showProgress": true
 }/*EDITMODE-END*/;
 
-const { SertaoCard, CartorioCard, ManuscritoCard, PE_CARDS, PE_FORMATS } = window;
+const { SertaoCard, CartorioCard, ManuscritoCard, HorizonteCard, RetratoCard,
+        PE_CARDS, PE_FORMATS } = window;
 
 const VARIATIONS = [
   { id: 'sertao',     name: 'Sertão Profundo',
@@ -28,6 +29,12 @@ const VARIATIONS = [
   { id: 'manuscrito', name: 'Manuscrito',
     subtitle: 'Painel dividido · numeral atravessa a costura',
     Comp: ManuscritoCard },
+  { id: 'horizonte',  name: 'Horizonte (foto horizontal)',
+    subtitle: 'Foto larga no topo · paleta Sertão Profundo · arraste imagens',
+    Comp: HorizonteCard },
+  { id: 'retrato',    name: 'Retrato (foto vertical)',
+    subtitle: 'Foto vertical · paleta Cartório · arraste imagens',
+    Comp: RetratoCard },
 ];
 
 const FORMATS = [

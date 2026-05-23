@@ -40,6 +40,8 @@ interface Props {
   currentSlideIndex?: number;
   /** Edita um slot do slide atual (eyebrow, kicker, titleLead, etc.). */
   onEditCurrentSlot?: (field: string, value: string) => void;
+  /** Nome humano do template ativo (Sertão Profundo / Cartório de Bolso / Manuscrito). */
+  templateName?: string;
 }
 
 const Row: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
@@ -118,6 +120,7 @@ const SlotFields: React.FC<{ card: CardData; onEdit: (field: string, value: stri
 const TemplateSertaoPanel: React.FC<Props> = ({
   tokens, onChange, onReset, defaultBrandMark,
   currentCard, currentSlideIndex, onEditCurrentSlot,
+  templateName,
 }) => {
   const brandMarkPlaceholder = (defaultBrandMark || "Posiciona Editorial").trim();
   const slideLabel = slideKindLabel(currentCard?.kind, currentSlideIndex);
@@ -126,7 +129,7 @@ const TemplateSertaoPanel: React.FC<Props> = ({
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-sm font-semibold">Template</h3>
-          <p className="text-[11px] text-muted-foreground">Sertão Profundo · Editorial</p>
+          <p className="text-[11px] text-muted-foreground">{templateName || "Editorial"}</p>
         </div>
         <Button variant="ghost" size="sm" className="h-7 text-[11px]" onClick={onReset}>
           Restaurar

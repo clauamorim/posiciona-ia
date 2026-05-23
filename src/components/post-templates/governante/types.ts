@@ -41,6 +41,12 @@ export interface SertaoTokens {
   verdeBg?: string;
   areiaInk?: string;
   ouroAccent?: string;
+  /**
+   * Accent secundário, usado por templates com 2 zonas distintas
+   * (ex: Manuscrito tem accent dourado em cima do split e accent
+   * mais quente/escuro embaixo). Quando vazio, cai pra ouroAccent.
+   */
+  secondaryAccent?: string;
   bodyFont?: "lato" | "cormorant" | "playfair";
   numberingStyle?: "plain" | "bracketed" | "roman";
   showOrnaments?: boolean;

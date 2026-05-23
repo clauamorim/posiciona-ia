@@ -6,6 +6,8 @@ import { sanitizeRichText } from "@/lib/richText";
 import { inlineFormatBus } from "@/lib/inlineFormatBus";
 import InlineFormatToolbar from "./InlineFormatToolbar";
 import SertaoCard from "@/components/post-templates/governante/SertaoCard";
+import CartorioCard from "@/components/post-templates/governante/CartorioCard";
+import ManuscritoCard from "@/components/post-templates/governante/ManuscritoCard";
 import type { CardData as GovernanteCardData, SertaoTokens } from "@/components/post-templates/governante/types";
 
 // Retorna a luminância percebida da cor (fórmula YIQ): valor >=128 = clara.
@@ -1074,12 +1076,18 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   // ── BYPASS: template editorial por arquétipo ─────────────────────
   // Quando há templateId + templateCard, ignoramos todo o canvas legado e
   // renderizamos o componente do template aplicando o mesmo `scale` calculado.
-  if (templateId === "governante.sertao-profundo" && templateCard) {
+  const TEMPLATE_COMPONENT: Record<string, typeof SertaoCard> = {
+    "governante.sertao-profundo": SertaoCard,
+    "governante.cartorio-de-bolso": CartorioCard,
+    "governante.manuscrito": ManuscritoCard,
+  };
+  const TemplateComp = templateId ? TEMPLATE_COMPONENT[templateId] : undefined;
+  if (TemplateComp && templateCard) {
     const tplFormat: "4:5" | "9:16" = canvasHeight === 1920 ? "9:16" : "4:5";
     const tplPreviewW = 540;
     const tplPreviewH = tplFormat === "9:16" ? 960 : 675;
     // O canvas do editor é dimensionado em px do canvas real (1080×1350/1920),
-    // depois multiplicado pelo `scale`. O SertaoCard renderiza em 540×(675|960).
+    // depois multiplicado pelo `scale`. Cada template renderiza em 540×(675|960).
     // Para preencher o mesmo bounding box, escalamos o template proporcionalmente.
     const tplScale = (canvasWidth * scale) / tplPreviewW;
     return (
@@ -1104,7 +1112,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
               height: tplPreviewH,
             }}
           >
-            <SertaoCard
+            <TemplateComp
               card={templateCard}
               format={tplFormat}
               tokens={templateTokens ?? undefined}
