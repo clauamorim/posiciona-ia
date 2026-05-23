@@ -439,45 +439,55 @@ const SertaoCard: React.FC<SertaoCardProps> = ({
           {numLabel}
         </div>
 
-        <EditableSpan
-          field="title"
-          value={card.title}
-          as="div"
-          autoFit
-          style={{
-            fontFamily: '"Playfair Display", serif',
-            fontWeight: 400,
-            fontSize: big ? 48 : 36,
-            lineHeight: 1.08,
-            color: areia,
-            marginTop: big ? 36 : 24,
-            letterSpacing: -0.4,
-            textWrap: "balance" as any,
-          }}
-          onEdit={onEditSlot}
-          placeholder="Título da cláusula"
-        />
+        <div
+          data-fit-bounds="clauseTitle"
+          style={{ marginTop: big ? 36 : 24, maxHeight: big ? 180 : 120, overflow: "hidden" }}
+        >
+          <EditableSpan
+            field="title"
+            value={card.title}
+            as="div"
+            autoFit
+            style={{
+              fontFamily: '"Playfair Display", serif',
+              fontWeight: 400,
+              fontSize: big ? 48 : 36,
+              lineHeight: 1.08,
+              color: areia,
+              letterSpacing: -0.4,
+              textWrap: "balance" as any,
+            }}
+            onEdit={onEditSlot}
+            placeholder="Título da cláusula"
+          />
+        </div>
 
         <div style={{ height: big ? 24 : 16 }} />
 
-        <EditableSpan
-          field="body"
-          value={card.body}
-          as="div"
-          autoFit
-          style={{
-            fontFamily: bodyFam,
-            fontWeight: 400,
-            fontStyle: bodyFam.includes("Cormorant") ? "italic" : "normal",
-            fontSize: big ? 26 : 21,
-            lineHeight: 1.4,
-            color: areia,
-            opacity: 0.78,
-            textWrap: "pretty" as any,
-          }}
-          onEdit={onEditSlot}
-          placeholder="Texto da cláusula"
-        />
+        <div
+          data-fit-bounds="clauseBody"
+          style={{ maxHeight: big ? 260 : 170, overflow: "hidden" }}
+        >
+          <EditableSpan
+            field="body"
+            value={card.body}
+            as="div"
+            autoFit
+            style={{
+              fontFamily: bodyFam,
+              fontWeight: 400,
+              fontStyle: bodyFam.includes("Cormorant") ? "italic" : "normal",
+              fontSize: big ? 26 : 21,
+              lineHeight: 1.4,
+              color: areia,
+              opacity: 0.78,
+              textWrap: "pretty" as any,
+            }}
+            onEdit={onEditSlot}
+            placeholder="Texto da cláusula"
+          />
+        </div>
+
 
         <div style={{ flex: 1 }} />
 
