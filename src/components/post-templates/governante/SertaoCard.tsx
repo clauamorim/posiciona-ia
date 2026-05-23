@@ -94,6 +94,116 @@ const SertaoCard: React.FC<SertaoCardProps> = ({
 
   // ── COVER ─────────────────────────────────────────────────────────
   if (card.kind === "cover") {
+    // Fallback elegante: quando a IA não entrega kicker + countWord, a capa
+    // editorial original fica visualmente esvaziada (vide IMG_4881). Nesse
+    // caso renderizamos um layout "editorial enxuto" — eyebrow + régua +
+    // título italic grande centralizado + corpo + footer — igual ao close
+    // mas reutilizando os slots do cover.
+    const hasRichCover = Boolean((card.kicker || "").trim() || (card.countWord || "").trim());
+    if (!hasRichCover) {
+      return (
+        <div style={styleBase}>
+          <div
+            style={{
+              position: "absolute",
+              inset: `${PAD_Y}px ${PAD_X}px`,
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
+            <EditableSpan
+              field="eyebrow"
+              value={tokens.eyebrowText || card.eyebrow}
+              style={peTinyCaps(ouro, big ? 13 : 11)}
+              onEdit={onEditSlot}
+              placeholder="EYEBROW · CATEGORIA"
+            />
+            <PeRule color={ouro} mt={big ? 28 : 18} />
+
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+              <div
+                data-fit-bounds="coverLeanTitle"
+                style={{ maxHeight: big ? 320 : 220, overflow: "hidden" }}
+              >
+                <EditableSpan
+                  field="titleLead"
+                  value={card.titleLead}
+                  as="div"
+                  autoFit
+                  style={{
+                    fontFamily: '"Playfair Display", serif',
+                    fontStyle: "italic",
+                    fontWeight: 400,
+                    fontSize: big ? 68 : 48,
+                    lineHeight: 1.05,
+                    color: areia,
+                    letterSpacing: -0.8,
+                    textWrap: "balance" as any,
+                  }}
+                  onEdit={onEditSlot}
+                  placeholder="Título da capa"
+                />
+              </div>
+
+              <div style={{ height: big ? 32 : 22 }} />
+
+              <div
+                data-fit-bounds="coverLeanBody"
+                style={{ maxHeight: big ? 220 : 150, overflow: "hidden" }}
+              >
+                <EditableSpan
+                  field="body"
+                  value={(card as any).body || ""}
+                  as="div"
+                  autoFit
+                  style={{
+                    fontFamily: bodyFam,
+                    fontStyle: bodyFam.includes("Cormorant") ? "italic" : "normal",
+                    fontWeight: 400,
+                    fontSize: big ? 26 : 20,
+                    lineHeight: 1.45,
+                    color: areia,
+                    opacity: 0.82,
+                    textWrap: "pretty" as any,
+                  }}
+                  onEdit={onEditSlot}
+                  placeholder="Corpo de abertura"
+                />
+              </div>
+
+              {ornaments && (
+                <div style={{ marginTop: big ? 48 : 32, display: "flex", alignItems: "center", gap: 14 }}>
+                  <PeDiamond color={ouro} size={big ? 10 : 8} />
+                  <PeDiamond color={ouro} size={big ? 6 : 5} />
+                  <PeDiamond color={ouro} size={big ? 4 : 3} />
+                </div>
+              )}
+            </div>
+
+            <PeRule color={ouro} />
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginTop: big ? 18 : 12,
+              }}
+            >
+              <EditableSpan
+                field="footer"
+                value={tokens.showSwipeHint !== false ? card.footer : ""}
+                style={peTinyCaps(ouro, big ? 12 : 10)}
+                onEdit={onEditSlot}
+                placeholder="arraste"
+              />
+              {ornaments && <PeDiamond color={ouro} size={big ? 9 : 7} />}
+              {showPageLabel && <span style={peTinyCaps(ouro, big ? 12 : 10)}>{pageLabel}</span>}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div style={styleBase}>
         <div
