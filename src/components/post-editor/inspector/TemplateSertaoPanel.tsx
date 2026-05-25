@@ -90,7 +90,7 @@ const SlotFields: React.FC<{ card: CardData; onEdit: (field: string, value: stri
       <>
         {text("eyebrow",   "Sobretítulo (eyebrow)",       "ex: POSICIONA EDITORIAL · DIREITO DO AGRO", card.eyebrow)}
         {text("kicker",    "Palavra-tema (italic ouro)",  "ex: Cláusulas",                              card.kicker)}
-        {text("countWord", "Número por extenso (gigante)","ex: Sete",                                   card.countWord)}
+        {text("countWord", "Palavra-destaque (gigante)", "ex: Sete, Contrato, Auditoria",            card.countWord)}
         {area("titleLead", "Título principal",            "Título principal da capa",                   card.titleLead)}
         {area("titleTail", "Complemento (italic suave)",  "complemento do título (opcional)",           card.titleTail)}
         {text("footer",    "Rodapé esquerdo",             "ex: arraste para começar",                   card.footer)}

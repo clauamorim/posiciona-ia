@@ -48,8 +48,20 @@ export function pickBodyColor(
 
 export const ALL_TEMPLATE_IDS: string[] = Object.values(TEMPLATE_IDS);
 
+// Subset dos templates que aceitam slot de foto. Outros lugares (toolbar,
+// dispatcher) usam isso pra decidir se a UI de troca de imagem deve aparecer
+// mesmo quando o modo template está ativo.
+export const PHOTO_TEMPLATE_IDS: string[] = [
+  TEMPLATE_IDS.HORIZONTE,
+  TEMPLATE_IDS.RETRATO,
+];
+
 export function isKnownTemplate(templateId?: string | null): boolean {
   return !!templateId && ALL_TEMPLATE_IDS.includes(templateId);
+}
+
+export function isPhotoTemplate(templateId?: string | null): boolean {
+  return !!templateId && PHOTO_TEMPLATE_IDS.includes(templateId);
 }
 
 // ── PhotoSlot ────────────────────────────────────────────────────────

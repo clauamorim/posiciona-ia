@@ -225,6 +225,50 @@ const PostEditorPage = () => {
   const [titleFontFamily, setTitleFontFamily] = useState<string | null>(draft?.titleFontFamily ?? null);
   const [ctaText, setCtaText] = useState(draft?.ctaText ?? "");
   const [templateId, setTemplateId] = useState<string | null>((draft as any)?.templateId ?? null);
+
+  // ── Catálogo de templates ──────────────────────────────────────────
+  // Separa templates editoriais "sem foto" (Sertão/Cartório/Manuscrito) de
+  // templates "com foto" (Horizonte/Retrato). A escolha de estilo do usuário
+  // no StyleSelectionModal determina qual grupo aparece no dropdown:
+  // - "minimal" → só templates sem foto
+  // - "pexels"/"ai" → só templates com foto
+  // O label aqui é o que aparece no Select; templateNameById usa o mesmo
+  // mapeamento pra mostrar no painel do inspector.
+  const TEMPLATES_NO_PHOTO = [
+    { id: "governante.sertao-profundo", label: "Sertão Profundo · Editorial" },
+    { id: "governante.cartorio-de-bolso", label: "Cartório de Bolso · Editorial" },
+    { id: "governante.manuscrito", label: "Manuscrito · Editorial" },
+  ];
+  const TEMPLATES_WITH_PHOTO = [
+    { id: "governante.horizonte", label: "Horizonte · Foto horizontal" },
+    { id: "governante.retrato", label: "Retrato · Foto vertical" },
+  ];
+  const availableTemplates = initialStyle === "minimal"
+    ? TEMPLATES_NO_PHOTO
+    : initialStyle === "pexels" || initialStyle === "ai"
+      ? TEMPLATES_WITH_PHOTO
+      // Sem estilo definido (caminho legado ou edição direta) — mostra tudo.
+      : [...TEMPLATES_NO_PHOTO, ...TEMPLATES_WITH_PHOTO];
+
+  // Template default ao abrir o editor: usa o primeiro template do grupo
+  // compatível com o estilo escolhido pelo usuário. Aplicado apenas na
+  // PRIMEIRA montagem e quando não há draft (pra não sobrescrever escolha
+  // explícita do usuário em sessões anteriores). Mapeamento conforme
+  // decisão com a usuária: minimal→Sertão, pexels→Horizonte, ai→Retrato.
+  const templateDefaultDoneRef = useRef(false);
+  useEffect(() => {
+    if (templateDefaultDoneRef.current) return;
+    if (draft) { templateDefaultDoneRef.current = true; return; }
+    if (templateId !== null) { templateDefaultDoneRef.current = true; return; }
+    const defaultTpl =
+      initialStyle === "minimal" ? "governante.sertao-profundo" :
+      initialStyle === "pexels"  ? "governante.horizonte" :
+      initialStyle === "ai"      ? "governante.retrato" :
+      "governante.sertao-profundo";
+    setTemplateId(defaultTpl);
+    templateDefaultDoneRef.current = true;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [templateSlots, setTemplateSlots] = useState<Record<number, Record<string, string>>>(
     (draft as any)?.templateSlots ?? {},
   );
@@ -1825,22 +1869,12 @@ const PostEditorPage = () => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Padrão (sem template)</SelectItem>
-                  <SelectItem value="governante.sertao-profundo">
-                    Sertão Profundo · Editorial{primaryArchetype ? ` · ${primaryArchetype}` : ""}
-                  </SelectItem>
-                  <SelectItem value="governante.cartorio-de-bolso">
-                    Cartório de Bolso · Editorial{primaryArchetype ? ` · ${primaryArchetype}` : ""}
-                  </SelectItem>
-                  <SelectItem value="governante.manuscrito">
-                    Manuscrito · Editorial{primaryArchetype ? ` · ${primaryArchetype}` : ""}
-                  </SelectItem>
-                  <SelectItem value="governante.horizonte">
-                    Horizonte · Foto horizontal{primaryArchetype ? ` · ${primaryArchetype}` : ""}
-                  </SelectItem>
-                  <SelectItem value="governante.retrato">
-                    Retrato · Foto vertical{primaryArchetype ? ` · ${primaryArchetype}` : ""}
-                  </SelectItem>
+                  <SelectItem value="none">Sem template</SelectItem>
+                  {availableTemplates.map((tpl) => (
+                    <SelectItem key={tpl.id} value={tpl.id}>
+                      {tpl.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               {templateId && (
@@ -1900,9 +1934,21 @@ const PostEditorPage = () => {
                 templateTokens={templateTokens}
                 templateDefaultBrandMark={companyName}
                 onEditTemplateSlot={updateTemplateSlot}
-                slideImageUrls={Object.fromEntries(
-                  Object.entries(slideBackgrounds).map(([k, v]) => [Number(k), v?.url]),
-                )}
+                slideImageUrls={(() => {
+                  // Mapa slideIndex → URL pros slots de foto.
+                  // slideBackgrounds tipicamente popula índices >=1 (capa/slide 0
+                  // vem do auto-layout via overlayImages tpl-bg-*). Pra capa não
+                  // ficar com placeholder, fazemos fallback explícito.
+                  const map: Record<number, string | undefined> = {};
+                  Object.entries(slideBackgrounds).forEach(([k, v]) => {
+                    map[Number(k)] = v?.url;
+                  });
+                  if (!map[0]) {
+                    const tplBg = overlayImages.find((o) => o.id.startsWith("tpl-bg-"));
+                    if (tplBg?.src) map[0] = tplBg.src;
+                  }
+                  return map;
+                })()}
               />
             ) : (
               <PostCanvas
@@ -2045,6 +2091,8 @@ const PostEditorPage = () => {
               canUndo,
             };
 
+            // Map id → label humano. Espelha availableTemplates (mesmos labels)
+            // pra coerência entre dropdown e cabeçalho do painel do inspector.
             const templateNameById: Record<string, string> = {
               "governante.sertao-profundo": "Sertão Profundo · Editorial",
               "governante.cartorio-de-bolso": "Cartório de Bolso · Editorial",

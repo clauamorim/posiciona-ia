@@ -23,6 +23,16 @@ export interface MapPostInput {
   meta?: {
     eyebrow?: string;
     kicker?: string;
+    /**
+     * Palavra-destaque que aparece gigante no centro da capa.
+     * - Quando o post É numérico (ex: "5 dicas"), recebe o número por extenso
+     *   ("Cinco"). Hoje preenchido por mapPostToCards via numberToPortuguese.
+     * - Quando o post NÃO é numérico (ex: "Como leio um contrato…"), idealmente
+     *   recebe uma palavra-resumo gerada pela IA junto com o copy (ex:
+     *   "Contrato"). Enquanto o backend não devolver esse campo, caímos numa
+     *   heurística client-side (extractThemeWord) que pega o primeiro
+     *   substantivo significativo do título.
+     */
     countWord?: string;
     titleTail?: string;
     footer?: string;
@@ -47,6 +57,69 @@ const NUM_PT: Record<number, string> = {
 
 function numberToPortuguese(n: number): string {
   return NUM_PT[n] ?? String(n);
+}
+
+// Stopwords PT-BR usadas pra pular palavras de função quando extraímos uma
+// palavra-destaque do título. Mantém a lista enxuta — só palavras MUITO
+// comuns. Substantivos genéricos (coisa, jeito, modo) ficam de fora porque
+// às vezes carregam o conteúdo principal do título.
+const PT_STOPWORDS = new Set([
+  "a", "o", "as", "os", "um", "uma", "uns", "umas",
+  "de", "da", "do", "das", "dos", "em", "no", "na", "nos", "nas",
+  "por", "para", "pra", "com", "sem", "sobre", "ao", "aos", "à", "às",
+  "que", "se", "ou", "e", "mas", "como", "quando", "onde", "porque",
+  "é", "são", "foi", "ser", "tem", "ter", "vai", "ir", "está", "estar",
+  "antes", "depois", "ainda", "já", "mais", "menos", "muito", "pouco",
+  "meu", "minha", "seu", "sua", "meus", "minhas", "seus", "suas",
+  "esse", "essa", "este", "esta", "isto", "isso", "aquilo", "aquele", "aquela",
+  "nem", "também", "só", "apenas", "quase", "talvez", "agora", "hoje", "ontem",
+  "5", "7", "10", "três", "cinco", "sete", "dez",
+]);
+
+/**
+ * Extrai uma palavra-destaque do título quando o backend não devolve
+ * `meta.countWord` explícito. Heurística simples: percorre as palavras do
+ * título, pula stopwords/números, e retorna a primeira palavra com >=4
+ * caracteres, capitalizada. Se nada bater, devolve string vazia (que vira
+ * placeholder vazio — usuário edita à mão).
+ */
+function extractThemeWord(title?: string): string {
+  if (!title) return "";
+  const words = title
+    .toLowerCase()
+    .replace(/[^a-záàâãéêíóôõúç\s-]/gi, " ") // mantém letras + hífen
+    .split(/\s+/)
+    .filter(Boolean);
+  for (const w of words) {
+    if (PT_STOPWORDS.has(w)) continue;
+    if (w.length < 4) continue;
+    return w.charAt(0).toUpperCase() + w.slice(1);
+  }
+  return "";
+}
+
+/**
+ * Detecta se o título carrega contagem numérica (ex: "5 cláusulas",
+ * "as 7 dicas"). Se sim, devolve o número; caso contrário, null. Permite
+ * decidir se usamos `numberToPortuguese(n)` ou `extractThemeWord(title)`.
+ */
+function detectTitleCount(title?: string): number | null {
+  if (!title) return null;
+  const m = title.match(/\b(\d{1,2})\b/);
+  if (m) {
+    const n = parseInt(m[1], 10);
+    if (n >= 2 && n <= 20) return n;
+  }
+  // Tenta também números por extenso comuns no início do título.
+  const lower = title.toLowerCase();
+  const wordToNum: Record<string, number> = {
+    dois: 2, três: 3, quatro: 4, cinco: 5, seis: 6, sete: 7,
+    oito: 8, nove: 9, dez: 10, onze: 11, doze: 12,
+  };
+  for (const [w, n] of Object.entries(wordToNum)) {
+    if (new RegExp(`\\b${w}\\b`, "i").test(lower)) return n;
+  }
+  return null;
 }
 
 /** Pluraliza rótulos simples (CLÁUSULA → Cláusulas, PASSO → Passos). */
@@ -129,11 +202,22 @@ export function mapPostToCards(input: MapPostInput): CardData[] {
   const sectionLabel = (input.sectionLabel || "CLÁUSULA").trim();
 
   // ── Cover ────────────────────────────────────────────────────────
+  // Resolve `countWord` em três níveis de fallback:
+  //   1. meta.countWord vindo do backend (ideal — palavra ou número gerado pela IA)
+  //   2. Se o título tem contagem detectável ("5 cláusulas"), usa o número por extenso
+  //   3. Senão, extrai uma palavra-destaque do título via heurística PT-BR
+  // Quando todos falham, volta pra contagem de cláusulas (comportamento legado).
+  const detectedCount = detectTitleCount(input.title);
+  const resolvedCountWord =
+    meta?.countWord
+    || (detectedCount != null ? numberToPortuguese(detectedCount) : "")
+    || extractThemeWord(input.title)
+    || numberToPortuguese(clauseCount);
   const cover: CardData = {
     kind: "cover",
     eyebrow: meta?.eyebrow || brand.toUpperCase(),
     kicker: meta?.kicker || pluralizeKicker(sectionLabel),
-    countWord: meta?.countWord || numberToPortuguese(clauseCount),
+    countWord: resolvedCountWord,
     titleLead: input.title ?? "",
     titleTail: meta?.titleTail ?? "",
     body: copy[0] ?? "",

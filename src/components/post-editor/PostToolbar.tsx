@@ -6,7 +6,7 @@ import DocumentPanel from "./inspector/DocumentPanel";
 import SelectionPanel, { SelectedKind } from "./inspector/SelectionPanel";
 import AddElementPanel from "./inspector/AddElementPanel";
 import TemplateSertaoPanel from "./inspector/TemplateSertaoPanel";
-import { isKnownTemplate } from "@/components/post-templates/governante/shared";
+import { isKnownTemplate, isPhotoTemplate } from "@/components/post-templates/governante/shared";
 import type { CardData, SertaoTokens } from "@/components/post-templates/governante/types";
 
 export interface OverlayImage {
@@ -155,23 +155,58 @@ const PostToolbar: React.FC<PostToolbarProps> = (props) => {
     isKnownTemplate(props.templateId) &&
     !!props.onChangeTemplateTokens &&
     !!props.onResetTemplateTokens;
+  // Templates de foto precisam manter o picker de imagem acessível pra
+  // troca por slide (Pexels/IA/upload/galeria). Quando ativo, exibimos a
+  // seção "Adicionar" em conjunto com o painel do template.
+  const showImagePickerInTemplate = templateActive && isPhotoTemplate(props.templateId);
 
   return (
     <div className="flex flex-col gap-4 p-3 rounded-xl bg-card border overflow-y-auto max-h-[80vh]">
       {templateActive ? (
-        <section>
-          <h3 className="text-[11px] font-semibold uppercase tracking-wider text-foreground/80 mb-3">Template</h3>
-          <TemplateSertaoPanel
-            tokens={props.templateTokens ?? {}}
-            onChange={props.onChangeTemplateTokens!}
-            onReset={props.onResetTemplateTokens!}
-            defaultBrandMark={props.templateDefaultBrandMark}
-            currentCard={props.templateCurrentCard}
-            currentSlideIndex={props.templateCurrentSlideIndex}
-            onEditCurrentSlot={props.onEditTemplateCurrentSlot}
-            templateName={props.templateName}
-          />
-        </section>
+        <>
+          <section>
+            <h3 className="text-[11px] font-semibold uppercase tracking-wider text-foreground/80 mb-3">Template</h3>
+            <TemplateSertaoPanel
+              tokens={props.templateTokens ?? {}}
+              onChange={props.onChangeTemplateTokens!}
+              onReset={props.onResetTemplateTokens!}
+              defaultBrandMark={props.templateDefaultBrandMark}
+              currentCard={props.templateCurrentCard}
+              currentSlideIndex={props.templateCurrentSlideIndex}
+              onEditCurrentSlot={props.onEditTemplateCurrentSlot}
+              templateName={props.templateName}
+            />
+          </section>
+
+          {showImagePickerInTemplate && (
+            <>
+              <div className="border-t border-border" />
+              <section>
+                <h3 className="text-[11px] font-semibold uppercase tracking-wider text-foreground/80 mb-3">Foto deste slide</h3>
+                <AddElementPanel
+                  palette={props.palette}
+                  defaultElementColor={props.palette[1]?.hex}
+                  bodyFont={props.bodyFont}
+                  textColor={props.textColor}
+                  userPortraits={props.userPortraits}
+                  onAddImage={props.onAddImage}
+                  hasSelectedElement={false}
+                  onRecolorSelected={props.onRecolorElement}
+                  imageSearchQuery={props.imageSearchQuery}
+                  canvasFormat={props.canvasFormat}
+                  onPexelsPick={props.onPexelsPick}
+                  onSwapBackground={props.onSwapBackgroundUrl}
+                  onAIGenerated={props.onAIGenerated}
+                  regenerationCredits={props.regenerationCredits}
+                  niche={props.niche}
+                  businessContext={props.businessContext}
+                  caption={props.caption}
+                  postBody={props.postBody}
+                />
+              </section>
+            </>
+          )}
+        </>
       ) : (
         <>
       {/* Document */}
