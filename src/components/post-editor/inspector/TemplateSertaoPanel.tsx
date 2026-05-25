@@ -119,7 +119,81 @@ const SlotFields: React.FC<{ card: CardData; onEdit: (field: string, value: stri
   );
 };
 
-const TemplateSertaoPanel: React.FC<Props> = ({
+type ScaleKey =
+  | "closeTitleScale"
+  | "closeBodyScale"
+  | "coverTitleScale"
+  | "coverCountScale"
+  | "clauseBodyScale";
+
+const ScaleRow: React.FC<{
+  label: string;
+  value: number;
+  onChange: (v: number) => void;
+}> = ({ label, value, onChange }) => (
+  <div className="space-y-1">
+    <div className="flex items-center justify-between">
+      <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+        {label}
+      </label>
+      <div className="flex items-center gap-1.5">
+        <span className="text-[10px] tabular-nums text-muted-foreground/80">
+          {Math.round(value * 100)}%
+        </span>
+        <button
+          type="button"
+          title="Restaurar"
+          onClick={() => onChange(1)}
+          className="text-muted-foreground/70 hover:text-foreground transition-colors"
+        >
+          <RotateCcw className="h-3 w-3" />
+        </button>
+      </div>
+    </div>
+    <Slider
+      min={0.6}
+      max={1.4}
+      step={0.05}
+      value={[value]}
+      onValueChange={(vals) => onChange(vals[0] ?? 1)}
+    />
+  </div>
+);
+
+const ScaleSliders: React.FC<{
+  card: CardData;
+  tokens: Partial<SertaoTokens>;
+  onChange: (patch: Partial<SertaoTokens>) => void;
+}> = ({ card, tokens, onChange }) => {
+  const get = (k: ScaleKey) =>
+    typeof tokens[k] === "number" && isFinite(tokens[k] as number)
+      ? Math.min(1.4, Math.max(0.6, tokens[k] as number))
+      : 1;
+  const set = (k: ScaleKey) => (v: number) => onChange({ [k]: v } as any);
+
+  if (card.kind === "close") {
+    return (
+      <div className="space-y-3 pt-1">
+        <ScaleRow label="Tamanho · Frase de fechamento" value={get("closeTitleScale")} onChange={set("closeTitleScale")} />
+        <ScaleRow label="Tamanho · Apoio do fechamento" value={get("closeBodyScale")} onChange={set("closeBodyScale")} />
+      </div>
+    );
+  }
+  if (card.kind === "cover") {
+    return (
+      <div className="space-y-3 pt-1">
+        <ScaleRow label="Tamanho · Título principal" value={get("coverTitleScale")} onChange={set("coverTitleScale")} />
+        <ScaleRow label="Tamanho · Palavra-destaque" value={get("coverCountScale")} onChange={set("coverCountScale")} />
+      </div>
+    );
+  }
+  // clause
+  return (
+    <div className="space-y-3 pt-1">
+      <ScaleRow label="Tamanho · Texto da cláusula" value={get("clauseBodyScale")} onChange={set("clauseBodyScale")} />
+    </div>
+  );
+};
   tokens, onChange, onReset, defaultBrandMark,
   currentCard, currentSlideIndex, onEditCurrentSlot,
   templateName,
