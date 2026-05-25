@@ -381,16 +381,6 @@ const TemplateSertaoPanel: React.FC<Props> = ({
 
         {tokens.logoUrl && (tokens.showLogo !== false) && (
           <>
-            <Row label={`Tamanho · ${Math.round(typeof tokens.logoSize === "number" ? tokens.logoSize : 18)}%`}>
-              <Slider
-                value={[typeof tokens.logoSize === "number" ? tokens.logoSize : 18]}
-                onValueChange={(v) => onChange({ logoSize: v[0] })}
-                min={8}
-                max={50}
-                step={1}
-              />
-            </Row>
-
             <Row label={`Opacidade · ${Math.round((typeof tokens.logoOpacity === "number" ? tokens.logoOpacity : 1) * 100)}%`}>
               <Slider
                 value={[(typeof tokens.logoOpacity === "number" ? tokens.logoOpacity : 1) * 100]}
@@ -400,29 +390,6 @@ const TemplateSertaoPanel: React.FC<Props> = ({
                 step={5}
               />
             </Row>
-
-            {tokens.logoBehindText !== true && (
-              <>
-                <Row label={`Posição horizontal · ${Math.round(typeof tokens.logoX === "number" ? tokens.logoX : 85)}%`}>
-                  <Slider
-                    value={[typeof tokens.logoX === "number" ? tokens.logoX : 85]}
-                    onValueChange={(v) => onChange({ logoX: v[0] })}
-                    min={0}
-                    max={100}
-                    step={1}
-                  />
-                </Row>
-                <Row label={`Posição vertical · ${Math.round(typeof tokens.logoY === "number" ? tokens.logoY : 88)}%`}>
-                  <Slider
-                    value={[typeof tokens.logoY === "number" ? tokens.logoY : 88]}
-                    onValueChange={(v) => onChange({ logoY: v[0] })}
-                    min={0}
-                    max={100}
-                    step={1}
-                  />
-                </Row>
-              </>
-            )}
 
             <div className="flex items-center justify-between">
               <label className="text-xs">Atrás das frases (marca d'água)</label>

@@ -145,6 +145,8 @@ interface PostCanvasProps {
    * Quando ausente, o handle de drag da logo não é exibido.
    */
   onLogoPositionChange?: (x: number, y: number) => void;
+  /** Callback disparado quando o usuário redimensiona a logo via handles de canto. Recebe o novo tamanho em % da largura do card. */
+  onLogoSizeChange?: (size: number) => void;
   // Legacy compat
   onImageMove?: (id: string, x: number, y: number) => void;
   onImageResize?: (id: string, width: number, height: number) => void;
@@ -214,7 +216,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   initialTextBoxes, resetKey,
   textBoxes: controlledTextBoxes, onTextBoxesChange,
   primaryArchetype,
-  templateId, templateCard, onEditTemplateSlot, templateTokens, templateSlideIndex, templateTotalSlides, templateDefaultBrandMark, templateImageUrl, templateImagePosition, onTemplateImagePositionChange, onLogoPositionChange,
+  templateId, templateCard, onEditTemplateSlot, templateTokens, templateSlideIndex, templateTotalSlides, templateDefaultBrandMark, templateImageUrl, templateImagePosition, onTemplateImagePositionChange, onLogoPositionChange, onLogoSizeChange,
 }) => {
   const typo = getArchetypeTypography(primaryArchetype);
   const isMobile = useIsMobile();
@@ -223,7 +225,11 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0.4);
   const logoDragRef = useRef<{ startClientX: number; startClientY: number; startX: number; startY: number; pointerId: number; totalW: number; totalH: number } | null>(null);
+  const logoResizeDragRef = useRef<{ startClientX: number; startClientY: number; startHalfW: number; xSign: number; ySign: number; totalW: number; pointerId: number } | null>(null);
+  const logoPointerMovedRef = useRef(false);
   const [isLogoDragging, setIsLogoDragging] = useState(false);
+  const [isLogoResizing, setIsLogoResizing] = useState(false);
+  const [isLogoSelected, setIsLogoSelected] = useState(false);
   const [isLogoHovered, setIsLogoHovered] = useState(false);
   const [dragging, setDragging] = useState<{ id: string; startX: number; startY: number; origX: number; origY: number; isText?: boolean; isCta?: boolean } | null>(null);
   const [resizing, setResizing] = useState<{ id: string; startX: number; startY: number; origX: number; origY: number; origW: number; origH: number; corner: Corner; isText?: boolean } | null>(null);
@@ -1184,6 +1190,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
             overflow: "hidden",
             position: "relative",
           }}
+          onPointerDown={() => setIsLogoSelected(false)}
         >
           <div
             style={{
@@ -1211,62 +1218,131 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
             />
           </div>
 
-          {/* Handle de drag da logo — só aparece quando há logo visível e callback configurado */}
-          {logoVisible && onLogoPositionChange && (
-            <div
-              style={{
-                position: "absolute",
-                left: (logoCenterXPct / 100) * totalW - logoHandleW / 2,
-                top: (logoCenterYPct / 100) * totalH - logoHandleH / 2,
-                width: logoHandleW,
-                height: logoHandleH,
-                cursor: isLogoDragging ? "grabbing" : "grab",
-                zIndex: 10,
-                touchAction: "none",
-                userSelect: "none",
-                borderRadius: 4,
-                outline: isLogoHovered || isLogoDragging ? "2px dashed rgba(255,255,255,0.7)" : "none",
-                outlineOffset: 3,
-                boxShadow: isLogoHovered || isLogoDragging ? "0 0 0 1px rgba(0,0,0,0.3)" : "none",
-              }}
-              title="Arraste para reposicionar a logo"
-              onMouseEnter={() => setIsLogoHovered(true)}
-              onMouseLeave={() => setIsLogoHovered(false)}
-              onPointerDown={(e) => {
-                logoDragRef.current = {
-                  startClientX: e.clientX,
-                  startClientY: e.clientY,
-                  startX: logoCenterXPct,
-                  startY: logoCenterYPct,
-                  pointerId: e.pointerId,
-                  totalW,
-                  totalH,
-                };
-                try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* OK */ }
-                setIsLogoDragging(true);
-                e.preventDefault();
-              }}
-              onPointerMove={(e) => {
-                const state = logoDragRef.current;
-                if (!state || !onLogoPositionChange || e.pointerId !== state.pointerId) return;
-                const dx = e.clientX - state.startClientX;
-                const dy = e.clientY - state.startClientY;
-                const newX = Math.max(0, Math.min(100, state.startX + (dx / state.totalW) * 100));
-                const newY = Math.max(0, Math.min(100, state.startY + (dy / state.totalH) * 100));
-                onLogoPositionChange(Math.round(newX * 10) / 10, Math.round(newY * 10) / 10);
-              }}
-              onPointerUp={(e) => {
-                if (!logoDragRef.current) return;
-                try { e.currentTarget.releasePointerCapture(e.pointerId); } catch { /* OK */ }
-                logoDragRef.current = null;
-                setIsLogoDragging(false);
-              }}
-              onPointerCancel={() => {
-                logoDragRef.current = null;
-                setIsLogoDragging(false);
-              }}
-            />
-          )}
+          {/* Handle de drag + resize da logo */}
+          {logoVisible && onLogoPositionChange && (() => {
+            const CORNER = 8; // tamanho visual dos handles de canto (px)
+            const corners: Array<{ key: string; xSign: number; ySign: number; style: React.CSSProperties }> = [
+              { key: "tl", xSign: -1, ySign: -1, style: { top: -CORNER / 2, left: -CORNER / 2, cursor: "nwse-resize" } },
+              { key: "tr", xSign:  1, ySign: -1, style: { top: -CORNER / 2, right: -CORNER / 2, cursor: "nesw-resize" } },
+              { key: "bl", xSign: -1, ySign:  1, style: { bottom: -CORNER / 2, left: -CORNER / 2, cursor: "nesw-resize" } },
+              { key: "br", xSign:  1, ySign:  1, style: { bottom: -CORNER / 2, right: -CORNER / 2, cursor: "nwse-resize" } },
+            ];
+            return (
+              <div
+                style={{
+                  position: "absolute",
+                  left: (logoCenterXPct / 100) * totalW - logoHandleW / 2,
+                  top: (logoCenterYPct / 100) * totalH - logoHandleH / 2,
+                  width: logoHandleW,
+                  height: logoHandleH,
+                  cursor: isLogoDragging ? "grabbing" : "grab",
+                  zIndex: 10,
+                  touchAction: "none",
+                  userSelect: "none",
+                  borderRadius: 4,
+                  outline: isLogoSelected
+                    ? "2px solid rgba(255,255,255,0.85)"
+                    : isLogoHovered
+                    ? "2px dashed rgba(255,255,255,0.6)"
+                    : "none",
+                  outlineOffset: 3,
+                  boxShadow: isLogoSelected || isLogoHovered ? "0 0 0 1px rgba(0,0,0,0.3)" : "none",
+                }}
+                title="Clique para selecionar · Arraste para mover"
+                onMouseEnter={() => setIsLogoHovered(true)}
+                onMouseLeave={() => setIsLogoHovered(false)}
+                onPointerDown={(e) => {
+                  e.stopPropagation();
+                  logoPointerMovedRef.current = false;
+                  logoDragRef.current = {
+                    startClientX: e.clientX,
+                    startClientY: e.clientY,
+                    startX: logoCenterXPct,
+                    startY: logoCenterYPct,
+                    pointerId: e.pointerId,
+                    totalW,
+                    totalH,
+                  };
+                  try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* OK */ }
+                  setIsLogoDragging(true);
+                  e.preventDefault();
+                }}
+                onPointerMove={(e) => {
+                  const state = logoDragRef.current;
+                  if (!state || !onLogoPositionChange || e.pointerId !== state.pointerId) return;
+                  const dx = e.clientX - state.startClientX;
+                  const dy = e.clientY - state.startClientY;
+                  if (Math.abs(dx) > 3 || Math.abs(dy) > 3) logoPointerMovedRef.current = true;
+                  const newX = Math.max(0, Math.min(100, state.startX + (dx / state.totalW) * 100));
+                  const newY = Math.max(0, Math.min(100, state.startY + (dy / state.totalH) * 100));
+                  onLogoPositionChange(Math.round(newX * 10) / 10, Math.round(newY * 10) / 10);
+                }}
+                onPointerUp={(e) => {
+                  if (!logoDragRef.current) return;
+                  try { e.currentTarget.releasePointerCapture(e.pointerId); } catch { /* OK */ }
+                  logoDragRef.current = null;
+                  setIsLogoDragging(false);
+                  if (!logoPointerMovedRef.current) setIsLogoSelected(true);
+                }}
+                onPointerCancel={() => {
+                  logoDragRef.current = null;
+                  setIsLogoDragging(false);
+                }}
+              >
+                {/* Handles de resize nos 4 cantos — visíveis quando selecionado */}
+                {isLogoSelected && corners.map(({ key, xSign, ySign, style }) => (
+                  <div
+                    key={key}
+                    style={{
+                      position: "absolute",
+                      width: CORNER,
+                      height: CORNER,
+                      background: "#fff",
+                      border: "1.5px solid rgba(0,0,0,0.5)",
+                      borderRadius: 2,
+                      touchAction: "none",
+                      ...style,
+                    }}
+                    onPointerDown={(e) => {
+                      e.stopPropagation();
+                      logoResizeDragRef.current = {
+                        startClientX: e.clientX,
+                        startClientY: e.clientY,
+                        startHalfW: logoHandleW / 2,
+                        xSign,
+                        ySign,
+                        totalW,
+                        pointerId: e.pointerId,
+                      };
+                      try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* OK */ }
+                      setIsLogoResizing(true);
+                      e.preventDefault();
+                    }}
+                    onPointerMove={(e) => {
+                      const state = logoResizeDragRef.current;
+                      if (!state || !onLogoSizeChange || e.pointerId !== state.pointerId) return;
+                      const dx = e.clientX - state.startClientX;
+                      const dy = e.clientY - state.startClientY;
+                      const delta = (dx * state.xSign + dy * state.ySign) / Math.SQRT2;
+                      const newHalfW = Math.max(20, state.startHalfW + delta);
+                      const newSizePct = Math.max(8, Math.min(60, (newHalfW * 2 / state.totalW) * 100));
+                      onLogoSizeChange(Math.round(newSizePct * 10) / 10);
+                    }}
+                    onPointerUp={(e) => {
+                      if (!logoResizeDragRef.current) return;
+                      try { e.currentTarget.releasePointerCapture(e.pointerId); } catch { /* OK */ }
+                      logoResizeDragRef.current = null;
+                      setIsLogoResizing(false);
+                    }}
+                    onPointerCancel={() => {
+                      logoResizeDragRef.current = null;
+                      setIsLogoResizing(false);
+                    }}
+                  />
+                ))}
+              </div>
+            );
+          })()}
         </div>
       </div>
     );
