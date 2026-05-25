@@ -88,6 +88,8 @@ const CartorioCard: React.FC<CartorioCardProps> = ({
       behindText={tokens.logoBehindText === true}
       cardWidth={w}
       cardHeight={h}
+      logoX={tokens.logoX}
+      logoY={tokens.logoY}
     />
   );
 

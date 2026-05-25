@@ -401,6 +401,29 @@ const TemplateSertaoPanel: React.FC<Props> = ({
               />
             </Row>
 
+            {tokens.logoBehindText !== true && (
+              <>
+                <Row label={`Posição horizontal · ${Math.round(typeof tokens.logoX === "number" ? tokens.logoX : 85)}%`}>
+                  <Slider
+                    value={[typeof tokens.logoX === "number" ? tokens.logoX : 85]}
+                    onValueChange={(v) => onChange({ logoX: v[0] })}
+                    min={0}
+                    max={100}
+                    step={1}
+                  />
+                </Row>
+                <Row label={`Posição vertical · ${Math.round(typeof tokens.logoY === "number" ? tokens.logoY : 88)}%`}>
+                  <Slider
+                    value={[typeof tokens.logoY === "number" ? tokens.logoY : 88]}
+                    onValueChange={(v) => onChange({ logoY: v[0] })}
+                    min={0}
+                    max={100}
+                    step={1}
+                  />
+                </Row>
+              </>
+            )}
+
             <div className="flex items-center justify-between">
               <label className="text-xs">Atrás das frases (marca d'água)</label>
               <Switch

@@ -335,6 +335,10 @@ export interface LogoOverlayProps {
   cardWidth: number;
   /** Altura do card em px. */
   cardHeight: number;
+  /** Posição X do centro da logo em % da largura do card (0..100). Quando ausente, usa canto inf direito. */
+  logoX?: number;
+  /** Posição Y do centro da logo em % da altura do card (0..100). Quando ausente, usa canto inf direito. */
+  logoY?: number;
 }
 
 export const LogoOverlay: React.FC<LogoOverlayProps> = ({
@@ -345,6 +349,8 @@ export const LogoOverlay: React.FC<LogoOverlayProps> = ({
   behindText = false,
   cardWidth,
   cardHeight,
+  logoX,
+  logoY,
 }) => {
   if (!url || !show) return null;
   // sizePct é % da largura. A altura fica auto pra preservar aspect ratio.
@@ -375,10 +381,33 @@ export const LogoOverlay: React.FC<LogoOverlayProps> = ({
     );
   }
 
-  // Logo em primeiro plano: canto inferior direito, padding proporcional
-  // ao card (~6% da largura). Z-index alto pra ficar acima do texto se
-  // houver sobreposição, mas mesmo assim respeitando o overflow:hidden
-  // do card.
+  // Logo em primeiro plano. Quando logoX/logoY estão definidos, usa posição
+  // livre (centro da logo em % do card). Caso contrário, canto inf direito.
+  const hasCustomPos = typeof logoX === "number" && typeof logoY === "number";
+  if (hasCustomPos) {
+    return (
+      <img
+        src={url}
+        alt=""
+        style={{
+          position: "absolute",
+          left: `${logoX}%`,
+          top: `${logoY}%`,
+          transform: "translate(-50%, -50%)",
+          width: widthPx,
+          height: "auto",
+          maxHeight: cardHeight * 0.35,
+          objectFit: "contain",
+          opacity,
+          zIndex: 5,
+          pointerEvents: "none",
+          userSelect: "none",
+        }}
+        draggable={false}
+      />
+    );
+  }
+
   const padding = cardWidth * 0.06;
   return (
     <img

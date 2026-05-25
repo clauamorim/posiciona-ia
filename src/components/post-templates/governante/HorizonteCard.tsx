@@ -121,6 +121,8 @@ const HorizonteCard: React.FC<HorizonteCardProps> = ({
       behindText={tokens.logoBehindText === true}
       cardWidth={w}
       cardHeight={h}
+      logoX={tokens.logoX}
+      logoY={tokens.logoY}
     />
   );
 

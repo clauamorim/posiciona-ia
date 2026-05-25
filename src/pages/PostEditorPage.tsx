@@ -2026,6 +2026,7 @@ const PostEditorPage = () => {
                 }
                 templateImagePosition={slideImagePositions[0] ?? null}
                 onTemplateImagePositionChange={(next) => setSlideImagePosition(0, next)}
+                onLogoPositionChange={(x, y) => setTemplateTokens((prev) => ({ ...prev, logoX: x, logoY: y }))}
               />
             )}
             {/* Botão "Baixar PNG" foi movido para o painel de ações à direita para não sobrepor o canvas. */}

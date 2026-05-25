@@ -95,4 +95,8 @@ export interface SertaoTokens {
    * frente, no rodapé direito.
    */
   logoBehindText?: boolean;
+  /** Posição X do centro da logo em % da largura do card (0..100). Quando ausente, usa canto inf direito. */
+  logoX?: number;
+  /** Posição Y do centro da logo em % da altura do card (0..100). Quando ausente, usa canto inf direito. */
+  logoY?: number;
 }

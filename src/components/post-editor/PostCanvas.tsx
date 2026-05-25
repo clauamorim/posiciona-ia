@@ -139,6 +139,12 @@ interface PostCanvasProps {
    * slot fica não-arrastável (ex: thumbnail/preview).
    */
   onTemplateImagePositionChange?: (next: string) => void;
+  /**
+   * Callback disparado quando o usuário arrasta a logo no canvas do template.
+   * Recebe as novas coordenadas (x%, y%) do centro da logo em relação ao card.
+   * Quando ausente, o handle de drag da logo não é exibido.
+   */
+  onLogoPositionChange?: (x: number, y: number) => void;
   // Legacy compat
   onImageMove?: (id: string, x: number, y: number) => void;
   onImageResize?: (id: string, width: number, height: number) => void;
@@ -208,7 +214,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   initialTextBoxes, resetKey,
   textBoxes: controlledTextBoxes, onTextBoxesChange,
   primaryArchetype,
-  templateId, templateCard, onEditTemplateSlot, templateTokens, templateSlideIndex, templateTotalSlides, templateDefaultBrandMark, templateImageUrl, templateImagePosition, onTemplateImagePositionChange,
+  templateId, templateCard, onEditTemplateSlot, templateTokens, templateSlideIndex, templateTotalSlides, templateDefaultBrandMark, templateImageUrl, templateImagePosition, onTemplateImagePositionChange, onLogoPositionChange,
 }) => {
   const typo = getArchetypeTypography(primaryArchetype);
   const isMobile = useIsMobile();
@@ -216,6 +222,9 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   const handleHitSize = isMobile ? 36 : 20;
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0.4);
+  const logoDragRef = useRef<{ startClientX: number; startClientY: number; startX: number; startY: number; pointerId: number; totalW: number; totalH: number } | null>(null);
+  const [isLogoDragging, setIsLogoDragging] = useState(false);
+  const [isLogoHovered, setIsLogoHovered] = useState(false);
   const [dragging, setDragging] = useState<{ id: string; startX: number; startY: number; origX: number; origY: number; isText?: boolean; isCta?: boolean } | null>(null);
   const [resizing, setResizing] = useState<{ id: string; startX: number; startY: number; origX: number; origY: number; origW: number; origH: number; corner: Corner; isText?: boolean } | null>(null);
   const [selectedTextIdLocal, setSelectedTextIdLocal] = useState<string | null>(null);
@@ -1139,6 +1148,27 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
     // depois multiplicado pelo `scale`. Cada template renderiza em 540×(675|960).
     // Para preencher o mesmo bounding box, escalamos o template proporcionalmente.
     const tplScale = (canvasWidth * scale) / tplPreviewW;
+
+    // ── Logo drag handle ──────────────────────────────────────────────────
+    // Overlay transparente posicionado sobre a logo. Quando o usuário arrasta,
+    // chama onLogoPositionChange com as novas coordenadas (centro em % do card).
+    // A posição padrão (sem logoX/logoY) aproxima o canto inf direito com padding.
+    const logoSizePct = typeof templateTokens?.logoSize === "number" ? templateTokens.logoSize : 18;
+    const logoVisible =
+      !!templateTokens?.logoUrl &&
+      templateTokens?.showLogo !== false &&
+      !templateTokens?.logoBehindText;
+    const totalW = tplPreviewW * tplScale;
+    const totalH = tplPreviewH * tplScale;
+    const tplPadding = tplPreviewW * 0.06; // mesmo padding do LogoOverlay
+    const logoWidthPx = (tplPreviewW * logoSizePct) / 100;
+    const defaultLogoCenterXPct = ((tplPreviewW - tplPadding - logoWidthPx / 2) / tplPreviewW) * 100;
+    const defaultLogoCenterYPct = ((tplPreviewH - tplPadding - logoWidthPx / 2) / tplPreviewH) * 100;
+    const logoCenterXPct = typeof templateTokens?.logoX === "number" ? templateTokens.logoX : defaultLogoCenterXPct;
+    const logoCenterYPct = typeof templateTokens?.logoY === "number" ? templateTokens.logoY : defaultLogoCenterYPct;
+    const logoHandleW = Math.max(40, logoWidthPx * tplScale);
+    const logoHandleH = logoHandleW;
+
     return (
       <div ref={containerRef} className="flex items-center justify-center w-full max-w-full min-w-0 overflow-hidden">
 
@@ -1148,8 +1178,8 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
             else if (canvasRef && "current" in canvasRef) (canvasRef as any).current = el;
           }}
           style={{
-            width: tplPreviewW * tplScale,
-            height: tplPreviewH * tplScale,
+            width: totalW,
+            height: totalH,
             maxWidth: "100%",
             overflow: "hidden",
             position: "relative",
@@ -1179,8 +1209,64 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
                   }
                 : {})}
             />
-
           </div>
+
+          {/* Handle de drag da logo — só aparece quando há logo visível e callback configurado */}
+          {logoVisible && onLogoPositionChange && (
+            <div
+              style={{
+                position: "absolute",
+                left: (logoCenterXPct / 100) * totalW - logoHandleW / 2,
+                top: (logoCenterYPct / 100) * totalH - logoHandleH / 2,
+                width: logoHandleW,
+                height: logoHandleH,
+                cursor: isLogoDragging ? "grabbing" : "grab",
+                zIndex: 10,
+                touchAction: "none",
+                userSelect: "none",
+                borderRadius: 4,
+                outline: isLogoHovered || isLogoDragging ? "2px dashed rgba(255,255,255,0.7)" : "none",
+                outlineOffset: 3,
+                boxShadow: isLogoHovered || isLogoDragging ? "0 0 0 1px rgba(0,0,0,0.3)" : "none",
+              }}
+              title="Arraste para reposicionar a logo"
+              onMouseEnter={() => setIsLogoHovered(true)}
+              onMouseLeave={() => setIsLogoHovered(false)}
+              onPointerDown={(e) => {
+                logoDragRef.current = {
+                  startClientX: e.clientX,
+                  startClientY: e.clientY,
+                  startX: logoCenterXPct,
+                  startY: logoCenterYPct,
+                  pointerId: e.pointerId,
+                  totalW,
+                  totalH,
+                };
+                try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* OK */ }
+                setIsLogoDragging(true);
+                e.preventDefault();
+              }}
+              onPointerMove={(e) => {
+                const state = logoDragRef.current;
+                if (!state || !onLogoPositionChange || e.pointerId !== state.pointerId) return;
+                const dx = e.clientX - state.startClientX;
+                const dy = e.clientY - state.startClientY;
+                const newX = Math.max(0, Math.min(100, state.startX + (dx / state.totalW) * 100));
+                const newY = Math.max(0, Math.min(100, state.startY + (dy / state.totalH) * 100));
+                onLogoPositionChange(Math.round(newX * 10) / 10, Math.round(newY * 10) / 10);
+              }}
+              onPointerUp={(e) => {
+                if (!logoDragRef.current) return;
+                try { e.currentTarget.releasePointerCapture(e.pointerId); } catch { /* OK */ }
+                logoDragRef.current = null;
+                setIsLogoDragging(false);
+              }}
+              onPointerCancel={() => {
+                logoDragRef.current = null;
+                setIsLogoDragging(false);
+              }}
+            />
+          )}
         </div>
       </div>
     );
