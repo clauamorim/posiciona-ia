@@ -65,4 +65,15 @@ export interface SertaoTokens {
    * caso vazio, cai para "Posiciona Editorial".
    */
   brandMark?: string;
+  /**
+   * Multiplicadores manuais de tamanho de fonte por slot (0.6..1.4).
+   * Aplicados sobre o `fontSize` base do slot antes do autofit, permitindo
+   * que o usuário reduza/aumente texto quando o autofit não acomoda bem.
+   * Default 1 (= sem alteração) quando ausente.
+   */
+  closeTitleScale?: number;
+  closeBodyScale?: number;
+  coverTitleScale?: number;
+  coverCountScale?: number;
+  clauseBodyScale?: number;
 }
