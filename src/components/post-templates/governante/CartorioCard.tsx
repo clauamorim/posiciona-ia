@@ -60,6 +60,13 @@ const CartorioCard: React.FC<CartorioCardProps> = ({
 
   const ornaments = tokens.showOrnaments !== false;
   const bodyFam = peBodyFontFor(tokens.bodyFont);
+  const clamp = (v: number | undefined, min = 0.6, max = 1.4) =>
+    typeof v === "number" && isFinite(v) ? Math.min(max, Math.max(min, v)) : 1;
+  const sCloseTitle = clamp(tokens.closeTitleScale);
+  const sCloseBody = clamp(tokens.closeBodyScale);
+  const sCoverTitle = clamp(tokens.coverTitleScale);
+  const sCoverCount = clamp(tokens.coverCountScale);
+  const sClauseBody = clamp(tokens.clauseBodyScale);
 
   const styleBase: React.CSSProperties = {
     width: w,
@@ -125,7 +132,7 @@ const CartorioCard: React.FC<CartorioCardProps> = ({
                 fontFamily: '"Playfair Display", serif',
                 fontWeight: 500,
                 fontStyle: "italic",
-                fontSize: big ? 168 : 120,
+                fontSize: (big ? 168 : 120) * sCoverCount,
                 lineHeight: 0.86,
                 color: verde,
                 letterSpacing: -3,
@@ -141,7 +148,7 @@ const CartorioCard: React.FC<CartorioCardProps> = ({
               style={{
                 fontFamily: '"Playfair Display", serif',
                 fontWeight: 400,
-                fontSize: big ? 40 : 30,
+                fontSize: (big ? 40 : 30) * sCoverTitle,
                 lineHeight: 1.12,
                 color: verde,
                 marginTop: big ? 26 : 18,
@@ -213,7 +220,7 @@ const CartorioCard: React.FC<CartorioCardProps> = ({
                 fontFamily: '"Playfair Display", serif',
                 fontStyle: "italic",
                 fontWeight: 500,
-                fontSize: big ? 76 : 56,
+                fontSize: (big ? 76 : 56) * sCloseTitle,
                 lineHeight: 1.02,
                 color: verde,
                 letterSpacing: -1.2,
@@ -231,7 +238,7 @@ const CartorioCard: React.FC<CartorioCardProps> = ({
                 fontFamily: bodyFam,
                 fontWeight: 400,
                 fontStyle: bodyFam.includes("Cormorant") ? "italic" : "normal",
-                fontSize: big ? 28 : 22,
+                fontSize: (big ? 28 : 22) * sCloseBody,
                 lineHeight: 1.45,
                 color: bodyColor,
                 opacity: 0.88,
@@ -297,7 +304,7 @@ const CartorioCard: React.FC<CartorioCardProps> = ({
                 fontFamily: bodyFam,
                 fontWeight: 400,
                 fontStyle: bodyFam.includes("Cormorant") ? "italic" : "normal",
-                fontSize: big ? 26 : 20,
+                fontSize: (big ? 26 : 20) * sClauseBody,
                 lineHeight: 1.42,
                 color: bodyColor,
                 opacity: 0.82,
