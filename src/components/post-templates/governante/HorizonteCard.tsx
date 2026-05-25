@@ -83,6 +83,13 @@ const HorizonteCard: React.FC<HorizonteCardProps> = ({
   const ouro = tokens.ouroAccent || OURO;
   const bodyFam = peBodyFontFor(tokens.bodyFont);
   const ornaments = tokens.showOrnaments !== false;
+  const clamp = (v: number | undefined, min = 0.6, max = 1.4) =>
+    typeof v === "number" && isFinite(v) ? Math.min(max, Math.max(min, v)) : 1;
+  const sCloseTitle = clamp(tokens.closeTitleScale);
+  const sCloseBody = clamp(tokens.closeBodyScale);
+  const sCoverTitle = clamp(tokens.coverTitleScale);
+  const sCoverCount = clamp(tokens.coverCountScale);
+  const sClauseBody = clamp(tokens.clauseBodyScale);
 
   const pageNum =
     typeof slideIndex === "number"
@@ -172,7 +179,7 @@ const HorizonteCard: React.FC<HorizonteCardProps> = ({
                 fontFamily: '"Playfair Display", serif',
                 fontWeight: 500,
                 fontStyle: "italic",
-                fontSize: big ? 88 : 64,
+                fontSize: (big ? 88 : 64) * sCoverCount,
                 lineHeight: 0.92,
                 color: areia,
                 letterSpacing: -1.5,
@@ -189,7 +196,7 @@ const HorizonteCard: React.FC<HorizonteCardProps> = ({
               style={{
                 fontFamily: '"Playfair Display", serif',
                 fontWeight: 400,
-                fontSize: big ? 26 : 20,
+                fontSize: (big ? 26 : 20) * sCoverTitle,
                 lineHeight: 1.2,
                 color: areia,
                 marginTop: big ? 14 : 10,
@@ -259,7 +266,7 @@ const HorizonteCard: React.FC<HorizonteCardProps> = ({
                 fontFamily: '"Playfair Display", serif',
                 fontStyle: "italic",
                 fontWeight: 400,
-                fontSize: big ? 50 : 38,
+                fontSize: (big ? 50 : 38) * sCloseTitle,
                 lineHeight: 1.05,
                 color: areia,
                 letterSpacing: -0.8,
@@ -278,7 +285,7 @@ const HorizonteCard: React.FC<HorizonteCardProps> = ({
                 fontFamily: bodyFam,
                 fontWeight: 400,
                 fontStyle: bodyFam.includes("Cormorant") ? "italic" : "normal",
-                fontSize: big ? 22 : 18,
+                fontSize: (big ? 22 : 18) * sCloseBody,
                 lineHeight: 1.45,
                 color: areia,
                 opacity: 0.86,
@@ -365,7 +372,7 @@ const HorizonteCard: React.FC<HorizonteCardProps> = ({
             fontFamily: bodyFam,
             fontWeight: 400,
             fontStyle: bodyFam.includes("Cormorant") ? "italic" : "normal",
-            fontSize: big ? 22 : 18,
+            fontSize: (big ? 22 : 18) * sClauseBody,
             lineHeight: 1.42,
             color: areia,
             opacity: 0.82,

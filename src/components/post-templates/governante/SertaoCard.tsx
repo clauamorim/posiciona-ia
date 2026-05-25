@@ -67,6 +67,13 @@ const SertaoCard: React.FC<SertaoCardProps> = ({
 
   const ornaments = tokens.showOrnaments !== false;
   const bodyFam = peBodyFontFor(tokens.bodyFont);
+  const clamp = (v: number | undefined, min = 0.6, max = 1.4) =>
+    typeof v === "number" && isFinite(v) ? Math.min(max, Math.max(min, v)) : 1;
+  const sCloseTitle = clamp(tokens.closeTitleScale);
+  const sCloseBody = clamp(tokens.closeBodyScale);
+  const sCoverTitle = clamp(tokens.coverTitleScale);
+  const sCoverCount = clamp(tokens.coverCountScale);
+  const sClauseBody = clamp(tokens.clauseBodyScale);
 
   const styleBase: React.CSSProperties = {
     width: w,
@@ -134,7 +141,7 @@ const SertaoCard: React.FC<SertaoCardProps> = ({
                     fontFamily: '"Playfair Display", serif',
                     fontStyle: "italic",
                     fontWeight: 400,
-                    fontSize: big ? 68 : 48,
+                    fontSize: (big ? 68 : 48) * sCoverTitle,
                     lineHeight: 1.05,
                     color: areia,
                     letterSpacing: -0.8,
@@ -267,7 +274,7 @@ const SertaoCard: React.FC<SertaoCardProps> = ({
                 fontFamily: '"Playfair Display", serif',
                 fontWeight: 500,
                 fontStyle: "italic",
-                fontSize: big ? 132 : 96,
+                fontSize: (big ? 132 : 96) * sCoverCount,
                 lineHeight: 0.9,
                 color: areia,
                 letterSpacing: -1.5,
@@ -282,7 +289,7 @@ const SertaoCard: React.FC<SertaoCardProps> = ({
             style={{
               fontFamily: '"Playfair Display", serif',
               fontWeight: 400,
-              fontSize: big ? 38 : 28,
+              fontSize: (big ? 38 : 28) * sCoverTitle,
               lineHeight: 1.15,
               color: areia,
               marginTop: big ? 22 : 14,
@@ -426,7 +433,7 @@ const SertaoCard: React.FC<SertaoCardProps> = ({
                   fontFamily: '"Playfair Display", serif',
                   fontStyle: "italic",
                   fontWeight: 400,
-                  fontSize: big ? 72 : 52,
+                  fontSize: (big ? 72 : 52) * sCloseTitle,
                   lineHeight: 1.05,
                   color: areia,
                   letterSpacing: -1,
@@ -451,7 +458,7 @@ const SertaoCard: React.FC<SertaoCardProps> = ({
                 style={{
                   fontFamily: bodyFam,
                   fontWeight: 400,
-                  fontSize: big ? 28 : 22,
+                  fontSize: (big ? 28 : 22) * sCloseBody,
                   lineHeight: 1.45,
                   color: areia,
                   opacity: 0.86,
@@ -587,7 +594,7 @@ const SertaoCard: React.FC<SertaoCardProps> = ({
               fontFamily: bodyFam,
               fontWeight: 400,
               fontStyle: bodyFam.includes("Cormorant") ? "italic" : "normal",
-              fontSize: big ? 26 : 21,
+              fontSize: (big ? 26 : 21) * sClauseBody,
               lineHeight: 1.4,
               color: areia,
               opacity: 0.78,

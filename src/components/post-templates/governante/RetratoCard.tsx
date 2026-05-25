@@ -92,6 +92,13 @@ const RetratoCard: React.FC<RetratoCardProps> = ({
   const bodyColor = pickBodyColor(areia, "#2C2C2C", "#F5F0E8");
   const bodyFam = peBodyFontFor(tokens.bodyFont);
   const ornaments = tokens.showOrnaments !== false;
+  const clamp = (v: number | undefined, min = 0.6, max = 1.4) =>
+    typeof v === "number" && isFinite(v) ? Math.min(max, Math.max(min, v)) : 1;
+  const sCloseTitle = clamp(tokens.closeTitleScale);
+  const sCloseBody = clamp(tokens.closeBodyScale);
+  const sCoverTitle = clamp(tokens.coverTitleScale);
+  const sCoverCount = clamp(tokens.coverCountScale);
+  const sClauseBody = clamp(tokens.clauseBodyScale);
 
   const styleBase: React.CSSProperties = {
     width: w,
@@ -189,7 +196,7 @@ const RetratoCard: React.FC<RetratoCardProps> = ({
                 fontFamily: '"Playfair Display", serif',
                 fontWeight: 500,
                 fontStyle: "italic",
-                fontSize: big ? 116 : 64,
+                fontSize: (big ? 116 : 64) * sCoverCount,
                 lineHeight: 0.92,
                 color: verde,
                 letterSpacing: -2,
@@ -205,7 +212,7 @@ const RetratoCard: React.FC<RetratoCardProps> = ({
               style={{
                 fontFamily: '"Playfair Display", serif',
                 fontWeight: 400,
-                fontSize: big ? 28 : 20,
+                fontSize: (big ? 28 : 20) * sCoverTitle,
                 lineHeight: 1.18,
                 color: verde,
                 marginTop: big ? 18 : 12,
@@ -279,7 +286,7 @@ const RetratoCard: React.FC<RetratoCardProps> = ({
                 fontFamily: '"Playfair Display", serif',
                 fontStyle: "italic",
                 fontWeight: 500,
-                fontSize: big ? 52 : 30,
+                fontSize: (big ? 52 : 30) * sCloseTitle,
                 lineHeight: 1.04,
                 color: verde,
                 letterSpacing: -0.8,
@@ -298,7 +305,7 @@ const RetratoCard: React.FC<RetratoCardProps> = ({
                 fontFamily: bodyFam,
                 fontWeight: 400,
                 fontStyle: bodyFam.includes("Cormorant") ? "italic" : "normal",
-                fontSize: big ? 22 : 16,
+                fontSize: (big ? 22 : 16) * sCloseBody,
                 lineHeight: 1.42,
                 color: bodyColor,
                 opacity: 0.88,
@@ -385,7 +392,7 @@ const RetratoCard: React.FC<RetratoCardProps> = ({
             fontFamily: bodyFam,
             fontWeight: 400,
             fontStyle: bodyFam.includes("Cormorant") ? "italic" : "normal",
-            fontSize: big ? 20 : 14,
+            fontSize: (big ? 20 : 14) * sClauseBody,
             lineHeight: 1.4,
             color: bodyColor,
             opacity: 0.82,

@@ -394,17 +394,24 @@ const AddElementPanel: React.FC<AddElementPanelProps> = ({
       if (insErr) throw insErr;
       const { data: signed } = await supabase.storage.from("user-uploads").createSignedUrl(path, 60 * 60);
       const url = signed?.signedUrl || "";
-      const img: OverlayImage = {
-        id: crypto.randomUUID(), src: url,
-        x: 200, y: 200, width: 400, height: 400,
-        type: isLogo ? "logo" : "photo",
-        opacity: 1,
-      };
-      onAddImage(img);
+      // Em modo template-com-foto, `onSwapBackground` está definido — a imagem
+      // enviada deve substituir a foto do slide atual em vez de virar overlay.
+      // Logos continuam virando overlay (uso típico: assinatura/marca d'água).
+      if (onSwapBackground && !isLogo && url) {
+        onSwapBackground(url, "saved");
+      } else {
+        const img: OverlayImage = {
+          id: crypto.randomUUID(), src: url,
+          x: 200, y: 200, width: 400, height: 400,
+          type: isLogo ? "logo" : "photo",
+          opacity: 1,
+        };
+        onAddImage(img);
+      }
       // Sempre que uma logo é criada/atualizada, invalida o cache de sessão
       if (isLogo && user) clearLogoCache(user.id);
       loadUserAssets();
-      toast({ title: isLogo ? "Logo salva (fundo removido)" : "Imagem salva na sua galeria" });
+      toast({ title: isLogo ? "Logo salva (fundo removido)" : (onSwapBackground ? "Imagem aplicada ao slide" : "Imagem salva na sua galeria") });
       setPendingUpload(null);
     } catch (err: any) {
       console.error("Upload error:", err);
@@ -537,7 +544,16 @@ const AddElementPanel: React.FC<AddElementPanelProps> = ({
             <div className="grid grid-cols-3 gap-1.5">
               {userAssets.map((a) => (
                 <div key={a.id} className="relative group aspect-square rounded-md border overflow-hidden bg-muted/40">
-                  <button onClick={() => handleAddImageFromUrl(a.url)} className="absolute inset-0">
+                  <button
+                    onClick={() => {
+                      if (onSwapBackground && !a.is_logo) {
+                        onSwapBackground(a.url, "saved");
+                      } else {
+                        handleAddImageFromUrl(a.url);
+                      }
+                    }}
+                    className="absolute inset-0"
+                  >
                     <img src={a.url} alt={a.name} className="w-full h-full object-cover" loading="lazy" />
                   </button>
                   {a.is_logo && (
