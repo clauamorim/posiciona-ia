@@ -4,6 +4,8 @@ import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Slider } from "@/components/ui/slider";
+import { RotateCcw } from "lucide-react";
 import ColorPicker, { PaletteColor } from "./ColorPicker";
 import {
   AREIA,
