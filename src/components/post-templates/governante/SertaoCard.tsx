@@ -67,6 +67,13 @@ const SertaoCard: React.FC<SertaoCardProps> = ({
 
   const ornaments = tokens.showOrnaments !== false;
   const bodyFam = peBodyFontFor(tokens.bodyFont);
+  const clamp = (v: number | undefined, min = 0.6, max = 1.4) =>
+    typeof v === "number" && isFinite(v) ? Math.min(max, Math.max(min, v)) : 1;
+  const sCloseTitle = clamp(tokens.closeTitleScale);
+  const sCloseBody = clamp(tokens.closeBodyScale);
+  const sCoverTitle = clamp(tokens.coverTitleScale);
+  const sCoverCount = clamp(tokens.coverCountScale);
+  const sClauseBody = clamp(tokens.clauseBodyScale);
 
   const styleBase: React.CSSProperties = {
     width: w,
