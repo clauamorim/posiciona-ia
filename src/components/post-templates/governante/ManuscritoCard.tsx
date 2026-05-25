@@ -16,7 +16,7 @@ import type {
   SertaoTokens,
 } from "./types";
 import { AREIA, FORMATS, MOGNO, OURO, VERDE, peBodyFontFor, peRenderNum, peTinyCaps } from "./tokens";
-import { EditableSpan, PeDiamond, PeRule, pickBodyColor } from "./shared";
+import { EditableSpan, FitGroup, PeDiamond, PeRule, pickBodyColor } from "./shared";
 
 type SlotField = keyof CoverSlots | keyof ClauseSlots | keyof CloseSlots;
 
@@ -174,41 +174,41 @@ const ManuscritoCard: React.FC<ManuscritoCardProps> = ({
             boxSizing: "border-box",
           }}
         >
-          <EditableSpan
-            field="titleLead"
-            value={card.titleLead}
-            as="div"
-              autoFit
-            style={{
-              fontFamily: '"Playfair Display", serif',
-              fontWeight: 400,
-              fontSize: big ? 40 : 30,
-              lineHeight: 1.12,
-              color: verde,
-              letterSpacing: -0.3,
-              textWrap: "pretty" as any,
-            }}
-            onEdit={onEditSlot as any}
-            placeholder="Título principal"
-          />
-          <EditableSpan
-            field="titleTail"
-            value={card.titleTail}
-            as="div"
-            style={{
-              fontFamily: '"Cormorant Garamond", serif',
-              fontStyle: "italic",
-              fontSize: big ? 28 : 22,
-              lineHeight: 1.3,
-              color: bodyColor,
-              opacity: 0.78,
-              marginTop: big ? 14 : 10,
-            }}
-            onEdit={onEditSlot as any}
-            placeholder="complemento"
-          />
-
-          <div style={{ flex: 1 }} />
+          {/* titleLead + titleTail dentro do FitGroup pra escalar juntos. */}
+          <FitGroup>
+            <EditableSpan
+              field="titleLead"
+              value={card.titleLead}
+              as="div"
+              style={{
+                fontFamily: '"Playfair Display", serif',
+                fontWeight: 400,
+                fontSize: big ? 40 : 30,
+                lineHeight: 1.12,
+                color: verde,
+                letterSpacing: -0.3,
+                textWrap: "pretty" as any,
+              }}
+              onEdit={onEditSlot as any}
+              placeholder="Título principal"
+            />
+            <EditableSpan
+              field="titleTail"
+              value={card.titleTail}
+              as="div"
+              style={{
+                fontFamily: '"Cormorant Garamond", serif',
+                fontStyle: "italic",
+                fontSize: big ? 28 : 22,
+                lineHeight: 1.3,
+                color: bodyColor,
+                opacity: 0.78,
+                marginTop: big ? 14 : 10,
+              }}
+              onEdit={onEditSlot as any}
+              placeholder="complemento"
+            />
+          </FitGroup>
 
           <PeRule color={mogno} opacity={0.5} />
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: big ? 14 : 10 }}>
@@ -270,45 +270,47 @@ const ManuscritoCard: React.FC<ManuscritoCardProps> = ({
               <div style={{ height: 1, width: big ? 64 : 48, background: ouro, opacity: 0.6 }} />
             </div>
           )}
-          <EditableSpan
-            field="title"
-            value={card.title}
-            as="div"
-              autoFit
-            style={{
-              fontFamily: '"Playfair Display", serif',
-              fontStyle: "italic",
-              fontWeight: 500,
-              fontSize: big ? 80 : 58,
-              lineHeight: 1.02,
-              color: verde,
-              letterSpacing: -1.2,
-              textWrap: "balance" as any,
-            }}
-            onEdit={onEditSlot as any}
-            placeholder="Frase de fechamento"
-          />
-          <div style={{ height: big ? 30 : 20 }} />
-          <EditableSpan
-            field="body"
-            value={card.body}
-            as="div"
-              autoFit
-            style={{
-              fontFamily: bodyFam,
-              fontWeight: 400,
-              fontStyle: bodyFam.includes("Cormorant") ? "italic" : "normal",
-              fontSize: big ? 28 : 22,
-              lineHeight: 1.45,
-              color: bodyColor,
-              opacity: 0.88,
-              maxWidth: "88%",
-            }}
-            onEdit={onEditSlot as any}
-            placeholder="Texto de apoio"
-          />
-
-          <div style={{ flex: 1 }} />
+          {/* FitGroup mede title+spacer+body como um conjunto e aplica
+              scale uniforme se extrapolar. Substitui o auto-fit por
+              elemento — que falhava quando o overflow vinha da SOMA dos
+              elementos (cada um sozinho cabia, mas combinados não). */}
+          <FitGroup>
+            <EditableSpan
+              field="title"
+              value={card.title}
+              as="div"
+              style={{
+                fontFamily: '"Playfair Display", serif',
+                fontStyle: "italic",
+                fontWeight: 500,
+                fontSize: big ? 80 : 58,
+                lineHeight: 1.02,
+                color: verde,
+                letterSpacing: -1.2,
+                textWrap: "balance" as any,
+              }}
+              onEdit={onEditSlot as any}
+              placeholder="Frase de fechamento"
+            />
+            <div style={{ height: big ? 30 : 20 }} />
+            <EditableSpan
+              field="body"
+              value={card.body}
+              as="div"
+              style={{
+                fontFamily: bodyFam,
+                fontWeight: 400,
+                fontStyle: bodyFam.includes("Cormorant") ? "italic" : "normal",
+                fontSize: big ? 28 : 22,
+                lineHeight: 1.45,
+                color: bodyColor,
+                opacity: 0.88,
+                maxWidth: "88%",
+              }}
+              onEdit={onEditSlot as any}
+              placeholder="Texto de apoio"
+            />
+          </FitGroup>
 
           <PeRule color={mogno} opacity={0.5} />
           <div style={{ marginTop: big ? 14 : 10, display: "flex", justifyContent: "space-between" }}>
@@ -384,49 +386,50 @@ const ManuscritoCard: React.FC<ManuscritoCardProps> = ({
           boxSizing: "border-box",
         }}
       >
-        <div style={{ fontFamily: '"Cormorant Garamond", serif', fontStyle: "italic", fontSize: big ? 26 : 20, color: mogno, letterSpacing: 0.4, marginBottom: big ? 10 : 6 }}>
-          {(card.topic || "").toLowerCase()}
-        </div>
-        <EditableSpan
-          field="title"
-          value={card.title}
-          as="div"
-              autoFit
-          style={{
-            fontFamily: '"Playfair Display", serif',
-            fontWeight: 400,
-            fontSize: big ? 48 : 36,
-            lineHeight: 1.06,
-            color: verde,
-            letterSpacing: -0.4,
-            textWrap: "balance" as any,
-            maxWidth: "85%",
-          }}
-          onEdit={onEditSlot as any}
-          placeholder="Título da cláusula"
-        />
-        <div style={{ height: big ? 22 : 14 }} />
-        <EditableSpan
-          field="body"
-          value={card.body}
-          as="div"
-              autoFit
-          style={{
-            fontFamily: bodyFam,
-            fontWeight: 400,
-            fontStyle: bodyFam.includes("Cormorant") ? "italic" : "normal",
-            fontSize: big ? 26 : 21,
-            lineHeight: 1.42,
-            color: bodyColor,
-            opacity: 0.82,
-            textWrap: "pretty" as any,
-            maxWidth: "88%",
-          }}
-          onEdit={onEditSlot as any}
-          placeholder="Texto da cláusula"
-        />
-
-        <div style={{ flex: 1 }} />
+        {/* topic-italic + title + body envolvidos no FitGroup pra escala
+            conjunta. O topic-italic é decorativo (cor mogno suave) e
+            também encolhe junto se preciso. */}
+        <FitGroup>
+          <div style={{ fontFamily: '"Cormorant Garamond", serif', fontStyle: "italic", fontSize: big ? 26 : 20, color: mogno, letterSpacing: 0.4, marginBottom: big ? 10 : 6 }}>
+            {(card.topic || "").toLowerCase()}
+          </div>
+          <EditableSpan
+            field="title"
+            value={card.title}
+            as="div"
+            style={{
+              fontFamily: '"Playfair Display", serif',
+              fontWeight: 400,
+              fontSize: big ? 48 : 36,
+              lineHeight: 1.06,
+              color: verde,
+              letterSpacing: -0.4,
+              textWrap: "balance" as any,
+              maxWidth: "85%",
+            }}
+            onEdit={onEditSlot as any}
+            placeholder="Título da cláusula"
+          />
+          <div style={{ height: big ? 22 : 14 }} />
+          <EditableSpan
+            field="body"
+            value={card.body}
+            as="div"
+            style={{
+              fontFamily: bodyFam,
+              fontWeight: 400,
+              fontStyle: bodyFam.includes("Cormorant") ? "italic" : "normal",
+              fontSize: big ? 26 : 21,
+              lineHeight: 1.42,
+              color: bodyColor,
+              opacity: 0.82,
+              textWrap: "pretty" as any,
+              maxWidth: "88%",
+            }}
+            onEdit={onEditSlot as any}
+            placeholder="Texto da cláusula"
+          />
+        </FitGroup>
 
         <PeRule color={mogno} opacity={0.5} />
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: big ? 14 : 10 }}>

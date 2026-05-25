@@ -17,7 +17,7 @@ import type {
   SertaoTokens,
 } from "./types";
 import { AREIA, FORMATS, MOGNO, VERDE, peBodyFontFor, peRenderNum, peTinyCaps } from "./tokens";
-import { EditableSpan, PeDiamond, PeRule, pickBodyColor } from "./shared";
+import { EditableSpan, FitGroup, PeDiamond, PeRule, pickBodyColor } from "./shared";
 
 type SlotField = keyof CoverSlots | keyof ClauseSlots | keyof CloseSlots;
 
@@ -199,14 +199,16 @@ const CartorioCard: React.FC<CartorioCardProps> = ({
           </div>
           <PeRule color={mogno} mt={big ? 22 : 14} />
 
-          <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+          {/* FitGroup mede o conjunto ornaments+spacer+title+spacer+body e
+              aplica scale uniforme quando o conjunto extrapola — resolve
+              o caso onde cada elemento cabe sozinho mas a soma não. */}
+          <FitGroup style={{ display: "flex", flexDirection: "column", justifyContent: "center" }}>
             {ornaments && <PeDiamond color={mogno} size={big ? 12 : 10} />}
             <div style={{ height: big ? 36 : 26 }} />
             <EditableSpan
               field="title"
               value={card.title}
               as="div"
-              autoFit
               style={{
                 fontFamily: '"Playfair Display", serif',
                 fontStyle: "italic",
@@ -225,7 +227,6 @@ const CartorioCard: React.FC<CartorioCardProps> = ({
               field="body"
               value={card.body}
               as="div"
-              autoFit
               style={{
                 fontFamily: bodyFam,
                 fontWeight: 400,
@@ -239,7 +240,7 @@ const CartorioCard: React.FC<CartorioCardProps> = ({
               onEdit={onEditSlot as any}
               placeholder="Texto de apoio"
             />
-          </div>
+          </FitGroup>
 
           <PeRule color={mogno} />
           <div style={{ marginTop: big ? 16 : 10, display: "flex", justifyContent: "space-between" }}>
@@ -269,12 +270,12 @@ const CartorioCard: React.FC<CartorioCardProps> = ({
           <div style={{ fontFamily: '"Playfair Display", serif', fontStyle: "italic", fontWeight: 500, fontSize: big ? 240 : 180, lineHeight: 0.78, color: mogno, letterSpacing: -6, alignSelf: "start", marginTop: -8 }}>
             {numLabel}
           </div>
-          <div style={{ display: "flex", flexDirection: "column", justifyContent: "flex-start", paddingTop: big ? 18 : 10 }}>
+          {/* FitGroup envolve title+body do clause — mesmo motivo do close. */}
+          <FitGroup style={{ display: "flex", flexDirection: "column", justifyContent: "flex-start", paddingTop: big ? 18 : 10 }}>
             <EditableSpan
               field="title"
               value={card.title}
               as="div"
-              autoFit
               style={{
                 fontFamily: '"Playfair Display", serif',
                 fontWeight: 400,
@@ -292,7 +293,6 @@ const CartorioCard: React.FC<CartorioCardProps> = ({
               field="body"
               value={card.body}
               as="div"
-              autoFit
               style={{
                 fontFamily: bodyFam,
                 fontWeight: 400,
@@ -306,7 +306,7 @@ const CartorioCard: React.FC<CartorioCardProps> = ({
               onEdit={onEditSlot as any}
               placeholder="Texto da cláusula"
             />
-          </div>
+          </FitGroup>
         </div>
 
         <PeRule color={mogno} />

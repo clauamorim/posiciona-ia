@@ -415,6 +415,106 @@ export const EditableSpan: React.FC<EditableSpanProps> = ({
   );
 };
 
+// ── FitGroup ─────────────────────────────────────────────────────────
+// Auto-fit a NÍVEL DE CONJUNTO de elementos.
+//
+// Caso resolvido: dentro de um wrapper (ex: a metade inferior do
+// Manuscrito), título E corpo são editáveis e cada um cabe sozinho no
+// wrapper — mas combinados extrapolam. O auto-fit por elemento (via
+// EditableSpan.autoFit) não detecta esse overflow porque mede só seu
+// próprio scrollHeight contra parent.clientHeight, e o parent é largo
+// o suficiente pra cada elemento sozinho.
+//
+// Estratégia: medir scrollHeight do GRUPO inteiro contra um limite
+// (maxHeight ou parent.clientHeight) e aplicar `transform: scale(s)`
+// uniforme. Mantém proporções tipográficas perfeitas — title e body
+// reduzem juntos.
+//
+// Trade-off: o conteúdo escalado fica visualmente mais estreito que o
+// wrapper se não compensarmos width. Por isso compensamos com
+// `width: ${100/scale}%` quando há redução — o conteúdo re-flui no
+// width "ampliado", ocupando o mesmo espaço visual após o scale.
+
+export interface FitGroupProps {
+  children: React.ReactNode;
+  /** Limite explícito em px. Se omitido, usa wrapper.clientHeight. */
+  maxHeight?: number;
+  /** Scale mínimo aceito (default 0.4, ~ -60% do tamanho original). */
+  minScale?: number;
+  /** Style adicional pro wrapper. */
+  style?: React.CSSProperties;
+}
+
+export const FitGroup: React.FC<FitGroupProps> = ({
+  children,
+  maxHeight,
+  minScale = 0.4,
+  style,
+}) => {
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const contentRef = useRef<HTMLDivElement | null>(null);
+  const [scale, setScale] = useState(1);
+  const lastMeasuredRef = useRef<{ contentH: number; limitH: number } | null>(null);
+
+  useLayoutEffect(() => {
+    const wrapper = wrapperRef.current;
+    const content = contentRef.current;
+    if (!wrapper || !content) return;
+
+    const fit = () => {
+      // Reset transform + width pra medir o tamanho natural.
+      content.style.transform = "";
+      content.style.width = "100%";
+      const contentH = content.scrollHeight;
+      const limitH = maxHeight ?? wrapper.clientHeight;
+      if (!limitH || !contentH) return;
+
+      // Evita re-render desnecessário quando nada mudou (ResizeObserver
+      // pode disparar repetido em browsers diferentes).
+      const last = lastMeasuredRef.current;
+      if (last && last.contentH === contentH && last.limitH === limitH) return;
+      lastMeasuredRef.current = { contentH, limitH };
+
+      const next = contentH > limitH
+        ? Math.max(minScale, limitH / contentH)
+        : 1;
+      setScale(next);
+    };
+
+    fit();
+
+    if (typeof ResizeObserver === "undefined") return;
+    // Observa só o wrapper — mudanças do content vêm do nosso próprio
+    // scale, então observar content causa loop.
+    const ro = new ResizeObserver(() => {
+      // requestAnimationFrame evita re-medir antes do browser ter
+      // pintado o estado anterior.
+      requestAnimationFrame(fit);
+    });
+    ro.observe(wrapper);
+    return () => ro.disconnect();
+  }, [maxHeight, minScale, children]);
+
+  return (
+    <div
+      ref={wrapperRef}
+      style={{ flex: 1, minHeight: 0, overflow: "hidden", ...style }}
+    >
+      <div
+        ref={contentRef}
+        style={{
+          transform: scale !== 1 ? `scale(${scale})` : undefined,
+          transformOrigin: "top left",
+          // Compensa width pro conteúdo re-fluir no mesmo espaço visual.
+          width: scale < 1 ? `${100 / scale}%` : "100%",
+        }}
+      >
+        {children}
+      </div>
+    </div>
+  );
+};
+
 // ── FitText ──────────────────────────────────────────────────────────
 // Auto-shrink de fonte pra caber em altura/largura disponível.
 //

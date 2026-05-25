@@ -20,7 +20,7 @@ import {
   peRenderNum,
   peTinyCaps,
 } from "./tokens";
-import { EditableSpan, PeDiamond, PeRule } from "./shared";
+import { EditableSpan, FitGroup, PeDiamond, PeRule } from "./shared";
 
 type SlotField =
   | keyof CoverSlots
