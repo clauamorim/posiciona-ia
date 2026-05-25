@@ -70,6 +70,12 @@ interface CarouselEditorProps {
   templateTokens?: Partial<SertaoTokens> | null;
   onEditTemplateSlot?: (slideIndex: number, field: string, value: string) => void;
   templateDefaultBrandMark?: string;
+  /**
+   * Mapa de URLs de imagens por índice do slide. Usado pelos templates
+   * de foto (Horizonte/Retrato) para popular o slot de imagem de cada
+   * card automaticamente — vem de slideBackgrounds do PostEditorPage.
+   */
+  slideImageUrls?: Record<number, string | undefined>;
 }
 
 const CarouselEditor: React.FC<CarouselEditorProps> = ({
@@ -88,6 +94,7 @@ const CarouselEditor: React.FC<CarouselEditorProps> = ({
   slideTextBoxes, onSlideTextBoxesChange,
   primaryArchetype,
   templateId, templateCards, templateTokens, onEditTemplateSlot, templateDefaultBrandMark,
+  slideImageUrls,
 }) => {
   const total = slides.length;
   const isCover = currentSlide === 0;
@@ -137,6 +144,7 @@ const CarouselEditor: React.FC<CarouselEditorProps> = ({
         templateSlideIndex={currentSlide}
         templateTotalSlides={templateCards?.length ?? undefined}
         templateDefaultBrandMark={templateDefaultBrandMark}
+        templateImageUrl={slideImageUrls?.[currentSlide] ?? null}
         onEditTemplateSlot={
           onEditTemplateSlot
             ? (field, value) => onEditTemplateSlot(currentSlide, field, value)

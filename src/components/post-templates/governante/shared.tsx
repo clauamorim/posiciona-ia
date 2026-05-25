@@ -10,6 +10,12 @@ export const TEMPLATE_IDS = {
   SERTAO: "governante.sertao-profundo",
   CARTORIO: "governante.cartorio-de-bolso",
   MANUSCRITO: "governante.manuscrito",
+  // Variações com foto. Mesma estrutura editorial (cover/clause/close) mas
+  // com slot de imagem ocupando ~40% do card. URL vem de slideBackgrounds
+  // (já populado pelo fluxo Pexels + carrossel) ou da galeria do usuário
+  // via o toolbar "trocar fundo" existente.
+  HORIZONTE: "governante.horizonte",
+  RETRATO: "governante.retrato",
 } as const;
 
 /**
@@ -45,6 +51,109 @@ export const ALL_TEMPLATE_IDS: string[] = Object.values(TEMPLATE_IDS);
 export function isKnownTemplate(templateId?: string | null): boolean {
   return !!templateId && ALL_TEMPLATE_IDS.includes(templateId);
 }
+
+// ── PhotoSlot ────────────────────────────────────────────────────────
+// Slot de imagem usado pelos templates de foto (Horizonte / Retrato).
+//
+// - `url` definido → renderiza <img> com object-fit: cover preenchendo
+//   todo o contêiner. URL tipicamente vem de slideBackgrounds[i].url
+//   (já populado pelo fluxo Pexels do PostEditorPage).
+// - `url` ausente → mostra placeholder discreto com texto contextual
+//   ("foto · CLÁUSULA · PRAZO", etc.). O placeholder não é clicável
+//   nesse componente; usuário troca a imagem via o botão "trocar fundo"
+//   já existente no toolbar do editor (que escreve em slideBackgrounds).
+// - `frameColor` / `frameSide` → desenha a hairline dourada/mogno que
+//   separa a foto do bloco de texto, característica visual das
+//   variações com foto no design original.
+
+export interface PhotoSlotProps {
+  url?: string | null;
+  placeholder?: string;
+  /** Cor da hairline que enquadra a foto. */
+  frameColor: string;
+  /** Lado onde a hairline fica (bottom em Horizonte; right ou bottom em Retrato). */
+  frameSide?: "bottom" | "right" | "top" | "left";
+  /** Cor de fallback quando não há foto (tom da paleta). */
+  fallbackBg?: string;
+  /** Cor do texto do placeholder. */
+  placeholderColor?: string;
+}
+
+export const PhotoSlot: React.FC<PhotoSlotProps> = ({
+  url,
+  placeholder,
+  frameColor,
+  frameSide = "bottom",
+  fallbackBg = "#0E2A20",
+  placeholderColor = "#F5F0E8",
+}) => {
+  const frameStyle: React.CSSProperties = {
+    position: "absolute",
+    background: frameColor,
+    opacity: 0.85,
+  };
+  switch (frameSide) {
+    case "bottom":
+      Object.assign(frameStyle, { bottom: 0, left: 0, right: 0, height: 1 });
+      break;
+    case "top":
+      Object.assign(frameStyle, { top: 0, left: 0, right: 0, height: 1 });
+      break;
+    case "right":
+      Object.assign(frameStyle, { top: 0, bottom: 0, right: 0, width: 1 });
+      break;
+    case "left":
+      Object.assign(frameStyle, { top: 0, bottom: 0, left: 0, width: 1 });
+      break;
+  }
+
+  return (
+    <div
+      style={{
+        position: "absolute",
+        inset: 0,
+        background: fallbackBg,
+        overflow: "hidden",
+      }}
+    >
+      {url ? (
+        <img
+          src={url}
+          alt=""
+          style={{
+            display: "block",
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            objectPosition: "center center",
+          }}
+          draggable={false}
+        />
+      ) : (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: placeholderColor,
+            opacity: 0.4,
+            fontFamily: '"Lato", sans-serif',
+            fontSize: 11,
+            letterSpacing: 2,
+            textTransform: "uppercase",
+            textAlign: "center",
+            padding: 16,
+          }}
+        >
+          {placeholder || "foto"}
+        </div>
+      )}
+      <div style={frameStyle} />
+    </div>
+  );
+};
 
 interface PeEyebrowProps {
   children: React.ReactNode;

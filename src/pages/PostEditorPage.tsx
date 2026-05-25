@@ -1835,6 +1835,12 @@ const PostEditorPage = () => {
                   <SelectItem value="governante.manuscrito">
                     Manuscrito · Editorial{primaryArchetype ? ` · ${primaryArchetype}` : ""}
                   </SelectItem>
+                  <SelectItem value="governante.horizonte">
+                    Horizonte · Foto horizontal{primaryArchetype ? ` · ${primaryArchetype}` : ""}
+                  </SelectItem>
+                  <SelectItem value="governante.retrato">
+                    Retrato · Foto vertical{primaryArchetype ? ` · ${primaryArchetype}` : ""}
+                  </SelectItem>
                 </SelectContent>
               </Select>
               {templateId && (
@@ -1894,6 +1900,9 @@ const PostEditorPage = () => {
                 templateTokens={templateTokens}
                 templateDefaultBrandMark={companyName}
                 onEditTemplateSlot={updateTemplateSlot}
+                slideImageUrls={Object.fromEntries(
+                  Object.entries(slideBackgrounds).map(([k, v]) => [Number(k), v?.url]),
+                )}
               />
             ) : (
               <PostCanvas
@@ -1929,6 +1938,13 @@ const PostEditorPage = () => {
                 templateTotalSlides={templateCards?.length ?? undefined}
                 templateDefaultBrandMark={companyName}
                 onEditTemplateSlot={(field, value) => updateTemplateSlot(0, field, value)}
+                templateImageUrl={
+                  // Post único — usa o background do slide 0 se existir;
+                  // senão tenta o tpl-bg-* que mora em overlayImages.
+                  slideBackgrounds[0]?.url
+                  ?? overlayImages.find((o) => o.id.startsWith("tpl-bg-"))?.src
+                  ?? null
+                }
               />
             )}
             {/* Botão "Baixar PNG" foi movido para o painel de ações à direita para não sobrepor o canvas. */}
@@ -2033,6 +2049,8 @@ const PostEditorPage = () => {
               "governante.sertao-profundo": "Sertão Profundo · Editorial",
               "governante.cartorio-de-bolso": "Cartório de Bolso · Editorial",
               "governante.manuscrito": "Manuscrito · Editorial",
+              "governante.horizonte": "Horizonte · Foto horizontal",
+              "governante.retrato": "Retrato · Foto vertical",
             };
             const templateToolbarProps = {
               templateId,

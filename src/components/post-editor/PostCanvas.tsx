@@ -8,6 +8,8 @@ import InlineFormatToolbar from "./InlineFormatToolbar";
 import SertaoCard from "@/components/post-templates/governante/SertaoCard";
 import CartorioCard from "@/components/post-templates/governante/CartorioCard";
 import ManuscritoCard from "@/components/post-templates/governante/ManuscritoCard";
+import HorizonteCard from "@/components/post-templates/governante/HorizonteCard";
+import RetratoCard from "@/components/post-templates/governante/RetratoCard";
 import type { CardData as GovernanteCardData, SertaoTokens } from "@/components/post-templates/governante/types";
 
 // Retorna a luminância percebida da cor (fórmula YIQ): valor >=128 = clara.
@@ -119,6 +121,13 @@ interface PostCanvasProps {
   templateTotalSlides?: number;
   /** Nome do negócio do usuário — default do `brandMark` no rodapé do template. */
   templateDefaultBrandMark?: string;
+  /**
+   * URL da foto a ser renderizada nos templates de foto (Horizonte/Retrato).
+   * Vem tipicamente de `slideBackgrounds[currentSlide]?.url` no PostEditorPage,
+   * que é populado pelo fluxo Pexels do auto-layout. Templates não-foto
+   * ignoram esse valor.
+   */
+  templateImageUrl?: string | null;
   // Legacy compat
   onImageMove?: (id: string, x: number, y: number) => void;
   onImageResize?: (id: string, width: number, height: number) => void;
@@ -188,7 +197,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   initialTextBoxes, resetKey,
   textBoxes: controlledTextBoxes, onTextBoxesChange,
   primaryArchetype,
-  templateId, templateCard, onEditTemplateSlot, templateTokens, templateSlideIndex, templateTotalSlides, templateDefaultBrandMark,
+  templateId, templateCard, onEditTemplateSlot, templateTokens, templateSlideIndex, templateTotalSlides, templateDefaultBrandMark, templateImageUrl,
 }) => {
   const typo = getArchetypeTypography(primaryArchetype);
   const isMobile = useIsMobile();
@@ -1097,11 +1106,19 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   // ── BYPASS: template editorial por arquétipo ─────────────────────
   // Quando há templateId + templateCard, ignoramos todo o canvas legado e
   // renderizamos o componente do template aplicando o mesmo `scale` calculado.
-  const TEMPLATE_COMPONENT: Record<string, typeof SertaoCard> = {
+  // Dispatcher de templates. Os 5 templates compartilham a mesma assinatura
+  // base (card/format/tokens/slideIndex/totalSlides/onEditSlot/defaultBrand-
+  // Mark). Horizonte e Retrato aceitam `imageUrl` adicional — `as any` no
+  // cast porque o TypeScript não consegue garantir a union no Record.
+  const TEMPLATE_COMPONENT: Record<string, any> = {
     "governante.sertao-profundo": SertaoCard,
     "governante.cartorio-de-bolso": CartorioCard,
     "governante.manuscrito": ManuscritoCard,
+    "governante.horizonte": HorizonteCard,
+    "governante.retrato": RetratoCard,
   };
+  // Templates que aceitam imagem — usado pra decidir se passa `imageUrl`.
+  const PHOTO_TEMPLATES = new Set(["governante.horizonte", "governante.retrato"]);
   const TemplateComp = templateId ? TEMPLATE_COMPONENT[templateId] : undefined;
   if (TemplateComp && templateCard) {
     const tplFormat: "4:5" | "9:16" = canvasHeight === 1920 ? "9:16" : "4:5";
@@ -1143,6 +1160,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
               totalSlides={templateTotalSlides}
               onEditSlot={onEditTemplateSlot as any}
               defaultBrandMark={templateDefaultBrandMark}
+              {...(templateId && PHOTO_TEMPLATES.has(templateId) ? { imageUrl: templateImageUrl } : {})}
             />
 
           </div>
