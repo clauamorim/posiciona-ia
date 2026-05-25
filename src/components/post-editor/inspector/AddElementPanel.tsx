@@ -544,7 +544,16 @@ const AddElementPanel: React.FC<AddElementPanelProps> = ({
             <div className="grid grid-cols-3 gap-1.5">
               {userAssets.map((a) => (
                 <div key={a.id} className="relative group aspect-square rounded-md border overflow-hidden bg-muted/40">
-                  <button onClick={() => handleAddImageFromUrl(a.url)} className="absolute inset-0">
+                  <button
+                    onClick={() => {
+                      if (onSwapBackground && !a.is_logo) {
+                        onSwapBackground(a.url, "saved");
+                      } else {
+                        handleAddImageFromUrl(a.url);
+                      }
+                    }}
+                    className="absolute inset-0"
+                  >
                     <img src={a.url} alt={a.name} className="w-full h-full object-cover" loading="lazy" />
                   </button>
                   {a.is_logo && (
