@@ -87,6 +87,9 @@ interface CarouselEditorProps {
    * Recebe o índice do slide e a nova string de object-position.
    */
   onSlideImagePositionChange?: (slideIndex: number, next: string) => void;
+  onLogoPositionChange?: (x: number, y: number) => void;
+  onLogoSizeChange?: (size: number) => void;
+  onLogoDelete?: () => void;
 }
 
 const CarouselEditor: React.FC<CarouselEditorProps> = ({
@@ -106,6 +109,7 @@ const CarouselEditor: React.FC<CarouselEditorProps> = ({
   primaryArchetype,
   templateId, templateCards, templateTokens, onEditTemplateSlot, templateDefaultBrandMark,
   slideImageUrls, slideImagePositions, onSlideImagePositionChange,
+  onLogoPositionChange, onLogoSizeChange, onLogoDelete,
 }) => {
   const total = slides.length;
   const isCover = currentSlide === 0;
@@ -167,6 +171,9 @@ const CarouselEditor: React.FC<CarouselEditorProps> = ({
             ? (field, value) => onEditTemplateSlot(currentSlide, field, value)
             : undefined
         }
+        onLogoPositionChange={onLogoPositionChange}
+        onLogoSizeChange={onLogoSizeChange}
+        onLogoDelete={onLogoDelete}
       />
 
       <div className="flex max-w-full items-center gap-4">

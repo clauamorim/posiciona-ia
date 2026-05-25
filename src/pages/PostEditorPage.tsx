@@ -1982,6 +1982,9 @@ const PostEditorPage = () => {
                 })()}
                 slideImagePositions={slideImagePositions}
                 onSlideImagePositionChange={setSlideImagePosition}
+                onLogoPositionChange={(x, y) => setTemplateTokens((prev) => ({ ...prev, logoX: x, logoY: y }))}
+                onLogoSizeChange={(size) => setTemplateTokens((prev) => ({ ...prev, logoSize: size }))}
+                onLogoDelete={() => setTemplateTokens((prev) => ({ ...prev, logoUrl: null, showLogo: false }))}
               />
             ) : (
               <PostCanvas
@@ -2028,6 +2031,7 @@ const PostEditorPage = () => {
                 onTemplateImagePositionChange={(next) => setSlideImagePosition(0, next)}
                 onLogoPositionChange={(x, y) => setTemplateTokens((prev) => ({ ...prev, logoX: x, logoY: y }))}
                 onLogoSizeChange={(size) => setTemplateTokens((prev) => ({ ...prev, logoSize: size }))}
+                onLogoDelete={() => setTemplateTokens((prev) => ({ ...prev, logoUrl: null, showLogo: false }))}
               />
             )}
             {/* Botão "Baixar PNG" foi movido para o painel de ações à direita para não sobrepor o canvas. */}

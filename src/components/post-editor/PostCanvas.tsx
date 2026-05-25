@@ -147,6 +147,8 @@ interface PostCanvasProps {
   onLogoPositionChange?: (x: number, y: number) => void;
   /** Callback disparado quando o usuário redimensiona a logo via handles de canto. Recebe o novo tamanho em % da largura do card. */
   onLogoSizeChange?: (size: number) => void;
+  /** Callback disparado quando o usuário pressiona Delete/Backspace com a logo selecionada. */
+  onLogoDelete?: () => void;
   // Legacy compat
   onImageMove?: (id: string, x: number, y: number) => void;
   onImageResize?: (id: string, width: number, height: number) => void;
@@ -216,7 +218,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   initialTextBoxes, resetKey,
   textBoxes: controlledTextBoxes, onTextBoxesChange,
   primaryArchetype,
-  templateId, templateCard, onEditTemplateSlot, templateTokens, templateSlideIndex, templateTotalSlides, templateDefaultBrandMark, templateImageUrl, templateImagePosition, onTemplateImagePositionChange, onLogoPositionChange, onLogoSizeChange,
+  templateId, templateCard, onEditTemplateSlot, templateTokens, templateSlideIndex, templateTotalSlides, templateDefaultBrandMark, templateImageUrl, templateImagePosition, onTemplateImagePositionChange, onLogoPositionChange, onLogoSizeChange, onLogoDelete,
 }) => {
   const typo = getArchetypeTypography(primaryArchetype);
   const isMobile = useIsMobile();
@@ -858,6 +860,21 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
       onRenderOrderChange(effectiveRenderOrder);
     }
   }, [effectiveRenderOrder.join(",")]);
+
+  // Delete/Backspace quando a logo do template está selecionada
+  useEffect(() => {
+    if (!isLogoSelected || !onLogoDelete) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== "Delete" && e.key !== "Backspace") return;
+      const target = e.target as HTMLElement;
+      if (target.isContentEditable || target.tagName === "INPUT" || target.tagName === "TEXTAREA") return;
+      e.preventDefault();
+      setIsLogoSelected(false);
+      onLogoDelete();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [isLogoSelected, onLogoDelete]);
 
   const getZIndex = (id: string) => {
     const idx = effectiveRenderOrder.indexOf(id);
