@@ -68,6 +68,13 @@ const ManuscritoCard: React.FC<ManuscritoCardProps> = ({
 
   const ornaments = tokens.showOrnaments !== false;
   const bodyFam = peBodyFontFor(tokens.bodyFont);
+  const clamp = (v: number | undefined, min = 0.6, max = 1.4) =>
+    typeof v === "number" && isFinite(v) ? Math.min(max, Math.max(min, v)) : 1;
+  const sCloseTitle = clamp(tokens.closeTitleScale);
+  const sCloseBody = clamp(tokens.closeBodyScale);
+  const sCoverTitle = clamp(tokens.coverTitleScale);
+  const sCoverCount = clamp(tokens.coverCountScale);
+  const sClauseBody = clamp(tokens.clauseBodyScale);
   const numLabel = card.kind === "clause" ? peRenderNum(card.num, tokens.numberingStyle) : "";
   const showPageLabel = totalSlides > 1;
 
@@ -151,7 +158,7 @@ const ManuscritoCard: React.FC<ManuscritoCardProps> = ({
               fontFamily: '"Playfair Display", serif',
               fontStyle: "italic",
               fontWeight: 500,
-              fontSize: big ? 156 : 116,
+              fontSize: (big ? 156 : 116) * sCoverCount,
               lineHeight: 0.86,
               color: areia,
               letterSpacing: -3,
@@ -183,7 +190,7 @@ const ManuscritoCard: React.FC<ManuscritoCardProps> = ({
               style={{
                 fontFamily: '"Playfair Display", serif',
                 fontWeight: 400,
-                fontSize: big ? 40 : 30,
+                fontSize: (big ? 40 : 30) * sCoverTitle,
                 lineHeight: 1.12,
                 color: verde,
                 letterSpacing: -0.3,
@@ -283,7 +290,7 @@ const ManuscritoCard: React.FC<ManuscritoCardProps> = ({
                 fontFamily: '"Playfair Display", serif',
                 fontStyle: "italic",
                 fontWeight: 500,
-                fontSize: big ? 80 : 58,
+                fontSize: (big ? 80 : 58) * sCloseTitle,
                 lineHeight: 1.02,
                 color: verde,
                 letterSpacing: -1.2,
@@ -301,7 +308,7 @@ const ManuscritoCard: React.FC<ManuscritoCardProps> = ({
                 fontFamily: bodyFam,
                 fontWeight: 400,
                 fontStyle: bodyFam.includes("Cormorant") ? "italic" : "normal",
-                fontSize: big ? 28 : 22,
+                fontSize: (big ? 28 : 22) * sCloseBody,
                 lineHeight: 1.45,
                 color: bodyColor,
                 opacity: 0.88,
@@ -419,7 +426,7 @@ const ManuscritoCard: React.FC<ManuscritoCardProps> = ({
               fontFamily: bodyFam,
               fontWeight: 400,
               fontStyle: bodyFam.includes("Cormorant") ? "italic" : "normal",
-              fontSize: big ? 26 : 21,
+              fontSize: (big ? 26 : 21) * sClauseBody,
               lineHeight: 1.42,
               color: bodyColor,
               opacity: 0.82,
