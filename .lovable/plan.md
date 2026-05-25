@@ -1,49 +1,41 @@
-## Diagnóstico
+## O que será feito
 
-O **post único** funciona porque é renderizado como `close`, cujos 3 slots (`title`, `body`, `cta`) batem 1:1 com o que a IA devolve (`title`, `card_copy[0]`/`caption`, `cta`). Toda a copy aparece e o layout fica cheio.
+Duas melhorias no editor de posts com template Editorial:
 
-O **carrossel** quebra porque o `SertaoCard` capa+cláusulas tem 9 slots especializados (`eyebrow`, `kicker`, `countWord`, `titleLead`, `titleTail`, `footer`, `topic[]`, `titles[]`, `body[]`) mas a IA só entrega `title` + `card_copy[]` + `caption` + `cta`. Sem `meta`, `mapPostToCards` devolve strings vazias em quase todos esses slots — daí a capa com só um título solto e um corpo, sem o eyebrow/régua/kicker italic/numeral gigante que dá personalidade ao template (IMG_4881). As cláusulas (slides 1–5) ficam só com `body`, sem topic nem título.
+### 1. Permitir redimensionar campos de texto manualmente
 
-## O que vou fazer
+Como o autofit nem sempre consegue acomodar textos longos (especialmente na **Frase de fechamento** e no **Apoio do fechamento**), adicionar controles manuais de tamanho de fonte por slot no painel "Conteúdo do slide".
 
-### 1. `mapPostToCards.ts` — sintetizar slots a partir do que existe
+- Novo campo `fontScale` (multiplicador 0.6×–1.4×) por tipo de slot no painel:
+  - Slide **Fechamento**: sliders para "Frase de fechamento" e "Apoio do fechamento"
+  - Slide **Capa**: sliders para "Título principal" e "Palavra-destaque"
+  - Slide **Cláusula**: slider para "Texto da cláusula"
+- Os multiplicadores são salvos como overrides no token do template (ex.: `closeTitleScale`, `closeBodyScale`, `coverTitleScale`, `coverCountScale`, `clauseBodyScale`) e aplicados sobre o `fontSize` base hardcoded nos componentes (`SertaoCard`, `CartorioCard`, `ManuscritoCard`, `HorizonteCard`, `RetratoCard`).
+- Cada slider tem botão "Restaurar" para voltar a 1×.
+- Os valores são persistidos junto com `templateTokens` no mesmo fluxo de save existente.
 
-**Capa (índice 0):**
-- `eyebrow`: deriva de `meta.eyebrow` → senão `"POSICIONA EDITORIAL"` (ou nome do negócio quando passado) + categoria/semana opcional. Hoje fica vazio.
-- `kicker`: deriva do `sectionLabel` no plural ("Cláusulas", "Situações", "Passos") quando ausente.
-- `countWord`: número de cláusulas por extenso em pt-BR (`"Sete"` para 5+cover+close=7, mas usamos a contagem real de cláusulas: 1→"Uma", 2→"Duas", …, 10→"Dez"). Hoje fica vazio.
-- `titleLead`: já vem do `title`.
-- `body`: já vem do `copy[0]`.
-- `footer`: default `"arraste para começar"` quando vazio.
+Importante: o autofit existente (`data-fit-bounds`) continua funcionando — o multiplicador é aplicado **antes** do shrink-to-fit, então textos curtos com `fontScale = 1.4` realmente ficam maiores, e textos longos com `fontScale = 0.8` já partem menores (reduzindo a chance do autofit precisar cortar).
 
-**Cláusulas (índices 1..N):**
-- Parser `splitTitleBody(copy[i])`: se o slide tiver "Título.\nCorpo" ou primeira frase curta (<70 chars terminada em `.`/`?`/`:`), separa em `title` + `body`. Senão a primeira frase vira `title` e o resto vai pro `body`.
-- `topic`: deriva de `meta.topic[i]` → senão tenta extrair de prefixo MAIÚSCULO no início do slide ("PRAZO: ...") → senão vazio (renderiza placeholder).
-- `title`: do parser acima.
-- `body`: do parser.
+### 2. Adicionar upload de imagens nos templates com foto
 
-**Close (índice último):**
-- Sem mudança — já funciona.
+Hoje, nos templates **Horizonte** e **Retrato**, o painel lateral mostra a aba "Upload" mas:
+- A imagem enviada vira asset na galeria, **não** substitui a foto do slide
+- A aba "Minha galeria" também só permite adicionar como overlay (não como fundo)
 
-### 2. `SertaoCard.tsx` — fallback elegante quando capa está incompleta
+Correção em `AddElementPanel.tsx`:
+- Quando `onSwapBackground` está definido (= modo template de foto), clicar em "Enviar imagem" no upload usa o URL recém-criado para **chamar `onSwapBackground`** em vez de só salvar na galeria.
+- Mesma lógica para clicar numa thumbnail da aba "Minha galeria": vira `onSwapBackground(url, "saved")` em vez de overlay.
+- Modo não-template (sem `onSwapBackground`) continua igual: upload/galeria adicionam como overlay.
 
-Quando, mesmo após a síntese, a capa não tiver `kicker` E `countWord` preenchidos (cenário raro mas possível com posts de outras estruturas), trocar o layout da capa para o **modo "editorial enxuto"**: igual ao close — eyebrow + régua + título Playfair italic grande centralizado + body + régua + footer. Assim a capa nunca aparece esvaziada como em IMG_4881.
+## Arquivos afetados
 
-Condição: `!card.kicker?.trim() && !card.countWord?.trim()` → renderiza o branch "cover-as-close".
+- `src/components/post-templates/governante/types.ts` — adicionar campos de scale opcionais em `SertaoTokens`
+- `src/components/post-templates/governante/SertaoCard.tsx`, `CartorioCard.tsx`, `ManuscritoCard.tsx`, `HorizonteCard.tsx`, `RetratoCard.tsx` — multiplicar `fontSize` dos slots editáveis pelo respectivo scale (default 1)
+- `src/components/post-editor/inspector/TemplateSertaoPanel.tsx` — sliders de tamanho por slot dentro de "Conteúdo do slide"
+- `src/components/post-editor/inspector/AddElementPanel.tsx` — usar `onSwapBackground` no upload e na galeria quando disponível
 
-### 3. Helper `numberToPortuguese(n)` em `mapPostToCards.ts`
+## Fora do escopo
 
-Pequeno mapa 1–20 + fallback numérico. Usado para sintetizar `countWord`.
-
-## Fora de escopo
-
-- Não vou tocar na edge function `generate-content-week` nem alterar o prompt da IA. A síntese é totalmente client-side.
-- Não vou mudar `CartorioCard` nem `ManuscritoCard`.
-- Não vou refatorar o pipeline de salvamento — overrides em `templateSlots` continuam funcionando por cima dos slots sintetizados.
-
-## Validação
-
-- Carrossel atual (IMG_4881): capa passa a mostrar eyebrow + régua dourada + "Cláusulas" italic + "Cinco" gigante + título Playfair + corpo + footer "arraste para começar" + paginação.
-- Cláusulas 1–5: mostram "CLÁUSULA · TÓPICO" (quando deriva) + numeral romano/árabe grande + título + body.
-- Post único (IMG_4884): inalterado.
-- Posts com `meta` futuro vindo da IA: overrides prevalecem sobre os defaults sintetizados.
+- Não mexe na geração de conteúdo nem na pipeline da IA
+- Não altera o algoritmo de autofit existente
+- Não adiciona resize handles arrastáveis no canvas (só sliders no painel)
