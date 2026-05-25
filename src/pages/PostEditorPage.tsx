@@ -19,7 +19,7 @@ import { parseReportContent } from "@/lib/reportParser";
 import { cleanMarkdown, extractAfterBold, cleanText, stripFrameworkLabels } from "@/lib/textCleanup";
 import { compressImage } from "@/lib/imageUtils";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { buildAutoLayout, fetchBackgroundImage, type PostStyle, type PhotographerInfo } from "@/lib/postAutoLayout";
+import { buildAutoLayout, fetchBackgroundImage, fetchUserLogo, type PostStyle, type PhotographerInfo } from "@/lib/postAutoLayout";
 import { getAIStyleById, type AIStyleId } from "@/lib/aiImageStyles";
 import { prepareSinglePostCardCopy, prepareCarouselCardCopy } from "@/lib/editorialCardCopy";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -305,6 +305,24 @@ const PostEditorPage = () => {
       setTemplateTokens({});
     }
   }, []);
+
+  // Auto-popula tokens.logoUrl com a logo do usuário (is_logo=true em
+  // user_gallery_assets, com fundo removido). Roda quando entra em modo
+  // template e logoUrl ainda não está setado. fetchUserLogo já tem cache
+  // por sessão, então re-renderes não pagam o custo.
+  useEffect(() => {
+    if (!user?.id || !templateId) return;
+    if (templateTokens.logoUrl) return;
+    let cancelled = false;
+    (async () => {
+      const url = await fetchUserLogo(user.id);
+      if (cancelled) return;
+      if (url) setTemplateTokens((prev) => ({ ...prev, logoUrl: url }));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, templateId, templateTokens.logoUrl]);
   const [ctaBgColor, setCtaBgColor] = useState<string | null>(draft?.ctaBgColor ?? null);
   const [ctaTextColor, setCtaTextColor] = useState<string | null>(draft?.ctaTextColor ?? null);
   const [ctaFontSize, setCtaFontSize] = useState(draft?.ctaFontSize ?? 28);

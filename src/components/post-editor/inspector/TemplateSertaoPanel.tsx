@@ -331,6 +331,86 @@ const TemplateSertaoPanel: React.FC<Props> = ({
           onCheckedChange={(v) => onChange({ showSwipeHint: v })}
         />
       </div>
+
+      {/* ── Logo da marca ────────────────────────────────────────────
+          Controles da logo renderizada no template. A URL da logo vem
+          de user_gallery_assets is_logo=true (auto-popular feito pelo
+          PostEditorPage via fetchUserLogo). Pra trocar a logo, o
+          usuário usa o AddElementPanel "Adicionar elemento > Upload"
+          marcando "Logo" — o fluxo de upload já chama remove-background
+          automaticamente. */}
+      <div className="border-t border-border/40 pt-3 mt-2 space-y-3">
+        <div className="flex items-center justify-between">
+          <label className="text-xs font-semibold">Logo da marca</label>
+          <Switch
+            checked={tokens.showLogo !== false}
+            onCheckedChange={(v) => onChange({ showLogo: v })}
+          />
+        </div>
+
+        {tokens.logoUrl ? (
+          <div className="rounded-md border border-border/50 bg-muted/20 p-2 flex items-center gap-2">
+            <div
+              className="w-10 h-10 rounded bg-checkerboard flex-shrink-0"
+              style={{
+                backgroundImage:
+                  "linear-gradient(45deg, hsl(var(--muted)) 25%, transparent 25%), linear-gradient(-45deg, hsl(var(--muted)) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, hsl(var(--muted)) 75%), linear-gradient(-45deg, transparent 75%, hsl(var(--muted)) 75%)",
+                backgroundSize: "8px 8px",
+                backgroundPosition: "0 0, 0 4px, 4px -4px, -4px 0px",
+              }}
+            >
+              <img
+                src={tokens.logoUrl}
+                alt="logo"
+                className="w-full h-full object-contain p-0.5"
+                draggable={false}
+              />
+            </div>
+            <span className="text-[10px] text-muted-foreground leading-tight">
+              Logo ativa. Pra trocar, use<br />
+              <strong>Adicionar elemento → Upload → Logo</strong>
+            </span>
+          </div>
+        ) : (
+          <p className="text-[10px] text-muted-foreground leading-snug">
+            Nenhuma logo carregada. Use <strong>Adicionar elemento → Upload</strong>
+            {" "}e marque como <strong>Logo</strong> — o fundo é removido
+            automaticamente.
+          </p>
+        )}
+
+        {tokens.logoUrl && (tokens.showLogo !== false) && (
+          <>
+            <Row label={`Tamanho · ${Math.round(typeof tokens.logoSize === "number" ? tokens.logoSize : 18)}%`}>
+              <Slider
+                value={[typeof tokens.logoSize === "number" ? tokens.logoSize : 18]}
+                onValueChange={(v) => onChange({ logoSize: v[0] })}
+                min={8}
+                max={50}
+                step={1}
+              />
+            </Row>
+
+            <Row label={`Opacidade · ${Math.round((typeof tokens.logoOpacity === "number" ? tokens.logoOpacity : 1) * 100)}%`}>
+              <Slider
+                value={[(typeof tokens.logoOpacity === "number" ? tokens.logoOpacity : 1) * 100]}
+                onValueChange={(v) => onChange({ logoOpacity: v[0] / 100 })}
+                min={10}
+                max={100}
+                step={5}
+              />
+            </Row>
+
+            <div className="flex items-center justify-between">
+              <label className="text-xs">Atrás das frases (marca d'água)</label>
+              <Switch
+                checked={tokens.logoBehindText === true}
+                onCheckedChange={(v) => onChange({ logoBehindText: v })}
+              />
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 };

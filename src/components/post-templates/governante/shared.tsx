@@ -303,6 +303,105 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = ({
   );
 };
 
+// ── LogoOverlay ──────────────────────────────────────────────────────
+// Renderiza a logo do usuário como camada do template. Posição padrão:
+// rodapé direito (canto inferior). Tamanho/opacidade/z-index controlados
+// via tokens. A logo já chega com fundo removido (vem de fetchUserLogo,
+// que garante PNG transparente via remove-background + chroma key).
+//
+// Z-index:
+// - logoBehindText=true → zIndex 0, renderizado ANTES dos textos do
+//   template, funcionando como marca d'água sutil grande
+// - logoBehindText=false → zIndex 5, renderizado por cima dos textos
+//   (mas dentro do card, que tem overflow:hidden, então não escapa)
+//
+// Posicionamento absoluto baseado em % do card. Como cada template tem
+// seu próprio padding/footer, isso é um compromisso — fica meio "solto"
+// no canto. Drag/posicionamento custom pode vir depois (igual feito pro
+// PhotoSlot).
+
+export interface LogoOverlayProps {
+  /** URL da logo. Quando ausente ou showLogo=false, nada é renderizado. */
+  url?: string | null;
+  /** Toggle de visibilidade (default true se url existe). */
+  show?: boolean;
+  /** Largura da logo em % da largura do card (default 18). */
+  sizePct?: number;
+  /** Opacidade da logo (0..1, default 1). */
+  opacity?: number;
+  /** Quando true, fica como marca d'água (zIndex baixo, centro do card). */
+  behindText?: boolean;
+  /** Largura do card em px (vem do FORMATS) — usado pra calcular o tamanho da logo. */
+  cardWidth: number;
+  /** Altura do card em px. */
+  cardHeight: number;
+}
+
+export const LogoOverlay: React.FC<LogoOverlayProps> = ({
+  url,
+  show = true,
+  sizePct = 18,
+  opacity = 1,
+  behindText = false,
+  cardWidth,
+  cardHeight,
+}) => {
+  if (!url || !show) return null;
+  // sizePct é % da largura. A altura fica auto pra preservar aspect ratio.
+  const widthPx = (cardWidth * Math.max(5, Math.min(80, sizePct))) / 100;
+
+  // Quando atrás do texto (marca d'água): logo BEM grande, centralizada,
+  // opacidade reduzida automaticamente se o usuário não setou. Z-index 0.
+  if (behindText) {
+    const wmSize = Math.min(cardWidth * 0.7, cardHeight * 0.7);
+    return (
+      <img
+        src={url}
+        alt=""
+        style={{
+          position: "absolute",
+          top: "50%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+          width: wmSize,
+          height: "auto",
+          opacity: Math.min(opacity, 0.18),
+          zIndex: 0,
+          pointerEvents: "none",
+          userSelect: "none",
+        }}
+        draggable={false}
+      />
+    );
+  }
+
+  // Logo em primeiro plano: canto inferior direito, padding proporcional
+  // ao card (~6% da largura). Z-index alto pra ficar acima do texto se
+  // houver sobreposição, mas mesmo assim respeitando o overflow:hidden
+  // do card.
+  const padding = cardWidth * 0.06;
+  return (
+    <img
+      src={url}
+      alt=""
+      style={{
+        position: "absolute",
+        bottom: padding,
+        right: padding,
+        width: widthPx,
+        height: "auto",
+        maxHeight: cardHeight * 0.18,
+        objectFit: "contain",
+        opacity,
+        zIndex: 5,
+        pointerEvents: "none",
+        userSelect: "none",
+      }}
+      draggable={false}
+    />
+  );
+};
+
 interface PeEyebrowProps {
   children: React.ReactNode;
   color: string;

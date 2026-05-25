@@ -20,7 +20,7 @@ import {
   peRenderNum,
   peTinyCaps,
 } from "./tokens";
-import { EditableSpan, FitGroup, PeDiamond, PeRule } from "./shared";
+import { EditableSpan, FitGroup, LogoOverlay, PeDiamond, PeRule } from "./shared";
 
 type SlotField =
   | keyof CoverSlots
@@ -85,6 +85,19 @@ const SertaoCard: React.FC<SertaoCardProps> = ({
     fontFamily: '"Lato", system-ui, sans-serif',
     letterSpacing: 0.02,
   };
+
+  // Camada da logo (PNG transparente). Aparece em todos os kinds.
+  const logoNode = (
+    <LogoOverlay
+      url={tokens.logoUrl}
+      show={tokens.showLogo !== false}
+      sizePct={typeof tokens.logoSize === "number" ? tokens.logoSize : 18}
+      opacity={typeof tokens.logoOpacity === "number" ? tokens.logoOpacity : 1}
+      behindText={tokens.logoBehindText === true}
+      cardWidth={w}
+      cardHeight={h}
+    />
+  );
 
   // Paginação derivada do índice do slide (fallback p/ parse de card.num).
   const pageNum =
@@ -207,6 +220,7 @@ const SertaoCard: React.FC<SertaoCardProps> = ({
               {showPageLabel && <span style={peTinyCaps(ouro, big ? 12 : 10)}>{pageLabel}</span>}
             </div>
           </div>
+          {logoNode}
         </div>
       );
     }
@@ -387,6 +401,7 @@ const SertaoCard: React.FC<SertaoCardProps> = ({
             {showPageLabel && <span style={peTinyCaps(ouro, big ? 12 : 10)}>{pageLabel}</span>}
           </div>
         </div>
+        {logoNode}
       </div>
     );
   }
@@ -506,6 +521,7 @@ const SertaoCard: React.FC<SertaoCardProps> = ({
             {showPageLabel && <span style={peTinyCaps(ouro, big ? 12 : 10)}>{pageLabel}</span>}
           </div>
         </div>
+        {logoNode}
       </div>
     );
   }
@@ -622,6 +638,7 @@ const SertaoCard: React.FC<SertaoCardProps> = ({
           {showPageLabel && <span style={peTinyCaps(ouro, big ? 12 : 10)}>{pageLabel}</span>}
         </div>
       </div>
+      {logoNode}
     </div>
   );
 };

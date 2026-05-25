@@ -254,7 +254,7 @@ export async function chromaKeyAndValidate(dataUrl: string): Promise<string | nu
 }
 
 /** Busca a logo mais recente do usuário marcada com is_logo=true. Garante transparência real. */
-async function fetchUserLogo(userId: string): Promise<string | null> {
+export async function fetchUserLogo(userId: string): Promise<string | null> {
   // Cache por sessão para evitar reprocessar a cada slide
   try {
     const cached = sessionStorage.getItem(`${LOGO_CACHE_PREFIX}${userId}`);

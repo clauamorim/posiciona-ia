@@ -29,7 +29,7 @@ import {
   peRenderNum,
   peTinyCaps,
 } from "./tokens";
-import { EditableSpan, PeDiamond, pickBodyColor, PhotoSlot } from "./shared";
+import { EditableSpan, LogoOverlay, PeDiamond, pickBodyColor, PhotoSlot } from "./shared";
 
 type SlotField =
   | keyof CoverSlots
@@ -115,6 +115,19 @@ const RetratoCard: React.FC<RetratoCardProps> = ({
     overflow: "hidden",
     fontFamily: '"Lato", system-ui, sans-serif',
   };
+
+  // Camada da logo controlada via tokens. Mesma instância em todos os 3 kinds.
+  const logoNode = (
+    <LogoOverlay
+      url={tokens.logoUrl}
+      show={tokens.showLogo !== false}
+      sizePct={typeof tokens.logoSize === "number" ? tokens.logoSize : 18}
+      opacity={typeof tokens.logoOpacity === "number" ? tokens.logoOpacity : 1}
+      behindText={tokens.logoBehindText === true}
+      cardWidth={w}
+      cardHeight={h}
+    />
+  );
 
   // Bloco da foto — esquerda (4:5) ou topo (9:16).
   const imageBlock = (
@@ -262,6 +275,7 @@ const RetratoCard: React.FC<RetratoCardProps> = ({
             {showPageLabel && <span style={peTinyCaps(mogno, big ? 12 : 9)}>I — VII</span>}
           </div>
         </div>
+        {logoNode}
       </div>
     );
   }
@@ -335,6 +349,7 @@ const RetratoCard: React.FC<RetratoCardProps> = ({
             <span style={peTinyCaps(mogno, big ? 12 : 9)}>{brandMark}</span>
           </div>
         </div>
+        {logoNode}
       </div>
     );
   }
@@ -419,6 +434,7 @@ const RetratoCard: React.FC<RetratoCardProps> = ({
           <span style={peTinyCaps(mogno, big ? 11 : 9)}>{brandMark}</span>
         </div>
       </div>
+      {logoNode}
     </div>
   );
 };

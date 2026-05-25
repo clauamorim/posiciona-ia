@@ -76,4 +76,23 @@ export interface SertaoTokens {
   coverTitleScale?: number;
   coverCountScale?: number;
   clauseBodyScale?: number;
+
+  // ── Logo da marca ────────────────────────────────────────────────
+  // Logo PNG (com fundo já removido — vem de user_gallery_assets
+  // is_logo=true via fetchUserLogo, que garante transparência real)
+  // renderizada como camada do template. Controles ficam no inspector.
+  /** URL (signed) da logo. Quando vazio, nenhuma logo é renderizada. */
+  logoUrl?: string | null;
+  /** Toggle pra mostrar/esconder a logo sem perder a URL. Default true. */
+  showLogo?: boolean;
+  /** Largura da logo em % da largura do card (0..100). Default ~18%. */
+  logoSize?: number;
+  /** Opacidade da logo (0..1). Default 1. */
+  logoOpacity?: number;
+  /**
+   * Quando true, a logo é renderizada ATRÁS dos textos do template (z-index
+   * baixo), funcionando como marca d'água. Quando false (default), fica na
+   * frente, no rodapé direito.
+   */
+  logoBehindText?: boolean;
 }

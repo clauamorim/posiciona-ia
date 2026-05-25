@@ -30,7 +30,7 @@ import {
   peRenderNum,
   peTinyCaps,
 } from "./tokens";
-import { EditableSpan, PeDiamond, PeRule, PhotoSlot } from "./shared";
+import { EditableSpan, LogoOverlay, PeDiamond, PeRule, PhotoSlot } from "./shared";
 
 type SlotField =
   | keyof CoverSlots
@@ -107,6 +107,22 @@ const HorizonteCard: React.FC<HorizonteCardProps> = ({
           : totalSlides;
   const showPageLabel = totalSlides > 1;
   const pageLabel = `${String(pageNum).padStart(2, "0")} / ${String(totalSlides).padStart(2, "0")}`;
+
+  // Camada da logo (PNG transparente vinda de user_gallery_assets is_logo=true,
+  // já com fundo removido). Renderiza só quando logoUrl está setado e
+  // showLogo !== false. Posição/tamanho/opacidade/z-index controlados via
+  // tokens. Mesma logoNode em todos os 3 kinds (cover/clause/close).
+  const logoNode = (
+    <LogoOverlay
+      url={tokens.logoUrl}
+      show={tokens.showLogo !== false}
+      sizePct={typeof tokens.logoSize === "number" ? tokens.logoSize : 18}
+      opacity={typeof tokens.logoOpacity === "number" ? tokens.logoOpacity : 1}
+      behindText={tokens.logoBehindText === true}
+      cardWidth={w}
+      cardHeight={h}
+    />
+  );
 
   const styleBase: React.CSSProperties = {
     width: w,
@@ -245,6 +261,7 @@ const HorizonteCard: React.FC<HorizonteCardProps> = ({
             {showPageLabel && <span style={peTinyCaps(ouro, big ? 12 : 10)}>{pageLabel}</span>}
           </div>
         </div>
+        {logoNode}
       </div>
     );
   }
@@ -315,6 +332,7 @@ const HorizonteCard: React.FC<HorizonteCardProps> = ({
             <span style={peTinyCaps(ouro, big ? 12 : 10)}>{brandMark}</span>
           </div>
         </div>
+        {logoNode}
       </div>
     );
   }
@@ -399,6 +417,7 @@ const HorizonteCard: React.FC<HorizonteCardProps> = ({
           <span style={peTinyCaps(ouro, big ? 12 : 10)}>{(card.topic || "").toUpperCase()}</span>
         </div>
       </div>
+      {logoNode}
     </div>
   );
 };

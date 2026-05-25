@@ -17,7 +17,7 @@ import type {
   SertaoTokens,
 } from "./types";
 import { AREIA, FORMATS, MOGNO, VERDE, peBodyFontFor, peRenderNum, peTinyCaps } from "./tokens";
-import { EditableSpan, FitGroup, PeDiamond, PeRule, pickBodyColor } from "./shared";
+import { EditableSpan, FitGroup, LogoOverlay, PeDiamond, PeRule, pickBodyColor } from "./shared";
 
 type SlotField = keyof CoverSlots | keyof ClauseSlots | keyof CloseSlots;
 
@@ -77,6 +77,19 @@ const CartorioCard: React.FC<CartorioCardProps> = ({
     overflow: "hidden",
     fontFamily: '"Lato", system-ui, sans-serif',
   };
+
+  // Camada da logo (igual nos 3 kinds).
+  const logoNode = (
+    <LogoOverlay
+      url={tokens.logoUrl}
+      show={tokens.showLogo !== false}
+      sizePct={typeof tokens.logoSize === "number" ? tokens.logoSize : 18}
+      opacity={typeof tokens.logoOpacity === "number" ? tokens.logoOpacity : 1}
+      behindText={tokens.logoBehindText === true}
+      cardWidth={w}
+      cardHeight={h}
+    />
+  );
 
   const pageNum =
     typeof slideIndex === "number"
@@ -191,6 +204,7 @@ const CartorioCard: React.FC<CartorioCardProps> = ({
             {showPageLabel && <span style={peTinyCaps(mogno, big ? 12 : 10)}>I — VII</span>}
           </div>
         </div>
+        {logoNode}
       </div>
     );
   }
@@ -255,6 +269,7 @@ const CartorioCard: React.FC<CartorioCardProps> = ({
             <span style={peTinyCaps(mogno, big ? 12 : 10)}>{brandMark}</span>
           </div>
         </div>
+        {logoNode}
       </div>
     );
   }
@@ -323,6 +338,7 @@ const CartorioCard: React.FC<CartorioCardProps> = ({
           <span style={peTinyCaps(mogno, big ? 12 : 10)}>{brandMark}</span>
         </div>
       </div>
+      {logoNode}
     </div>
   );
 };
