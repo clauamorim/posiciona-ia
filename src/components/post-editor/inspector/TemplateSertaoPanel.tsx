@@ -194,6 +194,8 @@ const ScaleSliders: React.FC<{
     </div>
   );
 };
+
+const TemplateSertaoPanel: React.FC<Props> = ({
   tokens, onChange, onReset, defaultBrandMark,
   currentCard, currentSlideIndex, onEditCurrentSlot,
   templateName,
@@ -221,8 +223,16 @@ const ScaleSliders: React.FC<{
             <span className="text-[10px] text-muted-foreground">{slideLabel}</span>
           </div>
           <SlotFields card={currentCard} onEdit={onEditCurrentSlot} />
+          <div className="border-t border-border/40 pt-3">
+            <ScaleSliders card={currentCard} tokens={tokens} onChange={onChange} />
+            <p className="text-[10px] text-muted-foreground/80 leading-relaxed pt-2">
+              Use os controles acima quando o ajuste automático cortar ou
+              esticar o texto. Restaure (↺) para voltar ao tamanho original.
+            </p>
+          </div>
         </div>
       )}
+
 
       <Row label="Rótulo da seção">
         <Input
