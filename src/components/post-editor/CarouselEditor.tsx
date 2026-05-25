@@ -76,6 +76,17 @@ interface CarouselEditorProps {
    * card automaticamente — vem de slideBackgrounds do PostEditorPage.
    */
   slideImageUrls?: Record<number, string | undefined>;
+  /**
+   * Mapa de object-position CSS por índice do slide. Usado pelos
+   * templates de foto pra reposicionar a foto dentro do slot
+   * (resultado do drag).
+   */
+  slideImagePositions?: Record<number, string | undefined>;
+  /**
+   * Callback chamado quando o usuário arrasta a foto pra reposicionar.
+   * Recebe o índice do slide e a nova string de object-position.
+   */
+  onSlideImagePositionChange?: (slideIndex: number, next: string) => void;
 }
 
 const CarouselEditor: React.FC<CarouselEditorProps> = ({
@@ -94,7 +105,7 @@ const CarouselEditor: React.FC<CarouselEditorProps> = ({
   slideTextBoxes, onSlideTextBoxesChange,
   primaryArchetype,
   templateId, templateCards, templateTokens, onEditTemplateSlot, templateDefaultBrandMark,
-  slideImageUrls,
+  slideImageUrls, slideImagePositions, onSlideImagePositionChange,
 }) => {
   const total = slides.length;
   const isCover = currentSlide === 0;
@@ -145,6 +156,12 @@ const CarouselEditor: React.FC<CarouselEditorProps> = ({
         templateTotalSlides={templateCards?.length ?? undefined}
         templateDefaultBrandMark={templateDefaultBrandMark}
         templateImageUrl={slideImageUrls?.[currentSlide] ?? null}
+        templateImagePosition={slideImagePositions?.[currentSlide] ?? null}
+        onTemplateImagePositionChange={
+          onSlideImagePositionChange
+            ? (next) => onSlideImagePositionChange(currentSlide, next)
+            : undefined
+        }
         onEditTemplateSlot={
           onEditTemplateSlot
             ? (field, value) => onEditTemplateSlot(currentSlide, field, value)

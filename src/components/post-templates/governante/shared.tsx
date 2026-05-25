@@ -89,7 +89,47 @@ export interface PhotoSlotProps {
   fallbackBg?: string;
   /** Cor do texto do placeholder. */
   placeholderColor?: string;
+  /**
+   * object-position aplicado na <img>. Formato CSS ("50% 50%", "30% 70%").
+   * Default "50% 50%" (center). Mudado via drag dentro do slot.
+   */
+  objectPosition?: string;
+  /**
+   * Callback disparado durante drag pra reposicionar a foto. Recebe a nova
+   * string de object-position. Quando ausente, o slot fica não-arrastável
+   * (modo "view only" — útil em previews/thumbnails).
+   */
+  onPositionChange?: (next: string) => void;
 }
+
+// Helper: parseia "50% 30%" → { x: 50, y: 30 }. Aceita também "center"
+// e "left/right/top/bottom" (mapeia pra 0/50/100). Robusto pra entrada
+// vinda de slideBackgrounds que pode estar em formato variado.
+function parseObjectPosition(s: string | undefined | null): { x: number; y: number } {
+  if (!s) return { x: 50, y: 50 };
+  const tokenToPercent = (tok: string): number | null => {
+    const t = tok.trim().toLowerCase();
+    if (t === "center") return 50;
+    if (t === "left" || t === "top") return 0;
+    if (t === "right" || t === "bottom") return 100;
+    const m = t.match(/^(-?\d+(?:\.\d+)?)%$/);
+    if (m) return parseFloat(m[1]);
+    return null;
+  };
+  const parts = s.trim().split(/\s+/);
+  if (parts.length === 1) {
+    const v = tokenToPercent(parts[0]);
+    return v != null ? { x: v, y: 50 } : { x: 50, y: 50 };
+  }
+  const x = tokenToPercent(parts[0]);
+  const y = tokenToPercent(parts[1]);
+  return {
+    x: x != null ? x : 50,
+    y: y != null ? y : 50,
+  };
+}
+
+const clampPct = (v: number) => Math.max(0, Math.min(100, v));
 
 export const PhotoSlot: React.FC<PhotoSlotProps> = ({
   url,
@@ -98,11 +138,30 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = ({
   frameSide = "bottom",
   fallbackBg = "#0E2A20",
   placeholderColor = "#F5F0E8",
+  objectPosition,
+  onPositionChange,
 }) => {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const dragStateRef = useRef<{
+    startX: number;
+    startY: number;
+    startPosX: number;
+    startPosY: number;
+    containerW: number;
+    containerH: number;
+    pointerId: number;
+  } | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+
+  const draggable = !!url && !!onPositionChange;
+  const currentPos = parseObjectPosition(objectPosition);
+  const cssPos = `${currentPos.x}% ${currentPos.y}%`;
+
   const frameStyle: React.CSSProperties = {
     position: "absolute",
     background: frameColor,
     opacity: 0.85,
+    pointerEvents: "none",
   };
   switch (frameSide) {
     case "bottom":
@@ -119,14 +178,89 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = ({
       break;
   }
 
+  // Drag handlers — usa Pointer Events (cobre mouse + touch + pen num só
+  // listener). setPointerCapture garante que o move chega mesmo quando o
+  // cursor sai do slot durante o drag.
+  const handlePointerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (!draggable) return;
+      const el = containerRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      dragStateRef.current = {
+        startX: e.clientX,
+        startY: e.clientY,
+        startPosX: currentPos.x,
+        startPosY: currentPos.y,
+        containerW: rect.width,
+        containerH: rect.height,
+        pointerId: e.pointerId,
+      };
+      try {
+        el.setPointerCapture(e.pointerId);
+      } catch {
+        // Browsers podem rejeitar quando pointerId é inválido — ignorar.
+      }
+      setIsDragging(true);
+      e.preventDefault();
+    },
+    [draggable, currentPos.x, currentPos.y],
+  );
+
+  const handlePointerMove = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      const state = dragStateRef.current;
+      if (!state || !onPositionChange) return;
+      if (e.pointerId !== state.pointerId) return;
+      const dx = e.clientX - state.startX;
+      const dy = e.clientY - state.startY;
+      // Sensibilidade: cada pixel de mouse move 100/container px% do
+      // object-position. Invertido (-) porque arrastar pra direita deve
+      // revelar mais da esquerda da imagem (deslocar pos x pra menor).
+      const nextX = clampPct(state.startPosX - (dx / state.containerW) * 100);
+      const nextY = clampPct(state.startPosY - (dy / state.containerH) * 100);
+      onPositionChange(`${nextX.toFixed(1)}% ${nextY.toFixed(1)}%`);
+    },
+    [onPositionChange],
+  );
+
+  const handlePointerUp = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      const state = dragStateRef.current;
+      if (!state) return;
+      const el = containerRef.current;
+      if (el) {
+        try {
+          el.releasePointerCapture(state.pointerId);
+        } catch {
+          // OK — pode já estar liberado.
+        }
+      }
+      dragStateRef.current = null;
+      setIsDragging(false);
+    },
+    [],
+  );
+
   return (
     <div
+      ref={containerRef}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
       style={{
         position: "absolute",
         inset: 0,
         background: fallbackBg,
         overflow: "hidden",
+        cursor: draggable ? (isDragging ? "grabbing" : "move") : "default",
+        // touch-action: none impede que o gesture native (scroll) compita
+        // com o drag. Crítico em mobile.
+        touchAction: draggable ? "none" : "auto",
+        userSelect: "none",
       }}
+      title={draggable ? "Arraste para reposicionar a foto" : undefined}
     >
       {url ? (
         <img
@@ -137,7 +271,8 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = ({
             width: "100%",
             height: "100%",
             objectFit: "cover",
-            objectPosition: "center center",
+            objectPosition: cssPos,
+            pointerEvents: "none",
           }}
           draggable={false}
         />
@@ -157,6 +292,7 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = ({
             textTransform: "uppercase",
             textAlign: "center",
             padding: 16,
+            pointerEvents: "none",
           }}
         >
           {placeholder || "foto"}

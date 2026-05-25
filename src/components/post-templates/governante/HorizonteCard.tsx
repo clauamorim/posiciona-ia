@@ -47,6 +47,10 @@ interface HorizonteCardProps {
   defaultBrandMark?: string;
   /** URL da foto desse slide (vem de slideBackgrounds[slideIndex] no PostEditorPage). */
   imageUrl?: string | null;
+  /** object-position CSS aplicado na foto (ex: "50% 30%"). Default "50% 50%". */
+  imagePosition?: string | null;
+  /** Callback disparado quando o usuário arrasta a foto dentro do slot. */
+  onImagePositionChange?: (next: string) => void;
 }
 
 /** Placeholder contextual baseado no tipo do slide. */
@@ -66,6 +70,8 @@ const HorizonteCard: React.FC<HorizonteCardProps> = ({
   totalSlides = 7,
   defaultBrandMark,
   imageUrl,
+  imagePosition,
+  onImagePositionChange,
 }) => {
   const sectionLabel = (tokens.sectionLabel ?? "CLÁUSULA").trim();
   const brandMark = (tokens.brandMark ?? defaultBrandMark ?? "Posiciona Editorial").trim();
@@ -122,6 +128,8 @@ const HorizonteCard: React.FC<HorizonteCardProps> = ({
         frameSide="bottom"
         fallbackBg="#0E2A20"
         placeholderColor={areia}
+        objectPosition={imagePosition ?? undefined}
+        onPositionChange={onImagePositionChange}
       />
     </div>
   );

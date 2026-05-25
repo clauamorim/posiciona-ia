@@ -128,6 +128,17 @@ interface PostCanvasProps {
    * ignoram esse valor.
    */
   templateImageUrl?: string | null;
+  /**
+   * object-position CSS aplicado na foto do template (drag reposiciona).
+   * Default "50% 50%" quando ausente. Ignorado por templates sem foto.
+   */
+  templateImagePosition?: string | null;
+  /**
+   * Callback disparado quando o usuário arrasta a foto dentro do slot do
+   * template. Recebe a nova string de object-position. Quando ausente, o
+   * slot fica não-arrastável (ex: thumbnail/preview).
+   */
+  onTemplateImagePositionChange?: (next: string) => void;
   // Legacy compat
   onImageMove?: (id: string, x: number, y: number) => void;
   onImageResize?: (id: string, width: number, height: number) => void;
@@ -197,7 +208,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   initialTextBoxes, resetKey,
   textBoxes: controlledTextBoxes, onTextBoxesChange,
   primaryArchetype,
-  templateId, templateCard, onEditTemplateSlot, templateTokens, templateSlideIndex, templateTotalSlides, templateDefaultBrandMark, templateImageUrl,
+  templateId, templateCard, onEditTemplateSlot, templateTokens, templateSlideIndex, templateTotalSlides, templateDefaultBrandMark, templateImageUrl, templateImagePosition, onTemplateImagePositionChange,
 }) => {
   const typo = getArchetypeTypography(primaryArchetype);
   const isMobile = useIsMobile();
@@ -1160,7 +1171,13 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
               totalSlides={templateTotalSlides}
               onEditSlot={onEditTemplateSlot as any}
               defaultBrandMark={templateDefaultBrandMark}
-              {...(templateId && PHOTO_TEMPLATES.has(templateId) ? { imageUrl: templateImageUrl } : {})}
+              {...(templateId && PHOTO_TEMPLATES.has(templateId)
+                ? {
+                    imageUrl: templateImageUrl,
+                    imagePosition: templateImagePosition,
+                    onImagePositionChange: onTemplateImagePositionChange,
+                  }
+                : {})}
             />
 
           </div>

@@ -278,6 +278,19 @@ const PostEditorPage = () => {
       [slideIdx]: { ...(prev[slideIdx] ?? {}), [field]: value },
     }));
   }, []);
+
+  // Posições de foto por slide (object-position CSS). Usado pelos templates
+  // Horizonte/Retrato pra reposicionar a foto dentro do slot via drag.
+  // State separado de slideBackgrounds porque a posição é independente da
+  // URL (trocar a foto preserva a posição se o usuário tinha ajustado).
+  // TODO(persist): incluir no draft pra sobreviver reload. Por ora só
+  // sessão in-memory.
+  const [slideImagePositions, setSlideImagePositions] = useState<Record<number, string>>(
+    (draft as any)?.slideImagePositions ?? {},
+  );
+  const setSlideImagePosition = useCallback((slideIdx: number, next: string) => {
+    setSlideImagePositions((prev) => ({ ...prev, [slideIdx]: next }));
+  }, []);
   const [templateTokens, setTemplateTokens] = useState<Partial<SertaoTokens>>(
     (draft as any)?.templateTokens ?? {},
   );
@@ -1949,6 +1962,8 @@ const PostEditorPage = () => {
                   }
                   return map;
                 })()}
+                slideImagePositions={slideImagePositions}
+                onSlideImagePositionChange={setSlideImagePosition}
               />
             ) : (
               <PostCanvas
@@ -1991,6 +2006,8 @@ const PostEditorPage = () => {
                   ?? overlayImages.find((o) => o.id.startsWith("tpl-bg-"))?.src
                   ?? null
                 }
+                templateImagePosition={slideImagePositions[0] ?? null}
+                onTemplateImagePositionChange={(next) => setSlideImagePosition(0, next)}
               />
             )}
             {/* Botão "Baixar PNG" foi movido para o painel de ações à direita para não sobrepor o canvas. */}

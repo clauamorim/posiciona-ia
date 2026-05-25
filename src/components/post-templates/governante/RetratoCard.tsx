@@ -46,6 +46,10 @@ interface RetratoCardProps {
   defaultBrandMark?: string;
   /** URL da foto desse slide. */
   imageUrl?: string | null;
+  /** object-position CSS aplicado na foto (ex: "50% 30%"). */
+  imagePosition?: string | null;
+  /** Callback quando o usuário arrasta a foto pra reposicionar. */
+  onImagePositionChange?: (next: string) => void;
 }
 
 function imagePlaceholder(card: CardData): string {
@@ -64,6 +68,8 @@ const RetratoCard: React.FC<RetratoCardProps> = ({
   totalSlides = 7,
   defaultBrandMark,
   imageUrl,
+  imagePosition,
+  onImagePositionChange,
 }) => {
   const sectionLabel = (tokens.sectionLabel ?? "CLÁUSULA").trim();
   const brandMark = (tokens.brandMark ?? defaultBrandMark ?? "Posiciona Editorial").trim();
@@ -128,6 +134,8 @@ const RetratoCard: React.FC<RetratoCardProps> = ({
         frameSide={big ? "bottom" : "right"}
         fallbackBg="#E4DCC4"
         placeholderColor={verde}
+        objectPosition={imagePosition ?? undefined}
+        onPositionChange={onImagePositionChange}
       />
     </div>
   );
