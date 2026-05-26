@@ -407,7 +407,7 @@ const LandingPage = () => {
                 <div className="w-6 h-6 rounded-full bg-landing-purple/20 flex items-center justify-center flex-shrink-0 mt-0.5">
                   <span className="text-xs text-landing-purple font-semibold">{i + 1}</span>
                 </div>
-                <p className="text-sm text-landing-text/90">{item}</p>
+                <p className="text-sm font-medium text-landing-text/90">{item}</p>
               </div>
             ))}
           </div>
@@ -491,30 +491,30 @@ const LandingPage = () => {
 
           {/* Pilar 01 — texto esquerda, imagem direita */}
           <div className="grid md:grid-cols-2 gap-10 md:gap-16 items-center mb-[80px] md:mb-[120px]">
-            <div className="space-y-6">
+            <div className="space-y-8">
               <div>
                 <span className="text-6xl font-display font-bold text-landing-purple/20 leading-none block">01</span>
                 <h3 className="text-xl md:text-2xl font-display font-semibold mt-1">Diagnóstico e Identidade</h3>
-                <p className="text-sm md:text-base text-landing-text-secondary mt-2 leading-relaxed">
+                <p className="text-base md:text-[18px] text-landing-text-secondary mt-2 leading-relaxed">
                   Quem você é, no que você é referência, e como o mercado deve te enxergar.
                 </p>
               </div>
-              <ul className="space-y-4">
+              <ul className="space-y-5">
                 <li className="flex items-start gap-3">
                   <span className="mt-2 w-1.5 h-1.5 rounded-full bg-landing-purple flex-shrink-0" />
-                  <p className="text-sm"><span className="font-semibold text-landing-text">Análise estratégica do seu negócio</span><span className="text-landing-text-secondary"> — diagnóstico de mercado, posicionamento atual e oportunidades.</span></p>
+                  <p className="text-sm leading-[1.7]"><span className="font-semibold text-landing-text">Análise estratégica do seu negócio</span><span className="font-medium text-landing-text-secondary/85"> — diagnóstico de mercado, posicionamento atual e oportunidades.</span></p>
                 </li>
                 <li className="flex items-start gap-3">
                   <span className="mt-2 w-1.5 h-1.5 rounded-full bg-landing-purple flex-shrink-0" />
-                  <p className="text-sm"><span className="font-semibold text-landing-text">Mapa de arquétipos</span><span className="text-landing-text-secondary"> — arquétipo principal e secundário com pontuação, forças, tom de voz e direção visual.</span></p>
+                  <p className="text-sm leading-[1.7]"><span className="font-semibold text-landing-text">Mapa de arquétipos</span><span className="font-medium text-landing-text-secondary/85"> — arquétipo principal e secundário com pontuação, forças, tom de voz e direção visual.</span></p>
                 </li>
                 <li className="flex items-start gap-3">
                   <span className="mt-2 w-1.5 h-1.5 rounded-full bg-landing-purple flex-shrink-0" />
-                  <p className="text-sm"><span className="font-semibold text-landing-text">Narrativa StoryBrand</span><span className="text-landing-text-secondary"> — personagem, problema, guia, plano e transformação prontos.</span></p>
+                  <p className="text-sm leading-[1.7]"><span className="font-semibold text-landing-text">Narrativa StoryBrand</span><span className="font-medium text-landing-text-secondary/85"> — personagem, problema, guia, plano e transformação prontos.</span></p>
                 </li>
                 <li className="flex items-start gap-3">
                   <span className="mt-2 w-1.5 h-1.5 rounded-full bg-landing-purple flex-shrink-0" />
-                  <p className="text-sm"><span className="font-semibold text-landing-text">Relatório de marca completo</span><span className="text-landing-text-secondary"> — paleta de cores, tipografia, estilo visual, símbolos, tom de voz e </span><span className="font-bold text-landing-gold">figurino estratégico</span><span className="text-landing-text-secondary"> para suas fotos.</span></p>
+                  <p className="text-sm leading-[1.7]"><span className="font-semibold text-landing-text">Relatório de marca completo</span><span className="font-medium text-landing-text-secondary/85"> — paleta de cores, tipografia, estilo visual, símbolos, tom de voz e </span><span className="font-bold text-landing-gold">figurino estratégico</span><span className="font-medium text-landing-text-secondary/85"> para suas fotos.</span></p>
                 </li>
               </ul>
               <p className="text-xs text-landing-text-secondary/70 italic border-l-2 border-landing-gold/40 pl-3 leading-relaxed">
@@ -547,26 +547,26 @@ const LandingPage = () => {
                 loading="lazy"
               />
             </div>
-            <div className="space-y-6">
+            <div className="space-y-8">
               <div>
                 <span className="text-6xl font-display font-bold text-landing-purple/20 leading-none block">02</span>
                 <h3 className="text-xl md:text-2xl font-display font-semibold mt-1">Estratégia e Planejamento</h3>
-                <p className="text-sm md:text-base text-landing-text-secondary mt-2 leading-relaxed">
+                <p className="text-base md:text-[18px] text-landing-text-secondary mt-2 leading-relaxed">
                   O que postar, em qual ordem, pra qual objetivo.
                 </p>
               </div>
-              <ul className="space-y-4">
+              <ul className="space-y-5">
                 <li className="flex items-start gap-3">
                   <span className="mt-2 w-1.5 h-1.5 rounded-full bg-landing-purple flex-shrink-0" />
-                  <p className="text-sm"><span className="font-semibold text-landing-text">Análise do seu Instagram atual</span><span className="text-landing-text-secondary"> — bio, posts, hashtags, fluxo de conteúdo e oportunidades não exploradas.</span></p>
+                  <p className="text-sm leading-[1.7]"><span className="font-semibold text-landing-text">Análise do seu Instagram atual</span><span className="font-medium text-landing-text-secondary/85"> — bio, posts, hashtags, fluxo de conteúdo e oportunidades não exploradas.</span></p>
                 </li>
                 <li className="flex items-start gap-3">
                   <span className="mt-2 w-1.5 h-1.5 rounded-full bg-landing-purple flex-shrink-0" />
-                  <p className="text-sm"><span className="font-semibold text-landing-text">Linha editorial semanal</span><span className="text-landing-text-secondary"> — temas, formatos, CTAs e horários sugeridos para cada post.</span></p>
+                  <p className="text-sm leading-[1.7]"><span className="font-semibold text-landing-text">Linha editorial semanal</span><span className="font-medium text-landing-text-secondary/85"> — temas, formatos, CTAs e horários sugeridos para cada post.</span></p>
                 </li>
                 <li className="flex items-start gap-3">
                   <span className="mt-2 w-1.5 h-1.5 rounded-full bg-landing-purple flex-shrink-0" />
-                  <p className="text-sm"><span className="font-semibold text-landing-text">Calendário recalibrado mensalmente</span><span className="text-landing-text-secondary"> — ajustado com base no que está funcionando.</span></p>
+                  <p className="text-sm leading-[1.7]"><span className="font-semibold text-landing-text">Calendário recalibrado mensalmente</span><span className="font-medium text-landing-text-secondary/85"> — ajustado com base no que está funcionando.</span></p>
                 </li>
               </ul>
             </div>
@@ -574,26 +574,26 @@ const LandingPage = () => {
 
           {/* Pilar 03 — texto esquerda, imagem direita */}
           <div className="grid md:grid-cols-2 gap-10 md:gap-16 items-center">
-            <div className="space-y-6">
+            <div className="space-y-8">
               <div>
                 <span className="text-6xl font-display font-bold text-landing-purple/20 leading-none block">03</span>
                 <h3 className="text-xl md:text-2xl font-display font-semibold mt-1">Produção e Conversão</h3>
-                <p className="text-sm md:text-base text-landing-text-secondary mt-2 leading-relaxed">
+                <p className="text-base md:text-[18px] text-landing-text-secondary mt-2 leading-relaxed">
                   O conteúdo pronto pra publicar e pra vender.
                 </p>
               </div>
-              <ul className="space-y-4">
+              <ul className="space-y-5">
                 <li className="flex items-start gap-3">
                   <span className="mt-2 w-1.5 h-1.5 rounded-full bg-landing-purple flex-shrink-0" />
-                  <p className="text-sm"><span className="font-semibold text-landing-text">Posts prontos</span><span className="text-landing-text-secondary"> — carrosséis e posts estáticos com legenda, arte e CTA, alinhados ao seu relatório de marca.</span></p>
+                  <p className="text-sm leading-[1.7]"><span className="font-semibold text-landing-text">Posts prontos</span><span className="font-medium text-landing-text-secondary/85"> — carrosséis e posts estáticos com legenda, arte e CTA, alinhados ao seu relatório de marca.</span></p>
                 </li>
                 <li className="flex items-start gap-3">
                   <span className="mt-2 w-1.5 h-1.5 rounded-full bg-landing-purple flex-shrink-0" />
-                  <p className="text-sm"><span className="font-semibold text-landing-text">Stories de venda prontos</span><span className="text-landing-text-secondary"> — sequências completas que transformam seguidores em clientes usando a narrativa da sua marca. Você só publica.</span></p>
+                  <p className="text-sm leading-[1.7]"><span className="font-semibold text-landing-text">Stories de venda prontos</span><span className="font-medium text-landing-text-secondary/85"> — sequências completas que transformam seguidores em clientes usando a narrativa da sua marca. Você só publica.</span></p>
                 </li>
                 <li className="flex items-start gap-3">
                   <span className="mt-2 w-1.5 h-1.5 rounded-full bg-landing-purple flex-shrink-0" />
-                  <p className="text-sm"><span className="font-semibold text-landing-text">Retratos de posicionamento</span><span className="text-landing-text-secondary"> — imagens profissionais geradas por IA com base no seu arquétipo principal.</span></p>
+                  <p className="text-sm leading-[1.7]"><span className="font-semibold text-landing-text">Retratos de posicionamento</span><span className="font-medium text-landing-text-secondary/85"> — imagens profissionais geradas por IA com base no seu arquétipo principal.</span></p>
                 </li>
               </ul>
             </div>
@@ -618,12 +618,12 @@ const LandingPage = () => {
 
       {/* ── POR QUE USAR ── */}
       <section className="py-12 md:py-16 px-4 bg-landing-bg-secondary/40">
-        <div className="max-w-3xl mx-auto space-y-8">
-          <h2 className="text-2xl md:text-3xl font-display font-semibold text-center">
+        <div className="max-w-3xl mx-auto">
+          <h2 className="text-2xl md:text-3xl font-display font-semibold text-center mb-6">
             Feito para quem quer{" "}
             <span className="text-landing-gold italic">cobrar pelo valor que entrega</span>
           </h2>
-          <p className="text-sm md:text-base text-landing-text-secondary text-center leading-relaxed">
+          <p className="text-base md:text-[18px] font-normal text-landing-text-secondary/80 text-center leading-relaxed mb-12">
             Posicionamento estratégico, planejamento editorial e produção de conteúdo — entregues juntos pela primeira vez.
           </p>
           <div className="grid sm:grid-cols-2 gap-4">
@@ -878,7 +878,7 @@ const LandingPage = () => {
           <Accordion type="single" collapsible className="w-full space-y-2">
             {faqItems.map((item, i) => (
               <AccordionItem key={i} value={`faq-${i}`} className="border border-landing-border/40 rounded-lg px-4 bg-landing-bg-secondary/20">
-                <AccordionTrigger className="text-left text-base md:text-lg font-medium text-landing-text hover:no-underline py-4">
+                <AccordionTrigger className="text-left text-base md:text-[17px] font-medium text-landing-text hover:no-underline py-4">
                   {item.q}
                 </AccordionTrigger>
                 <AccordionContent className="text-sm md:text-base text-landing-text-secondary pb-4 leading-relaxed">
