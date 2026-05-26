@@ -520,13 +520,15 @@ const LandingPage = () => {
               </p>
             </div>
             <div
-              className="rounded-xl border border-landing-border/40 shadow-[0_8px_40px_rgba(0,0,0,0.25)] overflow-hidden flex items-center justify-center"
-              style={{ aspectRatio: "4/3", backgroundColor: "hsl(var(--card))" }}
-              aria-label="Relatório de marca com paleta, tipografia e estilo visual gerado pela Posiciona"
+              className="rounded-xl border border-landing-border/40 shadow-[0_8px_40px_rgba(0,0,0,0.25)] overflow-hidden"
+              style={{ aspectRatio: "4/3" }}
             >
-              <span className="text-xs text-landing-text-secondary/50 font-mono text-center px-4">
-                [Imagem Pilar 1 — Relatório de marca]
-              </span>
+              <img
+                src={pilar1Relatorio}
+                alt="Relatório de marca com paleta de cores, tipografia e estilo visual gerado pela Posiciona"
+                loading="lazy"
+                className="w-full h-full object-cover object-top"
+              />
             </div>
           </div>
 
