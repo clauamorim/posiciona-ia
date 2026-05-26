@@ -262,6 +262,28 @@ const RetratoCard: React.FC<RetratoCardProps> = ({
               onEdit={onEditSlot as any}
               placeholder="complemento"
             />
+            {((card as any).body || onEditSlot) && (
+              <EditableSpan
+                field="body"
+                value={(card as any).body || ""}
+                as="div"
+                autoFit
+                style={{
+                  fontFamily: bodyFam,
+                  fontWeight: 400,
+                  fontStyle: bodyFam.includes("Cormorant") ? "italic" : "normal",
+                  fontSize: big ? 18 : 13,
+                  lineHeight: 1.45,
+                  color: bodyColor,
+                  opacity: 0.72,
+                  marginTop: big ? 14 : 8,
+                  maxWidth: "94%",
+                  textWrap: "pretty" as any,
+                }}
+                onEdit={onEditSlot as any}
+                placeholder="Corpo de abertura"
+              />
+            )}
           </div>
 
           <div style={{ height: 1, background: mogno, opacity: 0.6 }} />

@@ -248,6 +248,27 @@ const HorizonteCard: React.FC<HorizonteCardProps> = ({
               onEdit={onEditSlot as any}
               placeholder="complemento"
             />
+            {((card as any).body || onEditSlot) && (
+              <EditableSpan
+                field="body"
+                value={(card as any).body || ""}
+                as="div"
+                autoFit
+                style={{
+                  fontFamily: bodyFam,
+                  fontWeight: 400,
+                  fontStyle: bodyFam.includes("Cormorant") ? "italic" : "normal",
+                  fontSize: big ? 18 : 14,
+                  lineHeight: 1.45,
+                  color: areia,
+                  opacity: 0.72,
+                  marginTop: big ? 14 : 10,
+                  textWrap: "pretty" as any,
+                }}
+                onEdit={onEditSlot as any}
+                placeholder="Corpo de abertura"
+              />
+            )}
           </div>
 
           <PeRule color={ouro} />
