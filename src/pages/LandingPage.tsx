@@ -16,6 +16,7 @@ import {
   Image, TrendingUp, Zap, GripVertical
 } from "lucide-react";
 import posicionaLogo from "@/assets/posiciona-logo.png";
+import heroIphones from "@/assets/hero-iphones-posiciona.png";
 import { useState, useCallback, useRef, useEffect } from "react";
 import { SeoHead } from "@/components/SeoHead";
 
@@ -473,17 +474,15 @@ const LandingPage = () => {
 
           {/* Hero da seção — 2 iPhones */}
           <div className="max-w-[800px] mx-auto mb-[80px] md:mb-[120px]">
-            <div
-              className="w-full rounded-xl border border-landing-border/40 shadow-[0_8px_40px_rgba(0,0,0,0.3)] overflow-hidden flex items-center justify-center"
-              style={{ aspectRatio: "16/9", backgroundColor: "hsl(var(--card))" }}
-              aria-label="Editor de post e retrato gerados pela Posiciona"
-            >
-              <span className="text-sm text-landing-text-secondary/50 font-mono text-center px-6">
-                [Imagem hero — 2 iPhones lado a lado]
-              </span>
-            </div>
+            <img
+              src={heroIphones}
+              alt="Retrato e post gerados pelo Posiciona, exibidos lado a lado em dois iPhones"
+              loading="lazy"
+              className="w-full h-auto rounded-xl"
+              style={{ aspectRatio: "16/9", objectFit: "cover" }}
+            />
             <p className="mt-3 text-xs text-center text-landing-text-secondary/60 italic">
-              Do diagnóstico ao retrato — tudo coerente com seu arquétipo.
+              O retrato e o post gerados pelo Posiciona — com a mesma identidade visual, do primeiro ao último pixel.
             </p>
           </div>
 
