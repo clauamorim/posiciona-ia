@@ -297,8 +297,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     );
 
-    // 2) Restaura sessão persistida do localStorage — independente do cliente
-    //    de auth (que pode travar em locks internos do navegador).
+    // 2) Fast path: restaura sessão persistida do localStorage imediatamente.
     const existing = readLocalSession();
     if (existing?.user) {
       setSession(existing);
@@ -306,9 +305,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const requestId = ++authRequestRef.current;
       setIsLoading(true);
       hydrateUser(existing, requestId);
-    } else {
-      setIsLoading(false);
     }
+
+    // 3) Authoritative path: aguarda o supabase-js terminar a init
+    //    (inclui detectSessionInUrl que processa tokens vindos no hash do OAuth).
+    //    Sem isso, há race: ProtectedRoute redireciona para /login antes do
+    //    hash ser consumido.
+    supabase.auth.getSession().then(({ data: { session: authSession } }) => {
+      if (!mounted) return;
+      if (authSession?.user) {
+        if (sessionUserIdRef.current !== authSession.user.id) {
+          setSession(authSession);
+          sessionUserIdRef.current = authSession.user.id;
+          const requestId = ++authRequestRef.current;
+          setIsLoading(true);
+          hydrateUser(authSession, requestId);
+        }
+      } else if (!existing) {
+        setIsLoading(false);
+      }
+    }).catch(() => {
+      if (mounted && !existing) setIsLoading(false);
+    });
 
     return () => {
       mounted = false;
