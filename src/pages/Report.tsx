@@ -623,8 +623,8 @@ const Report = () => {
               <h2 className="text-xl font-bold font-display">Tom de Voz</h2>
             </div>
             <div className="space-y-4">
-              {content.tone_of_voice.summary && <p className="text-sm leading-relaxed">{content.tone_of_voice.summary}</p>}
-              {content.tone_of_voice.communication_style && <p className="text-sm leading-relaxed text-foreground/80">{content.tone_of_voice.communication_style}</p>}
+              {content.tone_of_voice.summary && <p className="text-sm leading-relaxed max-w-prose">{content.tone_of_voice.summary}</p>}
+              {content.tone_of_voice.communication_style && <p className="text-sm leading-relaxed text-foreground/80 max-w-prose">{content.tone_of_voice.communication_style}</p>}
               <div className="grid gap-3 md:grid-cols-3 mt-4">
                 {content.tone_of_voice.words_to_use?.length > 0 && (
                   <div>
@@ -659,7 +659,7 @@ const Report = () => {
               <h2 className="text-xl font-bold font-display">Figurino Estratégico</h2>
             </div>
             {content.figurino.resumo && (
-              <p className="text-sm leading-relaxed mb-6">{content.figurino.resumo}</p>
+              <p className="text-sm leading-relaxed mb-6 max-w-prose">{content.figurino.resumo}</p>
             )}
             <Accordion type="multiple" defaultValue={["pecas_chave"]} className="w-full">
               {content.figurino.pecas_chave?.length > 0 && (
@@ -723,7 +723,7 @@ const Report = () => {
                     </span>
                   </AccordionTrigger>
                   <AccordionContent>
-                    <p className="text-sm text-foreground/80 leading-relaxed pt-1">{content.figurino.cabelo}</p>
+                    <p className="text-sm text-foreground/80 leading-relaxed pt-1 max-w-prose">{content.figurino.cabelo}</p>
                   </AccordionContent>
                 </AccordionItem>
               )}
@@ -736,7 +736,7 @@ const Report = () => {
                     </span>
                   </AccordionTrigger>
                   <AccordionContent>
-                    <p className="text-sm text-foreground/80 leading-relaxed pt-1">{content.figurino.maquiagem_grooming}</p>
+                    <p className="text-sm text-foreground/80 leading-relaxed pt-1 max-w-prose">{content.figurino.maquiagem_grooming}</p>
                   </AccordionContent>
                 </AccordionItem>
               )}
