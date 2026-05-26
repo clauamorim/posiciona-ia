@@ -18,6 +18,7 @@ import {
 import posicionaLogo from "@/assets/posiciona-logo.png";
 import heroIphones from "@/assets/hero-iphones-posiciona.png";
 import pilar1Relatorio from "@/assets/pilar-1-relatorio-marca.png";
+import pilar2Editorial from "@/assets/pilar-2-calendario-instagram.png";
 import { useState, useCallback, useRef, useEffect } from "react";
 import { SeoHead } from "@/components/SeoHead";
 
