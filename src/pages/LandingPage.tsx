@@ -541,7 +541,7 @@ const LandingPage = () => {
             >
               <span className="text-xs text-landing-text-secondary/50 font-mono text-center px-4">
                 [Imagem Pilar 2 — Calendário + Análise do Instagram]
-              </span>
+            </div>
             <div className="space-y-6">
               <div>
                 <span className="text-6xl font-display font-bold text-landing-purple/20 leading-none block">02</span>
