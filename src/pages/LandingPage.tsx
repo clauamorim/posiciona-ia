@@ -19,6 +19,7 @@ import posicionaLogo from "@/assets/posiciona-logo.png";
 import heroIphones from "@/assets/hero-iphones-posiciona.png";
 import pilar1Relatorio from "@/assets/pilar-1-relatorio-marca.png";
 import pilar2Editorial from "@/assets/pilar-2-calendario-instagram.png";
+import pilar3Stories from "@/assets/pilar-3-stories-venda.png";
 import { useState, useCallback, useRef, useEffect } from "react";
 import { SeoHead } from "@/components/SeoHead";
 
@@ -597,13 +598,15 @@ const LandingPage = () => {
               </ul>
             </div>
             <div
-              className="rounded-xl border border-landing-border/40 shadow-[0_8px_40px_rgba(0,0,0,0.25)] overflow-hidden flex items-center justify-center"
-              style={{ aspectRatio: "4/3", backgroundColor: "hsl(var(--card))" }}
-              aria-label="Sequências de stories de venda prontas para publicar, geradas pela Posiciona"
+              className="rounded-xl border border-landing-border/40 shadow-[0_8px_40px_rgba(0,0,0,0.25)] overflow-hidden"
+              style={{ aspectRatio: "4/3" }}
             >
-              <span className="text-xs text-landing-text-secondary/50 font-mono text-center px-4">
-                [Imagem Pilar 3 — Stories de Venda]
-              </span>
+              <img
+                src={pilar3Stories}
+                alt="Sequências de stories de venda prontas para publicar, geradas pela Posiciona"
+                loading="lazy"
+                className="w-full h-full object-cover object-top"
+              />
             </div>
           </div>
 
