@@ -122,6 +122,43 @@ function detectTitleCount(title?: string): number | null {
   return null;
 }
 
+/**
+ * Extrai o substantivo plural que vem logo após a contagem no título.
+ * Ex: "4 filtros que uso" → "Filtros", "as 7 dicas de…" → "Dicas".
+ * Usado para o `kicker` da capa antes de cair no sectionLabel global.
+ */
+function extractNounAfterCount(title?: string): string {
+  if (!title) return "";
+  // Números dígitos: "4 filtros", "as 7 dicas", "3 de passos"
+  const digitMatch = title.match(/\b\d{1,2}\s+(?:de\s+)?([a-záàâãéêíóôõúç]{3,})\b/i);
+  if (digitMatch) {
+    const w = digitMatch[1].toLowerCase();
+    return w.charAt(0).toUpperCase() + w.slice(1);
+  }
+  // Números por extenso: "quatro filtros", "cinco passos"
+  const writtenNums = "dois|duas|três|quatro|cinco|seis|sete|oito|nove|dez|onze|doze";
+  const writtenMatch = title.match(
+    new RegExp(`\\b(?:${writtenNums})\\s+(?:de\\s+)?([a-záàâãéêíóôõúç]{3,})\\b`, "i"),
+  );
+  if (writtenMatch) {
+    const w = writtenMatch[1].toLowerCase();
+    return w.charAt(0).toUpperCase() + w.slice(1);
+  }
+  return "";
+}
+
+/**
+ * Divide o título em (lead, tail) na primeira quebra natural: em-dash (—/–).
+ * Ex: "decisão técnica vira post — antes de qualquer linha de copy"
+ *   → { lead: "decisão técnica vira post", tail: "antes de qualquer linha de copy" }
+ * Se não há quebra, retorna { lead: title, tail: "" }.
+ */
+function splitTitleAtBreak(title: string): { lead: string; tail: string } {
+  const m = title.match(/^(.+?)\s+[—–]\s+(.+)$/s);
+  if (m) return { lead: m[1].trim(), tail: m[2].trim() };
+  return { lead: title, tail: "" };
+}
+
 /** Pluraliza rótulos simples (CLÁUSULA → Cláusulas, PASSO → Passos). */
 function pluralizeKicker(label: string): string {
   const cleaned = (label || "").trim();
@@ -202,24 +239,33 @@ export function mapPostToCards(input: MapPostInput): CardData[] {
   const sectionLabel = (input.sectionLabel || "CLÁUSULA").trim();
 
   // ── Cover ────────────────────────────────────────────────────────
-  // Resolve `countWord` em três níveis de fallback:
-  //   1. meta.countWord vindo do backend (ideal — palavra ou número gerado pela IA)
-  //   2. Se o título tem contagem detectável ("5 cláusulas"), usa o número por extenso
-  //   3. Senão, extrai uma palavra-destaque do título via heurística PT-BR
-  // Quando todos falham, volta pra contagem de cláusulas (comportamento legado).
+  // countWord — 3 níveis de fallback:
+  //   1. meta.countWord (IA)  2. número por extenso do título  3. palavra-destaque heurística
   const detectedCount = detectTitleCount(input.title);
   const resolvedCountWord =
     meta?.countWord
     || (detectedCount != null ? numberToPortuguese(detectedCount) : "")
     || extractThemeWord(input.title)
     || numberToPortuguese(clauseCount);
+
+  // kicker — prioriza meta, depois tenta extrair o substantivo do título
+  // ("4 filtros" → "Filtros"), só cai no sectionLabel global se não achar nada.
+  const resolvedKicker =
+    meta?.kicker
+    || extractNounAfterCount(input.title)
+    || pluralizeKicker(sectionLabel);
+
+  // titleLead + titleTail — divide o título no primeiro em-dash (—/–).
+  // Sem quebra, titleLead = título completo e titleTail = "".
+  const { lead: autoTitleLead, tail: autoTitleTail } = splitTitleAtBreak(input.title ?? "");
+
   const cover: CardData = {
     kind: "cover",
     eyebrow: meta?.eyebrow || brand.toUpperCase(),
-    kicker: meta?.kicker || pluralizeKicker(sectionLabel),
+    kicker: resolvedKicker,
     countWord: resolvedCountWord,
-    titleLead: input.title ?? "",
-    titleTail: meta?.titleTail ?? "",
+    titleLead: autoTitleLead,
+    titleTail: meta?.titleTail ?? autoTitleTail,
     body: copy[0] ?? "",
     footer: meta?.footer || "arraste para começar",
   };
@@ -240,11 +286,16 @@ export function mapPostToCards(input: MapPostInput): CardData[] {
   }
 
   // ── Close ────────────────────────────────────────────────────────
+  // body: usa meta.closeBody quando disponível; senão usa a 1ª frase da caption
+  // (mesma lógica do post único, onde body vem de copy[0] ou caption).
+  const closeBodyFallback = input.caption
+    ? input.caption.split(/\n/)[0].split(/\. /)[0].trim()
+    : "";
   const close: CardData = {
     kind: "close",
     eyebrow: meta?.closeEyebrow || "FECHAMENTO",
     title: closeCopy || "",
-    body: meta?.closeBody ?? "",
+    body: meta?.closeBody || closeBodyFallback,
     cta: input.cta ?? "",
   };
 
