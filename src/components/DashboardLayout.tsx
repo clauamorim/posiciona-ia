@@ -309,7 +309,7 @@ export const DashboardLayout = ({ children, wide = false }: { children: React.Re
             <span className="text-base font-display font-semibold tracking-tight">Posiciona</span>
           </Link>
         </header>
-        <div className={cn("flex-1 min-w-0 px-4 py-5 lg:px-8 lg:py-8 mx-auto w-full max-w-full pb-[calc(72px+env(safe-area-inset-bottom))] md:pb-[calc(1.5rem+env(safe-area-inset-bottom))]", wide ? "lg:max-w-[1400px]" : "lg:max-w-4xl")}>
+        <div className={cn("flex-1 min-w-0 px-4 md:px-6 py-5 lg:px-12 lg:py-8 mx-auto w-full max-w-full pb-[calc(72px+env(safe-area-inset-bottom))] md:pb-[calc(1.5rem+env(safe-area-inset-bottom))]", wide ? "lg:max-w-[1400px]" : "lg:max-w-[1200px]")}>
           {children}
         </div>
         <BackToTopButton />
