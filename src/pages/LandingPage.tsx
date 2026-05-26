@@ -13,26 +13,11 @@ import { toast } from "@/hooks/use-toast";
 import {
   Target, Brain, BarChart3, Calendar, FileText, Camera,
   Check, ArrowRight, Loader2, Menu, X, Search, Palette, MessageSquare,
-  Image, TrendingUp, Zap, ChevronLeft, ChevronRight, GripVertical
+  Image, TrendingUp, Zap, GripVertical
 } from "lucide-react";
 import posicionaLogo from "@/assets/posiciona-logo.png";
 import { useState, useCallback, useRef, useEffect } from "react";
 import { SeoHead } from "@/components/SeoHead";
-
-/* ── Demo screenshots ── */
-import demoDashboard from "@/assets/demo/dashboard.png";
-import demoQuestionario from "@/assets/demo/questionario-arquetipos.png";
-import demoArquetipos from "@/assets/demo/arquetipos.png";
-import demoNarrativa from "@/assets/demo/narrativa-marca.png";
-import demoEditorial from "@/assets/demo/linha-editorial.png";
-
-const DEMO_SLIDES = [
-  { src: demoDashboard, label: "Dashboard estratégico" },
-  { src: demoQuestionario, label: "Diagnóstico guiado" },
-  { src: demoArquetipos, label: "Resultado de posicionamento" },
-  { src: demoNarrativa, label: "Narrativa da marca" },
-  { src: demoEditorial, label: "Linha editorial pronta" },
-];
 
 /* ── Plan data ── */
 const plans = [
@@ -95,105 +80,21 @@ const plans = [
 ];
 
 const faqItems = [
-  { q: "O conteúdo não fica genérico, como outros geradores de IA?", a: "Não. O Posiciona não é um gerador de texto genérico. Ele parte dos seus arquétipos, da sua narrativa de marca e do seu contexto profissional específico. Dois profissionais do mesmo nicho recebem posicionamentos e conteúdos completamente diferentes." },
-  { q: "E se eu não gostar do conteúdo gerado?", a: "Você tem créditos de ajuste para refinar qualquer post. Basta indicar o que quer mudar e a IA reescreve mantendo o seu posicionamento." },
-  { q: "Como funciona o diagnóstico inicial?", a: "Você preenche dois questionários: um sobre o seu negócio e outro de personalidade de marca. A partir das respostas, a IA calcula seus arquétipos, gera sua narrativa de marca e cria toda a estratégia de posicionamento." },
-  { q: "Preciso entender de marketing para usar?", a: "Não. O Posiciona faz toda a parte estratégica por você. Basta responder os questionários com honestidade sobre o seu negócio e a IA cuida do resto." },
-  { q: "Os conteúdos já vêm prontos?", a: "Sim. O app gera posts, carrosséis e roteiros de reels completos, com texto, chamada para ação e sugestão visual. Basta publicar." },
-  { q: "Os retratos estão inclusos em todos os planos?", a: "Apenas o plano Autoridade Total inclui créditos mensais de retrato. Nos demais, você pode comprar créditos extras separadamente." },
-  { q: "Posso comprar créditos extras?", a: "Sim! Todos os planos permitem a compra de créditos extras de retrato para complementar sua estratégia visual." },
-  { q: "Isso serve para o meu nicho?", a: "O Posiciona é feito para profissionais liberais que vendem expertise e querem ser pagos pelo valor que entregam — coaches, consultores, terapeutas, advogados, médicos, arquitetos, designers, fotógrafos. Não importa se você está construindo autoridade agora ou já é referência: o objetivo é sempre o mesmo — atrair clientes que pagam mais e trabalhar com mais qualidade." },
-  { q: "Em quanto tempo recebo os resultados?", a: "Os arquétipos e a narrativa de marca são gerados em minutos após completar os questionários. A linha editorial e os conteúdos são criados sob demanda." },
+  { q: "Quanto tempo leva pra eu ter meu primeiro post pronto?", a: "Menos de 1 hora. Você responde 3 questionários rápidos (cerca de 15 minutos no total) e a IA entrega seu diagnóstico, narrativa e os primeiros conteúdos prontos para publicar." },
+  { q: "Posso cancelar quando quiser?", a: "Sim. Não tem contrato, não tem fidelidade. Você cancela com 1 clique direto na sua conta." },
+  { q: "A Posiciona substitui meu social media ou trabalha junto?", a: "Os dois funcionam. Profissionais que não têm social media usam a Posiciona como solução completa. Quem já trabalha com agência usa a Posiciona como diretriz estratégica — a agência executa com mais clareza e menos retrabalho." },
+  { q: "Funciona pra qual rede social?", a: "Hoje a entrega é otimizada para Instagram (feed, carrossel, reels). A estratégia gerada serve de base para LinkedIn e outras redes." },
+  { q: "Os conteúdos já vêm prontos pra publicar?", a: "Sim. Você recebe legenda, arte e CTA prontos. Pode publicar direto ou ajustar no editor interno se quiser personalizar algo." },
+  { q: "Funciona pro meu nicho?", a: "A Posiciona é otimizada para profissionais liberais — advogados, médicos, dentistas, psicólogos, arquitetos, consultores, coaches e terapeutas. Se você atende clientes que valorizam autoridade e confiança, funciona." },
+  { q: "Como funciona o suporte se eu travar?", a: "Atendimento direto via WhatsApp em horário comercial, com resposta em até 2 horas úteis. Nos planos mensais, você também tem acompanhamento estratégico da fundadora." },
+  { q: "Os retratos profissionais estão inclusos?", a: "No plano Autoridade Total, sim — 5 retratos por mês. No plano Presença Mensal, retratos podem ser adquiridos como crédito extra. No plano Semana de Conteúdo (pagamento único), retratos não estão inclusos." },
 ];
 
 /* Highlighted deliverables */
 const HIGHLIGHTED_DELIVERABLES = ["Mapa de Arquétipos", "Narrativa de Marca", "Calendário Editorial"];
 
-/* ── Demo Carousel Component ── */
-const DemoCarousel = ({ navigate }: { navigate: ReturnType<typeof useNavigate> }) => {
-  const [current, setCurrent] = useState(0);
-  const touchStartX = useRef(0);
-
-  const prev = () => setCurrent((c) => (c === 0 ? DEMO_SLIDES.length - 1 : c - 1));
-  const next = () => setCurrent((c) => (c === DEMO_SLIDES.length - 1 ? 0 : c + 1));
-
-  return (
-    <section className="py-12 md:py-16 px-4 bg-landing-bg-secondary/40">
-      <div className="max-w-5xl lg:max-w-[1280px] mx-auto space-y-8 text-center">
-        <div className="space-y-3">
-          <h2 className="text-2xl md:text-3xl font-display font-semibold">
-            Veja o Posiciona{" "}
-            <span className="text-landing-gold italic">por dentro</span>
-          </h2>
-          <p className="text-sm md:text-base text-landing-text-secondary max-w-2xl mx-auto leading-relaxed">
-            Do diagnóstico à estratégia, da narrativa ao conteúdo: veja como a plataforma organiza seu posicionamento na prática.
-          </p>
-        </div>
-
-        {/* Carousel */}
-        <div className="relative">
-          {/* Arrows */}
-          <button
-            onClick={prev}
-            className="absolute left-0 md:-left-5 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-landing-bg/80 border border-landing-border/50 flex items-center justify-center text-landing-text-secondary hover:text-landing-text hover:border-landing-purple/40 transition-all"
-            aria-label="Anterior"
-          >
-            <ChevronLeft className="h-5 w-5" />
-          </button>
-          <button
-            onClick={next}
-            className="absolute right-0 md:-right-5 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-landing-bg/80 border border-landing-border/50 flex items-center justify-center text-landing-text-secondary hover:text-landing-text hover:border-landing-purple/40 transition-all"
-            aria-label="Próximo"
-          >
-            <ChevronRight className="h-5 w-5" />
-          </button>
-
-          {/* Image */}
-          <div
-            className="overflow-hidden rounded-xl border border-border/40 bg-landing-bg/80 shadow-2xl shadow-purple-900/30 mx-8 md:mx-0 lg:w-[90%] lg:mx-auto"
-            onTouchStart={(e) => (touchStartX.current = e.touches[0].clientX)}
-            onTouchEnd={(e) => {
-              const diff = touchStartX.current - e.changedTouches[0].clientX;
-              if (Math.abs(diff) > 50) diff > 0 ? next() : prev();
-            }}
-          >
-            <img
-              src={DEMO_SLIDES[current].src}
-              alt={DEMO_SLIDES[current].label}
-              className="w-full h-auto object-contain transition-opacity duration-300"
-              loading="lazy"
-            />
-          </div>
-
-          {/* Caption */}
-          <p className="mt-4 text-sm font-medium text-landing-text-secondary">
-            {DEMO_SLIDES[current].label}
-          </p>
-
-          {/* Dots */}
-          <div className="flex items-center justify-center gap-2 mt-3">
-            {DEMO_SLIDES.map((_, i) => (
-              <button
-                key={i}
-                onClick={() => setCurrent(i)}
-                className={`w-2 h-2 rounded-full transition-all duration-200 ${
-                  i === current
-                    ? "bg-landing-purple w-6"
-                    : "bg-landing-border hover:bg-landing-text-secondary/50"
-                }`}
-                aria-label={`Slide ${i + 1}`}
-              />
-            ))}
-          </div>
-        </div>
-
-        <Button size="lg" onClick={() => navigate("/signup")} className="bg-landing-purple hover:bg-landing-purple/90 text-foreground text-base h-12 px-8">
-          Criar meu posicionamento <ArrowRight className="h-4 w-4 ml-2" />
-        </Button>
-      </div>
-    </section>
-  );
-};
+/* Constante de vagas — atualizar manualmente conforme vendas avançam */
+const VAGAS_RESTANTES = 27;
 
 /* ── Portrait Comparison Images ── */
 import comparisonBase from "@/assets/comparison/foto-base.jpeg";
@@ -467,7 +368,7 @@ const LandingPage = () => {
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
             <Button size="lg" onClick={() => navigate("/signup")} className="bg-landing-purple hover:bg-landing-purple/90 text-foreground text-base h-12 px-8">
-              Criar meu posicionamento <ArrowRight className="h-4 w-4 ml-2" />
+              Quero atrair clientes de maior ticket <ArrowRight className="h-4 w-4 ml-2" />
             </Button>
             <Button
               size="lg"
@@ -555,8 +456,154 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* ── DEMONSTRAÇÃO ── */}
-      <DemoCarousel navigate={navigate} />
+      {/* ── O QUE O POSICIONA ENTREGA ── */}
+      <section id="entrega" className="py-16 md:py-24 px-4">
+        <div className="max-w-5xl lg:max-w-[1280px] mx-auto">
+
+          {/* Cabeçalho */}
+          <div className="text-center space-y-3 mb-16 md:mb-20">
+            <h2 className="text-2xl md:text-3xl font-display font-semibold">
+              Veja o que o Posiciona{" "}
+              <span className="text-landing-gold italic">entrega</span>
+            </h2>
+            <p className="text-sm md:text-base text-landing-text-secondary max-w-2xl mx-auto leading-relaxed">
+              Conteúdo estratégico, pronto para publicar — adaptado ao seu nicho, seu arquétipo e sua voz.
+            </p>
+          </div>
+
+          {/* Hero da seção — 2 iPhones */}
+          <div className="max-w-[800px] mx-auto mb-[80px] md:mb-[120px]">
+            <div
+              className="w-full rounded-xl border border-landing-border/40 shadow-[0_8px_40px_rgba(0,0,0,0.3)] overflow-hidden flex items-center justify-center"
+              style={{ aspectRatio: "16/9", backgroundColor: "hsl(var(--card))" }}
+              aria-label="Editor de post e retrato gerados pela Posiciona"
+            >
+              <span className="text-sm text-landing-text-secondary/50 font-mono text-center px-6">
+                [Imagem hero — 2 iPhones lado a lado]
+              </span>
+            </div>
+            <p className="mt-3 text-xs text-center text-landing-text-secondary/60 italic">
+              Do diagnóstico ao retrato — tudo coerente com seu arquétipo.
+            </p>
+          </div>
+
+          {/* Pilar 01 — texto esquerda, imagem direita */}
+          <div className="grid md:grid-cols-2 gap-10 md:gap-16 items-center mb-[80px] md:mb-[120px]">
+            <div className="space-y-6">
+              <div>
+                <span className="text-6xl font-display font-bold text-landing-purple/20 leading-none block">01</span>
+                <h3 className="text-xl md:text-2xl font-display font-semibold mt-1">Diagnóstico e Identidade</h3>
+                <p className="text-sm md:text-base text-landing-text-secondary mt-2 leading-relaxed">
+                  Quem você é, no que você é referência, e como o mercado deve te enxergar.
+                </p>
+              </div>
+              <ul className="space-y-4">
+                <li className="flex items-start gap-3">
+                  <span className="mt-2 w-1.5 h-1.5 rounded-full bg-landing-purple flex-shrink-0" />
+                  <p className="text-sm"><span className="font-semibold text-landing-text">Análise estratégica do seu negócio</span><span className="text-landing-text-secondary"> — diagnóstico de mercado, posicionamento atual e oportunidades.</span></p>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="mt-2 w-1.5 h-1.5 rounded-full bg-landing-purple flex-shrink-0" />
+                  <p className="text-sm"><span className="font-semibold text-landing-text">Mapa de arquétipos</span><span className="text-landing-text-secondary"> — arquétipo principal e secundário com pontuação, forças, tom de voz e direção visual.</span></p>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="mt-2 w-1.5 h-1.5 rounded-full bg-landing-purple flex-shrink-0" />
+                  <p className="text-sm"><span className="font-semibold text-landing-text">Narrativa StoryBrand</span><span className="text-landing-text-secondary"> — personagem, problema, guia, plano e transformação prontos.</span></p>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="mt-2 w-1.5 h-1.5 rounded-full bg-landing-purple flex-shrink-0" />
+                  <p className="text-sm"><span className="font-semibold text-landing-text">Relatório de marca completo</span><span className="text-landing-text-secondary"> — paleta de cores, tipografia, estilo visual, símbolos, tom de voz e </span><span className="font-bold text-landing-gold">figurino estratégico</span><span className="text-landing-text-secondary"> para suas fotos.</span></p>
+                </li>
+              </ul>
+              <p className="text-xs text-landing-text-secondary/70 italic border-l-2 border-landing-gold/40 pl-3 leading-relaxed">
+                Sabia que sua roupa nas fotos pode fortalecer ou enfraquecer seu arquétipo? A Posiciona te diz exatamente como se vestir.
+              </p>
+            </div>
+            <div
+              className="rounded-xl border border-landing-border/40 shadow-[0_8px_40px_rgba(0,0,0,0.25)] overflow-hidden flex items-center justify-center"
+              style={{ aspectRatio: "4/3", backgroundColor: "hsl(var(--card))" }}
+              aria-label="Relatório de marca com paleta, tipografia e estilo visual gerado pela Posiciona"
+            >
+              <span className="text-xs text-landing-text-secondary/50 font-mono text-center px-4">
+                [Imagem Pilar 1 — Relatório de marca]
+              </span>
+            </div>
+          </div>
+
+          {/* Pilar 02 — imagem esquerda, texto direita */}
+          <div className="grid md:grid-cols-2 gap-10 md:gap-16 items-center mb-[80px] md:mb-[120px]">
+            <div
+              className="rounded-xl border border-landing-border/40 shadow-[0_8px_40px_rgba(0,0,0,0.25)] overflow-hidden flex items-center justify-center md:order-first order-last"
+              style={{ aspectRatio: "4/3", backgroundColor: "hsl(var(--card))" }}
+              aria-label="Linha editorial semanal e análise estratégica do Instagram geradas pela Posiciona"
+            >
+              <span className="text-xs text-landing-text-secondary/50 font-mono text-center px-4">
+                [Imagem Pilar 2 — Calendário + Análise do Instagram]
+              </span>
+            </div>
+            <div className="space-y-6">
+              <div>
+                <span className="text-6xl font-display font-bold text-landing-purple/20 leading-none block">02</span>
+                <h3 className="text-xl md:text-2xl font-display font-semibold mt-1">Estratégia e Planejamento</h3>
+                <p className="text-sm md:text-base text-landing-text-secondary mt-2 leading-relaxed">
+                  O que postar, em qual ordem, pra qual objetivo.
+                </p>
+              </div>
+              <ul className="space-y-4">
+                <li className="flex items-start gap-3">
+                  <span className="mt-2 w-1.5 h-1.5 rounded-full bg-landing-purple flex-shrink-0" />
+                  <p className="text-sm"><span className="font-semibold text-landing-text">Análise do seu Instagram atual</span><span className="text-landing-text-secondary"> — bio, posts, hashtags, fluxo de conteúdo e oportunidades não exploradas.</span></p>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="mt-2 w-1.5 h-1.5 rounded-full bg-landing-purple flex-shrink-0" />
+                  <p className="text-sm"><span className="font-semibold text-landing-text">Linha editorial semanal</span><span className="text-landing-text-secondary"> — temas, formatos, CTAs e horários sugeridos para cada post.</span></p>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="mt-2 w-1.5 h-1.5 rounded-full bg-landing-purple flex-shrink-0" />
+                  <p className="text-sm"><span className="font-semibold text-landing-text">Calendário recalibrado mensalmente</span><span className="text-landing-text-secondary"> — ajustado com base no que está funcionando.</span></p>
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          {/* Pilar 03 — texto esquerda, imagem direita */}
+          <div className="grid md:grid-cols-2 gap-10 md:gap-16 items-center">
+            <div className="space-y-6">
+              <div>
+                <span className="text-6xl font-display font-bold text-landing-purple/20 leading-none block">03</span>
+                <h3 className="text-xl md:text-2xl font-display font-semibold mt-1">Produção e Conversão</h3>
+                <p className="text-sm md:text-base text-landing-text-secondary mt-2 leading-relaxed">
+                  O conteúdo pronto pra publicar e pra vender.
+                </p>
+              </div>
+              <ul className="space-y-4">
+                <li className="flex items-start gap-3">
+                  <span className="mt-2 w-1.5 h-1.5 rounded-full bg-landing-purple flex-shrink-0" />
+                  <p className="text-sm"><span className="font-semibold text-landing-text">Posts prontos</span><span className="text-landing-text-secondary"> — carrosséis e posts estáticos com legenda, arte e CTA, alinhados ao seu relatório de marca.</span></p>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="mt-2 w-1.5 h-1.5 rounded-full bg-landing-purple flex-shrink-0" />
+                  <p className="text-sm"><span className="font-semibold text-landing-text">Stories de venda prontos</span><span className="text-landing-text-secondary"> — sequências completas que transformam seguidores em clientes usando a narrativa da sua marca. Você só publica.</span></p>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="mt-2 w-1.5 h-1.5 rounded-full bg-landing-purple flex-shrink-0" />
+                  <p className="text-sm"><span className="font-semibold text-landing-text">Retratos de posicionamento</span><span className="text-landing-text-secondary"> — imagens profissionais geradas por IA com base no seu arquétipo principal.</span></p>
+                </li>
+              </ul>
+            </div>
+            <div
+              className="rounded-xl border border-landing-border/40 shadow-[0_8px_40px_rgba(0,0,0,0.25)] overflow-hidden flex items-center justify-center"
+              style={{ aspectRatio: "4/3", backgroundColor: "hsl(var(--card))" }}
+              aria-label="Sequências de stories de venda prontas para publicar, geradas pela Posiciona"
+            >
+              <span className="text-xs text-landing-text-secondary/50 font-mono text-center px-4">
+                [Imagem Pilar 3 — Stories de Venda]
+              </span>
+            </div>
+          </div>
+
+        </div>
+      </section>
 
       {/* ── COMPARADOR DE RETRATOS ── */}
       <PortraitComparison />
@@ -568,6 +615,9 @@ const LandingPage = () => {
             Feito para quem quer{" "}
             <span className="text-landing-gold italic">cobrar pelo valor que entrega</span>
           </h2>
+          <p className="text-sm md:text-base text-landing-text-secondary text-center leading-relaxed">
+            Posicionamento estratégico, planejamento editorial e produção de conteúdo — entregues juntos pela primeira vez.
+          </p>
           <div className="grid sm:grid-cols-2 gap-4">
             {[
               { icon: Target, title: "Coaches e consultores", desc: "Saia da guerra de preços. Atraia clientes que pagam pelo seu método, não pela hora." },
@@ -727,7 +777,15 @@ const LandingPage = () => {
         <div className="max-w-5xl lg:max-w-[1280px] mx-auto space-y-10">
           <div className="text-center space-y-2">
             <h2 className="text-2xl md:text-3xl font-display font-semibold">Escolha seu plano</h2>
-            <p className="text-sm text-landing-text-secondary">Um social media custa R$ 2.000–5.000/mês. Uma consultoria de marca, R$ 3.000 a sessão. O Posiciona entrega os dois — por uma fração do custo.</p>
+            <p className="text-sm text-landing-text-secondary">Um social media custa R$ 2.000 a R$ 5.000 por mês. Uma consultoria de marca, R$ 3.000 por sessão. O Posiciona entrega os dois juntos — a partir de R$ 197.</p>
+          </div>
+
+          {/* Badge de escassez */}
+          <div className="flex justify-center">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-landing-gold/30 bg-landing-gold/5 text-xs text-landing-text-secondary">
+              ⚡ Acesso de fundadora — últimas vagas com condições especiais.{" "}
+              <span className="font-semibold text-landing-gold">{VAGAS_RESTANTES} disponíveis.</span>
+            </div>
           </div>
 
           <div className="grid md:grid-cols-3 gap-5">
@@ -828,14 +886,14 @@ const LandingPage = () => {
       <section className="py-12 md:py-16 px-4 bg-landing-bg-secondary/40">
         <div className="max-w-2xl mx-auto text-center space-y-5">
           <h2 className="text-2xl md:text-3xl font-display font-semibold leading-tight">
-            Cada semana sem posicionamento é uma semana competindo por preço. Pare de disputar volume —{" "}
+            Cada semana sem aparecer no Instagram é uma semana perdendo cliente pra concorrente menos preparado. Pare de disputar atenção —{" "}
             <span className="text-landing-gold italic">comece a ser escolhido pelo seu valor.</span>
           </h2>
           <p className="text-sm text-landing-text-secondary leading-relaxed">
             Responda o diagnóstico hoje. Amanhã você já tem posicionamento, narrativa e conteúdo prontos para publicar.
           </p>
           <Button size="lg" onClick={() => navigate("/signup")} className="bg-landing-purple hover:bg-landing-purple/90 text-foreground text-base h-12 px-8">
-            Criar meu posicionamento <ArrowRight className="h-4 w-4 ml-2" />
+            Quero atrair clientes de maior ticket <ArrowRight className="h-4 w-4 ml-2" />
           </Button>
           <p className="text-xs text-landing-text-secondary/50">Sem agência. Sem contrato. Resultado em minutos.</p>
         </div>
