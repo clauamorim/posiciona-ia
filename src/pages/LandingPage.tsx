@@ -535,16 +535,13 @@ const LandingPage = () => {
           {/* Pilar 02 — imagem esquerda, texto direita */}
           <div className="grid md:grid-cols-2 gap-10 md:gap-16 items-center mb-[80px] md:mb-[120px]">
             <div
-              className="rounded-xl border border-landing-border/40 shadow-[0_8px_40px_rgba(0,0,0,0.25)] overflow-hidden md:order-first order-last"
-              style={{ aspectRatio: "4/3" }}
+              className="rounded-xl border border-landing-border/40 shadow-[0_8px_40px_rgba(0,0,0,0.25)] overflow-hidden flex items-center justify-center md:order-first order-last"
+              style={{ aspectRatio: "4/3", backgroundColor: "hsl(var(--card))" }}
+              aria-label="Linha editorial semanal e análise estratégica do Instagram geradas pela Posiciona"
             >
-              <img
-                src={pilar2Editorial}
-                alt="Linha editorial semanal e análise estratégica do Instagram geradas pela Posiciona"
-                loading="lazy"
-                className="w-full h-full object-cover object-top"
-              />
-            </div>
+              <span className="text-xs text-landing-text-secondary/50 font-mono text-center px-4">
+                [Imagem Pilar 2 — Calendário + Análise do Instagram]
+              </span>
             <div className="space-y-6">
               <div>
                 <span className="text-6xl font-display font-bold text-landing-purple/20 leading-none block">02</span>
