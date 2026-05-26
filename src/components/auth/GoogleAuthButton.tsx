@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
-import { lovable } from "@/integrations/lovable";
+import { supabase } from "@/integrations/supabase/client";
 
 interface GoogleAuthButtonProps {
   label?: string;
@@ -14,24 +14,27 @@ export const GoogleAuthButton = ({ label = "Continuar com Google", disabled }: G
   const handleClick = async () => {
     setLoading(true);
     try {
-      const result = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: `${window.location.origin}/dashboard`,
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/dashboard`,
+        },
       });
-      if (result.redirected) return; // Browser is redirecting
-      if (result.error) {
+      if (error) {
         toast({
           title: "Não foi possível entrar com Google",
-          description: result.error.message || "Tente novamente.",
+          description: error.message || "Tente novamente.",
           variant: "destructive",
         });
+        setLoading(false);
       }
+      // On success the browser redirects to Google.
     } catch (e: any) {
       toast({
         title: "Não foi possível entrar com Google",
         description: e?.message || "Tente novamente.",
         variant: "destructive",
       });
-    } finally {
       setLoading(false);
     }
   };
