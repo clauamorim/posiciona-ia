@@ -609,7 +609,19 @@ const AddElementPanel: React.FC<AddElementPanelProps> = ({
         ) : (
           <div className="grid grid-cols-3 gap-1.5">
             {userPortraits.map((url, i) => (
-              <button key={i} onClick={() => handleAddImageFromUrl(url)} className="aspect-square rounded-md border bg-muted/40 hover:bg-muted transition-colors overflow-hidden">
+              <button
+                key={i}
+                onClick={() => {
+                  // Em template-com-foto, substitui a imagem do slide;
+                  // caso contrário, adiciona como overlay editável.
+                  if (onSwapBackground) {
+                    onSwapBackground(url, "saved");
+                  } else {
+                    handleAddImageFromUrl(url);
+                  }
+                }}
+                className="aspect-square rounded-md border bg-muted/40 hover:bg-muted transition-colors overflow-hidden"
+              >
                 <img src={url} alt={`Retrato ${i + 1}`} className="w-full h-full object-cover" crossOrigin="anonymous" loading="lazy" />
               </button>
             ))}
