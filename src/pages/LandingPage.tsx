@@ -18,7 +18,6 @@ import {
 import posicionaLogo from "@/assets/posiciona-logo.png";
 import heroIphones from "@/assets/hero-iphones-posiciona.png";
 import pilar1Relatorio from "@/assets/pilar-1-relatorio-marca.png";
-import pilar2Editorial from "@/assets/pilar-2-calendario-instagram.png";
 import { useState, useCallback, useRef, useEffect } from "react";
 import { SeoHead } from "@/components/SeoHead";
 
@@ -536,15 +535,13 @@ const LandingPage = () => {
           {/* Pilar 02 — imagem esquerda, texto direita */}
           <div className="grid md:grid-cols-2 gap-10 md:gap-16 items-center mb-[80px] md:mb-[120px]">
             <div
-              className="rounded-xl border border-landing-border/40 shadow-[0_8px_40px_rgba(0,0,0,0.25)] overflow-hidden md:order-first order-last"
-              style={{ aspectRatio: "4/3" }}
+              className="rounded-xl border border-landing-border/40 shadow-[0_8px_40px_rgba(0,0,0,0.25)] overflow-hidden flex items-center justify-center md:order-first order-last"
+              style={{ aspectRatio: "4/3", backgroundColor: "hsl(var(--card))" }}
+              aria-label="Linha editorial semanal e análise estratégica do Instagram geradas pela Posiciona"
             >
-              <img
-                src={pilar2Editorial}
-                alt="Linha editorial semanal e análise estratégica do Instagram geradas pela Posiciona"
-                loading="lazy"
-                className="w-full h-full object-cover object-top"
-              />
+              <span className="text-xs text-landing-text-secondary/50 font-mono text-center px-4">
+                [Imagem Pilar 2 — Calendário + Análise do Instagram]
+              </span>
             </div>
             <div className="space-y-6">
               <div>
