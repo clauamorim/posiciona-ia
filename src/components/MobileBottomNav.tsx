@@ -16,9 +16,19 @@ const items: BottomItem[] = [
   { label: "Conta", href: "/conta", icon: CircleUser },
 ];
 
+// Rotas que possuem sua própria barra de ação fixa no mobile e portanto
+// precisam esconder a navegação principal para não haver sobreposição
+// (mesma posição fixed bottom-0 + mesmo z-index).
+const HIDE_ON_ROUTES = ["/post-editor"];
+
 export const MobileBottomNav = () => {
   const location = useLocation();
   const pathname = location.pathname;
+
+  const shouldHide = HIDE_ON_ROUTES.some(
+    (p) => pathname === p || pathname.startsWith(p + "/"),
+  );
+  if (shouldHide) return null;
 
   return (
     <nav
