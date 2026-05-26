@@ -11,8 +11,8 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import {
-  Target, Brain, BarChart3, Calendar, FileText, Camera,
-  Check, ArrowRight, Loader2, Menu, X, Search, Palette, MessageSquare,
+  Target, Brain, FileText, Camera,
+  Check, ArrowRight, Loader2, Menu, X, Search, Palette,
   Image, TrendingUp, Zap, GripVertical
 } from "lucide-react";
 import posicionaLogo from "@/assets/posiciona-logo.png";
@@ -95,7 +95,6 @@ const faqItems = [
 ];
 
 /* Highlighted deliverables */
-const HIGHLIGHTED_DELIVERABLES = ["Mapa de Arquétipos", "Narrativa de Marca", "Calendário Editorial"];
 
 /* Constante de vagas — atualizar manualmente conforme vendas avançam */
 const VAGAS_RESTANTES = 27;
@@ -309,7 +308,7 @@ const LandingPage = () => {
 
           <nav className="hidden md:flex items-center gap-6 text-sm md:text-base text-landing-text-secondary">
             <button onClick={() => scrollTo("como-funciona")} className="hover:text-landing-text transition-colors">Como funciona</button>
-            <button onClick={() => scrollTo("resultados")} className="hover:text-landing-text transition-colors">Resultados</button>
+            <button onClick={() => scrollTo("entrega")} className="hover:text-landing-text transition-colors">Resultados</button>
             <button onClick={() => scrollTo("planos")} className="hover:text-landing-text transition-colors">Planos</button>
             <button onClick={() => scrollTo("faq")} className="hover:text-landing-text transition-colors">FAQ</button>
             <Link to="/sobre" className="hover:text-landing-text transition-colors">Sobre</Link>
@@ -334,7 +333,7 @@ const LandingPage = () => {
         {mobileMenuOpen && (
           <div className="md:hidden border-t border-landing-border/60 bg-landing-bg px-4 py-4 space-y-3">
             <button onClick={() => scrollTo("como-funciona")} className="block text-sm text-landing-text-secondary hover:text-landing-text w-full text-left py-1">Como funciona</button>
-            <button onClick={() => scrollTo("resultados")} className="block text-sm text-landing-text-secondary hover:text-landing-text w-full text-left py-1">Resultados</button>
+            <button onClick={() => scrollTo("entrega")} className="block text-sm text-landing-text-secondary hover:text-landing-text w-full text-left py-1">Resultados</button>
             <button onClick={() => scrollTo("planos")} className="block text-sm text-landing-text-secondary hover:text-landing-text w-full text-left py-1">Planos</button>
             <button onClick={() => scrollTo("faq")} className="block text-sm text-landing-text-secondary hover:text-landing-text w-full text-left py-1">FAQ</button>
             <Link to="/sobre" onClick={() => setMobileMenuOpen(false)} className="block text-sm text-landing-text-secondary hover:text-landing-text w-full text-left py-1">Sobre</Link>
@@ -643,47 +642,6 @@ const LandingPage = () => {
                 </div>
               </div>
             ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── PROVA CONCRETA (entregáveis) ── */}
-      <section id="resultados" className="py-12 md:py-16 px-4">
-        <div className="max-w-5xl lg:max-w-[1280px] mx-auto space-y-10">
-          <div className="text-center space-y-2">
-            <h2 className="text-2xl md:text-3xl font-display font-semibold">
-              Veja o que o Posiciona entrega{" "}
-              <span className="text-landing-gold italic">na prática</span>
-            </h2>
-          </div>
-
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {[
-              { icon: Brain, title: "Mapa de Arquétipos", desc: "Top 3 arquétipos com pontuação, forças, tom de voz e direção visual.", color: "text-purple-400", accent: "border-t-purple-500/60" },
-              { icon: Target, title: "Narrativa de Marca", desc: "Narrativa completa: personagem, problema, guia, plano e transformação.", color: "text-amber-400", accent: "border-t-landing-gold/70" },
-              { icon: BarChart3, title: "Diagnóstico de Perfil", desc: "Análise estratégica da bio, conteúdo, hashtags e oportunidades.", color: "text-emerald-400", accent: "border-t-emerald-500/60" },
-              { icon: Calendar, title: "Calendário Editorial", desc: "Semanas inteiras de conteúdo com temas, formatos e CTAs definidos.", color: "text-blue-400", accent: "border-t-blue-500/60" },
-              { icon: MessageSquare, title: "Conteúdos Prontos", desc: "Posts, carrosséis e roteiros de reels com legendas e chamadas para ação.", color: "text-pink-400", accent: "border-t-pink-500/60" },
-              { icon: Camera, title: "Retratos de Posicionamento", desc: "Retratos profissionais gerados por IA com base nos seus arquétipos.", color: "text-landing-gold", accent: "border-t-landing-gold/70" },
-            ].map((item, i) => {
-              const isHighlighted = HIGHLIGHTED_DELIVERABLES.includes(item.title);
-              return (
-                <div
-                  key={i}
-                  className={`group p-5 rounded-xl border border-landing-border/40 border-t-2 ${item.accent} transition-all duration-200 hover:-translate-y-0.5 space-y-3 ${
-                    isHighlighted
-                      ? "bg-landing-bg-secondary/40 ring-1 ring-landing-purple/10"
-                      : "bg-landing-bg-secondary/20 hover:bg-landing-bg-secondary/40"
-                  }`}
-                >
-                  <div className="w-10 h-10 rounded-lg bg-landing-bg-secondary flex items-center justify-center">
-                    <item.icon className={`h-5 w-5 ${item.color}`} />
-                  </div>
-                  <h3 className="font-semibold text-sm md:text-base">{item.title}</h3>
-                  <p className="text-xs md:text-sm text-landing-text-secondary leading-relaxed">{item.desc}</p>
-                </div>
-              );
-            })}
           </div>
         </div>
       </section>
