@@ -1,0 +1,12 @@
+# Posiciona
+
+> Plataforma de posicionamento de marca pessoal com IA — arquétipos, StoryBrand, linha editorial e retratos de marca.
+
+Posiciona ajuda profissionais e empreendedores a construir uma marca pessoal coerente: identifica os 3 arquétipos dominantes a partir de questionários, gera um relatório estratégico completo, monta a narrativa StoryBrand, produz uma linha editorial semanal para Instagram e cria retratos de marca com IA.
+
+## Pages
+
+- [Início](/): Visão geral da plataforma, pilares e proposta de valor.
+- [Sobre](/sobre): Metodologia, fundadores e princípios editoriais.
+- [Termos de Serviço](/termos-de-servico): Termos e condições de uso.
+- [Política de Privacidade](/politica-de-privacidade): Como dados pessoais são tratados.
