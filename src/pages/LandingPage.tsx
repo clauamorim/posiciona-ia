@@ -479,7 +479,10 @@ const LandingPage = () => {
             <img
               src={heroIphones}
               alt="Retrato e post gerados pelo Posiciona, exibidos lado a lado em dois iPhones"
-              loading="lazy"
+              fetchPriority="high"
+              decoding="async"
+              width={1600}
+              height={900}
               className="w-full h-auto rounded-xl"
               style={{ aspectRatio: "16/9", objectFit: "cover" }}
             />
