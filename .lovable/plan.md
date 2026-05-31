@@ -1,41 +1,42 @@
-## O que será feito
+## Diagnóstico
 
-Duas melhorias no editor de posts com template Editorial:
+Os logs da edge function mostram que a geração **terminou com sucesso** (`DONE generation=d4f49b57… delivered=3/3`), mas levou ~2min29s e o cliente desconectou antes da resposta chegar (`Http: connection closed before message completed`). O cliente `supabase.functions.invoke` tem timeout em torno de 150s e Nano Banana Pro gerando 3 imagens sequenciais extrapola isso. Resultado: retratos foram cobrados/salvos no banco, mas a usuária viu "Edge Function returned a non-2xx status code".
 
-### 1. Permitir redimensionar campos de texto manualmente
+Esse problema vai reincidir sempre — a única correção robusta é desacoplar a geração da resposta HTTP.
 
-Como o autofit nem sempre consegue acomodar textos longos (especialmente na **Frase de fechamento** e no **Apoio do fechamento**), adicionar controles manuais de tamanho de fonte por slot no painel "Conteúdo do slide".
+## Plano
 
-- Novo campo `fontScale` (multiplicador 0.6×–1.4×) por tipo de slot no painel:
-  - Slide **Fechamento**: sliders para "Frase de fechamento" e "Apoio do fechamento"
-  - Slide **Capa**: sliders para "Título principal" e "Palavra-destaque"
-  - Slide **Cláusula**: slider para "Texto da cláusula"
-- Os multiplicadores são salvos como overrides no token do template (ex.: `closeTitleScale`, `closeBodyScale`, `coverTitleScale`, `coverCountScale`, `clauseBodyScale`) e aplicados sobre o `fontSize` base hardcoded nos componentes (`SertaoCard`, `CartorioCard`, `ManuscritoCard`, `HorizonteCard`, `RetratoCard`).
-- Cada slider tem botão "Restaurar" para voltar a 1×.
-- Os valores são persistidos junto com `templateTokens` no mesmo fluxo de save existente.
+Migrar o fluxo de retratos para o mesmo padrão assíncrono já usado em `process-report-generation-job` / `portrait-poll`: a edge function valida, cria o job, retorna 202 imediato, e processa em background com `EdgeRuntime.waitUntil`. O front faz polling até `ready`/`failed`.
 
-Importante: o autofit existente (`data-fit-bounds`) continua funcionando — o multiplicador é aplicado **antes** do shrink-to-fit, então textos curtos com `fontScale = 1.4` realmente ficam maiores, e textos longos com `fontScale = 0.8` já partem menores (reduzindo a chance do autofit precisar cortar).
+### 1. `supabase/functions/generate-portrait/index.ts`
+- Mover toda a validação (auth, créditos, referências, profile) para a fase síncrona.
+- Inserir `portrait_generations` com `status='processing'` antes de qualquer chamada ao Gemini.
+- Reservar créditos otimisticamente (decrementar do `user_balances`) — devolver no caminho de falha, igual ao `portrait-webhook` faz hoje.
+- Retornar `202 { generation_id, status: "processing" }`.
+- Embrulhar o loop de geração + uploads + finalização em `EdgeRuntime.waitUntil(processGeneration(...))`, que ao final atualiza a row para `status='ready'` (ou `failed` + reembolso parcial dos créditos não entregues).
 
-### 2. Adicionar upload de imagens nos templates com foto
+### 2. Novo endpoint `portrait-status` (ou estender `portrait-poll`)
+- Recebe `{ generation_id }`, valida ownership.
+- Retorna `{ status, portraits, delivered, requested, error_message }` com signed URLs frescas (7d) quando `ready`.
+- `portrait-poll` atual é específico do fluxo antigo Fal/LoRA; mais limpo criar `portrait-status` dedicado ao engine Gemini.
 
-Hoje, nos templates **Horizonte** e **Retrato**, o painel lateral mostra a aba "Upload" mas:
-- A imagem enviada vira asset na galeria, **não** substitui a foto do slide
-- A aba "Minha galeria" também só permite adicionar como overlay (não como fundo)
+### 3. `src/pages/PortraitGenerator.tsx`
+- Trocar o `await supabase.functions.invoke("generate-portrait")` por: invoke → recebe `generation_id` → loop de polling a cada 4s (timeout ~5min) chamando `portrait-status`.
+- Manter overlay de "Gerando…" ativo durante o polling.
+- Em `failed`, mostrar `error_message` retornado pelo backend.
+- Se o usuário recarregar a página com uma geração em andamento, oferecer retomar o polling (ler última row `processing` do usuário no mount).
 
-Correção em `AddElementPanel.tsx`:
-- Quando `onSwapBackground` está definido (= modo template de foto), clicar em "Enviar imagem" no upload usa o URL recém-criado para **chamar `onSwapBackground`** em vez de só salvar na galeria.
-- Mesma lógica para clicar numa thumbnail da aba "Minha galeria": vira `onSwapBackground(url, "saved")` em vez de overlay.
-- Modo não-template (sem `onSwapBackground`) continua igual: upload/galeria adicionam como overlay.
+### 4. Reconciliar a geração órfã da usuária
+- A geração `d4f49b57-0236-48e3-a361-eeb34a9888fc` está salva como `ready` no banco mas não foi exibida. Como o `HistoryPage` já lê de `portrait_generations`, ela aparecerá no histórico automaticamente — não precisa migration de dados.
 
-## Arquivos afetados
+## Detalhes técnicos
 
-- `src/components/post-templates/governante/types.ts` — adicionar campos de scale opcionais em `SertaoTokens`
-- `src/components/post-templates/governante/SertaoCard.tsx`, `CartorioCard.tsx`, `ManuscritoCard.tsx`, `HorizonteCard.tsx`, `RetratoCard.tsx` — multiplicar `fontSize` dos slots editáveis pelo respectivo scale (default 1)
-- `src/components/post-editor/inspector/TemplateSertaoPanel.tsx` — sliders de tamanho por slot dentro de "Conteúdo do slide"
-- `src/components/post-editor/inspector/AddElementPanel.tsx` — usar `onSwapBackground` no upload e na galeria quando disponível
+- `EdgeRuntime.waitUntil` mantém o worker vivo após o response, sem segurar a conexão HTTP — mesmo padrão recomendado no knowledge `lovable-stack-overflow`.
+- Cobrança continua "1 crédito por retrato entregue": deduzimos `requestedCount` upfront e creditamos de volta `requested - delivered` no fim do background job.
+- Polling no front usa `setTimeout` recursivo (não `setInterval`) para evitar sobreposição de requisições.
+- Sem mudanças de schema: `portrait_generations` já tem `status`, `portraits`, `completed_at`, `error_message` (verificar no types.ts antes de implementar).
 
-## Fora do escopo
+## Fora de escopo
 
-- Não mexe na geração de conteúdo nem na pipeline da IA
-- Não altera o algoritmo de autofit existente
-- Não adiciona resize handles arrastáveis no canvas (só sliders no painel)
+- Migrar outros fluxos longos (relatórios, conteúdo semanal) — já são assíncronos.
+- Mudar o motor de geração ou prompts.
