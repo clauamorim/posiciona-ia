@@ -152,150 +152,76 @@ async function generateOnePortrait(params: {
   }
 }
 
-serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+// ────────────────────────────────────────────────────────────────────────────
+// Background worker. Roda DEPOIS do response 202, mantido vivo por
+// EdgeRuntime.waitUntil. Faz a geração pesada, upload, e fecha a row.
+// ────────────────────────────────────────────────────────────────────────────
+interface JobContext {
+  supabaseAdmin: any;
+  generationId: string;
+  userId: string;
+  apiKey: string;
+  archetypeName: string;
+  figurino: any;
+  gender: ReturnType<typeof mapGender>;
+  profession: string;
+  referenceDataUrls: string[];
+  requestedCount: number;
+  recentlyUsedPoses: string[];
+  recentlyUsedOutfits: string[];
+  reservedIncluded: number;
+  reservedExtra: number;
+}
+
+async function processGenerationAsync(ctx: JobContext) {
+  const {
+    supabaseAdmin, generationId, userId, apiKey, archetypeName, figurino,
+    gender, profession, referenceDataUrls, requestedCount,
+    recentlyUsedPoses, recentlyUsedOutfits, reservedIncluded, reservedExtra,
+  } = ctx;
+
+  const refundCredits = async (amount: number) => {
+    if (amount <= 0) return;
+    // Devolve primeiro pro bucket de extras, depois included (mantém política
+    // de "incluídos consumidos primeiro" sem inflar artificialmente os incluídos).
+    const { data: bal } = await supabaseAdmin
+      .from("user_balances")
+      .select("portrait_credits_included, portrait_credits_extra")
+      .eq("user_id", userId)
+      .single();
+    const curIncl = bal?.portrait_credits_included ?? 0;
+    const curExtra = bal?.portrait_credits_extra ?? 0;
+    const backToExtra = Math.min(amount, reservedExtra);
+    const backToIncl = amount - backToExtra;
+    await supabaseAdmin
+      .from("user_balances")
+      .update({
+        portrait_credits_included: curIncl + backToIncl,
+        portrait_credits_extra: curExtra + backToExtra,
+      })
+      .eq("user_id", userId);
+    await supabaseAdmin.from("credit_logs").insert({
+      user_id: userId,
+      credit_type: "portrait",
+      amount,
+      description: `Reembolso parcial — geração ${generationId}`,
+    });
+  };
+
+  const markFailed = async (msg: string) => {
+    console.error(`[generate-portrait] generation=${generationId} FAILED: ${msg}`);
+    await refundCredits(requestedCount);
+    await supabaseAdmin
+      .from("portrait_generations")
+      .update({
+        status: "failed",
+        error_message: msg.slice(0, 500),
+        completed_at: new Date().toISOString(),
+      })
+      .eq("id", generationId);
+  };
 
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Não autorizado" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: authHeader } } },
-    );
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    if (userError || !user) {
-      return new Response(JSON.stringify({ error: "Não autorizado" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      return new Response(JSON.stringify({ error: "LOVABLE_API_KEY não configurado" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const [balanceRes, profileRes, referencesRes, archetypesRes, reportRes] = await Promise.all([
-      supabaseAdmin
-        .from("user_balances")
-        .select("portrait_credits_included, portrait_credits_extra")
-        .eq("user_id", user.id)
-        .single(),
-      supabaseAdmin
-        .from("profiles")
-        .select("gender, profession")
-        .eq("user_id", user.id)
-        .single(),
-      supabaseAdmin
-        .from("portrait_references")
-        .select("id, file_path, position")
-        .eq("user_id", user.id)
-        .eq("is_active", true)
-        .order("position", { ascending: true }),
-      supabaseAdmin
-        .from("user_top_archetypes")
-        .select("archetype_name, rank")
-        .eq("user_id", user.id)
-        .eq("rank", 1)
-        .limit(1)
-        .maybeSingle(),
-      supabaseAdmin
-        .from("reports")
-        .select("content")
-        .eq("user_id", user.id)
-        .eq("status", "completed")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-    ]);
-
-    const included = balanceRes.data?.portrait_credits_included ?? 0;
-    const extra = balanceRes.data?.portrait_credits_extra ?? 0;
-    const totalCredits = included + extra;
-
-    if (totalCredits < 1) {
-      return new Response(
-        JSON.stringify({
-          error: `Geração requer pelo menos 1 crédito de retrato. Você tem ${totalCredits}.`,
-          needs_credits: true,
-        }),
-        { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
-
-    const references = referencesRes.data ?? [];
-    if (references.length < MIN_REFERENCES) {
-      return new Response(
-        JSON.stringify({
-          error: `Envie pelo menos ${MIN_REFERENCES} selfies de referência antes de gerar retratos.`,
-          needs_references: true,
-        }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
-
-    const requestedCount = Math.min(totalCredits, MAX_PORTRAITS);
-
-    const archetypeName = archetypesRes.data?.archetype_name || "Cara-comum";
-    const reportContent = reportRes.data?.content as Record<string, any> | null;
-    const figurino = reportContent?.figurino || {};
-    const gender = mapGender(profileRes.data?.gender);
-    const profession = profileRes.data?.profession ?? "";
-
-    // Baixa selfies como data URLs (paralelo).
-    // IMPORTANTE: limitamos a 5 referências para evitar que o Gemini "média"
-    // os rostos. A primeira selfie é a âncora de identidade (ground truth);
-    // as demais servem só para fornecer ângulos auxiliares. Mais que isso
-    // dilui a semelhança facial.
-    const MAX_REFERENCES_TO_SEND = 5;
-    const refsToUse = references.slice(0, MAX_REFERENCES_TO_SEND);
-    const refDownloads = await Promise.all(
-      refsToUse.map((r) => downloadReferenceAsDataUrl(supabaseAdmin, r.file_path)),
-    );
-    const referenceDataUrls = refDownloads
-      .filter((d): d is { ok: true; dataUrl: string } => d.ok)
-      .map((d) => d.dataUrl);
-
-    if (referenceDataUrls.length < MIN_REFERENCES) {
-      return new Response(
-        JSON.stringify({
-          error: "Falha ao carregar suas referências. Tente reenviar as selfies.",
-        }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
-
-    // Variedade: pega últimas poses/outfits usadas
-    const { data: lastGen } = await supabaseAdmin
-      .from("portrait_generations")
-      .select("used_hand_poses, used_outfits")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    const recentlyUsedPoses: string[] = Array.isArray((lastGen as any)?.used_hand_poses)
-      ? (lastGen as any).used_hand_poses : [];
-    const recentlyUsedOutfits: string[] = Array.isArray((lastGen as any)?.used_outfits)
-      ? (lastGen as any).used_outfits : [];
-
     const family = getArchetypeFamily(archetypeName);
     const numPoses = Math.max(0, requestedCount - 1);
     const posesForLooks12 = pickPosesForLooks(family, recentlyUsedPoses, numPoses);
@@ -317,16 +243,13 @@ serve(async (req) => {
     }
 
     console.log(
-      `[generate-portrait] START provider=gemini model=${PRIMARY_MODEL} archetype=${archetypeName} ` +
-      `requestedCount=${requestedCount} references=${referenceDataUrls.length}`,
+      `[generate-portrait] START generation=${generationId} provider=gemini model=${PRIMARY_MODEL} ` +
+      `archetype=${archetypeName} requestedCount=${requestedCount} references=${referenceDataUrls.length}`,
     );
 
-    // Detecta faixa etária aparente da PRIMEIRA referência (uma única chamada).
-    // Default seguro: "40s" se a chamada falhar ou retornar inesperado.
-    const apparentAgeRange = await detectApparentAgeRange(LOVABLE_API_KEY, referenceDataUrls[0]);
-    console.log(`[generate-portrait] apparentAgeRange=${apparentAgeRange}`);
+    const apparentAgeRange = await detectApparentAgeRange(apiKey, referenceDataUrls[0]);
+    console.log(`[generate-portrait] generation=${generationId} apparentAgeRange=${apparentAgeRange}`);
 
-    // Gera as N imagens sequencialmente (evita rate-limit e melhora consistência)
     const results: Array<{
       index: number;
       background: string;
@@ -348,77 +271,36 @@ serve(async (req) => {
         apparentAgeRange,
       });
 
-      let r = await generateOnePortrait({
-        apiKey: LOVABLE_API_KEY,
-        prompt: built.prompt,
-        referenceDataUrls,
-        model: PRIMARY_MODEL,
-      });
+      let r = await generateOnePortrait({ apiKey, prompt: built.prompt, referenceDataUrls, model: PRIMARY_MODEL });
       let usedModel = PRIMARY_MODEL;
       if (!r.ok && (r as any).status !== 402 && (r as any).status !== 429) {
-        console.log(`[generate-portrait] primary failed (status=${(r as any).status}), trying fallback`);
-        const fb = await generateOnePortrait({
-          apiKey: LOVABLE_API_KEY,
-          prompt: built.prompt,
-          referenceDataUrls,
-          model: FALLBACK_MODEL,
-        });
+        console.log(`[generate-portrait] generation=${generationId} primary failed (status=${(r as any).status}), fallback`);
+        const fb = await generateOnePortrait({ apiKey, prompt: built.prompt, referenceDataUrls, model: FALLBACK_MODEL });
         if (fb.ok) { r = fb; usedModel = FALLBACK_MODEL; }
       }
 
-      results.push({
-        index: i,
-        background: built.backgroundKey,
-        outfit,
-        pose: handPose,
-        prompt: built.prompt,
-        model: usedModel,
-        result: r,
-      });
+      results.push({ index: i, background: built.backgroundKey, outfit, pose: handPose, prompt: built.prompt, model: usedModel, result: r });
 
       if (!r.ok && ((r as any).status === 402 || (r as any).status === 429)) break;
-    }
-
-    // Verifica payment/rate-limit globais
-    const paymentError = results.find((x) => !x.result.ok && (x.result as any).status === 402);
-    if (paymentError) {
-      return new Response(
-        JSON.stringify({
-          error: "Créditos do gateway de IA insuficientes. Adicione fundos em Workspace > Usage.",
-          needs_credits: true,
-        }),
-        { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
-    const rateLimitError = results.find((x) => !x.result.ok && (x.result as any).status === 429);
-    if (rateLimitError) {
-      return new Response(
-        JSON.stringify({
-          error: "Muitas gerações em pouco tempo. Aguarde 1 minuto e tente novamente.",
-        }),
-        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
     }
 
     const successes = results.filter((x) => x.result.ok);
     if (successes.length === 0) {
       const reasons = results.map((x) => (x.result.ok ? null : (x.result as any).reason)).filter(Boolean);
-      console.error(`[generate-portrait] ALL FAILED: ${reasons.join(" | ")}`);
-      return new Response(
-        JSON.stringify({
-          error: "Falha ao gerar retratos. Tente novamente em alguns minutos.",
-          details: reasons,
-        }),
-        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      const hasPayment = results.some((x) => !x.result.ok && (x.result as any).status === 402);
+      const hasRate = results.some((x) => !x.result.ok && (x.result as any).status === 429);
+      await markFailed(
+        hasPayment ? "Créditos do gateway de IA insuficientes. Tente novamente em alguns minutos."
+        : hasRate ? "Muitas gerações em pouco tempo. Aguarde 1 minuto e tente novamente."
+        : `Falha ao gerar retratos: ${reasons.join(" | ")}`,
       );
+      return;
     }
 
-    // Sobe imagens no bucket
-    const generationId = crypto.randomUUID();
     const uploaded: GeneratedImage[] = [];
     for (const s of successes) {
       const r = s.result as { ok: true; pngBytes: Uint8Array };
-      const path = `${user.id}/${generationId}/${s.index}_${s.background}.png`;
+      const path = `${userId}/${generationId}/${s.index}_${s.background}.png`;
       const { error: upErr } = await supabaseAdmin.storage
         .from(PORTRAIT_BUCKET)
         .upload(path, r.pngBytes, { contentType: "image/png", upsert: false });
@@ -437,37 +319,26 @@ serve(async (req) => {
     }
 
     if (uploaded.length === 0) {
-      return new Response(
-        JSON.stringify({ error: "Falha ao salvar retratos gerados." }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
+      await markFailed("Falha ao salvar retratos gerados.");
+      return;
     }
 
-    // Cobra créditos: included primeiro, depois extra
-    const charged = uploaded.length;
-    const useIncluded = Math.min(included, charged);
-    const useExtra = charged - useIncluded;
-    await supabaseAdmin
-      .from("user_balances")
-      .update({
-        portrait_credits_included: included - useIncluded,
-        portrait_credits_extra: extra - useExtra,
-      })
-      .eq("user_id", user.id);
+    // Reembolsa créditos dos retratos NÃO entregues
+    const refund = requestedCount - uploaded.length;
+    if (refund > 0) await refundCredits(refund);
 
     await supabaseAdmin.from("credit_logs").insert({
-      user_id: user.id,
+      user_id: userId,
       credit_type: "portrait",
-      amount: -charged,
-      description: `Geração de ${charged} retrato(s) — Nano Banana Pro`,
+      amount: -uploaded.length,
+      description: `Geração de ${uploaded.length} retrato(s) — Nano Banana Pro`,
     });
 
-    // Signed URLs pra retornar ao front
     const portraitsWithUrls = await Promise.all(
       uploaded.map(async (u) => {
         const { data: signed } = await supabaseAdmin.storage
           .from(PORTRAIT_BUCKET)
-          .createSignedUrl(u.storage_path, 60 * 60 * 24 * 7); // 7d
+          .createSignedUrl(u.storage_path, 60 * 60 * 24 * 7);
         return {
           storage_path: u.storage_path,
           url: signed?.signedUrl ?? null,
@@ -478,41 +349,194 @@ serve(async (req) => {
       }),
     );
 
+    const { error: updErr } = await supabaseAdmin
+      .from("portrait_generations")
+      .update({
+        status: "ready",
+        portraits: portraitsWithUrls,
+        used_hand_poses: uploaded.map((u) => u.pose).filter((p): p is string => !!p),
+        used_outfits: uploaded.map((u) => u.outfit).filter((o): o is string => !!o),
+        prompts_meta: uploaded.map((u) => ({
+          background: u.background, outfit: u.outfit, pose: u.pose, prompt: u.prompt, model: u.model,
+        })),
+        completed_at: new Date().toISOString(),
+      })
+      .eq("id", generationId);
+
+    if (updErr) console.error(`[generate-portrait] generation=${generationId} update failed`, updErr);
+
+    console.log(`[generate-portrait] DONE generation=${generationId} delivered=${uploaded.length}/${requestedCount}`);
+  } catch (e) {
+    await markFailed(e instanceof Error ? e.message : String(e));
+  }
+}
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: "Não autorizado" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } } },
+    );
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+      return new Response(JSON.stringify({ error: "Não autorizado" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) {
+      return new Response(JSON.stringify({ error: "LOVABLE_API_KEY não configurado" }), {
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const [balanceRes, profileRes, referencesRes, archetypesRes, reportRes] = await Promise.all([
+      supabaseAdmin.from("user_balances").select("portrait_credits_included, portrait_credits_extra").eq("user_id", user.id).single(),
+      supabaseAdmin.from("profiles").select("gender, profession").eq("user_id", user.id).single(),
+      supabaseAdmin.from("portrait_references").select("id, file_path, position").eq("user_id", user.id).eq("is_active", true).order("position", { ascending: true }),
+      supabaseAdmin.from("user_top_archetypes").select("archetype_name, rank").eq("user_id", user.id).eq("rank", 1).limit(1).maybeSingle(),
+      supabaseAdmin.from("reports").select("content").eq("user_id", user.id).eq("status", "completed").order("created_at", { ascending: false }).limit(1).maybeSingle(),
+    ]);
+
+    const included = balanceRes.data?.portrait_credits_included ?? 0;
+    const extra = balanceRes.data?.portrait_credits_extra ?? 0;
+    const totalCredits = included + extra;
+
+    if (totalCredits < 1) {
+      return new Response(
+        JSON.stringify({ error: `Geração requer pelo menos 1 crédito de retrato. Você tem ${totalCredits}.`, needs_credits: true }),
+        { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    const references = referencesRes.data ?? [];
+    if (references.length < MIN_REFERENCES) {
+      return new Response(
+        JSON.stringify({ error: `Envie pelo menos ${MIN_REFERENCES} selfies de referência antes de gerar retratos.`, needs_references: true }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    const requestedCount = Math.min(totalCredits, MAX_PORTRAITS);
+    const archetypeName = archetypesRes.data?.archetype_name || "Cara-comum";
+    const reportContent = reportRes.data?.content as Record<string, any> | null;
+    const figurino = reportContent?.figurino || {};
+    const gender = mapGender(profileRes.data?.gender);
+    const profession = profileRes.data?.profession ?? "";
+
+    const MAX_REFERENCES_TO_SEND = 5;
+    const refsToUse = references.slice(0, MAX_REFERENCES_TO_SEND);
+    const refDownloads = await Promise.all(
+      refsToUse.map((r) => downloadReferenceAsDataUrl(supabaseAdmin, r.file_path)),
+    );
+    const referenceDataUrls = refDownloads
+      .filter((d): d is { ok: true; dataUrl: string } => d.ok)
+      .map((d) => d.dataUrl);
+
+    if (referenceDataUrls.length < MIN_REFERENCES) {
+      return new Response(
+        JSON.stringify({ error: "Falha ao carregar suas referências. Tente reenviar as selfies." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    const { data: lastGen } = await supabaseAdmin
+      .from("portrait_generations")
+      .select("used_hand_poses, used_outfits")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const recentlyUsedPoses: string[] = Array.isArray((lastGen as any)?.used_hand_poses) ? (lastGen as any).used_hand_poses : [];
+    const recentlyUsedOutfits: string[] = Array.isArray((lastGen as any)?.used_outfits) ? (lastGen as any).used_outfits : [];
+
+    // Reserva créditos upfront: incluídos primeiro, depois extras.
+    const reservedIncluded = Math.min(included, requestedCount);
+    const reservedExtra = requestedCount - reservedIncluded;
+    await supabaseAdmin
+      .from("user_balances")
+      .update({
+        portrait_credits_included: included - reservedIncluded,
+        portrait_credits_extra: extra - reservedExtra,
+      })
+      .eq("user_id", user.id);
+
+    // Cria a row do job ANTES de retornar — assim o cliente pode fazer polling.
+    const generationId = crypto.randomUUID();
     const { error: insErr } = await supabaseAdmin.from("portrait_generations").insert({
       id: generationId,
       user_id: user.id,
-      status: "ready",
-      portraits: portraitsWithUrls,
+      status: "processing",
+      portraits: [],
       style_index: 0,
-      used_hand_poses: uploaded.map((u) => u.pose).filter((p): p is string => !!p),
-      used_outfits: uploaded.map((u) => u.outfit).filter((o): o is string => !!o),
+      used_hand_poses: [],
+      used_outfits: [],
       fal_request_ids: [],
-      prompts_meta: uploaded.map((u) => ({
-        background: u.background,
-        outfit: u.outfit,
-        pose: u.pose,
-        prompt: u.prompt,
-        model: u.model,
-      })),
+      prompts_meta: [],
       engine: "gemini",
-      completed_at: new Date().toISOString(),
     });
-
     if (insErr) {
+      // Falhou em criar a row — devolve os créditos e aborta.
+      await supabaseAdmin
+        .from("user_balances")
+        .update({
+          portrait_credits_included: included,
+          portrait_credits_extra: extra,
+        })
+        .eq("user_id", user.id);
       console.error("[generate-portrait] insert generation failed", insErr);
+      return new Response(
+        JSON.stringify({ error: "Falha ao iniciar geração. Tente novamente." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
-    console.log(`[generate-portrait] DONE generation=${generationId} delivered=${uploaded.length}/${requestedCount}`);
+    // Dispara o worker em background. EdgeRuntime.waitUntil mantém o isolate
+    // vivo após retornarmos a resposta 202 — sem prender a conexão HTTP.
+    // @ts-ignore — disponível no edge runtime
+    EdgeRuntime.waitUntil(processGenerationAsync({
+      supabaseAdmin,
+      generationId,
+      userId: user.id,
+      apiKey: LOVABLE_API_KEY,
+      archetypeName,
+      figurino,
+      gender,
+      profession,
+      referenceDataUrls,
+      requestedCount,
+      recentlyUsedPoses,
+      recentlyUsedOutfits,
+      reservedIncluded,
+      reservedExtra,
+    }));
 
     return new Response(
       JSON.stringify({
         generation_id: generationId,
-        status: "ready",
-        portraits: portraitsWithUrls,
-        delivered: uploaded.length,
+        status: "processing",
         requested: requestedCount,
       }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      { status: 202, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (e) {
     console.error("[generate-portrait] error", e);
