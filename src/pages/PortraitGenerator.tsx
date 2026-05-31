@@ -306,36 +306,87 @@ const PortraitGenerator = () => {
       if (data?.error) {
         toast({ title: "Erro", description: data.error, variant: "destructive" });
         if (data.needs_credits) setPackDialogOpen(true);
+        setGenerating(false);
         return;
       }
 
-      const generated: Array<{ url: string; background: string }> = data?.portraits ?? [];
-      if (generated.length === 0) {
-        toast({ title: "Nenhum retrato foi gerado", variant: "destructive" });
+      const jobId: string | undefined = data?.generation_id;
+      if (!jobId) {
+        toast({ title: "Erro ao iniciar geração", variant: "destructive" });
+        setGenerating(false);
         return;
       }
 
-      setPortraits(generated.map((g) => g.url));
-      setBackgrounds(generated.map((g) => g.background));
-      setOriginalIndices(generated.map((_, i) => i));
-      setGenerationId(data?.generation_id ?? null);
-      setGenerationCreatedAt(new Date().toISOString());
-      await refreshSubscription();
+      // Polling: a geração roda em background no edge function. Consultamos
+      // status a cada 5s por até ~5 minutos (Nano Banana Pro leva ~2-3min p/ 3 imgs).
+      const POLL_INTERVAL_MS = 5000;
+      const POLL_TIMEOUT_MS = 5 * 60 * 1000;
+      const startedAt = Date.now();
 
-      toast({
-        title: "Retratos prontos",
-        description: `${generated.length} retrato${generated.length > 1 ? "s" : ""} gerado${generated.length > 1 ? "s" : ""} com fidelidade premium.`,
-      });
+      while (true) {
+        if (Date.now() - startedAt > POLL_TIMEOUT_MS) {
+          toast({
+            title: "A geração está demorando mais que o normal",
+            description: "Recarregue a página em alguns minutos — seus retratos aparecerão no histórico.",
+            variant: "destructive",
+          });
+          setGenerating(false);
+          return;
+        }
+
+        await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+
+        const { data: statusData, error: statusErr } = await supabase.functions.invoke("portrait-status", {
+          body: { generation_id: jobId },
+        });
+        if (statusErr) {
+          console.warn("[portrait-status] polling error, retrying", statusErr);
+          continue;
+        }
+
+        if (statusData?.status === "failed") {
+          toast({
+            title: "Erro ao gerar retratos",
+            description: statusData.error_message ?? "Tente novamente em alguns minutos.",
+            variant: "destructive",
+          });
+          await refreshSubscription();
+          setGenerating(false);
+          return;
+        }
+
+        if (statusData?.status === "ready") {
+          const generated: Array<{ url: string; background: string }> = statusData?.portraits ?? [];
+          if (generated.length === 0) {
+            toast({ title: "Nenhum retrato foi gerado", variant: "destructive" });
+            setGenerating(false);
+            return;
+          }
+          setPortraits(generated.map((g) => g.url));
+          setBackgrounds(generated.map((g) => g.background));
+          setOriginalIndices(generated.map((_, i) => i));
+          setGenerationId(jobId);
+          setGenerationCreatedAt(statusData?.completed_at ?? new Date().toISOString());
+          await refreshSubscription();
+          toast({
+            title: "Retratos prontos",
+            description: `${generated.length} retrato${generated.length > 1 ? "s" : ""} gerado${generated.length > 1 ? "s" : ""} com fidelidade premium.`,
+          });
+          setGenerating(false);
+          return;
+        }
+        // status === "processing" → continua o loop
+      }
     } catch (err: any) {
       toast({
         title: "Erro ao gerar retratos",
         description: err?.message ?? "Falha desconhecida",
         variant: "destructive",
       });
-    } finally {
       setGenerating(false);
     }
   };
+
 
   const downloadPortrait = async (url: string, index: number) => {
     try {
