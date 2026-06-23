@@ -26,7 +26,7 @@ export const BackToTopButton = () => {
         "transition-all duration-300 ease-out",
         visible ? "opacity-100 translate-y-0 pointer-events-auto" : "opacity-0 translate-y-2 pointer-events-none",
       )}
-      style={{ bottom: "calc(1.5rem + env(safe-area-inset-bottom))" }}
+      style={{ bottom: "calc(9rem + env(safe-area-inset-bottom))" }}
     >
       <ChevronUp className="h-5 w-5" />
     </button>
