@@ -61,6 +61,14 @@ import {
   type FeedPostLike,
 } from "../_shared/editorialDiversity.ts";
 import {
+  renderSubjectAxisBlock,
+  validateWeekSubjects,
+  renderSubjectRetryInstructions,
+  normalizeSubject,
+  SUBJECT_ROTATION_WEEKS,
+  type RecentSubject,
+} from "../_shared/editorialSubjects.ts";
+import {
   FEED_DAYS,
   buildStoriesSystemPrompt,
   extractPartialDayObjects,
@@ -597,6 +605,7 @@ OUTPUT — array com EXATAMENTE 4 objetos, na ordem dos dias ${FEED_DAYS.join(",
     "format": "carrossel" | "post" | "reels",
     "pillar": "metodo" | "mito" | "mercado" | "caso" | "posicionamento" | "bastidor",
     "theme": "...",
+    "subject_tag": "assunto-concreto-em-kebab-case",
     "caption": "LEGENDA COMPLETA pronta para postar (longa, com storytelling)",
     "card_copy": ["texto curto do card (NÃO igual à legenda)"],
     "cta": "CTA verbal e direto",
@@ -608,6 +617,7 @@ OUTPUT — array com EXATAMENTE 4 objetos, na ordem dos dias ${FEED_DAYS.join(",
 REGRAS ESTRUTURAIS:
 - "day" deve ser exatamente um dos valores ${FEED_DAYS.join(", ")}, na ordem.
 - "pillar" obrigatório, valor literal entre os 6 ids; os 4 posts precisam usar 4 pilares DIFERENTES.
+- "subject_tag" obrigatório: o ASSUNTO concreto do nicho em kebab-case; os 4 posts precisam usar 4 assuntos DIFERENTES e nenhum pode repetir assunto recente (ver bloco EIXO DE ASSUNTO).
 - "is_personal" = true APENAS quando "pillar" = "bastidor".
 - "card_copy": carrossel ≥ 5 itens; post = 1 item; reels = [].
 - Cada item de card_copy: até ~180 caracteres (carrossel) ou ~200 (post único). NUNCA igual à caption.
@@ -621,8 +631,9 @@ CHECKLIST FINAL ANTES DE RESPONDER:
 2. Cada card_copy DIFERENTE da caption correspondente?
 3. Cada post tem campo "pillar" com um dos 6 ids válidos?
 4. Os 4 pilares são DIFERENTES entre si e respeitam a rotação (priorizar sub-representados, evitar sobre-representados)?
-5. is_personal=true SOMENTE em post com pillar="bastidor"?
-6. Cada número, case, métrica ou exemplo concreto citado existe LITERALMENTE no bloco FATOS VERIFICÁVEIS? Se não, foi reescrito como pergunta/hipótese explícita?
+5. Os 4 "subject_tag" são DIFERENTES entre si e nenhum repete assunto da lista ASSUNTOS USADOS RECENTEMENTE?
+6. is_personal=true SOMENTE em post com pillar="bastidor"?
+7. Cada número, case, métrica ou exemplo concreto citado existe LITERALMENTE no bloco FATOS VERIFICÁVEIS? Se não, foi reescrito como pergunta/hipótese explícita?
 Confirme tudo antes de enviar.`;
 }
 
@@ -639,6 +650,7 @@ interface FeedPost {
   cta?: string;
   script?: string;
   is_personal?: boolean;
+  subject_tag?: string;
   _dedup_failed?: boolean;
 }
 
@@ -833,6 +845,9 @@ async function processJob(jobId: string) {
       // sem _dedup_metrics. As signatures estão persistidas em reports.editorial_weeks[].
       const currentWeekIdx = typeof job.week_index === "number" ? job.week_index : -1;
       const historicalSignaturesByWeek: Array<{ weekIndex: number; signatures: PostSignature[] }> = [];
+      // Eixo de ASSUNTO: assuntos usados nas últimas semanas, lidos do subject_tag
+      // de cada post já persistido (reports.editorial_weeks[].days[].feed.subject_tag).
+      const recentSubjects: RecentSubject[] = [];
       try {
         const { data: reportRow } = await admin
           .from("reports")
@@ -850,8 +865,10 @@ async function processJob(jobId: string) {
           .sort((a: any, b: any) => (b._week_index ?? 0) - (a._week_index ?? 0))
           .slice(0, 8);
         const personalItems: string[] = [];
+        const recentSubjectsByWeek: Array<{ weekIndex: number; subjects: Array<{ tag: string; theme?: string }> }> = [];
         for (const week of recent) {
           const wkIdx = week?._week_index ?? 0;
+          const subjectsThisWeek: Array<{ tag: string; theme?: string }> = [];
           const sigs = week?._dedup_metrics?._pattern_signatures;
           if (Array.isArray(sigs) && sigs.length > 0) {
             historicalSignaturesByWeek.push({ weekIndex: wkIdx, signatures: sigs as PostSignature[] });
@@ -860,12 +877,29 @@ async function processJob(jobId: string) {
           // cenário/figura/ritual no estágio B (haras, varanda, biografia da avó).
           const days = Array.isArray(week?.days) ? week.days : [];
           for (const d of days) {
+            const feedPrev = d?.feed;
+            if (feedPrev && typeof feedPrev.subject_tag === "string" && feedPrev.subject_tag.trim()) {
+              subjectsThisWeek.push({
+                tag: feedPrev.subject_tag.trim(),
+                theme: typeof feedPrev.theme === "string" ? feedPrev.theme : undefined,
+              });
+            }
             const story = d?.story;
             if (story && typeof story.theme === "string" && story.theme.trim() && !story.mirrors_feed) {
               const dayN = typeof d?.day === "number" ? d.day : null;
               const labelDia = dayN === 6 ? "sábado" : dayN === 7 ? "domingo" : dayN === 5 ? "sexta" : `dia${dayN ?? "?"}`;
               personalItems.push(`[story-${labelDia}] ${story.theme.trim()}`);
             }
+          }
+          if (subjectsThisWeek.length > 0) {
+            recentSubjectsByWeek.push({ weekIndex: wkIdx, subjects: subjectsThisWeek });
+          }
+        }
+        // Achata os assuntos das últimas SUBJECT_ROTATION_WEEKS semanas (recent vem desc).
+        for (const w of recentSubjectsByWeek.slice(0, SUBJECT_ROTATION_WEEKS)) {
+          for (const s of w.subjects) {
+            const tag = normalizeSubject(s.tag);
+            if (tag) recentSubjects.push({ tag, raw: s.tag, weekIndex: w.weekIndex, theme: s.theme });
           }
         }
         // Mantém apenas os 10 stories pessoais mais recentes (≈ 3-4 semanas).
@@ -887,6 +921,7 @@ async function processJob(jobId: string) {
         POSITIONING_GUARDRAIL_BLOCK +
         renderPillarPlanBlock() +
         renderDiversityBlock(diversityHints as any) +
+        renderSubjectAxisBlock(recentSubjects) +
         ethicalBlock +
         "\n\n" +
         buildFeedSystemPrompt(rotationOffset) +
@@ -907,6 +942,7 @@ ANTES DE GERAR, leia os TEMAS JÁ PUBLICADOS acima. Para CADA post desta semana:
 2. Para o tipo de post da vez, ESCOLHA uma estrutura de abertura DIFERENTE das já usadas
 3. Verifique se nenhuma das "FRASES PROIBIDAS" do system prompt aparece na sua saída
 4. Confirme que os CTAs dos 4 posts são de naturezas diferentes (não todos "Me chame no direct")
+5. Confirme que os 4 ASSUNTOS (subject_tag) são diferentes entre si E não repetem nenhum tema da lista acima — variar formato/pilar NÃO basta, o assunto precisa ser novo
 
 Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
 
@@ -1101,6 +1137,67 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
         }
       } catch (divErr) {
         console.warn(`[job ${jobId}] validação de diversidade falhou (ignorada):`, (divErr as any)?.message || divErr);
+      }
+
+      // ==== Validação de ROTAÇÃO DE ASSUNTO + retry guiado (não bloqueia entrega) ====
+      // Eixo de TEMA: complementa a diversidade (forma) e a rotação de pilar
+      // (intenção). É o eixo que faltava — impede o mesmo ASSUNTO de voltar
+      // semana após semana sob formato/pilar diferentes.
+      let subjectByDayFinal: Record<number, string> = {};
+      try {
+        const subjValidation = validateWeekSubjects(feedFinal as any, recentSubjects);
+        subjectByDayFinal = subjValidation.subjectByDay;
+        console.log(
+          `[editorial-subject] week=${job.week_index} user=${userId} subjects=${JSON.stringify(subjectByDayFinal)} violations=${JSON.stringify(subjValidation.violations.map((v) => v.rule))} retry_triggered=${!subjValidation.ok}`,
+        );
+        if (!subjValidation.ok) {
+          console.warn(`[job ${jobId}] assunto: violações detectadas`, subjValidation.violations);
+          await updateJob(jobId, { progress_message: "Variando os assuntos da semana…" });
+          const retryUser = `${feedUser}${renderSubjectRetryInstructions(subjValidation.violations, recentSubjects)}`;
+          try {
+            const { text: subjRetryRaw } = await callClaudeWithMeta({
+              systemPrompt: feedSystem,
+              userText: retryUser,
+              model: "claude-opus-4-7",
+              max_tokens: 4500,
+              timeoutMs: 120000,
+              disableRetries: true,
+            });
+            let subjParsed: any = extractJsonFromLLM(subjRetryRaw);
+            if (!Array.isArray(subjParsed) || subjParsed.length === 0) {
+              subjParsed = extractPartialDayObjects(subjRetryRaw);
+            }
+            if (Array.isArray(subjParsed) && subjParsed.length > 0) {
+              const replaceMap = new Map<number, FeedPost>();
+              for (const p of subjParsed) {
+                if (!p || typeof p !== "object") continue;
+                const dayN = Number((p as any).day);
+                if (!FEED_DAYS.includes(dayN)) continue;
+                const cleaned = sanitizePost(p as Record<string, any>) as FeedPost;
+                cleaned.day = dayN;
+                cleaned.format = (cleaned.format || "post").toString().toLowerCase();
+                if (cleaned.format === "stories") cleaned.format = "post";
+                cleaned.is_personal = Boolean((cleaned as any).is_personal);
+                replaceMap.set(dayN, cleaned);
+              }
+              for (let i = 0; i < feedFinal.length; i++) {
+                const r = replaceMap.get(feedFinal[i].day);
+                if (r) feedFinal[i] = r;
+              }
+              const after = validateWeekSubjects(feedFinal as any, recentSubjects);
+              subjectByDayFinal = after.subjectByDay;
+              console.log(
+                `[job ${jobId}] [editorial-subject] retry ${after.ok ? "ok" : "ainda-viola"} subjects=${JSON.stringify(after.subjectByDay)}`,
+              );
+            } else {
+              console.warn(`[job ${jobId}] assunto: retry sem posts válidos, mantendo versão original.`);
+            }
+          } catch (subjRetryErr: any) {
+            console.warn(`[job ${jobId}] assunto: retry falhou (mantendo versão original):`, subjRetryErr?.message || subjRetryErr);
+          }
+        }
+      } catch (subjErr) {
+        console.warn(`[job ${jobId}] validação de assunto falhou (ignorada):`, (subjErr as any)?.message || subjErr);
       }
 
       // ==== Validação de compliance ético (profissões regulamentadas) ====
@@ -1902,9 +1999,17 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
       }
 
       // Monta extraMeta para persistir flag/métricas no JSONB editorial_weeks[i]
+      // Eixo de assunto: persiste o mapa dia→assunto (também fica no próprio post,
+      // em feed.subject_tag, que é a fonte primária lida pelas próximas semanas).
+      const subjectTagsByDay: Record<number, string> = {};
+      for (const p of feedFinal) {
+        const tag = normalizeSubject(String((p as any).subject_tag || "")) || subjectByDayFinal[p.day] || "";
+        if (tag) subjectTagsByDay[p.day] = tag;
+      }
       const dedupMetricsWithSigs = {
         ...(dedupMeta || {}),
         ...(weekPatternSignatures.length > 0 ? { _pattern_signatures: weekPatternSignatures } : {}),
+        ...(Object.keys(subjectTagsByDay).length > 0 ? { subject_tags_by_day: subjectTagsByDay } : {}),
       };
       const weekExtraMeta: Record<string, any> | undefined =
         dedupMeta || weekPatternSignatures.length > 0

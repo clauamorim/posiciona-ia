@@ -218,5 +218,5 @@ REGRA: se algum post desta semana acionar qualquer desses moldes, será regerado
 - Em vez de "mito → refutação", use experimento mental ou checklist específico
 - Varie tipo de gancho, varie estrutura interna, varie tipo de fechamento
 
-Diversifique o MOLDE, não só o assunto.`;
+Diversifique o MOLDE — e lembre que o ASSUNTO tem rotação própria (bloco EIXO DE ASSUNTO): varie os dois.`;
 }
