@@ -1,35 +1,64 @@
-## Diagnóstico
+## Problema
 
-A mensagem `permission denied for function has_role` apareceu porque:
+O botão **Baixar PDF** da Linha Editorial fica girando para sempre. A causa é a forma como a função `handleDownloadPDF` em `src/pages/EditorialPage.tsx` gera o PDF:
 
-1. A tabela `profiles` tem policies de admin ("Admins can view/update all profiles") que chamam `public.has_role(auth.uid(), 'admin')`.
-2. O PostgREST avalia **todas** as policies aplicáveis a uma operação (mesmo as do admin) usando o papel da requisição.
-3. Em uma migração antiga (`20260513215650`) o `EXECUTE` em `has_role` foi revogado de `anon` e mantido só para `authenticated` e `service_role`.
-4. Quando a cliente abriu o formulário pós-cadastro sem ter ainda uma sessão `authenticated` consolidada (caso típico: e-mail não confirmado, ou a UI tentou salvar antes do token ser persistido pelo SDK), a requisição saiu com o papel `anon` → ao avaliar a policy de admin, o Postgres tentou executar `has_role` como `anon` e bloqueou tudo.
+- Ela cria um container HTML invisível para cada semana e usa **html2canvas** (`scale: 2`, `windowWidth: 900`) para "fotografar" esse HTML, depois cola a imagem em um `jsPDF`.
+- Esse fluxo é notoriamente lento e instável: o html2canvas precisa carregar fontes/CSS, e em telas/conteúdos grandes ele frequentemente trava silenciosamente sem lançar erro — exatamente o sintoma "botão girando para sempre, nada acontece".
+- O conteúdo da Linha Editorial é **100% texto** (tema, legenda, CTA, conteúdo, roteiro, stories). Não há imagens. Renderizar via html2canvas é desperdício de complexidade e a fonte do bug.
 
-A função é `SECURITY DEFINER`, retorna apenas booleano e só lê `public.user_roles` para um `uuid` informado. Conceder EXECUTE ao `anon` não expõe dados — apenas permite que a expressão da policy seja avaliada (retorna `false` para `auth.uid()` nulo) e a operação seja corretamente negada/permitida pelas demais policies.
+## Solução
 
-## Mudança
+Reescrever `handleDownloadPDF` usando a **API nativa de texto do jsPDF** (sem html2canvas). O PDF passa a ser gerado direto via comandos `pdf.text()`, `pdf.rect()`, `pdf.setFont()` etc.
 
-Migração única:
+Benefícios:
+- Geração quase instantânea (milissegundos vs. dezenas de segundos).
+- PDF muito menor (texto vetorial em vez de imagem JPEG).
+- Texto selecionável e pesquisável dentro do PDF.
+- Acaba com o "trava para sempre".
+- Mantém o mesmo botão, mesmo nome de arquivo (`posiciona-linha-editorial.pdf`), mesma estrutura visual (capa + uma seção por semana com Dia, Tema, Legenda, CTA, Conteúdo, Roteiro, Stories).
 
-```sql
-GRANT EXECUTE ON FUNCTION public.has_role(uuid, public.app_role) TO anon;
+## Layout do novo PDF
+
+```text
+┌─────────────────────────────────┐
+│ Linha Editorial                 │  ← capa (título + subtítulo
+│ N semanas de conteúdo           │     com nº de semanas)
+├─────────────────────────────────┤
+│ Semana 1                        │  ← cabeçalho de semana
+│                                 │
+│  ── Dia 1 · Post ───────────    │
+│  Tema do dia                    │
+│  Legenda: ...                   │
+│  CTA: ...                       │
+│  Conteúdo:                      │
+│    • card 1                     │
+│    • card 2                     │
+│  Roteiro (se reels): ...        │
+│  Stories:                       │
+│    • frame 1                    │
+│                                 │
+│  ── Dia 2 · Reels ─────────     │
+│  ...                            │
+└─────────────────────────────────┘
 ```
 
-## Por que isso é seguro
+Cada dia ocupa um bloco de texto contínuo; quebra de página automática quando `y` ultrapassa a margem inferior. Mantém:
+- Filtro por semanas (`filterKeys`) — continua funcionando.
+- `cleanText` para remover marcações.
+- Toast de erro em caso de falha.
+- O state `downloadingPDF` (spinner) — agora resolvido em ~1s.
 
-- `has_role` é `SECURITY DEFINER` com `search_path = public` fixo.
-- Não revela conteúdo de `user_roles`: aceita um `uuid` e devolve apenas `true`/`false`.
-- Com `auth.uid()` nulo (anon), sempre devolve `false`, então policies que dependem dela continuam negando acesso administrativo.
-- Restaura o comportamento padrão do Lovable Cloud, onde `has_role` é executável por qualquer papel que possa atingir o PostgREST.
+## Detalhes técnicos
 
-## Validação após aplicar
+Arquivo único alterado: `src/pages/EditorialPage.tsx`, função `handleDownloadPDF` (linhas 856–1001).
 
-1. Pedir à cliente para reabrir o cadastro (ou nós reproduzimos com uma conta de teste nova) e preencher "Antes de começar".
-2. Confirmar que o `profiles` salva sem erro.
-3. Olhar os logs do Postgres para garantir que `permission denied for function has_role` desapareceu.
+- Remove imports dinâmicos de `html2canvas`.
+- Mantém `import("jspdf")` dinâmico (lazy).
+- Usa A4 portrait, margens 15mm, fonte Helvetica (embutida no jsPDF, sem precisar de fontes externas — evita o problema das fontes Cormorant/Inter que o jsPDF não conhece).
+- Helper `addText(text, opts)` que faz `pdf.splitTextToSize` e quebra de página automática.
+- Helper `addDayBlock(day, dayIndex)` que escreve um dia inteiro.
+- Loop pelas semanas filtradas, com `pdf.addPage()` entre semanas.
 
-## Observação paralela
+## Sobre o modo de seleção
 
-Vale também investigar por que a sessão estava como `anon` no momento do submit (provavelmente a opção de confirmação de e-mail está exigindo confirmação antes do login). Se quiser, em um próximo passo posso: (a) garantir que o onboarding só apareça quando `session?.user` existir, ou (b) ajustar o fluxo para enviar a cliente para `/verify-email` antes do formulário. Mas isso é melhoria de UX — o erro técnico se resolve com o GRANT acima.
+Você mencionou que "não aparece a opção de selecionar as semanas". Isso é separado deste bug — o modo de seleção aparece após clicar no botão **"Selecionar semanas"** (ícone ao lado de "Baixar PDF" no topo da Linha Editorial). Se quiser, posso investigar isso depois numa mensagem separada — para esta correção foco apenas em destravar o download.
