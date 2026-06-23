@@ -857,139 +857,163 @@ const EditorialPage = () => {
     setDownloadingPDF(true);
     try {
       const jsPDF = (await import("jspdf")).default;
-      const html2canvas = (await import("html2canvas")).default;
 
-      const A4_W = 210, A4_H = 297, M = 12;
+      const A4_W = 210;
+      const A4_H = 297;
+      const M = 15;
       const CW = A4_W - M * 2;
-      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-      let isFirstPage = true;
+      const BOTTOM = A4_H - M;
 
-      // Filtra semanas se filterKeys foi fornecido (modo seleção). Caso contrário, usa todas.
+      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+      pdf.setFont("helvetica", "normal");
+
       const weeksToExport: { week: any; key: number }[] = allWeeks
         .map((w, i) => ({ week: w, key: getWeekKey(w, i) }))
         .filter(({ key }) => !filterKeys || filterKeys.has(key))
         .sort((a, b) => a.key - b.key);
 
-      // Render TITLE separately (avoids it being lost in pagination)
-      const titleContainer = document.createElement("div");
-      titleContainer.className = "font-sans";
-      titleContainer.style.cssText = "position:absolute;left:-9999px;top:0;width:900px;background:#f2eeea;padding:24px;";
-      const subtitle = filterKeys
-        ? `${weeksToExport.length} semana${weeksToExport.length > 1 ? "s" : ""} selecionada${weeksToExport.length > 1 ? "s" : ""}`
-        : `${weeksToExport.length} semana${weeksToExport.length > 1 ? "s" : ""} de conteúdo`;
-      titleContainer.innerHTML = `<div style="padding:16px 0;">
-        <h1 style="font-size:22px;font-weight:700;color:#1a1a2e;margin:0 0 4px;">Linha Editorial</h1>
-        <p style="font-size:12px;color:#6b7280;margin:0;">${subtitle}</p>
-      </div>`;
-      document.body.appendChild(titleContainer);
+      let y = M;
 
-      const renderToPdf = async (container: HTMLElement) => {
-        const canvas = await html2canvas(container, {
-          scale: 2, useCORS: true, backgroundColor: "#f2eeea", logging: false, windowWidth: 900,
-        });
-        const wPx = canvas.width;
-        const hPx = canvas.height;
-        const sf = CW / wPx;
-        const hMM = hPx * sf;
-
-        const addImage = (srcCanvas: HTMLCanvasElement, heightMM: number) => {
-          if (!isFirstPage) pdf.addPage();
-          isFirstPage = false;
-          pdf.addImage(srcCanvas.toDataURL("image/jpeg", 0.92), "JPEG", M, M, CW, heightMM);
-        };
-
-        if (hMM <= A4_H - M * 2) {
-          addImage(canvas, hMM);
-        } else {
-          const pageH = A4_H - M * 2;
-          const pagesNeeded = Math.ceil(hMM / pageH);
-          const sliceHPx = Math.floor(wPx * (pageH / CW));
-          for (let p = 0; p < pagesNeeded; p++) {
-            const srcY = p * sliceHPx;
-            const srcH = Math.min(sliceHPx, hPx - srcY);
-            const sliceCanvas = document.createElement("canvas");
-            sliceCanvas.width = wPx;
-            sliceCanvas.height = srcH;
-            const ctx = sliceCanvas.getContext("2d")!;
-            ctx.drawImage(canvas, 0, srcY, wPx, srcH, 0, 0, wPx, srcH);
-            addImage(sliceCanvas, srcH * sf);
-          }
+      const ensureSpace = (needed: number) => {
+        if (y + needed > BOTTOM) {
+          pdf.addPage();
+          y = M;
         }
       };
 
-      await renderToPdf(titleContainer);
-      document.body.removeChild(titleContainer);
+      const writeBlock = (
+        text: string,
+        opts: { size?: number; style?: "normal" | "bold" | "italic"; color?: [number, number, number]; indent?: number; gap?: number } = {}
+      ) => {
+        const size = opts.size ?? 10;
+        const style = opts.style ?? "normal";
+        const color = opts.color ?? [30, 30, 40];
+        const indent = opts.indent ?? 0;
+        const gap = opts.gap ?? 1.5;
+        const cleaned = cleanText(text || "").trim();
+        if (!cleaned) return;
+        pdf.setFont("helvetica", style);
+        pdf.setFontSize(size);
+        pdf.setTextColor(color[0], color[1], color[2]);
+        const lineH = size * 0.45;
+        const lines = pdf.splitTextToSize(cleaned, CW - indent) as string[];
+        for (const line of lines) {
+          ensureSpace(lineH);
+          pdf.text(line, M + indent, y);
+          y += lineH;
+        }
+        y += gap;
+      };
 
-      // Render ONE WEEK AT A TIME (avoids canvas size limit)
-      for (const { week, key } of weeksToExport) {
-        const weekContainer = document.createElement("div");
-        weekContainer.className = "font-sans";
-        weekContainer.style.cssText = "position:absolute;left:-9999px;top:0;width:900px;background:#f2eeea;padding:24px;";
-        document.body.appendChild(weekContainer);
+      const writeLabel = (label: string) => {
+        writeBlock(label, { size: 8, style: "bold", color: [120, 120, 130], gap: 0.5 });
+      };
 
-        const weekHeader = document.createElement("h2");
-        weekHeader.style.cssText = "font-size:18px;font-weight:700;margin:24px 0 12px;color:#1a1a2e;";
-        weekHeader.textContent = `Semana ${key + 1}`;
-        weekContainer.appendChild(weekHeader);
+      const writeDivider = (color: [number, number, number] = [225, 220, 215]) => {
+        ensureSpace(4);
+        pdf.setDrawColor(color[0], color[1], color[2]);
+        pdf.setLineWidth(0.2);
+        pdf.line(M, y, M + CW, y);
+        y += 3;
+      };
 
-        const grid = document.createElement("div");
-        grid.style.cssText = "display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px;";
+      // ---------- CAPA ----------
+      y = M + 30;
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(28);
+      pdf.setTextColor(26, 26, 46);
+      pdf.text("Linha Editorial", M, y);
+      y += 10;
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(13);
+      pdf.setTextColor(110, 110, 120);
+      const subtitle = filterKeys
+        ? `${weeksToExport.length} semana${weeksToExport.length > 1 ? "s" : ""} selecionada${weeksToExport.length > 1 ? "s" : ""}`
+        : `${weeksToExport.length} semana${weeksToExport.length > 1 ? "s" : ""} de conteúdo`;
+      pdf.text(subtitle, M, y);
+      y += 8;
+      pdf.setFontSize(10);
+      pdf.setTextColor(150, 150, 160);
+      pdf.text(`Gerado em ${new Date().toLocaleDateString("pt-BR")}`, M, y);
+
+      // ---------- SEMANAS ----------
+      for (let wi = 0; wi < weeksToExport.length; wi++) {
+        const { week, key } = weeksToExport[wi];
+        pdf.addPage();
+        y = M;
+
+        // Cabeçalho da semana
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(20);
+        pdf.setTextColor(26, 26, 46);
+        pdf.text(`Semana ${key + 1}`, M, y + 5);
+        y += 10;
+        writeDivider([180, 170, 160]);
+        y += 2;
 
         for (let di = 0; di < week.days.length; di++) {
           const day = week.days[di];
           const feed = day.feed;
           const fmt = FORMAT_CONFIG[(feed?.format || "post").toLowerCase()] || FORMAT_CONFIG.post;
-          const card = document.createElement("div");
-          card.style.cssText = "background:white;border-radius:12px;padding:16px;border:1px solid #e5e1db;break-inside:avoid;";
+          const theme = feed?.theme || day.story?.theme || "";
 
-          let html = `<div style="display:flex;justify-content:space-between;margin-bottom:8px;">
-            <span style="font-size:10px;font-weight:700;text-transform:uppercase;color:#6b7280;">Dia ${day.day || di + 1}</span>
-            <span style="font-size:10px;font-weight:600;color:#6b7280;">${feed ? fmt.label : "Sem feed"}</span>
-          </div>
-          <h3 style="font-size:13px;font-weight:600;margin-bottom:8px;color:#1a1a2e;">${esc(cleanText(feed?.theme || day.story?.theme || ""))}</h3>`;
+          ensureSpace(20);
 
+          // Header do dia
+          pdf.setFont("helvetica", "bold");
+          pdf.setFontSize(11);
+          pdf.setTextColor(80, 80, 90);
+          pdf.text(`Dia ${day.day || di + 1}`, M, y);
+          pdf.setFont("helvetica", "normal");
+          pdf.setFontSize(10);
+          pdf.setTextColor(140, 140, 150);
+          pdf.text(`· ${feed ? fmt.label : "Sem feed"}`, M + 18, y);
+          y += 5;
+
+          // Tema
+          if (theme) {
+            writeBlock(theme, { size: 12, style: "bold", color: [26, 26, 46], gap: 2 });
+          }
+
+          // Legenda
           if (feed?.caption) {
-            html += `<div style="margin-bottom:6px;">
-              <p style="font-size:10px;font-weight:700;text-transform:uppercase;color:#9ca3af;margin-bottom:2px;">Legenda (Feed)</p>
-              <p style="font-size:11px;color:#374151;line-height:1.5;">${esc(cleanText(feed.caption))}</p>
-            </div>`;
+            writeLabel("LEGENDA (FEED)");
+            writeBlock(feed.caption, { size: 10, color: [55, 65, 81], gap: 2 });
           }
 
+          // CTA
           if (feed?.cta) {
-            html += `<div style="margin-bottom:6px;">
-              <p style="font-size:10px;font-weight:700;text-transform:uppercase;color:#9ca3af;margin-bottom:2px;">CTA</p>
-              <p style="font-size:11px;font-weight:600;color:#7c3aed;">${esc(cleanText(feed.cta))}</p>
-            </div>`;
+            writeLabel("CTA");
+            writeBlock(feed.cta, { size: 10, style: "bold", color: [124, 58, 237], gap: 2 });
           }
 
+          // Conteúdo (card_copy)
           if (feed?.card_copy && feed.card_copy.length > 0) {
-            html += `<div style="margin-top:6px;padding:8px;background:#f9fafb;border-radius:8px;border:1px solid #e5e7eb;">
-              <p style="font-size:10px;font-weight:700;text-transform:uppercase;color:#9ca3af;margin-bottom:4px;">Conteúdo</p>
-              ${feed.card_copy.map((c: string) => `<p style="font-size:11px;color:#374151;line-height:1.4;margin-bottom:4px;">${esc(cleanText(c))}</p>`).join("")}
-            </div>`;
+            writeLabel("CONTEÚDO");
+            for (const c of feed.card_copy) {
+              writeBlock(`• ${cleanText(c)}`, { size: 10, color: [55, 65, 81], indent: 3, gap: 1 });
+            }
+            y += 1;
           }
 
-          if (feed?.script && (feed.format === "reels")) {
-            html += `<div style="margin-top:6px;padding:8px;background:#f9fafb;border-radius:8px;border:1px solid #e5e7eb;">
-              <p style="font-size:10px;font-weight:700;text-transform:uppercase;color:#9ca3af;margin-bottom:4px;">Roteiro</p>
-              <p style="font-size:11px;color:#374151;line-height:1.4;white-space:pre-wrap;">${esc(feed.script)}</p>
-            </div>`;
+          // Roteiro (reels)
+          if (feed?.script && feed.format === "reels") {
+            writeLabel("ROTEIRO");
+            writeBlock(feed.script, { size: 10, color: [55, 65, 81], gap: 2 });
           }
 
+          // Stories
           if (day.story?.frames?.length) {
-            html += `<div style="margin-top:8px;padding:8px;background:#fef3c7;border-radius:8px;border:1px solid #fde68a;">
-              <p style="font-size:10px;font-weight:700;text-transform:uppercase;color:#92400e;margin-bottom:4px;">Stories${day.story.mirrors_feed ? " (mesmo tema do feed)" : ""}</p>
-              ${day.story.frames.map((f: string) => `<p style="font-size:11px;color:#78350f;line-height:1.4;margin-bottom:4px;">${esc(cleanText(f))}</p>`).join("")}
-            </div>`;
+            writeLabel(`STORIES${day.story.mirrors_feed ? " (mesmo tema do feed)" : ""}`);
+            for (const f of day.story.frames) {
+              writeBlock(`• ${cleanText(f)}`, { size: 10, color: [120, 53, 15], indent: 3, gap: 1 });
+            }
+            y += 1;
           }
 
-          card.innerHTML = html;
-          grid.appendChild(card);
+          y += 3;
+          writeDivider();
         }
-        weekContainer.appendChild(grid);
-
-        await renderToPdf(weekContainer);
-        document.body.removeChild(weekContainer);
       }
 
       pdf.save("posiciona-linha-editorial.pdf");
