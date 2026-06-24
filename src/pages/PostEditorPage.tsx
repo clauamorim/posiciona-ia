@@ -349,7 +349,8 @@ const PostEditorPage = () => {
       const existing = prev[slideIndex];
       if (existing && existing.length === boxes.length && existing.every((b, i) => {
         const n = boxes[i];
-        return b.id === n.id && b.x === n.x && b.y === n.y && b.width === n.width && b.height === n.height;
+        return b.id === n.id && b.x === n.x && b.y === n.y && b.width === n.width && b.height === n.height
+          && b.lineHeight === n.lineHeight && b.manual === n.manual;
       })) return prev;
       return { ...prev, [slideIndex]: boxes };
     });
