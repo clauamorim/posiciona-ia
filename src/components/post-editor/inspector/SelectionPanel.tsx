@@ -63,6 +63,8 @@ interface SelectionPanelProps {
   // Title
   titleFontSize?: number;
   onTitleFontSizeChange?: (s: number) => void;
+  titleLineHeight?: number;
+  onTitleLineHeightChange?: (lh: number) => void;
   titleColor?: string | null;
   onTitleColorChange?: (c: string) => void;
   titleFontFamily?: string | null;
@@ -224,6 +226,12 @@ const SelectionPanel: React.FC<SelectionPanelProps> = (props) => {
             <label className="text-[11px] text-muted-foreground">Tamanho: {props.titleFontSize || 44}px</label>
             <Slider value={[props.titleFontSize || 44]} onValueChange={([v]) => props.onTitleFontSizeChange?.(v)} min={20} max={150} step={1} className="mt-1" />
           </div>
+          {props.onTitleLineHeightChange && (
+            <div>
+              <label className="text-[11px] text-muted-foreground">Entrelinha: {(props.titleLineHeight ?? 1.1).toFixed(2)}</label>
+              <Slider value={[props.titleLineHeight ?? 1.1]} onValueChange={([v]) => props.onTitleLineHeightChange!(v)} min={0.9} max={2.5} step={0.05} className="mt-1" />
+            </div>
+          )}
           {props.onTitleColorChange && (
             <div>
               <label className="text-[11px] text-muted-foreground">Cor</label>

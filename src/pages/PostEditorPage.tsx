@@ -2059,6 +2059,12 @@ const PostEditorPage = () => {
               if (!boxes?.length) return;
               handleSlideTextBoxesChange(lineHeightSlideIdx, boxes.map((b) => b.type === "body" ? { ...b, lineHeight: lh } : b));
             };
+            const titleLineHeight = slideTextBoxes[lineHeightSlideIdx]?.find((b) => b.type === "title")?.lineHeight ?? 1.1;
+            const setTitleLineHeight = (lh: number) => {
+              const boxes = slideTextBoxes[lineHeightSlideIdx];
+              if (!boxes?.length) return;
+              handleSlideTextBoxesChange(lineHeightSlideIdx, boxes.map((b) => b.type === "title" ? { ...b, lineHeight: lh } : b));
+            };
             const sharedToolbarProps = {
               palette: palette.map((c: any) => ({ hex: c.hex, name: c.name })),
               selectedBgIndex: bgIndex,
@@ -2074,6 +2080,7 @@ const PostEditorPage = () => {
               selectedKind,
               fontSize, onFontSizeChange: setFontSize,
               bodyLineHeight, onBodyLineHeightChange: setBodyLineHeight,
+              titleLineHeight, onTitleLineHeightChange: setTitleLineHeight,
               fontWeight, onFontWeightChange: setFontWeight,
               fontStyle, onFontStyleChange: setFontStyle,
               bodyFont, onBodyFontChange: (f: string) => { loadGoogleFont(f); setBodyFont(f); },

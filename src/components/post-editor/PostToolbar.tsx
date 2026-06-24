@@ -68,6 +68,8 @@ interface PostToolbarProps {
   // title
   titleFontSize?: number;
   onTitleFontSizeChange?: (s: number) => void;
+  titleLineHeight?: number;
+  onTitleLineHeightChange?: (lh: number) => void;
   titleColor?: string | null;
   onTitleColorChange?: (c: string) => void;
   titleFontFamily?: string | null;
@@ -261,6 +263,8 @@ const PostToolbar: React.FC<PostToolbarProps> = (props) => {
           recommendedFonts={props.recommendedFonts}
           titleFontSize={props.titleFontSize}
           onTitleFontSizeChange={props.onTitleFontSizeChange}
+          titleLineHeight={props.titleLineHeight}
+          onTitleLineHeightChange={props.onTitleLineHeightChange}
           titleColor={props.titleColor}
           onTitleColorChange={props.onTitleColorChange}
           titleFontFamily={props.titleFontFamily}
