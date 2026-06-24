@@ -681,7 +681,9 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   const archetypeTitleSize = isCoverSlide ? typo.titleSizeMax + 12 : typo.titleSizeMax;
   // Piso do título: nunca menor que o piso do arquétipo, e nunca menor que body + 18px
   // (garante hierarquia visual mesmo quando texto é longo).
-  const archetypeTitleFloor = Math.max(42, typo.titleSizeMin, (fontSize || 44) + 18);
+  // O termo do corpo é limitado a 48px: o corpo agora pode ser aumentado até 150px
+  // manualmente, e sem esse teto um corpo grande forçaria um título gigante.
+  const archetypeTitleFloor = Math.max(42, typo.titleSizeMin, Math.min(fontSize || 44, 48) + 18);
   // Ignora titleFontSize do usuário/template quando for menor que o mínimo do arquétipo.
   const userTitleSize = titleFontSize && titleFontSize >= typo.titleSizeMin ? titleFontSize : archetypeTitleSize;
   const resolvedTitleFontSize = Math.max(archetypeTitleFloor, userTitleSize);

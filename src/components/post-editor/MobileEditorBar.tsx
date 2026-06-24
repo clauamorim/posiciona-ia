@@ -272,6 +272,7 @@ const MobileEditorBar: React.FC<MobileEditorBarProps> = (props) => {
                 userPortraits={props.userPortraits}
                 onAddImage={(img) => { props.onAddImage(img); close(); }}
                 hasSelectedElement={props.selectedKind === "icon"}
+                allowTextBox={!isKnownTemplate(props.templateId)}
                 onRecolorSelected={props.onRecolorElement}
                 imageSearchQuery={(props as any).imageSearchQuery}
                 canvasFormat={props.canvasFormat}

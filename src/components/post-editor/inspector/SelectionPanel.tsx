@@ -220,7 +220,7 @@ const SelectionPanel: React.FC<SelectionPanelProps> = (props) => {
           )}
           <div>
             <label className="text-[11px] text-muted-foreground">Tamanho: {props.titleFontSize || 44}px</label>
-            <Slider value={[props.titleFontSize || 44]} onValueChange={([v]) => props.onTitleFontSizeChange?.(v)} min={20} max={80} step={1} className="mt-1" />
+            <Slider value={[props.titleFontSize || 44]} onValueChange={([v]) => props.onTitleFontSizeChange?.(v)} min={20} max={150} step={1} className="mt-1" />
           </div>
           {props.onTitleColorChange && (
             <div>
@@ -269,7 +269,7 @@ const SelectionPanel: React.FC<SelectionPanelProps> = (props) => {
           </div>
           <div>
             <label className="text-[11px] text-muted-foreground">Tamanho: {props.fontSize}px</label>
-            <Slider value={[props.fontSize]} onValueChange={([v]) => props.onFontSizeChange(v)} min={16} max={48} step={1} className="mt-1" />
+            <Slider value={[props.fontSize]} onValueChange={([v]) => props.onFontSizeChange(v)} min={16} max={150} step={1} className="mt-1" />
           </div>
           <div>
             <label className="text-[11px] text-muted-foreground">Formatação</label>
@@ -397,7 +397,7 @@ const SelectionPanel: React.FC<SelectionPanelProps> = (props) => {
               </div>
               <div>
                 <label className="text-[11px] text-muted-foreground">Tamanho: {selectedOverlay.fontSize || 24}px</label>
-                <Slider value={[selectedOverlay.fontSize || 24]} onValueChange={([v]) => props.onUpdateOverlaySrc!(selectedOverlay.id, { fontSize: v })} min={12} max={72} step={1} className="mt-1" />
+                <Slider value={[selectedOverlay.fontSize || 24]} onValueChange={([v]) => props.onUpdateOverlaySrc!(selectedOverlay.id, { fontSize: v })} min={12} max={150} step={1} className="mt-1" />
               </div>
             </>
           )}

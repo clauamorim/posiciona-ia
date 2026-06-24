@@ -191,6 +191,7 @@ const PostToolbar: React.FC<PostToolbarProps> = (props) => {
                   userPortraits={props.userPortraits}
                   onAddImage={props.onAddImage}
                   hasSelectedElement={false}
+                  allowTextBox={false}
                   onRecolorSelected={props.onRecolorElement}
                   imageSearchQuery={props.imageSearchQuery}
                   canvasFormat={props.canvasFormat}
@@ -311,6 +312,7 @@ const PostToolbar: React.FC<PostToolbarProps> = (props) => {
           userPortraits={props.userPortraits}
           onAddImage={props.onAddImage}
           hasSelectedElement={props.selectedKind === "icon"}
+          allowTextBox
           onRecolorSelected={props.onRecolorElement}
           imageSearchQuery={props.imageSearchQuery}
           canvasFormat={props.canvasFormat}

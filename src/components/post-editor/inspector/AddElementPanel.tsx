@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown, ImagePlus, PlusSquare, Type as TypeIcon, Shapes, Minus, Camera, Image as ImageIcon, Trash2, Loader2 } from "lucide-react";
+import { ChevronDown, ImagePlus, Type as TypeIcon, Shapes, Minus, Camera, Image as ImageIcon, Trash2, Loader2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -136,6 +136,9 @@ interface AddElementPanelProps {
   onAddImage: (image: OverlayImage) => void;
   onPortraitsChanged?: () => void;
   hasSelectedElement?: boolean;
+  /** Exibe o botão "Caixa de texto". Só faz sentido onde overlays são renderizados
+   *  (posts minimalistas) — nos templates as caixas não aparecem, então fica oculto. */
+  allowTextBox?: boolean;
   onRecolorSelected?: (color: string) => void;
   /** Tema/palavra-chave para busca de imagens (default = tema do post). */
   imageSearchQuery?: string;
@@ -161,7 +164,7 @@ interface AddElementPanelProps {
 
 const AddElementPanel: React.FC<AddElementPanelProps> = ({
   palette, defaultElementColor, bodyFont, textColor, userPortraits = [], onAddImage, onPortraitsChanged,
-  hasSelectedElement, onRecolorSelected,
+  hasSelectedElement, allowTextBox = true, onRecolorSelected,
   imageSearchQuery = "", canvasFormat = "square", onPexelsPick, onSwapBackground,
   onAIGenerated, regenerationCredits, niche, businessContext, caption, postBody,
 }) => {
@@ -485,6 +488,14 @@ const AddElementPanel: React.FC<AddElementPanelProps> = ({
   };
 
   return (
+    <div className="space-y-3">
+      {/* Caixa de texto: ação principal e bem visível (antes ficava escondida
+          dentro da aba de upload). Só aparece onde overlays são renderizados. */}
+      {allowTextBox && (
+        <Button variant="outline" size="sm" className="gap-2 w-full h-9 text-xs" onClick={handleAddTextBox}>
+          <TypeIcon className="h-3.5 w-3.5" /> Adicionar caixa de texto
+        </Button>
+      )}
     <Tabs defaultValue="bgimages" className="w-full">
       <TabsList className="grid grid-cols-6 h-8 p-0.5">
         <TabsTrigger value="bgimages" className="text-[10px] h-7 px-1" title="Banco de imagens (Pexels + IA)"><Search className="h-3.5 w-3.5" /></TabsTrigger>
@@ -520,13 +531,10 @@ const AddElementPanel: React.FC<AddElementPanelProps> = ({
         />
       </TabsContent>
 
-      {/* Upload + text box */}
+      {/* Upload de imagem */}
       <TabsContent value="upload" className="mt-3 space-y-2">
         <Button variant="outline" size="sm" className="gap-2 w-full h-8 text-xs" onClick={handleFileUpload} disabled={uploading}>
           {uploading ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Enviando…</> : <><ImagePlus className="h-3.5 w-3.5" /> Enviar imagem</>}
-        </Button>
-        <Button variant="outline" size="sm" className="gap-2 w-full h-8 text-xs" onClick={handleAddTextBox}>
-          <PlusSquare className="h-3.5 w-3.5" /> Caixa de texto
         </Button>
         <p className="text-[10px] text-muted-foreground/70 leading-relaxed pt-1">As imagens enviadas ficam salvas na sua galeria.</p>
       </TabsContent>
@@ -748,6 +756,7 @@ const AddElementPanel: React.FC<AddElementPanelProps> = ({
         </DialogContent>
       </Dialog>
     </Tabs>
+    </div>
   );
 };
 
