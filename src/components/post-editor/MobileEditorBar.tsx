@@ -57,6 +57,8 @@ export interface MobileEditorBarProps {
   onTitleTextAlignChange?: (a: "left" | "center" | "right" | "justify") => void;
   fontSize: number;
   onFontSizeChange: (s: number) => void;
+  bodyLineHeight?: number;
+  onBodyLineHeightChange?: (lh: number) => void;
   fontWeight: string;
   onFontWeightChange: (w: string) => void;
   fontStyle: string;
@@ -227,6 +229,8 @@ const MobileEditorBar: React.FC<MobileEditorBarProps> = (props) => {
                 onTitleTextAlignChange={props.onTitleTextAlignChange}
                 fontSize={props.fontSize}
                 onFontSizeChange={props.onFontSizeChange}
+                bodyLineHeight={props.bodyLineHeight}
+                onBodyLineHeightChange={props.onBodyLineHeightChange}
                 fontWeight={props.fontWeight}
                 onFontWeightChange={props.onFontWeightChange}
                 fontStyle={props.fontStyle}

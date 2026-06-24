@@ -25,6 +25,12 @@ export interface OverlayImage {
   bgColor?: string;
   fontSize?: number;
   fontFamily?: string;
+  /** Formatação da caixa de texto (aplicada à caixa inteira). */
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
+  /** Entrelinha (line-height) da caixa de texto. */
+  lineHeight?: number;
 }
 
 interface PaletteColor { hex: string; name: string }
@@ -72,6 +78,8 @@ interface PostToolbarProps {
   // body
   fontSize: number;
   onFontSizeChange: (s: number) => void;
+  bodyLineHeight?: number;
+  onBodyLineHeightChange?: (lh: number) => void;
   fontWeight: string;
   onFontWeightChange: (w: string) => void;
   fontStyle: string;
@@ -262,6 +270,8 @@ const PostToolbar: React.FC<PostToolbarProps> = (props) => {
           onTitleTextAlignChange={props.onTitleTextAlignChange}
           fontSize={props.fontSize}
           onFontSizeChange={props.onFontSizeChange}
+          bodyLineHeight={props.bodyLineHeight}
+          onBodyLineHeightChange={props.onBodyLineHeightChange}
           fontWeight={props.fontWeight}
           onFontWeightChange={props.onFontWeightChange}
           fontStyle={props.fontStyle}

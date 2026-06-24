@@ -2049,6 +2049,15 @@ const PostEditorPage = () => {
             else if (selectedTextId === "text-body") selectedKind = "body";
             else if (selectedTextId === "cta") selectedKind = "cta";
             else if (selectedTextId === "slideNumber") selectedKind = "slideNumber";
+            // Entrelinha do corpo: vive na caixa "body" do slide atual (já persistida
+            // em slideTextBoxes, com undo/save de graça). Post único usa índice 0.
+            const lineHeightSlideIdx = isCarousel ? currentSlide : 0;
+            const bodyLineHeight = slideTextBoxes[lineHeightSlideIdx]?.find((b) => b.type === "body")?.lineHeight ?? 1.55;
+            const setBodyLineHeight = (lh: number) => {
+              const boxes = slideTextBoxes[lineHeightSlideIdx];
+              if (!boxes?.length) return;
+              handleSlideTextBoxesChange(lineHeightSlideIdx, boxes.map((b) => b.type === "body" ? { ...b, lineHeight: lh } : b));
+            };
             const sharedToolbarProps = {
               palette: palette.map((c: any) => ({ hex: c.hex, name: c.name })),
               selectedBgIndex: bgIndex,
@@ -2063,6 +2072,7 @@ const PostEditorPage = () => {
               recommendedFonts: { display: typography.display, body: typography.body },
               selectedKind,
               fontSize, onFontSizeChange: setFontSize,
+              bodyLineHeight, onBodyLineHeightChange: setBodyLineHeight,
               fontWeight, onFontWeightChange: setFontWeight,
               fontStyle, onFontStyleChange: setFontStyle,
               bodyFont, onBodyFontChange: (f: string) => { loadGoogleFont(f); setBodyFont(f); },

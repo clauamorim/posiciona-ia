@@ -74,6 +74,8 @@ interface SelectionPanelProps {
   // Body
   fontSize: number;
   onFontSizeChange: (s: number) => void;
+  bodyLineHeight?: number;
+  onBodyLineHeightChange?: (lh: number) => void;
   fontWeight: string;
   onFontWeightChange: (w: string) => void;
   fontStyle: string;
@@ -271,6 +273,12 @@ const SelectionPanel: React.FC<SelectionPanelProps> = (props) => {
             <label className="text-[11px] text-muted-foreground">Tamanho: {props.fontSize}px</label>
             <Slider value={[props.fontSize]} onValueChange={([v]) => props.onFontSizeChange(v)} min={16} max={150} step={1} className="mt-1" />
           </div>
+          {props.onBodyLineHeightChange && (
+            <div>
+              <label className="text-[11px] text-muted-foreground">Entrelinha: {(props.bodyLineHeight ?? 1.55).toFixed(2)}</label>
+              <Slider value={[props.bodyLineHeight ?? 1.55]} onValueChange={([v]) => props.onBodyLineHeightChange!(v)} min={1} max={2.5} step={0.05} className="mt-1" />
+            </div>
+          )}
           <div>
             <label className="text-[11px] text-muted-foreground">Formatação</label>
             <div className="flex gap-1.5 mt-1 flex-wrap">
@@ -388,6 +396,14 @@ const SelectionPanel: React.FC<SelectionPanelProps> = (props) => {
           {kind === "textbox" && props.onUpdateOverlaySrc && (
             <>
               <div>
+                <label className="text-[11px] text-muted-foreground">Fonte</label>
+                <FontSelect
+                  value={selectedOverlay.fontFamily || props.bodyFont}
+                  recommended={recommendedFonts?.body}
+                  onChange={(f) => props.onUpdateOverlaySrc!(selectedOverlay.id, { fontFamily: f })}
+                />
+              </div>
+              <div>
                 <label className="text-[11px] text-muted-foreground">Cor do texto</label>
                 <ColorPicker palette={palette} value={selectedOverlay.textColor || undefined} onChange={(c) => props.onUpdateOverlaySrc!(selectedOverlay.id, { textColor: c })} />
               </div>
@@ -398,6 +414,27 @@ const SelectionPanel: React.FC<SelectionPanelProps> = (props) => {
               <div>
                 <label className="text-[11px] text-muted-foreground">Tamanho: {selectedOverlay.fontSize || 24}px</label>
                 <Slider value={[selectedOverlay.fontSize || 24]} onValueChange={([v]) => props.onUpdateOverlaySrc!(selectedOverlay.id, { fontSize: v })} min={12} max={150} step={1} className="mt-1" />
+              </div>
+              <div>
+                <label className="text-[11px] text-muted-foreground">Entrelinha: {(selectedOverlay.lineHeight ?? 1.5).toFixed(2)}</label>
+                <Slider value={[selectedOverlay.lineHeight ?? 1.5]} onValueChange={([v]) => props.onUpdateOverlaySrc!(selectedOverlay.id, { lineHeight: v })} min={1} max={2.5} step={0.05} className="mt-1" />
+              </div>
+              <div>
+                <label className="text-[11px] text-muted-foreground">Formatação</label>
+                <div className="flex gap-1.5 mt-1">
+                  <Button variant={selectedOverlay.bold ? "default" : "outline"} size="icon" className="h-7 w-7" aria-label="Negrito"
+                    onClick={() => props.onUpdateOverlaySrc!(selectedOverlay.id, { bold: !selectedOverlay.bold })}>
+                    <Bold className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button variant={selectedOverlay.italic ? "default" : "outline"} size="icon" className="h-7 w-7" aria-label="Itálico"
+                    onClick={() => props.onUpdateOverlaySrc!(selectedOverlay.id, { italic: !selectedOverlay.italic })}>
+                    <Italic className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button variant={selectedOverlay.underline ? "default" : "outline"} size="icon" className="h-7 w-7" aria-label="Sublinhado"
+                    onClick={() => props.onUpdateOverlaySrc!(selectedOverlay.id, { underline: !selectedOverlay.underline })}>
+                    <Underline className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
               </div>
             </>
           )}

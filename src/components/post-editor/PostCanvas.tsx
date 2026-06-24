@@ -199,6 +199,12 @@ export interface TextBox {
   y: number;
   width: number;
   height: number;
+  /** true depois que o usuário arrasta/redimensiona a caixa à mão. Quando alguma
+   *  caixa é manual, o reflow automático e o auto-encolhimento do título param de
+   *  atuar — as posições e o tamanho escolhidos passam a ser respeitados. */
+  manual?: boolean;
+  /** Entrelinha (line-height) do corpo do texto. Só usada na caixa "body". */
+  lineHeight?: number;
 }
 
 const PostCanvas: React.FC<PostCanvasProps> = ({
@@ -389,6 +395,8 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
     if (!measuredTitleHeight) return;
     const dynamicGap = 60;
     setTextBoxes((prev) => {
+      // Depois que o usuário posiciona algo à mão, não reposiciona mais sozinho.
+      if (prev.some(t => t.manual)) return prev;
       const titleBox = prev.find(t => t.type === "title");
       const bodyBox = prev.find(t => t.type === "body");
       if (!titleBox || !bodyBox) return prev;
@@ -572,7 +580,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
       if (dragging.isCta) {
         onCtaMove?.(finalX, finalY);
       } else if (dragging.isText) {
-        setTextBoxes(prev => prev.map(t => t.id === dragging.id ? { ...t, x: finalX, y: finalY } : t));
+        setTextBoxes(prev => prev.map(t => t.id === dragging.id ? { ...t, x: finalX, y: finalY, manual: true } : t));
       } else {
         updateOverlay(dragging.id, { x: finalX, y: finalY });
       }
@@ -614,7 +622,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
         if (corner === "tl" || corner === "tr") newY = origY + origH - newH;
       }
       if (resizing.isText) {
-        setTextBoxes(prev => prev.map(tb => tb.id === resizing.id ? { ...tb, x: newX, y: newY, width: newW, height: newH } : tb));
+        setTextBoxes(prev => prev.map(tb => tb.id === resizing.id ? { ...tb, x: newX, y: newY, width: newW, height: newH, manual: true } : tb));
       } else {
         updateOverlay(resizing.id, { x: newX, y: newY, width: newW, height: newH });
       }
@@ -651,7 +659,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
         const pos = slideNumberPosition || { x: canvasWidth - 60, y: 50 };
         onSlideNumberMove?.(pos.x + dx, pos.y + dy);
       } else if (selectedTextId) {
-        setTextBoxes(prev => prev.map(tb => tb.id === selectedTextId ? { ...tb, x: tb.x + dx, y: tb.y + dy } : tb));
+        setTextBoxes(prev => prev.map(tb => tb.id === selectedTextId ? { ...tb, x: tb.x + dx, y: tb.y + dy, manual: true } : tb));
       }
     };
     window.addEventListener("keydown", handleKey);
@@ -693,9 +701,15 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
   const titleBoxForFit = textBoxes.find(t => t.type === "title");
   const bodyBoxForFit = textBoxes.find(t => t.type === "body");
   const titleSafetyGap = 40; // px entre fim do título e início do corpo
-  const availableTitleHeight = (titleBoxForFit && bodyBoxForFit)
-    ? Math.max(80, bodyBoxForFit.y - titleBoxForFit.y - titleSafetyGap)
-    : (titleBoxForFit?.height || 200);
+  // Em modo manual, o título mantém o tamanho escolhido (não encolhe só porque o
+  // corpo foi aproximado). Limita apenas ao espaço até perto do fim do canvas,
+  // para não estourar a arte. Em modo automático, ajusta pelo espaço até o corpo.
+  const layoutManual = textBoxes.some(t => t.manual);
+  const availableTitleHeight = layoutManual
+    ? Math.max(80, canvasHeight - (titleBoxForFit?.y ?? 0) - 120)
+    : (titleBoxForFit && bodyBoxForFit)
+      ? Math.max(80, bodyBoxForFit.y - titleBoxForFit.y - titleSafetyGap)
+      : (titleBoxForFit?.height || 200);
   const titleBoxWidth = titleBoxForFit?.width || 880;
   const fittedTitleFontSize = fitTitleFontSize(
     title || "",
@@ -1007,7 +1021,7 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
             fontWeight: isTitle ? typo.titleWeight : bodyFontWeight,
             fontStyle: isTitle ? "normal" : bodyFontStyle2,
             textAlign: isTitle ? effectiveTitleAlign : bodyTextAlign,
-            lineHeight: isTitle ? typo.titleLineHeight : 1.55,
+            lineHeight: isTitle ? typo.titleLineHeight : (tb.lineHeight ?? 1.55),
             letterSpacing: isTitle ? typo.titleLetterSpacing : undefined,
             color: isTitle ? (titleColor ?? resolvedTitleColor) : textColor,
             outline: "none", width: "100%", minHeight: "1em",
@@ -1079,9 +1093,12 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
             style={{
               fontFamily: img.fontFamily ? `'${img.fontFamily}', sans-serif` : `'${bodyFont}', sans-serif`,
               fontSize: img.fontSize || 24,
+              fontWeight: img.bold ? 700 : 400,
+              fontStyle: img.italic ? "italic" : "normal",
+              textDecoration: img.underline ? "underline" : "none",
               color: img.textColor || textColor,
               outline: "none", width: "100%", minHeight: "1em",
-              lineHeight: 1.5,
+              lineHeight: img.lineHeight ?? 1.5,
             }}
           >
             {img.text || "Texto"}
