@@ -674,16 +674,16 @@ const PostCanvas: React.FC<PostCanvasProps> = ({
     }
   };
 
-  const isMinimalStyle = postStyle === "minimal";
   // Piso elevado para garantir presença visual do corpo do texto
   // (carrossel/quadrado: 44px). Ainda respeita aumentos manuais via inspector.
   const bodyFontSize = Math.max(44, fontSize || 44);
   // Body weight nunca pode ser bold — clamp para o peso máximo do arquétipo (300 ou 400).
   const bodyFontWeight = clampBodyWeight(fontWeight || "normal", typo.bodyWeight);
   const bodyFontStyle2 = fontStyle || "normal";
-  // Em estilos minimalistas, força centralização horizontal sempre.
-  const bodyTextAlign: "left" | "center" | "right" | "justify" = isMinimalStyle ? "center" : (textAlign || "center");
-  const effectiveTitleAlign: "left" | "center" | "right" | "justify" = isMinimalStyle ? "center" : (titleTextAlign || "center");
+  // Centralização é o padrão (inclusive no minimalista), mas respeita o
+  // alinhamento escolhido pelo usuário no inspetor quando ele muda.
+  const bodyTextAlign: "left" | "center" | "right" | "justify" = textAlign || "center";
+  const effectiveTitleAlign: "left" | "center" | "right" | "justify" = titleTextAlign || "center";
 
   // Tamanho de título: respeita override do usuário; senão usa o do arquétipo (cover ganha boost).
   const archetypeTitleSize = isCoverSlide ? typo.titleSizeMax + 12 : typo.titleSizeMax;
