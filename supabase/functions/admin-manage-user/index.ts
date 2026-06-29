@@ -43,11 +43,27 @@ serve(async (req) => {
     }
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
-    const { action, userId } = await req.json();
+    const { action, userId, newPassword } = await req.json();
 
     if (!userId || !action) {
       return new Response(JSON.stringify({ error: "Missing action or userId" }), {
         status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "set_password") {
+      if (!newPassword || typeof newPassword !== "string" || newPassword.length < 6) {
+        return new Response(JSON.stringify({ error: "A senha deve ter ao menos 6 caracteres." }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const { error } = await adminClient.auth.admin.updateUserById(userId, {
+        password: newPassword,
+      });
+      if (error) throw error;
+      return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

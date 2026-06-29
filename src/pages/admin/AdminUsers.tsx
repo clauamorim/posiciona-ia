@@ -13,7 +13,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { Search, Download, Ban, Coins, Crown, Trash2, MailCheck, Loader2, Eye, BarChart3, MoreHorizontal } from "lucide-react";
+import { Search, Download, Ban, Coins, Crown, Trash2, MailCheck, Loader2, Eye, BarChart3, MoreHorizontal, KeyRound } from "lucide-react";
 import { Link } from "react-router-dom";
 
 interface Plan {
@@ -68,6 +68,11 @@ const AdminUsers = () => {
 
   // Delete confirm
   const [deletingUser, setDeletingUser] = useState<{ userId: string; name: string } | null>(null);
+
+  // Set password dialog
+  const [passwordUser, setPasswordUser] = useState<{ userId: string; name: string } | null>(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   const loadPlans = async () => {
     const { data } = await supabase.from("plans").select("*").eq("active", true);
@@ -198,6 +203,29 @@ const AdminUsers = () => {
     setActionLoading(null);
   };
 
+  const handleSetPassword = async () => {
+    if (!passwordUser) return;
+    if (newPassword.length < 6) {
+      toast({ title: "A senha deve ter ao menos 6 caracteres", variant: "destructive" });
+      return;
+    }
+    setActionLoading("set_password");
+    try {
+      const { data, error } = await supabase.functions.invoke("admin-manage-user", {
+        body: { action: "set_password", userId: passwordUser.userId, newPassword },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast({ title: "Senha alterada com sucesso", description: `Informe a nova senha a ${passwordUser.name}.` });
+      setPasswordUser(null);
+      setNewPassword("");
+      setShowPassword(false);
+    } catch (err: any) {
+      toast({ title: "Erro ao alterar senha", description: err.message, variant: "destructive" });
+    }
+    setActionLoading(null);
+  };
+
   // --- Credits ---
   const openCreditsDialog = (u: any) => {
     const b = u.balances;
@@ -306,6 +334,9 @@ const AdminUsers = () => {
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => handleConfirmEmail(u.user_id)} disabled={actionLoading === u.user_id}>
           {actionLoading === u.user_id ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <MailCheck className="h-4 w-4 mr-2" />} Confirmar e-mail
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => { setPasswordUser({ userId: u.user_id, name: u.full_name }); setNewPassword(""); setShowPassword(false); }}>
+          <KeyRound className="h-4 w-4 mr-2" /> Definir nova senha
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => toggleBlock(u.user_id, u.is_blocked)}>
           <Ban className="h-4 w-4 mr-2" /> {u.is_blocked ? "Desbloquear" : "Bloquear"}
@@ -624,6 +655,56 @@ const AdminUsers = () => {
             <DialogFooter>
               <Button variant="outline" onClick={() => setEditingCredits(null)}>Cancelar</Button>
               <Button onClick={saveCredits}>Salvar</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Dialog: Definir Nova Senha */}
+        <Dialog open={!!passwordUser} onOpenChange={(open) => { if (!open) { setPasswordUser(null); setNewPassword(""); setShowPassword(false); } }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Definir nova senha — {passwordUser?.name}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3 py-4">
+              <p className="text-sm text-muted-foreground">
+                A senha do usuário será substituída imediatamente. Anote e informe a nova senha — por segurança, ela não fica visível depois.
+              </p>
+              <div>
+                <Label htmlFor="newPassword">Nova senha</Label>
+                <Input
+                  id="newPassword"
+                  type={showPassword ? "text" : "password"}
+                  value={newPassword}
+                  onChange={e => setNewPassword(e.target.value)}
+                  placeholder="Mínimo 6 caracteres"
+                  autoComplete="new-password"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={() => setShowPassword(s => !s)}>
+                  {showPassword ? "Ocultar" : "Mostrar"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+                    const bytes = crypto.getRandomValues(new Uint32Array(12));
+                    setNewPassword(Array.from(bytes, b => chars[b % chars.length]).join(""));
+                    setShowPassword(true);
+                  }}
+                >
+                  Gerar senha forte
+                </Button>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => { setPasswordUser(null); setNewPassword(""); setShowPassword(false); }}>Cancelar</Button>
+              <Button onClick={handleSetPassword} disabled={actionLoading === "set_password" || newPassword.length < 6}>
+                {actionLoading === "set_password" ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                Salvar senha
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
