@@ -370,7 +370,7 @@ const LandingPage = () => {
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
-            <Button size="lg" onClick={() => navigate("/signup")} className="bg-landing-purple hover:bg-landing-purple/90 text-foreground text-base h-12 px-8">
+            <Button size="lg" onClick={() => scrollTo("planos")} className="bg-landing-purple hover:bg-landing-purple/90 text-foreground text-base h-12 px-8">
               Quero atrair clientes de maior ticket <ArrowRight className="h-4 w-4 ml-2" />
             </Button>
             <Button
