@@ -79,7 +79,7 @@ const Conta = () => {
         password: pwdCurrent,
       });
       if (signInErr) {
-        toast({ title: "Senha atual incorreta", description: signInErr.message, variant: "destructive" });
+        toast({ title: "Senha atual incorreta", description: "Verifique a senha atual e tente novamente.", variant: "destructive" });
         return;
       }
       const { error: updErr } = await supabase.auth.updateUser({ password: pwdNew });
@@ -87,7 +87,13 @@ const Conta = () => {
       toast({ title: "Senha atualizada", description: "Sua senha foi alterada com sucesso." });
       setPwdCurrent(""); setPwdNew(""); setPwdConfirm("");
     } catch (e: any) {
-      toast({ title: "Erro ao atualizar senha", description: e?.message || "", variant: "destructive" });
+      const code = e?.code || "";
+      const raw = (e?.message || "").toLowerCase();
+      let description = e?.message || "Tente novamente.";
+      if (code === "weak_password" || raw.includes("password should contain") || raw.includes("password is known to be weak") || raw.includes("password should be at least")) {
+        description = "Sua senha é muito fraca. Use pelo menos 8 caracteres, misturando letras, números e símbolos.";
+      }
+      toast({ title: "Erro ao atualizar senha", description, variant: "destructive" });
     } finally {
       setPwdLoading(false);
     }

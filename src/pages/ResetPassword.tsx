@@ -40,7 +40,15 @@ const ResetPassword = () => {
     const { error } = await supabase.auth.updateUser({ password });
     setLoading(false);
     if (error) {
-      toast({ title: "Não foi possível atualizar", description: error.message || "Tente novamente.", variant: "destructive" });
+      const code = (error as { code?: string }).code || "";
+      const raw = (error.message || "").toLowerCase();
+      let description = error.message || "Tente novamente.";
+      if (code === "weak_password" || raw.includes("password should contain") || raw.includes("password is known to be weak") || raw.includes("password should be at least")) {
+        description = "Sua senha é muito fraca. Use pelo menos 8 caracteres, misturando letras, números e símbolos.";
+      } else if (raw.includes("failed to fetch") || raw.includes("load failed") || raw.includes("networkerror")) {
+        description = "Não conseguimos conectar ao servidor. Verifique sua conexão e tente novamente.";
+      }
+      toast({ title: "Não foi possível atualizar", description, variant: "destructive" });
       return;
     }
     toast({ title: "Senha atualizada", description: "Você já pode usar sua nova senha." });

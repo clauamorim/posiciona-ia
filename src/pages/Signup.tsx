@@ -38,7 +38,19 @@ const Signup = () => {
       },
     });
     if (error) {
-      toast({ title: "Erro ao criar conta", description: error.message, variant: "destructive" });
+      const code = (error as { code?: string }).code || "";
+      const raw = (error.message || "").toLowerCase();
+      let description = error.message || "Não foi possível criar sua conta. Tente novamente.";
+      if (code === "weak_password" || raw.includes("password should contain") || raw.includes("password is known to be weak") || raw.includes("password should be at least")) {
+        description = "Sua senha é muito fraca. Use pelo menos 8 caracteres, misturando letras, números e símbolos.";
+      } else if (code === "user_already_exists" || code === "user_already_registered" || raw.includes("already registered") || raw.includes("already exists")) {
+        description = "Já existe uma conta com este e-mail. Tente entrar em vez de criar uma nova conta.";
+      } else if (code === "over_request_rate_limit" || raw.includes("rate limit")) {
+        description = "Muitas tentativas em pouco tempo. Aguarde alguns instantes e tente novamente.";
+      } else if (raw.includes("failed to fetch") || raw.includes("load failed") || raw.includes("networkerror")) {
+        description = "Não conseguimos conectar ao servidor. Verifique sua conexão e tente novamente.";
+      }
+      toast({ title: "Erro ao criar conta", description, variant: "destructive" });
       setLoading(false);
       return;
     }
