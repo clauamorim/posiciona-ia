@@ -96,9 +96,6 @@ const faqItems = [
 
 /* Highlighted deliverables */
 
-/* Constante de vagas — atualizar manualmente conforme vendas avançam */
-const VAGAS_RESTANTES = 27;
-
 /* ── Portrait Comparison Images ── */
 import comparisonBase from "@/assets/comparison/foto-base.jpeg";
 import comparisonRetrato1 from "@/assets/comparison/retrato-1.png";
@@ -747,14 +744,6 @@ const LandingPage = () => {
           <div className="text-center space-y-2">
             <h2 className="text-2xl md:text-3xl font-display font-semibold">Escolha seu plano</h2>
             <p className="text-sm text-landing-text-secondary">Um social media custa R$ 2.000 a R$ 5.000 por mês. Uma consultoria de marca, R$ 3.000 por sessão. O Posiciona entrega os dois juntos — a partir de R$ 197.</p>
-          </div>
-
-          {/* Badge de escassez */}
-          <div className="flex justify-center">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-landing-gold/30 bg-landing-gold/5 text-xs text-landing-text-secondary">
-              ⚡ Acesso de fundadora — últimas vagas com condições especiais.{" "}
-              <span className="font-semibold text-landing-gold">{VAGAS_RESTANTES} disponíveis.</span>
-            </div>
           </div>
 
           <div className="grid md:grid-cols-3 gap-5">
