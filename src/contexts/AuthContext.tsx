@@ -187,6 +187,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const hydrateUser = async (newSession: Session, requestId: number) => {
     const userId = newSession.user.id;
 
+    // Fire-and-forget: registra o último acesso real ao app (não bloqueia o carregamento).
+    supabase
+      .from("profiles")
+      .update({ last_seen_at: new Date().toISOString() })
+      .eq("user_id", userId)
+      .then(() => {});
+
     // Fail-safe: never let loading hang forever if a query stalls.
     const timeoutPromise = new Promise<"timeout">((resolve) =>
       setTimeout(() => resolve("timeout"), 8000)

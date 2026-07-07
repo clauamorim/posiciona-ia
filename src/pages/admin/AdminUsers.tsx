@@ -309,8 +309,8 @@ const AdminUsers = () => {
     loadUsers();
   };
 
-  const formatLastLogin = (userId: string) => {
-    const dt = lastSignInMap[userId];
+  const formatLastLogin = (u: { user_id: string; last_seen_at?: string | null }) => {
+    const dt = u.last_seen_at || lastSignInMap[u.user_id];
     if (!dt) return "—";
     return new Date(dt).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" });
   };
@@ -384,7 +384,7 @@ const AdminUsers = () => {
         u.full_name, emailMap[u.user_id] || "", u.gender || "", u.whatsapp || "",
         u.profession || "", u.niche || "", u.main_goal || "",
         u.subscription ? getPlanName(u.subscription.plan_id) : "Nenhum",
-        formatLastLogin(u.user_id),
+        formatLastLogin(u),
         journeyStr || "Nenhuma",
         u.is_blocked ? "Bloqueado" : "Ativo",
         new Date(u.created_at).toLocaleDateString("pt-BR"),
@@ -453,7 +453,7 @@ const AdminUsers = () => {
                         </div>
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                        {formatLastLogin(u.user_id)}
+                        {formatLastLogin(u)}
                       </TableCell>
                       <TableCell>
                         {renderJourneyBadges(u.journey)}
@@ -501,7 +501,7 @@ const AdminUsers = () => {
                       {u.is_blocked ? "Bloqueado" : "Ativo"}
                     </Badge>
                     <span className="text-[11px] text-muted-foreground ml-auto">
-                      Último login: {formatLastLogin(u.user_id)}
+                      Último login: {formatLastLogin(u)}
                     </span>
                   </div>
 
@@ -540,7 +540,7 @@ const AdminUsers = () => {
                     { label: "Nicho", value: viewingUser.niche || "—" },
                     { label: "Objetivo Principal", value: viewingUser.main_goal || "—" },
                     { label: "Plano", value: viewingUser.subscription ? getPlanName(viewingUser.subscription.plan_id) : "Nenhum" },
-                    { label: "Último Login", value: formatLastLogin(viewingUser.user_id) },
+                    { label: "Último Login", value: formatLastLogin(viewingUser) },
                     { label: "Status", value: viewingUser.is_blocked ? "Bloqueado" : "Ativo" },
                     { label: "Cadastro", value: new Date(viewingUser.created_at).toLocaleDateString("pt-BR") },
                   ].map(({ label, value }) => (
