@@ -1,21 +1,32 @@
-## Problema
+## Objetivo
+Inserir o snippet do Google Tag Manager fornecido pelo gestor de tráfego no `index.html` do projeto, respeitando a posição solicitada.
 
-No mobile, o botão "Voltar ao topo" (seta para cima) sumiu visualmente porque está posicionado em `bottom: 1.5rem` e ficou coberto pela barra inferior `MobileBottomNav` (Início/Criar/Biblioteca/Conta), que é `fixed bottom-0` com ~64–72px de altura. No desktop o botão já está oculto (`lg:hidden`), então o sumiço só aparece no celular — exatamente o que a usuária reportou.
+## Código a ser inserido
+- **No `<head>`**, o mais alto possível (logo após o charset/viewport/favicon, antes das fontes e meta tags principais):
+  ```html
+  <!-- Google Tag Manager -->
+  <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+  new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+  j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+  'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+  })(window,document,'script','dataLayer','GTM-NK2QSFMV');</script>
+  <!-- End Google Tag Manager -->
+  ```
+- **Imediatamente após a tag de abertura `<body>`**, antes do `<div id="root"></div>`:
+  ```html
+  <!-- Google Tag Manager (noscript) -->
+  <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-NK2QSFMV"
+  height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+  <!-- End Google Tag Manager (noscript) -->
+  ```
 
-O FAB do Assistente já foi reposicionado para `bottom-20` justamente para ficar acima da barra; o `BackToTopButton` ficou para trás.
+## Arquivo a ser alterado
+- `index.html`
 
-## Correção
+## Não será alterado
+- Nenhum outro arquivo do projeto.
+- Nenhuma configuração de backend/Edge Function.
 
-Editar apenas `src/components/BackToTopButton.tsx`:
-
-- Reposicionar verticalmente para ficar **acima do FAB do Assistente**, no mesmo lado direito (como antes), respeitando a barra inferior no mobile.
-- Manter `lg:hidden` (desktop não tem `MobileBottomNav` e o botão já não aparecia lá).
-- Novo `style.bottom`: `calc(9rem + env(safe-area-inset-bottom))` (≈ acima do FAB que está em `bottom-20` + ~56px de altura + folga).
-- Manter `right-4`, mesma aparência (pill circular, ChevronUp).
-
-Nada mais é alterado — sem mudanças em `MobileBottomNav`, `AssistantButton` ou no layout.
-
-## Verificação
-
-- Mobile: rolar mais de 600px em qualquer página com `DashboardLayout` (ex.: `/storybrand`, `/report`, `/editorial`) e confirmar que a seta aparece acima do botão roxo do Assistente, sem ser coberta pela barra inferior.
-- Desktop: comportamento inalterado (botão segue oculto).
+## Validação
+- Verificar se o GTM `<script>` está presente no `<head>` e o `<noscript>` está dentro do `<body>` logo após a abertura.
+- Garantir que o `id` GTM-NK2QSFMV permanece inalterado.
