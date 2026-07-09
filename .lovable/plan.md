@@ -1,32 +1,32 @@
-## Objetivo
-Inserir o snippet do Google Tag Manager fornecido pelo gestor de tráfego no `index.html` do projeto, respeitando a posição solicitada.
+## Problema
 
-## Código a ser inserido
-- **No `<head>`**, o mais alto possível (logo após o charset/viewport/favicon, antes das fontes e meta tags principais):
-  ```html
-  <!-- Google Tag Manager -->
-  <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-  new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-  j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-  'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-  })(window,document,'script','dataLayer','GTM-NK2QSFMV');</script>
-  <!-- End Google Tag Manager -->
-  ```
-- **Imediatamente após a tag de abertura `<body>`**, antes do `<div id="root"></div>`:
-  ```html
-  <!-- Google Tag Manager (noscript) -->
-  <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-NK2QSFMV"
-  height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
-  <!-- End Google Tag Manager (noscript) -->
-  ```
+O Google mostra o ícone padrão do Lovable nos resultados de busca do Posiciona, apesar de já termos `public/favicon.png` (o coração colorido do Posiciona) referenciado no `index.html`.
 
-## Arquivo a ser alterado
-- `index.html`
+## Causa
 
-## Não será alterado
-- Nenhum outro arquivo do projeto.
-- Nenhuma configuração de backend/Edge Function.
+O Google, ao rastrear o site, tenta primeiro `https://posiciona.ia.br/favicon.ico` (convenção). Como não existe esse arquivo no projeto, a hospedagem devolve um `favicon.ico` padrão do Lovable (verifiquei: `GET /favicon.ico` responde 200 com `content-type: image/vnd.microsoft.icon`). Esse `.ico` "genérico" ganha da nossa tag `<link rel="icon" href="/favicon.png">` para o Google Search, que prefere o `.ico` na raiz.
 
-## Validação
-- Verificar se o GTM `<script>` está presente no `<head>` e o `<noscript>` está dentro do `<body>` logo após a abertura.
-- Garantir que o `id` GTM-NK2QSFMV permanece inalterado.
+Além disso, o `favicon.png` atual é 1088×1088 — pesa 543 KB e não tem versão pequena otimizada, o que também prejudica o rendering do favicon em algumas superfícies.
+
+## O que fazer
+
+1. **Gerar `public/favicon.ico` a partir do logo Posiciona** (o mesmo do `favicon.png`), com múltiplos tamanhos embutidos (16, 32, 48). Isso força a hospedagem a servir o nosso ícone em `/favicon.ico` em vez do default do Lovable.
+2. **Gerar um `public/favicon-32.png`** (32×32) otimizado, para reduzir peso quando o browser/Google usar o PNG.
+3. **Atualizar `index.html`** para declarar explicitamente os dois formatos e tamanhos:
+   ```html
+   <link rel="icon" href="/favicon.ico" sizes="any" />
+   <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+   <link rel="icon" type="image/png" sizes="192x192" href="/favicon.png" />
+   <link rel="apple-touch-icon" href="/favicon.png" />
+   ```
+4. Publicar e, no dia seguinte, submeter a home no **URL Inspection** do Search Console pedindo reindexação — para acelerar a atualização do favicon no Google.
+
+## Aviso importante ao usuário
+
+O Google faz cache do favicon por **semanas**. Mesmo depois do deploy correto, o ícone antigo pode continuar aparecendo nos resultados de busca por um tempo até o crawler revisitar. Não é bug do código.
+
+## Detalhes técnicos
+
+- Uso Python/PIL (já disponível no sandbox) para converter `public/favicon.png` em `.ico` multi-size, sem depender de ferramentas externas.
+- Não mexo em `og-image.png` (é o preview social, coisa diferente do favicon).
+- Não altero rotas, hospedagem nem qualquer código React — só arquivos em `public/` e as tags `<link rel="icon">` do `index.html`.
