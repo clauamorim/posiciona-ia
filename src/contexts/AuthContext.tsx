@@ -190,7 +190,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Fire-and-forget: registra o último acesso real ao app (não bloqueia o carregamento).
     supabase
       .from("profiles")
-      .update({ last_seen_at: new Date().toISOString() })
+      .update({ last_seen_at: new Date().toISOString() } as any)
       .eq("user_id", userId)
       .then(() => {});
 
