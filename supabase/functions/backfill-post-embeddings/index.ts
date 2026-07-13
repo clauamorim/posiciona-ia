@@ -59,7 +59,7 @@ serve(async (req) => {
     );
 
     // Coleta candidatos
-    type Cand = { reportId: string; weekIndex: number; day: number; post: any };
+    type Cand = { reportId: string; reportCreatedAt: string | null; weekIndex: number; day: number; day_index?: number; post: any };
     const cands: Cand[] = [];
     const cutoff = Date.now() - 28 * 24 * 60 * 60 * 1000;
     for (const r of reports || []) {
@@ -75,7 +75,7 @@ serve(async (req) => {
           // janela de 28d: usa created_at do report como proxy
           const ts = r.created_at ? new Date(r.created_at).getTime() : Date.now();
           if (ts < cutoff) continue;
-          cands.push({ reportId: r.id, weekIndex: wi, day: Number(feed.day || d?.day), post: feed });
+          cands.push({ reportId: r.id, reportCreatedAt: (r as any).created_at ?? null, weekIndex: wi, day: Number(feed.day || d?.day), post: feed });
         }
       }
     }
@@ -108,6 +108,9 @@ serve(async (req) => {
           text_used: texts[j],
           embedding: v,
           named_cases: named,
+          // Preserva a data real de criação do post (via report.created_at) para
+          // não inflar artificialmente a janela de 56d do match_post_embeddings.
+          ...(c.reportCreatedAt ? { created_at: c.reportCreatedAt } : {}),
         });
       }
       if (rows.length > 0) {
