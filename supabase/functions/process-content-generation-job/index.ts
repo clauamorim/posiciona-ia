@@ -97,9 +97,15 @@ const RECENT_HISTORY_WEEKS = 8;
  * de similaridade — threshold precisa subir para não entrar em loop de retentativas.
  */
 function getAdaptiveDedupThreshold(historyWeekCount: number): number {
-  if (historyWeekCount < 10) return 0.80; // Histórico pequeno: rigoroso
-  if (historyWeekCount < 20) return 0.83; // Voz começando a saturar
-  return 0.86; // Voz consolidada: baseline alto, threshold sobe
+  // Calibrado empiricamente em 2026-07-13 com 10 pares reais do usuário 30da289f:
+  //   REPEAT confirmado: min=0.9243, média=0.938
+  //   DISTINCT confirmado: max=0.9212, média=0.886
+  // Gap intrínseco entre as classes é apenas ~0.003 — cosine sozinho não separa
+  // 100%. Threshold escolhido logo abaixo do repeat mais fraco; a zona cinza
+  // (0.88-0.92) é coberta pelo bloqueio de subject_tag/thesis (dedupBlock).
+  if (historyWeekCount < 10) return 0.90;
+  if (historyWeekCount < 20) return 0.92;
+  return 0.93;
 }
 
 // Hard cap de tempo total na fase de dedup de feed (evita worker shutdown por timeout).
@@ -1751,9 +1757,23 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
                       .join("\n")
                   : "(nenhum match de embedding — bloqueio por outra dimensão)";
 
+                // H2: bloqueia explicitamente o subject_tag da versão que falhou.
+                // A LLM tende a preservar o subject_tag por inércia no retry
+                // (é a tese que ela acabou de defender e argumentou), o que
+                // mantém a similaridade alta mesmo reescrevendo o texto.
+                const failingPost = feedFinal.find((p) => p.day === day) as any;
+                const failingTag = failingPost?.subject_tag ? String(failingPost.subject_tag).trim() : "";
+                const subjectTagBlock = failingTag
+                  ? `\n🚫 SUBJECT_TAG PROIBIDO neste retry: "${failingTag}"\n` +
+                    `Você acabou de usar essa tese e ela colidiu com o histórico. ESCOLHA UM subject_tag NOVO ` +
+                    `(3-5 palavras kebab-case) que defenda uma tese DIFERENTE. Manter o mesmo subject_tag ` +
+                    `= falha automática do retry.\n`
+                  : "";
+
                 return (
                   `## Dia ${day} — proibições nominais\n` +
                   (proibicoes.length > 0 ? proibicoes.join("\n") + "\n" : "") +
+                  subjectTagBlock +
                   (thesisStr ? "\n" + thesisStr + "\n" : "") +
                   audienceBlock +
                   `\nNÃO use case de marca grande tomando decisão de produto polêmica como gancho.\n\n` +
@@ -1902,7 +1922,13 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
                   .map((d) => {
                     const fam = familyByDay.get(d)!;
                     const prevSim = failingAfterFirst.find((f) => f.day === d)?.sim;
-                    return `- Dia ${d}: família (${fam}) — ${FAMILY_DESC[fam]} (sim anterior=${prevSim?.toFixed(2) ?? "?"})`;
+                    // H2: bloqueio explícito do subject_tag que sobreviveu ao 1º retry.
+                    const currentPost = feedFinal.find((p) => p.day === d) as any;
+                    const currentTag = currentPost?.subject_tag ? String(currentPost.subject_tag).trim() : "";
+                    const tagBlock = currentTag
+                      ? ` 🚫 subject_tag PROIBIDO: "${currentTag}" (obrigatório escolher um novo)`
+                      : "";
+                    return `- Dia ${d}: família (${fam}) — ${FAMILY_DESC[fam]} (sim anterior=${prevSim?.toFixed(2) ?? "?"})${tagBlock}`;
                   })
                   .join("\n") +
                 `\n\nRetorne APENAS um JSON array com os dias reescritos (mesmo schema do feed).`;
