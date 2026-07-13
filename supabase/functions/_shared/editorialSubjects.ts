@@ -60,24 +60,43 @@ export function renderSubjectAxisBlock(recent: RecentSubject[]): string {
     ? Array.from(
         new Set(recent.map((r) => `${r.tag}${r.theme ? ` (ex.: ${r.theme})` : ""}`)),
       ).join("\n- ")
-    : "(nenhum ainda — primeira semana com rastreio de assunto)";
+    : "(nenhuma ainda — primeira semana com rastreio de tese)";
   return `
 
-# EIXO DE ASSUNTO — ROTAÇÃO DE TEMA (REGRA OBRIGATÓRIA)
-Pilar e formato cuidam da FORMA do post. Este bloco cuida do ASSUNTO — o tema concreto do nicho. É o eixo MAIS importante para o leitor não sentir "já vi esse post".
+# EIXO DE TESE — ROTAÇÃO DE ARGUMENTO (REGRA OBRIGATÓRIA)
+Pilar e formato cuidam da FORMA do post. Este bloco cuida da TESE — o que o post AFIRMA sobre o nicho. É o eixo MAIS importante para o leitor não sentir "já vi esse post".
 
-Cada post DEVE trazer o campo "subject_tag": um identificador curto em kebab-case do ASSUNTO concreto (substantivo do nicho do negócio — NÃO o pilar, NÃO o formato, NÃO o gancho).
-Exemplos (advocacia de leilão de imóveis): "leitura-matricula", "situacao-processual", "debitos-condominio", "imissao-na-posse", "leilao-extrajudicial", "precificacao-lance", "ativo-estressado", "tributacao-arrematacao", "due-diligence-documental", "usufruto-direitos-reais".
+Cada post DEVE trazer o campo "subject_tag": um identificador em kebab-case (3 a 5 palavras) da TESE / EIXO ARGUMENTATIVO do post — a AFIRMAÇÃO central que ele defende, NÃO o objeto (documento, órgão, caso, instrumento) que ele analisa.
 
-ANTES DE ESCOLHER OS 4 ASSUNTOS:
-1. Liste mentalmente 10 ou mais assuntos DISTINTOS que o negócio poderia abordar no nicho dele.
-2. Escolha 4 assuntos DIFERENTES entre si (um subject_tag único por post).
-3. NÃO use nenhum assunto da lista "ASSUNTOS USADOS RECENTEMENTE" abaixo — escolha territórios ainda não cobertos.
+## Como derivar a tese (obrigatório)
+Antes de escrever o subject_tag, responda mentalmente: "Qual é a AFIRMAÇÃO central deste post?" — não "sobre o que ele fala", mas "o que ele diz que é verdade".
 
-ASSUNTOS USADOS RECENTEMENTE (PROIBIDOS nesta semana — últimas ${SUBJECT_ROTATION_WEEKS} semanas):
+Exemplos de refatoração (advocacia de leilão de imóveis):
+- ❌ "auto-avaliacao-judicial" (objeto) → ✅ "ordem-de-leitura-pre-lance" (tese: a ordem em que você lê a documentação importa mais que o edital)
+- ❌ "briefing-perfil-investidor" (objeto) → ✅ "analise-depende-do-perfil-cliente" (tese: não existe due diligence universal, ela muda com o perfil de risco)
+- ❌ "leilao-caixa-garantia-institucional" (objeto) → ✅ "mito-de-seguranca-institucional-desmentido" (tese: origem institucional do leilão não elimina risco)
+- ❌ "cnd-tributaria-arrematacao" (objeto) → ✅ "certidao-formal-nao-substitui-analise" (tese: documento formal não substitui análise substantiva)
+
+REGRA CENTRAL: se dois posts sobre objetos DIFERENTES defendem a MESMA afirmação, eles têm o MESMO subject_tag e violam a rotação. Trocar o documento, o caso ou o órgão citado NÃO cria uma tese nova.
+
+## Calibração — evitar teses genéricas
+A tese precisa ser ESPECÍFICA do nicho. NÃO são teses válidas (são platitudes de negócio):
+- "depende-do-contexto", "tudo-tem-risco", "analise-caso-a-caso", "conhecimento-e-poder", "preparo-evita-erro".
+
+Teste do contrário: uma tese válida é uma afirmação que alguém razoável do nicho poderia DISCORDAR. Se a negação da tese soa absurda ou óbvia, ela é genérica demais — refaça.
+
+Se você não conseguir encontrar 4 teses genuinamente distintas para a semana, é aceitável REPETIR objeto (mesmo documento ou caso em 2 posts) desde que a AFIRMAÇÃO seja distinta. O eixo que rotaciona é a tese, não o objeto.
+
+## Antes de escolher as 4 teses
+1. Liste mentalmente 8 a 10 AFIRMAÇÕES distintas e específicas que o negócio poderia defender no nicho.
+2. Descarte platitudes (falham no teste do contrário).
+3. Escolha 4 teses DIFERENTES entre si (um subject_tag único por post).
+4. NÃO reuse nenhuma tese da lista "TESES JÁ DEFENDIDAS RECENTEMENTE" abaixo — escolha argumentos ainda não defendidos.
+
+TESES JÁ DEFENDIDAS RECENTEMENTE (PROIBIDAS nesta semana — últimas ${SUBJECT_ROTATION_WEEKS} semanas):
 - ${recentList}
 
-REGRA DURA: dois posts com o mesmo assunto, ou qualquer assunto da lista acima, dispara reescrita. Trocar formato, pilar, título ou gancho NÃO resolve — o ASSUNTO precisa ser outro.`;
+REGRA DURA: dois posts com a mesma tese, ou qualquer tese da lista acima, dispara reescrita. Trocar formato, pilar, título, gancho, documento ou caso NÃO resolve — a AFIRMAÇÃO central precisa ser outra.`;
 }
 
 export interface SubjectViolation {
@@ -167,13 +186,14 @@ export function renderSubjectRetryInstructions(
   const affected = Array.from(new Set(violations.flatMap((v) => v.days))).sort((a, b) => a - b);
   return `
 
-⚠️ AJUSTE NECESSÁRIO — ROTAÇÃO DE ASSUNTO
-Os posts abaixo repetem ASSUNTO (entre si ou com semanas recentes):
+⚠️ AJUSTE NECESSÁRIO — ROTAÇÃO DE TESE
+Os posts abaixo repetem a TESE / AFIRMAÇÃO central (entre si ou com semanas recentes):
 ${list}
 
 REESCREVA APENAS os posts dos dias ${affected.join(", ")}, mantendo os demais. Para cada post reescrito:
-- Escolha um ASSUNTO (subject_tag) NOVO: diferente dos outros posts desta semana E fora desta lista de assuntos recentes: ${recentTags.join(", ") || "(nenhum)"}.
-- Não basta trocar título, gancho, formato ou pilar — o TEMA concreto precisa ser outro.
+- Escolha uma TESE NOVA (subject_tag): uma AFIRMAÇÃO diferente das outras desta semana E fora desta lista de teses recentes: ${recentTags.join(", ") || "(nenhuma)"}.
+- Não basta trocar o objeto (documento, órgão, caso, instrumento), o título, o gancho, o formato ou o pilar — a AFIRMAÇÃO central precisa ser outra.
+- A tese nova precisa passar no teste do contrário: alguém razoável do nicho poderia discordar dela. Evite platitudes ("depende-do-caso", "analise-antes-de-decidir").
 - Mantenha formato e pilar coerentes com a semana.
 Retorne um array JSON apenas com os posts reescritos (mesmo schema do feed, incluindo o campo "subject_tag").`;
 }
