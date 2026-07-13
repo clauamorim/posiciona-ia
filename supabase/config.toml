@@ -5,6 +5,3 @@ verify_jwt = false
 
 [functions.password-login]
 verify_jwt = false
-
-[functions.embed-backfill-oneshot]
-verify_jwt = false
