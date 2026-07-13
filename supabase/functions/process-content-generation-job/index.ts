@@ -1302,6 +1302,10 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
       // para histórico/calibração. Sobrevive ao try/catch.
       let dedupMeta: Record<string, any> | null = null;
       const dedupFailedDays: number[] = [];
+      // Hoisted para escopo externo — usada tanto pelo dedup quanto pelo
+      // bloco [embed-persist] após o try/catch do dedup. Declarada aqui
+      // (não dentro do try) para sobreviver ao fechamento do bloco.
+      const finalVectorByDay = new Map<number, number[]>();
 
       // ==== Dedup v3: extração SEMPRE + 5 dimensões + 2 retries ====
       const dedupStartTime = Date.now();
