@@ -186,13 +186,14 @@ export function renderSubjectRetryInstructions(
   const affected = Array.from(new Set(violations.flatMap((v) => v.days))).sort((a, b) => a - b);
   return `
 
-⚠️ AJUSTE NECESSÁRIO — ROTAÇÃO DE ASSUNTO
-Os posts abaixo repetem ASSUNTO (entre si ou com semanas recentes):
+⚠️ AJUSTE NECESSÁRIO — ROTAÇÃO DE TESE
+Os posts abaixo repetem a TESE / AFIRMAÇÃO central (entre si ou com semanas recentes):
 ${list}
 
 REESCREVA APENAS os posts dos dias ${affected.join(", ")}, mantendo os demais. Para cada post reescrito:
-- Escolha um ASSUNTO (subject_tag) NOVO: diferente dos outros posts desta semana E fora desta lista de assuntos recentes: ${recentTags.join(", ") || "(nenhum)"}.
-- Não basta trocar título, gancho, formato ou pilar — o TEMA concreto precisa ser outro.
+- Escolha uma TESE NOVA (subject_tag): uma AFIRMAÇÃO diferente das outras desta semana E fora desta lista de teses recentes: ${recentTags.join(", ") || "(nenhuma)"}.
+- Não basta trocar o objeto (documento, órgão, caso, instrumento), o título, o gancho, o formato ou o pilar — a AFIRMAÇÃO central precisa ser outra.
+- A tese nova precisa passar no teste do contrário: alguém razoável do nicho poderia discordar dela. Evite platitudes ("depende-do-caso", "analise-antes-de-decidir").
 - Mantenha formato e pilar coerentes com a semana.
 Retorne um array JSON apenas com os posts reescritos (mesmo schema do feed, incluindo o campo "subject_tag").`;
 }
