@@ -2021,17 +2021,27 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
                     return `- Dia ${d}: família (${fam}) — ${FAMILY_DESC[fam]} (sim anterior=${prevSim?.toFixed(2) ?? "?"})${tagBlock}`;
                   })
                   .join("\n") +
+                hardConstraintsBlock +
+                freshTrendsBlock +
                 `\n\nRetorne APENAS um JSON array com os dias reescritos (mesmo schema do feed).`;
 
               const retryUser2 = `${feedUser}\n\n# CONTEXTO DA SEMANA (NÃO REESCREVER)\n${keepContext2}${dedupBlock2}`;
+              // Passo C: 2º retry usa Sonnet 4.6 em vez de Opus 4.7.
+              // Motivo: Sonnet é ~3-4× mais rápido, cabendo no budget de 90s
+              // sem estourar time-budget-exceeded que hoje mata o 2º retry.
+              const retry2Started = Date.now();
               const { text: dedup2Raw } = await callClaudeWithMeta({
                 systemPrompt: feedSystem,
                 userText: retryUser2,
-                model: "claude-opus-4-7",
+                model: "claude-sonnet-4-6",
                 max_tokens: 4500,
-                timeoutMs: 120000,
+                timeoutMs: 90000,
                 disableRetries: true,
               });
+              console.log(
+                `[dedup-retry-2] model=claude-sonnet-4-6 duration_ms=${Date.now() - retry2Started} week=${wkIdxForPartial} days=${JSON.stringify(failingDayNums)}`,
+              );
+
               let parsed2: any = extractJsonFromLLM(dedup2Raw);
               if (!Array.isArray(parsed2) || parsed2.length === 0) parsed2 = extractPartialDayObjects(dedup2Raw);
               const cand2ByDay = new Map<number, FeedPost>();
