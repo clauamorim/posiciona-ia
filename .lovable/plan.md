@@ -1,50 +1,79 @@
-# Plano — destravar persistência de embeddings e validar guardrail semântico
+# Passos A + B1 + C + D — retry com pauta fresca, restrições duras, Sonnet no 2º retry
 
-## Contexto da descoberta
+## Escopo
+Um único ciclo de edição em `supabase/functions/process-content-generation-job/index.ts` cobrindo os 4 passos aprovados. Sem tocar em prompts do 1º Opus, sem mexer em `editorialSubjects.ts`, sem tabelas novas.
 
-O bloco `[embed-persist]` (linha 2022+) **não** está numa condicional de partial-save — ele roda em todo caminho, sucesso ou falha. O que acontece é bug de escopo: `finalVectorByDay` é declarada com `const` dentro do `try` do dedup (linha 1322, escopo 1311–1977). Quando `[embed-persist]` referencia essa variável na linha 2029, ela já saiu de escopo → `ReferenceError` → `catch` externo engole silenciosamente → warning "erro pre-partial (ignorado)" aparece em toda geração, não só nas parciais.
+## Passo A — Auditoria da instrumentação de tag (antes de qualquer edição)
 
-Consequência: `post_embeddings` = 0 para o usuário, `match_post_embeddings` sempre retorna vazio, `topSim = 0` em todos os dias, guardrail semântico está desligado desde que o dedup v3 foi introduzido.
+Ler o bloco `[dedup-retry]` atual e confirmar 3 coisas:
+1. O log `old_tag / new_tag / tag_changed` está no mesmo caminho que o log `old_thesis_sim / new_thesis_sim` que já apareceu no S18. Se não, mover pra lá.
+2. `preRetryTagsByDay` está sendo populado **antes** do retry rodar (leitura do estado pré-retry), não sobrescrito pelo pós.
+3. Comparar timestamp de `booted` da função vs. hora do meu último deploy da instrumentação. Se `booted` for anterior, o deploy anterior não pegou e o bloco de tag simplesmente não estava em produção.
 
-## Passo 1 — Fix de escopo + redeploy com confirmação
+Reporto o resultado dessa auditoria no chat *antes* de aplicar as edições dos Passos B/C/D — se descobrir que o log de tag nunca subiu, corrijo isso junto com o resto no mesmo commit.
 
-Em `supabase/functions/process-content-generation-job/index.ts`:
+## Passo B1 — Pauta rotacionada do banco no prompt de retry
 
-1. Adicionar `const finalVectorByDay = new Map<number, number[]>();` logo antes do `try` do dedup (por volta da linha 1305, junto de `dedupMeta` e `dedupFailedDays`).
-2. Remover a redeclaração dentro do `try` (linha 1322). Manter apenas o loop que popula o Map.
-3. Deploy explícito via `supabase.deploy_edge_functions(["process-content-generation-job"])`.
-4. Confirmar deploy com `supabase.edge_function_logs` mostrando um novo `booted` timestamp após o deploy — não só a resposta do tool.
+Fontes já disponíveis, sem custo extra de LLM:
+- `market_trends_cache` — trends do nicho já cacheadas.
+- `used_market_trends` — o que o usuário já queimou.
+- `subject_tag` do próprio histórico (via `post_embeddings.text_used` + tags recentes) — pra saber o que evitar.
 
-Sem outras alterações. Sem instrumentação adicional — o log `[embed-persist] upserted=N` já existe.
+Antes do retry de cada dia:
+1. Query: pegar até 5 trends de `market_trends_cache` do nicho do usuário que **não** aparecem em `used_market_trends` do user_id nas últimas 8 semanas.
+2. Filtrar as que caiam em concept_groups saturados (usa a mesma tabela de mapeamento que o `editorial-diversity` já usa) e as que compartilhem tag com o `preRetryTagsByDay[day]`.
+3. Injetar as 2-3 sobreviventes no prompt do retry como bloco `PAUTAS FRESCAS DISPONÍVEIS`, com instrução: "escolha UMA destas pautas como âncora nova da tese; se nenhuma servir, invente uma tese fora dos clusters listados abaixo".
 
-## Passo 2 — Backfill dos embeddings faltantes
+Se a query retornar zero pautas, o retry cai no caminho atual (sem bloco de pauta) — não bloqueia geração.
 
-Rodar `embed-backfill-partial` para o user `30da289f-ff6a-4d6b-af1f-3083d3c48d3c` (invocação via `supabase.curl_edge_functions` com service-role).
+## Passo C — Sonnet 4.6 no 2º retry (Opus só no 1º)
 
-Critério de sucesso:
-- `select count(*) from post_embeddings where user_id = '30da289f-…' and post_kind = 'feed'` retorna **≥ 55** (15 semanas × ~4 posts = 60, aceitando margem por posts sem theme/caption).
-- Resposta do backfill lista `weeks_touched ≥ 14` e `errors: []`.
+Hoje: 1º Opus → 2º Opus → `time-budget-exceeded` mata o 2º antes dele terminar.
 
-## Passo 3 — Semana 16 de controle
+Mudança: 1º retry continua Opus (qualidade). 2º retry, se o 1º ainda falhar, chama Sonnet 4.6 com o mesmo prompt (incluindo B1 + D). Sonnet é ~3-4× mais rápido → cabe no budget de 90s existente sem alargar.
 
-Usuário gera a semana 16 pela UI **sem qualquer mudança de prompt** (isolar variável: só a correção de escopo + base populada). Após a geração, coletar 3 evidências dos logs:
+Ajustes:
+- Manter budget de 90s (não subir).
+- Trocar a chamada Opus do 2º retry por `anthropic/claude-sonnet-4-5` (mantendo temperature/max_tokens equivalentes; Sonnet aceita a mesma API).
+- Logar `[dedup-retry-2] model=sonnet-4-5 duration=...` pra confirmar via evidência que rodou.
 
-1. `[embed-persist] week=15 upserted=4` presente (não é warning "ignorado").
-2. `[semantic-dedup] week=15 day=N pre=0.XXX` com `topSim > 0` em pelo menos 2 dos 4 dias — prova que `match_post_embeddings` está retornando resultados agora que a base tem 60 linhas.
-3. Se algum dia bater similaridade ≥ threshold, `retry_triggered` volta a aparecer nos logs (métrica antes zerada porque `topSim` era sempre 0).
+## Passo D — Fingerprint/diversidade como restrição dura no prompt do retry
 
-Se as 3 evidências passarem: guardrail semântico está vivo. Reporto ao usuário e paramos aqui.
+Hoje o retry só sabe da tese anterior. Passa a receber, no mesmo prompt de retry (1º e 2º):
 
-Se `topSim` continuar 0 mesmo com base populada: existe segundo bug (parâmetros do RPC, dimensões do vetor, filtro de `since` etc.) — abrir sub-investigação antes de continuar.
+```
+RESTRIÇÕES DURAS DESTA SEMANA:
+- Fórmulas PROIBIDAS: [dicotomia_travessao, diferenca_entre, ...]
+  (foram usadas nas últimas 3 semanas ou já apareceram em outro dia desta semana)
+- Concept groups SATURADOS: [grupo_b_ticket, grupo_d_generico, ...]
+  (não podem ser o tema central deste post)
+- Named cases já usados em outros dias desta semana: [...]
+```
 
-## Passo 4 — Curador semântico (só após Passo 3 verde)
+Fonte: a mesma lógica que `editorial-diversity` já roda **depois** da geração (linha do log `[editorial-diversity]`). Extraio essa lógica pra rodar **antes** do retry também, pra alimentar o prompt. Sem duplicar código — vira uma função reutilizável.
 
-Detalhar em plano separado. Escopo previsto: agente Haiku 4.5 que roda **após** o dedup atual, lê `match_post_embeddings` com threshold mais baixo (0.72 vs 0.78) para pegar sobreposições de tese que hoje passam pelo threshold agressivo, e sugere reescrita direcionada apontando o post histórico específico. Reusa infra existente (`post_embeddings` + RPC), sem tabelas novas.
+## Deploy e evidência
 
-Sem começar nada disso antes do Passo 3 fechar.
+Depois de aplicar tudo:
+1. Salvar arquivo.
+2. Chamar `supabase.deploy_edge_functions(["process-content-generation-job"])`.
+3. Puxar `supabase.edge_function_logs` e mostrar o `booted` timestamp **posterior** ao deploy — não só a resposta OK do tool.
+4. Só então reporto pronto e você gera a semana de controle.
+
+## Métrica de sucesso da S19 (próxima geração)
+
+Os mesmos 3 sinais + 2 novos:
+1. `post<pre` em pelo menos 3/4 dias, com queda média ≥ 0.03.
+2. `tag_changed=true` em 100% dos retries (agora observável).
+3. Zero `time-budget-exceeded`.
+4. **Novo:** `[dedup-retry] pauta_fresca_usada=true` em ≥ 2/4 dias com retry.
+5. **Novo:** zero violações de `banned_formula_overuse` e `concept_group_overuse` no log `[editorial-diversity]`.
+
+Se S19 vier vermelho nesses 5, aí sim faz sentido a conversa estrutural que você mencionou (taxa-base de repetição aceita, janela de rotação bem mais larga) — mas essa decisão fica pra depois da evidência.
 
 ## Fora de escopo
 
-- Não mexer no dedup v3 nem em `editorialSubjects.ts` — o prompt de TESE calibrado em S13–15 continua igual.
-- Não estornar créditos Anthropic gastos em rodadas passadas.
-- Não backfillar `story_embeddings` (fluxo separado, sem sintoma).
+- Não mexer no 1º Opus nem em `editorialSubjects.ts`.
+- Não subir budget de tempo.
+- Não adicionar Sonnet como Pauta Researcher (B2 rejeitado).
+- Não backfillar nada novo.

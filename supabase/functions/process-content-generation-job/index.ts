@@ -1708,8 +1708,34 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
             .map((p) => `Dia ${p.day} (MANTER, não reescrever): tema="${p.theme}"`)
             .join("\n");
 
+          // === Passo B1: pautas frescas do banco (market_trends_cache filtradas
+          // por used_market_trends) — dá ao retry material NOVO pra ancorar,
+          // não só instrução de "não repita X".
+          const freshTrendsForRetry = (filteredMarketTrends || []).slice(0, 3);
+          const freshTrendsBlock = freshTrendsForRetry.length > 0
+            ? `\n\n# PAUTAS FRESCAS DISPONÍVEIS (nunca usadas por este usuário nas últimas 8 semanas)\n` +
+              freshTrendsForRetry
+                .map((t: any, i: number) => `${i + 1}. ${t.title}${t.summary ? ` — ${t.summary}` : ""}`)
+                .join("\n") +
+              `\n\nInstrução: escolha UMA destas pautas como âncora nova da tese do dia. ` +
+              `Se nenhuma servir ao pilar do dia, invente uma tese completamente fora dos clusters listados abaixo.`
+            : "";
+
+          // === Passo D: restrições duras de fingerprint/diversidade no retry.
+          const hardConstraints: string[] = [];
+          const bf = (diversityHints as any)?.bannedFormulas || [];
+          if (bf.length > 0) hardConstraints.push(`- Fórmulas de título PROIBIDAS (uso recente ou já usada nesta semana): ${bf.join(", ")}`);
+          const dc = (diversityHints as any)?.dampenedConcepts || [];
+          if (dc.length > 0) hardConstraints.push(`- Concept groups SATURADOS (não podem ser tema central): ${dc.join(", ")}`);
+          const bnc = (diversityHints as any)?.bannedNamedCases || [];
+          if (bnc.length > 0) hardConstraints.push(`- Cases nomeados JÁ USADOS nos últimos 28 dias (escolha outros): ${bnc.join(", ")}`);
+          const hardConstraintsBlock = hardConstraints.length > 0
+            ? `\n\n# RESTRIÇÕES DURAS DESTA SEMANA (violação = falha automática do retry)\n${hardConstraints.join("\n")}`
+            : "";
+
           const dedupBlock =
             `\n\n# ⚠️ DEDUPLICAÇÃO SEMÂNTICA (CRÍTICO)\n` +
+
             `Os dias listados abaixo possuem ângulo/tese semanticamente próximos a posts já gerados nos últimos ${DEDUP_WINDOW_DAYS} dias. ` +
             `Reescreva cada um com um ângulo radicalmente diferente. Mantenha tema, tom e formato compatíveis com a semana, mas o NÚCLEO precisa mudar.\n\n` +
             violatingDays
@@ -1786,7 +1812,10 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
                 );
               })
               .join("\n\n") +
+            hardConstraintsBlock +
+            freshTrendsBlock +
             `\n\nRetorne APENAS um JSON array com os dias reescritos (mesmo schema do feed).`;
+
 
           const retryUser = `${feedUser}\n\n# CONTEXTO DA SEMANA (NÃO REESCREVER)\n${keepContext}${dedupBlock}`;
           // Snapshot pré-retry pra instrumentar mudança de subject_tag (H2).
@@ -1825,15 +1854,24 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
               }
               retriedDays = Array.from(replaceMap.keys());
               // [dedup-retry] log 1: mudança de subject_tag por dia (H2)
+              // + detecção de pauta_fresca_usada (Passo B1).
+              const freshTitlesNorm = freshTrendsForRetry.map((t: any) => normalizeSubject(String(t?.title || "")));
               for (const [dayN, r] of replaceMap.entries()) {
                 const oldRaw = preRetryTagsByDay.get(dayN) || "";
                 const newRaw = String((r as any).subject_tag || "").trim();
                 const oldN = normalizeSubject(oldRaw);
                 const newN = normalizeSubject(newRaw);
+                const hay = normalizeSubject(
+                  `${(r as any).theme || ""} ${(r as any).caption || ""} ${newRaw}`,
+                );
+                const pautaFrescaUsada = freshTitlesNorm.some(
+                  (t: string) => t.length >= 6 && (hay.includes(t) || t.includes(newN)),
+                );
                 console.log(
-                  `[dedup-retry] day=${dayN} old_tag="${oldRaw}" new_tag="${newRaw}" tag_changed=${oldN !== newN && !!newN}`,
+                  `[dedup-retry] day=${dayN} old_tag="${oldRaw}" new_tag="${newRaw}" tag_changed=${oldN !== newN && !!newN} pauta_fresca_usada=${pautaFrescaUsada}`,
                 );
               }
+
               console.log(`[semantic-dedup] week=${wkIdxForPartial} retry-1 applied days=${replaceMap.size}`);
             } else {
               console.warn(`[semantic-dedup] retry-1 sem posts válidos, mantendo versão original.`);
@@ -1992,17 +2030,27 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
                     return `- Dia ${d}: família (${fam}) — ${FAMILY_DESC[fam]} (sim anterior=${prevSim?.toFixed(2) ?? "?"})${tagBlock}`;
                   })
                   .join("\n") +
+                hardConstraintsBlock +
+                freshTrendsBlock +
                 `\n\nRetorne APENAS um JSON array com os dias reescritos (mesmo schema do feed).`;
 
               const retryUser2 = `${feedUser}\n\n# CONTEXTO DA SEMANA (NÃO REESCREVER)\n${keepContext2}${dedupBlock2}`;
+              // Passo C: 2º retry usa Sonnet 4.6 em vez de Opus 4.7.
+              // Motivo: Sonnet é ~3-4× mais rápido, cabendo no budget de 90s
+              // sem estourar time-budget-exceeded que hoje mata o 2º retry.
+              const retry2Started = Date.now();
               const { text: dedup2Raw } = await callClaudeWithMeta({
                 systemPrompt: feedSystem,
                 userText: retryUser2,
-                model: "claude-opus-4-7",
+                model: "claude-sonnet-4-6",
                 max_tokens: 4500,
-                timeoutMs: 120000,
+                timeoutMs: 90000,
                 disableRetries: true,
               });
+              console.log(
+                `[dedup-retry-2] model=claude-sonnet-4-6 duration_ms=${Date.now() - retry2Started} week=${wkIdxForPartial} days=${JSON.stringify(failingDayNums)}`,
+              );
+
               let parsed2: any = extractJsonFromLLM(dedup2Raw);
               if (!Array.isArray(parsed2) || parsed2.length === 0) parsed2 = extractPartialDayObjects(dedup2Raw);
               const cand2ByDay = new Map<number, FeedPost>();
