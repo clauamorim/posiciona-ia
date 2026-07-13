@@ -1812,7 +1812,10 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
                 );
               })
               .join("\n\n") +
+            hardConstraintsBlock +
+            freshTrendsBlock +
             `\n\nRetorne APENAS um JSON array com os dias reescritos (mesmo schema do feed).`;
+
 
           const retryUser = `${feedUser}\n\n# CONTEXTO DA SEMANA (NÃO REESCREVER)\n${keepContext}${dedupBlock}`;
           // Snapshot pré-retry pra instrumentar mudança de subject_tag (H2).
