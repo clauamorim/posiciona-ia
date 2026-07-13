@@ -1789,6 +1789,11 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
             `\n\nRetorne APENAS um JSON array com os dias reescritos (mesmo schema do feed).`;
 
           const retryUser = `${feedUser}\n\n# CONTEXTO DA SEMANA (NÃO REESCREVER)\n${keepContext}${dedupBlock}`;
+          // Snapshot pré-retry pra instrumentar mudança de subject_tag (H2).
+          const preRetryTagsByDay = new Map<number, string>();
+          for (const p of feedFinal) {
+            preRetryTagsByDay.set(p.day, String((p as any).subject_tag || "").trim());
+          }
           let retriedDays: number[] = [];
           try {
             const { text: dedupRaw } = await callClaudeWithMeta({
@@ -1819,6 +1824,16 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
                 if (r) feedFinal[i] = r;
               }
               retriedDays = Array.from(replaceMap.keys());
+              // [dedup-retry] log 1: mudança de subject_tag por dia (H2)
+              for (const [dayN, r] of replaceMap.entries()) {
+                const oldRaw = preRetryTagsByDay.get(dayN) || "";
+                const newRaw = String((r as any).subject_tag || "").trim();
+                const oldN = normalizeSubject(oldRaw);
+                const newN = normalizeSubject(newRaw);
+                console.log(
+                  `[dedup-retry] day=${dayN} old_tag="${oldRaw}" new_tag="${newRaw}" tag_changed=${oldN !== newN && !!newN}`,
+                );
+              }
               console.log(`[semantic-dedup] week=${wkIdxForPartial} retry-1 applied days=${replaceMap.size}`);
             } else {
               console.warn(`[semantic-dedup] retry-1 sem posts válidos, mantendo versão original.`);
@@ -1826,6 +1841,7 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
           } catch (re: any) {
             console.warn(`[semantic-dedup] retry-1 falhou (mantendo original):`, re?.message || re);
           }
+
 
           // ---- 10) Revalidação 1º retry ----
           const failingAfterFirst: { day: number; sim: number }[] = [];
