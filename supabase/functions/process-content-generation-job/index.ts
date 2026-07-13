@@ -1789,6 +1789,11 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
             `\n\nRetorne APENAS um JSON array com os dias reescritos (mesmo schema do feed).`;
 
           const retryUser = `${feedUser}\n\n# CONTEXTO DA SEMANA (NÃO REESCREVER)\n${keepContext}${dedupBlock}`;
+          // Snapshot pré-retry pra instrumentar mudança de subject_tag (H2).
+          const preRetryTagsByDay = new Map<number, string>();
+          for (const p of feedFinal) {
+            preRetryTagsByDay.set(p.day, String((p as any).subject_tag || "").trim());
+          }
           let retriedDays: number[] = [];
           try {
             const { text: dedupRaw } = await callClaudeWithMeta({
@@ -1819,6 +1824,16 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
                 if (r) feedFinal[i] = r;
               }
               retriedDays = Array.from(replaceMap.keys());
+              // [dedup-retry] log 1: mudança de subject_tag por dia (H2)
+              for (const [dayN, r] of replaceMap.entries()) {
+                const oldRaw = preRetryTagsByDay.get(dayN) || "";
+                const newRaw = String((r as any).subject_tag || "").trim();
+                const oldN = normalizeSubject(oldRaw);
+                const newN = normalizeSubject(newRaw);
+                console.log(
+                  `[dedup-retry] day=${dayN} old_tag="${oldRaw}" new_tag="${newRaw}" tag_changed=${oldN !== newN && !!newN}`,
+                );
+              }
               console.log(`[semantic-dedup] week=${wkIdxForPartial} retry-1 applied days=${replaceMap.size}`);
             } else {
               console.warn(`[semantic-dedup] retry-1 sem posts válidos, mantendo versão original.`);
@@ -1827,6 +1842,7 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
             console.warn(`[semantic-dedup] retry-1 falhou (mantendo original):`, re?.message || re);
           }
 
+
           // ---- 10) Revalidação 1º retry ----
           const failingAfterFirst: { day: number; sim: number }[] = [];
           if (retriedDays.length > 0) {
@@ -1834,6 +1850,40 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
               const revalCands = feedFinal.filter((p) => retriedDays.includes(p.day) && (p.theme || p.caption));
               const revalTexts = revalCands.map((p) => postToEmbedText(p));
               const revalVecs = await embedTextBatch(revalTexts);
+
+              // [dedup-retry] log 2: isolar cosseno de TESE (subject_tag+theme vs recentTheses)
+              // do cosseno GENÉRICO do post inteiro. Embed em batch pra 1 chamada só.
+              let newThesisByDay = new Map<number, number>();
+              try {
+                const thesisCandTexts = revalCands.map((p) => {
+                  const tag = String((p as any).subject_tag || "").trim();
+                  return `${tag}. ${p.theme || ""}`.trim();
+                });
+                const recentThesisTexts = recentTheses.map((r) => r.thesis);
+                if (thesisCandTexts.length > 0 && recentThesisTexts.length > 0) {
+                  const allVecs = await embedTextBatch([...thesisCandTexts, ...recentThesisTexts]);
+                  const candVecs = allVecs.slice(0, thesisCandTexts.length);
+                  const histVecs = allVecs.slice(thesisCandTexts.length);
+                  const dot = (a: number[], b: number[]) => {
+                    let s = 0; for (let k = 0; k < a.length; k++) s += a[k] * b[k]; return s;
+                  };
+                  const norm = (a: number[]) => Math.sqrt(dot(a, a)) || 1;
+                  for (let i = 0; i < candVecs.length; i++) {
+                    const cv = candVecs[i]; if (!cv) continue;
+                    const cn = norm(cv);
+                    let best = 0;
+                    for (const hv of histVecs) {
+                      if (!hv) continue;
+                      const s = dot(cv, hv) / (cn * norm(hv));
+                      if (s > best) best = s;
+                    }
+                    newThesisByDay.set(revalCands[i].day, best);
+                  }
+                }
+              } catch (te: any) {
+                console.warn(`[dedup-retry] thesis-sim-skipped:`, te?.message || te);
+              }
+
               let postRetryMax = 0;
               for (let i = 0; i < revalVecs.length; i++) {
                 const vec = revalVecs[i]; if (!vec) continue;
@@ -1848,12 +1898,23 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
                 console.log(
                   `[semantic-dedup] post-retry week=${wkIdxForPartial} day=${day} pre=${(embByDay.get(day)?.topSim || 0).toFixed(3)} post=${top.toFixed(3)}`,
                 );
+                const oldThesisSim = Math.max(
+                  0,
+                  ...(thesisBlocksByDay.get(day) || []).map((tb) => tb.sim),
+                );
+                const newThesisSim = newThesisByDay.get(day);
+                console.log(
+                  `[dedup-retry] day=${day} old_thesis_sim=${oldThesisSim.toFixed(3)} new_thesis_sim=${
+                    typeof newThesisSim === "number" ? newThesisSim.toFixed(3) : "n/a"
+                  } generic_post_sim=${top.toFixed(3)}`,
+                );
               }
               dedupMeta.post_retry_max_sim = Number(postRetryMax.toFixed(3));
             } catch (rv: any) {
               console.warn(`[semantic-dedup] revalidation-skipped:`, rv?.message || rv);
             }
           }
+
 
           // ---- 11) 2º retry agressivo (só dias ainda > adaptiveThreshold) ----
           if (failingAfterFirst.length > 0 && dedupTimeBudgetExceeded()) {
