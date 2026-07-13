@@ -52,7 +52,7 @@ serve(async (req) => {
     if (!isServiceRole && targetUserId !== callerId && !isAdmin) return json({ error: "forbidden" }, 403);
 
     const { data: reports, error: rErr } = await admin
-      .from("reports").select("id, editorial_weeks")
+      .from("reports").select("id, editorial_weeks, created_at")
       .eq("user_id", targetUserId);
     if (rErr) return json({ error: rErr.message }, 500);
 
@@ -63,7 +63,7 @@ serve(async (req) => {
     const seen = new Set((existing || []).map((e: any) => `${e.report_id}|${e.week_index}|${e.day_index}`));
     const beforeCount = (existing || []).length;
 
-    type Cand = { reportId: string; weekIndex: number; day: number; post: any; reason: string };
+    type Cand = { reportId: string; reportCreatedAt: string | null; weekIndex: number; day: number; post: any; reason: string };
     const cands: Cand[] = [];
     let weeksTouched = 0;
     const weekKeys = new Set<string>();
@@ -86,7 +86,7 @@ serve(async (req) => {
           if (!seen.has(key)) {
             weekHasMissing = true;
             const reason = isPartial ? "partial" : stageBFailed ? "stage_b_failed" : "missing";
-            cands.push({ reportId: r.id, weekIndex: wi, day: dayN, post: feed, reason });
+            cands.push({ reportId: r.id, reportCreatedAt: (r as any).created_at ?? null, weekIndex: wi, day: dayN, post: feed, reason });
           }
         }
         if (weekHasMissing || isPartial || stageBFailed) {
@@ -126,6 +126,9 @@ serve(async (req) => {
           text_used: texts[j],
           embedding: v,
           named_cases: named,
+          // Preserva a data real de criação do post (via report.created_at) para
+          // não inflar artificialmente a janela de 56d do match_post_embeddings.
+          ...(c.reportCreatedAt ? { created_at: c.reportCreatedAt } : {}),
         });
       }
       if (rows.length > 0) {
