@@ -1854,15 +1854,24 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
               }
               retriedDays = Array.from(replaceMap.keys());
               // [dedup-retry] log 1: mudança de subject_tag por dia (H2)
+              // + detecção de pauta_fresca_usada (Passo B1).
+              const freshTitlesNorm = freshTrendsForRetry.map((t: any) => normalizeSubject(String(t?.title || "")));
               for (const [dayN, r] of replaceMap.entries()) {
                 const oldRaw = preRetryTagsByDay.get(dayN) || "";
                 const newRaw = String((r as any).subject_tag || "").trim();
                 const oldN = normalizeSubject(oldRaw);
                 const newN = normalizeSubject(newRaw);
+                const hay = normalizeSubject(
+                  `${(r as any).theme || ""} ${(r as any).caption || ""} ${newRaw}`,
+                );
+                const pautaFrescaUsada = freshTitlesNorm.some(
+                  (t: string) => t.length >= 6 && (hay.includes(t) || t.includes(newN)),
+                );
                 console.log(
-                  `[dedup-retry] day=${dayN} old_tag="${oldRaw}" new_tag="${newRaw}" tag_changed=${oldN !== newN && !!newN}`,
+                  `[dedup-retry] day=${dayN} old_tag="${oldRaw}" new_tag="${newRaw}" tag_changed=${oldN !== newN && !!newN} pauta_fresca_usada=${pautaFrescaUsada}`,
                 );
               }
+
               console.log(`[semantic-dedup] week=${wkIdxForPartial} retry-1 applied days=${replaceMap.size}`);
             } else {
               console.warn(`[semantic-dedup] retry-1 sem posts válidos, mantendo versão original.`);
