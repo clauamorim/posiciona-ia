@@ -1708,8 +1708,34 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
             .map((p) => `Dia ${p.day} (MANTER, não reescrever): tema="${p.theme}"`)
             .join("\n");
 
+          // === Passo B1: pautas frescas do banco (market_trends_cache filtradas
+          // por used_market_trends) — dá ao retry material NOVO pra ancorar,
+          // não só instrução de "não repita X".
+          const freshTrendsForRetry = (filteredMarketTrends || []).slice(0, 3);
+          const freshTrendsBlock = freshTrendsForRetry.length > 0
+            ? `\n\n# PAUTAS FRESCAS DISPONÍVEIS (nunca usadas por este usuário nas últimas 8 semanas)\n` +
+              freshTrendsForRetry
+                .map((t: any, i: number) => `${i + 1}. ${t.title}${t.summary ? ` — ${t.summary}` : ""}`)
+                .join("\n") +
+              `\n\nInstrução: escolha UMA destas pautas como âncora nova da tese do dia. ` +
+              `Se nenhuma servir ao pilar do dia, invente uma tese completamente fora dos clusters listados abaixo.`
+            : "";
+
+          // === Passo D: restrições duras de fingerprint/diversidade no retry.
+          const hardConstraints: string[] = [];
+          const bf = (diversityHints as any)?.bannedFormulas || [];
+          if (bf.length > 0) hardConstraints.push(`- Fórmulas de título PROIBIDAS (uso recente ou já usada nesta semana): ${bf.join(", ")}`);
+          const dc = (diversityHints as any)?.dampenedConcepts || [];
+          if (dc.length > 0) hardConstraints.push(`- Concept groups SATURADOS (não podem ser tema central): ${dc.join(", ")}`);
+          const bnc = (diversityHints as any)?.bannedNamedCases || [];
+          if (bnc.length > 0) hardConstraints.push(`- Cases nomeados JÁ USADOS nos últimos 28 dias (escolha outros): ${bnc.join(", ")}`);
+          const hardConstraintsBlock = hardConstraints.length > 0
+            ? `\n\n# RESTRIÇÕES DURAS DESTA SEMANA (violação = falha automática do retry)\n${hardConstraints.join("\n")}`
+            : "";
+
           const dedupBlock =
             `\n\n# ⚠️ DEDUPLICAÇÃO SEMÂNTICA (CRÍTICO)\n` +
+
             `Os dias listados abaixo possuem ângulo/tese semanticamente próximos a posts já gerados nos últimos ${DEDUP_WINDOW_DAYS} dias. ` +
             `Reescreva cada um com um ângulo radicalmente diferente. Mantenha tema, tom e formato compatíveis com a semana, mas o NÚCLEO precisa mudar.\n\n` +
             violatingDays
