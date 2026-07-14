@@ -1801,8 +1801,6 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
                 );
               })
               .join("\n\n") +
-            hardConstraintsBlock +
-            freshTrendsBlock +
             `\n\nRetorne APENAS um JSON array com os dias reescritos (mesmo schema do feed).`;
 
 
@@ -1812,6 +1810,32 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
           for (const p of feedFinal) {
             preRetryTagsByDay.set(p.day, String((p as any).subject_tag || "").trim());
           }
+
+          // Fix S19 (bug pre=0.000): calcula generic_post_sim pré-retry pra TODOS
+          // os dias violando, não só os que entraram por embedding. Antes, days que
+          // entraram por thesis/brand/framework/audience/opening-form ficavam sem
+          // entrada em embByDay e o log mostrava pre=0.000 (falso zero).
+          const preRetrySimByDay = new Map<number, number>();
+          try {
+            const preCands = feedFinal.filter((p) => violatingDaysSet.has(p.day) && (p.theme || p.caption));
+            const preTexts = preCands.map((p) => postToEmbedText(p));
+            const preVecs = await embedTextBatch(preTexts);
+            for (let i = 0; i < preVecs.length; i++) {
+              const vec = preVecs[i]; if (!vec) continue;
+              const day = preCands[i].day;
+              const embHit = embByDay.get(day);
+              if (embHit) { preRetrySimByDay.set(day, embHit.topSim); continue; }
+              const { data } = await admin.rpc("match_post_embeddings", {
+                p_user_id: userId, p_query: vec as any, p_since: since, p_threshold: 0.0, p_limit: 1,
+              });
+              const top = Array.isArray(data) && data.length > 0 ? Number(data[0].similarity) || 0 : 0;
+              preRetrySimByDay.set(day, top);
+            }
+          } catch (e: any) {
+            console.warn(`[dedup-retry] pre-retry-sim-skipped:`, e?.message || e);
+          }
+
+
           let retriedDays: number[] = [];
           try {
             const { text: dedupRaw } = await callClaudeWithMeta({
