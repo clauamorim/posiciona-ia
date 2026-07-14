@@ -1,16 +1,50 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CheckCircle, Loader2, ArrowRight } from "lucide-react";
 import { SeoHead } from "@/components/SeoHead";
+
+declare global {
+  interface Window {
+    dataLayer?: unknown[];
+  }
+}
 
 const CheckoutSuccess = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [countdown, setCountdown] = useState(5);
+
+  useEffect(() => {
+    const sessionId = searchParams.get("session_id");
+    if (!sessionId) return;
+
+    const dedupeKey = `purchase_event_sent_${sessionId}`;
+    if (localStorage.getItem(dedupeKey)) return;
+
+    supabase.functions
+      .invoke("checkout-session-details", { body: { session_id: sessionId } })
+      .then(({ data, error }) => {
+        if (error || data?.error) {
+          console.error("checkout-session-details error:", error ?? data?.error);
+          return;
+        }
+        window.dataLayer = window.dataLayer || [];
+        window.dataLayer.push({
+          event: "purchase",
+          transaction_id: data.transaction_id,
+          value: data.value,
+          currency: data.currency,
+          email: data.email,
+          name: data.name,
+        });
+        localStorage.setItem(dedupeKey, "1");
+      });
+  }, [searchParams]);
 
   useEffect(() => {
     const timer = setInterval(() => {
