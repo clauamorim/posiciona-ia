@@ -1,0 +1,99 @@
+{
+  "version": 1,
+  "sdk_version": "0.22.0",
+  "path": "/mcp",
+  "auth": {
+    "type": "oauth",
+    "issuer": "https://opmheegtmdjqwrfkdboq.supabase.co/auth/v1",
+    "accepted_audiences": [
+      "authenticated"
+    ]
+  },
+  "mcp": {
+    "server": {
+      "name": "posiciona-mcp",
+      "version": "0.1.0",
+      "title": "Posiciona MCP"
+    },
+    "tools": [
+      {
+        "name": "get_latest_report",
+        "title": "Get latest strategic report",
+        "description": "Return the most recent (highest version) strategic report for the signed-in Posiciona user, including archetype analysis and narrative content.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_editorial_week",
+        "title": "Get editorial week",
+        "description": "Return the content of a single editorial week (7 days of posts) from the signed-in user's latest strategic report. Omit weekIndex to get the most recent week.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "weekIndex": {
+              "description": "Zero-based index of the week to fetch. Omit for the latest week.",
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_credit_balance",
+        "title": "Get credit balance",
+        "description": "Return the signed-in user's current Posiciona credit balance: weekly cycles, reanalysis, portraits, and regeneration credits.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_portraits",
+        "title": "List recent brand portraits",
+        "description": "List the signed-in user's most recent brand portrait generations with status and timestamps.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "limit": {
+              "description": "Max entries to return (default 10).",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
+          }
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}
