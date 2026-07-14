@@ -44,6 +44,7 @@ import Conta from "./pages/Conta";
 import SubscriptionExpired from "./pages/SubscriptionExpired";
 import CompleteProfile from "./pages/CompleteProfile";
 import AdminDeletionRequests from "./pages/admin/AdminDeletionRequests";
+import OAuthConsent from "./pages/OAuthConsent";
 import { AssistantButton } from "./components/assistant/AssistantButton";
 
 const queryClient = new QueryClient();
@@ -66,6 +67,7 @@ const App = () => (
             <Route path="/verify-email" element={<VerifyEmail />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
             <Route path="/choose-plan" element={<ProtectedRoute><ChoosePlan /></ProtectedRoute>} />
             <Route path="/complete-profile" element={<ProtectedRoute><CompleteProfile /></ProtectedRoute>} />
             <Route path="/dashboard" element={<ProtectedRoute requirePlan><Dashboard /></ProtectedRoute>} />

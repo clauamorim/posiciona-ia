@@ -6,18 +6,22 @@ import { supabase } from "@/integrations/supabase/client";
 interface GoogleAuthButtonProps {
   label?: string;
   disabled?: boolean;
+  nextPath?: string;
 }
 
-export const GoogleAuthButton = ({ label = "Continuar com Google", disabled }: GoogleAuthButtonProps) => {
+const isSafeRelativePath = (v?: string): v is string => !!v && v.startsWith("/") && !v.startsWith("//");
+
+export const GoogleAuthButton = ({ label = "Continuar com Google", disabled, nextPath }: GoogleAuthButtonProps) => {
   const [loading, setLoading] = useState(false);
 
   const handleClick = async () => {
     setLoading(true);
     try {
+      const target = isSafeRelativePath(nextPath) ? nextPath : "/dashboard";
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/dashboard`,
+          redirectTo: `${window.location.origin}${target}`,
         },
       });
       if (error) {
