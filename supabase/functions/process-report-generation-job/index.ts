@@ -91,26 +91,6 @@ Gere um relatório estratégico completo e personalizado para posicionamento de 
 
 IMPORTANTE: Responda APENAS com um JSON válido, sem markdown, sem backticks, sem texto antes ou depois do JSON.
 
-REGRA DE LINGUAGEM (CRÍTICA) — VÁLIDA APENAS PARA O ARRAY "editorial":
-O StoryBrand é uma camada ESTRATÉGICA INTERNA. Dentro de "editorial", NUNCA escreva os rótulos do framework dentro de "theme", "caption", "card_copy", "cta" ou "script". Esses campos visíveis devem soar como copy de marketing real, não como template.
-
-PROIBIDO escrever literalmente nos campos visíveis do "editorial":
-"Problema Externo", "Problema Interno", "Problema Filosófico", "O Plano", "Chamada à Ação", "Chamada para Ação", "O Sucesso", "O Fracasso", "O Guia", "O Herói", "Sucesso vs Fracasso", "StoryBrand", "Framework", "Etapa do Framework".
-
-Não use prefixos como "Problema Externo: ...", "Plano: ...", "CTA: ...". Apenas escreva o conteúdo direto, em linguagem natural.
-
-NUNCA prefixe os itens de "card_copy" com "Slide 1:", "Slide 2:", "Card 1:", "Página 1:", etc. Cada item do array JÁ É um slide; escreva apenas o conteúdo do slide, sem rótulo posicional.
-ERRADO: ["Slide 1: Você também sente que o tempo voa?", "Slide 2: A solução está aqui"]
-CERTO:  ["Você também sente que o tempo voa?", "A solução está aqui"]
-
-Exemplos:
-- ERRADO em theme: "Problema Externo: Desvendando o Emaranhado do Conflito"
-- CERTO  em theme: "Desvendando o Emaranhado do Conflito"
-- ERRADO em cta:   "Chamada à Ação: Agende sua sessão hoje"
-- CERTO  em cta:   "Agende sua sessão hoje"
-
-OBSERVAÇÃO: Os rótulos "Problema Externo", "O Herói", etc. PODEM e DEVEM ser usados normalmente dentro do objeto "storybrand" (que é a definição estratégica em si). A regra acima vale APENAS para o array "editorial".
-
 O JSON deve seguir EXATAMENTE esta estrutura:
 
 {
@@ -181,18 +161,7 @@ O JSON deve seguir EXATAMENTE esta estrutura:
       { "nome": "...", "simbolo": "...", "significado": "...", "aplicacao": "..." },
       { "nome": "...", "simbolo": "...", "significado": "...", "aplicacao": "..." }
     ]
-  },
-  "editorial": [
-    {
-      "day": 1,
-      "theme": "...",
-      "format": "reels|carrossel|stories|post",
-      "caption": "...",
-      "card_copy": ["texto do slide/card 1", "texto do slide/card 2"],
-      "cta": "...",
-      "script": "..."
-    }
-  ]
+  }
 }
 
 ⚠️ REGRA CRÍTICA SOBRE GÊNERO — OBRIGATÓRIO SEGUIR:
@@ -224,16 +193,7 @@ Regras para o campo "simbolos":
 - Os símbolos devem ser clássicos e representativos do arquétipo (ex: Herói = espada, escudo, troféu; Mago = varinha, cristal, olho; Explorador = bússola, mapa, montanha)
 - A "aplicacao" descreve como usar o símbolo na comunicação visual (posts, stories, logo, etc.)
 
-Regras para o campo "editorial":
-- OBRIGATORIAMENTE 7 dias (day 1 a 7)
-- A linha editorial deve ser guiada EXCLUSIVAMENTE pelo StoryBrand gerado acima, aprofundando cada faceta do framework ao longo da semana
-- Dia 1: Foque no HERÓI (cliente); Dia 2: PROBLEMA EXTERNO; Dia 3: PROBLEMA INTERNO; Dia 4: Marca como GUIA; Dia 5: O PLANO; Dia 6: CTA claro; Dia 7: SUCESSO vs FRACASSO
-- Cada dia deve ter um tema diferente e relevante
-- O campo "caption" deve conter a LEGENDA COMPLETA pronta para copiar e colar no Instagram
-- O campo "card_copy": para formato "carrossel", deve ser um ARRAY com o texto completo de CADA SLIDE (mínimo 5 slides); para formato "post", deve ser um array com 1 item contendo o texto visual do card; para "reels" e "stories", pode ser array vazio []
-- O campo "script": APENAS para "reels" e "stories" deve conter ROTEIRO COMPLETO (gancho de abertura, desenvolvimento, CTA final). Para "post" e "carrossel", o campo script DEVE ser string vazia ""
-- O campo "cta" deve ser específico e acionável
-- Varie os formatos ao longo da semana
+OBSERVAÇÃO: NÃO gere linha editorial neste relatório. As semanas de conteúdo são geradas por outro fluxo (pipeline dedicado com controle de repetição). Este relatório contém apenas a camada estratégica.
 
 Regras para "visual_identity.palette":
 - EXATAMENTE 5 cores, cada uma com hex válido, nome descritivo em português e uso recomendado
@@ -395,15 +355,9 @@ function buildDeterministicReport(payload: any): any {
         { nome: "Laço", simbolo: "∞", significado: "Conexão", aplicacao: "Posts de relacionamento" },
       ],
     },
-    editorial: [1, 2, 3, 4, 5, 6, 7].map((day) => ({
-      day,
-      theme: ["O desejo do cliente", "O obstáculo visível", "A tensão interna", "A marca como guia", "O caminho em etapas", "Convite para avançar", "O custo de adiar"][day - 1],
-      format: ["post", "carrossel", "reels", "post", "carrossel", "stories", "post"][day - 1],
-      caption: `Conteúdo para ${companyShort}: conecte ${audienceShort} ao problema central e apresente ${servicesShort} como caminho claro, específico e desejável.`,
-      card_copy: day === 2 || day === 5 ? ["Você não precisa decidir no escuro.", "Existe um caminho mais claro.", "O primeiro passo é nomear o problema.", "Depois, organizar prioridades.", "Por fim, agir com direção."] : [`${companyShort}: uma direção mais clara para ${audienceShort}.`],
-      cta: truncateText(mainCta, 120) || "agendar uma conversa estratégica",
-      script: day === 3 || day === 6 ? `Abra nomeando a dúvida principal de ${audienceShort}, mostre o custo de permanecer no improviso e convide para ${truncateText(mainCta, 80)}.` : "",
-    })),
+    // Linha editorial removida do relatório: as semanas vêm exclusivamente do
+    // pipeline dedicado (process-content-generation-job), que respeita o ritmo
+    // Seg-Qui + stories e o controle anti-repetição.
   };
 }
 
