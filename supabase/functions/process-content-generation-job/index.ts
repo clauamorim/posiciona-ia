@@ -1959,168 +1959,32 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
           }
 
 
-          // ---- 11) 2º retry agressivo (só dias ainda > adaptiveThreshold) ----
-          if (failingAfterFirst.length > 0 && dedupTimeBudgetExceeded()) {
-            console.warn(`[semantic-dedup] time-budget-exceeded antes do 2º retry week=${wkIdxForPartial} — aceitando posts do 1º retry`);
-            dedupMeta._dedup_partial_due_to_timeout = true;
-          } else if (failingAfterFirst.length > 0) {
-            const failingDayNums = failingAfterFirst.map((f) => f.day);
-            console.log(`[semantic-dedup] second-retry week=${wkIdxForPartial} days=${JSON.stringify(failingDayNums)}`);
-
-            // snapshot pra eventual fallback
-            const snapshotByDay = new Map<number, FeedPost>();
-            for (const d of failingDayNums) {
-              const p = feedFinal.find((x) => x.day === d);
-              if (p) snapshotByDay.set(d, { ...p });
+          // ---- 11) 2º retry REMOVIDO em S19 ----
+          // Motivo: nas semanas 17-19, o 2º retry NUNCA executou de fato — o
+          // time-budget de 90s sempre estourava antes dele disparar. A tentativa
+          // de trocar Opus por Sonnet no 2º retry (Passo C) ficou sem exercício
+          // porque o gatilho é o budget, não o modelo. Simplificação: aceita o
+          // 1º retry como resposta final; dias que ainda excedem adaptiveThreshold
+          // são marcados _dedup_failed e a semana é persistida com _dedup_warning.
+          for (const f of failingAfterFirst) {
+            if (f.sim > adaptiveThreshold) {
+              dedupFailedDays.push(f.day);
+              const idx = feedFinal.findIndex((p) => p.day === f.day);
+              if (idx >= 0) (feedFinal[idx] as any)._dedup_failed = true;
             }
-
-            try {
-              const allBrands = Array.from(new Set([
-                ...recentBrands,
-                ...Object.values(extracted_brands_by_day).flat(),
-              ])).filter(Boolean);
-              const allFrameworks = Array.from(new Set([
-                ...recentFrameworks,
-                ...Object.values(extracted_frameworks_by_day).flat(),
-              ])).filter(Boolean);
-              const allOpenings = Array.from(new Set([
-                ...recentOpeningForms,
-                ...Object.values(extracted_opening_forms_by_day).flat(),
-              ])).filter(Boolean);
-              const allTheses = Array.from(new Set([
-                ...recentTheses.map((t) => t.thesis),
-                ...Object.values(thesis_summaries),
-              ])).filter(Boolean);
-
-              // Famílias narrativas SEM REPETIÇÃO entre os dias (shuffle)
-              const families = ["a", "b", "c", "d"];
-              for (let i = families.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [families[i], families[j]] = [families[j], families[i]];
-              }
-              const FAMILY_DESC: Record<string, string> = {
-                a: "bastidor técnico real de atendimento específico (sem autor citado, sem framework numerado, sem qualificação de público)",
-                b: "observação de mercado com dado verificável (estudo, pesquisa, dado público) — sem usar como gancho 'X removeu Y'",
-                c: "crítica direta a uma frase/instrução específica de curso de marketing (NÃO Strunk & White, NÃO Marcus Aurelius)",
-                d: "erro técnico próprio do profissional contado em primeira pessoa, com consequência concreta",
-              };
-              const familyByDay = new Map<number, string>();
-              failingDayNums.forEach((d, idx) => familyByDay.set(d, families[idx % families.length]));
-
-              // keepContext do 2º retry: TUDO menos os dias que ainda falham
-              const keepContext2 = feedFinal
-                .filter((p) => !failingDayNums.includes(p.day))
-                .map((p) => `Dia ${p.day} (MANTER, não reescrever): tema="${p.theme}"`)
-                .join("\n");
-
-              const dedupBlock2 =
-                `\n\n# ⚠️ DEDUPLICAÇÃO SEMÂNTICA — 2ª TENTATIVA (CRÍTICO)\n` +
-                `ATENÇÃO: a tentativa anterior continua semanticamente similar a posts antigos. Você está repetindo padrão mesmo após o aviso. Restrições absolutas:\n\n` +
-                `PROIBIDO QUALQUER UM destes itens (extraídos das últimas 8 semanas):\n` +
-                `- Marcas/autores/obras: ${allBrands.join("; ") || "(nenhuma)"}\n` +
-                `- Frameworks: ${allFrameworks.join("; ") || "(nenhum)"}\n` +
-                `- Fôrmas de abertura: ${allOpenings.join("; ") || "(nenhuma)"}\n` +
-                `- Teses já defendidas: ${allTheses.join(" | ") || "(nenhuma)"}\n\n` +
-                `Reescreva APENAS estes dias. Cada dia recebe UMA família narrativa DIFERENTE (não repita família entre dias):\n` +
-                failingDayNums
-                  .map((d) => {
-                    const fam = familyByDay.get(d)!;
-                    const prevSim = failingAfterFirst.find((f) => f.day === d)?.sim;
-                    // H2: bloqueio explícito do subject_tag que sobreviveu ao 1º retry.
-                    const currentPost = feedFinal.find((p) => p.day === d) as any;
-                    const currentTag = currentPost?.subject_tag ? String(currentPost.subject_tag).trim() : "";
-                    const tagBlock = currentTag
-                      ? ` 🚫 subject_tag PROIBIDO: "${currentTag}" (obrigatório escolher um novo)`
-                      : "";
-                    return `- Dia ${d}: família (${fam}) — ${FAMILY_DESC[fam]} (sim anterior=${prevSim?.toFixed(2) ?? "?"})${tagBlock}`;
-                  })
-                  .join("\n") +
-                hardConstraintsBlock +
-                freshTrendsBlock +
-                `\n\nRetorne APENAS um JSON array com os dias reescritos (mesmo schema do feed).`;
-
-              const retryUser2 = `${feedUser}\n\n# CONTEXTO DA SEMANA (NÃO REESCREVER)\n${keepContext2}${dedupBlock2}`;
-              // Passo C: 2º retry usa Sonnet 4.6 em vez de Opus 4.7.
-              // Motivo: Sonnet é ~3-4× mais rápido, cabendo no budget de 90s
-              // sem estourar time-budget-exceeded que hoje mata o 2º retry.
-              const retry2Started = Date.now();
-              const { text: dedup2Raw } = await callClaudeWithMeta({
-                systemPrompt: feedSystem,
-                userText: retryUser2,
-                model: "claude-sonnet-4-6",
-                max_tokens: 4500,
-                timeoutMs: 90000,
-                disableRetries: true,
-              });
-              console.log(
-                `[dedup-retry-2] model=claude-sonnet-4-6 duration_ms=${Date.now() - retry2Started} week=${wkIdxForPartial} days=${JSON.stringify(failingDayNums)}`,
-              );
-
-              let parsed2: any = extractJsonFromLLM(dedup2Raw);
-              if (!Array.isArray(parsed2) || parsed2.length === 0) parsed2 = extractPartialDayObjects(dedup2Raw);
-              const cand2ByDay = new Map<number, FeedPost>();
-              if (Array.isArray(parsed2) && parsed2.length > 0) {
-                for (const p of parsed2) {
-                  if (!p || typeof p !== "object") continue;
-                  const dayN = Number((p as any).day);
-                  if (!failingDayNums.includes(dayN)) continue;
-                  const cleaned = sanitizePost(p as Record<string, any>) as FeedPost;
-                  cleaned.day = dayN;
-                  cleaned.format = (cleaned.format || "post").toString().toLowerCase();
-                  if (cleaned.format === "stories") cleaned.format = "post";
-                  cleaned.is_personal = Boolean((cleaned as any).is_personal);
-                  cand2ByDay.set(dayN, cleaned);
-                }
-              }
-
-              // Revalidação 2º retry: aplica só se reduzir sim
-              let secondMax = 0;
-              for (const f of failingAfterFirst) {
-                const cand2 = cand2ByDay.get(f.day);
-                if (!cand2) continue;
-                const vec = (await embedTextBatch([postToEmbedText(cand2)]))[0];
-                if (!vec) continue;
-                const { data } = await admin.rpc("match_post_embeddings", {
-                  p_user_id: userId, p_query: vec as any, p_since: since, p_threshold: 0.0, p_limit: 1,
-                });
-                const top = Array.isArray(data) && data.length > 0 ? Number(data[0].similarity) || 0 : 0;
-                console.log(
-                  `[semantic-dedup] second-retry-reval week=${wkIdxForPartial} day=${f.day} prev=${f.sim.toFixed(3)} new=${top.toFixed(3)}`,
-                );
-                if (top < f.sim) {
-                  const idx = feedFinal.findIndex((p) => p.day === f.day);
-                  if (idx >= 0) feedFinal[idx] = cand2;
-                  finalVectorByDay.set(f.day, vec);
-                  f.sim = top;
-                }
-                if (f.sim > secondMax) secondMax = f.sim;
-              }
-              dedupMeta.second_retry_max_sim = Number(secondMax.toFixed(3));
-              dedupMeta.second_retry_applied = true;
-            } catch (rr: any) {
-              console.warn(`[semantic-dedup] second-retry falhou (mantendo melhor versão):`, rr?.message || rr);
-            }
-
-            // Marca dias que ainda excedem o threshold adaptativo
-            for (const f of failingAfterFirst) {
-              if (f.sim > adaptiveThreshold) {
-                dedupFailedDays.push(f.day);
-                const idx = feedFinal.findIndex((p) => p.day === f.day);
-                if (idx >= 0) (feedFinal[idx] as any)._dedup_failed = true;
-              }
-            }
-            if (dedupFailedDays.length > 0) {
-              console.log(`[semantic-dedup] dedup-failed week=${wkIdxForPartial} days=${JSON.stringify(dedupFailedDays)}`);
-              dedupMeta.dedup_failed_days = dedupFailedDays;
-              dedupMeta.final_max_sim = Math.max(...failingAfterFirst.map((f) => f.sim));
-              (dedupMeta as any)._dedup_warning = true;
-            }
+          }
+          if (dedupFailedDays.length > 0) {
+            console.log(`[semantic-dedup] dedup-failed week=${wkIdxForPartial} days=${JSON.stringify(dedupFailedDays)}`);
+            dedupMeta.dedup_failed_days = dedupFailedDays;
+            dedupMeta.final_max_sim = Math.max(...failingAfterFirst.map((f) => f.sim));
+            (dedupMeta as any)._dedup_warning = true;
           }
           } // end else (time budget ok for 1st retry)
         }
       } catch (semErr: any) {
         console.warn(`[semantic-dedup] erro geral (ignorado):`, semErr?.message || semErr);
       }
+
 
 
       // === EXTRAIR SIGNATURES DO FEED RECÉM-GERADO ===
