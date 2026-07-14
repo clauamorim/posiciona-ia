@@ -64,7 +64,9 @@ const KINDS: Record<string, { fields: FieldDef[]; mission: string }> = {
   },
 };
 
-const GEMINI_MODEL = "gemini-2.5-flash";
+// gemini-2.5-flash foi aposentado pelo Google (404 "no longer available to new
+// users" em jul/2026); 3.5-flash é o sucessor estável com suporte a áudio.
+const GEMINI_MODEL = "gemini-3.5-flash";
 const MAX_HISTORY_TURNS = 40;
 // generateContent aceita até ~20MB de request; 8MB de áudio base64 é folga segura.
 const MAX_AUDIO_BASE64_CHARS = 8_000_000;
