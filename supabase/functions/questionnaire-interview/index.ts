@@ -104,6 +104,7 @@ ${filledList}
 
 COMO CONDUZIR:
 1. Se o turno do usuário vier em ÁUDIO, transcreva fielmente em "transcript" (português, limpando hesitações tipo "ééé", "hmm"). Se vier em texto, copie o texto em "transcript".
+   - Se o áudio estiver em SILÊNCIO, vazio ou ininteligível, NUNCA invente uma fala: retorne "transcript" como string vazia, "extracted" vazio, e em "reply" diga que não conseguiu ouvir e repita a pergunta atual.
 2. Extraia TUDO que o usuário disse que responda algum campo pendente — uma fala longa pode preencher vários campos de uma vez. Coloque em "extracted" pares {field, value}.
    - "value" deve ser escrito em primeira pessoa, como se o usuário tivesse digitado, preservando as palavras e expressões dele. Limpe apenas a oralidade. Não invente, não complete, não embeleze com fatos que ele não disse.
    - Use APENAS chaves de campo listadas acima. Só extraia para campos pendentes.
@@ -255,6 +256,18 @@ Deno.serve(async (req) => {
       return json({ error: "Não consegui entender. Pode repetir?" }, 500);
     }
 
+    // Trava anti-alucinação: turno de áudio cuja transcrição veio vazia não
+    // pode gerar extração — o modelo não ouviu nada.
+    const transcriptOut = String(parsed.transcript || userText || "").trim();
+    if (audio?.data && !transcriptOut) {
+      return json({
+        transcript: "",
+        reply: String(parsed.reply || "").trim() || "Não consegui ouvir sua resposta. Pode repetir, por favor?",
+        extracted: {},
+        finished: false,
+      });
+    }
+
     // Só aceita chaves válidas e valores não vazios; não sobrescreve campo já
     // preenchido; respeita o limite de caracteres do campo (Diagnóstico).
     const extracted: Record<string, string> = {};
@@ -271,7 +284,7 @@ Deno.serve(async (req) => {
     }
 
     return json({
-      transcript: String(parsed.transcript || userText || "").trim(),
+      transcript: transcriptOut,
       reply: String(parsed.reply || "").trim(),
       extracted,
       finished: Boolean(parsed.finished),

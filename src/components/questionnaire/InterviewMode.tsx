@@ -105,8 +105,9 @@ export function InterviewMode({ kind, intro, fields, answers, profession, niche,
 
       setMessages(prev => {
         const next = [...prev];
-        // Substitui o placeholder pelo transcript real.
-        next[next.length - 1] = { role: "user", content: data?.transcript || placeholder };
+        // Substitui o placeholder pelo transcript real (vazio = nada foi ouvido).
+        const transcript = payload.userText ?? (data?.transcript || "🎙️ (áudio sem fala detectada)");
+        next[next.length - 1] = { role: "user", content: transcript };
         next.push({ role: "assistant", content: data?.reply || "", extractedLabels });
         return next;
       });
