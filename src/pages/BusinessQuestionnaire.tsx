@@ -197,8 +197,8 @@ const BusinessQuestionnaire = () => {
     setIsComplete(true);
     setStatus("submitted");
     clearLocalBackup();
-    toast({ title: "Questionário enviado!" });
-    navigate("/personal-questionnaire");
+    toast({ title: "Diagnóstico concluído!", description: "Veja a primeira versão da sua narrativa." });
+    navigate("/narrative-preview");
   }, [user, isLocked, flush, persist, clearLocalBackup, navigate]);
 
   const goToStep = useCallback(async (target: number) => {

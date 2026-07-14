@@ -14,6 +14,7 @@ import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import Dashboard from "./pages/Dashboard";
 import BusinessQuestionnaire from "./pages/BusinessQuestionnaire";
+import NarrativePreview from "./pages/NarrativePreview";
 import PersonalQuestionnaire from "./pages/PersonalQuestionnaire";
 import ArchetypeQuestionnaire from "./pages/ArchetypeQuestionnaire";
 import Results from "./pages/Results";
@@ -72,6 +73,7 @@ const App = () => (
             <Route path="/complete-profile" element={<ProtectedRoute><CompleteProfile /></ProtectedRoute>} />
             <Route path="/dashboard" element={<ProtectedRoute requirePlan><Dashboard /></ProtectedRoute>} />
             <Route path="/business-questionnaire" element={<ProtectedRoute requireFullAccess><BusinessQuestionnaire /></ProtectedRoute>} />
+            <Route path="/narrative-preview" element={<ProtectedRoute requireFullAccess><NarrativePreview /></ProtectedRoute>} />
             <Route path="/personal-questionnaire" element={<ProtectedRoute requireFullAccess><PersonalQuestionnaire /></ProtectedRoute>} />
             <Route path="/archetype-questionnaire" element={<ProtectedRoute requireFullAccess><ArchetypeQuestionnaire /></ProtectedRoute>} />
             <Route path="/results" element={<ProtectedRoute requirePlan><Results /></ProtectedRoute>} />

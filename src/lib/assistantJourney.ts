@@ -9,6 +9,7 @@ export type JourneyState = {
 const ROUTE_LABELS: Record<string, string> = {
   "/dashboard": "Dashboard (visão geral da jornada)",
   "/business-questionnaire": "Diagnóstico do negócio",
+  "/narrative-preview": "Prévia da Narrativa (StoryBrand resumido, gerado após o diagnóstico)",
   "/personal-questionnaire": "Sua História (questionário pessoal)",
   "/archetype-questionnaire": "Questionário de Arquétipos",
   "/results": "Tela de Resultados (aguardando relatório)",
