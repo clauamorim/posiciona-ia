@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -55,8 +55,13 @@ const passwordGrant = async (email: string, password: string): Promise<GrantResu
   }
 };
 
+const isSafeRelativePath = (v: string | null): v is string => !!v && v.startsWith("/") && !v.startsWith("//");
+
 const Login = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const nextParam = searchParams.get("next");
+  const safeNext = isSafeRelativePath(nextParam) ? nextParam : null;
   const { user, isAdmin, isLoading: authLoading, adoptSession, profileCompleted } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -68,9 +73,10 @@ const Login = () => {
     if (authLoading) return;
     if (user) {
       if (!profileCompleted && !isAdmin) navigate("/complete-profile", { replace: true });
+      else if (safeNext) window.location.href = safeNext;
       else navigate(isAdmin ? "/admin" : "/dashboard", { replace: true });
     }
-  }, [authLoading, user, isAdmin, profileCompleted, navigate]);
+  }, [authLoading, user, isAdmin, profileCompleted, navigate, safeNext]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -132,7 +138,7 @@ const Login = () => {
           <p className="text-sm text-muted-foreground">Acesse a plataforma para continuar sua estratégia.</p>
         </header>
 
-        <GoogleAuthButton />
+        <GoogleAuthButton nextPath={safeNext ?? undefined} />
 
         <div className="relative">
           <div className="absolute inset-0 flex items-center" aria-hidden="true">
