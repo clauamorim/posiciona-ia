@@ -10,7 +10,7 @@ import { Mic, Square, Send, Loader2, CheckCircle2, ClipboardCheck } from "lucide
 type Msg = { role: "user" | "assistant"; content: string; extractedLabels?: string[] };
 
 interface Props {
-  kind: "personal" | "business";
+  kind: "personal" | "business" | "sales";
   intro: string;
   fields: { key: string; label: string }[];
   answers: Record<string, string>;

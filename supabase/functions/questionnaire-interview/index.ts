@@ -51,6 +51,19 @@ const BUSINESS_FIELDS: FieldDef[] = [
   { key: "promised_transformations", label: "Conquistas e transformações prometidas (como a vida do cliente muda)", block: "Ação e transformação", max: 600 },
 ];
 
+// Espelho dos campos definidos em src/pages/SalesNarrativeQuestionnaire.tsx.
+// Se os campos mudarem lá, atualizar aqui também.
+const SALES_FIELDS: FieldDef[] = [
+  { key: "previous_profession", label: "Profissão ou situação antes do trabalho atual", block: "Sua virada" },
+  { key: "career_turn", label: "A virada: o que decidiu mudar e que novo caminho escolheu", block: "Sua virada" },
+  { key: "start_year_motivation", label: "Ano em que começou o trabalho atual e a motivação do primeiro passo", block: "Sua virada" },
+  { key: "negative_comments", label: "Críticas ou comentários negativos que ouviu nessa virada (frases literais, entre aspas)", block: "Vozes da audiência" },
+  { key: "audience_objections", label: "As 3 principais objeções/dúvidas do cliente antes de fechar (frases literais, em primeira pessoa)", block: "Vozes da audiência" },
+  { key: "proof_cases", label: "1 a 3 casos reais como prova (nome — pode ser fictício —, contexto antes, resultado depois; um por linha)", block: "Prova e identidade" },
+  { key: "personal_expressions", label: "Palavra, expressão ou bordão que é muito seu", block: "Prova e identidade" },
+  { key: "forbidden_topics", label: "Temas que JAMAIS tocaria no conteúdo", block: "Prova e identidade" },
+];
+
 const KINDS: Record<string, { fields: FieldDef[]; mission: string }> = {
   personal: {
     fields: PERSONAL_FIELDS,
@@ -61,6 +74,11 @@ const KINDS: Record<string, { fields: FieldDef[]; mission: string }> = {
     fields: BUSINESS_FIELDS,
     mission:
       'Você conduz o questionário "Diagnóstico do Negócio" da Posiciona em formato de conversa. O objetivo é mapear o negócio do usuário (serviços, público, dores do cliente, autoridade, chamada para ação) para a análise estratégica. Respostas específicas e concretas valem mais que genéricas.',
+  },
+  sales: {
+    fields: SALES_FIELDS,
+    mission:
+      'Você conduz o questionário "História de Venda" da Posiciona em formato de conversa. O objetivo é colher a história de virada profissional do usuário e a matéria-prima da narrativa de vendas (críticas ouvidas, objeções de clientes, casos de prova, jeito de falar), que alimenta o módulo Stories de Venda. ATENÇÃO: nos campos de críticas e objeções, preserve as FRASES LITERAIS que o usuário citar, entre aspas, exatamente como ditas — elas geram identificação na audiência. Nos casos de prova, estruture um por linha (nome, contexto antes, resultado depois).',
   },
 };
 
@@ -157,7 +175,7 @@ Deno.serve(async (req) => {
     const { kind: kindName, history, userText, audio, answers, profession, niche } = await req.json();
 
     const kind = KINDS[String(kindName)];
-    if (!kind) return json({ error: 'kind deve ser "personal" ou "business"' }, 400);
+    if (!kind) return json({ error: 'kind deve ser "personal", "business" ou "sales"' }, 400);
     if (!Array.isArray(history)) return json({ error: "history must be an array" }, 400);
     if (!userText && !audio?.data) return json({ error: "Envie userText ou audio" }, 400);
     if (audio?.data && audio.data.length > MAX_AUDIO_BASE64_CHARS) {
