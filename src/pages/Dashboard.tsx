@@ -109,10 +109,20 @@ const Dashboard = () => {
   }, [editorialWeeks]);
 
   const getNextStep = () => {
+    // Ordem da jornada: Arquétipos → Diagnóstico → Sua História → Estratégia → Editorial.
+    if (!archetypesDone) return {
+      label: "Próximo passo: Descubra seus Arquétipos",
+      description: "Responda e veja na hora os 3 arquétipos que definem a essência da sua marca.",
+      hint: "72 afirmações, escala de 1 a 5 — só toques, sem escrever",
+      href: "/archetype-questionnaire",
+      icon: Brain,
+      cta: "Começar",
+      eyebrow: "Próximo passo",
+    };
     if (!businessComplete) return {
       label: "Próximo passo: Responder o Diagnóstico",
-      description: "Preencha o diagnóstico do negócio para liberar sua estratégia.",
-      hint: "Leva cerca de 5 minutos",
+      description: "Conte sobre o seu negócio e receba a prévia da sua narrativa na hora.",
+      hint: "Dá para responder falando, no modo conversa",
       href: "/business-questionnaire",
       icon: Building2,
       cta: "Preencher agora",
@@ -120,20 +130,11 @@ const Dashboard = () => {
     };
     if (!personalSubmitted) return {
       label: "Próximo passo: Conte sua história",
-      description: "Antes dos arquétipos, responda o questionário pessoal para humanizar sua estratégia.",
+      description: "Enquanto sua estratégia é gerada, conte sua história — ela humaniza seus posts e libera a linha editorial.",
       hint: "Hobbies, valores e memórias que viram conteúdo autêntico",
       href: "/personal-questionnaire",
       icon: Sparkles,
       cta: "Preencher agora",
-      eyebrow: "Próximo passo",
-    };
-    if (!archetypesDone) return {
-      label: "Próximo passo: Questionário de Arquétipos",
-      description: "Complete o questionário para revelar a essência da sua marca.",
-      hint: "72 afirmações, escala de 1 a 5",
-      href: "/archetype-questionnaire",
-      icon: Brain,
-      cta: "Continuar",
       eyebrow: "Próximo passo",
     };
     if (!hasReport) return {
@@ -170,9 +171,14 @@ const Dashboard = () => {
 
   const journeySteps: JourneyStep[] = [
     {
+      label: "Arquétipos", href: "/archetype-questionnaire", icon: Brain,
+      status: archetypesDone ? "done" : "in_progress",
+      statusLabel: archetypesDone ? "Concluído" : "Pronto para preencher"
+    },
+    {
       label: "Diagnóstico", href: "/business-questionnaire", icon: Building2,
-      status: businessComplete ? "done" : "in_progress",
-      statusLabel: businessComplete ? "Concluído" : "Pronto para preencher"
+      status: businessComplete ? "done" : archetypesDone ? "in_progress" : "blocked",
+      statusLabel: businessComplete ? "Concluído" : archetypesDone ? "Pronto para preencher" : "Bloqueado"
     },
     {
       label: "Sua História", href: "/personal-questionnaire", icon: Sparkles,
@@ -180,14 +186,9 @@ const Dashboard = () => {
       statusLabel: personalSubmitted ? "Concluído" : businessComplete ? "Pronto para preencher" : "Bloqueado"
     },
     {
-      label: "Arquétipos", href: "/archetype-questionnaire", icon: Brain,
-      status: archetypesDone ? "done" : (businessComplete && personalSubmitted) ? "in_progress" : "blocked",
-      statusLabel: archetypesDone ? "Concluído" : (businessComplete && personalSubmitted) ? "Pronto para preencher" : "Bloqueado"
-    },
-    {
       label: "Estratégia", href: "/results", icon: Target,
-      status: hasReport ? "done" : archetypesDone ? "in_progress" : "blocked",
-      statusLabel: hasReport ? "Concluído" : archetypesDone ? "Em análise" : "Bloqueado"
+      status: hasReport ? "done" : (archetypesDone && businessComplete) ? "in_progress" : "blocked",
+      statusLabel: hasReport ? "Concluído" : (archetypesDone && businessComplete) ? "Em análise" : "Bloqueado"
     },
     {
       label: "Instagram", href: "/instagram-analysis", icon: Instagram,

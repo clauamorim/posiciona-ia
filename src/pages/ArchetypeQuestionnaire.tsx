@@ -92,19 +92,11 @@ const ArchetypeQuestionnaire = () => {
 
   const handleFinish = async () => {
     await saveAnswers();
-    // First-time completion: offer the optional sales-narrative intro.
-    // If the user already has a sales_narrative record (filled or skipped before),
-    // go straight to results.
-    let goIntro = false;
-    if (user) {
-      const { data } = await supabase
-        .from("sales_narrative_questionnaires")
-        .select("user_id")
-        .eq("user_id", user.id)
-        .maybeSingle();
-      goIntro = !data;
-    }
-    navigate(goIntro ? "/sales-narrative-intro" : "/results");
+    // Nova ordem da jornada: arquétipos é a PRIMEIRA etapa — o resultado
+    // imediato em /results é a primeira recompensa, e de lá o usuário segue
+    // para o Diagnóstico. A oferta da História de Venda (opcional) acontece
+    // após o questionário pessoal.
+    navigate("/results");
   };
 
   const handleReanalysis = async (mode: "edit" | "reset") => {

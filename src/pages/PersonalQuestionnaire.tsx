@@ -248,8 +248,15 @@ const PersonalQuestionnaire = () => {
     }
     setStatus("submitted");
     clearLocalBackup();
-    toast({ title: "Sua história foi salva", description: "Agora vamos mapear seus arquétipos." });
-    navigate("/archetype-questionnaire");
+    toast({ title: "Sua história foi salva", description: "Sua estratégia completa está sendo liberada." });
+    // Oferta única da História de Venda (opcional) — se já existe registro
+    // (respondida ou pulada antes), vai direto à recompensa em /results.
+    const { data: salesRecord } = await supabase
+      .from("sales_narrative_questionnaires")
+      .select("user_id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    navigate(salesRecord ? "/results" : "/sales-narrative-intro");
   }, [user, consent, flush, persist, clearLocalBackup, navigate]);
 
   const handleNext = async () => {
@@ -458,11 +465,11 @@ const PersonalQuestionnaire = () => {
                   </Button>
                 ) : !isSubmitted ? (
                   <Button size="sm" onClick={submit} disabled={filledCount < minTotalRequired || submitting || saveStatus === "saving"}>
-                    {submitting ? <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Enviando…</> : <><Sparkles className="h-3.5 w-3.5 mr-1" /> Concluir e ir para Arquétipos</>}
+                    {submitting ? <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Enviando…</> : <><Sparkles className="h-3.5 w-3.5 mr-1" /> Concluir e liberar estratégia</>}
                   </Button>
                 ) : (
-                  <Button size="sm" onClick={() => navigate("/archetype-questionnaire")}>
-                    Ir para Arquétipos <ChevronRight className="h-4 w-4 ml-1" />
+                  <Button size="sm" onClick={() => navigate("/results")}>
+                    Ver Resultados <ChevronRight className="h-4 w-4 ml-1" />
                   </Button>
                 )}
               </div>

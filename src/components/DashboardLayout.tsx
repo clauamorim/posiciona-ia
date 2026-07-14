@@ -87,10 +87,11 @@ export const DashboardLayout = ({ children, wide = false }: { children: React.Re
       const snSubmitted = snRes.data?.[0]?.status === "submitted";
       const hasSalesStories = (ssRes.data?.length ?? 0) > 0;
 
+      // Ordem da jornada: Arquétipos → Diagnóstico → Sua História → Resultados.
       setJourneyStatus({
-        "/business-questionnaire": bComplete ? "done" : "in_progress",
+        "/archetype-questionnaire": aDone ? "done" : "in_progress",
+        "/business-questionnaire": bComplete ? "done" : aDone ? "in_progress" : "blocked",
         "/personal-questionnaire": pqSubmitted ? "done" : bComplete ? "in_progress" : "blocked",
-        "/archetype-questionnaire": aDone ? "done" : (bComplete && pqSubmitted) ? "in_progress" : "blocked",
         "/results": rDone ? "done" : aDone ? "in_progress" : "blocked",
         "/storybrand": rDone ? "done" : "blocked",
         "/report": rDone ? "done" : "blocked",
@@ -104,7 +105,7 @@ export const DashboardLayout = ({ children, wide = false }: { children: React.Re
   }, [user, isAdmin]);
 
   // Journey progress for sidebar collapsing
-  const JOURNEY_KEYS = ["/business-questionnaire","/personal-questionnaire","/archetype-questionnaire","/results","/report","/instagram-analysis","/editorial","/portraits"];
+  const JOURNEY_KEYS = ["/archetype-questionnaire","/business-questionnaire","/personal-questionnaire","/results","/report","/instagram-analysis","/editorial","/portraits"];
   const journeyDoneAll = JOURNEY_KEYS.every(k => journeyStatus[k] === "done");
   const CONTINUOUS_HREFS = new Set(["/editorial", "/stories-de-venda", "/portraits", "/report"]);
 
@@ -132,9 +133,9 @@ export const DashboardLayout = ({ children, wide = false }: { children: React.Re
     {
       label: "Sua jornada",
       items: [
+        { label: "Arquétipos", href: "/archetype-questionnaire", icon: Brain, status: journeyStatus["/archetype-questionnaire"] },
         { label: "Diagnóstico", href: "/business-questionnaire", icon: Building2, status: journeyStatus["/business-questionnaire"] },
         { label: "Sua História", href: "/personal-questionnaire", icon: Sparkles, status: journeyStatus["/personal-questionnaire"] },
-        { label: "Arquétipos", href: "/archetype-questionnaire", icon: Brain, status: journeyStatus["/archetype-questionnaire"] },
         { label: "Resultados", href: "/results", icon: BarChart3, status: journeyStatus["/results"] },
         // "Narrativa da Marca" consolidada como tab dentro do Relatório — /storybrand permanece acessível por links antigos
         { label: "Relatório", href: "/report", icon: FileText, status: journeyStatus["/report"] },

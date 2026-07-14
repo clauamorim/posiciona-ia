@@ -43,6 +43,10 @@ const Results = () => {
   const [archetypeDetails, setArchetypeDetails] = useState<Record<string, any>>({});
   const [progressMessage, setProgressMessage] = useState<string>("");
   const [retryCount, setRetryCount] = useState(0);
+  // Nova ordem da jornada: arquétipos vêm antes do diagnóstico. Quando o
+  // diagnóstico ainda não existe, esta tela é a 1ª recompensa e aponta o
+  // próximo passo em vez de tentar gerar o relatório.
+  const [needsDiagnosis, setNeedsDiagnosis] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -158,7 +162,7 @@ const Results = () => {
           .from("business_questionnaires").select("*").eq("user_id", user.id)
           .eq("is_complete", true).order("version", { ascending: false }).limit(1).maybeSingle();
 
-        if (!bqData) { setStage("done"); return; }
+        if (!bqData) { setNeedsDiagnosis(true); setStage("done"); return; }
         if (cancelled) return;
 
         setStage("generating_report");
@@ -286,8 +290,15 @@ const Results = () => {
             )}
             <div className="flex-1 min-w-0">
               <p className="font-medium text-sm">
-                {stage === "generating_report" && progressMessage ? progressMessage : STAGE_LABELS[stage]}
+                {stage === "done" && needsDiagnosis
+                  ? "Arquétipos mapeados!"
+                  : stage === "generating_report" && progressMessage ? progressMessage : STAGE_LABELS[stage]}
               </p>
+              {stage === "done" && needsDiagnosis && (
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Agora conte sobre o seu negócio — arquétipos + diagnóstico geram seu Relatório Estratégico completo.
+                </p>
+              )}
               {stage === "generating_report" && (
                 <p className="text-xs text-muted-foreground mt-0.5">
                   Continuamos gerando em segundo plano. Você pode sair desta tela e voltar quando quiser.
@@ -304,9 +315,15 @@ const Results = () => {
             </div>
             {stage === "done" && (
               <div className="flex gap-2 flex-shrink-0">
-                <Button size="sm" onClick={() => navigate("/report")} className="gap-1.5">
-                  Relatório <ArrowRight className="h-3.5 w-3.5" />
-                </Button>
+                {needsDiagnosis ? (
+                  <Button size="sm" onClick={() => navigate("/business-questionnaire")} className="gap-1.5">
+                    Continuar: Diagnóstico <ArrowRight className="h-3.5 w-3.5" />
+                  </Button>
+                ) : (
+                  <Button size="sm" onClick={() => navigate("/report")} className="gap-1.5">
+                    Relatório <ArrowRight className="h-3.5 w-3.5" />
+                  </Button>
+                )}
               </div>
             )}
             {stage === "generating_report" && (

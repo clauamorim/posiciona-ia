@@ -88,10 +88,11 @@ export async function buildJourneyContext(userId: string, currentRoute: string):
   if (hasEditorial) completed.push("Linha Editorial");
   if (hasPortraits) completed.push("Retratos");
 
-  let nextStep = "Diagnóstico";
-  if (!businessComplete) nextStep = "Diagnóstico";
-  else if (!personalSubmitted) nextStep = "Sua História";
-  else if (!archetypesDone) nextStep = "Arquétipos";
+  // Ordem da jornada: Arquétipos → Diagnóstico → Sua História → Relatório → Editorial.
+  let nextStep = "Arquétipos";
+  if (!archetypesDone) nextStep = "Arquétipos";
+  else if (!businessComplete) nextStep = "Diagnóstico";
+  else if (!personalSubmitted) nextStep = "Sua História (o Relatório é gerado em paralelo)";
   else if (!hasReport) nextStep = "Aguardar geração do Relatório";
   else if (!hasEditorial) nextStep = "Linha Editorial";
   else if (!hasPortraits) nextStep = "Retratos com IA";

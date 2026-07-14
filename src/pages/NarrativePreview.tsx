@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { ensureReportGenerationStarted } from "@/lib/reportGeneration";
 import { Loader2, Users, Target, Heart, BookOpen, Compass, Zap, Megaphone, Star, Shield, ArrowRight, RefreshCw, Sparkles } from "lucide-react";
 
 // Mesma estrutura visual da narrativa completa (src/pages/StoryBrand.tsx),
@@ -107,6 +108,10 @@ const NarrativePreview = () => {
     if (!user?.id || startedRef.current) return;
     startedRef.current = true;
     load();
+    // Com diagnóstico + arquétipos prontos, o relatório completo já pode nascer
+    // em segundo plano — quando o usuário terminar o "Sua História", ele estará
+    // pronto (a tela de Resultados retoma o polling do job ativo sozinha).
+    ensureReportGenerationStarted(user.id).then(r => console.log("[report-bg]", r));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
