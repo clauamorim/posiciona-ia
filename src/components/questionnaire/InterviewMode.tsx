@@ -224,7 +224,24 @@ export function InterviewMode({ kind, intro, fields, answers, profession, niche,
 
         {/* Entrada */}
         <div className="border-t border-border/40 p-3 space-y-2">
-          {recording ? (
+          {finished ? (
+            // Ao terminar, o botão de revisão assume o lugar do microfone —
+            // no celular é o que está sob o polegar; o do topo some da vista.
+            <>
+              <Button onClick={onFinish} className="w-full gap-2 h-12">
+                <ClipboardCheck className="h-4 w-4" />
+                Revisar respostas e concluir
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setFinished(false)}
+                className="w-full text-muted-foreground text-xs"
+              >
+                Continuar conversando
+              </Button>
+            </>
+          ) : recording ? (
             <Button onClick={stopRecording} variant="destructive" className="w-full gap-2 h-12">
               <Square className="h-4 w-4" />
               Parar e enviar · {fmtTime(recordSeconds)}
@@ -235,19 +252,21 @@ export function InterviewMode({ kind, intro, fields, answers, profession, niche,
               Tocar para responder falando
             </Button>
           )}
-          <div className="flex gap-2">
-            <Input
-              value={textInput}
-              onChange={e => setTextInput(e.target.value)}
-              onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendText(); } }}
-              placeholder="Ou digite sua resposta…"
-              disabled={sending || recording}
-              className="text-sm"
-            />
-            <Button size="icon" variant="outline" onClick={handleSendText} disabled={sending || recording || !textInput.trim()}>
-              <Send className="h-4 w-4" />
-            </Button>
-          </div>
+          {!finished && (
+            <div className="flex gap-2">
+              <Input
+                value={textInput}
+                onChange={e => setTextInput(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendText(); } }}
+                placeholder="Ou digite sua resposta…"
+                disabled={sending || recording}
+                className="text-sm"
+              />
+              <Button size="icon" variant="outline" onClick={handleSendText} disabled={sending || recording || !textInput.trim()}>
+                <Send className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
