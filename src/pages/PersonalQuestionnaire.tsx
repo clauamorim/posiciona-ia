@@ -100,7 +100,9 @@ const PersonalQuestionnaire = () => {
   // para a conversa sobreviver à alternância entre os modos.
   const [interviewStarted, setInterviewStarted] = useState(false);
   const [profile, setProfile] = useState<{ profession?: string; niche?: string }>({});
+  const [consentHighlight, setConsentHighlight] = useState(false);
   const insertingRef = useRef(false);
+  const consentRef = useRef<HTMLDivElement | null>(null);
 
   const currentBlock = blocks[blockIndex];
   const isLast = blockIndex === blocks.length - 1;
@@ -224,7 +226,11 @@ const PersonalQuestionnaire = () => {
   const submit = useCallback(async () => {
     if (!user) return;
     if (!consent) {
-      toast({ title: "Aceite necessário", description: "Confirme o aviso de uso público antes de concluir.", variant: "destructive" });
+      // Leva o usuário até o checkbox (no celular ele está fora da tela) e o destaca.
+      toast({ title: "Falta o aceite", description: "Marque a caixa \"Entendo e autorizo\" no aviso destacado para concluir.", variant: "destructive" });
+      consentRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      setConsentHighlight(true);
+      window.setTimeout(() => setConsentHighlight(false), 3500);
       return;
     }
     setSubmitting(true);
@@ -281,7 +287,12 @@ const PersonalQuestionnaire = () => {
         </div>
 
         {/* Privacy warning */}
-        <div className="flex items-start gap-3 p-4 rounded-lg bg-amber-500/5 border border-amber-200/40">
+        <div
+          ref={consentRef}
+          className={`flex items-start gap-3 p-4 rounded-lg bg-amber-500/5 border transition-all duration-300 ${
+            consentHighlight ? "border-amber-500 ring-2 ring-amber-500/50 animate-pulse" : "border-amber-200/40"
+          }`}
+        >
           <ShieldAlert className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
           <div className="space-y-2 flex-1">
             <p className="text-xs text-foreground/80 leading-relaxed">
@@ -446,7 +457,7 @@ const PersonalQuestionnaire = () => {
                     Próximo bloco <ChevronRight className="h-4 w-4 ml-1" />
                   </Button>
                 ) : !isSubmitted ? (
-                  <Button size="sm" onClick={submit} disabled={!canFinish || submitting || saveStatus === "saving"}>
+                  <Button size="sm" onClick={submit} disabled={filledCount < minTotalRequired || submitting || saveStatus === "saving"}>
                     {submitting ? <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Enviando…</> : <><Sparkles className="h-3.5 w-3.5 mr-1" /> Concluir e ir para Arquétipos</>}
                   </Button>
                 ) : (
@@ -459,7 +470,9 @@ const PersonalQuestionnaire = () => {
 
             {!isSubmitted && isLast && !canFinish && (
               <p className="text-[11px] text-amber-600 text-center">
-                Responda ao menos {minRequiredPerBlock} perguntas em cada bloco e marque o aceite para concluir.
+                {filledCount < minTotalRequired
+                  ? `Responda ao menos ${minRequiredPerBlock} perguntas em cada bloco para concluir.`
+                  : "Falta só marcar o aceite de uso público (aviso no topo da página)."}
               </p>
             )}
           </CardContent>
