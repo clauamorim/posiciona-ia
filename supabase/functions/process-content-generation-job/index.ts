@@ -1006,10 +1006,13 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
       };
       ingestFeedParsed(feedParsed);
 
-      // Retry automático: se faltam dias E a resposta NÃO foi truncada, pede só os dias faltantes.
-      // Truncamento real (max_tokens) não se beneficia de repetir o mesmo prompt.
+      // Retry automático: se faltam dias, pede só os dias faltantes.
+      // Vale também para truncamento (max_tokens): o retry NÃO repete o pedido
+      // inteiro — pede apenas os dias que faltam, que cabem no orçamento menor
+      // do retry. Sem isso, semanas truncadas ficavam permanentemente com 2/4
+      // posts (bug observado em produção em 14/07/2026).
       const missingDays = FEED_DAYS.filter((d) => !feedByDay.has(d));
-      if (missingDays.length > 0 && !feedTruncated) {
+      if (missingDays.length > 0) {
         console.warn(`[job ${jobId}] Estágio A: dias faltantes ${JSON.stringify(missingDays)}. Disparando retry direcionado.`);
         await updateJob(jobId, { progress_message: "Refinando seus posts de feed (ajuste fino)…" });
 
