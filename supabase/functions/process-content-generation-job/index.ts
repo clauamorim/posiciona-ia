@@ -1708,30 +1708,19 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
             .map((p) => `Dia ${p.day} (MANTER, não reescrever): tema="${p.theme}"`)
             .join("\n");
 
-          // === Passo B1: pautas frescas do banco (market_trends_cache filtradas
-          // por used_market_trends) — dá ao retry material NOVO pra ancorar,
-          // não só instrução de "não repita X".
-          const freshTrendsForRetry = (filteredMarketTrends || []).slice(0, 3);
-          const freshTrendsBlock = freshTrendsForRetry.length > 0
-            ? `\n\n# PAUTAS FRESCAS DISPONÍVEIS (nunca usadas por este usuário nas últimas 8 semanas)\n` +
-              freshTrendsForRetry
-                .map((t: any, i: number) => `${i + 1}. ${t.title}${t.summary ? ` — ${t.summary}` : ""}`)
-                .join("\n") +
-              `\n\nInstrução: escolha UMA destas pautas como âncora nova da tese do dia. ` +
-              `Se nenhuma servir ao pilar do dia, invente uma tese completamente fora dos clusters listados abaixo.`
-            : "";
+          // ── Passo B1 (PAUTAS FRESCAS) e Passo D (RESTRIÇÕES DURAS) removidos em S19 ──
+          // B1: removido porque na S19 devolveu 0 pautas mesmo com 2 vigentes disponíveis
+          //     no cache do usuário (advogado::leilões, 3 no cache, 1 queimada em 56d).
+          //     H5 (material novo reduz thesis_sim) NÃO foi testada de forma limpa —
+          //     a query B1 tem bug nos filtros extras (concept-group saturado +
+          //     tag pré-retry). Se retomar H5, começar auditando a query, NÃO assumir
+          //     que material novo é inerte.
+          // D: removido porque violations de fórmula/concept-group vieram byte-a-byte
+          //    idênticas entre S18 e S19 — o modelo ignora restrições textuais desse
+          //    tipo no retry corretivo. editorial-diversity segue como validador
+          //    pós-geração (registro/telemetria), só deixa de tentar influenciar o retry.
 
-          // === Passo D: restrições duras de fingerprint/diversidade no retry.
-          const hardConstraints: string[] = [];
-          const bf = (diversityHints as any)?.bannedFormulas || [];
-          if (bf.length > 0) hardConstraints.push(`- Fórmulas de título PROIBIDAS (uso recente ou já usada nesta semana): ${bf.join(", ")}`);
-          const dc = (diversityHints as any)?.dampenedConcepts || [];
-          if (dc.length > 0) hardConstraints.push(`- Concept groups SATURADOS (não podem ser tema central): ${dc.join(", ")}`);
-          const bnc = (diversityHints as any)?.bannedNamedCases || [];
-          if (bnc.length > 0) hardConstraints.push(`- Cases nomeados JÁ USADOS nos últimos 28 dias (escolha outros): ${bnc.join(", ")}`);
-          const hardConstraintsBlock = hardConstraints.length > 0
-            ? `\n\n# RESTRIÇÕES DURAS DESTA SEMANA (violação = falha automática do retry)\n${hardConstraints.join("\n")}`
-            : "";
+
 
           const dedupBlock =
             `\n\n# ⚠️ DEDUPLICAÇÃO SEMÂNTICA (CRÍTICO)\n` +
