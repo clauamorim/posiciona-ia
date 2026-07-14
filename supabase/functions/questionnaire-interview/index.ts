@@ -65,10 +65,12 @@ const KINDS: Record<string, { fields: FieldDef[]; mission: string }> = {
 };
 
 // gemini-2.5-flash foi aposentado pelo Google (404 "no longer available to new
-// users" em jul/2026) e gemini-3.5-flash respondeu 503 persistente (high
-// demand). Tentamos em ordem e usamos o primeiro que responder; todos aceitam
-// áudio como entrada.
-const GEMINI_MODELS = ["gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-2.5-flash-lite"];
+// users" em jul/2026) e gemini-3.5-flash oscila entre 503 e travar sem
+// responder (high demand). Lite primeiro por estabilidade — a tarefa
+// (transcrever + extrair campos) não exige o modelo maior. Cada tentativa tem
+// prazo máximo; estourou, passa ao próximo.
+const GEMINI_MODELS = ["gemini-3.1-flash-lite", "gemini-3.5-flash", "gemini-2.5-flash-lite"];
+const PER_MODEL_TIMEOUT_MS = 30_000;
 const MAX_HISTORY_TURNS = 40;
 // generateContent aceita até ~20MB de request; 8MB de áudio base64 é folga segura.
 const MAX_AUDIO_BASE64_CHARS = 8_000_000;
@@ -199,15 +201,27 @@ Deno.serve(async (req) => {
       },
     });
 
-    // Tenta os modelos em ordem; 404 (aposentado), 429 (rate limit) e 503
-    // (sobrecarga) passam para o próximo. Outros erros interrompem.
+    // Tenta os modelos em ordem; timeout, 404 (aposentado), 429 (rate limit) e
+    // 503 (sobrecarga) passam para o próximo. Outros erros interrompem.
     let r: Response | null = null;
     const attempts: string[] = [];
     for (const model of GEMINI_MODELS) {
-      r = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_KEY}`,
-        { method: "POST", headers: { "Content-Type": "application/json" }, body: requestBody },
-      );
+      try {
+        r = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_KEY}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: requestBody,
+            signal: AbortSignal.timeout(PER_MODEL_TIMEOUT_MS),
+          },
+        );
+      } catch (e) {
+        r = null;
+        attempts.push(`${model}: timeout`);
+        console.error(`Gemini timeout/abort (${model}):`, e instanceof Error ? e.message : e);
+        continue;
+      }
       if (r.ok) {
         console.log(`Gemini ok com ${model}`);
         break;
