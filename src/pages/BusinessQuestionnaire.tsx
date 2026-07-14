@@ -302,6 +302,18 @@ const BusinessQuestionnaire = () => {
           </div>
         )}
 
+        {/* Atalho para a prévia — diagnóstico já concluído */}
+        {!isEditable && hydrated && (
+          <div className="flex items-center justify-between gap-3 p-3 rounded-lg bg-primary/[0.04] border border-primary/15">
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Diagnóstico concluído — sua narrativa já tem uma primeira versão.
+            </p>
+            <Button size="sm" variant="outline" onClick={() => navigate("/narrative-preview")} className="gap-1.5 flex-shrink-0">
+              Ver prévia da narrativa <ChevronRight className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        )}
+
         {/* Mode toggle */}
         {isEditable && hydrated && (
           <div className="flex gap-1.5 p-1 bg-muted rounded-lg">
@@ -469,7 +481,11 @@ const BusinessQuestionnaire = () => {
                   <Button size="sm" onClick={submit} disabled={!allFilled || submitting || saveStatus === "saving"}>
                     {submitting ? <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Enviando…</> : "Concluir diagnóstico"}
                   </Button>
-                ) : null}
+                ) : (
+                  <Button size="sm" onClick={() => navigate("/narrative-preview")}>
+                    Ver prévia da narrativa <ChevronRight className="h-4 w-4 ml-1" />
+                  </Button>
+                )}
               </div>
             </div>
           </CardContent>
