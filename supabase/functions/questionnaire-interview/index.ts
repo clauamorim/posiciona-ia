@@ -65,8 +65,10 @@ const KINDS: Record<string, { fields: FieldDef[]; mission: string }> = {
 };
 
 // gemini-2.5-flash foi aposentado pelo Google (404 "no longer available to new
-// users" em jul/2026); 3.5-flash é o sucessor estável com suporte a áudio.
-const GEMINI_MODEL = "gemini-3.5-flash";
+// users" em jul/2026) e gemini-3.5-flash respondeu 503 persistente (high
+// demand). Tentamos em ordem e usamos o primeiro que responder; todos aceitam
+// áudio como entrada.
+const GEMINI_MODELS = ["gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-2.5-flash-lite"];
 const MAX_HISTORY_TURNS = 40;
 // generateContent aceita até ~20MB de request; 8MB de áudio base64 é folga segura.
 const MAX_AUDIO_BASE64_CHARS = 8_000_000;
@@ -184,33 +186,44 @@ Deno.serve(async (req) => {
     }
     contents.push({ role: "user", parts: currentParts });
 
-    const r = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          systemInstruction: {
-            parts: [{ text: buildSystemPrompt(kind, safeAnswers, profession, niche) }],
-          },
-          contents,
-          generationConfig: {
-            responseMimeType: "application/json",
-            responseSchema: RESPONSE_SCHEMA,
-            temperature: 0.4,
-            maxOutputTokens: 2048,
-          },
-        }),
+    const requestBody = JSON.stringify({
+      systemInstruction: {
+        parts: [{ text: buildSystemPrompt(kind, safeAnswers, profession, niche) }],
       },
-    );
+      contents,
+      generationConfig: {
+        responseMimeType: "application/json",
+        responseSchema: RESPONSE_SCHEMA,
+        temperature: 0.4,
+        maxOutputTokens: 2048,
+      },
+    });
 
-    if (!r.ok) {
-      const body = await r.text().catch(() => "");
-      console.error("Gemini error:", r.status, body.slice(0, 500));
-      if (r.status === 429) {
-        return json({ error: "Muitas solicitações. Aguarde alguns segundos e tente novamente." }, 429);
+    // Tenta os modelos em ordem; 404 (aposentado), 429 (rate limit) e 503
+    // (sobrecarga) passam para o próximo. Outros erros interrompem.
+    let r: Response | null = null;
+    const attempts: string[] = [];
+    for (const model of GEMINI_MODELS) {
+      r = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_KEY}`,
+        { method: "POST", headers: { "Content-Type": "application/json" }, body: requestBody },
+      );
+      if (r.ok) {
+        console.log(`Gemini ok com ${model}`);
+        break;
       }
-      return json({ error: "Erro ao processar sua resposta. Tente novamente." }, 500);
+      const body = await r.text().catch(() => "");
+      attempts.push(`${model}: ${r.status}`);
+      console.error(`Gemini error (${model}):`, r.status, body.slice(0, 300));
+      if (![404, 429, 503].includes(r.status)) break;
+    }
+
+    if (!r || !r.ok) {
+      console.error("Todos os modelos falharam:", attempts.join(" | "));
+      return json({
+        error: "O serviço de IA está indisponível no momento. Tente novamente em instantes.",
+        detail: attempts.join(" | "),
+      }, 500);
     }
 
     const data = await r.json();
