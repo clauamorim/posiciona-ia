@@ -14,7 +14,11 @@
 //
 // Guardrail-only: nunca lança. No máximo dispara um retry guiado e segue.
 
-export const SUBJECT_ROTATION_WEEKS = 4;
+// Ampliado de 4 → 12 em S19 (2026-07-14): conteúdo evergreen jurídico tolera
+// repetição de tese depois de ~3 meses, mas tolera muito mal em janela curta.
+// A calibração de similaridade permanece intacta (0.90/0.92/0.93 em getAdaptiveDedupThreshold),
+// só a rotação de tese passa a olhar uma janela 3× maior.
+export const SUBJECT_ROTATION_WEEKS = 12;
 
 /** Normaliza um assunto para comparação: minúsculas, sem acento, kebab-case. */
 export function normalizeSubject(s: string): string {
