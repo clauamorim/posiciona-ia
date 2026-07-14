@@ -12,12 +12,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { ChevronLeft, ChevronRight, Save, Lock, RefreshCw, Pencil, Trash2, HelpCircle, Check, AlertTriangle, Loader2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Save, Lock, RefreshCw, Pencil, Trash2, HelpCircle, Check, AlertTriangle, Loader2, Mic, PenLine } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useQuestionnaireAutosave, SaveStatusLabel } from "@/hooks/useQuestionnaireAutosave";
 import { InlineHelpButton } from "@/components/assistant/InlineHelpButton";
 import { QuestionnaireStatusBadge } from "@/components/questionnaire/QuestionnaireStatusBadge";
+import { InterviewMode } from "@/components/questionnaire/InterviewMode";
 
 const fields = [
   { key: "company_name", label: "Nome da empresa ou negócio", type: "input", placeholder: "Ex: Studio Bella", help: "Pode ser o nome fantasia, nome pessoal ou como você é conhecida(o) no mercado.", max: 120 },
@@ -46,6 +47,8 @@ const blocks = [
 // Mapeia step antigo (0-11) para bloco novo (0-3). Mantém compatibilidade visual.
 const stepToBlock = (s: number) => Math.min(blocks.length - 1, Math.max(0, Math.floor(s / 3)));
 
+const interviewFields = fields.map(f => ({ key: f.key, label: f.label }));
+
 type QStatus = "draft" | "submitted" | "locked";
 
 const BusinessQuestionnaire = () => {
@@ -59,6 +62,11 @@ const BusinessQuestionnaire = () => {
   const [isComplete, setIsComplete] = useState(false);
   const [status, setStatus] = useState<QStatus>("draft");
   const [showReanalysisDialog, setShowReanalysisDialog] = useState(false);
+  const [mode, setMode] = useState<"form" | "interview">("form");
+  // Monta o chat só após a hidratação (1º clique) e mantém montado depois,
+  // para a conversa sobreviver à alternância entre os modos.
+  const [interviewStarted, setInterviewStarted] = useState(false);
+  const [profile, setProfile] = useState<{ profession?: string; niche?: string }>({});
   const insertingRef = useRef(false);
 
   const isLocked = status === "locked";
@@ -163,6 +171,13 @@ const BusinessQuestionnaire = () => {
     })();
     return () => { cancelled = true; };
   }, [user?.id, hydrated]);
+
+  // Profissão/nicho personalizam as perguntas do modo entrevista.
+  useEffect(() => {
+    if (!user?.id) return;
+    supabase.from("profiles").select("profession, niche").eq("user_id", user.id).maybeSingle()
+      .then(({ data }) => { if (data) setProfile({ profession: data.profession || undefined, niche: data.niche || undefined }); });
+  }, [user?.id]);
 
   const submit = useCallback(async () => {
     if (!user || isLocked) return;
@@ -287,10 +302,33 @@ const BusinessQuestionnaire = () => {
           </div>
         )}
 
+        {/* Mode toggle */}
+        {isEditable && hydrated && (
+          <div className="flex gap-1.5 p-1 bg-muted rounded-lg">
+            <button
+              onClick={() => { setMode("interview"); setInterviewStarted(true); }}
+              className={`flex-1 h-9 rounded-md text-xs font-medium transition-all flex items-center justify-center gap-1.5 ${
+                mode === "interview" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Mic className="h-3.5 w-3.5" /> Responder conversando
+              <span className="text-[9px] font-semibold uppercase tracking-wider bg-primary/10 text-primary rounded px-1 py-0.5">novo</span>
+            </button>
+            <button
+              onClick={() => setMode("form")}
+              className={`flex-1 h-9 rounded-md text-xs font-medium transition-all flex items-center justify-center gap-1.5 ${
+                mode === "form" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <PenLine className="h-3.5 w-3.5" /> Preencher digitando
+            </button>
+          </div>
+        )}
+
         {/* Progress + tabs por bloco */}
         <div className="space-y-2">
           <Progress value={progress} className="h-1.5" />
-          <div className="flex gap-1.5">
+          <div className={`flex gap-1.5 ${mode === "interview" && isEditable ? "hidden" : ""}`}>
             {blocks.map((b, i) => (
               <button
                 key={b.title}
@@ -315,8 +353,31 @@ const BusinessQuestionnaire = () => {
           )}
         </div>
 
+        {/* Interview mode */}
+        {interviewStarted && isEditable && (
+          <div className={mode === "interview" ? "" : "hidden"}>
+            <InterviewMode
+              kind="business"
+              intro="Vamos fazer o diagnóstico do seu negócio em formato de conversa."
+              fields={interviewFields}
+              answers={answers}
+              profession={profile.profession}
+              niche={profile.niche}
+              onExtract={extracted => setAnswers(prev => ({ ...prev, ...extracted }))}
+              onFinish={() => {
+                setMode("form");
+                setStep(0);
+                toast({
+                  title: "Hora de revisar",
+                  description: "Confira os 4 blocos, ajuste o que quiser e conclua.",
+                });
+              }}
+            />
+          </div>
+        )}
+
         {/* Bloco atual */}
-        <Card className="border-primary/10">
+        <Card className={`border-primary/10 ${mode === "interview" && isEditable ? "hidden" : ""}`}>
           <CardContent className="pt-5 pb-5 space-y-5">
             <div>
               <p className="text-xs text-primary/60 font-semibold uppercase tracking-wider mb-1">
