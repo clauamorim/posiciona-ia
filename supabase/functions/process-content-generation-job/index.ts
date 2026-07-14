@@ -1939,7 +1939,7 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
                 if (top > postRetryMax) postRetryMax = top;
                 if (top > adaptiveThreshold) failingAfterFirst.push({ day, sim: top });
                 console.log(
-                  `[semantic-dedup] post-retry week=${wkIdxForPartial} day=${day} pre=${(embByDay.get(day)?.topSim || 0).toFixed(3)} post=${top.toFixed(3)}`,
+                  `[semantic-dedup] post-retry week=${wkIdxForPartial} day=${day} pre=${(preRetrySimByDay.get(day) ?? embByDay.get(day)?.topSim ?? 0).toFixed(3)} post=${top.toFixed(3)}`,
                 );
                 const oldThesisSim = Math.max(
                   0,
