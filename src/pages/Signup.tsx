@@ -29,7 +29,7 @@ const Signup = () => {
     }
     setLegalConsentError("");
     setLoading(true);
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -51,6 +51,17 @@ const Signup = () => {
         description = "Não conseguimos conectar ao servidor. Verifique sua conexão e tente novamente.";
       }
       toast({ title: "Erro ao criar conta", description, variant: "destructive" });
+      setLoading(false);
+      return;
+    }
+    // Com a proteção anti-enumeração do Supabase, e-mail já cadastrado e confirmado
+    // retorna "sucesso" com usuário obfuscado (identities vazio) e nenhum e-mail é enviado.
+    if (data.user && data.user.identities?.length === 0) {
+      toast({
+        title: "Erro ao criar conta",
+        description: "Já existe uma conta com este e-mail. Tente entrar em vez de criar uma nova conta.",
+        variant: "destructive",
+      });
       setLoading(false);
       return;
     }
