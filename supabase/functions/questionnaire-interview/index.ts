@@ -9,6 +9,7 @@
 // o autosave existente persiste pelo caminho normal (RLS respeitado).
 
 import { corsHeaders } from "https://esm.sh/@supabase/supabase-js@2.95.0/cors";
+import { requireUser, AuthError } from "../_shared/workspaceAuth.ts";
 
 type FieldDef = { key: string; label: string; block: string; max?: number };
 
@@ -167,6 +168,14 @@ Deno.serve(async (req) => {
       status,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
+
+  // Função de IA custa crédito de API — exige usuário autenticado de verdade.
+  try {
+    await requireUser(req);
+  } catch (e) {
+    const status = e instanceof AuthError ? e.status : 401;
+    return json({ error: "Faça login para usar a entrevista por voz." }, status);
+  }
 
   try {
     const GEMINI_KEY = Deno.env.get("GEMINI_API_KEY");

@@ -1,4 +1,5 @@
 import { corsHeaders } from "https://esm.sh/@supabase/supabase-js@2.95.0/cors";
+import { requireUser, AuthError } from "../_shared/workspaceAuth.ts";
 
 const SYSTEM_PROMPT = `Você é a assistente oficial da Posiciona, uma plataforma premium de posicionamento estratégico para profissionais de alto nível — advogados, profissionais da saúde, empresários e especialistas em marketing.
 
@@ -90,6 +91,17 @@ REGRAS:
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  // Assistente só aparece logado no app; exige usuário autenticado de verdade.
+  try {
+    await requireUser(req);
+  } catch (e) {
+    const status = e instanceof AuthError ? e.status : 401;
+    return new Response(JSON.stringify({ error: "Faça login para falar com a assistente." }), {
+      status,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
   try {

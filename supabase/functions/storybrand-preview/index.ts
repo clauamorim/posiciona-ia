@@ -6,6 +6,7 @@
 // o cliente cacheia em localStorage.
 
 import { corsHeaders } from "https://esm.sh/@supabase/supabase-js@2.95.0/cors";
+import { requireUser, AuthError } from "../_shared/workspaceAuth.ts";
 
 const GEMINI_MODELS = ["gemini-3.1-flash-lite", "gemini-3.5-flash", "gemini-2.5-flash-lite"];
 const PER_MODEL_TIMEOUT_MS = 30_000;
@@ -72,6 +73,14 @@ Deno.serve(async (req) => {
       status,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
+
+  // Função de IA custa crédito de API — exige usuário autenticado de verdade.
+  try {
+    await requireUser(req);
+  } catch (e) {
+    const status = e instanceof AuthError ? e.status : 401;
+    return json({ error: "Faça login para gerar a prévia da narrativa." }, status);
+  }
 
   try {
     const GEMINI_KEY = Deno.env.get("GEMINI_API_KEY");
