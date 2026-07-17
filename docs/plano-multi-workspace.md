@@ -129,7 +129,7 @@ CREATE POLICY "Editors can write" ON public.reports
 `used_market_trends`, `assistant_conversations` (+ `assistant_messages` via FK da
 conversa), `content_generation_jobs`, `report_generation_jobs` (o Results consulta
 por `user_id` para retomar geração — precisa de `workspace_id` para o switcher),
-`reference_documents`, `user_designs`,
+`user_designs`,
 `user_gallery_assets`, `dedup`/backfills relacionados.
 
 > Nota sobre arquétipos: numa marca institucional os arquétipos são **da marca**
@@ -139,6 +139,7 @@ por `user_id` para retomar geração — precisa de `workspace_id` para o switch
 **Grupo B — continuam por usuário (conta, billing, identidade física):**
 
 `profiles`, `user_roles`, `subscriptions`, `plans`, `user_credits`, `user_balances`,
+`reference_documents` (catálogo global sem `user_id` — constatado em 17/07),
 `credit_logs`, `account_deletion_requests`, `portrait_*` (referências usam selfies da
 pessoa; retrato é da pessoa, não do workspace), `gallery_assets` (catálogo global),
 `archetype_questions`, `market_trends_cache`, `post_background_cache`.
