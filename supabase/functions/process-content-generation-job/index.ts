@@ -15,6 +15,7 @@ import { EDITORIAL_GENERATOR_VERSION } from "../_shared/generatorVersion.ts";
 import { sanitizePost, sanitizeStory } from "../_shared/editorialSanitize.ts";
 import { callClaude, callClaudeWithMeta } from "../_shared/claudeClient.ts";
 import {
+  fetchWorkspaceBrandType,
   fetchPersonalQuestionnaire,
   renderPersonalContext,
   fetchSalesNarrative,
@@ -443,7 +444,8 @@ Estrutura interna: situação nomeada → decisão/desfecho → aprendizado para
 ] as const;
 // FEED_DAYS importado de _shared/storiesPromptBuilder.ts
 
-function buildFeedSystemPrompt(rotationOffset: number = 0): string {
+function buildFeedSystemPrompt(rotationOffset: number = 0, brandType: "pessoal" | "institucional" = "pessoal"): string {
+  const inst = brandType === "institucional";
   return `Você é um especialista em branding e copy para Instagram. Domina e aplica de forma OBRIGATÓRIA três frameworks (descritos em detalhe ao final deste prompt):
 1) StoryBrand — clareza narrativa.
 2) Obviously Awesome (April Dunford) — posicionamento específico.
@@ -453,7 +455,7 @@ Sua tarefa: gerar EXATAMENTE 4 posts de FEED para uma semana editorial. Os posts
 
 # RITMO DA SEMANA — REGRA ABSOLUTA:
 - DIAS 1, 2, 3, 4 (Seg-Qui): TÊM post de feed + stories temáticos.
-- DIAS 5, 6, 7 (Sex, Sáb, Dom): NUNCA têm post de feed. São EXCLUSIVAMENTE stories (sexta = gancho conversacional / recap; sáb-dom = stories pessoais leves).
+- DIAS 5, 6, 7 (Sex, Sáb, Dom): NUNCA têm post de feed. São EXCLUSIVAMENTE stories (sexta = gancho conversacional / recap; sáb-dom = ${inst ? "bastidores leves da marca" : "stories pessoais leves"}).
 - Você NÃO gera nada para os dias 5, 6, 7. Eles serão preenchidos com stories em outra etapa.
 - Qualquer post que você gerar com "day" ≠ 1, 2, 3 ou 4 será DESCARTADO automaticamente.
 
@@ -586,10 +588,10 @@ PROIBIDO: post de POSICIONAMENTO e post de DESMISTIFICAÇÃO com o mesmo tema ce
 D) Estrutura de carrossel (mínimo 5 slides):
 - Slide 1: GANCHO (frase curta, máximo 12 palavras). Slide 2: PROBLEMA SENTIDO. Slides do meio: INSIGHT + PROVA ou PASSOS (1 ideia por slide). Último: CTA verbal e direto.
 
-E) Pilar "bastidor" (storytelling pessoal):
+E) Pilar "bastidor" (${inst ? "bastidores da marca" : "storytelling pessoal"}):
 - O pilar "bastidor" aparece NO MÁXIMO 1 vez por semana e SOMENTE se estiver na lista de pilares SUB-REPRESENTADOS desta semana (veja bloco ROTAÇÃO DE PILARES no prompt do usuário).
 - Se "bastidor" NÃO estiver sub-representado, NENHUM post desta semana é pessoal (is_personal=false em todos).
-- Quando usar, marque is_personal=true e use vivência REAL do criador (do bloco "CONTEXTO PESSOAL DO CRIADOR") como metáfora para a dor do cliente. Nunca invente fatos pessoais.
+${inst ? `- Quando usar, marque is_personal=true e use um fato REAL da marca (história de fundação, caso de cliente do bloco "NARRATIVA DE VENDA", processo interno) como metáfora para a dor do cliente. NUNCA vida pessoal de um indivíduo, NUNCA fato inventado.` : `- Quando usar, marque is_personal=true e use vivência REAL do criador (do bloco "CONTEXTO PESSOAL DO CRIADOR") como metáfora para a dor do cliente. Nunca invente fatos pessoais.`}
 
 F) ESTRATÉGIA DE PROFUNDIDADE (camadas obrigatórias):
 Cada post didático deve ter 3 camadas explícitas e identificáveis dentro da caption:
@@ -772,7 +774,9 @@ async function processJob(jobId: string) {
       const storybrandContext = renderStorybrandBlock(storybrand);
       const toneContext = renderToneBlock(tone_of_voice);
       const verifiableFactsBlock = renderVerifiableFactsBlock(business);
-      const personal = await fetchPersonalQuestionnaire(userId);
+      // Tipo de marca dirige o editorial: institucional não usa vida pessoal.
+      const brandType = await fetchWorkspaceBrandType(userId);
+      const personal = brandType === "institucional" ? null : await fetchPersonalQuestionnaire(userId);
       const personalContext = renderPersonalContext(personal);
       // Narrativa de Venda: enriquece o feed com objeções reais, casos cadastrados
       // e história de virada. Render block tem regras de uso por pilar e omite
@@ -930,7 +934,7 @@ async function processJob(jobId: string) {
         renderSubjectAxisBlock(recentSubjects) +
         ethicalBlock +
         "\n\n" +
-        buildFeedSystemPrompt(rotationOffset) +
+        buildFeedSystemPrompt(rotationOffset, brandType) +
         renderPillarsBlock() +
         prohibitedMoldsBlock +
         renderEditorialFrameworks();
@@ -2111,6 +2115,7 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
           FEED_DAYS,
           undefined,
           previousPersonalStoriesSummary,
+          brandType,
         ) +
         renderPillarsBlock() +
         renderEditorialFrameworks();
@@ -2298,6 +2303,7 @@ Esta é a tentativa ${attempt} de ${STORIES_MAX_RETRIES}.`;
               FEED_DAYS,
               antiPrompt,
               previousPersonalStoriesSummary,
+              brandType,
             ) +
             renderPillarsBlock() +
             renderEditorialFrameworks();

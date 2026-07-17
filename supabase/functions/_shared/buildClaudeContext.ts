@@ -221,6 +221,34 @@ REGRAS DE USO DESTE CONTEXTO:
 - Se um campo estiver ausente acima, simplesmente não o use.`;
 }
 
+// ============ Workspace / tipo de marca ============
+
+export type BrandType = "pessoal" | "institucional";
+
+/**
+ * Tipo de marca do workspace DEFAULT do usuário (Fase 1: 1 usuário = 1
+ * workspace). Fallback "pessoal" em qualquer falha — comportamento idêntico
+ * ao histórico do produto.
+ */
+export async function fetchWorkspaceBrandType(userId: string): Promise<BrandType> {
+  try {
+    const admin = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+    const { data } = await admin
+      .from("workspaces")
+      .select("brand_type")
+      .eq("owner_id", userId)
+      .eq("is_default", true)
+      .maybeSingle();
+    return data?.brand_type === "institucional" ? "institucional" : "pessoal";
+  } catch (e) {
+    console.error("Error fetching workspace brand_type:", e);
+    return "pessoal";
+  }
+}
+
 // ============ Narrativa de Venda (História de Venda) ============
 
 export interface SalesNarrativeAnswers {

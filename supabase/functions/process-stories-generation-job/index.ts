@@ -15,6 +15,7 @@ import { EDITORIAL_GENERATOR_VERSION } from "../_shared/generatorVersion.ts";
 import { sanitizeStory } from "../_shared/editorialSanitize.ts";
 import { callClaudeWithMeta } from "../_shared/claudeClient.ts";
 import {
+  fetchWorkspaceBrandType,
   fetchPersonalQuestionnaire,
   renderPersonalContext,
   fetchSalesNarrative,
@@ -193,7 +194,8 @@ serve(async (req) => {
       }
     } catch { /* ignora */ }
 
-    const personal = await fetchPersonalQuestionnaire(userId);
+    const brandType = await fetchWorkspaceBrandType(userId);
+    const personal = brandType === "institucional" ? null : await fetchPersonalQuestionnaire(userId);
     const personalContext = renderPersonalContext(personal);
     const salesNarrative = await fetchSalesNarrative(userId);
     const salesNarrativeContext = renderSalesNarrativeContext(salesNarrative);
@@ -240,6 +242,7 @@ serve(async (req) => {
         FEED_DAYS,
         undefined,
         previousPersonalStoriesSummary,
+        brandType,
       ) +
       renderPillarsBlock() +
       renderEditorialFrameworks();

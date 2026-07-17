@@ -20,7 +20,9 @@ export function buildStoriesSystemPrompt(
   mirrorDays: number[],
   forbiddenContext?: string,
   previousPersonalStoriesContext?: string,
+  brandType: "pessoal" | "institucional" = "pessoal",
 ): string {
+  const inst = brandType === "institucional";
   const base = `Você é um especialista em copy para Instagram Stories. Domina StoryBrand, Obviously Awesome e Made to Stick (descritos ao final).
 
 Sua tarefa: gerar EXATAMENTE 7 sugestões de STORIES para a semana, uma por dia (dias 1 a 7).
@@ -42,14 +44,21 @@ DIA 5 (Sexta) — STORY DE TRANSIÇÃO / GANCHO DE FIM DE SEMANA:
 - Tom: conversacional, conectivo, transição entre semana de trabalho e fim de semana.
 - mirrors_feed=false, is_personal=false (ainda profissional).
 
-DIAS 6-7 (Sáb-Dom) — STORIES PESSOAIS E LEVES:
+${inst ? `DIAS 6-7 (Sáb-Dom) — STORIES DE BASTIDOR DA MARCA (LEVES):
+- SEM post de feed. Stories leves de bastidores da operação, cultura e pessoas por trás da marca — NUNCA vida pessoal de um indivíduo.
+- Use matéria-prima REAL dos blocos disponíveis (NEGÓCIO, NARRATIVA DE VENDA, FATOS VERIFICÁVEIS): história de fundação, casos de clientes, como o trabalho é feito, valores em prática.
+- Sábado: bastidor leve da operação — como algo é feito por dentro, um processo ou ferramenta curiosa, momento de equipe, comentário/reação de cliente (real), erro-e-aprendizado da marca.
+- Domingo: tom reflexivo institucional — propósito da marca, aprendizado da semana, agradecimento à comunidade, visão do que vem. SEM vender, SEM CTA agressivo.
+- NUNCA invente fatos, nomes, números ou depoimentos — sem matéria-prima suficiente, use observação genuína do mercado/rotina da marca.
+- Conecte o bastidor ao posicionamento de forma SUTIL (o processo revela o valor), sem fechar com CTA de venda.
+- mirrors_feed=false, is_personal=true (marca o slot leve do fim de semana).` : `DIAS 6-7 (Sáb-Dom) — STORIES PESSOAIS E LEVES:
 - SEM post de feed. Stories de vida pessoal, bastidores, hobbies, momentos íntimos.
 - OBRIGATÓRIO usar matéria-prima REAL do bloco "CONTEXTO PESSOAL DO CRIADOR" (hobbies, pets, esportes, família, rotina de domingo, viagens, leituras, comidas favoritas).
 - Sábado: tom de bastidor leve — algo que o criador faz no fim de semana, hobby, lazer, pessoas próximas. Pode incluir foto-momento, opinião não-profissional, descoberta da semana.
 - Domingo: tom mais intimista — reflexão pessoal, inspiração, ritual de domingo, leitura, gratidão, planos da semana. SEM vender, SEM CTA agressivo.
 - NUNCA invente fatos pessoais — se o bloco "CONTEXTO PESSOAL DO CRIADOR" não tiver matéria-prima suficiente para o dia, use micro-observação genuína (clima, comida, descoberta) em vez de inventar hobby/família.
 - Conecte vida pessoal ao posicionamento profissional de forma SUTIL (ex: hobby revela valor que também aparece no trabalho), mas sem fechar com CTA de venda.
-- mirrors_feed=false, is_personal=true.
+- mirrors_feed=false, is_personal=true.`}
 
 # RESUMO DOS POSTS DE FEED DA SEMANA (espelhe nos dias ${mirrorDays.join(", ")})
 ${feedSummary}
@@ -83,7 +92,7 @@ REGRAS ESTRUTURAIS:
 🟥 LIMITES DE PESSOAL (CRÍTICO):
 - Stories pessoais (is_personal=true) PERMITIDOS APENAS nos dias 6 e 7 (sáb-dom).
 - Dias 1-5: is_personal=false obrigatoriamente.
-- Mesmo nos dias 6-7, NUNCA invente hobby/família/pet — só use o que está no bloco "CONTEXTO PESSOAL DO CRIADOR".`;
+${inst ? `- Mesmo nos dias 6-7, o conteúdo é da MARCA (bastidores, cultura, casos) — NUNCA da vida privada de um indivíduo, e NUNCA com fato/nome/número inventado.` : `- Mesmo nos dias 6-7, NUNCA invente hobby/família/pet — só use o que está no bloco "CONTEXTO PESSOAL DO CRIADOR".`}`;
 
   // Bloco anti-repetição para Sex/Sáb/Dom: lista temas de stories pessoais já
   // publicados em semanas anteriores. Sem isso, o modelo cria template
@@ -99,7 +108,7 @@ ${previousPersonalStoriesContext.trim()}
 
 REGRAS DE VARIAÇÃO OBRIGATÓRIA PARA OS DIAS 5-6-7:
 - Cenário/lugar: se a semana passada teve "no haras", esta semana NÃO pode ser no haras. Varie entre cenários distintos (feira do agricultor, viagem técnica a fazenda, almoço com colega de turma, cafeteria, parque, viagem rápida, casa, escritório vazio no sábado, etc.).
-- Figura nomeada (pet, parente, mentor, lugar específico): não pode aparecer 2 semanas seguidas. Se o cachorro "Gavel" apareceu sábado passado, NÃO use Gavel este sábado — use outro elemento da vida do criador (outro pet, vizinho, livro, prato).
+- Figura nomeada (pet, parente, mentor, lugar específico): não pode aparecer 2 semanas seguidas. Se o cachorro "Gavel" apareceu sábado passado, NÃO use Gavel este sábado — use outro elemento ${inst ? "do universo da marca (outro caso, processo, pessoa da equipe, ferramenta)" : "da vida do criador (outro pet, vizinho, livro, prato)"}.
 - Ritual de domingo: se a semana passada teve "café na varanda + biografia + frase da avó", esta semana precisa de OUTRO ritual (caminhada matinal, almoço de família em outro lugar, livro de outro gênero, encontro com amigo, planejamento da semana, etc.).
 - Frase/citação específica (bordão, máxima de família, expressão pessoal): NÃO pode aparecer em 2 semanas consecutivas. Cada frase só pode ser usada 1 vez a cada 3 semanas.
 - Caixinha de pergunta/enquete da sexta: o TEMA da caixinha precisa variar (não pode ser sempre "qual desses temas você quer aprofundar"). Alterne entre recap, enquete provocativa, pergunta aberta, teaser do próximo conteúdo.`
