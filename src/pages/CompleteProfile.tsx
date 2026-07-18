@@ -5,10 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { AuthLayout } from "@/components/auth/AuthLayout";
 import { SeoHead } from "@/components/SeoHead";
+import { User, Building2 } from "lucide-react";
+
+type BrandType = "pessoal" | "institucional";
 
 const GOALS = [
   "Atrair novos clientes/pacientes",
@@ -27,6 +31,7 @@ const CompleteProfile = () => {
   const [profession, setProfession] = useState("");
   const [niche, setNiche] = useState("");
   const [mainGoal, setMainGoal] = useState("");
+  const [brandType, setBrandType] = useState<BrandType>("pessoal");
   const [loading, setLoading] = useState(false);
   const [hydrating, setHydrating] = useState(true);
 
@@ -35,11 +40,10 @@ const CompleteProfile = () => {
     if (!user) { navigate("/login", { replace: true }); return; }
     if (profileCompleted) { navigate("/dashboard", { replace: true }); return; }
     (async () => {
-      const { data } = await supabase
-        .from("profiles")
-        .select("whatsapp, gender, profession, niche, main_goal")
-        .eq("user_id", user.id)
-        .maybeSingle();
+      const [{ data }, { data: ws }] = await Promise.all([
+        supabase.from("profiles").select("whatsapp, gender, profession, niche, main_goal").eq("user_id", user.id).maybeSingle(),
+        supabase.from("workspaces").select("brand_type").eq("owner_id", user.id).eq("is_default", true).maybeSingle(),
+      ]);
       if (data) {
         setWhatsapp(data.whatsapp ?? "");
         setGender(data.gender ?? "");
@@ -47,6 +51,7 @@ const CompleteProfile = () => {
         setNiche(data.niche ?? "");
         setMainGoal(data.main_goal ?? "");
       }
+      if (ws?.brand_type === "institucional") setBrandType("institucional");
       setHydrating(false);
     })();
   }, [user, profileCompleted, isLoading, navigate]);
@@ -59,20 +64,27 @@ const CompleteProfile = () => {
       return;
     }
     setLoading(true);
-    const { error } = await supabase
-      .from("profiles")
-      .update({
-        whatsapp: whatsapp.trim(),
-        gender,
-        profession: profession.trim(),
-        niche: niche.trim(),
-        main_goal: mainGoal,
-        profile_completed: true,
-      })
-      .eq("user_id", user.id);
+    const [{ error }, { error: wsError }] = await Promise.all([
+      supabase
+        .from("profiles")
+        .update({
+          whatsapp: whatsapp.trim(),
+          gender,
+          profession: profession.trim(),
+          niche: niche.trim(),
+          main_goal: mainGoal,
+          profile_completed: true,
+        })
+        .eq("user_id", user.id),
+      supabase
+        .from("workspaces")
+        .update({ brand_type: brandType, profession: profession.trim(), niche: niche.trim() })
+        .eq("owner_id", user.id)
+        .eq("is_default", true),
+    ]);
     setLoading(false);
-    if (error) {
-      toast({ title: "Não foi possível salvar", description: error.message, variant: "destructive" });
+    if (error || wsError) {
+      toast({ title: "Não foi possível salvar", description: (error || wsError)?.message, variant: "destructive" });
       return;
     }
     await refreshProfileCompletion();
@@ -90,6 +102,47 @@ const CompleteProfile = () => {
         </header>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label>Você vai posicionar uma marca pessoal ou institucional?</Label>
+            <RadioGroup
+              value={brandType}
+              onValueChange={(v) => setBrandType(v as BrandType)}
+              className="grid sm:grid-cols-2 gap-3"
+            >
+              <Label
+                htmlFor="brand-pessoal"
+                className={`flex items-start gap-3 rounded-lg border p-3.5 cursor-pointer transition-colors ${
+                  brandType === "pessoal" ? "border-primary bg-primary/5" : "border-border/60 hover:bg-muted/40"
+                }`}
+              >
+                <RadioGroupItem value="pessoal" id="brand-pessoal" className="mt-0.5" disabled={hydrating} />
+                <div>
+                  <div className="flex items-center gap-1.5 text-sm font-medium">
+                    <User className="h-3.5 w-3.5" /> Pessoal
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Você é a marca — profissional liberal, autoridade individual.
+                  </p>
+                </div>
+              </Label>
+              <Label
+                htmlFor="brand-institucional"
+                className={`flex items-start gap-3 rounded-lg border p-3.5 cursor-pointer transition-colors ${
+                  brandType === "institucional" ? "border-primary bg-primary/5" : "border-border/60 hover:bg-muted/40"
+                }`}
+              >
+                <RadioGroupItem value="institucional" id="brand-institucional" className="mt-0.5" disabled={hydrating} />
+                <div>
+                  <div className="flex items-center gap-1.5 text-sm font-medium">
+                    <Building2 className="h-3.5 w-3.5" /> Institucional
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Empresa, clínica, escritório — a marca existe além de uma pessoa.
+                  </p>
+                </div>
+              </Label>
+            </RadioGroup>
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label htmlFor="whatsapp">WhatsApp</Label>
