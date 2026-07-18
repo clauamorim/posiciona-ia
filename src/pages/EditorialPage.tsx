@@ -230,6 +230,7 @@ const EditorialPage = () => {
   const [userNiche, setUserNiche] = useState<string>("");
   const [businessContext, setBusinessContext] = useState<string>("");
   const [personalSubmitted, setPersonalSubmitted] = useState<boolean | null>(null);
+  const [isInstitutional, setIsInstitutional] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -238,6 +239,8 @@ const EditorialPage = () => {
       .then(({ data }) => { setReport(data); setLoading(false); });
     supabase.from("profiles").select("niche").eq("user_id", user.id).maybeSingle()
       .then(({ data }) => { if (data?.niche) setUserNiche(data.niche); });
+    supabase.from("workspaces").select("brand_type").eq("owner_id", user.id).eq("is_default", true).maybeSingle()
+      .then(({ data }) => { setIsInstitutional(data?.brand_type === "institucional"); });
     supabase.from("business_questionnaires").select("services,target_audience,company_name")
       .eq("user_id", user.id).order("version", { ascending: false }).limit(1).maybeSingle()
       .then(({ data }) => {
@@ -1418,10 +1421,14 @@ const EditorialPage = () => {
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Badge variant="outline" className="text-[10px] bg-pink-50 text-pink-700 border-pink-200 cursor-help">
-                          Pessoal
+                          {isInstitutional ? "Bastidor" : "Pessoal"}
                         </Badge>
                       </TooltipTrigger>
-                      <TooltipContent>Story pessoal — sem post de feed pareado neste dia</TooltipContent>
+                      <TooltipContent>
+                        {isInstitutional
+                          ? "Bastidor da marca — sem post de feed pareado neste dia"
+                          : "Story pessoal — sem post de feed pareado neste dia"}
+                      </TooltipContent>
                     </Tooltip>
                   )}
                 </div>
