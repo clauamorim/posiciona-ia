@@ -92,18 +92,21 @@ export type Database = {
       archetype_questions: {
         Row: {
           archetype_name: string
+          brand_type: Database["public"]["Enums"]["brand_type"]
           id: string
           question_number: number
           statement: string
         }
         Insert: {
           archetype_name: string
+          brand_type?: Database["public"]["Enums"]["brand_type"]
           id?: string
           question_number: number
           statement: string
         }
         Update: {
           archetype_name?: string
+          brand_type?: Database["public"]["Enums"]["brand_type"]
           id?: string
           question_number?: number
           statement?: string
