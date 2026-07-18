@@ -163,6 +163,29 @@ const PERSONAL_LABELS: Record<string, string> = {
   advice_to_20yo: "Conselho que daria pra si mesmo aos 20 anos",
 };
 
+// "Voz da Marca" — variante institucional do MESMO questionário (mesmas
+// colunas de personal_questionnaires), só reenquadrado para marca/empresa em
+// vez de pessoa física. Ver docs/plano-multi-workspace.md seção 7.
+const INSTITUTIONAL_VOICE_LABELS: Record<string, string> = {
+  hobby: "Algo que a marca faz muito bem e com orgulho, além de vender",
+  pets: "Como é a equipe por trás da marca",
+  sports: "Hábito ou disciplina que a marca cultiva internamente",
+  dependents: "Quem depende da marca funcionar bem (clientes fixos, parceiros, comunidade)",
+  sunday_morning: "Como é uma semana bem-sucedida para a marca",
+  proud_moment: "Resultado ou entrega da qual a marca mais se orgulha",
+  failure_lesson: "Erro ou desafio que ensinou algo e mudou a forma de operar",
+  work_routine: "Rotina típica de operação",
+  pre_meeting_ritual: "Ritual ou processo antes de atender um cliente",
+  unblock_method: "Como a equipe resolve um imprevisto ou bloqueio",
+  defended_belief: "Crença que a marca defende publicamente sobre o mercado",
+  social_cause: "Causa ou tema que a marca apoia ou mobiliza",
+  desired_feeling: "Sentimento que a marca quer despertar no cliente",
+  guiding_belief: "Frase/princípio que guia as decisões da marca",
+  formative_story: "Marco que definiu quem a marca é hoje",
+  biggest_influence: "Marca, pessoa ou referência que influencia como constroem isso",
+  advice_to_20yo: "Conselho que dariam para a marca no primeiro dia",
+};
+
 export interface PersonalAnswers {
   [key: string]: string | null | undefined;
 }
@@ -197,16 +220,36 @@ export async function fetchPersonalQuestionnaire(userId: string): Promise<Person
  * Campos vazios são omitidos para reduzir ruído.
  * Retorna string vazia se não houver dados.
  */
-export function renderPersonalContext(personal: PersonalAnswers | null | undefined): string {
+export function renderPersonalContext(
+  personal: PersonalAnswers | null | undefined,
+  brandType: "pessoal" | "institucional" = "pessoal",
+): string {
   if (!personal) return "";
+  const inst = brandType === "institucional";
+  const labels = inst ? INSTITUTIONAL_VOICE_LABELS : PERSONAL_LABELS;
   const lines: string[] = [];
-  for (const [key, label] of Object.entries(PERSONAL_LABELS)) {
+  for (const [key, label] of Object.entries(labels)) {
     const value = personal[key];
     if (typeof value === "string" && value.trim().length > 0) {
       lines.push(`- ${label}: ${value.trim()}`);
     }
   }
   if (lines.length === 0) return "";
+
+  if (inst) {
+    return `\n\n# CONTEXTO DA MARCA (bastidores reais — use para humanizar, NUNCA invente fatos)
+Estas são respostas reais sobre a marca, disponíveis para uso editorial.
+
+${lines.join("\n")}
+
+REGRAS DE USO DESTE CONTEXTO:
+- Use estes dados APENAS quando o post estiver explicitamente marcado como bastidor (is_personal=true), o que ocorre no pilar "bastidor". Nos demais posts, NÃO insira bastidores da marca fora de contexto.
+- NUNCA invente fatos, nomes, números ou depoimentos. Use apenas o que está acima.
+- NUNCA trate isto como vida pessoal de um indivíduo — é sempre sobre a MARCA (operação, equipe, valores).
+- NUNCA exponha dados sensíveis literalmente (ex: nome de cliente real sem autorização, valores contratuais).
+- Prefira metáforas e paralelos a descrições literais.
+- Se um campo estiver ausente acima, simplesmente não o use.`;
+  }
 
   return `\n\n# CONTEXTO PESSOAL DO CRIADOR (use para humanizar — NUNCA invente fatos)
 Estas são respostas reais do criador, disponíveis para uso editorial.

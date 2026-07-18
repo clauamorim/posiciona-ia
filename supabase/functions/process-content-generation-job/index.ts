@@ -774,10 +774,11 @@ async function processJob(jobId: string) {
       const storybrandContext = renderStorybrandBlock(storybrand);
       const toneContext = renderToneBlock(tone_of_voice);
       const verifiableFactsBlock = renderVerifiableFactsBlock(business);
-      // Tipo de marca dirige o editorial: institucional não usa vida pessoal.
+      // Tipo de marca dirige o enquadramento: mesma tabela (Sua História /
+      // Voz da Marca), rótulos e regras diferentes no prompt.
       const brandType = await fetchWorkspaceBrandType(userId);
-      const personal = brandType === "institucional" ? null : await fetchPersonalQuestionnaire(userId);
-      const personalContext = renderPersonalContext(personal);
+      const personal = await fetchPersonalQuestionnaire(userId);
+      const personalContext = renderPersonalContext(personal, brandType);
       // Narrativa de Venda: enriquece o feed com objeções reais, casos cadastrados
       // e história de virada. Render block tem regras de uso por pilar e omite
       // campos vazios — seguro pra rascunhos parciais.

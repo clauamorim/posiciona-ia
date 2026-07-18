@@ -17,6 +17,7 @@ import {
 } from "../_shared/editorialSanitize.ts";
 import { callClaude, ClaudeError } from "../_shared/claudeClient.ts";
 import {
+  fetchWorkspaceBrandType,
   fetchPersonalQuestionnaire,
   renderPersonalContext,
   renderStorybrandBlock,
@@ -115,8 +116,9 @@ REGRA: o JSON de saída DEVE conter "pillar": "${pillarMeta.id}". O conteúdo vi
     const storybrandContext = renderStorybrandBlock(storybrand);
     const toneContext = renderToneBlock(tone_of_voice);
     const verifiableFactsBlock = renderVerifiableFactsBlock(business);
+    const brandType = userId ? await fetchWorkspaceBrandType(userId) : "pessoal";
     const personal = userId ? await fetchPersonalQuestionnaire(userId) : null;
-    const personalContext = renderPersonalContext(personal);
+    const personalContext = renderPersonalContext(personal, brandType);
 
     // Detecta profissão regulamentada para injetar regras éticas (OAB / CFM)
     let professionCategory: ReturnType<typeof detectProfession> = "outro";

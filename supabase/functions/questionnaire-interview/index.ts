@@ -10,6 +10,7 @@
 
 import { corsHeaders } from "https://esm.sh/@supabase/supabase-js@2.95.0/cors";
 import { requireUser, AuthError } from "../_shared/workspaceAuth.ts";
+import { fetchWorkspaceBrandType } from "../_shared/buildClaudeContext.ts";
 
 type FieldDef = { key: string; label: string; block: string; max?: number };
 
@@ -33,6 +34,29 @@ const PERSONAL_FIELDS: FieldDef[] = [
   { key: "formative_story", label: "Uma história de vida que formou o profissional (infância, juventude, início de carreira)", block: "Memórias que moldaram você" },
   { key: "biggest_influence", label: "Alguém que influenciou profundamente e por quê", block: "Memórias que moldaram você" },
   { key: "advice_to_20yo", label: "Um conselho para si mesmo aos 20 anos", block: "Memórias que moldaram você" },
+];
+
+// "Voz da Marca" — variante institucional de PERSONAL_FIELDS, mesmas colunas de
+// personal_questionnaires (a tabela é reaproveitada, só muda o enquadramento).
+// Espelho de INSTITUTIONAL_VOICE_LABELS em _shared/buildClaudeContext.ts.
+const INSTITUTIONAL_VOICE_FIELDS: FieldDef[] = [
+  { key: "hobby", label: "Algo que a marca faz muito bem e com orgulho, além de vender", block: "Cultura e cotidiano da marca" },
+  { key: "pets", label: "Como é a equipe por trás da marca (quantas pessoas, quem faz o quê, clima)", block: "Cultura e cotidiano da marca" },
+  { key: "sports", label: "Hábito ou disciplina que a marca cultiva internamente", block: "Cultura e cotidiano da marca" },
+  { key: "dependents", label: "Quem depende da marca funcionar bem (clientes fixos, parceiros, comunidade)", block: "Cultura e cotidiano da marca" },
+  { key: "sunday_morning", label: "Como é uma semana bem-sucedida para a marca", block: "Cultura e cotidiano da marca" },
+  { key: "proud_moment", label: "Resultado ou entrega da qual a marca mais se orgulha (caso específico)", block: "Bastidores da entrega" },
+  { key: "failure_lesson", label: "Um erro ou desafio que ensinou algo e mudou a forma de operar", block: "Bastidores da entrega" },
+  { key: "work_routine", label: "Como é um dia típico de operação (horários, ferramentas, ritmos)", block: "Bastidores da entrega" },
+  { key: "pre_meeting_ritual", label: "Ritual ou processo antes de atender um cliente", block: "Bastidores da entrega" },
+  { key: "unblock_method", label: "Como a equipe resolve um imprevisto ou bloqueio", block: "Bastidores da entrega" },
+  { key: "defended_belief", label: "Uma crença que a marca defende publicamente sobre o mercado", block: "Valores e propósito" },
+  { key: "social_cause", label: "Causa ou tema que a marca apoia ou mobiliza", block: "Valores e propósito" },
+  { key: "desired_feeling", label: "O que a marca quer que o cliente sinta ao interagir com ela", block: "Valores e propósito" },
+  { key: "guiding_belief", label: "Frase ou princípio que guia as decisões da marca", block: "Valores e propósito" },
+  { key: "formative_story", label: "Um marco que definiu quem a marca é hoje", block: "Marcos que moldaram a marca" },
+  { key: "biggest_influence", label: "Uma marca, pessoa ou referência que influencia como constroem isso", block: "Marcos que moldaram a marca" },
+  { key: "advice_to_20yo", label: "Um conselho que dariam para a marca no primeiro dia", block: "Marcos que moldaram a marca" },
 ];
 
 // Espelho dos campos definidos em src/pages/BusinessQuestionnaire.tsx (com os
@@ -70,6 +94,11 @@ const KINDS: Record<string, { fields: FieldDef[]; mission: string }> = {
     fields: PERSONAL_FIELDS,
     mission:
       'Você conduz o questionário "Sua História" da Posiciona em formato de conversa. O objetivo é colher matéria-prima humana (hobbies, valores, memórias, bastidores) que alimentará posts de storytelling do usuário. Incentive detalhes específicos e cenas concretas — são elas que geram conteúdo autêntico.',
+  },
+  personal_institucional: {
+    fields: INSTITUTIONAL_VOICE_FIELDS,
+    mission:
+      'Você conduz o questionário "Voz da Marca" da Posiciona em formato de conversa. O objetivo é colher matéria-prima real sobre a marca/empresa (cultura, bastidores da entrega, valores, marcos) que alimentará posts de storytelling institucional. NUNCA pergunte sobre a vida pessoal de um indivíduo — o sujeito das respostas é sempre a MARCA. Incentive detalhes específicos e casos concretos — são eles que geram conteúdo autêntico.',
   },
   business: {
     fields: BUSINESS_FIELDS,
@@ -170,8 +199,9 @@ Deno.serve(async (req) => {
     });
 
   // Função de IA custa crédito de API — exige usuário autenticado de verdade.
+  let authedUserId: string;
   try {
-    await requireUser(req);
+    authedUserId = (await requireUser(req)).userId;
   } catch (e) {
     const status = e instanceof AuthError ? e.status : 401;
     return json({ error: "Faça login para usar a entrevista por voz." }, status);
@@ -183,7 +213,15 @@ Deno.serve(async (req) => {
 
     const { kind: kindName, history, userText, audio, answers, profession, niche } = await req.json();
 
-    const kind = KINDS[String(kindName)];
+    // "Sua História" e "Voz da Marca" são a MESMA entrevista (kind "personal")
+    // por fora — o servidor troca para os campos institucionais sozinho,
+    // conforme o tipo de marca do workspace do usuário autenticado.
+    let resolvedKindName = String(kindName);
+    if (resolvedKindName === "personal") {
+      const brandType = await fetchWorkspaceBrandType(authedUserId);
+      if (brandType === "institucional") resolvedKindName = "personal_institucional";
+    }
+    const kind = KINDS[resolvedKindName];
     if (!kind) return json({ error: 'kind deve ser "personal", "business" ou "sales"' }, 400);
     if (!Array.isArray(history)) return json({ error: "history must be an array" }, 400);
     if (!userText && !audio?.data) return json({ error: "Envie userText ou audio" }, 400);

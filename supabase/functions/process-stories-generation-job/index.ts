@@ -195,8 +195,8 @@ serve(async (req) => {
     } catch { /* ignora */ }
 
     const brandType = await fetchWorkspaceBrandType(userId);
-    const personal = brandType === "institucional" ? null : await fetchPersonalQuestionnaire(userId);
-    const personalContext = renderPersonalContext(personal);
+    const personal = await fetchPersonalQuestionnaire(userId);
+    const personalContext = renderPersonalContext(personal, brandType);
     const salesNarrative = await fetchSalesNarrative(userId);
     const salesNarrativeContext = renderSalesNarrativeContext(salesNarrative);
     const verifiableFactsBlock = renderVerifiableFactsBlock(bq);

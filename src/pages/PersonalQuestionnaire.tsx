@@ -34,7 +34,7 @@ interface Block {
   fields: Field[];
 }
 
-const blocks: Block[] = [
+const personalBlocks: Block[] = [
   {
     title: "Quem você é fora do trabalho",
     subtitle: "Suas paixões e bastidores da vida pessoal alimentam histórias que conectam.",
@@ -82,8 +82,62 @@ const blocks: Block[] = [
   },
 ];
 
-const allFieldKeys = blocks.flatMap(b => b.fields.map(f => f.key));
-const interviewFields = blocks.flatMap(b => b.fields.map(f => ({ key: f.key, label: f.label })));
+// "Voz da Marca" — mesmas colunas de personal_questionnaires (mesmas chaves),
+// reenquadradas para marca institucional. Espelho de
+// _shared/buildClaudeContext.ts INSTITUTIONAL_VOICE_LABELS e de
+// questionnaire-interview/index.ts INSTITUTIONAL_VOICE_FIELDS — mudou aqui,
+// mudar lá também.
+const institutionalBlocks: Block[] = [
+  {
+    title: "Cultura e cotidiano da marca",
+    subtitle: "Como a marca é por dentro alimenta bastidores autênticos, não genéricos.",
+    icon: Heart,
+    fields: [
+      { key: "hobby", label: "Algo que a marca faz muito bem e com orgulho, além de vender", placeholder: "Um jeito de atender, uma prática interna, uma tradição da equipe...", help: "Algo que diferencia a marca por dentro, não um argumento de venda." },
+      { key: "pets", label: "Como é a equipe por trás da marca", placeholder: "Quantas pessoas, quem faz o quê, clima do time." },
+      { key: "sports", label: "Hábito ou disciplina que a marca cultiva internamente", placeholder: "Reuniões, rituais, práticas que mantêm o time afiado." },
+      { key: "dependents", label: "Quem depende da marca funcionar bem", placeholder: "Clientes fixos, parceiros, comunidade — quem sente quando algo sai do previsto." },
+      { key: "sunday_morning", label: "Como é uma semana bem-sucedida para a marca", placeholder: "Pinte a cena: o que está acontecendo quando tudo vai bem." },
+    ],
+  },
+  {
+    title: "Bastidores da entrega",
+    subtitle: "Casos reais de operação — acertos, falhas e rituais — viram conteúdo autêntico.",
+    icon: Briefcase,
+    fields: [
+      { key: "proud_moment", label: "Resultado ou entrega da qual a marca mais se orgulha", placeholder: "Conte um caso específico, com detalhes (nome pode ser fictício)." },
+      { key: "failure_lesson", label: "Um erro ou desafio que ensinou algo", placeholder: "Algo que deu errado e mudou a forma de operar." },
+      { key: "work_routine", label: "Como é um dia típico de operação", placeholder: "Horários, ferramentas, ritmos, etapas." },
+      { key: "pre_meeting_ritual", label: "Algum ritual antes de atender um cliente", placeholder: "Reunião de alinhamento, checklist, preparação — qualquer coisa." },
+      { key: "unblock_method", label: "Como a equipe resolve um imprevisto", placeholder: "O que fazem quando algo trava?" },
+    ],
+  },
+  {
+    title: "Valores e propósito",
+    subtitle: "O que a marca defende e o que quer despertar nos clientes.",
+    icon: Compass,
+    fields: [
+      { key: "defended_belief", label: "Uma crença que a marca defende publicamente sobre o mercado", placeholder: "Algo em que a equipe acredita com convicção." },
+      { key: "social_cause", label: "Causa ou tema que a marca apoia ou mobiliza", placeholder: "Pode ser educação, meio ambiente, saúde mental..." },
+      { key: "desired_feeling", label: "O que a marca quer que o cliente sinta ao interagir com ela", placeholder: "Confiança, alívio, orgulho, clareza...?" },
+      { key: "guiding_belief", label: "Uma frase ou princípio que guia as decisões da marca", placeholder: "Mantra interno, princípio de atendimento, valor inegociável." },
+    ],
+  },
+  {
+    title: "Marcos que moldaram a marca",
+    subtitle: "A história da marca dá profundidade aos posts em formato storytelling.",
+    icon: BookOpen,
+    fields: [
+      { key: "formative_story", label: "Um marco que definiu quem a marca é hoje", placeholder: "Pode ser a fundação, uma virada, um cliente que mudou tudo." },
+      { key: "biggest_influence", label: "Uma marca, pessoa ou referência que influencia como constroem isso", placeholder: "Referência real — e por quê." },
+      { key: "advice_to_20yo", label: "Um conselho que dariam para a marca no primeiro dia", placeholder: "Com base no que aprenderam até hoje." },
+    ],
+  },
+];
+
+// Chaves são as mesmas nas duas variantes — a mesma coluna do banco vale
+// tanto para "hobby" (pessoal) quanto para o item institucional equivalente.
+const allFieldKeys = personalBlocks.flatMap(b => b.fields.map(f => f.key));
 
 const PersonalQuestionnaire = () => {
   const { user } = useAuth();
@@ -100,13 +154,19 @@ const PersonalQuestionnaire = () => {
   // para a conversa sobreviver à alternância entre os modos.
   const [interviewStarted, setInterviewStarted] = useState(false);
   const [profile, setProfile] = useState<{ profession?: string; niche?: string }>({});
+  const [isInstitutional, setIsInstitutional] = useState(false);
   const [consentHighlight, setConsentHighlight] = useState(false);
   const insertingRef = useRef(false);
   const consentRef = useRef<HTMLDivElement | null>(null);
 
+  const blocks = isInstitutional ? institutionalBlocks : personalBlocks;
   const currentBlock = blocks[blockIndex];
   const isLast = blockIndex === blocks.length - 1;
   const isFirst = blockIndex === 0;
+  const interviewFields = useMemo(
+    () => blocks.flatMap(b => b.fields.map(f => ({ key: f.key, label: f.label }))),
+    [blocks],
+  );
   const isSubmitted = status === "submitted";
   const storageKey = user ? `posiciona-pq-draft-${user.id}` : "posiciona-pq-draft";
 
@@ -210,6 +270,8 @@ const PersonalQuestionnaire = () => {
     if (!user?.id) return;
     supabase.from("profiles").select("profession, niche").eq("user_id", user.id).maybeSingle()
       .then(({ data }) => { if (data) setProfile({ profession: data.profession || undefined, niche: data.niche || undefined }); });
+    supabase.from("workspaces").select("brand_type").eq("owner_id", user.id).eq("is_default", true).maybeSingle()
+      .then(({ data }) => { setIsInstitutional(data?.brand_type === "institucional"); });
   }, [user?.id]);
 
   const filledCount = useMemo(
@@ -248,7 +310,10 @@ const PersonalQuestionnaire = () => {
     }
     setStatus("submitted");
     clearLocalBackup();
-    toast({ title: "Sua história foi salva", description: "Sua estratégia completa está sendo liberada." });
+    toast({
+      title: isInstitutional ? "A voz da marca foi salva" : "Sua história foi salva",
+      description: "Sua estratégia completa está sendo liberada.",
+    });
     // Oferta única da História de Venda (opcional) — se já existe registro
     // (respondida ou pulada antes), vai direto à recompensa em /results.
     const { data: salesRecord } = await supabase
@@ -273,12 +338,16 @@ const PersonalQuestionnaire = () => {
 
   return (
     <DashboardLayout>
-      <SeoHead title="Questionário Pessoal · Posiciona" description="Personalidade de marca e voz." path="/personal-questionnaire" />
+      <SeoHead
+        title={isInstitutional ? "Voz da Marca · Posiciona" : "Questionário Pessoal · Posiciona"}
+        description="Personalidade de marca e voz."
+        path="/personal-questionnaire"
+      />
       <div className="max-w-2xl lg:max-w-[1100px] mx-auto space-y-5">
         {/* Header */}
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h1 className="text-xl md:text-2xl font-display font-semibold tracking-tight">Sua História</h1>
+            <h1 className="text-xl md:text-2xl font-display font-semibold tracking-tight">{isInstitutional ? "Voz da Marca" : "Sua História"}</h1>
             <p className="text-muted-foreground text-sm mt-0.5">
               {filledCount}/{totalFields} respondidas · ~12 min
             </p>
@@ -289,7 +358,9 @@ const PersonalQuestionnaire = () => {
         {/* Persuasion / context */}
         <div className="border-l-2 border-primary/40 bg-primary/5 px-4 py-3 rounded-r-md">
           <p className="text-sm text-muted-foreground leading-relaxed">
-            Suas respostas alimentam a IA com matéria-prima humana — hobbies, valores, memórias. Posts de storytelling tecerão paralelos entre a sua vida e as dores do seu cliente, ao estilo "do tatame ao tribunal". Quanto mais específico, mais autêntico o conteúdo.
+            {isInstitutional
+              ? 'Suas respostas alimentam a IA com matéria-prima real da marca — cultura, bastidores, valores. Posts de storytelling institucional tecerão paralelos entre a operação da marca e as dores do cliente. Quanto mais específico, mais autêntico o conteúdo.'
+              : 'Suas respostas alimentam a IA com matéria-prima humana — hobbies, valores, memórias. Posts de storytelling tecerão paralelos entre a sua vida e as dores do seu cliente, ao estilo "do tatame ao tribunal". Quanto mais específico, mais autêntico o conteúdo.'}
           </p>
         </div>
 
@@ -370,7 +441,7 @@ const PersonalQuestionnaire = () => {
           <div className={mode === "interview" ? "" : "hidden"}>
             <InterviewMode
               kind="personal"
-              intro="Vamos construir sua história em formato de conversa."
+              intro={isInstitutional ? "Vamos construir a voz da marca em formato de conversa." : "Vamos construir sua história em formato de conversa."}
               fields={interviewFields}
               answers={answers}
               profession={profile.profession}
@@ -427,7 +498,7 @@ const PersonalQuestionnaire = () => {
                     )}
                     <InlineHelpButton
                       className="ml-auto"
-                      questionContext={`Sua História · Bloco ${blockIndex + 1} (${currentBlock.title}) — "${field.label}"`}
+                      questionContext={`${isInstitutional ? "Voz da Marca" : "Sua História"} · Bloco ${blockIndex + 1} (${currentBlock.title}) — "${field.label}"`}
                     />
                   </label>
                   <Textarea

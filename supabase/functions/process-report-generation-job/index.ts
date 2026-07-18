@@ -451,8 +451,8 @@ async function processJob(jobId: string) {
 
     // Contexto pessoal do criador (humanização)
     const brandType = await fetchWorkspaceBrandType(userId);
-    const personal = brandType === "institucional" ? null : await fetchPersonalQuestionnaire(userId);
-    const personalContext = renderPersonalContext(personal);
+    const personal = await fetchPersonalQuestionnaire(userId);
+    const personalContext = renderPersonalContext(personal, brandType);
 
     const primaryName = getArchetypeName(archetypes.primary, "Explorador");
     const secondaryName = getArchetypeName(archetypes.secondary, "Governante");
