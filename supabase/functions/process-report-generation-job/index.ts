@@ -10,7 +10,7 @@ import { corsHeaders } from "../_shared/cors.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { extractJsonFromLLM, isValidReport } from "../_shared/jsonExtract.ts";
 import { callClaude, ClaudeError } from "../_shared/claudeClient.ts";
-import { fetchPersonalQuestionnaire, renderPersonalContext, renderBrandscriptFramework } from "../_shared/buildClaudeContext.ts";
+import { fetchWorkspaceBrandType, fetchPersonalQuestionnaire, renderPersonalContext, renderBrandscriptFramework } from "../_shared/buildClaudeContext.ts";
 import { detectProfession, getEthicalRulesBlock, POSITIONING_GUARDRAIL_BLOCK } from "../_shared/professionRules.ts";
 import { validateReportCoherence, renderCoherenceRetryInstructions } from "../_shared/reportCoherenceValidator.ts";
 import { persistBrandSSoT } from "../_shared/brandSSoT.ts";
@@ -83,7 +83,8 @@ async function withHeartbeat<T>(
   }
 }
 
-function buildSystemPrompt(genderLabel: string): string {
+function buildSystemPrompt(genderLabel: string, brandType: "pessoal" | "institucional" = "pessoal"): string {
+  const inst = brandType === "institucional";
   return `Você é um especialista em branding, arquétipos de marca e metodologia StoryBrand.
 Gere um relatório estratégico completo e personalizado para posicionamento de marca no Instagram.
 
@@ -128,7 +129,20 @@ O JSON deve seguir EXATAMENTE esta estrutura:
     "success": "...",
     "failure": "..."
   },
-  "figurino": {
+${inst ? `  "identidade_visual": {
+    "resumo": "Direção geral de identidade visual e presença da marca",
+    "cores_aplicacao": ["cor 1", "cor 2", "cor 3", "cor 4"],
+    "elementos_visuais": ["elemento detalhado 1", "elemento detalhado 2", "elemento detalhado 3", "elemento detalhado 4", "elemento detalhado 5"],
+    "estilo_fotografia": "Direção de fotografia e imagem da marca (cenários, enquadramento, luz, presença de pessoas)",
+    "iconografia_grafismos": ["diretriz 1", "diretriz 2", "diretriz 3"],
+    "evitar": ["item a evitar 1", "item a evitar 2"],
+    "aplicacoes": [
+      { "nome": "Feed", "elementos": ["elemento 1", "elemento 2", "elemento 3"], "ocasiao": "..." },
+      { "nome": "Stories", "elementos": ["elemento 1", "elemento 2", "elemento 3"], "ocasiao": "..." },
+      { "nome": "Apresentação institucional", "elementos": ["elemento 1", "elemento 2", "elemento 3"], "ocasiao": "..." }
+    ],
+    "texturas_padroes": ["textura/padrão 1", "textura/padrão 2", "textura/padrão 3"]
+  },` : `  "figurino": {
     "resumo": "Resumo geral do figurino estratégico ideal para a marca pessoal",
     "cores_roupa": ["cor 1", "cor 2", "cor 3", "cor 4"],
     "pecas_chave": ["peça detalhada 1", "peça detalhada 2", "peça detalhada 3", "peça detalhada 4", "peça detalhada 5", "peça detalhada 6", "peça detalhada 7"],
@@ -144,7 +158,7 @@ O JSON deve seguir EXATAMENTE esta estrutura:
     ],
     "texturas_tecidos": ["textura/tecido 1", "textura/tecido 2", "textura/tecido 3"],
     "estampas": ["estampa 1", "estampa 2", "estampa 3"]
-  },
+  },`}
   "simbolos": {
     "primary": [
       { "nome": "...", "simbolo": "...", "significado": "...", "aplicacao": "..." },
@@ -164,16 +178,25 @@ O JSON deve seguir EXATAMENTE esta estrutura:
   }
 }
 
-⚠️ REGRA CRÍTICA SOBRE GÊNERO — OBRIGATÓRIO SEGUIR:
+${inst ? `⚠️ RELATÓRIO DE MARCA INSTITUCIONAL:
+Este relatório é de uma MARCA/EMPRESA, não de uma pessoa. NÃO gere recomendações pessoais (roupas, cabelo, maquiagem, aparência). A seção de apresentação é a IDENTIDADE VISUAL da marca.` : `⚠️ REGRA CRÍTICA SOBRE GÊNERO — OBRIGATÓRIO SEGUIR:
 O gênero do cliente é: **${genderLabel}**
-TODO o figurino DEVE ser gerado para o gênero "${genderLabel}". NÃO gere figurino para outro gênero.
+TODO o figurino DEVE ser gerado para o gênero "${genderLabel}". NÃO gere figurino para outro gênero.`}
 
 Regras para o campo "archetypes":
 - Cada arquétipo deve ter "characteristics": array de 5-7 características-chave do arquétipo
 - Cada arquétipo deve ter "brands": array de 3-5 marcas famosas que representam o arquétipo (ex: Nike, Apple, Harley-Davidson)
 - Cada arquétipo deve ter "people": array de 3-5 personalidades/pessoas famosas que incorporam o arquétipo (ex: Oprah Winfrey, Steve Jobs)
 
-Regras para o campo "figurino":
+${inst ? `Regras para o campo "identidade_visual":
+- A identidade visual deve ser 100% baseada na COMBINAÇÃO dos 3 arquétipos da marca
+- As cores de aplicação devem ser alinhadas à paleta de cores da marca
+- "elementos_visuais": pelo menos 5 elementos específicos e detalhados (ex: "grid editorial com margens generosas e respiro", "ícones de linha fina em dourado sobre fundo profundo"), nunca genéricos
+- "estilo_fotografia": direção concreta (cenários, luz, enquadramento, presença de pessoas/equipe, paleta nas fotos)
+- "iconografia_grafismos": 3 diretrizes de ícones, grafismos e formas coerentes com os arquétipos
+- "aplicacoes": exatamente 3 contextos (Feed, Stories, Apresentação institucional), cada um com nome, elementos aplicados e ocasião de uso
+- "texturas_padroes": pelo menos 3 texturas/padrões visuais recomendados
+- NÃO mencionar roupas, cabelo, maquiagem ou aparência de pessoas` : `Regras para o campo "figurino":
 - O figurino deve ser 100% baseado na COMBINAÇÃO dos 3 arquétipos da marca
 - GÊNERO: ${genderLabel} — TODAS as recomendações devem ser para este gênero
 - Se o gênero for "Feminino": OBRIGATORIAMENTE gerar maquiagem feminina (batom, sombra, blush, delineador, etc.), acessórios femininos (brincos, colares, pulseiras, bolsas, scarpin, etc.), penteados femininos (ondas, coque, babyliss, etc.). NÃO mencionar barba, grooming masculino, gravata ou relógio masculino.
@@ -185,7 +208,7 @@ Regras para o campo "figurino":
 - O campo "sapatos" deve ter recomendações específicas (ex: "scarpin nude de salto médio em couro", "tênis branco minimalista de couro")
 - O campo "looks_completos" deve ter 3 looks completos, cada um com nome, array de peças que compõem o look, e ocasião de uso
 - O campo "texturas_tecidos" deve ter pelo menos 3 tecidos/texturas recomendados para o perfil
-- O campo "estampas" deve ter pelo menos 3 estampas recomendadas (ou "lisas/minimalistas" se for o caso)
+- O campo "estampas" deve ter pelo menos 3 estampas recomendadas (ou "lisas/minimalistas" se for o caso)`}
 
 Regras para o campo "simbolos":
 - Cada arquétipo (primary, secondary, tertiary) recebe um ARRAY de 3 símbolos
@@ -427,7 +450,8 @@ async function processJob(jobId: string) {
     await updateJob(jobId, { progress_message: "Gerando estratégia com IA… pode levar até 2 minutos." });
 
     // Contexto pessoal do criador (humanização)
-    const personal = await fetchPersonalQuestionnaire(userId);
+    const brandType = await fetchWorkspaceBrandType(userId);
+    const personal = brandType === "institucional" ? null : await fetchPersonalQuestionnaire(userId);
     const personalContext = renderPersonalContext(personal);
 
     const primaryName = getArchetypeName(archetypes.primary, "Explorador");
@@ -465,7 +489,7 @@ Gere o relatório estratégico completo em JSON conforme a estrutura exigida.`;
       niche: niche || null,
       business_description: [business?.services, business?.target_audience].filter(Boolean).join(" "),
     });
-    const systemPrompt = buildSystemPrompt(genderLabel)
+    const systemPrompt = buildSystemPrompt(genderLabel, brandType)
       + renderBrandscriptFramework()
       + getEthicalRulesBlock(earlyProfession)
       + POSITIONING_GUARDRAIL_BLOCK;

@@ -124,7 +124,9 @@ const Report = () => {
   const { contentObject, isStructuredReport, hasEditorial, hasFigurino, hasSimbolos } = parseReportContent(report?.content);
   const content = contentObject ?? {};
   const fallbackText = getReportFallbackText(report?.content);
-  const hasMissingSections = isStructuredReport && (!hasFigurino || !hasSimbolos);
+  // Relatórios de marca institucional trazem identidade_visual no lugar do figurino
+  const hasApresentacao = hasFigurino || Boolean(contentObject?.identidade_visual);
+  const hasMissingSections = isStructuredReport && (!hasApresentacao || !hasSimbolos);
   const structuredEditorial = Array.isArray(content.editorial) ? content.editorial : [];
   const editorialWeeks: any[][] = Array.isArray(report?.editorial_weeks) ? report.editorial_weeks : [];
   const allWeeks = [
@@ -456,7 +458,7 @@ const Report = () => {
               <AlertTriangle className="h-4 w-4 text-amber-600" />
               <AlertTitle className="text-amber-800 dark:text-amber-400">Relatório incompleto</AlertTitle>
               <AlertDescription className="text-amber-700 dark:text-amber-300">
-                Seu relatório foi gerado em uma versão anterior e não inclui {!hasFigurino && !hasSimbolos ? "figurino e símbolos" : !hasFigurino ? "figurino" : "símbolos"}.
+                Seu relatório foi gerado em uma versão anterior e não inclui {!hasApresentacao && !hasSimbolos ? "figurino e símbolos" : !hasApresentacao ? "figurino" : "símbolos"}.
                 Regenere para incluir essas seções.
                 <Button
                   variant="outline"
@@ -651,6 +653,70 @@ const Report = () => {
           </TabsContent>
 
           <TabsContent value="apresentacao" className="space-y-10 mt-6">
+        {/* SECTION: Identidade Visual da Marca (relatórios de marca institucional) */}
+        {content.identidade_visual && (
+          <section data-pdf-section className="bg-muted/30 rounded-2xl p-6 md:p-8 break-inside-avoid">
+            <div className="flex items-center gap-2 mb-6">
+              <Palette className="h-5 w-5 text-primary" />
+              <h2 className="text-xl font-bold font-display">Identidade Visual da Marca</h2>
+            </div>
+            {content.identidade_visual.resumo && (
+              <p className="text-sm leading-relaxed mb-6 max-w-prose">{content.identidade_visual.resumo}</p>
+            )}
+            <div className="space-y-6">
+              {content.identidade_visual.cores_aplicacao?.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold mb-2">Cores de aplicação</h3>
+                  <div className="flex flex-wrap gap-1.5">{content.identidade_visual.cores_aplicacao.map((c: string, i: number) => <Badge key={i} variant="outline" className="text-xs">{c}</Badge>)}</div>
+                </div>
+              )}
+              {content.identidade_visual.elementos_visuais?.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold mb-2">Elementos visuais</h3>
+                  <ul className="space-y-1.5">{content.identidade_visual.elementos_visuais.map((e: string, i: number) => <li key={i} className="text-sm text-foreground/80">• {e}</li>)}</ul>
+                </div>
+              )}
+              {content.identidade_visual.estilo_fotografia && (
+                <div>
+                  <h3 className="text-sm font-semibold mb-2">Estilo de fotografia</h3>
+                  <p className="text-sm text-foreground/80 leading-relaxed max-w-prose">{content.identidade_visual.estilo_fotografia}</p>
+                </div>
+              )}
+              {content.identidade_visual.iconografia_grafismos?.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold mb-2">Iconografia e grafismos</h3>
+                  <ul className="space-y-1.5">{content.identidade_visual.iconografia_grafismos.map((e: string, i: number) => <li key={i} className="text-sm text-foreground/80">• {e}</li>)}</ul>
+                </div>
+              )}
+              {content.identidade_visual.texturas_padroes?.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold mb-2">Texturas e padrões</h3>
+                  <div className="flex flex-wrap gap-1.5">{content.identidade_visual.texturas_padroes.map((c: string, i: number) => <Badge key={i} variant="outline" className="text-xs">{c}</Badge>)}</div>
+                </div>
+              )}
+              {content.identidade_visual.aplicacoes?.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold mb-2">Aplicações</h3>
+                  <div className="grid md:grid-cols-3 gap-3">
+                    {content.identidade_visual.aplicacoes.map((a: any, i: number) => (
+                      <div key={i} className="rounded-xl border border-border/60 p-4">
+                        <p className="text-sm font-semibold mb-1">{a.nome}</p>
+                        {Array.isArray(a.elementos) && <ul className="space-y-1 mb-2">{a.elementos.map((el: string, j: number) => <li key={j} className="text-xs text-foreground/70">• {el}</li>)}</ul>}
+                        {a.ocasiao && <p className="text-[11px] text-muted-foreground">{a.ocasiao}</p>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {content.identidade_visual.evitar?.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold mb-2 flex items-center gap-1.5"><Ban className="h-3.5 w-3.5 text-destructive" /> Evitar</h3>
+                  <ul className="space-y-1.5">{content.identidade_visual.evitar.map((e: string, i: number) => <li key={i} className="text-sm text-foreground/80">• {e}</li>)}</ul>
+                </div>
+              )}
+            </div>
+          </section>
+        )}
         {/* SECTION: Figurino Estratégico */}
         {content.figurino && (
           <section data-pdf-section className="bg-muted/30 rounded-2xl p-6 md:p-8 break-inside-avoid">
