@@ -54,9 +54,10 @@ export const DashboardLayout = ({ children, wide = false }: { children: React.Re
   useEffect(() => {
     if (!user || isAdmin) return;
     const load = async () => {
-      const [bqRes, answersRes, reportRes, igRes, portraitRes, pqRes, snRes, ssRes] = await Promise.all([
+      const [bqRes, answersRes, wsRes, reportRes, igRes, portraitRes, pqRes, snRes, ssRes] = await Promise.all([
         supabase.from("business_questionnaires").select("is_complete").eq("user_id", user.id).order("version", { ascending: false }).limit(1),
         supabase.from("archetype_answers").select("question_id").eq("user_id", user.id),
+        supabase.from("workspaces").select("brand_type").eq("owner_id", user.id).eq("is_default", true).maybeSingle(),
         supabase.from("reports").select("status, editorial_weeks, content").eq("user_id", user.id).order("version", { ascending: false }).limit(1),
         supabase.from("instagram_analyses").select("id").eq("user_id", user.id).limit(1),
         supabase.from("portrait_generations").select("id").eq("user_id", user.id).limit(1),
@@ -66,7 +67,10 @@ export const DashboardLayout = ({ children, wide = false }: { children: React.Re
       ]);
       const bComplete = bqRes.data?.[0]?.is_complete ?? false;
       const uniqueQ = new Set(answersRes.data?.map(a => a.question_id) ?? []);
-      const aDone = uniqueQ.size === 72;
+      const archetypeBrandType = wsRes.data?.brand_type === "institucional" ? "institucional" : "pessoal";
+      const { count: totalArchetypeQuestions } = await supabase
+        .from("archetype_questions").select("id", { count: "exact", head: true }).eq("brand_type", archetypeBrandType);
+      const aDone = !!totalArchetypeQuestions && uniqueQ.size >= totalArchetypeQuestions;
       const reportData = reportRes.data?.[0];
       const rDone = reportData?.status === "completed";
       const hasIg = (igRes.data?.length ?? 0) > 0;

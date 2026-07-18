@@ -29,15 +29,21 @@ const ArchetypeQuestionnaire = () => {
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<QStatus>("draft");
   const [showReanalysisDialog, setShowReanalysisDialog] = useState(false);
+  const [isInstitutional, setIsInstitutional] = useState(false);
   const loadedRef = useRef(false);
 
   const isLocked = status === "locked";
   const reanalysisCredits = balances?.reanalysis_credits ?? 0;
 
   useEffect(() => {
-    if (loadedRef.current) return;
+    if (loadedRef.current || !user?.id) return;
     const load = async () => {
-      const { data: qs } = await supabase.from("archetype_questions").select("*").order("question_number");
+      const { data: ws } = await supabase.from("workspaces").select("brand_type")
+        .eq("owner_id", user.id).eq("is_default", true).maybeSingle();
+      const brandType = ws?.brand_type === "institucional" ? "institucional" : "pessoal";
+      setIsInstitutional(brandType === "institucional");
+      const { data: qs } = await supabase.from("archetype_questions").select("*")
+        .eq("brand_type", brandType).order("question_number");
       if (qs) {
         setQuestions(qs);
         // Start with undefined — no option visually selected
@@ -125,14 +131,18 @@ const ArchetypeQuestionnaire = () => {
 
   return (
     <DashboardLayout>
-      <SeoHead title="Questionário de Arquétipos · Posiciona" description="Diagnóstico de arquétipos de marca." path="/archetype-questionnaire" />
+      <SeoHead
+        title={isInstitutional ? "Arquétipos da Marca · Posiciona" : "Questionário de Arquétipos · Posiciona"}
+        description="Diagnóstico de arquétipos de marca."
+        path="/archetype-questionnaire"
+      />
       <div className="max-w-2xl lg:max-w-[1100px] mx-auto space-y-5">
         {/* Header */}
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h1 className="text-xl md:text-2xl font-display font-semibold tracking-tight">Questionário de Arquétipos</h1>
+            <h1 className="text-xl md:text-2xl font-display font-semibold tracking-tight">{isInstitutional ? "Arquétipos da Marca" : "Questionário de Arquétipos"}</h1>
             <p className="text-muted-foreground text-sm mt-0.5">
-              {answeredCount}/72 respondidas · ~15 min
+              {answeredCount}/{questions.length} respondidas · ~{isInstitutional ? 8 : 15} min
             </p>
             <p className="text-[11px] text-muted-foreground mt-0.5">
               Página {page + 1} de {totalPages}
@@ -159,7 +169,7 @@ const ArchetypeQuestionnaire = () => {
               </Tooltip>
             )}
             <QuestionnaireStatusBadge
-              status={isLocked ? "in_use" : answeredCount === 72 ? "completed" : "in_progress"}
+              status={isLocked ? "in_use" : questions.length > 0 && answeredCount === questions.length ? "completed" : "in_progress"}
             />
           </div>
         </div>

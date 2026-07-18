@@ -82,13 +82,17 @@ const Results = () => {
 
     const run = async () => {
       try {
+        const { data: ws } = await supabase.from("workspaces").select("brand_type")
+          .eq("owner_id", user.id).eq("is_default", true).maybeSingle();
+        const brandType = ws?.brand_type === "institucional" ? "institucional" : "pessoal";
+
         const { data: latestReport } = await supabase
           .from("reports").select("id, status, version, content, error_message")
           .eq("user_id", user.id)
           .order("version", { ascending: false }).limit(1).maybeSingle();
 
         const [{ data: questions }, { data: answersData }] = await Promise.all([
-          supabase.from("archetype_questions").select("id, question_number"),
+          supabase.from("archetype_questions").select("id, archetype_name").eq("brand_type", brandType),
           supabase.from("archetype_answers").select("question_id, score").eq("user_id", user.id),
         ]);
         if (cancelled) return;

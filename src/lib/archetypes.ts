@@ -33,17 +33,23 @@ export interface ArchetypeScore {
   score: number;
 }
 
+// Agrupa pelo archetype_name gravado em cada pergunta (fonte de verdade),
+// em vez de ranges fixos de question_number — funciona tanto para a bateria
+// pessoal (6 itens/arquétipo) quanto para a institucional (3 itens/arquétipo)
+// sem precisar de um mapa separado por conjunto.
 export function calculateScores(
-  questions: { id: string; question_number: number }[],
+  questions: { id: string; archetype_name: string }[],
   answers: Record<string, number>
 ): ArchetypeScore[] {
-  const questionMap = new Map(questions.map(q => [q.question_number, q.id]));
+  const byArchetype = new Map<string, string[]>();
+  questions.forEach(q => {
+    const list = byArchetype.get(q.archetype_name) ?? [];
+    list.push(q.id);
+    byArchetype.set(q.archetype_name, list);
+  });
 
-  return Object.entries(ARCHETYPE_MAP).map(([name, numbers]) => {
-    const score = numbers.reduce((sum, num) => {
-      const qId = questionMap.get(num);
-      return sum + (qId ? (answers[qId] || 0) : 0);
-    }, 0);
+  return Array.from(byArchetype.entries()).map(([name, ids]) => {
+    const score = ids.reduce((sum, qId) => sum + (answers[qId] || 0), 0);
     return { name, score };
   }).sort((a, b) => b.score - a.score);
 }

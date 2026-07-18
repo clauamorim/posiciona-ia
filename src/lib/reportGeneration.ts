@@ -35,8 +35,12 @@ export async function ensureReportGenerationStarted(userId: string): Promise<Sta
       if (activeJobs && activeJobs.length > 0) return "active";
     }
 
+    const { data: ws } = await supabase.from("workspaces").select("brand_type")
+      .eq("owner_id", userId).eq("is_default", true).maybeSingle();
+    const brandType = ws?.brand_type === "institucional" ? "institucional" : "pessoal";
+
     const [{ data: questions }, { data: answersData }] = await Promise.all([
-      supabase.from("archetype_questions").select("id, question_number"),
+      supabase.from("archetype_questions").select("id, archetype_name").eq("brand_type", brandType),
       supabase.from("archetype_answers").select("question_id, score").eq("user_id", userId),
     ]);
     if (!questions || !answersData || answersData.length < questions.length) return "skipped";

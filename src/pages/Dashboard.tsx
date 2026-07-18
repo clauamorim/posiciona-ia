@@ -37,6 +37,8 @@ const Dashboard = () => {
   const [profile, setProfile] = useState<any>(null);
   const [businessComplete, setBusinessComplete] = useState(false);
   const [archetypeCount, setArchetypeCount] = useState(0);
+  const [totalArchetypeQuestions, setTotalArchetypeQuestions] = useState<number | null>(null);
+  const [isInstitutional, setIsInstitutional] = useState(false);
   const [hasReport, setHasReport] = useState(false);
   const [hasInstagram, setHasInstagram] = useState(false);
   const [hasEditorial, setHasEditorial] = useState(false);
@@ -48,10 +50,11 @@ const Dashboard = () => {
   useEffect(() => {
     if (!user) return;
     const load = async () => {
-      const [profileRes, bqRes, answersRes, reportRes, igRes, portraitRes, pqRes] = await Promise.all([
+      const [profileRes, bqRes, answersRes, wsRes, reportRes, igRes, portraitRes, pqRes] = await Promise.all([
         supabase.from("profiles").select("*").eq("user_id", user.id).single(),
         supabase.from("business_questionnaires").select("is_complete").eq("user_id", user.id).order("version", { ascending: false }).limit(1),
         supabase.from("archetype_answers").select("question_id").eq("user_id", user.id),
+        supabase.from("workspaces").select("brand_type").eq("owner_id", user.id).eq("is_default", true).maybeSingle(),
         supabase.from("reports").select("status, editorial_weeks, content").eq("user_id", user.id).order("version", { ascending: false }).limit(1),
         supabase.from("instagram_analyses").select("id").eq("user_id", user.id).limit(1),
         supabase.from("portrait_generations").select("id").eq("user_id", user.id).limit(1),
@@ -61,6 +64,11 @@ const Dashboard = () => {
       setBusinessComplete(bqRes.data?.[0]?.is_complete ?? false);
       const uniqueQuestions = new Set(answersRes.data?.map(a => a.question_id) ?? []);
       setArchetypeCount(uniqueQuestions.size);
+      const brandType = wsRes.data?.brand_type === "institucional" ? "institucional" : "pessoal";
+      setIsInstitutional(brandType === "institucional");
+      const { count: totalQ } = await supabase
+        .from("archetype_questions").select("id", { count: "exact", head: true }).eq("brand_type", brandType);
+      setTotalArchetypeQuestions(totalQ ?? null);
       const reportData = reportRes.data?.[0];
       const reportCompleted = reportData?.status === "completed";
       setHasReport(reportCompleted);
@@ -93,7 +101,7 @@ const Dashboard = () => {
       .then(({ data }) => { if (data) setPlanLimits(data as PlanLimits); });
   }, [subscription?.plan_id]);
 
-  const archetypesDone = archetypeCount === 72;
+  const archetypesDone = !!totalArchetypeQuestions && archetypeCount >= totalArchetypeQuestions;
   const firstName = profile?.full_name?.trim()?.split(/\s+/)[0] || "";
 
   // Pick first non-empty theme from editorial weeks
@@ -113,7 +121,7 @@ const Dashboard = () => {
     if (!archetypesDone) return {
       label: "Próximo passo: Descubra seus Arquétipos",
       description: "Responda e veja na hora os 3 arquétipos que definem a essência da sua marca.",
-      hint: "72 afirmações, escala de 1 a 5 — só toques, sem escrever",
+      hint: `${totalArchetypeQuestions ?? (isInstitutional ? 36 : 72)} afirmações, escala de 1 a 5 — só toques, sem escrever`,
       href: "/archetype-questionnaire",
       icon: Brain,
       cta: "Começar",

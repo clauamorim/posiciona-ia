@@ -16,7 +16,7 @@ const ROUTE_WELCOMES: Record<string, string> = {
   "/dashboard": "Olá! Vejo que você está no Dashboard. Posso explicar o resumo da sua jornada, ajudar a interpretar seus créditos disponíveis ou orientar o próximo passo. O que precisa?",
   "/business-questionnaire": "Olá! Você está no Diagnóstico do Negócio. Posso ajudar com qualquer pergunta — basta clicar em 'Precisa de ajuda?' ao lado dela ou me perguntar diretamente. Por onde quer começar?",
   "/personal-questionnaire": "Olá! Esse é o questionário Sua História — onde a sua trajetória pessoal vira matéria-prima de storytelling. Se travar em alguma pergunta, posso ajudar com exemplos. Qual é a dúvida?",
-  "/archetype-questionnaire": "Olá! Aqui são as 72 afirmações que vão identificar seus 3 arquétipos dominantes. Responda com honestidade — não há resposta certa ou errada. Posso explicar qualquer arquétipo se quiser entender melhor.",
+  "/archetype-questionnaire": "Olá! Aqui estão as afirmações que vão identificar os 3 arquétipos dominantes. Responda com honestidade — não há resposta certa ou errada. Posso explicar qualquer arquétipo se quiser entender melhor.",
   "/sales-narrative": "Olá! Você está na Narrativa de Vendas. Esse questionário é opcional, mas alimenta as sequências de Stories de Venda. Posso ajudar com exemplos ou explicar o que cada pergunta busca.",
   "/results": "Olá! Sua estratégia está sendo gerada — pode levar alguns minutos. Posso aproveitar pra explicar os arquétipos identificados ou o que vem a seguir. O que prefere?",
   "/report": "Olá! Você está no seu Relatório Estratégico. Ele tem 3 capítulos: Identidade, Apresentação e Narrativa. Posso explicar qualquer seção ou ajudar a aplicar o que está aqui na prática.",

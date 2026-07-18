@@ -40,6 +40,7 @@ export async function buildJourneyContext(userId: string, currentRoute: string):
     pqRes,
     snRes,
     answersRes,
+    wsRes,
     reportRes,
     igRes,
     portraitRes,
@@ -51,6 +52,7 @@ export async function buildJourneyContext(userId: string, currentRoute: string):
     supabase.from("personal_questionnaires").select("status").eq("user_id", userId).order("version", { ascending: false }).limit(1),
     supabase.from("sales_narrative_questionnaires").select("status").eq("user_id", userId).order("version", { ascending: false }).limit(1),
     supabase.from("archetype_answers").select("question_id").eq("user_id", userId),
+    supabase.from("workspaces").select("brand_type").eq("owner_id", userId).eq("is_default", true).maybeSingle(),
     supabase.from("reports").select("status, editorial_weeks, content").eq("user_id", userId).order("version", { ascending: false }).limit(1),
     supabase.from("instagram_analyses").select("id").eq("user_id", userId).limit(1),
     supabase.from("portrait_generations").select("id").eq("user_id", userId).limit(1),
@@ -63,7 +65,10 @@ export async function buildJourneyContext(userId: string, currentRoute: string):
   const personalSubmitted = pqRes.data?.[0]?.status === "submitted";
   const salesNarrativeSubmitted = snRes.data?.[0]?.status === "submitted";
   const uniqueQuestions = new Set(answersRes.data?.map((a: any) => a.question_id) ?? []);
-  const archetypesDone = uniqueQuestions.size === 72;
+  const archetypeBrandType = wsRes.data?.brand_type === "institucional" ? "institucional" : "pessoal";
+  const { count: totalArchetypeQuestions } = await supabase
+    .from("archetype_questions").select("id", { count: "exact", head: true }).eq("brand_type", archetypeBrandType);
+  const archetypesDone = !!totalArchetypeQuestions && uniqueQuestions.size >= totalArchetypeQuestions;
   const reportData = reportRes.data?.[0];
   const hasReport = reportData?.status === "completed";
   const hasInstagram = (igRes.data?.length ?? 0) > 0;
