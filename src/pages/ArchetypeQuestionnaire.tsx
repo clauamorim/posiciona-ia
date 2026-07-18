@@ -45,7 +45,11 @@ const ArchetypeQuestionnaire = () => {
       const { data: qs } = await supabase.from("archetype_questions").select("*")
         .eq("brand_type", brandType).order("question_number");
       if (qs) {
-        setQuestions(qs);
+        // O número exibido é a posição na lista (1, 2, 3...), não o
+        // question_number bruto do banco — o conjunto institucional usa a
+        // faixa 1001+ só para nunca colidir com o pessoal (1-72).
+        const numbered = qs.map((q, i) => ({ ...q, display_number: i + 1 }));
+        setQuestions(numbered);
         // Start with undefined — no option visually selected
         const defaults: Record<string, number | undefined> = {};
         const validIds = new Set(qs.map(q => q.id));
@@ -202,7 +206,7 @@ const ArchetypeQuestionnaire = () => {
               <CardContent className="pt-4 pb-3.5">
                 <div className="mb-3">
                   <p className="text-sm font-medium leading-relaxed">
-                    <span className="text-muted-foreground mr-1.5 text-xs">{q.question_number}.</span>
+                    <span className="text-muted-foreground mr-1.5 text-xs">{q.display_number}.</span>
                     {q.statement}
                   </p>
                 </div>
