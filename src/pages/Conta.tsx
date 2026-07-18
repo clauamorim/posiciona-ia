@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
   AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel, AlertDialogTrigger
@@ -14,7 +15,9 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, ExternalLink, Trash2, Eye, EyeOff } from "lucide-react";
+import { Loader2, ExternalLink, Trash2, Eye, EyeOff, User, Building2 } from "lucide-react";
+
+type BrandType = "pessoal" | "institucional";
 
 type PasswordStrength = { score: number; label: string; color: string };
 
@@ -37,6 +40,10 @@ const Conta = () => {
   const navigate = useNavigate();
 
   const [profile, setProfile] = useState<{ profession: string | null; niche: string | null } | null>(null);
+  const [brandType, setBrandType] = useState<BrandType>("pessoal");
+  const [pendingBrandType, setPendingBrandType] = useState<BrandType | null>(null);
+  const [brandTypeLoading, setBrandTypeLoading] = useState(false);
+  const [savingBrandType, setSavingBrandType] = useState(false);
   const [pwdCurrent, setPwdCurrent] = useState("");
   const [pwdNew, setPwdNew] = useState("");
   const [pwdConfirm, setPwdConfirm] = useState("");
@@ -60,7 +67,43 @@ const Conta = () => {
       .eq("user_id", user.id)
       .maybeSingle()
       .then(({ data }) => setProfile(data ?? null));
+    setBrandTypeLoading(true);
+    supabase
+      .from("workspaces")
+      .select("brand_type")
+      .eq("owner_id", user.id)
+      .eq("is_default", true)
+      .maybeSingle()
+      .then(({ data }) => {
+        setBrandType(data?.brand_type === "institucional" ? "institucional" : "pessoal");
+        setBrandTypeLoading(false);
+      });
   }, [user]);
+
+  const confirmBrandTypeChange = async () => {
+    if (!user || !pendingBrandType) return;
+    setSavingBrandType(true);
+    try {
+      const { error } = await supabase
+        .from("workspaces")
+        .update({ brand_type: pendingBrandType })
+        .eq("owner_id", user.id)
+        .eq("is_default", true);
+      if (error) throw error;
+      setBrandType(pendingBrandType);
+      toast({
+        title: "Tipo de marca atualizado",
+        description: pendingBrandType === "institucional"
+          ? "Seus questionários e conteúdo agora seguem o enquadramento de marca/empresa."
+          : "Seus questionários e conteúdo agora seguem o enquadramento pessoal.",
+      });
+    } catch (e: any) {
+      toast({ title: "Erro ao atualizar", description: e?.message || "Tente novamente.", variant: "destructive" });
+    } finally {
+      setSavingBrandType(false);
+      setPendingBrandType(null);
+    }
+  };
 
   const handleUpdatePassword = async () => {
     if (pwdNew.length < 8) {
@@ -185,6 +228,86 @@ const Conta = () => {
             </div>
           </CardContent>
         </Card>
+
+        {/* Tipo de marca */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Tipo de marca</CardTitle>
+            <CardDescription>
+              Define se os questionários, o relatório e a linha editorial são construídos em torno de
+              você (marca pessoal) ou da sua empresa/negócio (marca institucional).
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {brandTypeLoading ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" /> Carregando…
+              </div>
+            ) : (
+              <RadioGroup
+                value={brandType}
+                onValueChange={(v) => setPendingBrandType(v as BrandType)}
+                className="grid sm:grid-cols-2 gap-3"
+              >
+                <Label
+                  htmlFor="brand-pessoal"
+                  className={`flex items-start gap-3 rounded-lg border p-3.5 cursor-pointer transition-colors ${
+                    brandType === "pessoal" ? "border-primary bg-primary/5" : "border-border/60 hover:bg-muted/40"
+                  }`}
+                >
+                  <RadioGroupItem value="pessoal" id="brand-pessoal" className="mt-0.5" />
+                  <div>
+                    <div className="flex items-center gap-1.5 text-sm font-medium">
+                      <User className="h-3.5 w-3.5" /> Pessoal
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Você é a marca — profissional liberal, autoridade individual.
+                    </p>
+                  </div>
+                </Label>
+                <Label
+                  htmlFor="brand-institucional"
+                  className={`flex items-start gap-3 rounded-lg border p-3.5 cursor-pointer transition-colors ${
+                    brandType === "institucional" ? "border-primary bg-primary/5" : "border-border/60 hover:bg-muted/40"
+                  }`}
+                >
+                  <RadioGroupItem value="institucional" id="brand-institucional" className="mt-0.5" />
+                  <div>
+                    <div className="flex items-center gap-1.5 text-sm font-medium">
+                      <Building2 className="h-3.5 w-3.5" /> Institucional
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Empresa, clínica, escritório — a marca existe além de uma pessoa.
+                    </p>
+                  </div>
+                </Label>
+              </RadioGroup>
+            )}
+          </CardContent>
+        </Card>
+
+        <AlertDialog open={pendingBrandType !== null} onOpenChange={(o) => { if (!o) setPendingBrandType(null); }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                Mudar para {pendingBrandType === "institucional" ? "marca institucional" : "marca pessoal"}?
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                Isso muda o enquadramento dos seus questionários (Sua História/Voz da Marca, Arquétipos),
+                do relatório e da linha editorial gerada a partir de agora. Respostas já dadas no
+                enquadramento anterior ficam salvas, mas deixam de contar até você trocar de volta.
+                Se já tiver conteúdo gerado, considere regenerar depois da troca.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={savingBrandType}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmBrandTypeChange} disabled={savingBrandType}>
+                {savingBrandType && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                Confirmar
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         {/* Segurança */}
         <Card>
