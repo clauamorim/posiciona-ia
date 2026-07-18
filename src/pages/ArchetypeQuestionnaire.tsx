@@ -48,12 +48,17 @@ const ArchetypeQuestionnaire = () => {
         setQuestions(qs);
         // Start with undefined — no option visually selected
         const defaults: Record<string, number | undefined> = {};
+        const validIds = new Set(qs.map(q => q.id));
         qs.forEach(q => { defaults[q.id] = undefined; });
         if (user) {
           const { data: ans } = await supabase.from("archetype_answers").select("question_id, score").eq("user_id", user.id);
           if (ans && ans.length > 0) {
             const saved = new Set<string>();
-            ans.forEach(a => { defaults[a.question_id] = a.score; saved.add(a.question_id); });
+            // Ignora respostas de OUTRO conjunto (ex.: 72 itens pessoais
+            // salvos antes de o workspace virar institucional) — sem isso
+            // "72/36 respondidas" aparece e o Dashboard marca como concluído
+            // sem a pessoa ter respondido nenhum item do conjunto atual.
+            ans.forEach(a => { if (validIds.has(a.question_id)) { defaults[a.question_id] = a.score; saved.add(a.question_id); } });
             setTouchedIds(saved);
           }
         }

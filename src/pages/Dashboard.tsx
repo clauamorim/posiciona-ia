@@ -53,7 +53,7 @@ const Dashboard = () => {
       const [profileRes, bqRes, answersRes, wsRes, reportRes, igRes, portraitRes, pqRes] = await Promise.all([
         supabase.from("profiles").select("*").eq("user_id", user.id).single(),
         supabase.from("business_questionnaires").select("is_complete").eq("user_id", user.id).order("version", { ascending: false }).limit(1),
-        supabase.from("archetype_answers").select("question_id").eq("user_id", user.id),
+        supabase.from("archetype_answers").select("question_id, archetype_questions!inner(brand_type)").eq("user_id", user.id),
         supabase.from("workspaces").select("brand_type").eq("owner_id", user.id).eq("is_default", true).maybeSingle(),
         supabase.from("reports").select("status, editorial_weeks, content").eq("user_id", user.id).order("version", { ascending: false }).limit(1),
         supabase.from("instagram_analyses").select("id").eq("user_id", user.id).limit(1),
@@ -62,10 +62,16 @@ const Dashboard = () => {
       ]);
       setProfile(profileRes.data);
       setBusinessComplete(bqRes.data?.[0]?.is_complete ?? false);
-      const uniqueQuestions = new Set(answersRes.data?.map(a => a.question_id) ?? []);
-      setArchetypeCount(uniqueQuestions.size);
       const brandType = wsRes.data?.brand_type === "institucional" ? "institucional" : "pessoal";
       setIsInstitutional(brandType === "institucional");
+      // Ignora respostas de outro conjunto (ex.: itens pessoais salvos antes
+      // de o workspace virar institucional).
+      const uniqueQuestions = new Set(
+        (answersRes.data as any[] ?? [])
+          .filter(a => (a.archetype_questions as any)?.brand_type === brandType)
+          .map(a => a.question_id)
+      );
+      setArchetypeCount(uniqueQuestions.size);
       const { count: totalQ } = await supabase
         .from("archetype_questions").select("id", { count: "exact", head: true }).eq("brand_type", brandType);
       setTotalArchetypeQuestions(totalQ ?? null);
