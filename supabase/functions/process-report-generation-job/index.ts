@@ -418,6 +418,9 @@ async function processJob(jobId: string) {
   try {
     const payload = job.payload || {};
     const userId = job.user_id as string;
+    // Perfis mais antigos podem não ter workspace_id no job (pré-Etapa 3) —
+    // cai para o comportamento antigo (por user_id) nesse caso raro.
+    const workspaceId = job.workspace_id as string | undefined;
     const businessRaw = payload?.business || {};
     const niche = payload?.niche || "";
     const archetypes = payload?.archetypes || {};
@@ -625,10 +628,9 @@ Gere o relatório estratégico completo em JSON conforme a estrutura exigida.`;
     // o histórico da Linha Editorial após reanálise/regeneração de relatório.
     let editorialWeeksToMigrate: any[] = [];
     try {
-      const { data: prev } = await admin
-        .from("reports")
-        .select("version, editorial_weeks")
-        .eq("user_id", userId)
+      let prevQuery = admin.from("reports").select("version, editorial_weeks");
+      prevQuery = workspaceId ? prevQuery.eq("workspace_id", workspaceId) : prevQuery.eq("user_id", userId);
+      const { data: prev } = await prevQuery
         .neq("id", job.report_id)
         .not("editorial_weeks", "is", null)
         .order("version", { ascending: false })
@@ -718,10 +720,13 @@ Gere o relatório estratégico completo em JSON conforme a estrutura exigida.`;
       console.error(`[generate-report] persistBrandSSoT failed: ${ssotErr?.message || ssotErr}`);
     }
 
-    await admin
-      .from("business_questionnaires")
-      .update({ status: "locked" })
-      .eq("user_id", userId);
+    // Trava só o Diagnóstico DESTE perfil — travar por user_id bloquearia o
+    // Diagnóstico de outros perfis da mesma conta quando este relatório termina.
+    {
+      let lockQuery = admin.from("business_questionnaires").update({ status: "locked" });
+      lockQuery = workspaceId ? lockQuery.eq("workspace_id", workspaceId) : lockQuery.eq("user_id", userId);
+      await lockQuery;
+    }
 
     await updateJob(jobId, {
       status: "completed",

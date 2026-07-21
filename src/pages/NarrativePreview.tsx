@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { ensureReportGenerationStarted } from "@/lib/reportGeneration";
@@ -36,23 +37,25 @@ function hashAnswers(answers: Record<string, string>): string {
 
 const NarrativePreview = () => {
   const { user } = useAuth();
+  const { activeWorkspace } = useWorkspace();
   const navigate = useNavigate();
   const [storybrand, setStorybrand] = useState<Record<string, any> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const startedRef = useRef(false);
 
-  const cacheKey = user ? `posiciona-sbp-${user.id}` : "posiciona-sbp";
+  // Cache é por PERFIL — a prévia de um perfil não deve vazar pra outro.
+  const cacheKey = activeWorkspace ? `posiciona-sbp-${activeWorkspace.id}` : "posiciona-sbp";
 
   const load = async (forceRegenerate = false) => {
-    if (!user) return;
+    if (!user || !activeWorkspace) return;
     setLoading(true);
     setError("");
     try {
       const { data: bq } = await supabase
         .from("business_questionnaires")
         .select("*")
-        .eq("user_id", user.id)
+        .eq("workspace_id", activeWorkspace.id)
         .order("version", { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -86,10 +89,10 @@ const NarrativePreview = () => {
       }
 
       const { data: profile } = await supabase
-        .from("profiles").select("profession, niche").eq("user_id", user.id).maybeSingle();
+        .from("profiles").select("profession").eq("user_id", user.id).maybeSingle();
 
       const { data, error: fnError } = await supabase.functions.invoke("storybrand-preview", {
-        body: { answers, profession: profile?.profession || undefined, niche: profile?.niche || undefined },
+        body: { answers, profession: profile?.profession || undefined, niche: activeWorkspace.niche || undefined },
       });
       if (fnError) throw new Error(fnError.message || "Falha na conexão");
       if (data?.error) throw new Error(data.error);
@@ -105,15 +108,16 @@ const NarrativePreview = () => {
   };
 
   useEffect(() => {
-    if (!user?.id || startedRef.current) return;
+    if (!user?.id || !activeWorkspace || startedRef.current) return;
     startedRef.current = true;
     load();
     // Com diagnóstico + arquétipos prontos, o relatório completo já pode nascer
     // em segundo plano — quando o usuário terminar o "Sua História", ele estará
     // pronto (a tela de Resultados retoma o polling do job ativo sozinha).
-    ensureReportGenerationStarted(user.id).then(r => console.log("[report-bg]", r));
+    ensureReportGenerationStarted(user.id, activeWorkspace.id, activeWorkspace.brand_type)
+      .then(r => console.log("[report-bg]", r));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
+  }, [user?.id, activeWorkspace]);
 
   return (
     <DashboardLayout>

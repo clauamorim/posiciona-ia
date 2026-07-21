@@ -36,7 +36,7 @@ serve(async (req) => {
     }
     const userId = userData.user.id;
 
-    const { business, niche, archetypes, gender, reportId, reportVersion, force } = await req.json();
+    const { business, niche, archetypes, gender, reportId, reportVersion, workspaceId, force } = await req.json();
 
     if (!business || !archetypes) {
       return new Response(JSON.stringify({ error: "Dados obrigatórios faltando" }), {
@@ -51,10 +51,12 @@ serve(async (req) => {
     let targetReportVersion = reportVersion as number | undefined;
 
     if (!targetReportId) {
-      const { data: latestReport } = await admin
-        .from("reports")
-        .select("id, version, status")
-        .eq("user_id", userId)
+      // Fallback defensivo — os dois chamadores hoje sempre enviam reportId.
+      let fallbackQuery = admin.from("reports").select("id, version, status");
+      fallbackQuery = workspaceId
+        ? fallbackQuery.eq("workspace_id", workspaceId)
+        : fallbackQuery.eq("user_id", userId);
+      const { data: latestReport } = await fallbackQuery
         .order("version", { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -118,6 +120,7 @@ serve(async (req) => {
       .from("report_generation_jobs")
       .insert({
         user_id: userId,
+        workspace_id: workspaceId ?? null,
         report_id: targetReportId,
         report_version: targetReportVersion ?? 1,
         status: "queued",

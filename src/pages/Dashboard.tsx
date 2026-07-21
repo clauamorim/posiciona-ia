@@ -60,8 +60,8 @@ const Dashboard = () => {
         // Diagnóstico e Sua História/Voz da Marca agora são por PERFIL.
         supabase.from("business_questionnaires").select("is_complete").eq("workspace_id", workspaceId).order("version", { ascending: false }).limit(1),
         supabase.from("archetype_answers").select("question_id").eq("workspace_id", workspaceId),
-        supabase.from("reports").select("status, editorial_weeks, content").eq("user_id", user.id).order("version", { ascending: false }).limit(1),
-        supabase.from("instagram_analyses").select("id").eq("user_id", user.id).limit(1),
+        supabase.from("reports").select("status, editorial_weeks, content").eq("workspace_id", workspaceId).order("version", { ascending: false }).limit(1),
+        supabase.from("instagram_analyses").select("id").eq("workspace_id", workspaceId).limit(1),
         supabase.from("portrait_generations").select("id").eq("user_id", user.id).limit(1),
         supabase.from("personal_questionnaires").select("status").eq("workspace_id", workspaceId).order("version", { ascending: false }).limit(1),
       ]);

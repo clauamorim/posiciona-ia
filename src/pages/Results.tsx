@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { supabase } from "@/integrations/supabase/client";
 import { calculateScores, getTop3, ARCHETYPE_COLORS, type ArchetypeScore } from "@/lib/archetypes";
 import { Loader2, CheckCircle2, Sparkles, ArrowRight } from "lucide-react";
@@ -35,6 +36,7 @@ const RANK_LABELS: Record<string, { subtitle: string; size: string }> = {
 
 const Results = () => {
   const { user } = useAuth();
+  const { activeWorkspace } = useWorkspace();
   const navigate = useNavigate();
   const [scores, setScores] = useState<ArchetypeScore[]>([]);
   const [stage, setStage] = useState<Stage>("calculating");
@@ -49,7 +51,9 @@ const Results = () => {
   const [needsDiagnosis, setNeedsDiagnosis] = useState(false);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !activeWorkspace) return;
+    const workspaceId = activeWorkspace.id;
+    const brandType = activeWorkspace.brand_type;
     let cancelled = false;
     const onSignout = () => { cancelled = true; };
     window.addEventListener("app:signout", onSignout);
@@ -82,18 +86,14 @@ const Results = () => {
 
     const run = async () => {
       try {
-        const { data: ws } = await supabase.from("workspaces").select("brand_type")
-          .eq("owner_id", user.id).eq("is_default", true).maybeSingle();
-        const brandType = ws?.brand_type === "institucional" ? "institucional" : "pessoal";
-
         const { data: latestReport } = await supabase
           .from("reports").select("id, status, version, content, error_message")
-          .eq("user_id", user.id)
+          .eq("workspace_id", workspaceId)
           .order("version", { ascending: false }).limit(1).maybeSingle();
 
         const [{ data: questions }, { data: answersData }] = await Promise.all([
           supabase.from("archetype_questions").select("id, archetype_name").eq("brand_type", brandType),
-          supabase.from("archetype_answers").select("question_id, score").eq("user_id", user.id),
+          supabase.from("archetype_answers").select("question_id, score").eq("workspace_id", workspaceId),
         ]);
         if (cancelled) return;
         if (!questions || !answersData) throw new Error("Erro ao carregar dados dos questionários");
@@ -128,7 +128,7 @@ const Results = () => {
           const { data: activeJobs } = await supabase
             .from("report_generation_jobs")
             .select("id, status, progress_message")
-            .eq("user_id", user.id)
+            .eq("workspace_id", workspaceId)
             .eq("report_id", latestReport.id)
             .in("status", ["queued", "processing"])
             .order("created_at", { ascending: false })
@@ -152,25 +152,27 @@ const Results = () => {
 
         setStage("saving");
         const upserts = calc.map(s => ({
-          user_id: user.id, version: 1, archetype_name: s.name, total_score: s.score,
+          user_id: user.id, workspace_id: workspaceId, version: 1, archetype_name: s.name, total_score: s.score,
         }));
-        await supabase.from("archetype_scores").upsert(upserts, { onConflict: "user_id,version,archetype_name" });
+        await supabase.from("archetype_scores").upsert(upserts, { onConflict: "workspace_id,version,archetype_name" });
 
         const top3 = getTop3(calc);
         const topUpserts = top3.map(t => ({
-          user_id: user.id, version: 1, archetype_name: t.name, rank: t.rank, score: t.score,
+          user_id: user.id, workspace_id: workspaceId, version: 1, archetype_name: t.name, rank: t.rank, score: t.score,
         }));
-        await supabase.from("user_top_archetypes").upsert(topUpserts, { onConflict: "user_id,version,rank" });
+        await supabase.from("user_top_archetypes").upsert(topUpserts, { onConflict: "workspace_id,version,rank" });
 
         const { data: bqData } = await supabase
-          .from("business_questionnaires").select("*").eq("user_id", user.id)
+          .from("business_questionnaires").select("*").eq("workspace_id", workspaceId)
           .eq("is_complete", true).order("version", { ascending: false }).limit(1).maybeSingle();
 
         if (!bqData) { setNeedsDiagnosis(true); setStage("done"); return; }
         if (cancelled) return;
 
         setStage("generating_report");
-        const { data: profile } = await supabase.from("profiles").select("niche, gender").eq("user_id", user.id).maybeSingle();
+        // gender é da pessoa (conta); niche é do PERFIL — usa o do workspace ativo,
+        // não o da conta, para o relatório falar do negócio certo.
+        const { data: profile } = await supabase.from("profiles").select("gender").eq("user_id", user.id).maybeSingle();
 
         const archetypes = {
           primary: { archetype_name: top3[0]?.name, score: top3[0]?.score },
@@ -185,7 +187,7 @@ const Results = () => {
           reportVersion = latestReport.version;
           const { data: existing } = await supabase.from("reports")
             .update({ status: "generating", content: null, error_message: null })
-            .eq("user_id", user.id).eq("version", reportVersion)
+            .eq("workspace_id", workspaceId).eq("version", reportVersion)
             .select("id").single();
           reportRowId = existing?.id || null;
         } else {
@@ -193,7 +195,7 @@ const Results = () => {
           // preservando o relatório anterior no histórico.
           reportVersion = (latestReport?.version || 0) + 1;
           const { data: inserted } = await supabase.from("reports").insert({
-            user_id: user.id, version: reportVersion, status: "generating", error_message: null,
+            user_id: user.id, workspace_id: workspaceId, version: reportVersion, status: "generating", error_message: null,
           }).select("id").single();
           reportRowId = inserted?.id || null;
         }
@@ -203,11 +205,12 @@ const Results = () => {
         const { data: queueData, error: queueError } = await supabase.functions.invoke("generate-report", {
           body: {
             business: bqData,
-            niche: profile?.niche || "",
+            niche: activeWorkspace.niche || "",
             archetypes,
             gender: profile?.gender || "Não informado",
             reportId: reportRowId,
             reportVersion,
+            workspaceId,
           },
         });
         if (cancelled) return;
@@ -250,7 +253,7 @@ const Results = () => {
       cancelled = true;
       window.removeEventListener("app:signout", onSignout);
     };
-  }, [user, retryCount]);
+  }, [user, activeWorkspace, retryCount]);
 
   const handleRetry = () => {
     setErrorMsg("");

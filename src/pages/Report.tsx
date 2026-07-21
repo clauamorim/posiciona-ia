@@ -12,6 +12,7 @@ import {
   Accordion, AccordionItem, AccordionTrigger, AccordionContent,
 } from "@/components/ui/accordion";
 import { useAuth } from "@/contexts/AuthContext";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -50,6 +51,7 @@ const SALES_NARRATIVE_BANNER_KEY = "posiciona:sales-narrative-banner-dismissed";
 
 const Report = () => {
   const { user } = useAuth();
+  const { activeWorkspace } = useWorkspace();
   const navigate = useNavigate();
   const [report, setReport] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -80,10 +82,11 @@ const Report = () => {
   };
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !activeWorkspace) return;
+    const workspaceId = activeWorkspace.id;
     Promise.all([
-      supabase.from("reports").select("*").eq("user_id", user.id).order("version", { ascending: false }).limit(1).single(),
-      supabase.from("user_top_archetypes").select("*").eq("user_id", user.id).order("rank", { ascending: true }).limit(3),
+      supabase.from("reports").select("*").eq("workspace_id", workspaceId).order("version", { ascending: false }).limit(1).single(),
+      supabase.from("user_top_archetypes").select("*").eq("workspace_id", workspaceId).order("rank", { ascending: true }).limit(3),
       supabase.from("profiles").select("full_name").eq("user_id", user.id).maybeSingle(),
     ]).then(([reportRes, archRes, profRes]) => {
       setReport(reportRes.data);
@@ -91,11 +94,11 @@ const Report = () => {
       setUserName(profRes.data?.full_name || null);
       setLoading(false);
     });
-  }, [user]);
+  }, [user, activeWorkspace]);
 
   // Poll while report is being generated, so the user sees updates after switching tabs
   useEffect(() => {
-    if (!user || !report) return;
+    if (!user || !activeWorkspace || !report) return;
     if (report.status !== "generating" && report.status !== "pending") return;
 
     let cancelled = false;
@@ -103,7 +106,7 @@ const Report = () => {
       const { data } = await supabase
         .from("reports")
         .select("*")
-        .eq("user_id", user.id)
+        .eq("workspace_id", activeWorkspace.id)
         .order("version", { ascending: false })
         .limit(1)
         .single();
@@ -119,7 +122,7 @@ const Report = () => {
     }, 4000);
 
     return () => { cancelled = true; clearInterval(interval); };
-  }, [user, report?.status, report?.updated_at]);
+  }, [user, activeWorkspace, report?.status, report?.updated_at]);
 
   const { contentObject, isStructuredReport, hasEditorial, hasFigurino, hasSimbolos } = parseReportContent(report?.content);
   const content = contentObject ?? {};
@@ -181,13 +184,13 @@ const Report = () => {
   };
 
   const handleRegenerate = async () => {
-    if (!user) return;
+    if (!user || !activeWorkspace) return;
     setRegenerating(true);
     try {
       const [{ data: bqData }, { data: profile }, { data: topArch }] = await Promise.all([
-        supabase.from("business_questionnaires").select("*").eq("user_id", user.id).eq("is_complete", true).order("version", { ascending: false }).limit(1).single(),
-        supabase.from("profiles").select("niche, gender").eq("user_id", user.id).single(),
-        supabase.from("user_top_archetypes").select("*").eq("user_id", user.id).order("rank", { ascending: true }).limit(3),
+        supabase.from("business_questionnaires").select("*").eq("workspace_id", activeWorkspace.id).eq("is_complete", true).order("version", { ascending: false }).limit(1).single(),
+        supabase.from("profiles").select("gender").eq("user_id", user.id).single(),
+        supabase.from("user_top_archetypes").select("*").eq("workspace_id", activeWorkspace.id).order("rank", { ascending: true }).limit(3),
       ]);
       if (!bqData) { toast({ title: "Questionário de negócio não encontrado", variant: "destructive" }); return; }
       const top3 = topArch || [];
@@ -199,6 +202,7 @@ const Report = () => {
       const newVersion = (report?.version || 1) + 1;
       const { data: inserted, error: insertError } = await supabase.from("reports").insert({
         user_id: user.id,
+        workspace_id: activeWorkspace.id,
         status: "generating",
         error_message: null,
         version: newVersion,
@@ -208,11 +212,12 @@ const Report = () => {
       const { data: queueData, error } = await supabase.functions.invoke("generate-report", {
         body: {
           business: bqData,
-          niche: profile?.niche || "",
+          niche: activeWorkspace.niche || "",
           archetypes,
           gender: profile?.gender || "Não informado",
           reportId: inserted.id,
           reportVersion: inserted.version,
+          workspaceId: activeWorkspace.id,
           force: true,
         },
       });

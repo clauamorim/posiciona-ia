@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { calculateScores, getTop3 } from "@/lib/archetypes";
+import type { BrandType } from "@/contexts/WorkspaceContext";
 
 export type StartResult = "started" | "active" | "completed" | "skipped" | "error-existing" | "failed";
 
@@ -15,11 +16,15 @@ export type StartResult = "started" | "active" | "completed" | "skipped" | "erro
  * Nunca lança: é fire-and-forget; o Results continua sendo o orquestrador
  * autoritativo caso este disparo falhe.
  */
-export async function ensureReportGenerationStarted(userId: string): Promise<StartResult> {
+export async function ensureReportGenerationStarted(
+  userId: string,
+  workspaceId: string,
+  brandType: BrandType,
+): Promise<StartResult> {
   try {
     const { data: latestReport } = await supabase
       .from("reports").select("id, status, version")
-      .eq("user_id", userId)
+      .eq("workspace_id", workspaceId)
       .order("version", { ascending: false }).limit(1).maybeSingle();
 
     if (latestReport?.status === "completed") return "completed";
@@ -30,24 +35,21 @@ export async function ensureReportGenerationStarted(userId: string): Promise<Sta
     if (latestReport?.id) {
       const { data: activeJobs } = await supabase
         .from("report_generation_jobs")
-        .select("id").eq("user_id", userId).eq("report_id", latestReport.id)
+        .select("id").eq("workspace_id", workspaceId).eq("report_id", latestReport.id)
         .in("status", ["queued", "processing"]).limit(1);
       if (activeJobs && activeJobs.length > 0) return "active";
     }
 
-    const { data: ws } = await supabase.from("workspaces").select("brand_type")
-      .eq("owner_id", userId).eq("is_default", true).maybeSingle();
-    const brandType = ws?.brand_type === "institucional" ? "institucional" : "pessoal";
-
-    const [{ data: questions }, { data: answersData }] = await Promise.all([
+    const [{ data: questions }, { data: answersData }, { data: workspace }] = await Promise.all([
       supabase.from("archetype_questions").select("id, archetype_name").eq("brand_type", brandType),
-      supabase.from("archetype_answers").select("question_id, score").eq("user_id", userId),
+      supabase.from("archetype_answers").select("question_id, score").eq("workspace_id", workspaceId),
+      supabase.from("workspaces").select("niche").eq("id", workspaceId).maybeSingle(),
     ]);
     if (!questions || !answersData || answersData.length < questions.length) return "skipped";
 
     const { data: bqData } = await supabase
       .from("business_questionnaires").select("*")
-      .eq("user_id", userId).eq("is_complete", true)
+      .eq("workspace_id", workspaceId).eq("is_complete", true)
       .order("version", { ascending: false }).limit(1).maybeSingle();
     if (!bqData) return "skipped";
 
@@ -56,18 +58,19 @@ export async function ensureReportGenerationStarted(userId: string): Promise<Sta
     const calc = calculateScores(questions, answerMap);
 
     const upserts = calc.map(s => ({
-      user_id: userId, version: 1, archetype_name: s.name, total_score: s.score,
+      user_id: userId, workspace_id: workspaceId, version: 1, archetype_name: s.name, total_score: s.score,
     }));
-    await supabase.from("archetype_scores").upsert(upserts, { onConflict: "user_id,version,archetype_name" });
+    await supabase.from("archetype_scores").upsert(upserts, { onConflict: "workspace_id,version,archetype_name" });
 
     const top3 = getTop3(calc);
     const topUpserts = top3.map(t => ({
-      user_id: userId, version: 1, archetype_name: t.name, rank: t.rank, score: t.score,
+      user_id: userId, workspace_id: workspaceId, version: 1, archetype_name: t.name, rank: t.rank, score: t.score,
     }));
-    await supabase.from("user_top_archetypes").upsert(topUpserts, { onConflict: "user_id,version,rank" });
+    await supabase.from("user_top_archetypes").upsert(topUpserts, { onConflict: "workspace_id,version,rank" });
 
+    // gender é da pessoa (conta); niche é do PERFIL — já veio de workspaces acima.
     const { data: profile } = await supabase
-      .from("profiles").select("niche, gender").eq("user_id", userId).maybeSingle();
+      .from("profiles").select("gender").eq("user_id", userId).maybeSingle();
 
     const archetypes = {
       primary: { archetype_name: top3[0]?.name, score: top3[0]?.score },
@@ -83,7 +86,7 @@ export async function ensureReportGenerationStarted(userId: string): Promise<Sta
     } else {
       reportVersion = (latestReport?.version || 0) + 1;
       const { data: inserted } = await supabase.from("reports").insert({
-        user_id: userId, version: reportVersion, status: "generating", error_message: null,
+        user_id: userId, workspace_id: workspaceId, version: reportVersion, status: "generating", error_message: null,
       }).select("id").single();
       reportRowId = inserted?.id || null;
     }
@@ -92,11 +95,12 @@ export async function ensureReportGenerationStarted(userId: string): Promise<Sta
     const { data: queueData, error: queueError } = await supabase.functions.invoke("generate-report", {
       body: {
         business: bqData,
-        niche: profile?.niche || "",
+        niche: workspace?.niche || "",
         archetypes,
         gender: profile?.gender || "Não informado",
         reportId: reportRowId,
         reportVersion,
+        workspaceId,
       },
     });
     if (queueError || !queueData?.jobId) return "failed";
