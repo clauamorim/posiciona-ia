@@ -4,6 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import LandingPage from "./pages/LandingPage";
 import CheckoutSuccess from "./pages/CheckoutSuccess";
@@ -57,6 +58,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
+        <WorkspaceProvider>
           <Routes>
             <Route path="/" element={<LandingPage />} />
             <Route path="/sobre" element={<SobrePage />} />
@@ -102,6 +104,7 @@ const App = () => (
             <Route path="*" element={<NotFound />} />
           </Routes>
           <AssistantButton />
+        </WorkspaceProvider>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>

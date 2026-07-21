@@ -13,6 +13,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { BackToTopButton } from "@/components/BackToTopButton";
 import { ReadOnlyBanner } from "@/components/ReadOnlyBanner";
 import { MobileBottomNav } from "@/components/MobileBottomNav";
+import { WorkspaceSwitcher } from "@/components/WorkspaceSwitcher";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 
 interface NavItem {
   label: string;
@@ -29,6 +31,7 @@ interface NavGroup {
 
 export const DashboardLayout = ({ children, wide = false }: { children: React.ReactNode; wide?: boolean }) => {
   const { user, isAdmin, signOut } = useAuth();
+  const { activeWorkspace } = useWorkspace();
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -52,12 +55,14 @@ export const DashboardLayout = ({ children, wide = false }: { children: React.Re
   }, [isAdmin]);
 
   useEffect(() => {
-    if (!user || isAdmin) return;
+    if (!user || isAdmin || !activeWorkspace) return;
+    const workspaceId = activeWorkspace.id;
+    const archetypeBrandType = activeWorkspace.brand_type;
     const load = async () => {
-      const [bqRes, answersRes, wsRes, reportRes, igRes, portraitRes, pqRes, snRes, ssRes] = await Promise.all([
+      const [bqRes, answersRes, reportRes, igRes, portraitRes, pqRes, snRes, ssRes] = await Promise.all([
         supabase.from("business_questionnaires").select("is_complete").eq("user_id", user.id).order("version", { ascending: false }).limit(1),
-        supabase.from("archetype_answers").select("question_id, archetype_questions!inner(brand_type)").eq("user_id", user.id),
-        supabase.from("workspaces").select("brand_type").eq("owner_id", user.id).eq("is_default", true).maybeSingle(),
+        // Arquétipos são por PERFIL — nunca conta respostas de outro workspace.
+        supabase.from("archetype_answers").select("question_id").eq("workspace_id", workspaceId),
         supabase.from("reports").select("status, editorial_weeks, content").eq("user_id", user.id).order("version", { ascending: false }).limit(1),
         supabase.from("instagram_analyses").select("id").eq("user_id", user.id).limit(1),
         supabase.from("portrait_generations").select("id").eq("user_id", user.id).limit(1),
@@ -66,12 +71,7 @@ export const DashboardLayout = ({ children, wide = false }: { children: React.Re
         supabase.from("sales_story_sequences").select("id").eq("user_id", user.id).limit(1),
       ]);
       const bComplete = bqRes.data?.[0]?.is_complete ?? false;
-      const archetypeBrandType = wsRes.data?.brand_type === "institucional" ? "institucional" : "pessoal";
-      const uniqueQ = new Set(
-        ((answersRes.data ?? []) as any[])
-          .filter(a => (a.archetype_questions as any)?.brand_type === archetypeBrandType)
-          .map(a => a.question_id)
-      );
+      const uniqueQ = new Set((answersRes.data ?? []).map(a => a.question_id));
       const { count: totalArchetypeQuestions } = await supabase
         .from("archetype_questions").select("id", { count: "exact", head: true }).eq("brand_type", archetypeBrandType);
       const aDone = !!totalArchetypeQuestions && uniqueQ.size >= totalArchetypeQuestions;
@@ -110,7 +110,7 @@ export const DashboardLayout = ({ children, wide = false }: { children: React.Re
       });
     };
     load();
-  }, [user, isAdmin]);
+  }, [user, isAdmin, activeWorkspace]);
 
   // Journey progress for sidebar collapsing
   const JOURNEY_KEYS = ["/archetype-questionnaire","/business-questionnaire","/personal-questionnaire","/results","/report","/instagram-analysis","/editorial","/portraits"];
@@ -222,6 +222,13 @@ export const DashboardLayout = ({ children, wide = false }: { children: React.Re
             <X className="h-5 w-5" />
           </button>
         </div>
+
+        {/* Workspace switcher */}
+        {!isAdmin && (
+          <div className="px-3 pt-3">
+            <WorkspaceSwitcher />
+          </div>
+        )}
 
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto py-3 px-3 space-y-3">

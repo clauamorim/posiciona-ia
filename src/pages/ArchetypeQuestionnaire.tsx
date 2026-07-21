@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/AuthContext";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { ChevronLeft, ChevronRight, Lock, RefreshCw, Pencil, Trash2 } from "lucide-react";
@@ -21,6 +22,7 @@ type QStatus = "draft" | "submitted" | "locked";
 
 const ArchetypeQuestionnaire = () => {
   const { user, balances, refreshSubscription } = useAuth();
+  const { activeWorkspace } = useWorkspace();
   const navigate = useNavigate();
   const [questions, setQuestions] = useState<any[]>([]);
   const [answers, setAnswers] = useState<Record<string, number | undefined>>({});
@@ -29,19 +31,19 @@ const ArchetypeQuestionnaire = () => {
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<QStatus>("draft");
   const [showReanalysisDialog, setShowReanalysisDialog] = useState(false);
-  const [isInstitutional, setIsInstitutional] = useState(false);
-  const loadedRef = useRef(false);
+  const loadedWorkspaceRef = useRef<string | null>(null);
 
+  const isInstitutional = activeWorkspace?.brand_type === "institucional";
   const isLocked = status === "locked";
   const reanalysisCredits = balances?.reanalysis_credits ?? 0;
 
   useEffect(() => {
-    if (loadedRef.current || !user?.id) return;
+    if (!user?.id || !activeWorkspace) return;
+    // Recarrega quando o perfil ativo troca (switcher) — não só uma vez.
+    if (loadedWorkspaceRef.current === activeWorkspace.id) return;
+    const workspaceId = activeWorkspace.id;
+    const brandType = activeWorkspace.brand_type;
     const load = async () => {
-      const { data: ws } = await supabase.from("workspaces").select("brand_type")
-        .eq("owner_id", user.id).eq("is_default", true).maybeSingle();
-      const brandType = ws?.brand_type === "institucional" ? "institucional" : "pessoal";
-      setIsInstitutional(brandType === "institucional");
       const { data: qs } = await supabase.from("archetype_questions").select("*")
         .eq("brand_type", brandType).order("question_number");
       if (qs) {
@@ -52,34 +54,26 @@ const ArchetypeQuestionnaire = () => {
         setQuestions(numbered);
         // Start with undefined — no option visually selected
         const defaults: Record<string, number | undefined> = {};
-        const validIds = new Set(qs.map(q => q.id));
         qs.forEach(q => { defaults[q.id] = undefined; });
-        if (user) {
-          const { data: ans } = await supabase.from("archetype_answers").select("question_id, score").eq("user_id", user.id);
-          if (ans && ans.length > 0) {
-            const saved = new Set<string>();
-            // Ignora respostas de OUTRO conjunto (ex.: 72 itens pessoais
-            // salvos antes de o workspace virar institucional) — sem isso
-            // "72/36 respondidas" aparece e o Dashboard marca como concluído
-            // sem a pessoa ter respondido nenhum item do conjunto atual.
-            ans.forEach(a => { if (validIds.has(a.question_id)) { defaults[a.question_id] = a.score; saved.add(a.question_id); } });
-            setTouchedIds(saved);
-          }
+        const { data: ans } = await supabase.from("archetype_answers").select("question_id, score")
+          .eq("workspace_id", workspaceId);
+        if (ans && ans.length > 0) {
+          const saved = new Set<string>();
+          ans.forEach(a => { defaults[a.question_id] = a.score; saved.add(a.question_id); });
+          setTouchedIds(saved);
+        } else {
+          setTouchedIds(new Set());
         }
         setAnswers(defaults);
-        loadedRef.current = true;
+        loadedWorkspaceRef.current = workspaceId;
       }
-      if (user) {
-        const { data: latestReport } = await supabase
-          .from("reports").select("status").eq("user_id", user.id)
-          .order("version", { ascending: false }).limit(1).single();
-        if (latestReport && latestReport.status === "completed") {
-          setStatus("locked");
-        }
-      }
+      const { data: latestReport } = await supabase
+        .from("reports").select("status").eq("workspace_id", workspaceId)
+        .order("version", { ascending: false }).limit(1).maybeSingle();
+      setStatus(latestReport?.status === "completed" ? "locked" : "draft");
     };
     load();
-  }, [user]);
+  }, [user, activeWorkspace]);
 
   const totalPages = Math.ceil(questions.length / QUESTIONS_PER_PAGE);
   const pageQuestions = questions.slice(page * QUESTIONS_PER_PAGE, (page + 1) * QUESTIONS_PER_PAGE);
@@ -87,23 +81,24 @@ const ArchetypeQuestionnaire = () => {
   const progress = questions.length > 0 ? Math.round((answeredCount / questions.length) * 100) : 0;
 
   const saveAnswers = useCallback(async () => {
-    if (!user || isLocked) return;
+    if (!user || !activeWorkspace || isLocked) return;
     setSaving(true);
     // Only save touched answers (with actual values)
     const upserts = Array.from(touchedIds)
       .filter(qid => answers[qid] !== undefined)
       .map(qid => ({
         user_id: user.id,
+        workspace_id: activeWorkspace.id,
         version: 1,
         question_id: qid,
         score: answers[qid]!,
       }));
     if (upserts.length > 0) {
-      await supabase.from("archetype_answers").upsert(upserts, { onConflict: "user_id,version,question_id" });
+      await supabase.from("archetype_answers").upsert(upserts, { onConflict: "workspace_id,version,question_id" });
     }
     setSaving(false);
     toast({ title: "Respostas salvas!" });
-  }, [user, answers, isLocked, touchedIds]);
+  }, [user, activeWorkspace, answers, isLocked, touchedIds]);
 
   const handleFinish = async () => {
     await saveAnswers();
@@ -115,7 +110,7 @@ const ArchetypeQuestionnaire = () => {
   };
 
   const handleReanalysis = async (mode: "edit" | "reset") => {
-    if (!user || reanalysisCredits < 1) return;
+    if (!user || !activeWorkspace || reanalysisCredits < 1) return;
     await supabase.rpc("consume_credit", {
       p_credit_type: "reanalysis",
       p_amount: -1,
@@ -126,14 +121,15 @@ const ArchetypeQuestionnaire = () => {
       questions.forEach(q => { defaults[q.id] = undefined; });
       setAnswers(defaults);
       setTouchedIds(new Set());
-      await supabase.from("archetype_answers").delete().eq("user_id", user.id);
+      // Só as respostas DESTE perfil — nunca as de outro perfil da mesma conta.
+      await supabase.from("archetype_answers").delete().eq("workspace_id", activeWorkspace.id);
     }
     // Não sobrescrever o relatório anterior. A nova geração criará uma nova versão
     // (ver Results.tsx), preservando o histórico.
     setStatus("draft");
     setShowReanalysisDialog(false);
     setPage(0);
-    loadedRef.current = false; // allow reload
+    loadedWorkspaceRef.current = null; // allow reload
     await refreshSubscription();
     toast({ title: mode === "edit" ? "Questionário desbloqueado para edição" : "Questionário reiniciado" });
   };

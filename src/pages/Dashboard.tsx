@@ -8,6 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useAuth } from "@/contexts/AuthContext";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import {
@@ -33,12 +34,12 @@ type PlanLimits = {
 
 const Dashboard = () => {
   const { user, subscription, balances, hasActivePlan } = useAuth();
+  const { activeWorkspace } = useWorkspace();
   const navigate = useNavigate();
   const [profile, setProfile] = useState<any>(null);
   const [businessComplete, setBusinessComplete] = useState(false);
   const [archetypeCount, setArchetypeCount] = useState(0);
   const [totalArchetypeQuestions, setTotalArchetypeQuestions] = useState<number | null>(null);
-  const [isInstitutional, setIsInstitutional] = useState(false);
   const [hasReport, setHasReport] = useState(false);
   const [hasInstagram, setHasInstagram] = useState(false);
   const [hasEditorial, setHasEditorial] = useState(false);
@@ -47,14 +48,19 @@ const Dashboard = () => {
   const [editorialWeeks, setEditorialWeeks] = useState<any[]>([]);
   const [planLimits, setPlanLimits] = useState<PlanLimits | null>(null);
 
+  const isInstitutional = activeWorkspace?.brand_type === "institucional";
+
   useEffect(() => {
-    if (!user) return;
+    if (!user || !activeWorkspace) return;
+    const workspaceId = activeWorkspace.id;
+    const brandType = activeWorkspace.brand_type;
     const load = async () => {
-      const [profileRes, bqRes, answersRes, wsRes, reportRes, igRes, portraitRes, pqRes] = await Promise.all([
+      const [profileRes, bqRes, answersRes, reportRes, igRes, portraitRes, pqRes] = await Promise.all([
         supabase.from("profiles").select("*").eq("user_id", user.id).single(),
         supabase.from("business_questionnaires").select("is_complete").eq("user_id", user.id).order("version", { ascending: false }).limit(1),
-        supabase.from("archetype_answers").select("question_id, archetype_questions!inner(brand_type)").eq("user_id", user.id),
-        supabase.from("workspaces").select("brand_type").eq("owner_id", user.id).eq("is_default", true).maybeSingle(),
+        // Arquétipos são por PERFIL — nunca conta respostas de outro workspace
+        // da mesma conta (ex.: dois clientes institucionais no mesmo login).
+        supabase.from("archetype_answers").select("question_id").eq("workspace_id", workspaceId),
         supabase.from("reports").select("status, editorial_weeks, content").eq("user_id", user.id).order("version", { ascending: false }).limit(1),
         supabase.from("instagram_analyses").select("id").eq("user_id", user.id).limit(1),
         supabase.from("portrait_generations").select("id").eq("user_id", user.id).limit(1),
@@ -62,15 +68,7 @@ const Dashboard = () => {
       ]);
       setProfile(profileRes.data);
       setBusinessComplete(bqRes.data?.[0]?.is_complete ?? false);
-      const brandType = wsRes.data?.brand_type === "institucional" ? "institucional" : "pessoal";
-      setIsInstitutional(brandType === "institucional");
-      // Ignora respostas de outro conjunto (ex.: itens pessoais salvos antes
-      // de o workspace virar institucional).
-      const uniqueQuestions = new Set(
-        (answersRes.data as any[] ?? [])
-          .filter(a => (a.archetype_questions as any)?.brand_type === brandType)
-          .map(a => a.question_id)
-      );
+      const uniqueQuestions = new Set((answersRes.data ?? []).map(a => a.question_id));
       setArchetypeCount(uniqueQuestions.size);
       const { count: totalQ } = await supabase
         .from("archetype_questions").select("id", { count: "exact", head: true }).eq("brand_type", brandType);
@@ -95,7 +93,7 @@ const Dashboard = () => {
       setPersonalSubmitted(pqRes.data?.[0]?.status === "submitted");
     };
     load();
-  }, [user]);
+  }, [user, activeWorkspace]);
 
   // Load plan limits from subscription
   useEffect(() => {
