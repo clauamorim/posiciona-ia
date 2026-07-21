@@ -57,14 +57,13 @@ const Dashboard = () => {
     const load = async () => {
       const [profileRes, bqRes, answersRes, reportRes, igRes, portraitRes, pqRes] = await Promise.all([
         supabase.from("profiles").select("*").eq("user_id", user.id).single(),
-        supabase.from("business_questionnaires").select("is_complete").eq("user_id", user.id).order("version", { ascending: false }).limit(1),
-        // Arquétipos são por PERFIL — nunca conta respostas de outro workspace
-        // da mesma conta (ex.: dois clientes institucionais no mesmo login).
+        // Diagnóstico e Sua História/Voz da Marca agora são por PERFIL.
+        supabase.from("business_questionnaires").select("is_complete").eq("workspace_id", workspaceId).order("version", { ascending: false }).limit(1),
         supabase.from("archetype_answers").select("question_id").eq("workspace_id", workspaceId),
         supabase.from("reports").select("status, editorial_weeks, content").eq("user_id", user.id).order("version", { ascending: false }).limit(1),
         supabase.from("instagram_analyses").select("id").eq("user_id", user.id).limit(1),
         supabase.from("portrait_generations").select("id").eq("user_id", user.id).limit(1),
-        supabase.from("personal_questionnaires").select("status").eq("user_id", user.id).order("version", { ascending: false }).limit(1),
+        supabase.from("personal_questionnaires").select("status").eq("workspace_id", workspaceId).order("version", { ascending: false }).limit(1),
       ]);
       setProfile(profileRes.data);
       setBusinessComplete(bqRes.data?.[0]?.is_complete ?? false);

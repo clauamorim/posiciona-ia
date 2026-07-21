@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/contexts/AuthContext";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { ChevronLeft, ChevronRight, Save, Sparkles, ShieldAlert, HelpCircle, Heart, Briefcase, Compass, BookOpen, Loader2, Check, AlertTriangle, Mic, PenLine } from "lucide-react";
@@ -141,6 +142,7 @@ const allFieldKeys = personalBlocks.flatMap(b => b.fields.map(f => f.key));
 
 const PersonalQuestionnaire = () => {
   const { user } = useAuth();
+  const { activeWorkspace } = useWorkspace();
   const navigate = useNavigate();
   const [blockIndex, setBlockIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -154,7 +156,7 @@ const PersonalQuestionnaire = () => {
   // para a conversa sobreviver à alternância entre os modos.
   const [interviewStarted, setInterviewStarted] = useState(false);
   const [profile, setProfile] = useState<{ profession?: string; niche?: string }>({});
-  const [isInstitutional, setIsInstitutional] = useState(false);
+  const isInstitutional = activeWorkspace?.brand_type === "institucional";
   const [consentHighlight, setConsentHighlight] = useState(false);
   const insertingRef = useRef(false);
   const consentRef = useRef<HTMLDivElement | null>(null);
@@ -168,16 +170,18 @@ const PersonalQuestionnaire = () => {
     [blocks],
   );
   const isSubmitted = status === "submitted";
-  const storageKey = user ? `posiciona-pq-draft-${user.id}` : "posiciona-pq-draft";
+  // Rascunho local por PERFIL — não vaza entre perfis da mesma conta.
+  const storageKey = activeWorkspace ? `posiciona-pq-draft-${activeWorkspace.id}` : "posiciona-pq-draft";
 
   const persist = useCallback(async (overrides?: { complete?: boolean }): Promise<{ ok: boolean; error?: string }> => {
-    if (!user) return { ok: false, error: "no-user" };
+    if (!user || !activeWorkspace) return { ok: false, error: "no-user" };
     const complete = overrides?.complete ?? false;
     const newStatus: QStatus = complete ? "submitted" : (isSubmitted ? "submitted" : "draft");
     const fieldPayload: Record<string, string> = {};
     allFieldKeys.forEach(k => { fieldPayload[k] = (answers[k] || "").trim(); });
     const payload: any = {
       user_id: user.id,
+      workspace_id: activeWorkspace.id,
       ...fieldPayload,
       is_complete: complete,
       status: newStatus,
@@ -199,9 +203,10 @@ const PersonalQuestionnaire = () => {
       insertingRef.current = false;
       return { ok: false, error: e?.message || "save failed" };
     }
-  }, [user, answers, existingId, isSubmitted]);
+  }, [user, activeWorkspace, answers, existingId, isSubmitted]);
 
   const isEditable = !isSubmitted;
+  const hydratedWorkspaceRef = useRef<string | null>(null);
 
   const { status: saveStatus, flush, clearLocalBackup } = useQuestionnaireAutosave({
     userId: user?.id,
@@ -212,17 +217,20 @@ const PersonalQuestionnaire = () => {
   });
 
   useEffect(() => {
-    // Só hidrata UMA vez. Sem o guard `hydrated`, mudar de aba/janela revalida
-    // a sessão do Supabase, gera um novo objeto `user` (mesmo id, referência
-    // nova), o effect re-roda, e sobrescreve as respostas digitadas que ainda
-    // não foram salvas no banco.
-    if (!user?.id || hydrated) return;
+    // Recarrega quando o perfil ativo troca (switcher). O guard por
+    // workspace evita o re-hidratar espúrio ao trocar de aba (novo objeto
+    // user, mesmo id) que sobrescreveria respostas não salvas.
+    if (!user?.id || !activeWorkspace) return;
+    if (hydratedWorkspaceRef.current === activeWorkspace.id) return;
+    const workspaceId = activeWorkspace.id;
+    setHydrated(false);
+    setConsent(false);
     let cancelled = false;
     (async () => {
       const { data } = await supabase
         .from("personal_questionnaires")
         .select("*")
-        .eq("user_id", user.id)
+        .eq("workspace_id", workspaceId)
         .order("version", { ascending: false })
         .limit(1);
       if (cancelled) return;
@@ -241,7 +249,7 @@ const PersonalQuestionnaire = () => {
 
       if (dbStatus === "draft") {
         try {
-          const raw = localStorage.getItem(`posiciona-pq-draft-${user.id}`);
+          const raw = localStorage.getItem(`posiciona-pq-draft-${workspaceId}`);
           if (raw) {
             const parsed = JSON.parse(raw);
             const local = parsed?.answers as Record<string, string> | undefined;
@@ -261,17 +269,17 @@ const PersonalQuestionnaire = () => {
       setStatus(dbStatus);
       setAnswers(dbAnswers);
       setHydrated(true);
+      hydratedWorkspaceRef.current = workspaceId;
     })();
     return () => { cancelled = true; };
-  }, [user?.id, hydrated]);
+  }, [user?.id, activeWorkspace]);
 
   // Profissão/nicho personalizam as perguntas do modo entrevista.
+  // (isInstitutional agora vem do WorkspaceContext — perfil ativo.)
   useEffect(() => {
     if (!user?.id) return;
     supabase.from("profiles").select("profession, niche").eq("user_id", user.id).maybeSingle()
       .then(({ data }) => { if (data) setProfile({ profession: data.profession || undefined, niche: data.niche || undefined }); });
-    supabase.from("workspaces").select("brand_type").eq("owner_id", user.id).eq("is_default", true).maybeSingle()
-      .then(({ data }) => { setIsInstitutional(data?.brand_type === "institucional"); });
   }, [user?.id]);
 
   const filledCount = useMemo(

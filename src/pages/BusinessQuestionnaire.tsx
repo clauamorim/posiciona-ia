@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/AuthContext";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { ChevronLeft, ChevronRight, Save, Lock, RefreshCw, Pencil, Trash2, HelpCircle, Check, AlertTriangle, Loader2, Mic, PenLine } from "lucide-react";
@@ -53,6 +54,7 @@ type QStatus = "draft" | "submitted" | "locked";
 
 const BusinessQuestionnaire = () => {
   const { user, balances, refreshSubscription } = useAuth();
+  const { activeWorkspace } = useWorkspace();
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -73,15 +75,17 @@ const BusinessQuestionnaire = () => {
   const isSubmitted = status === "submitted";
   const isEditable = status === "draft";
   const reanalysisCredits = balances?.reanalysis_credits ?? 0;
-  const storageKey = user ? `posiciona-bq-draft-${user.id}` : "posiciona-bq-draft";
+  // Rascunho local é por PERFIL — não vaza entre perfis da mesma conta.
+  const storageKey = activeWorkspace ? `posiciona-bq-draft-${activeWorkspace.id}` : "posiciona-bq-draft";
 
   // Persist current answers (used by autosave & manual flush).
   const persist = useCallback(async (overrides?: { complete?: boolean }): Promise<{ ok: boolean; error?: string }> => {
-    if (!user || isLocked) return { ok: false, error: "locked" };
+    if (!user || !activeWorkspace || isLocked) return { ok: false, error: "locked" };
     const complete = overrides?.complete ?? false;
     const newStatus: QStatus = complete ? "submitted" : (isSubmitted ? "submitted" : "draft");
     const payload: any = {
       user_id: user.id,
+      workspace_id: activeWorkspace.id,
       ...answers,
       is_complete: complete || isComplete,
       status: newStatus,
@@ -104,7 +108,7 @@ const BusinessQuestionnaire = () => {
       insertingRef.current = false;
       return { ok: false, error: e?.message || "save failed" };
     }
-  }, [user, isLocked, isSubmitted, isComplete, answers, existingId]);
+  }, [user, activeWorkspace, isLocked, isSubmitted, isComplete, answers, existingId]);
 
   const { status: saveStatus, flush, clearLocalBackup, readLocalBackup } = useQuestionnaireAutosave({
     userId: user?.id,
@@ -119,14 +123,19 @@ const BusinessQuestionnaire = () => {
   // a sessão do Supabase, gera um novo objeto `user` (mesmo id, referência
   // nova), o effect re-roda, e sobrescreve as respostas digitadas que ainda
   // não foram salvas no banco.
+  const hydratedWorkspaceRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!user?.id || hydrated) return;
+    if (!user?.id || !activeWorkspace) return;
+    // Recarrega quando o perfil ativo troca (switcher), não só uma vez.
+    if (hydratedWorkspaceRef.current === activeWorkspace.id) return;
+    const workspaceId = activeWorkspace.id;
+    setHydrated(false);
     let cancelled = false;
     (async () => {
       const { data } = await supabase
         .from("business_questionnaires")
         .select("*")
-        .eq("user_id", user.id)
+        .eq("workspace_id", workspaceId)
         .order("version", { ascending: false })
         .limit(1);
       if (cancelled) return;
@@ -147,7 +156,7 @@ const BusinessQuestionnaire = () => {
       // Recupera backup local se for rascunho e tiver mais conteúdo
       if (dbStatus === "draft") {
         try {
-          const raw = localStorage.getItem(`posiciona-bq-draft-${user.id}`);
+          const raw = localStorage.getItem(`posiciona-bq-draft-${workspaceId}`);
           if (raw) {
             const parsed = JSON.parse(raw);
             const local = parsed?.answers as Record<string, string> | undefined;
@@ -168,9 +177,10 @@ const BusinessQuestionnaire = () => {
       setStatus(dbStatus);
       setAnswers(dbAnswers);
       setHydrated(true);
+      hydratedWorkspaceRef.current = workspaceId;
     })();
     return () => { cancelled = true; };
-  }, [user?.id, hydrated]);
+  }, [user?.id, activeWorkspace]);
 
   // Profissão/nicho personalizam as perguntas do modo entrevista.
   useEffect(() => {

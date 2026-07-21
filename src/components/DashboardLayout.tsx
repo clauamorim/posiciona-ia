@@ -60,13 +60,13 @@ export const DashboardLayout = ({ children, wide = false }: { children: React.Re
     const archetypeBrandType = activeWorkspace.brand_type;
     const load = async () => {
       const [bqRes, answersRes, reportRes, igRes, portraitRes, pqRes, snRes, ssRes] = await Promise.all([
-        supabase.from("business_questionnaires").select("is_complete").eq("user_id", user.id).order("version", { ascending: false }).limit(1),
-        // Arquétipos são por PERFIL — nunca conta respostas de outro workspace.
+        // Diagnóstico e Sua História/Voz da Marca são por PERFIL.
+        supabase.from("business_questionnaires").select("is_complete").eq("workspace_id", workspaceId).order("version", { ascending: false }).limit(1),
         supabase.from("archetype_answers").select("question_id").eq("workspace_id", workspaceId),
         supabase.from("reports").select("status, editorial_weeks, content").eq("user_id", user.id).order("version", { ascending: false }).limit(1),
         supabase.from("instagram_analyses").select("id").eq("user_id", user.id).limit(1),
         supabase.from("portrait_generations").select("id").eq("user_id", user.id).limit(1),
-        supabase.from("personal_questionnaires").select("status").eq("user_id", user.id).order("version", { ascending: false }).limit(1),
+        supabase.from("personal_questionnaires").select("status").eq("workspace_id", workspaceId).order("version", { ascending: false }).limit(1),
         supabase.from("sales_narrative_questionnaires").select("status").eq("user_id", user.id).order("version", { ascending: false }).limit(1),
         supabase.from("sales_story_sequences").select("id").eq("user_id", user.id).limit(1),
       ]);
