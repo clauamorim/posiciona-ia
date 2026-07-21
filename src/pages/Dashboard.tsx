@@ -212,11 +212,13 @@ const Dashboard = () => {
       status: hasEditorial ? "done" : (hasReport && personalSubmitted) ? "in_progress" : "blocked",
       statusLabel: hasEditorial ? "Concluído" : (hasReport && personalSubmitted) ? "Disponível" : "Bloqueado"
     },
-    {
+    // Retratos são gerados a partir de selfies de uma PESSOA — não são etapa
+    // da jornada de uma marca institucional (clínica, escritório, empresa).
+    ...(isInstitutional ? [] : [{
       label: "Retratos", href: "/portraits", icon: Camera,
-      status: hasPortraits ? "done" : hasReport ? "in_progress" : "blocked",
+      status: (hasPortraits ? "done" : hasReport ? "in_progress" : "blocked") as JourneyStep["status"],
       statusLabel: hasPortraits ? "Concluído" : hasReport ? "Disponível" : "Bloqueado"
-    },
+    }]),
   ];
 
   const completedSteps = journeySteps.filter(s => s.status === "done").length;

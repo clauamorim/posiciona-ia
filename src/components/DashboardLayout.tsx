@@ -112,8 +112,14 @@ export const DashboardLayout = ({ children, wide = false }: { children: React.Re
     load();
   }, [user, isAdmin, activeWorkspace]);
 
+  const isInstitutional = activeWorkspace?.brand_type === "institucional";
+
   // Journey progress for sidebar collapsing
-  const JOURNEY_KEYS = ["/archetype-questionnaire","/business-questionnaire","/personal-questionnaire","/results","/report","/instagram-analysis","/editorial","/portraits"];
+  const JOURNEY_KEYS = [
+    "/archetype-questionnaire","/business-questionnaire","/personal-questionnaire",
+    "/results","/report","/instagram-analysis","/editorial",
+    ...(isInstitutional ? [] : ["/portraits"]),
+  ];
   const journeyDoneAll = JOURNEY_KEYS.every(k => journeyStatus[k] === "done");
   const CONTINUOUS_HREFS = new Set(["/editorial", "/stories-de-venda", "/portraits", "/report"]);
 
@@ -150,7 +156,8 @@ export const DashboardLayout = ({ children, wide = false }: { children: React.Re
         { label: "Instagram", href: "/instagram-analysis", icon: Instagram, status: journeyStatus["/instagram-analysis"] },
         { label: "Linha Editorial", href: "/editorial", icon: Calendar, status: journeyStatus["/editorial"] },
         { label: "Stories de Venda", href: "/stories-de-venda", icon: MessageSquareQuote, status: journeyStatus["/stories-de-venda"] },
-        { label: "Retratos de Marca", href: "/portraits", icon: Camera, status: journeyStatus["/portraits"] },
+        // Retratos: selfies de uma pessoa — fora da jornada institucional.
+        ...(isInstitutional ? [] : [{ label: "Retratos de Marca", href: "/portraits", icon: Camera, status: journeyStatus["/portraits"] }]),
       ],
     },
     {
