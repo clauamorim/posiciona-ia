@@ -86,10 +86,11 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const createWorkspace = useCallback(async (input: CreateWorkspaceInput) => {
     if (!user) return { ok: false, error: "no-user" };
+    // owner_id NÃO é enviado — o banco preenche sozinho via DEFAULT auth.uid(),
+    // eliminando qualquer chance de descompasso entre cliente e RLS.
     const { data, error } = await supabase
       .from("workspaces")
       .insert({
-        owner_id: user.id,
         name: input.name.trim(),
         brand_type: input.brandType,
         profession: input.importFrom?.profession ?? null,
