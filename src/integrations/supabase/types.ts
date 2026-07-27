@@ -1761,7 +1761,7 @@ export type Database = {
           is_default?: boolean
           name: string
           niche?: string | null
-          owner_id: string
+          owner_id?: string
           profession?: string | null
           updated_at?: string
         }
