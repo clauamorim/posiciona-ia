@@ -50,14 +50,13 @@ serve(async (req) => {
       });
     }
 
-    const { business, niche, previousWeeks, storybrand, tone_of_voice, weekNumber, freeRegeneration, replaceWeekIndex } = await req.json();
+    const { business, niche, previousWeeks, storybrand, tone_of_voice, weekNumber, freeRegeneration, replaceWeekIndex, workspaceId } = await req.json();
 
     // ===== Free regeneration path: sanitize the saved week without calling the AI =====
     if (freeRegeneration) {
-      const { data: reportRow, error: reportError } = await supabase
-        .from("reports")
-        .select("editorial_weeks, content, version")
-        .eq("user_id", user.id)
+      let reportQuery = supabase.from("reports").select("editorial_weeks, content, version");
+      reportQuery = workspaceId ? reportQuery.eq("workspace_id", workspaceId) : reportQuery.eq("user_id", user.id);
+      const { data: reportRow, error: reportError } = await reportQuery
         .order("version", { ascending: false })
         .limit(1)
         .single();
@@ -116,10 +115,9 @@ serve(async (req) => {
     }
 
     // Bloqueia geração sem o Questionário Pessoal — humanização obrigatória.
-    const { data: pqRow } = await supabase
-      .from("personal_questionnaires")
-      .select("status")
-      .eq("user_id", user.id)
+    let pqQuery = supabase.from("personal_questionnaires").select("status");
+    pqQuery = workspaceId ? pqQuery.eq("workspace_id", workspaceId) : pqQuery.eq("user_id", user.id);
+    const { data: pqRow } = await pqQuery
       .order("version", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -134,11 +132,9 @@ serve(async (req) => {
     }
 
     // Localiza o relatório alvo (mais recente, completed)
-    const { data: targetReport, error: targetReportErr } = await supabase
-      .from("reports")
-      .select("id, editorial_weeks")
-      .eq("user_id", user.id)
-      .eq("status", "completed")
+    let targetReportQuery = supabase.from("reports").select("id, editorial_weeks").eq("status", "completed");
+    targetReportQuery = workspaceId ? targetReportQuery.eq("workspace_id", workspaceId) : targetReportQuery.eq("user_id", user.id);
+    const { data: targetReport, error: targetReportErr } = await targetReportQuery
       .order("version", { ascending: false })
       .limit(1)
       .single();
@@ -150,11 +146,11 @@ serve(async (req) => {
     }
 
     // Verifica se já existe job ativo para o mesmo relatório (evita duplicação)
-    const { data: activeJobs } = await supabase
-      .from("content_generation_jobs")
-      .select("id, status, created_at")
-      .eq("user_id", user.id)
-      .eq("report_id", targetReport.id)
+    // report_id já identifica o perfil de forma única — filtro extra por
+    // workspace_id/user_id é só defesa em profundidade.
+    let activeJobsQuery = supabase.from("content_generation_jobs").select("id, status, created_at").eq("report_id", targetReport.id);
+    activeJobsQuery = workspaceId ? activeJobsQuery.eq("workspace_id", workspaceId) : activeJobsQuery.eq("user_id", user.id);
+    const { data: activeJobs } = await activeJobsQuery
       .in("status", ["queued", "processing"])
       .order("created_at", { ascending: false })
       .limit(1);
@@ -185,6 +181,7 @@ serve(async (req) => {
       .from("content_generation_jobs")
       .insert({
         user_id: user.id,
+        workspace_id: workspaceId ?? null,
         report_id: targetReport.id,
         week_index: nextWeekIndex,
         status: "queued",

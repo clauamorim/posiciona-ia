@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useAuth } from "@/contexts/AuthContext";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import {
@@ -125,6 +126,7 @@ const getFunctionErrorMessage = async (error: any, data?: any, fallback = "Ocorr
 const EditorialPage = () => {
   const navigate = useNavigate();
   const { user, balances, refreshSubscription, isReadOnly } = useAuth();
+  const { activeWorkspace } = useWorkspace();
   const [report, setReport] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [generatingWeek, setGeneratingWeek] = useState(false);
@@ -216,7 +218,7 @@ const EditorialPage = () => {
         return;
       }
       const { data: freshReport } = await supabase
-        .from("reports").select("*").eq("user_id", user.id)
+        .from("reports").select("*").eq("workspace_id", activeWorkspace?.id)
         .order("version", { ascending: false }).limit(1).single();
       if (freshReport) setReport(freshReport);
       toast({ title: "Stories gerados com sucesso!" });
@@ -230,19 +232,18 @@ const EditorialPage = () => {
   const [userNiche, setUserNiche] = useState<string>("");
   const [businessContext, setBusinessContext] = useState<string>("");
   const [personalSubmitted, setPersonalSubmitted] = useState<boolean | null>(null);
-  const [isInstitutional, setIsInstitutional] = useState(false);
+  const isInstitutional = activeWorkspace?.brand_type === "institucional";
 
   useEffect(() => {
-    if (!user) return;
-    supabase.from("reports").select("*").eq("user_id", user.id)
+    if (!user || !activeWorkspace) return;
+    const workspaceId = activeWorkspace.id;
+    setLoading(true);
+    supabase.from("reports").select("*").eq("workspace_id", workspaceId)
       .order("version", { ascending: false }).limit(1).single()
       .then(({ data }) => { setReport(data); setLoading(false); });
-    supabase.from("profiles").select("niche").eq("user_id", user.id).maybeSingle()
-      .then(({ data }) => { if (data?.niche) setUserNiche(data.niche); });
-    supabase.from("workspaces").select("brand_type").eq("owner_id", user.id).eq("is_default", true).maybeSingle()
-      .then(({ data }) => { setIsInstitutional(data?.brand_type === "institucional"); });
+    setUserNiche(activeWorkspace.niche || "");
     supabase.from("business_questionnaires").select("services,target_audience,company_name")
-      .eq("user_id", user.id).order("version", { ascending: false }).limit(1).maybeSingle()
+      .eq("workspace_id", workspaceId).order("version", { ascending: false }).limit(1).maybeSingle()
       .then(({ data }) => {
         if (data) {
           const ctx = [data.company_name, data.services, data.target_audience].filter(Boolean).join(" ");
@@ -250,9 +251,9 @@ const EditorialPage = () => {
         }
       });
     supabase.from("personal_questionnaires").select("status")
-      .eq("user_id", user.id).order("version", { ascending: false }).limit(1).maybeSingle()
+      .eq("workspace_id", workspaceId).order("version", { ascending: false }).limit(1).maybeSingle()
       .then(({ data }) => { setPersonalSubmitted(data?.status === "submitted"); });
-  }, [user]);
+  }, [user, activeWorkspace]);
 
   const { contentObject, hasEditorial } = parseReportContent(report?.content);
   const content = contentObject ?? {};
@@ -386,10 +387,9 @@ const EditorialPage = () => {
     pollingRef.current.stop = false;
     try {
       if (!(await ensureFreshSession())) { setGeneratingWeek(false); setGeneratingMessage(""); return; }
-      const [{ data: bq }, { data: profile }, { data: reportData }] = await Promise.all([
-        supabase.from("business_questionnaires").select("*").eq("user_id", user.id).order("version", { ascending: false }).limit(1).single(),
-        supabase.from("profiles").select("niche").eq("user_id", user.id).single(),
-        supabase.from("reports").select("content").eq("user_id", user.id).eq("status", "completed").order("version", { ascending: false }).limit(1).single(),
+      const [{ data: bq }, { data: reportData }] = await Promise.all([
+        supabase.from("business_questionnaires").select("*").eq("workspace_id", activeWorkspace?.id).order("version", { ascending: false }).limit(1).single(),
+        supabase.from("reports").select("content").eq("workspace_id", activeWorkspace?.id).eq("status", "completed").order("version", { ascending: false }).limit(1).single(),
       ]);
 
       const reportContent = normalizeReportContent(reportData?.content) as Record<string, any> | null;
@@ -397,11 +397,12 @@ const EditorialPage = () => {
       // 1) Enfileira o job (responde em <2s)
       const { data: enqueueData, error: enqueueError } = await supabase.functions.invoke("generate-content-week", {
          body: {
-          business: bq, niche: profile?.niche || "",
+          business: bq, niche: activeWorkspace?.niche || "",
           previousWeeks: allWeeks.map((week) => week.days.map((d) => ({ day: d.day, theme: d.feed?.theme || d.story?.theme || "", format: d.feed?.format || "stories" }))),
           weekNumber: allWeeks.length + 1,
           storybrand: reportContent?.storybrand || null,
           tone_of_voice: reportContent?.tone_of_voice || null,
+          workspaceId: activeWorkspace?.id,
         },
       });
       if (enqueueError) throw new Error(await getFunctionErrorMessage(enqueueError, enqueueData, "Erro ao iniciar a geração."));
@@ -472,7 +473,7 @@ const EditorialPage = () => {
       const { data: freshReport } = await supabase
         .from("reports")
         .select("*")
-        .eq("user_id", user.id)
+        .eq("workspace_id", activeWorkspace?.id)
         .order("version", { ascending: false })
         .limit(1)
         .single();
@@ -551,10 +552,9 @@ const EditorialPage = () => {
         throw new Error("Stories que espelham o feed são atualizados junto com o feed.");
       }
 
-      const [{ data: bq }, { data: profile }, { data: reportData }] = await Promise.all([
-        supabase.from("business_questionnaires").select("*").eq("user_id", user.id).order("version", { ascending: false }).limit(1).single(),
-        supabase.from("profiles").select("niche").eq("user_id", user.id).single(),
-        supabase.from("reports").select("content").eq("user_id", user.id).eq("status", "completed").order("version", { ascending: false }).limit(1).single(),
+      const [{ data: bq }, { data: reportData }] = await Promise.all([
+        supabase.from("business_questionnaires").select("*").eq("workspace_id", activeWorkspace?.id).order("version", { ascending: false }).limit(1).single(),
+        supabase.from("reports").select("content").eq("workspace_id", activeWorkspace?.id).eq("status", "completed").order("version", { ascending: false }).limit(1).single(),
       ]);
       const reportContent = normalizeReportContent(reportData?.content) as Record<string, any> | null;
 
@@ -571,7 +571,7 @@ const EditorialPage = () => {
 
       const baseBody = {
         business: bq,
-        niche: profile?.niche || "",
+        niche: activeWorkspace?.niche || "",
         existingPosts,
         storybrand: reportContent?.storybrand || null,
         tone_of_voice: reportContent?.tone_of_voice || null,
@@ -656,13 +656,13 @@ const EditorialPage = () => {
       const isFirstWeek = structuredEditorial.length > 0 && weekIndex === 0;
       if (isFirstWeek) {
         const newContent = { ...content, editorial: updatedWeek };
-        await supabase.from("reports").update({ content: newContent as any }).eq("user_id", user.id).eq("version", report.version);
+        await supabase.from("reports").update({ content: newContent as any }).eq("workspace_id", activeWorkspace?.id).eq("version", report.version);
         setReport({ ...report, content: newContent });
       } else {
         const adjustedWeekIndex = structuredEditorial.length > 0 ? weekIndex - 1 : weekIndex;
         const newWeeks = [...editorialWeeks];
         newWeeks[adjustedWeekIndex] = updatedWeek;
-        await supabase.from("reports").update({ editorial_weeks: newWeeks as any }).eq("user_id", user.id).eq("version", report.version);
+        await supabase.from("reports").update({ editorial_weeks: newWeeks as any }).eq("workspace_id", activeWorkspace?.id).eq("version", report.version);
         setReport({ ...report, editorial_weeks: newWeeks });
       }
 
@@ -693,15 +693,15 @@ const EditorialPage = () => {
     setRegeneratingFreeWeek(weekIndex);
     try {
       if (!(await ensureFreshSession())) { setRegeneratingFreeWeek(null); return; }
-      const [{ data: bq }, { data: profile }, { data: reportData }] = await Promise.all([
-        supabase.from("business_questionnaires").select("*").eq("user_id", user.id).order("version", { ascending: false }).limit(1).single(),
-        supabase.from("profiles").select("niche").eq("user_id", user.id).single(),
-        supabase.from("reports").select("content").eq("user_id", user.id).eq("status", "completed").order("version", { ascending: false }).limit(1).single(),
+      const [{ data: bq }, { data: reportData }] = await Promise.all([
+        supabase.from("business_questionnaires").select("*").eq("workspace_id", activeWorkspace?.id).order("version", { ascending: false }).limit(1).single(),
+        supabase.from("reports").select("content").eq("workspace_id", activeWorkspace?.id).eq("status", "completed").order("version", { ascending: false }).limit(1).single(),
       ]);
       const reportContent = normalizeReportContent(reportData?.content) as Record<string, any> | null;
       const { data, error } = await supabase.functions.invoke("generate-content-week", {
         body: {
-          business: bq, niche: profile?.niche || "",
+          business: bq, niche: activeWorkspace?.niche || "",
+          workspaceId: activeWorkspace?.id,
           previousWeeks: allWeeks
             .filter((_, i) => i !== weekIndex)
             .map((w) => w.days.map((d) => ({ day: d.day, theme: d.feed?.theme || d.story?.theme || "", format: d.feed?.format || "stories" }))),
@@ -720,13 +720,13 @@ const EditorialPage = () => {
       const isFirstWeek = structuredEditorial.length > 0 && weekIndex === 0;
       if (isFirstWeek) {
         const newContent = { ...content, editorial: data.editorial };
-        await supabase.from("reports").update({ content: newContent }).eq("user_id", user.id).eq("version", report.version);
+        await supabase.from("reports").update({ content: newContent }).eq("workspace_id", activeWorkspace?.id).eq("version", report.version);
         setReport({ ...report, content: newContent });
       } else {
         const adjustedIndex = structuredEditorial.length > 0 ? weekIndex - 1 : weekIndex;
         const newWeeks = [...editorialWeeks];
         newWeeks[adjustedIndex] = data.editorial;
-        await supabase.from("reports").update({ editorial_weeks: newWeeks }).eq("user_id", user.id).eq("version", report.version);
+        await supabase.from("reports").update({ editorial_weeks: newWeeks }).eq("workspace_id", activeWorkspace?.id).eq("version", report.version);
         setReport({ ...report, editorial_weeks: newWeeks });
       }
       toast({ title: "Semana atualizada sem custo" });
@@ -754,7 +754,7 @@ const EditorialPage = () => {
           return w;
         });
         await supabase.from("reports").update({ editorial_weeks: newWeeks as any })
-          .eq("user_id", user.id).eq("version", report.version);
+          .eq("workspace_id", activeWorkspace?.id).eq("version", report.version);
         setReport({ ...report, editorial_weeks: newWeeks });
       } else if (hasEditorial && structuredEditorial.length > 0 && wi === 0) {
         const newEditorial = structuredEditorial.map((d: any, j: number) =>
@@ -762,7 +762,7 @@ const EditorialPage = () => {
         );
         const newContent = { ...content, editorial: newEditorial };
         await supabase.from("reports").update({ content: newContent as any })
-          .eq("user_id", user.id).eq("version", report.version);
+          .eq("workspace_id", activeWorkspace?.id).eq("version", report.version);
         setReport({ ...report, content: newContent });
       }
     } catch (err: any) {
@@ -826,12 +826,14 @@ const EditorialPage = () => {
         .eq("id", report.id);
       if (upErr) throw upErr;
 
-      // Limpa embeddings e padrões dessa semana (best-effort, não bloqueia UX)
+      // Limpa embeddings e padrões dessa semana (best-effort, não bloqueia UX).
+      // Por workspace_id — filtrar só por user_id apagaria a semana de MESMO
+      // número de outro perfil da mesma conta.
       await Promise.all([
         supabase.from("post_embeddings").delete()
-          .eq("user_id", user.id).eq("week_index", weekKey),
+          .eq("workspace_id", activeWorkspace?.id).eq("week_index", weekKey),
         supabase.from("used_title_patterns").delete()
-          .eq("user_id", user.id).eq("week_index", weekKey),
+          .eq("workspace_id", activeWorkspace?.id).eq("week_index", weekKey),
       ]);
 
       setReport({ ...report, editorial_weeks: updated });
