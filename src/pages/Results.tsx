@@ -264,7 +264,10 @@ const Results = () => {
   };
 
   const top3 = getTop3(scores);
-  const maxScore = 30;
+  // Pessoal: 6 perguntas/arquétipo × nota máx. 5 = 30. Institucional: só 3
+  // perguntas/arquétipo × 5 = 15 — usar 30 fixo fazia um score perfeito
+  // institucional (15/15) aparecer como "15/30", metade do real.
+  const maxScore = activeWorkspace?.brand_type === "institucional" ? 15 : 30;
   const isProcessing = stage !== "done" && stage !== "error";
 
   const getArchetypeLlmData = (archName: string) => {
