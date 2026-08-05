@@ -1823,6 +1823,7 @@ export type Database = {
           p_since: string
           p_threshold: number
           p_user_id: string
+          p_workspace_id?: string
         }
         Returns: {
           created_at: string
@@ -1844,6 +1845,7 @@ export type Database = {
           p_threshold?: number
           p_user_id: string
           p_window_days?: number
+          p_workspace_id?: string
         }
         Returns: {
           id: string
