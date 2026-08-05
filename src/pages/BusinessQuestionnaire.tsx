@@ -21,7 +21,7 @@ import { InlineHelpButton } from "@/components/assistant/InlineHelpButton";
 import { QuestionnaireStatusBadge } from "@/components/questionnaire/QuestionnaireStatusBadge";
 import { InterviewMode } from "@/components/questionnaire/InterviewMode";
 
-const fields = [
+const personalFields = [
   { key: "company_name", label: "Nome da empresa ou negócio", type: "input", placeholder: "Ex: Studio Bella", help: "Pode ser o nome fantasia, nome pessoal ou como você é conhecida(o) no mercado.", max: 120 },
   { key: "services", label: "Serviços ou produtos oferecidos", type: "textarea", placeholder: "Descreva seus principais serviços ou produtos", help: "Liste os principais serviços/produtos que você oferece.", max: 600 },
   { key: "target_audience", label: "Público-alvo", type: "textarea", placeholder: "Quem são seus clientes ideais?", help: "Descreva quem é seu cliente ideal: idade, gênero, profissão, nível de renda, interesses e dores.", max: 400 },
@@ -36,25 +36,52 @@ const fields = [
   { key: "promised_transformations", label: "Conquistas e transformações prometidas", type: "textarea", placeholder: "Como a vida do cliente muda após seu serviço?", help: "Descreva a transformação que você entrega.", max: 600 },
 ];
 
+// Mesmas 12 chaves de personalFields, texto reformulado para não pressupor
+// "você" pessoa física — fala da EMPRESA/MARCA. Espelho de BUSINESS_FIELDS
+// institucional em questionnaire-interview/index.ts — mudou aqui, mudar lá.
+const institutionalFields = [
+  { key: "company_name", label: "Nome da empresa ou marca", type: "input", placeholder: "Ex: Studio Bella Ltda", help: "Nome fantasia ou como a marca é conhecida no mercado.", max: 120 },
+  { key: "services", label: "Serviços ou produtos oferecidos", type: "textarea", placeholder: "Descreva os principais serviços ou produtos da empresa", help: "Liste os principais serviços/produtos que a empresa oferece.", max: 600 },
+  { key: "target_audience", label: "Público-alvo", type: "textarea", placeholder: "Quem são os clientes ideais da empresa?", help: "Descreva o cliente ideal da empresa: idade, gênero, profissão, nível de renda, interesses e dores.", max: 400 },
+  { key: "external_problems", label: "Problemas externos que resolve", type: "textarea", placeholder: "Que problemas práticos a empresa resolve para o cliente?", help: "Problemas externos são dificuldades práticas e visíveis.", max: 600 },
+  { key: "internal_problems", label: "Problemas internos do cliente", type: "textarea", placeholder: "Como o cliente se sente antes de contratar a empresa?", help: "São os sentimentos e frustrações do cliente.", max: 600 },
+  { key: "empathic_statements", label: "Declarações empáticas", type: "textarea", placeholder: "Frases que mostram que a empresa entende o cliente", help: "Frases que demonstram empatia e criam conexão.", max: 800 },
+  { key: "authority_proofs", label: "Provas de autoridade", type: "textarea", placeholder: "Certificações, cases, depoimentos, números", help: "O que comprova a autoridade da empresa no mercado?", max: 800 },
+  { key: "hiring_steps", label: "Etapas para contratar", type: "textarea", placeholder: "Quais os passos para o cliente contratar a empresa?", help: "Descreva o passo a passo simples para contratar a empresa.", max: 400 },
+  { key: "client_fears", label: "Medos do cliente", type: "textarea", placeholder: "O que impede o cliente de agir?", help: "Quais medos impedem o cliente de comprar?", max: 600 },
+  { key: "main_cta", label: "Principal chamada para ação", type: "input", placeholder: "Ex: Agende uma consultoria gratuita", help: "A ação principal que a empresa quer que o cliente tome.", max: 120 },
+  { key: "negative_consequences", label: "Consequências negativas evitadas", type: "textarea", placeholder: "O que acontece se o cliente NÃO agir?", help: "O que acontece se o cliente não agir?", max: 600 },
+  { key: "promised_transformations", label: "Conquistas e transformações prometidas", type: "textarea", placeholder: "Como o negócio do cliente muda após o serviço?", help: "Descreva a transformação que a empresa entrega.", max: 600 },
+];
+
 // Agrupamento visual em 4 blocos temáticos (3 perguntas cada, respeitando a ordem original).
 // IMPORTANTE: as keys das perguntas e a ordem dentro de cada bloco são preservadas.
-const blocks = [
+const personalBlocks = [
   { title: "Negócio e público", subtitle: "Quem você é e para quem trabalha.", range: [0, 3] as const },
   { title: "Dores e empatia", subtitle: "O que seu cliente sente — e como você demonstra entender.", range: [3, 6] as const },
   { title: "Autoridade e jornada", subtitle: "Por que confiar em você e como começar.", range: [6, 9] as const },
   { title: "Ação e transformação", subtitle: "O convite, o risco de não agir e o resultado prometido.", range: [9, 12] as const },
 ];
 
-// Mapeia step antigo (0-11) para bloco novo (0-3). Mantém compatibilidade visual.
-const stepToBlock = (s: number) => Math.min(blocks.length - 1, Math.max(0, Math.floor(s / 3)));
+const institutionalBlocks = [
+  { title: "Negócio e público", subtitle: "Quem é a empresa e para quem ela trabalha.", range: [0, 3] as const },
+  { title: "Dores e empatia", subtitle: "O que o cliente sente — e como a marca demonstra entender.", range: [3, 6] as const },
+  { title: "Autoridade e jornada", subtitle: "Por que confiar na empresa e como começar.", range: [6, 9] as const },
+  { title: "Ação e transformação", subtitle: "O convite, o risco de não agir e o resultado prometido.", range: [9, 12] as const },
+];
 
-const interviewFields = fields.map(f => ({ key: f.key, label: f.label }));
+// Mapeia step antigo (0-11) para bloco novo (0-3). Mantém compatibilidade visual.
+const stepToBlock = (s: number) => Math.min(personalBlocks.length - 1, Math.max(0, Math.floor(s / 3)));
 
 type QStatus = "draft" | "submitted" | "locked";
 
 const BusinessQuestionnaire = () => {
   const { user, balances, refreshSubscription } = useAuth();
   const { activeWorkspace } = useWorkspace();
+  const isInstitutional = activeWorkspace?.brand_type === "institucional";
+  const fields = isInstitutional ? institutionalFields : personalFields;
+  const blocks = isInstitutional ? institutionalBlocks : personalBlocks;
+  const interviewFields = fields.map(f => ({ key: f.key, label: f.label }));
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -182,12 +209,12 @@ const BusinessQuestionnaire = () => {
     return () => { cancelled = true; };
   }, [user?.id, activeWorkspace]);
 
-  // Profissão/nicho personalizam as perguntas do modo entrevista.
+  // Profissão/nicho personalizam as perguntas do modo entrevista — vêm do
+  // perfil ATIVO (workspace), não da conta inteira.
   useEffect(() => {
-    if (!user?.id) return;
-    supabase.from("profiles").select("profession, niche").eq("user_id", user.id).maybeSingle()
-      .then(({ data }) => { if (data) setProfile({ profession: data.profession || undefined, niche: data.niche || undefined }); });
-  }, [user?.id]);
+    if (!activeWorkspace) return;
+    setProfile({ profession: activeWorkspace.profession || undefined, niche: activeWorkspace.niche || undefined });
+  }, [activeWorkspace]);
 
   const submit = useCallback(async () => {
     if (!user || isLocked) return;
@@ -232,11 +259,19 @@ const BusinessQuestionnaire = () => {
     if (existingId) {
       await supabase.from("business_questionnaires").update({ status: "draft", is_complete: false }).eq("id", existingId);
     }
-    const { data: latestReport } = await supabase.from("reports").select("version")
-      .eq("user_id", user.id).order("version", { ascending: false }).limit(1).single();
+    let latestReportQuery = supabase.from("reports").select("version");
+    latestReportQuery = activeWorkspace
+      ? latestReportQuery.eq("workspace_id", activeWorkspace.id)
+      : latestReportQuery.eq("user_id", user.id);
+    const { data: latestReport } = await latestReportQuery
+      .order("version", { ascending: false }).limit(1).single();
     if (latestReport) {
-      await supabase.from("reports").update({ status: "pending", content: null, error_message: null, editorial_weeks: [] })
-        .eq("user_id", user.id).eq("version", latestReport.version);
+      let resetQuery = supabase.from("reports").update({ status: "pending", content: null, error_message: null, editorial_weeks: [] })
+        .eq("version", latestReport.version);
+      resetQuery = activeWorkspace
+        ? resetQuery.eq("workspace_id", activeWorkspace.id)
+        : resetQuery.eq("user_id", user.id);
+      await resetQuery;
     }
     setStatus("draft");
     setIsComplete(false);
@@ -380,7 +415,9 @@ const BusinessQuestionnaire = () => {
           <div className={mode === "interview" ? "" : "hidden"}>
             <InterviewMode
               kind="business"
-              intro="Vamos fazer o diagnóstico do seu negócio em formato de conversa."
+              intro={isInstitutional
+                ? "Vamos fazer o diagnóstico da empresa em formato de conversa."
+                : "Vamos fazer o diagnóstico do seu negócio em formato de conversa."}
               fields={interviewFields}
               answers={answers}
               profession={profile.profession}

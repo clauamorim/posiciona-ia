@@ -76,6 +76,24 @@ const BUSINESS_FIELDS: FieldDef[] = [
   { key: "promised_transformations", label: "Conquistas e transformações prometidas (como a vida do cliente muda)", block: "Ação e transformação", max: 600 },
 ];
 
+// "Diagnóstico do Negócio" institucional — mesmas chaves de BUSINESS_FIELDS,
+// enquadramento fala da EMPRESA/MARCA em vez de "você". Espelho de
+// institutionalFields em src/pages/BusinessQuestionnaire.tsx.
+const INSTITUTIONAL_BUSINESS_FIELDS: FieldDef[] = [
+  { key: "company_name", label: "Nome da empresa ou marca (nome fantasia ou como é conhecida no mercado)", block: "Negócio e público", max: 120 },
+  { key: "services", label: "Serviços ou produtos oferecidos pela empresa", block: "Negócio e público", max: 600 },
+  { key: "target_audience", label: "Público-alvo da empresa (cliente ideal: idade, profissão, renda, interesses, dores)", block: "Negócio e público", max: 400 },
+  { key: "external_problems", label: "Problemas externos que a empresa resolve (dificuldades práticas e visíveis do cliente)", block: "Dores e empatia", max: 600 },
+  { key: "internal_problems", label: "Problemas internos do cliente (como ele se sente antes de contratar a empresa)", block: "Dores e empatia", max: 600 },
+  { key: "empathic_statements", label: "Declarações empáticas (frases que mostram que a empresa entende o cliente)", block: "Dores e empatia", max: 800 },
+  { key: "authority_proofs", label: "Provas de autoridade da empresa (certificações, cases, depoimentos, números)", block: "Autoridade e jornada", max: 800 },
+  { key: "hiring_steps", label: "Etapas para o cliente contratar a empresa (passo a passo simples)", block: "Autoridade e jornada", max: 400 },
+  { key: "client_fears", label: "Medos do cliente (o que o impede de agir/comprar)", block: "Autoridade e jornada", max: 600 },
+  { key: "main_cta", label: "Principal chamada para ação da empresa (ex: agende uma consultoria)", block: "Ação e transformação", max: 120 },
+  { key: "negative_consequences", label: "Consequências negativas evitadas (o que acontece se o cliente NÃO agir)", block: "Ação e transformação", max: 600 },
+  { key: "promised_transformations", label: "Conquistas e transformações prometidas (como o negócio do cliente muda)", block: "Ação e transformação", max: 600 },
+];
+
 // Espelho dos campos definidos em src/pages/SalesNarrativeQuestionnaire.tsx.
 // Se os campos mudarem lá, atualizar aqui também.
 const SALES_FIELDS: FieldDef[] = [
@@ -104,6 +122,11 @@ const KINDS: Record<string, { fields: FieldDef[]; mission: string }> = {
     fields: BUSINESS_FIELDS,
     mission:
       'Você conduz o questionário "Diagnóstico do Negócio" da Posiciona em formato de conversa. O objetivo é mapear o negócio do usuário (serviços, público, dores do cliente, autoridade, chamada para ação) para a análise estratégica. Respostas específicas e concretas valem mais que genéricas.',
+  },
+  business_institucional: {
+    fields: INSTITUTIONAL_BUSINESS_FIELDS,
+    mission:
+      'Você conduz o questionário "Diagnóstico do Negócio" da Posiciona em formato de conversa. O objetivo é mapear o negócio da EMPRESA/MARCA (serviços, público, dores do cliente, autoridade, chamada para ação) para a análise estratégica. NUNCA pergunte sobre a vida pessoal de um indivíduo — o sujeito das respostas é sempre a EMPRESA. Respostas específicas e concretas valem mais que genéricas.',
   },
   sales: {
     fields: SALES_FIELDS,
@@ -213,13 +236,14 @@ Deno.serve(async (req) => {
 
     const { kind: kindName, history, userText, audio, answers, profession, niche } = await req.json();
 
-    // "Sua História" e "Voz da Marca" são a MESMA entrevista (kind "personal")
-    // por fora — o servidor troca para os campos institucionais sozinho,
-    // conforme o tipo de marca do workspace do usuário autenticado.
+    // "Sua História"/"Voz da Marca" e "Diagnóstico do Negócio" são a MESMA
+    // entrevista por fora ("personal"/"business") — o servidor troca para os
+    // campos institucionais sozinho, conforme o tipo de marca do workspace do
+    // usuário autenticado.
     let resolvedKindName = String(kindName);
-    if (resolvedKindName === "personal") {
+    if (resolvedKindName === "personal" || resolvedKindName === "business") {
       const brandType = await fetchWorkspaceBrandType(authedUserId);
-      if (brandType === "institucional") resolvedKindName = "personal_institucional";
+      if (brandType === "institucional") resolvedKindName = `${resolvedKindName}_institucional`;
     }
     const kind = KINDS[resolvedKindName];
     if (!kind) return json({ error: 'kind deve ser "personal", "business" ou "sales"' }, 400);
