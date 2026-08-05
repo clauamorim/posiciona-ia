@@ -572,6 +572,7 @@ const EditorialPage = () => {
       const baseBody = {
         business: bq,
         niche: activeWorkspace?.niche || "",
+        workspaceId: activeWorkspace?.id,
         existingPosts,
         storybrand: reportContent?.storybrand || null,
         tone_of_voice: reportContent?.tone_of_voice || null,

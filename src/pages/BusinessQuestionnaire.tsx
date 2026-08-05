@@ -415,6 +415,7 @@ const BusinessQuestionnaire = () => {
           <div className={mode === "interview" ? "" : "hidden"}>
             <InterviewMode
               kind="business"
+              workspaceId={activeWorkspace?.id}
               intro={isInstitutional
                 ? "Vamos fazer o diagnóstico da empresa em formato de conversa."
                 : "Vamos fazer o diagnóstico do seu negócio em formato de conversa."}

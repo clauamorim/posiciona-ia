@@ -50,6 +50,28 @@ export async function requireUser(req: Request): Promise<AuthedUser> {
   return { userId: data.user.id, userClient };
 }
 
+/**
+ * Confirma que `workspaceId` pertence a `userId` (dono). Funções que rodam
+ * com service role (bypassa RLS) e recebem `workspaceId` direto do corpo da
+ * requisição PRECISAM checar isso antes de usá-lo para escopar queries —
+ * senão um usuário autenticado qualquer pode ler/escrever dados de OUTRA
+ * conta só passando o UUID do workspace alheio. Não cobre workspace_members
+ * (Etapa 4/convidados) de propósito — hoje só o dono acessa.
+ */
+export async function verifyWorkspaceOwnership(userId: string, workspaceId: string): Promise<boolean> {
+  const admin = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+  );
+  const { data } = await admin
+    .from("workspaces")
+    .select("id")
+    .eq("id", workspaceId)
+    .eq("owner_id", userId)
+    .maybeSingle();
+  return !!data;
+}
+
 export async function resolveWorkspace(req: Request): Promise<WorkspaceContext> {
   const authed = await requireUser(req);
 

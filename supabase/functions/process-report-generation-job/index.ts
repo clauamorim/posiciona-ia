@@ -453,8 +453,8 @@ async function processJob(jobId: string) {
     await updateJob(jobId, { progress_message: "Gerando estratégia com IA… pode levar até 2 minutos." });
 
     // Contexto pessoal do criador (humanização)
-    const brandType = await fetchWorkspaceBrandType(userId);
-    const personal = await fetchPersonalQuestionnaire(userId);
+    const brandType = await fetchWorkspaceBrandType(userId, workspaceId);
+    const personal = await fetchPersonalQuestionnaire(userId, workspaceId);
     const personalContext = renderPersonalContext(personal, brandType);
 
     const primaryName = getArchetypeName(archetypes.primary, "Explorador");

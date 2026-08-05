@@ -449,6 +449,7 @@ const PersonalQuestionnaire = () => {
           <div className={mode === "interview" ? "" : "hidden"}>
             <InterviewMode
               kind="personal"
+              workspaceId={activeWorkspace?.id}
               intro={isInstitutional ? "Vamos construir a voz da marca em formato de conversa." : "Vamos construir sua história em formato de conversa."}
               fields={interviewFields}
               answers={answers}

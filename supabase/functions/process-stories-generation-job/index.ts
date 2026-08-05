@@ -132,11 +132,12 @@ serve(async (req) => {
 
     const { data: report, error: reportErr } = await admin
       .from("reports")
-      .select("id, user_id, content, editorial_weeks, version")
+      .select("id, user_id, workspace_id, content, editorial_weeks, version")
       .eq("id", reportId)
       .single();
     if (reportErr || !report) return json({ error: "Relatório não encontrado." }, 404);
     if (report.user_id !== userId) return json({ error: "Acesso negado." }, 403);
+    const workspaceId = report.workspace_id as string | undefined;
 
     const weeks: any[] = Array.isArray(report.editorial_weeks) ? report.editorial_weeks : [];
     const arrayPos = weeks.findIndex((w: any) =>
@@ -176,11 +177,15 @@ serve(async (req) => {
 
     console.log(`[stories-only] week=${weekIndex} user=${userId} status=start feed_days=${feed.length} prev_personal_stories=${previousPersonalStoryItems.length}`);
 
-    // Reúne contexto necessário para o prompt do Estágio B
+    // Reúne contexto necessário para o prompt do Estágio B — escopado pelo
+    // PERFIL (workspace) do relatório, não pela conta inteira.
+    let bqQuery = admin.from("business_questionnaires").select("*");
+    bqQuery = workspaceId ? bqQuery.eq("workspace_id", workspaceId) : bqQuery.eq("user_id", userId);
     const [{ data: bq }, { data: profileRow }] = await Promise.all([
-      admin.from("business_questionnaires").select("*").eq("user_id", userId)
-        .order("version", { ascending: false }).limit(1).maybeSingle(),
-      admin.from("profiles").select("profession, niche").eq("user_id", userId).maybeSingle(),
+      bqQuery.order("version", { ascending: false }).limit(1).maybeSingle(),
+      workspaceId
+        ? admin.from("workspaces").select("profession, niche").eq("id", workspaceId).maybeSingle()
+        : admin.from("profiles").select("profession, niche").eq("user_id", userId).maybeSingle(),
     ]);
 
     let storybrand: any = null;
@@ -194,8 +199,8 @@ serve(async (req) => {
       }
     } catch { /* ignora */ }
 
-    const brandType = await fetchWorkspaceBrandType(userId);
-    const personal = await fetchPersonalQuestionnaire(userId);
+    const brandType = await fetchWorkspaceBrandType(userId, workspaceId);
+    const personal = await fetchPersonalQuestionnaire(userId, workspaceId);
     const personalContext = renderPersonalContext(personal, brandType);
     const salesNarrative = await fetchSalesNarrative(userId);
     const salesNarrativeContext = renderSalesNarrativeContext(salesNarrative);

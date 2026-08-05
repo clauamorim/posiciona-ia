@@ -25,6 +25,7 @@ import {
   renderEditorialFrameworks,
   renderVerifiableFactsBlock,
 } from "../_shared/buildClaudeContext.ts";
+import { verifyWorkspaceOwnership } from "../_shared/workspaceAuth.ts";
 import {
   EDITORIAL_PILLARS,
   renderPillarsBlock,
@@ -80,6 +81,7 @@ serve(async (req) => {
       themeOverride,          // novo: tema sugerido por tendência de mercado (opcional)
       marketTrends,           // novo: tendências já salvas na semana (opcional)
       pillar,                 // novo: pilar do post original (mantém coerência da semana)
+      workspaceId,            // novo: perfil ativo (workspace) — escopa contexto pessoal/marca
     } = body;
 
     if (!business) {
@@ -87,6 +89,20 @@ serve(async (req) => {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // workspaceId vem do corpo (input do cliente) — checa posse antes de usar,
+    // senão um usuário autenticado qualquer poderia ler contexto pessoal/marca
+    // de OUTRA conta só passando o UUID alheio.
+    let ownedWorkspaceId: string | undefined;
+    if (userId && workspaceId) {
+      if (!(await verifyWorkspaceOwnership(userId, workspaceId))) {
+        return new Response(JSON.stringify({ error: "Sem acesso a este perfil." }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      ownedWorkspaceId = workspaceId;
     }
 
     const lockedPillar: PillarId | null = isValidPillar(pillar) ? pillar : null;
@@ -116,20 +132,19 @@ REGRA: o JSON de saída DEVE conter "pillar": "${pillarMeta.id}". O conteúdo vi
     const storybrandContext = renderStorybrandBlock(storybrand);
     const toneContext = renderToneBlock(tone_of_voice);
     const verifiableFactsBlock = renderVerifiableFactsBlock(business);
-    const brandType = userId ? await fetchWorkspaceBrandType(userId) : "pessoal";
-    const personal = userId ? await fetchPersonalQuestionnaire(userId) : null;
+    const brandType = userId ? await fetchWorkspaceBrandType(userId, ownedWorkspaceId) : "pessoal";
+    const personal = userId ? await fetchPersonalQuestionnaire(userId, ownedWorkspaceId) : null;
     const personalContext = renderPersonalContext(personal, brandType);
 
     // Detecta profissão regulamentada para injetar regras éticas (OAB / CFM)
+    // — vem do PERFIL ativo (workspace), não da conta inteira.
     let professionCategory: ReturnType<typeof detectProfession> = "outro";
     if (userId) {
       try {
         const adminClient = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-        const { data: profileRow } = await adminClient
-          .from("profiles")
-          .select("profession, niche")
-          .eq("user_id", userId)
-          .maybeSingle();
+        const { data: profileRow } = ownedWorkspaceId
+          ? await adminClient.from("workspaces").select("profession, niche").eq("id", ownedWorkspaceId).maybeSingle()
+          : await adminClient.from("profiles").select("profession, niche").eq("user_id", userId).maybeSingle();
         professionCategory = detectProfession({
           profession: profileRow?.profession,
           niche: profileRow?.niche,

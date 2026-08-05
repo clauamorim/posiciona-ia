@@ -3,6 +3,7 @@ import { corsHeaders } from "../_shared/cors.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { EDITORIAL_GENERATOR_VERSION, isOutdatedVersion } from "../_shared/generatorVersion.ts";
 import { sanitizeWeek } from "../_shared/editorialSanitize.ts";
+import { verifyWorkspaceOwnership } from "../_shared/workspaceAuth.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -51,6 +52,14 @@ serve(async (req) => {
     }
 
     const { business, niche, previousWeeks, storybrand, tone_of_voice, weekNumber, freeRegeneration, replaceWeekIndex, workspaceId } = await req.json();
+
+    // workspaceId vem do corpo (input do cliente) — esta função roda com
+    // service role e ignora RLS, então a posse precisa ser checada em código.
+    if (workspaceId && !(await verifyWorkspaceOwnership(user.id, workspaceId))) {
+      return new Response(JSON.stringify({ error: "Sem acesso a este perfil." }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // ===== Free regeneration path: sanitize the saved week without calling the AI =====
     if (freeRegeneration) {

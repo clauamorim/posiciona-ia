@@ -9,7 +9,7 @@
 // o autosave existente persiste pelo caminho normal (RLS respeitado).
 
 import { corsHeaders } from "https://esm.sh/@supabase/supabase-js@2.95.0/cors";
-import { requireUser, AuthError } from "../_shared/workspaceAuth.ts";
+import { requireUser, verifyWorkspaceOwnership, AuthError } from "../_shared/workspaceAuth.ts";
 import { fetchWorkspaceBrandType } from "../_shared/buildClaudeContext.ts";
 
 type FieldDef = { key: string; label: string; block: string; max?: number };
@@ -234,15 +234,26 @@ Deno.serve(async (req) => {
     const GEMINI_KEY = Deno.env.get("GEMINI_API_KEY");
     if (!GEMINI_KEY) return json({ error: "GEMINI_API_KEY não configurada" }, 500);
 
-    const { kind: kindName, history, userText, audio, answers, profession, niche } = await req.json();
+    const { kind: kindName, history, userText, audio, answers, profession, niche, workspaceId } = await req.json();
+
+    // workspaceId vem do corpo (input do cliente) — checa posse antes de usar
+    // pra resolver o tipo de marca, senão um usuário autenticado qualquer
+    // poderia consultar o brand_type de um workspace de OUTRA conta.
+    let ownedWorkspaceId: string | undefined;
+    if (workspaceId) {
+      if (!(await verifyWorkspaceOwnership(authedUserId, String(workspaceId)))) {
+        return json({ error: "Sem acesso a este perfil." }, 403);
+      }
+      ownedWorkspaceId = String(workspaceId);
+    }
 
     // "Sua História"/"Voz da Marca" e "Diagnóstico do Negócio" são a MESMA
     // entrevista por fora ("personal"/"business") — o servidor troca para os
-    // campos institucionais sozinho, conforme o tipo de marca do workspace do
-    // usuário autenticado.
+    // campos institucionais sozinho, conforme o tipo de marca do PERFIL ATIVO
+    // (sem workspaceId, cai no perfil default do dono — chamador legado).
     let resolvedKindName = String(kindName);
     if (resolvedKindName === "personal" || resolvedKindName === "business") {
-      const brandType = await fetchWorkspaceBrandType(authedUserId);
+      const brandType = await fetchWorkspaceBrandType(authedUserId, ownedWorkspaceId);
       if (brandType === "institucional") resolvedKindName = `${resolvedKindName}_institucional`;
     }
     const kind = KINDS[resolvedKindName];

@@ -257,13 +257,12 @@ function buildPersonalTraitMap(personal: any): Record<string, string[]> {
   return map;
 }
 
-/** Lê últimas 2 entradas de used_personal_traits do usuário. */
-async function fetchRecentlyUsedTraits(userId: string): Promise<string[]> {
+/** Lê últimas 2 entradas de used_personal_traits do PERFIL (workspace). */
+async function fetchRecentlyUsedTraits(userId: string, workspaceId?: string): Promise<string[]> {
   try {
-    const { data } = await admin
-      .from("used_personal_traits")
-      .select("traits_used")
-      .eq("user_id", userId)
+    let query = admin.from("used_personal_traits").select("traits_used");
+    query = workspaceId ? query.eq("workspace_id", workspaceId) : query.eq("user_id", userId);
+    const { data } = await query
       .order("created_at", { ascending: false })
       .limit(2);
     if (!Array.isArray(data)) return [];
@@ -280,13 +279,12 @@ async function fetchRecentlyUsedTraits(userId: string): Promise<string[]> {
   }
 }
 
-/** Lê últimas 6 entradas de used_market_trends do usuário. */
-async function fetchRecentlyUsedTrendTitles(userId: string): Promise<string[]> {
+/** Lê últimas 6 entradas de used_market_trends do PERFIL (workspace). */
+async function fetchRecentlyUsedTrendTitles(userId: string, workspaceId?: string): Promise<string[]> {
   try {
-    const { data } = await admin
-      .from("used_market_trends")
-      .select("trends_used")
-      .eq("user_id", userId)
+    let query = admin.from("used_market_trends").select("trends_used");
+    query = workspaceId ? query.eq("workspace_id", workspaceId) : query.eq("user_id", userId);
+    const { data } = await query
       .order("created_at", { ascending: false })
       .limit(6);
     if (!Array.isArray(data)) return [];
@@ -699,6 +697,9 @@ async function processJob(jobId: string) {
     const payload = job.payload || {};
     const { business, niche, previousWeeks, storybrand, tone_of_voice } = payload;
     const userId = job.user_id as string;
+    // Perfis mais antigos podem não ter workspace_id no job (pré-Etapa 3) —
+    // helpers abaixo caem no perfil default do dono quando undefined.
+    const workspaceId = job.workspace_id as string | undefined;
 
     // Reserva crédito
     const { data: balanceData } = await admin
@@ -776,21 +777,28 @@ async function processJob(jobId: string) {
       const verifiableFactsBlock = renderVerifiableFactsBlock(business);
       // Tipo de marca dirige o enquadramento: mesma tabela (Sua História /
       // Voz da Marca), rótulos e regras diferentes no prompt.
-      const brandType = await fetchWorkspaceBrandType(userId);
-      const personal = await fetchPersonalQuestionnaire(userId);
+      const brandType = await fetchWorkspaceBrandType(userId, workspaceId);
+      const personal = await fetchPersonalQuestionnaire(userId, workspaceId);
       const personalContext = renderPersonalContext(personal, brandType);
       // Narrativa de Venda: enriquece o feed com objeções reais, casos cadastrados
       // e história de virada. Render block tem regras de uso por pilar e omite
       // campos vazios — seguro pra rascunhos parciais.
+      // NOTA: sales_narrative_questionnaires ainda não é por perfil (UNIQUE(user_id)
+      // sem version) — 1 conta só tem 1 História de Venda, compartilhada entre
+      // perfis. Limitação conhecida e documentada, fora do escopo deste isolamento.
       const salesNarrative = await fetchSalesNarrative(userId);
       const salesNarrativeContext = renderSalesNarrativeContext(salesNarrative);
 
-      // Profissão regulamentada (OAB / CFM) e tendências de mercado
-      const { data: profileRow } = await admin
-        .from("profiles")
-        .select("profession, niche")
-        .eq("user_id", userId)
-        .maybeSingle();
+      // Profissão regulamentada (OAB / CFM) e tendências de mercado — vêm do
+      // PERFIL ativo (workspace), não da conta inteira.
+      let profileRow: { profession?: string | null; niche?: string | null } | null = null;
+      if (workspaceId) {
+        const { data } = await admin.from("workspaces").select("profession, niche").eq("id", workspaceId).maybeSingle();
+        profileRow = data;
+      } else {
+        const { data } = await admin.from("profiles").select("profession, niche").eq("user_id", userId).maybeSingle();
+        profileRow = data;
+      }
       const professionCategory = detectProfession({
         profession: profileRow?.profession,
         niche: profileRow?.niche,
@@ -817,7 +825,7 @@ async function processJob(jobId: string) {
         console.warn(`[job ${jobId}] fetch-market-trends falhou (ignorando):`, trendsErr);
       }
       // Anti-repetição: remove tendências já usadas nas últimas 2 semanas
-      const recentlyUsedTrendTitles = await fetchRecentlyUsedTrendTitles(userId);
+      const recentlyUsedTrendTitles = await fetchRecentlyUsedTrendTitles(userId, workspaceId);
       const filteredMarketTrends = marketTrends.filter((t) => {
         const titleNorm = normalize(t.title);
         return !recentlyUsedTrendTitles.some((used) => {
@@ -831,7 +839,7 @@ async function processJob(jobId: string) {
       const marketTrendsBlock = renderMarketTrendsBlock(filteredMarketTrends);
 
       // Anti-repetição: traços pessoais usados nas últimas 2 semanas
-      const recentlyUsedTraits = await fetchRecentlyUsedTraits(userId);
+      const recentlyUsedTraits = await fetchRecentlyUsedTraits(userId, workspaceId);
       const recentTraitsBlock = renderRecentTraitsBlock(recentlyUsedTraits);
       const personalTraitMap = buildPersonalTraitMap(personal);
 
@@ -839,10 +847,11 @@ async function processJob(jobId: string) {
       let diversityHints = { bannedFormulas: [] as any[], dampenedConcepts: [] as any[] };
       try {
         const since = new Date(Date.now() - DEDUP_WINDOW_MS).toISOString();
-        const { data: patternRows } = await admin
+        let patternQuery = admin
           .from("used_title_patterns")
-          .select("title_formula, central_concepts, named_cases, created_at")
-          .eq("user_id", userId)
+          .select("title_formula, central_concepts, named_cases, created_at");
+        patternQuery = workspaceId ? patternQuery.eq("workspace_id", workspaceId) : patternQuery.eq("user_id", userId);
+        const { data: patternRows } = await patternQuery
           .gte("created_at", since)
           .order("created_at", { ascending: false })
           .limit(40);
@@ -1351,6 +1360,7 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
           const day = candidates[i].p.day;
           const { data, error } = await admin.rpc("match_post_embeddings", {
             p_user_id: userId,
+            p_workspace_id: workspaceId ?? null,
             p_query: vec as any,
             p_since: since,
             p_threshold: adaptiveThreshold,
@@ -1834,7 +1844,7 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
               const embHit = embByDay.get(day);
               if (embHit) { preRetrySimByDay.set(day, embHit.topSim); continue; }
               const { data } = await admin.rpc("match_post_embeddings", {
-                p_user_id: userId, p_query: vec as any, p_since: since, p_threshold: 0.0, p_limit: 1,
+                p_user_id: userId, p_workspace_id: workspaceId ?? null, p_query: vec as any, p_since: since, p_threshold: 0.0, p_limit: 1,
               });
               const top = Array.isArray(data) && data.length > 0 ? Number(data[0].similarity) || 0 : 0;
               preRetrySimByDay.set(day, top);
@@ -1941,7 +1951,7 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
                 const day = revalCands[i].day;
                 finalVectorByDay.set(day, vec);
                 const { data } = await admin.rpc("match_post_embeddings", {
-                  p_user_id: userId, p_query: vec as any, p_since: since, p_threshold: 0.0, p_limit: 1,
+                  p_user_id: userId, p_workspace_id: workspaceId ?? null, p_query: vec as any, p_since: since, p_threshold: 0.0, p_limit: 1,
                 });
                 const top = Array.isArray(data) && data.length > 0 ? Number(data[0].similarity) || 0 : 0;
                 if (top > postRetryMax) postRetryMax = top;
@@ -2056,6 +2066,7 @@ Gere agora os 4 posts de feed para os dias ${FEED_DAYS.join(", ")}.`;
           );
           rows.push({
             user_id: userId,
+            workspace_id: workspaceId ?? null,
             report_id: job.report_id,
             week_index: wkIdxForPartial,
             day_index: p.day,
@@ -2255,6 +2266,7 @@ Gere agora os 7 stories da semana.`;
             if (!text || text.length < 20 || !vec) continue;
             const { data: matches, error: matchErr } = await admin.rpc("match_story_embeddings", {
               p_user_id: userId,
+              p_workspace_id: workspaceId ?? null,
               p_query_embedding: vec as any,
               p_day_index: story.day,
               p_threshold: STORIES_DEDUP_THRESHOLD,
@@ -2375,6 +2387,7 @@ Esta é a tentativa ${attempt} de ${STORIES_MAX_RETRIES}.`;
             if (!vec) continue;
             const { error: insErr } = await admin.from("story_embeddings").insert({
               user_id: userId,
+              workspace_id: workspaceId ?? null,
               report_id: job.report_id,
               week_index: wkIdxForPartial,
               day_index: story.day,
@@ -2415,6 +2428,7 @@ Esta é a tentativa ${attempt} de ${STORIES_MAX_RETRIES}.`;
         const fingerprints = feedFinal.map((p) => fingerprintPost(p as unknown as FeedPostLike));
         const rows = fingerprints.map((fp) => ({
           user_id: userId,
+          workspace_id: workspaceId ?? null,
           report_id: job.report_id,
           week_index: wkIdx,
           day_index: fp.day,
@@ -2447,6 +2461,7 @@ Esta é a tentativa ${attempt} de ${STORIES_MAX_RETRIES}.`;
         if (usedTraits.length > 0) {
           const { error: traitErr } = await admin.from("used_personal_traits").insert({
             user_id: userId,
+            workspace_id: workspaceId ?? null,
             report_id: job.report_id,
             week_index: typeof job.week_index === "number" ? job.week_index : null,
             traits_used: usedTraits,
@@ -2467,6 +2482,7 @@ Esta é a tentativa ${attempt} de ${STORIES_MAX_RETRIES}.`;
         if (usedTrends.length > 0) {
           const { error: trendErr } = await admin.from("used_market_trends").insert({
             user_id: userId,
+            workspace_id: workspaceId ?? null,
             report_id: job.report_id,
             week_index: typeof job.week_index === "number" ? job.week_index : null,
             trends_used: usedTrends,

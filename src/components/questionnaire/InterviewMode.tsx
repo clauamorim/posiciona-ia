@@ -16,6 +16,7 @@ interface Props {
   answers: Record<string, string>;
   profession?: string;
   niche?: string;
+  workspaceId?: string;
   onExtract: (extracted: Record<string, string>) => void;
   onFinish: () => void;
 }
@@ -43,7 +44,7 @@ function blobToBase64(blob: Blob): Promise<string> {
   });
 }
 
-export function InterviewMode({ kind, intro, fields, answers, profession, niche, onExtract, onFinish }: Props) {
+export function InterviewMode({ kind, intro, fields, answers, profession, niche, workspaceId, onExtract, onFinish }: Props) {
   const firstPending = useMemo(
     () => fields.find(f => !(answers[f.key] || "").trim()),
     // Congela a primeira pergunta na montagem; as seguintes vêm da IA.
@@ -93,7 +94,7 @@ export function InterviewMode({ kind, intro, fields, answers, profession, niche,
     try {
       const history = messages.map(m => ({ role: m.role, content: m.content }));
       const { data, error } = await supabase.functions.invoke("questionnaire-interview", {
-        body: { kind, history, ...payload, answers: answersRef.current, profession, niche },
+        body: { kind, history, ...payload, answers: answersRef.current, profession, niche, workspaceId },
       });
       if (error) throw new Error(error.message || "Falha na conexão");
       if (data?.error) throw new Error(data.error);

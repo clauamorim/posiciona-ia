@@ -7,6 +7,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { verifyWorkspaceOwnership } from "../_shared/workspaceAuth.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -45,6 +46,25 @@ serve(async (req) => {
     }
 
     const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+    // workspaceId/reportId vêm do corpo (input do cliente) — esta função roda
+    // com service role e ignora RLS, então a posse precisa ser checada em
+    // código, senão um usuário autenticado qualquer poderia gerar relatório
+    // usando dados de OUTRA conta só passando o UUID alheio.
+    if (workspaceId && !(await verifyWorkspaceOwnership(userId, workspaceId))) {
+      return new Response(JSON.stringify({ error: "Sem acesso a este perfil." }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (reportId) {
+      const { data: reportOwner } = await admin
+        .from("reports").select("id").eq("id", reportId).eq("user_id", userId).maybeSingle();
+      if (!reportOwner) {
+        return new Response(JSON.stringify({ error: "Relatório não encontrado." }), {
+          status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
 
     // Localiza o relatório alvo (preferindo o que o frontend passou)
     let targetReportId = reportId as string | undefined;

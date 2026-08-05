@@ -191,20 +191,22 @@ export interface PersonalAnswers {
 }
 
 /**
- * Busca o questionário pessoal mais recente do usuário (status = 'submitted').
+ * Busca o questionário pessoal mais recente do PERFIL (status = 'submitted').
+ * Com `workspaceId`, escopa pelo perfil ativo — essencial em contas com mais
+ * de um perfil, senão pega o questionário de version mais alta entre TODOS os
+ * perfis do dono, que pode ser de outro perfil. Sem `workspaceId` (chamadores
+ * legados), cai no comportamento antigo por `user_id`.
  * Retorna `null` se ainda não preenchido.
  */
-export async function fetchPersonalQuestionnaire(userId: string): Promise<PersonalAnswers | null> {
+export async function fetchPersonalQuestionnaire(userId: string, workspaceId?: string | null): Promise<PersonalAnswers | null> {
   try {
     const admin = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
-    const { data } = await admin
-      .from("personal_questionnaires")
-      .select("*")
-      .eq("user_id", userId)
-      .eq("status", "submitted")
+    let query = admin.from("personal_questionnaires").select("*").eq("status", "submitted");
+    query = workspaceId ? query.eq("workspace_id", workspaceId) : query.eq("user_id", userId);
+    const { data } = await query
       .order("version", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -269,22 +271,22 @@ REGRAS DE USO DESTE CONTEXTO:
 export type BrandType = "pessoal" | "institucional";
 
 /**
- * Tipo de marca do workspace DEFAULT do usuário (Fase 1: 1 usuário = 1
- * workspace). Fallback "pessoal" em qualquer falha — comportamento idêntico
- * ao histórico do produto.
+ * Tipo de marca do workspace. Com `workspaceId`, busca ESSE perfil
+ * específico — sem isso, uma conta com 2º perfil institucional (não-default)
+ * geraria conteúdo institucional como se fosse pessoal, porque o default da
+ * conta continua "pessoal". Sem `workspaceId` (chamadores legados), cai no
+ * workspace default do dono (comportamento pré-multi-perfil).
+ * Fallback "pessoal" em qualquer falha.
  */
-export async function fetchWorkspaceBrandType(userId: string): Promise<BrandType> {
+export async function fetchWorkspaceBrandType(userId: string, workspaceId?: string | null): Promise<BrandType> {
   try {
     const admin = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
-    const { data } = await admin
-      .from("workspaces")
-      .select("brand_type")
-      .eq("owner_id", userId)
-      .eq("is_default", true)
-      .maybeSingle();
+    let query = admin.from("workspaces").select("brand_type");
+    query = workspaceId ? query.eq("id", workspaceId) : query.eq("owner_id", userId).eq("is_default", true);
+    const { data } = await query.maybeSingle();
     return data?.brand_type === "institucional" ? "institucional" : "pessoal";
   } catch (e) {
     console.error("Error fetching workspace brand_type:", e);
