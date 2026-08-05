@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { AuthLayout } from "@/components/auth/AuthLayout";
 import { SeoHead } from "@/components/SeoHead";
 import { User, Building2 } from "lucide-react";
@@ -26,6 +27,7 @@ const GOALS = [
 const CompleteProfile = () => {
   const navigate = useNavigate();
   const { user, profileCompleted, refreshProfileCompletion, isLoading } = useAuth();
+  const { refreshWorkspaces } = useWorkspace();
   const [whatsapp, setWhatsapp] = useState("");
   const [gender, setGender] = useState("");
   const [profession, setProfession] = useState("");
@@ -89,6 +91,10 @@ const CompleteProfile = () => {
       return;
     }
     await refreshProfileCompletion();
+    // WorkspaceContext já carregou o perfil default como "pessoal" (valor de
+    // nascimento do trigger) antes desta tela salvar o tipo escolhido —
+    // sem isso, o seletor no dashboard mostra o tipo antigo até um F5.
+    await refreshWorkspaces();
     toast({ title: "Perfil completo", description: "Pronto para começar." });
     navigate("/dashboard", { replace: true });
   };
