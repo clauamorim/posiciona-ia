@@ -34,6 +34,7 @@ const CompleteProfile = () => {
   const [brandType, setBrandType] = useState<BrandType>("pessoal");
   const [loading, setLoading] = useState(false);
   const [hydrating, setHydrating] = useState(true);
+  const isInstitutional = brandType === "institucional";
 
   useEffect(() => {
     if (isLoading) return;
@@ -59,7 +60,7 @@ const CompleteProfile = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
-    if (!whatsapp.trim() || !gender || !profession.trim() || !niche.trim() || !mainGoal) {
+    if (!whatsapp.trim() || (!isInstitutional && !gender) || !profession.trim() || !niche.trim() || !mainGoal) {
       toast({ title: "Preencha todos os campos", description: "Esses dados personalizam sua experiência.", variant: "destructive" });
       return;
     }
@@ -69,7 +70,7 @@ const CompleteProfile = () => {
         .from("profiles")
         .update({
           whatsapp: whatsapp.trim(),
-          gender,
+          gender: isInstitutional ? null : gender,
           profession: profession.trim(),
           niche: niche.trim(),
           main_goal: mainGoal,
@@ -143,27 +144,35 @@ const CompleteProfile = () => {
               </Label>
             </RadioGroup>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className={isInstitutional ? "grid grid-cols-1 gap-3" : "grid grid-cols-2 gap-3"}>
             <div className="space-y-2">
               <Label htmlFor="whatsapp">WhatsApp</Label>
               <Input id="whatsapp" type="tel" value={whatsapp} onChange={e => setWhatsapp(e.target.value)} placeholder="(11) 99999-9999" disabled={hydrating} />
             </div>
-            <div className="space-y-2">
-              <Label>Gênero</Label>
-              <Select value={gender} onValueChange={setGender} disabled={hydrating}>
-                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Feminino">Feminino</SelectItem>
-                  <SelectItem value="Masculino">Masculino</SelectItem>
-                  <SelectItem value="Prefiro não informar">Prefiro não informar</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            {!isInstitutional && (
+              <div className="space-y-2">
+                <Label>Gênero</Label>
+                <Select value={gender} onValueChange={setGender} disabled={hydrating}>
+                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Feminino">Feminino</SelectItem>
+                    <SelectItem value="Masculino">Masculino</SelectItem>
+                    <SelectItem value="Prefiro não informar">Prefiro não informar</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label htmlFor="profession">Profissão</Label>
-              <Input id="profession" value={profession} onChange={e => setProfession(e.target.value)} placeholder="Ex: Designer" disabled={hydrating} />
+              <Label htmlFor="profession">{isInstitutional ? "Área de atuação" : "Profissão"}</Label>
+              <Input
+                id="profession"
+                value={profession}
+                onChange={e => setProfession(e.target.value)}
+                placeholder={isInstitutional ? "Ex: Clínica odontológica" : "Ex: Designer"}
+                disabled={hydrating}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="niche">Nicho</Label>
