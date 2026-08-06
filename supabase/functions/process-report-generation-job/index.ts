@@ -285,7 +285,8 @@ function archetypeDescription(name: string): string {
   return map[name] || `Marca com energia de ${name}, capaz de orientar decisões de comunicação, estética e posicionamento com consistência.`;
 }
 
-function buildDeterministicReport(payload: any): any {
+function buildDeterministicReport(payload: any, brandType: "pessoal" | "institucional" = "pessoal"): any {
+  const inst = brandType === "institucional";
   const business = payload?.business || {};
   const archetypes = payload?.archetypes || {};
   const primary = getArchetypeName(archetypes.primary, "Explorador");
@@ -344,23 +345,40 @@ function buildDeterministicReport(payload: any): any {
       success: truncateText(business.promised_transformations, 300) || "Uma marca mais clara, desejada e reconhecida pelo público certo.",
       failure: truncateText(business.negative_consequences, 300) || "Continuar comunicando de forma genérica, com baixa percepção de valor.",
     },
-    figurino: {
-      resumo: `Figurino estratégico com presença editorial, alinhando ${primary}, ${secondary} e ${tertiary} para transmitir autoridade e aproximação.`,
-      cores_roupa: palette.slice(0, 4).map((c) => c.name),
-      pecas_chave: ["blazer estruturado em tom profundo", "camisa de tecido nobre", "calça de alfaiataria", "peça de destaque na cor principal", "malha fina neutra", "terceira peça elegante", "acessório assinatura"],
-      sapatos: ["sapato clássico de couro", "tênis minimalista premium", "mocassim estruturado", "opção elegante em tom neutro"],
-      acessorios: ["relógio discreto", "óculos com armação marcante", "anel minimalista", "bolsa ou pasta estruturada", "peça metálica discreta"],
-      cabelo: "Acabamento polido, natural e intencional, evitando aparência improvisada.",
-      maquiagem_grooming: "Aparência bem cuidada, pele natural e acabamento coerente com o grau de sofisticação da marca.",
-      evitar: ["excesso de informação visual", "peças desalinhadas ao posicionamento premium"],
-      looks_completos: [
-        { nome: "Autoridade Editorial", pecas: ["blazer estruturado", "base neutra", "sapato clássico"], ocasiao: "reuniões, lives e fotos institucionais" },
-        { nome: "Presença Próxima", pecas: ["malha fina", "calça de alfaiataria", "tênis premium"], ocasiao: "conteúdos educativos e bastidores" },
-        { nome: "Assinatura de Marca", pecas: ["peça na cor principal", "base escura", "acessório assinatura"], ocasiao: "lançamentos e chamadas comerciais" },
-      ],
-      texturas_tecidos: ["alfaiataria", "linho encorpado", "seda fosca"],
-      estampas: ["lisas", "microtexturas", "contrastes discretos"],
-    },
+    ...(inst ? {
+      identidade_visual: {
+        resumo: `Identidade visual editorial com contraste entre ${primary}, ${secondary} e ${tertiary}, transmitindo autoridade e presença consistente para a ${companyShort}.`,
+        cores_aplicacao: palette.slice(0, 4).map((c) => c.name),
+        elementos_visuais: ["grid editorial com margens generosas e respiro", "ícones de linha fina alinhados à paleta da marca", "tipografia com hierarquia clara entre título e corpo", "blocos de cor sólida para destacar dados e provas", "moldura ou selo discreto de assinatura da marca"],
+        estilo_fotografia: "Fotos com luz natural ou setup limpo, enquadramento estável, presença de equipe/ambiente de trabalho quando pertinente, sem poses forçadas.",
+        iconografia_grafismos: ["ícones de linha fina, nunca preenchidos", "formas geométricas simples como separador visual", "uso pontual de textura sutil, sem poluir o layout"],
+        evitar: ["excesso de informação visual", "elementos genéricos de banco de imagem"],
+        aplicacoes: [
+          { nome: "Feed", elementos: ["paleta consistente", "tipografia hierárquica", "grid limpo"], ocasiao: "posts educativos e institucionais" },
+          { nome: "Stories", elementos: ["blocos de cor", "ícones de linha fina", "texto curto e direto"], ocasiao: "bastidores e enquetes" },
+          { nome: "Apresentação institucional", elementos: ["selo da marca", "paleta consistente", "tipografia de autoridade"], ocasiao: "propostas, materiais e reuniões" },
+        ],
+        texturas_padroes: ["linho/textura sutil em fundos", "linhas finas como separador", "blocos sólidos de cor"],
+      },
+    } : {
+      figurino: {
+        resumo: `Figurino estratégico com presença editorial, alinhando ${primary}, ${secondary} e ${tertiary} para transmitir autoridade e aproximação.`,
+        cores_roupa: palette.slice(0, 4).map((c) => c.name),
+        pecas_chave: ["blazer estruturado em tom profundo", "camisa de tecido nobre", "calça de alfaiataria", "peça de destaque na cor principal", "malha fina neutra", "terceira peça elegante", "acessório assinatura"],
+        sapatos: ["sapato clássico de couro", "tênis minimalista premium", "mocassim estruturado", "opção elegante em tom neutro"],
+        acessorios: ["relógio discreto", "óculos com armação marcante", "anel minimalista", "bolsa ou pasta estruturada", "peça metálica discreta"],
+        cabelo: "Acabamento polido, natural e intencional, evitando aparência improvisada.",
+        maquiagem_grooming: "Aparência bem cuidada, pele natural e acabamento coerente com o grau de sofisticação da marca.",
+        evitar: ["excesso de informação visual", "peças desalinhadas ao posicionamento premium"],
+        looks_completos: [
+          { nome: "Autoridade Editorial", pecas: ["blazer estruturado", "base neutra", "sapato clássico"], ocasiao: "reuniões, lives e fotos institucionais" },
+          { nome: "Presença Próxima", pecas: ["malha fina", "calça de alfaiataria", "tênis premium"], ocasiao: "conteúdos educativos e bastidores" },
+          { nome: "Assinatura de Marca", pecas: ["peça na cor principal", "base escura", "acessório assinatura"], ocasiao: "lançamentos e chamadas comerciais" },
+        ],
+        texturas_tecidos: ["alfaiataria", "linho encorpado", "seda fosca"],
+        estampas: ["lisas", "microtexturas", "contrastes discretos"],
+      },
+    }),
     simbolos: {
       primary: [
         { nome: primary, simbolo: "✦", significado: "Direção central da marca", aplicacao: "Detalhes gráficos e separadores" },
@@ -567,7 +585,7 @@ Gere o relatório estratégico completo em JSON conforme a estrutura exigida.`;
 
     if (!reportContent) {
       console.error(`[report] job ${jobId} esgotou ${MAX_ATTEMPTS} tentativas, usando fallback determinístico. Último erro:`, lastError?.message);
-      reportContent = buildDeterministicReport(payload);
+      reportContent = buildDeterministicReport(payload, brandType);
       isFallback = true;
     }
 
@@ -600,7 +618,7 @@ Gere o relatório estratégico completo em JSON conforme a estrutura exigida.`;
         const retryInstructions = renderCoherenceRetryInstructions(coherenceViolations);
         const rawRetry = await withHeartbeat(jobId, "Refinando coerência da estratégia…", () =>
           callClaude({
-            systemPrompt: buildSystemPrompt(genderLabel) + renderBrandscriptFramework() + getEthicalRulesBlock(professionCategory) + POSITIONING_GUARDRAIL_BLOCK,
+            systemPrompt: buildSystemPrompt(genderLabel, brandType) + renderBrandscriptFramework() + getEthicalRulesBlock(professionCategory) + POSITIONING_GUARDRAIL_BLOCK,
             userText: userPrompt + "\n\n" + retryInstructions,
             max_tokens: 7500,
             timeoutMs: 120000,
