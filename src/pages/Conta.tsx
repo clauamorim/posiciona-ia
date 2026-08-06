@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { SeoHead } from "@/components/SeoHead";
@@ -12,6 +12,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel, AlertDialogTrigger
 } from "@/components/ui/alert-dialog";
 import { useAuth } from "@/contexts/AuthContext";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, ExternalLink, Trash2, Eye, EyeOff } from "lucide-react";
@@ -33,10 +34,15 @@ function evaluatePasswordStrength(pwd: string): PasswordStrength | null {
 
 const Conta = () => {
   const { user, subscription, planAccessLevel, signOut } = useAuth();
+  const { activeWorkspace, refreshWorkspaces } = useWorkspace();
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  const [profile, setProfile] = useState<{ profession: string | null; niche: string | null } | null>(null);
+  const isInstitutional = activeWorkspace?.brand_type === "institucional";
+  const [profession, setProfession] = useState("");
+  const [niche, setNiche] = useState("");
+  const [savingProfile, setSavingProfile] = useState(false);
+  const hydratedWorkspaceRef = useRef<string | null>(null);
   const [pwdCurrent, setPwdCurrent] = useState("");
   const [pwdNew, setPwdNew] = useState("");
   const [pwdConfirm, setPwdConfirm] = useState("");
@@ -53,14 +59,28 @@ const Conta = () => {
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
-    if (!user) return;
-    supabase
-      .from("profiles")
-      .select("profession, niche")
-      .eq("user_id", user.id)
-      .maybeSingle()
-      .then(({ data }) => setProfile(data ?? null));
-  }, [user]);
+    if (!activeWorkspace) return;
+    if (hydratedWorkspaceRef.current === activeWorkspace.id) return;
+    setProfession(activeWorkspace.profession ?? "");
+    setNiche(activeWorkspace.niche ?? "");
+    hydratedWorkspaceRef.current = activeWorkspace.id;
+  }, [activeWorkspace]);
+
+  const handleSaveProfile = async () => {
+    if (!activeWorkspace) return;
+    setSavingProfile(true);
+    const { error } = await supabase
+      .from("workspaces")
+      .update({ profession: profession.trim() || null, niche: niche.trim() || null })
+      .eq("id", activeWorkspace.id);
+    setSavingProfile(false);
+    if (error) {
+      toast({ title: "Não foi possível salvar", description: error.message, variant: "destructive" });
+      return;
+    }
+    await refreshWorkspaces();
+    toast({ title: "Dados atualizados" });
+  };
 
   const handleUpdatePassword = async () => {
     if (pwdNew.length < 8) {
@@ -168,21 +188,35 @@ const Conta = () => {
               </p>
             </div>
             <div>
-              <Label className="text-xs text-muted-foreground">Profissão</Label>
-              <Input value={profile?.profession ?? ""} readOnly className="mt-1 bg-muted/30 cursor-default" />
-              <p className="text-xs text-muted-foreground/70 mt-1">
-                Para alterar, edite o{" "}
-                <Link to="/business-questionnaire" className="underline hover:text-foreground">Diagnóstico do Negócio</Link>.
-              </p>
+              <Label htmlFor="conta-profession" className="text-xs text-muted-foreground">
+                {isInstitutional ? "Área de atuação" : "Profissão"}
+              </Label>
+              <Input
+                id="conta-profession"
+                value={profession}
+                onChange={(e) => setProfession(e.target.value)}
+                placeholder={isInstitutional ? "Ex: Clínica odontológica" : "Ex: Designer"}
+                className="mt-1"
+                disabled={!activeWorkspace}
+              />
             </div>
             <div>
-              <Label className="text-xs text-muted-foreground">Nicho</Label>
-              <Input value={profile?.niche ?? ""} readOnly className="mt-1 bg-muted/30 cursor-default" />
+              <Label htmlFor="conta-niche" className="text-xs text-muted-foreground">Nicho</Label>
+              <Input
+                id="conta-niche"
+                value={niche}
+                onChange={(e) => setNiche(e.target.value)}
+                placeholder="Ex: Moda"
+                className="mt-1"
+                disabled={!activeWorkspace}
+              />
               <p className="text-xs text-muted-foreground/70 mt-1">
-                Para alterar, edite o{" "}
-                <Link to="/business-questionnaire" className="underline hover:text-foreground">Diagnóstico do Negócio</Link>.
+                Esses dados são do perfil ativo ({activeWorkspace?.name ?? "…"}) — cada perfil tem os seus.
               </p>
             </div>
+            <Button size="sm" onClick={handleSaveProfile} disabled={savingProfile || !activeWorkspace}>
+              {savingProfile ? "Salvando…" : "Salvar"}
+            </Button>
           </CardContent>
         </Card>
 
