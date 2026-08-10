@@ -1099,7 +1099,7 @@ export type Database = {
           {
             foreignKeyName: "sales_narrative_questionnaires_workspace_id_fkey"
             columns: ["workspace_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "workspaces"
             referencedColumns: ["id"]
           },
