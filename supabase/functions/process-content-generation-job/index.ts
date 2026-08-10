@@ -782,12 +782,10 @@ async function processJob(jobId: string) {
       const personalContext = renderPersonalContext(personal, brandType);
       // Narrativa de Venda: enriquece o feed com objeções reais, casos cadastrados
       // e história de virada. Render block tem regras de uso por pilar e omite
-      // campos vazios — seguro pra rascunhos parciais.
-      // NOTA: sales_narrative_questionnaires ainda não é por perfil (UNIQUE(user_id)
-      // sem version) — 1 conta só tem 1 História de Venda, compartilhada entre
-      // perfis. Limitação conhecida e documentada, fora do escopo deste isolamento.
-      const salesNarrative = await fetchSalesNarrative(userId);
-      const salesNarrativeContext = renderSalesNarrativeContext(salesNarrative);
+      // campos vazios — seguro pra rascunhos parciais. Por PERFIL desde a
+      // migração 20260810130000 (antes era 1 por conta inteira).
+      const salesNarrative = await fetchSalesNarrative(userId, workspaceId);
+      const salesNarrativeContext = renderSalesNarrativeContext(salesNarrative, brandType);
 
       // Profissão regulamentada (OAB / CFM) e tendências de mercado — vêm do
       // PERFIL ativo (workspace), não da conta inteira.

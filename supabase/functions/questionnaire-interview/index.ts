@@ -107,6 +107,20 @@ const SALES_FIELDS: FieldDef[] = [
   { key: "forbidden_topics", label: "Temas que JAMAIS tocaria no conteúdo", block: "Prova e identidade" },
 ];
 
+// "História de Venda" institucional — mesmas chaves de SALES_FIELDS,
+// enquadramento fala da EMPRESA/MARCA em vez de "você". Espelho de
+// institutionalFields em src/pages/SalesNarrativeQuestionnaire.tsx.
+const INSTITUTIONAL_SALES_FIELDS: FieldDef[] = [
+  { key: "previous_profession", label: "Como a empresa operava ou se posicionava antes da virada", block: "Sua virada" },
+  { key: "career_turn", label: "A virada: o que a empresa decidiu mudar e que novo caminho escolheu", block: "Sua virada" },
+  { key: "start_year_motivation", label: "Ano em que essa virada começou e a motivação do primeiro passo", block: "Sua virada" },
+  { key: "negative_comments", label: "Críticas ou comentários negativos que a empresa ouviu nessa virada (frases literais, entre aspas)", block: "Vozes da audiência" },
+  { key: "audience_objections", label: "As 3 principais objeções/dúvidas do cliente antes de fechar (frases literais, em primeira pessoa)", block: "Vozes da audiência" },
+  { key: "proof_cases", label: "1 a 3 casos reais como prova (nome — pode ser fictício —, contexto antes, resultado depois; um por linha)", block: "Prova e identidade" },
+  { key: "personal_expressions", label: "Palavra, expressão ou bordão que é marca registrada da empresa", block: "Prova e identidade" },
+  { key: "forbidden_topics", label: "Temas que a empresa JAMAIS tocaria no conteúdo", block: "Prova e identidade" },
+];
+
 const KINDS: Record<string, { fields: FieldDef[]; mission: string }> = {
   personal: {
     fields: PERSONAL_FIELDS,
@@ -132,6 +146,11 @@ const KINDS: Record<string, { fields: FieldDef[]; mission: string }> = {
     fields: SALES_FIELDS,
     mission:
       'Você conduz o questionário "História de Venda" da Posiciona em formato de conversa. O objetivo é colher a história de virada profissional do usuário e a matéria-prima da narrativa de vendas (críticas ouvidas, objeções de clientes, casos de prova, jeito de falar), que alimenta o módulo Stories de Venda. ATENÇÃO: nos campos de críticas e objeções, preserve as FRASES LITERAIS que o usuário citar, entre aspas, exatamente como ditas — elas geram identificação na audiência. Nos casos de prova, estruture um por linha (nome, contexto antes, resultado depois).',
+  },
+  sales_institucional: {
+    fields: INSTITUTIONAL_SALES_FIELDS,
+    mission:
+      'Você conduz o questionário "História de Venda" da Posiciona em formato de conversa. O objetivo é colher a história de virada da EMPRESA/MARCA e a matéria-prima da narrativa de vendas (críticas ouvidas, objeções de clientes, casos de prova, jeito de falar), que alimenta o módulo Stories de Venda. NUNCA pergunte sobre a vida pessoal de um indivíduo — o sujeito das respostas é sempre a EMPRESA. ATENÇÃO: nos campos de críticas e objeções, preserve as FRASES LITERAIS que forem citadas, entre aspas, exatamente como ditas — elas geram identificação na audiência. Nos casos de prova, estruture um por linha (nome, contexto antes, resultado depois).',
   },
 };
 
@@ -247,12 +266,13 @@ Deno.serve(async (req) => {
       ownedWorkspaceId = String(workspaceId);
     }
 
-    // "Sua História"/"Voz da Marca" e "Diagnóstico do Negócio" são a MESMA
-    // entrevista por fora ("personal"/"business") — o servidor troca para os
-    // campos institucionais sozinho, conforme o tipo de marca do PERFIL ATIVO
-    // (sem workspaceId, cai no perfil default do dono — chamador legado).
+    // "Sua História"/"Voz da Marca", "Diagnóstico do Negócio" e "História de
+    // Venda" são a MESMA entrevista por fora ("personal"/"business"/"sales")
+    // — o servidor troca para os campos institucionais sozinho, conforme o
+    // tipo de marca do PERFIL ATIVO (sem workspaceId, cai no perfil default
+    // do dono — chamador legado).
     let resolvedKindName = String(kindName);
-    if (resolvedKindName === "personal" || resolvedKindName === "business") {
+    if (resolvedKindName === "personal" || resolvedKindName === "business" || resolvedKindName === "sales") {
       const brandType = await fetchWorkspaceBrandType(authedUserId, ownedWorkspaceId);
       if (brandType === "institucional") resolvedKindName = `${resolvedKindName}_institucional`;
     }

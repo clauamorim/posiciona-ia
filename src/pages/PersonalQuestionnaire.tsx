@@ -354,14 +354,16 @@ const PersonalQuestionnaire = () => {
       description: "Sua estratégia completa está sendo liberada.",
     });
     // Oferta única da História de Venda (opcional) — se já existe registro
-    // (respondida ou pulada antes), vai direto à recompensa em /results.
+    // (respondida ou pulada antes) NESTE PERFIL, vai direto à recompensa em
+    // /results. Por PERFIL desde a migração 20260810130000 (antes era 1 por
+    // conta inteira — perfil novo nunca veria a oferta de novo).
     const { data: salesRecord } = await supabase
       .from("sales_narrative_questionnaires")
-      .select("user_id")
-      .eq("user_id", user.id)
+      .select("workspace_id")
+      .eq("workspace_id", activeWorkspace?.id)
       .maybeSingle();
     navigate(salesRecord ? "/results" : "/sales-narrative-intro");
-  }, [user, consent, flush, persist, clearLocalBackup, navigate]);
+  }, [user, activeWorkspace, consent, flush, persist, clearLocalBackup, navigate]);
 
   const handleNext = async () => {
     if (isEditable) await flush();

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { SeoHead } from "@/components/SeoHead";
@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/contexts/AuthContext";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Loader2, Save, Sparkles, Info, ChevronLeft, ChevronRight, Compass, Users, Award, Mic, PenLine } from "lucide-react";
@@ -29,7 +30,7 @@ interface Block {
 }
 
 // IMPORTANT: keys preservadas exatamente como antes. Apenas agrupamento visual.
-const blocks: Block[] = [
+const personalBlocks: Block[] = [
   {
     title: "Sua virada",
     subtitle: "O ponto de partida e a decisão que te trouxe até aqui.",
@@ -61,11 +62,45 @@ const blocks: Block[] = [
   },
 ];
 
-const allFields = blocks.flatMap(b => b.fields);
-const interviewFields = allFields.map(f => ({ key: f.key, label: f.label }));
+// Mesmas 8 chaves de personalBlocks, texto reformulado para não pressupor
+// "você" pessoa física — fala da EMPRESA/MARCA. Espelho de
+// INSTITUTIONAL_SALES_FIELDS em questionnaire-interview/index.ts — mudou
+// aqui, mudar lá.
+const institutionalBlocks: Block[] = [
+  {
+    title: "A virada da marca",
+    subtitle: "O ponto de partida e a decisão que trouxe a empresa até aqui.",
+    icon: Compass,
+    fields: [
+      { key: "previous_profession", label: "Como a empresa operava ou se posicionava antes da virada?", placeholder: "Ex: prestava serviço avulso sem especialização definida" },
+      { key: "career_turn", label: "Qual foi a virada que trouxe a empresa até aqui?", placeholder: "O que a empresa decidiu mudar e que novo caminho escolheu?" },
+      { key: "start_year_motivation", label: "Em que ano essa virada começou e o que motivou o primeiro passo?", placeholder: "Ex: 2019, depois de perceber que o modelo antigo não escalava" },
+    ],
+  },
+  {
+    title: "Vozes da audiência",
+    subtitle: "As frases reais que a marca ouve — de críticos e de clientes.",
+    icon: Users,
+    fields: [
+      { key: "negative_comments", label: "Que críticas ou comentários negativos a empresa ouviu nessa virada?", placeholder: 'Ex: "isso não vai vingar", "é modinha", "vocês vão perder cliente"', help: "Coloque entre aspas as frases literais — elas geram identificação imediata na audiência." },
+      { key: "audience_objections", label: "Quais são as 3 principais objeções/dúvidas do cliente antes de fechar?", placeholder: '"não tenho tempo agora", "tá caro", "não sei se funciona pro meu caso"', help: "Fale as frases literais que a equipe escuta — em primeira pessoa, como o cliente diria." },
+    ],
+  },
+  {
+    title: "Prova e identidade",
+    subtitle: "Resultados reais e o que torna a voz da marca única.",
+    icon: Award,
+    fields: [
+      { key: "proof_cases", label: "Liste 1 a 3 casos reais que a empresa pode citar como prova", placeholder: "Nome do cliente (pode ser fictício), contexto antes e resultado depois. Um por linha.", help: "Ex: Clínica Marina, 0 pacientes novos em 6 meses, 12 agendamentos em 30 dias." },
+      { key: "personal_expressions", label: "Tem alguma palavra, expressão ou jeito de falar que é marca registrada da empresa?", placeholder: "Algum bordão, jargão próprio, expressão recorrente?" },
+      { key: "forbidden_topics", label: "Tem algum tema ou assunto que a empresa JAMAIS tocaria?", placeholder: "Política, concorrência direta, valores de contrato — qualquer coisa fora dos limites." },
+    ],
+  },
+];
 
 const SalesNarrativeQuestionnaire = () => {
   const { user } = useAuth();
+  const { activeWorkspace } = useWorkspace();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const fromIntro = searchParams.get("from") === "intro";
@@ -79,27 +114,31 @@ const SalesNarrativeQuestionnaire = () => {
   // Monta o chat só após a hidratação (1º clique) e mantém montado depois,
   // para a conversa sobreviver à alternância entre os modos.
   const [interviewStarted, setInterviewStarted] = useState(false);
-  const [profile, setProfile] = useState<{ profession?: string; niche?: string }>({});
   // Esta página não tem autosave: sinaliza quando há extração da entrevista
   // pendente de persistir (o effect abaixo salva com o estado já mesclado).
   const [pendingSave, setPendingSave] = useState(false);
+  const hydratedWorkspaceRef = useRef<string | null>(null);
+
+  const isInstitutional = activeWorkspace?.brand_type === "institucional";
+  const blocks = isInstitutional ? institutionalBlocks : personalBlocks;
+  const allFields = blocks.flatMap(b => b.fields);
+  const interviewFields = allFields.map(f => ({ key: f.key, label: f.label }));
 
   const currentBlock = blocks[blockIndex];
   const isFirst = blockIndex === 0;
   const isLast = blockIndex === blocks.length - 1;
 
   useEffect(() => {
-    // Só hidrata UMA vez por id de usuário. Sem o guard `hydrated`, mudar de
-    // aba/janela revalida a sessão do Supabase, gera um novo objeto `user`
-    // (mesmo id, referência nova), o effect re-roda, e sobrescreve as
-    // respostas já digitadas que ainda não foram salvas no banco.
-    if (!user?.id || hydrated) return;
+    // Recarrega quando o perfil ativo troca (switcher), não só uma vez.
+    if (!user?.id || !activeWorkspace) return;
+    if (hydratedWorkspaceRef.current === activeWorkspace.id) return;
+    const workspaceId = activeWorkspace.id;
     let cancelled = false;
     (async () => {
       const { data } = await supabase
         .from("sales_narrative_questionnaires")
         .select("*")
-        .eq("user_id", user.id)
+        .eq("workspace_id", workspaceId)
         .maybeSingle();
       if (cancelled) return;
       const init: Record<string, string> = {};
@@ -107,28 +146,24 @@ const SalesNarrativeQuestionnaire = () => {
       setAnswers(init);
       setIsComplete(Boolean(data?.is_complete));
       setHydrated(true);
+      hydratedWorkspaceRef.current = workspaceId;
     })();
     return () => { cancelled = true; };
-  }, [user?.id, hydrated]);
-
-  // Profissão/nicho personalizam as perguntas do modo entrevista.
-  useEffect(() => {
-    if (!user?.id) return;
-    supabase.from("profiles").select("profession, niche").eq("user_id", user.id).maybeSingle()
-      .then(({ data }) => { if (data) setProfile({ profession: data.profession || undefined, niche: data.niche || undefined }); });
-  }, [user?.id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, activeWorkspace]);
 
   const persist = async (complete: boolean) => {
-    if (!user) return false;
+    if (!user || !activeWorkspace) return false;
     const payload: any = {
       user_id: user.id,
+      workspace_id: activeWorkspace.id,
       ...answers,
       is_complete: complete || isComplete,
       status: complete ? "submitted" : "draft",
     };
     const { error } = await supabase
       .from("sales_narrative_questionnaires")
-      .upsert(payload, { onConflict: "user_id" });
+      .upsert(payload, { onConflict: "workspace_id" });
     if (error) {
       toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" });
       return false;
@@ -260,11 +295,14 @@ const SalesNarrativeQuestionnaire = () => {
           <div className={mode === "interview" ? "" : "hidden"}>
             <InterviewMode
               kind="sales"
-              intro="Vamos construir sua história de venda em formato de conversa."
+              workspaceId={activeWorkspace?.id}
+              intro={isInstitutional
+                ? "Vamos construir a história de venda da marca em formato de conversa."
+                : "Vamos construir sua história de venda em formato de conversa."}
               fields={interviewFields}
               answers={answers}
-              profession={profile.profession}
-              niche={profile.niche}
+              profession={activeWorkspace?.profession ?? undefined}
+              niche={activeWorkspace?.niche ?? undefined}
               onExtract={extracted => {
                 setAnswers(prev => ({ ...prev, ...extracted }));
                 setPendingSave(true);

@@ -67,7 +67,10 @@ export const DashboardLayout = ({ children, wide = false }: { children: React.Re
         supabase.from("instagram_analyses").select("id").eq("workspace_id", workspaceId).limit(1),
         supabase.from("portrait_generations").select("id").eq("user_id", user.id).limit(1),
         supabase.from("personal_questionnaires").select("status").eq("workspace_id", workspaceId).order("version", { ascending: false }).limit(1),
-        supabase.from("sales_narrative_questionnaires").select("status").eq("user_id", user.id).order("version", { ascending: false }).limit(1),
+        supabase.from("sales_narrative_questionnaires").select("status").eq("workspace_id", workspaceId).limit(1),
+        // sales_story_sequences ainda por conta inteira (user_id) — a função
+        // generate-sales-stories não grava workspace_id no insert ainda.
+        // Fora do escopo desta rodada (só a História de Venda em si).
         supabase.from("sales_story_sequences").select("id").eq("user_id", user.id).limit(1),
       ]);
       const bComplete = bqRes.data?.[0]?.is_complete ?? false;

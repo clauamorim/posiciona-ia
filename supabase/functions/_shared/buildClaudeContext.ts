@@ -312,20 +312,20 @@ export interface SalesNarrativeAnswers {
 
 /**
  * Busca o questionário "História de Venda" (sales_narrative_questionnaires)
- * mais recente do usuário. Não filtra por status para que rascunhos parciais
- * ainda contribuam — o render block omite campos vazios.
+ * do PERFIL. Com `workspaceId`, escopa pelo perfil ativo — sem isso (chamador
+ * legado), cai no comportamento antigo por `user_id`. Não filtra por status
+ * para que rascunhos parciais ainda contribuam — o render block omite campos
+ * vazios.
  */
-export async function fetchSalesNarrative(userId: string): Promise<SalesNarrativeAnswers | null> {
+export async function fetchSalesNarrative(userId: string, workspaceId?: string | null): Promise<SalesNarrativeAnswers | null> {
   try {
     const admin = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
-    const { data } = await admin
-      .from("sales_narrative_questionnaires")
-      .select("*")
-      .eq("user_id", userId)
-      .maybeSingle();
+    let query = admin.from("sales_narrative_questionnaires").select("*");
+    query = workspaceId ? query.eq("workspace_id", workspaceId) : query.eq("user_id", userId);
+    const { data } = await query.maybeSingle();
     return data || null;
   } catch (e) {
     console.error("Error fetching sales narrative:", e);
@@ -336,10 +336,15 @@ export async function fetchSalesNarrative(userId: string): Promise<SalesNarrativ
 /**
  * Renderiza o bloco de Narrativa de Venda para colar no system prompt do
  * estágio A (feed) e do estágio B (stories). Campos vazios são omitidos.
- * Inclui guia de uso por pilar editorial.
+ * Inclui guia de uso por pilar editorial. Com `brandType === "institucional"`,
+ * o sujeito das respostas passa a ser a MARCA/EMPRESA, não um indivíduo.
  */
-export function renderSalesNarrativeContext(narrative: SalesNarrativeAnswers | null | undefined): string {
+export function renderSalesNarrativeContext(
+  narrative: SalesNarrativeAnswers | null | undefined,
+  brandType: "pessoal" | "institucional" = "pessoal",
+): string {
   if (!narrative) return "";
+  const inst = brandType === "institucional";
   const v = (k: string): string => {
     const raw = (narrative as any)[k];
     return typeof raw === "string" ? raw.trim() : "";
@@ -358,31 +363,43 @@ export function renderSalesNarrativeContext(narrative: SalesNarrativeAnswers | n
   if (!hasAny) return "";
 
   const lines: string[] = [];
-  if (previous) lines.push(`- Profissão/situação ANTES da virada: ${previous}`);
-  if (turn) lines.push(`- A virada de carreira: ${turn}`);
-  if (motivation) lines.push(`- Quando começou + motivação: ${motivation}`);
-  if (critics) lines.push(`- Críticas/comentários negativos recebidos na virada: ${critics}`);
-  if (objections) lines.push(`- Top objeções/dúvidas do cliente antes de fechar: ${objections}`);
-  if (cases) lines.push(`- Casos reais cadastrados (use APENAS literal, NUNCA invente variações):\n${cases.split(/\r?\n/).map((s) => `    • ${s.trim()}`).filter((s) => s.trim().length > 4).join("\n")}`);
-  if (expressions) lines.push(`- Bordões/expressões pessoais do criador: ${expressions}`);
-  if (forbidden) lines.push(`- TEMAS PROIBIDOS (JAMAIS mencionar em qualquer post): ${forbidden}`);
+  if (inst) {
+    if (previous) lines.push(`- Situação da empresa ANTES da virada: ${previous}`);
+    if (turn) lines.push(`- A virada que redefiniu o negócio: ${turn}`);
+    if (motivation) lines.push(`- Quando começou + motivação de dar o primeiro passo: ${motivation}`);
+    if (critics) lines.push(`- Críticas/comentários negativos recebidos pela marca nessa virada: ${critics}`);
+    if (objections) lines.push(`- Top objeções/dúvidas do cliente antes de fechar: ${objections}`);
+    if (cases) lines.push(`- Casos reais cadastrados (use APENAS literal, NUNCA invente variações):\n${cases.split(/\r?\n/).map((s) => `    • ${s.trim()}`).filter((s) => s.trim().length > 4).join("\n")}`);
+    if (expressions) lines.push(`- Bordões/expressões que são marca registrada da empresa: ${expressions}`);
+    if (forbidden) lines.push(`- TEMAS PROIBIDOS (JAMAIS mencionar em qualquer post): ${forbidden}`);
+  } else {
+    if (previous) lines.push(`- Profissão/situação ANTES da virada: ${previous}`);
+    if (turn) lines.push(`- A virada de carreira: ${turn}`);
+    if (motivation) lines.push(`- Quando começou + motivação: ${motivation}`);
+    if (critics) lines.push(`- Críticas/comentários negativos recebidos na virada: ${critics}`);
+    if (objections) lines.push(`- Top objeções/dúvidas do cliente antes de fechar: ${objections}`);
+    if (cases) lines.push(`- Casos reais cadastrados (use APENAS literal, NUNCA invente variações):\n${cases.split(/\r?\n/).map((s) => `    • ${s.trim()}`).filter((s) => s.trim().length > 4).join("\n")}`);
+    if (expressions) lines.push(`- Bordões/expressões pessoais do criador: ${expressions}`);
+    if (forbidden) lines.push(`- TEMAS PROIBIDOS (JAMAIS mencionar em qualquer post): ${forbidden}`);
+  }
 
-  return `\n\n# NARRATIVA DE VENDA — HISTÓRIA DE VIRADA, OBJEÇÕES E PROVAS DO CRIADOR
-Estas respostas vêm do questionário "História de Venda" preenchido pelo criador. Material legítimo para enriquecer voz, autoridade e profundidade editorial. Use APENAS o que está aqui — nunca invente fatos, ano, casos ou frases.
+  const sujeito = inst ? "DA MARCA" : "DO CRIADOR";
+  return `\n\n# NARRATIVA DE VENDA — HISTÓRIA DE VIRADA, OBJEÇÕES E PROVAS ${sujeito}
+Estas respostas vêm do questionário "História de Venda" preenchido${inst ? " sobre a marca" : " pelo criador"}. Material legítimo para enriquecer voz, autoridade e profundidade editorial. Use APENAS o que está aqui — nunca invente fatos, ano, casos ou frases.${inst ? " NUNCA trate isto como vida pessoal de um indivíduo — o sujeito é sempre a MARCA." : ""}
 
 ${lines.join("\n")}
 
 REGRAS DE USO POR PILAR EDITORIAL:
 - pilar "caso": SE houver casos reais cadastrados, use-os com nome (fictício ou não, conforme cadastrado), contexto e resultado EXATAMENTE como aparecem. Sem caso cadastrado relevante para o ângulo do post, escolha outro pilar — não invente.
-- pilar "posicionamento": use "Profissão/situação ANTES" + "A virada" para articular categoria + alternativa rejeitada (ex.: "venho de X, hoje atendo apenas Y" / "não trabalho com Z, trabalho com W").
-- pilar "bastidor": combine com o bloco CONTEXTO PESSOAL DO CRIADOR. A história de virada é matéria-prima de bastidor legítima.
-- pilar "mito": as críticas em "Críticas/comentários negativos" e as objeções em "Top objeções" podem virar a crença que o post derruba ("todo mundo me dizia X" / "todo cliente acha X — não é").
+- pilar "posicionamento": use "Situação ANTES" + "A virada" para articular categoria + alternativa rejeitada (ex.: "vínhamos de X, hoje atendemos apenas Y" / "não trabalhamos com Z, trabalhamos com W").
+- pilar "bastidor": combine com o bloco CONTEXTO ${inst ? "DA MARCA" : "PESSOAL DO CRIADOR"}. A história de virada é matéria-prima de bastidor legítima.
+- pilar "mito": as críticas em "Críticas/comentários negativos" e as objeções em "Top objeções" podem virar a crença que o post derruba ("todo mundo dizia X" / "todo cliente acha X — não é").
 - pilar "metodo": as objeções do cliente ajudam a estruturar o passo a passo (cada passo do método responde a uma objeção real).
 
 REGRAS TRANSVERSAIS:
-- Bordões/expressões pessoais: PODEM aparecer em qualquer pilar como tempero de voz. Limite: no MÁXIMO 1 bordão por semana (não vire muleta).
+- Bordões/expressões: PODEM aparecer em qualquer pilar como tempero de voz. Limite: no MÁXIMO 1 bordão por semana (não vire muleta).
 - TEMAS PROIBIDOS: ZERO tolerância. Nem como gancho, nem como exemplo, nem como metáfora. Se um post precisaria tocar nesses temas, mude o ângulo.
-- Nunca traduza fatos do bloco em afirmações genéricas ("muitos clientes me dizem que…") sem que o fato esteja literalmente aqui.`;
+- Nunca traduza fatos do bloco em afirmações genéricas ("muitos clientes dizem que…") sem que o fato esteja literalmente aqui.`;
 }
 
 // ============ Fatos verificáveis (anti-alucinação) ============
