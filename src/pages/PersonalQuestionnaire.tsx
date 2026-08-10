@@ -8,11 +8,13 @@ import { Textarea } from "@/components/ui/textarea";
 
 import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { ChevronLeft, ChevronRight, Save, Sparkles, ShieldAlert, HelpCircle, Heart, Briefcase, Compass, BookOpen, Loader2, Check, AlertTriangle, Mic, PenLine } from "lucide-react";
+import { ChevronLeft, ChevronRight, Save, Sparkles, ShieldAlert, HelpCircle, Heart, Briefcase, Compass, BookOpen, Loader2, Check, AlertTriangle, Mic, PenLine, RefreshCw, Pencil, Trash2 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { InlineHelpButton } from "@/components/assistant/InlineHelpButton";
 import { QuestionnaireStatusBadge } from "@/components/questionnaire/QuestionnaireStatusBadge";
@@ -141,7 +143,7 @@ const institutionalBlocks: Block[] = [
 const allFieldKeys = personalBlocks.flatMap(b => b.fields.map(f => f.key));
 
 const PersonalQuestionnaire = () => {
-  const { user } = useAuth();
+  const { user, balances, refreshSubscription } = useAuth();
   const { activeWorkspace } = useWorkspace();
   const navigate = useNavigate();
   const [blockIndex, setBlockIndex] = useState(0);
@@ -151,6 +153,8 @@ const PersonalQuestionnaire = () => {
   const [existingId, setExistingId] = useState<string | null>(null);
   const [status, setStatus] = useState<QStatus>("draft");
   const [consent, setConsent] = useState(false);
+  const [showReanalysisDialog, setShowReanalysisDialog] = useState(false);
+  const reanalysisCredits = balances?.reanalysis_credits ?? 0;
   const [mode, setMode] = useState<"form" | "interview">("form");
   // Monta o chat só após a hidratação (1º clique) e mantém montado depois,
   // para a conversa sobreviver à alternância entre os modos.
@@ -207,6 +211,33 @@ const PersonalQuestionnaire = () => {
 
   const isEditable = !isSubmitted;
   const hydratedWorkspaceRef = useRef<string | null>(null);
+
+  // Único dos 3 questionários iniciais sem reanálise até aqui — Diagnóstico
+  // e Arquétipos já tinham. Não mexe em `reports`: diferente do Diagnóstico,
+  // Sua História/Voz da Marca não é insumo estrutural do relatório, só do
+  // contexto de humanização usado na geração de conteúdo — reeditar aqui não
+  // invalida um relatório já gerado, só passa a valer nas próximas semanas.
+  const handleReanalysis = async (mode: "edit" | "reset") => {
+    if (!user || reanalysisCredits < 1) return;
+    await supabase.rpc("consume_credit", {
+      p_credit_type: "reanalysis",
+      p_amount: -1,
+      p_description: `Reanálise: ${mode === "edit" ? "editar Sua História/Voz da Marca" : "refazer do zero"}`,
+    });
+    if (mode === "reset") {
+      const cleared: Record<string, string> = {};
+      allFieldKeys.forEach(k => { cleared[k] = ""; });
+      setAnswers(cleared);
+    }
+    if (existingId) {
+      await supabase.from("personal_questionnaires").update({ status: "draft", is_complete: false }).eq("id", existingId);
+    }
+    setStatus("draft");
+    setShowReanalysisDialog(false);
+    setBlockIndex(0);
+    await refreshSubscription();
+    toast({ title: mode === "edit" ? "Questionário desbloqueado para edição" : "Questionário reiniciado" });
+  };
 
   const { status: saveStatus, flush, clearLocalBackup } = useQuestionnaireAutosave({
     userId: user?.id,
@@ -360,7 +391,28 @@ const PersonalQuestionnaire = () => {
               {filledCount}/{totalFields} respondidas · ~12 min
             </p>
           </div>
-          <QuestionnaireStatusBadge status={isSubmitted ? "completed" : "in_progress"} />
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {isSubmitted && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5"
+                    onClick={() => setShowReanalysisDialog(true)}
+                    disabled={reanalysisCredits < 1}
+                  >
+                    <RefreshCw className="h-3 w-3" />
+                    <span className="hidden sm:inline">Refazer</span> ({reanalysisCredits})
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Você tem {reanalysisCredits} crédito{reanalysisCredits !== 1 ? "s" : ""} de reanálise disponível{reanalysisCredits !== 1 ? "is" : ""}
+                </TooltipContent>
+              </Tooltip>
+            )}
+            <QuestionnaireStatusBadge status={isSubmitted ? "completed" : "in_progress"} />
+          </div>
         </div>
 
         {/* Persuasion / context */}
@@ -565,6 +617,29 @@ const PersonalQuestionnaire = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Reanalysis Dialog */}
+      <Dialog open={showReanalysisDialog} onOpenChange={setShowReanalysisDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Refazer {isInstitutional ? "Voz da Marca" : "Sua História"}</DialogTitle>
+            <DialogDescription>
+              Isso consumirá 1 crédito de reanálise. Você tem {reanalysisCredits} crédito{reanalysisCredits !== 1 ? "s" : ""} disponível{reanalysisCredits !== 1 ? "is" : ""}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 py-4">
+            <Button className="w-full gap-2" onClick={() => handleReanalysis("edit")}>
+              <Pencil className="h-4 w-4" /> Editar respostas existentes
+            </Button>
+            <Button variant="outline" className="w-full gap-2" onClick={() => handleReanalysis("reset")}>
+              <Trash2 className="h-4 w-4" /> Recomeçar do zero
+            </Button>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShowReanalysisDialog(false)}>Cancelar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 };
