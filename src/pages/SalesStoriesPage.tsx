@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/collapsible";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAuth } from "@/contexts/AuthContext";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -121,6 +122,7 @@ const humanAgo = (iso: string) => {
 
 export default function SalesStoriesPage() {
   const { user } = useAuth();
+  const { activeWorkspace } = useWorkspace();
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -146,15 +148,16 @@ export default function SalesStoriesPage() {
   const [previewSeq, setPreviewSeq] = useState<Sequence | null>(null);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !activeWorkspace) return;
     (async () => {
       setLoading(true);
       const [{ data: narrative }, { data: seqs }, { data: balance }] = await Promise.all([
         supabase.from("sales_narrative_questionnaires")
-          .select("is_complete, updated_at").eq("user_id", user.id).maybeSingle(),
+          .select("is_complete, updated_at").eq("workspace_id", activeWorkspace.id).maybeSingle(),
         supabase.from("sales_story_sequences")
-          .select("*").eq("user_id", user.id)
+          .select("*").eq("workspace_id", activeWorkspace.id)
           .order("generated_at", { ascending: false }),
+        // Créditos são da CONTA, não do perfil — compartilhados entre todos os perfis.
         supabase.from("user_balances")
           .select("regeneration_credits").eq("user_id", user.id).maybeSingle(),
       ]);
@@ -164,7 +167,7 @@ export default function SalesStoriesPage() {
       setRegenCredits(balance?.regeneration_credits ?? 0);
       setLoading(false);
     })();
-  }, [user]);
+  }, [user, activeWorkspace]);
 
   const handleGenerate = async () => {
     if (offer.trim().length < 3) {
@@ -174,7 +177,7 @@ export default function SalesStoriesPage() {
     setGenerating(true);
     try {
       const { data, error } = await supabase.functions.invoke("generate-sales-stories", {
-        body: { sequence_type: seqType, offer_context: offer.trim() },
+        body: { sequence_type: seqType, offer_context: offer.trim(), workspaceId: activeWorkspace?.id },
       });
       if (error || (data as any)?.error) {
         throw new Error((data as any)?.error || error?.message || "Erro ao gerar.");

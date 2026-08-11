@@ -7,6 +7,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { corsHeaders } from "../_shared/cors.ts";
 import { callClaude, ClaudeError } from "../_shared/claudeClient.ts";
 import { extractJsonFromLLM } from "../_shared/jsonExtract.ts";
+import { verifyWorkspaceOwnership } from "../_shared/workspaceAuth.ts";
 import {
   SALES_STORY_SYSTEM_PROMPT,
   SALES_SEQUENCE_TYPES,
@@ -40,6 +41,7 @@ serve(async (req) => {
     const body = await req.json().catch(() => null);
     const sequence_type = body?.sequence_type as SalesSequenceType;
     const offer_context = (body?.offer_context || "").toString().trim();
+    const workspaceId = typeof body?.workspaceId === "string" ? body.workspaceId : null;
 
     if (!SALES_SEQUENCE_TYPES.includes(sequence_type)) {
       return json({ error: "Tipo de sequência inválido." }, 400);
@@ -48,15 +50,19 @@ serve(async (req) => {
       return json({ error: "Descreva a oferta (3 a 500 caracteres)." }, 400);
     }
 
+    // workspaceId vem do corpo (input do cliente) — esta função roda com
+    // service role e ignora RLS, então a posse precisa ser checada em código.
+    if (workspaceId && !(await verifyWorkspaceOwnership(user.id, workspaceId))) {
+      return json({ error: "Sem acesso a este perfil." }, 403);
+    }
+
     const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // 1) Verifica narrativa preenchida
-    const { data: narrative } = await admin
-      .from("sales_narrative_questionnaires")
-      .select("*")
-      .eq("user_id", user.id)
-      .eq("is_complete", true)
-      .maybeSingle();
+    // 1) Verifica narrativa preenchida — por PERFIL (fallback por conta pra
+    // chamador antigo, embora o frontend hoje sempre envie workspaceId).
+    let narrativeQuery = admin.from("sales_narrative_questionnaires").select("*").eq("is_complete", true);
+    narrativeQuery = workspaceId ? narrativeQuery.eq("workspace_id", workspaceId) : narrativeQuery.eq("user_id", user.id);
+    const { data: narrative } = await narrativeQuery.maybeSingle();
 
     if (!narrative) {
       return json({
@@ -64,12 +70,14 @@ serve(async (req) => {
       }, 400);
     }
 
-    // 2) Contexto adicional opcional
+    // 2) Contexto adicional opcional — mesmo escopo por perfil.
+    let businessQuery = admin.from("business_questionnaires").select("*");
+    businessQuery = workspaceId ? businessQuery.eq("workspace_id", workspaceId) : businessQuery.eq("user_id", user.id);
+    let personalQuery = admin.from("personal_questionnaires").select("*").eq("status", "submitted");
+    personalQuery = workspaceId ? personalQuery.eq("workspace_id", workspaceId) : personalQuery.eq("user_id", user.id);
     const [{ data: business }, { data: personal }] = await Promise.all([
-      admin.from("business_questionnaires").select("*").eq("user_id", user.id)
-        .order("version", { ascending: false }).limit(1).maybeSingle(),
-      admin.from("personal_questionnaires").select("*").eq("user_id", user.id)
-        .eq("status", "submitted").order("version", { ascending: false }).limit(1).maybeSingle(),
+      businessQuery.order("version", { ascending: false }).limit(1).maybeSingle(),
+      personalQuery.order("version", { ascending: false }).limit(1).maybeSingle(),
     ]);
 
     // 3) Consome crédito (RPC usa auth.uid() do user client)
@@ -144,6 +152,7 @@ serve(async (req) => {
       .from("sales_story_sequences")
       .insert({
         user_id: user.id,
+        workspace_id: workspaceId,
         sequence_type,
         offer_context,
         stories: normalized,
