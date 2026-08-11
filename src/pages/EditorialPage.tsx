@@ -19,6 +19,8 @@ import {
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -133,6 +135,10 @@ const EditorialPage = () => {
   const [generatingMessage, setGeneratingMessage] = useState<string>("");
   const [regeneratingPost, setRegeneratingPost] = useState<string | null>(null);
   const [regeneratingFreeWeek, setRegeneratingFreeWeek] = useState<number | null>(null);
+  // Regenerar um post com tema/objeção específica forçada (ex: uma objeção
+  // real da História de Venda que a IA não escolheu organicamente).
+  const [themeOverrideTarget, setThemeOverrideTarget] = useState<{ weekIndex: number; dayIndex: number } | null>(null);
+  const [themeOverrideText, setThemeOverrideText] = useState("");
   const [downloadingPDF, setDownloadingPDF] = useState(false);
   const [deletingWeek, setDeletingWeek] = useState<number | null>(null);
   const [confirmDeleteWeek, setConfirmDeleteWeek] = useState<number | null>(null);
@@ -1396,6 +1402,13 @@ const EditorialPage = () => {
                             )}
                             Regenerar post (e story do dia)
                           </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => setThemeOverrideTarget({ weekIndex: wi, dayIndex: di })}
+                            disabled={regeneratingPost === `${regenKey}-feed` || regenerationCredits < 1}
+                          >
+                            <Wand2 className="h-3.5 w-3.5 mr-2" />
+                            Regenerar com tema/objeção específica
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
@@ -2009,6 +2022,45 @@ const EditorialPage = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog
+        open={themeOverrideTarget !== null}
+        onOpenChange={(open) => { if (!open) { setThemeOverrideTarget(null); setThemeOverrideText(""); } }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Regenerar com tema específico</DialogTitle>
+            <DialogDescription>
+              Force um tema, objeção ou ângulo específico para este post — útil para garantir que uma objeção real de cliente (da História de Venda, por exemplo) vire conteúdo, em vez de esperar a IA escolher organicamente.
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            value={themeOverrideText}
+            onChange={(e) => setThemeOverrideText(e.target.value)}
+            placeholder='Ex: "Os retratos gerados não ficam parecidos com IA?" ou "Achei muitas perguntas no diagnóstico"'
+            rows={3}
+            className="resize-none"
+          />
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => { setThemeOverrideTarget(null); setThemeOverrideText(""); }}>
+              Cancelar
+            </Button>
+            <Button
+              disabled={!themeOverrideText.trim() || regenerationCredits < 1}
+              onClick={() => {
+                if (!themeOverrideTarget) return;
+                const { weekIndex, dayIndex } = themeOverrideTarget;
+                const theme = themeOverrideText.trim();
+                setThemeOverrideTarget(null);
+                setThemeOverrideText("");
+                handleRegenerateItem(weekIndex, dayIndex, "feed", false, theme);
+              }}
+            >
+              Regenerar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 };

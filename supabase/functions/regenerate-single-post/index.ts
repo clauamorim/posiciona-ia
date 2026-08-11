@@ -159,10 +159,11 @@ REGRA: o JSON de saída DEVE conter "pillar": "${pillarMeta.id}". O conteúdo vi
       Array.isArray(marketTrends) ? (marketTrends as MarketTrend[]) : [],
     );
 
-    // Tema sugerido por tendência (override opcional)
+    // Tema forçado (override opcional) — vem de uma tendência de mercado OU
+    // de um tema/objeção que o usuário digitou manualmente na tela do Editorial.
     const themeOverrideBlock = (typeof themeOverride === "string" && themeOverride.trim().length > 0)
       ? `\n\n# TEMA OBRIGATÓRIO DESTE POST
-Use este ângulo de tendência atual como tema: "${themeOverride.trim()}"
+Use este ângulo/tema/objeção como assunto central do post: "${themeOverride.trim()}"
 Comente com voz própria do criador (não copie). Mantenha posicionamento, ética e estilo da marca.`
       : "";
 
