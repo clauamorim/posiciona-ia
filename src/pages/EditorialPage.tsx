@@ -139,6 +139,7 @@ const EditorialPage = () => {
   // real da História de Venda que a IA não escolheu organicamente).
   const [themeOverrideTarget, setThemeOverrideTarget] = useState<{ weekIndex: number; dayIndex: number } | null>(null);
   const [themeOverrideText, setThemeOverrideText] = useState("");
+  const [themeOverrideSubmitting, setThemeOverrideSubmitting] = useState(false);
   const [downloadingPDF, setDownloadingPDF] = useState(false);
   const [deletingWeek, setDeletingWeek] = useState<number | null>(null);
   const [confirmDeleteWeek, setConfirmDeleteWeek] = useState<number | null>(null);
@@ -2025,9 +2026,11 @@ const EditorialPage = () => {
 
       <Dialog
         open={themeOverrideTarget !== null}
-        onOpenChange={(open) => { if (!open) { setThemeOverrideTarget(null); setThemeOverrideText(""); } }}
+        onOpenChange={(open) => {
+          if (!open && !themeOverrideSubmitting) { setThemeOverrideTarget(null); setThemeOverrideText(""); }
+        }}
       >
-        <DialogContent>
+        <DialogContent onInteractOutside={(e) => { if (themeOverrideSubmitting) e.preventDefault(); }}>
           <DialogHeader>
             <DialogTitle>Regenerar com tema específico</DialogTitle>
             <DialogDescription>
@@ -2040,22 +2043,31 @@ const EditorialPage = () => {
             placeholder='Ex: "Os retratos gerados não ficam parecidos com IA?" ou "Achei muitas perguntas no diagnóstico"'
             rows={3}
             className="resize-none"
+            disabled={themeOverrideSubmitting}
           />
+          {themeOverrideSubmitting && (
+            <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+              <Loader2 className="h-3 w-3 animate-spin" /> Gerando novo post — pode levar até 1 minuto, não feche esta janela.
+            </p>
+          )}
           <DialogFooter>
-            <Button variant="ghost" onClick={() => { setThemeOverrideTarget(null); setThemeOverrideText(""); }}>
+            <Button variant="ghost" disabled={themeOverrideSubmitting} onClick={() => { setThemeOverrideTarget(null); setThemeOverrideText(""); }}>
               Cancelar
             </Button>
             <Button
-              disabled={!themeOverrideText.trim() || regenerationCredits < 1}
-              onClick={() => {
+              disabled={!themeOverrideText.trim() || regenerationCredits < 1 || themeOverrideSubmitting}
+              onClick={async () => {
                 if (!themeOverrideTarget) return;
                 const { weekIndex, dayIndex } = themeOverrideTarget;
                 const theme = themeOverrideText.trim();
+                setThemeOverrideSubmitting(true);
+                await handleRegenerateItem(weekIndex, dayIndex, "feed", false, theme);
+                setThemeOverrideSubmitting(false);
                 setThemeOverrideTarget(null);
                 setThemeOverrideText("");
-                handleRegenerateItem(weekIndex, dayIndex, "feed", false, theme);
               }}
             >
+              {themeOverrideSubmitting ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : null}
               Regenerar
             </Button>
           </DialogFooter>
