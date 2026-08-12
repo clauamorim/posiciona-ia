@@ -40,6 +40,29 @@ export const SEQUENCE_DESCRIPTIONS: Record<SalesSequenceType, string> = {
   apresentacao_bio: "História completa para conexão profunda.",
 };
 
+// Mesmas 7 chaves, rótulos reformulados pra falar da EMPRESA/MARCA em vez de
+// um indivíduo — usados na UI (SalesStoriesPage.tsx) quando o perfil ativo é
+// institucional. O conteúdo gerado em si é adaptado em SALES_STORY_SYSTEM_PROMPT_INSTITUCIONAL.
+export const SEQUENCE_LABELS_INSTITUCIONAL: Record<SalesSequenceType, string> = {
+  transformacao: "Jornada de transformação da marca",
+  criticas_julgamentos: "Enfrentando críticas e ceticismo do mercado",
+  objecao_narrativa: "Quebrando objeções com narrativa",
+  objecao_direto: "Quebrando objeções direto ao ponto",
+  bastidores_atendimentos: "Bastidores de atendimentos",
+  bastidores_entregas: "Bastidores de entregas",
+  apresentacao_bio: "Apresentação institucional / Sobre a marca",
+};
+
+export const SEQUENCE_DESCRIPTIONS_INSTITUCIONAL: Record<SalesSequenceType, string> = {
+  transformacao: "Gerar identificação e conduzir para venda.",
+  criticas_julgamentos: "Ceticismo do mercado combinado com autoridade.",
+  objecao_narrativa: "Desconstruir crença com profundidade narrativa.",
+  objecao_direto: "Rápido, assertivo, com CTA imediato.",
+  bastidores_atendimentos: "Prova social pelo trabalho do dia.",
+  bastidores_entregas: "Volume e variedade de público atendido.",
+  apresentacao_bio: "História completa da marca para conexão profunda.",
+};
+
 export const SEQUENCE_LENGTHS: Record<SalesSequenceType, number> = {
   transformacao: 7,
   criticas_julgamentos: 6,
@@ -56,7 +79,7 @@ export const SALES_SEQUENCE_TYPES = Object.keys(SEQUENCE_LABELS) as SalesSequenc
 // SYSTEM PROMPT
 // ---------------------------------------------------------------------------
 
-export const SALES_STORY_SYSTEM_PROMPT = `Você é uma estrategista de conteúdo especializada em sequências de stories para conversão direta no Instagram.
+const SALES_STORY_SYSTEM_PROMPT_PESSOAL = `Você é uma estrategista de conteúdo especializada em sequências de stories para conversão direta no Instagram.
 
 Sua tarefa: gerar uma sequência de stories baseada em UM dos 7 templates oficiais abaixo, preenchendo todos os campos com os dados REAIS do criador (fornecidos pelo usuário). Não invente fatos — use SOMENTE o que foi fornecido.
 
@@ -140,6 +163,98 @@ S8 (desenvolvimento): Quem você ajuda hoje + que resultado entrega.
 S9 (cta): Pergunta de identificação + boas-vindas + CTA.
 `;
 
+// Mesmos 7 templates de SALES_STORY_SYSTEM_PROMPT_PESSOAL, mesma contagem de
+// stories por template — só o sujeito muda de "eu/criador" para "a marca/a
+// equipe". Espelho de SEQUENCE_LABELS_INSTITUCIONAL acima — mudou aqui, mudar lá.
+const SALES_STORY_SYSTEM_PROMPT_INSTITUCIONAL = `Você é uma estrategista de conteúdo especializada em sequências de stories para conversão direta no Instagram.
+
+Sua tarefa: gerar uma sequência de stories baseada em UM dos 7 templates oficiais abaixo, preenchendo todos os campos com os dados REAIS da marca/empresa (fornecidos pelo usuário). Não invente fatos — use SOMENTE o que foi fornecido. O sujeito das histórias é sempre a MARCA/EMPRESA — NUNCA trate isto como vida pessoal de um indivíduo.
+
+REGRAS INVIOLÁVEIS:
+1. Mantenha a voz da marca — use as expressões informadas em "personal_expressions" como marca registrada da empresa.
+2. NUNCA toque em "forbidden_topics" — REGRA INVIOLÁVEL, mesmo que o contexto do template sugira.
+3. Frases entre aspas devem ser EXATAMENTE as que a marca relatou ouvir/dizer (negative_comments e audience_objections).
+4. Cada story tem 1 ideia, no máximo 3 linhas — formato mobile, leitura rápida.
+5. CTA final precisa ser DIRETO e específico ao offer_context fornecido pelo usuário.
+6. Aplique os princípios narrativos obrigatórios: cliente herói (não a marca), específico vence genérico, gancho concreto nas 8 primeiras palavras.
+7. Português brasileiro natural. Sem coachismo, sem clichês ("no mundo de hoje", "cada vez mais"), sem emojis decorativos.
+8. Pronome institucional: "a empresa", "a marca", "a equipe" — nunca "eu" isolado referindo-se a uma pessoa física.
+
+Devolva APENAS JSON no formato:
+{
+  "stories": [
+    { "ordem": 1, "texto": "...", "tipo": "abertura" }
+  ]
+}
+
+Onde "tipo" é um de: "abertura", "desenvolvimento", "cta".
+
+═══════════════════════════════════════════════════════════════
+TEMPLATES (use o indicado pelo sequence_type):
+═══════════════════════════════════════════════════════════════
+
+[TEMPLATE: transformacao] — 7 stories
+S1 (abertura): Contexto antigo da marca — como operava antes, o que sentia por dentro (dificuldade real) vs a imagem que passava por fora.
+S2 (desenvolvimento): A decisão da virada — o que a marca abandonou e para onde foi.
+S3 (desenvolvimento): Dificuldades reais do começo + comentários negativos LITERAIS que a marca ouviu (em aspas).
+S4 (desenvolvimento): Conquistas concretas da marca (lista de até 3, com números/fatos quando possível).
+S5 (desenvolvimento): Onde a marca está hoje vs onde quer chegar.
+S6 (desenvolvimento): Pergunta reflexiva direta para a audiência.
+S7 (cta): Frase inspiradora curta + chamada direta para a oferta.
+
+[TEMPLATE: criticas_julgamentos] — 6 stories
+S1 (abertura): O momento em que o receio/ceticismo do mercado se concretizou pra marca.
+S2 (desenvolvimento): Críticas LITERAIS que a marca ouviu (em aspas, exatamente como foram ditas).
+S3 (desenvolvimento): Parte da crítica que a marca reconhece como válida + o que mudou a partir disso.
+S4 (desenvolvimento): 3 resultados positivos concretos hoje.
+S5 (desenvolvimento): Quebra da crença limitante do nicho/mercado.
+S6 (cta): Frase de força + chamada direta.
+
+[TEMPLATE: objecao_narrativa] — 7 stories
+S1 (abertura): Contexto/situação em que a marca ouviu a objeção.
+S2 (desenvolvimento): A objeção LITERAL (em aspas).
+S3 (desenvolvimento): Reconhecimento — a própria equipe também tinha essa dúvida no início.
+S4 (desenvolvimento): A verdade que a marca descobriu (a quebra).
+S5 (desenvolvimento): Exemplo real (da própria marca ou de cliente — apenas se houver em proof_cases).
+S6 (desenvolvimento): Reflexão institucional.
+S7 (cta): Dedicatória ("essa sequência é pra você que…") + chamada.
+
+[TEMPLATE: objecao_direto] — 5 stories
+S1 (abertura): Objeção LITERAL (em aspas) + "entendemos".
+S2 (desenvolvimento): "E vamos te provar que não é verdade".
+S3 (desenvolvimento): História/caso que contraria a objeção.
+S4 (desenvolvimento): Explicação objetiva + "viu só como [objeção] não é verdade?".
+S5 (cta): "Se você quer [objetivo derivado do offer_context], [CTA direto]".
+
+[TEMPLATE: bastidores_atendimentos] — 4 stories
+S1 (abertura): "Hoje a equipe teve [algo cotidiano da operação] + [tipo de atendimento]".
+S2 (desenvolvimento): Cliente 1 — contexto + transformação entregue.
+S3 (desenvolvimento): Cliente 2 — contexto + transformação entregue.
+S4 (cta): Diferencial/bônus + "se você quer esse resultado, [CTA]".
+
+[TEMPLATE: bastidores_entregas] — 5 stories
+S1 (abertura): Tipo de entrega de hoje + público + transformação.
+S2 (desenvolvimento): Indicação de mídia (foto/vídeo) — descrever o que mostrar entre colchetes (ex.: "[mostrar foto do material entregue]").
+S3 (desenvolvimento): Segunda entrega — outro perfil de cliente.
+S4 (desenvolvimento): Indicação de mídia da segunda.
+S5 (cta): Sentimento da equipe hoje + "você também quer? [CTA]".
+
+[TEMPLATE: apresentacao_bio] — 9 stories
+S1 (abertura): "Quero te contar a história da marca…".
+S2 (desenvolvimento): Origem (ano/contexto de fundação se disponível) + contexto desafiador.
+S3 (desenvolvimento): "A marca sempre quis mais".
+S4 (desenvolvimento): Visão/motivação + ação ousada + primeira conquista.
+S5 (desenvolvimento): Dificuldade que apareceu + momento difícil da operação.
+S6 (desenvolvimento): O insight central que mudou tudo (em aspas).
+S7 (desenvolvimento): Ano que começou + projeto/oferta atual + transformação que entrega.
+S8 (desenvolvimento): Quem a marca ajuda hoje + que resultado entrega.
+S9 (cta): Pergunta de identificação + boas-vindas + CTA.
+`;
+
+export function buildSalesStorySystemPrompt(brandType: "pessoal" | "institucional" = "pessoal"): string {
+  return brandType === "institucional" ? SALES_STORY_SYSTEM_PROMPT_INSTITUCIONAL : SALES_STORY_SYSTEM_PROMPT_PESSOAL;
+}
+
 // ---------------------------------------------------------------------------
 // USER PROMPT BUILDER
 // ---------------------------------------------------------------------------
@@ -170,10 +285,12 @@ export function buildSalesStoryUserPrompt(opts: {
   personal: any | null;
   sequence_type: SalesSequenceType;
   offer_context: string;
+  brandType?: "pessoal" | "institucional";
 }): string {
-  const { narrative, business, personal, sequence_type, offer_context } = opts;
+  const { narrative, business, personal, sequence_type, offer_context, brandType = "pessoal" } = opts;
+  const inst = brandType === "institucional";
   const expectedLength = SEQUENCE_LENGTHS[sequence_type];
-  const label = SEQUENCE_LABELS[sequence_type];
+  const label = (inst ? SEQUENCE_LABELS_INSTITUCIONAL : SEQUENCE_LABELS)[sequence_type];
 
   const narrativeLines: string[] = [
     listIfPresent("Profissão/situação anterior", narrative.previous_profession),
@@ -212,7 +329,7 @@ export function buildSalesStoryUserPrompt(opts: {
     ? `\n\n# CONTEXTO DO NEGÓCIO\n${businessLines.join("\n")}`
     : "";
   const personalBlock = personalLines.length > 0
-    ? `\n\n# CONTEXTO PESSOAL ADICIONAL (use com parcimônia)\n${personalLines.join("\n")}`
+    ? `\n\n# CONTEXTO ${inst ? "DA MARCA" : "PESSOAL"} ADICIONAL (use com parcimônia)\n${personalLines.join("\n")}`
     : "";
 
   return `# OFERTA SENDO VENDIDA NESTA SEQUÊNCIA
@@ -221,8 +338,8 @@ ${offer_context.trim() || "(não especificada)"}
 # TIPO DE SEQUÊNCIA SOLICITADA
 ${label} (id: ${sequence_type}) — exatamente ${expectedLength} stories.
 
-# NARRATIVA DE VENDA DO CRIADOR (fonte da verdade)
-${narrativeLines.length > 0 ? narrativeLines.join("\n") : "(criador não preencheu — não invente, retorne erro)"}${businessBlock}${personalBlock}
+# NARRATIVA DE VENDA ${inst ? "DA MARCA" : "DO CRIADOR"} (fonte da verdade)
+${narrativeLines.length > 0 ? narrativeLines.join("\n") : `(${inst ? "marca" : "criador"} não preencheu — não invente, retorne erro)`}${businessBlock}${personalBlock}
 
 # INSTRUÇÃO FINAL
 Gere a sequência ${label} com EXATAMENTE ${expectedLength} stories, seguindo o template correspondente do system prompt. Devolva apenas JSON com a chave "stories" — sem markdown, sem comentários, sem texto fora do JSON.`;

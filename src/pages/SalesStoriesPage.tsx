@@ -60,6 +60,28 @@ const SEQUENCE_DESCRIPTIONS: Record<SequenceType, string> = {
   apresentacao_bio: "História completa para conexão profunda.",
 };
 
+// Mesmas 7 chaves, rótulos falando da EMPRESA/MARCA — espelho de
+// SEQUENCE_LABELS_INSTITUCIONAL em supabase/functions/_shared/salesStoryPrompts.ts.
+const SEQUENCE_LABELS_INSTITUCIONAL: Record<SequenceType, string> = {
+  transformacao: "Jornada de transformação da marca",
+  criticas_julgamentos: "Enfrentando críticas e ceticismo do mercado",
+  objecao_narrativa: "Quebrando objeções com narrativa",
+  objecao_direto: "Quebrando objeções direto ao ponto",
+  bastidores_atendimentos: "Bastidores de atendimentos",
+  bastidores_entregas: "Bastidores de entregas",
+  apresentacao_bio: "Apresentação institucional / Sobre a marca",
+};
+
+const SEQUENCE_DESCRIPTIONS_INSTITUCIONAL: Record<SequenceType, string> = {
+  transformacao: "Gerar identificação e conduzir para venda.",
+  criticas_julgamentos: "Ceticismo do mercado combinado com autoridade.",
+  objecao_narrativa: "Desconstruir crença com profundidade narrativa.",
+  objecao_direto: "Rápido, assertivo, com CTA imediato.",
+  bastidores_atendimentos: "Prova social pelo trabalho do dia.",
+  bastidores_entregas: "Volume e variedade de público atendido.",
+  apresentacao_bio: "História completa da marca para conexão profunda.",
+};
+
 const SEQUENCE_EMOJI: Record<SequenceType, string> = {
   transformacao: "🦋",
   criticas_julgamentos: "🛡️",
@@ -125,6 +147,10 @@ export default function SalesStoriesPage() {
   const { activeWorkspace } = useWorkspace();
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  const isInstitutional = activeWorkspace?.brand_type === "institucional";
+  const labels = isInstitutional ? SEQUENCE_LABELS_INSTITUCIONAL : SEQUENCE_LABELS;
+  const descriptions = isInstitutional ? SEQUENCE_DESCRIPTIONS_INSTITUCIONAL : SEQUENCE_DESCRIPTIONS;
 
   const [loading, setLoading] = useState(true);
   const [hasNarrative, setHasNarrative] = useState(false);
@@ -269,7 +295,7 @@ export default function SalesStoriesPage() {
           </Button>
 
           <div className="space-y-2">
-            <Badge variant="outline">{SEQUENCE_LABELS[selected.sequence_type as SequenceType]}</Badge>
+            <Badge variant="outline">{labels[selected.sequence_type as SequenceType]}</Badge>
             <h1 className="text-3xl font-display">{selected.offer_context}</h1>
             <p className="text-sm text-muted-foreground">
               Gerada em {formatDate(selected.generated_at)} · {selected.stories.length} stories nesta sequência
@@ -413,8 +439,8 @@ export default function SalesStoriesPage() {
                   <div className="flex items-start gap-2">
                     <span className="text-lg leading-none">{SEQUENCE_EMOJI[k]}</span>
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium leading-snug">{SEQUENCE_LABELS[k]}</div>
-                      <div className="text-xs text-muted-foreground mt-0.5">{SEQUENCE_DESCRIPTIONS[k]}</div>
+                      <div className="text-sm font-medium leading-snug">{labels[k]}</div>
+                      <div className="text-xs text-muted-foreground mt-0.5">{descriptions[k]}</div>
                     </div>
                   </div>
                 </div>
@@ -444,8 +470,8 @@ export default function SalesStoriesPage() {
                         >
                           <RadioGroupItem value={k} id={`seq-${k}`} className="mt-0.5" />
                           <div className="flex-1">
-                            <div className="text-sm font-medium">{SEQUENCE_EMOJI[k]} {SEQUENCE_LABELS[k]}</div>
-                            <div className="text-xs text-muted-foreground">{SEQUENCE_DESCRIPTIONS[k]}</div>
+                            <div className="text-sm font-medium">{SEQUENCE_EMOJI[k]} {labels[k]}</div>
+                            <div className="text-xs text-muted-foreground">{descriptions[k]}</div>
                           </div>
                         </label>
                       ))}
@@ -508,7 +534,7 @@ export default function SalesStoriesPage() {
               <SelectContent>
                 <SelectItem value="all">Todos os templates</SelectItem>
                 {SEQUENCE_KEYS.map((k) => (
-                  <SelectItem key={k} value={k}>{SEQUENCE_EMOJI[k]} {SEQUENCE_LABELS[k]}</SelectItem>
+                  <SelectItem key={k} value={k}>{SEQUENCE_EMOJI[k]} {labels[k]}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -553,7 +579,7 @@ export default function SalesStoriesPage() {
                     <div className="flex flex-col gap-1">
                       <Badge variant="outline" className="text-xs gap-1 self-start">
                         <span className="shrink-0">{SEQUENCE_EMOJI[type] || "•"}</span>
-                        <span>{SEQUENCE_LABELS[type] || seq.sequence_type}</span>
+                        <span>{labels[type] || seq.sequence_type}</span>
                       </Badge>
                       <CardTitle
                         className="text-base font-medium leading-snug pt-1 cursor-pointer hover:text-primary"

@@ -8,8 +8,9 @@ import { corsHeaders } from "../_shared/cors.ts";
 import { callClaude, ClaudeError } from "../_shared/claudeClient.ts";
 import { extractJsonFromLLM } from "../_shared/jsonExtract.ts";
 import { verifyWorkspaceOwnership } from "../_shared/workspaceAuth.ts";
+import { fetchWorkspaceBrandType } from "../_shared/buildClaudeContext.ts";
 import {
-  SALES_STORY_SYSTEM_PROMPT,
+  buildSalesStorySystemPrompt,
   SALES_SEQUENCE_TYPES,
   SEQUENCE_LENGTHS,
   buildSalesStoryUserPrompt,
@@ -80,6 +81,10 @@ serve(async (req) => {
       personalQuery.order("version", { ascending: false }).limit(1).maybeSingle(),
     ]);
 
+    // Tipo de marca do perfil ativo — reenquadra os 7 templates pra falar da
+    // empresa em vez de um indivíduo quando institucional.
+    const brandType = await fetchWorkspaceBrandType(user.id, workspaceId);
+
     // 3) Consome crédito (RPC usa auth.uid() do user client)
     const { error: creditErr } = await userClient.rpc("consume_credit", {
       p_credit_type: "regeneration",
@@ -104,12 +109,13 @@ serve(async (req) => {
       personal,
       sequence_type,
       offer_context,
+      brandType,
     });
 
     let raw: string;
     try {
       raw = await callClaude({
-        systemPrompt: SALES_STORY_SYSTEM_PROMPT,
+        systemPrompt: buildSalesStorySystemPrompt(brandType),
         userText,
         max_tokens: 3000,
         timeoutMs: 90000,
