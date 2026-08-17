@@ -100,7 +100,7 @@ const AdminUsers = () => {
     if (!profiles) { setUsers([]); return; }
 
     const userIds = profiles.map(p => p.user_id);
-    const [balancesRes, reportsRes, bqRes, subsRes, archetypeRes, igRes, portraitRes] = await Promise.all([
+    const [balancesRes, reportsRes, bqRes, subsRes, archetypeRes, igRes, portraitRes, defaultWorkspacesRes] = await Promise.all([
       supabase.from("user_balances").select("*").in("user_id", userIds),
       supabase.from("reports").select("user_id, status, content, editorial_weeks").in("user_id", userIds),
       supabase.from("business_questionnaires").select("user_id, is_complete").in("user_id", userIds).eq("is_complete", true),
@@ -108,9 +108,17 @@ const AdminUsers = () => {
       supabase.from("archetype_scores").select("user_id").in("user_id", userIds),
       supabase.from("instagram_analyses").select("user_id").in("user_id", userIds),
       supabase.from("portrait_generations").select("user_id").in("user_id", userIds),
+      // profiles.profession/niche só é gravado no cadastro e nunca mais depois
+      // disso (a tela de Conta edita workspaces.profession/niche, por perfil,
+      // desde a mudança de hoje) — pega do perfil default pra não mostrar
+      // dado zumbi na listagem.
+      supabase.from("workspaces").select("owner_id, profession, niche").in("owner_id", userIds).eq("is_default", true),
     ]);
 
     const balancesMap = Object.fromEntries((balancesRes.data || []).map(b => [b.user_id, b]));
+    const defaultWorkspaceMap = Object.fromEntries(
+      (defaultWorkspacesRes.data || []).map(w => [w.owner_id, w]),
+    );
     const bqSet = new Set((bqRes.data || []).map(b => b.user_id));
     const subsMap = Object.fromEntries((subsRes.data || []).map(s => [s.user_id, s]));
     const archetypeSet = new Set((archetypeRes.data || []).map(a => a.user_id));
@@ -142,8 +150,11 @@ const AdminUsers = () => {
         le: hasEditorial.has(p.user_id),
         rt: portraitSet.has(p.user_id),
       };
+      const defaultWorkspace = defaultWorkspaceMap[p.user_id];
       return {
         ...p,
+        profession: defaultWorkspace?.profession ?? p.profession,
+        niche: defaultWorkspace?.niche ?? p.niche,
         balances: balancesMap[p.user_id] || null,
         reportsCount: reportsCompleted.has(p.user_id) ? 1 : 0,
         bqComplete: bqSet.has(p.user_id),
