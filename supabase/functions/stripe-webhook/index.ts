@@ -15,6 +15,27 @@ const log = (step: string, details?: any) => {
   console.log(`[STRIPE-WEBHOOK] ${step}`, details ? JSON.stringify(details) : "");
 };
 
+// Versões recentes da API Stripe (billing flexível) movem
+// current_period_start/end do nível da assinatura pro nível de cada item de
+// cobrança (subscription.items.data[].current_period_start/end) — o campo no
+// nível principal vem undefined. new Date(undefined * 1000).toISOString()
+// lança "Invalid time value" e derruba o webhook inteiro (era exatamente o
+// erro reportado pela Stripe: 100% de falha em customer.subscription.updated,
+// bloqueando renovação de créditos de clientes reais). Tenta os dois lugares;
+// sem nenhum, retorna null em vez de quebrar a entrega do evento.
+function getSubscriptionPeriod(subscription: Stripe.Subscription): { start: number | null; end: number | null } {
+  const item = subscription.items?.data?.[0] as any;
+  const start = (subscription as any).current_period_start ?? item?.current_period_start ?? null;
+  const end = (subscription as any).current_period_end ?? item?.current_period_end ?? null;
+  return { start, end };
+}
+
+function toIsoOrNull(unixSeconds: number | null): string | null {
+  return typeof unixSeconds === "number" && Number.isFinite(unixSeconds)
+    ? new Date(unixSeconds * 1000).toISOString()
+    : null;
+}
+
 async function provisionBalances(userId: string, plan: any) {
   log("Provisioning balances", { userId, planSlug: plan.slug });
 
@@ -288,12 +309,13 @@ serve(async (req) => {
         }
 
         const stripeSubscription = await stripe.subscriptions.retrieve(subscriptionId);
+        const invoicePeriod = getSubscriptionPeriod(stripeSubscription);
         await supabase
           .from("subscriptions")
           .update({
             status: "active",
-            current_period_start: new Date(stripeSubscription.current_period_start * 1000).toISOString(),
-            current_period_end: new Date(stripeSubscription.current_period_end * 1000).toISOString(),
+            current_period_start: toIsoOrNull(invoicePeriod.start),
+            current_period_end: toIsoOrNull(invoicePeriod.end),
           })
           .eq("id", sub.id);
 
@@ -319,13 +341,14 @@ serve(async (req) => {
       case "customer.subscription.updated": {
         const subscription = event.data.object as Stripe.Subscription;
         const status = subscription.status === "active" ? "active" : subscription.status === "past_due" ? "past_due" : subscription.status;
+        const updatedPeriod = getSubscriptionPeriod(subscription);
 
         await supabase
           .from("subscriptions")
           .update({
             status,
-            current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
-            current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+            current_period_start: toIsoOrNull(updatedPeriod.start),
+            current_period_end: toIsoOrNull(updatedPeriod.end),
           })
           .eq("stripe_subscription_id", subscription.id);
 
