@@ -41,21 +41,26 @@ export async function persistBrandSSoT(
   admin: any,
   params: {
     userId: string;
+    workspaceId?: string | null;
     reportId: string;
     reportVersion: number;
     reportContent: any;
   },
 ): Promise<void> {
-  const { userId, reportId, reportVersion, reportContent } = params;
+  const { userId, workspaceId, reportId, reportVersion, reportContent } = params;
   const palette = Array.isArray(reportContent?.visual_identity?.palette)
     ? reportContent.visual_identity.palette
     : [];
   const simbolos = reportContent?.simbolos || {};
 
-  // Limpa SSoT antigo do usuário (única "versão atual" — versões anteriores
-  // são consultáveis via reports.content se necessário).
-  await admin.from("user_brand_palette").delete().eq("user_id", userId);
-  await admin.from("user_archetype_symbols").delete().eq("user_id", userId);
+  // Limpa SSoT antigo do PERFIL (não da conta — limpar por user_id apagaria
+  // a paleta/símbolos de outros perfis da mesma conta a cada relatório gerado).
+  let delPalette = admin.from("user_brand_palette").delete();
+  delPalette = workspaceId ? delPalette.eq("workspace_id", workspaceId) : delPalette.eq("user_id", userId);
+  await delPalette;
+  let delSymbols = admin.from("user_archetype_symbols").delete();
+  delSymbols = workspaceId ? delSymbols.eq("workspace_id", workspaceId) : delSymbols.eq("user_id", userId);
+  await delSymbols;
 
   // Paleta
   const paletteRows = palette
@@ -63,6 +68,7 @@ export async function persistBrandSSoT(
     .slice(0, 5)
     .map((c: any, i: number) => ({
       user_id: userId,
+      workspace_id: workspaceId ?? null,
       report_id: reportId,
       report_version: reportVersion,
       color_name: String(c.name).trim(),
@@ -86,6 +92,7 @@ export async function persistBrandSSoT(
       if (!name) return;
       symbolRows.push({
         user_id: userId,
+        workspace_id: workspaceId ?? null,
         report_id: reportId,
         report_version: reportVersion,
         symbol_name: name,
@@ -108,6 +115,7 @@ export async function persistBrandSSoT(
 export async function loadBrandSSoT(
   admin: any,
   userId: string,
+  workspaceId?: string | null,
 ): Promise<BrandSSoT> {
   const empty: BrandSSoT = {
     symbols: [],
@@ -117,26 +125,26 @@ export async function loadBrandSSoT(
     wordsToAvoid: [],
   };
 
+  let paletteQuery = admin
+    .from("user_brand_palette")
+    .select("color_name, hex, usage, role, priority");
+  paletteQuery = workspaceId ? paletteQuery.eq("workspace_id", workspaceId) : paletteQuery.eq("user_id", userId);
+
+  let symbolsQuery = admin
+    .from("user_archetype_symbols")
+    .select("symbol_name, emoji, meaning, application, archetype_role, priority");
+  symbolsQuery = workspaceId ? symbolsQuery.eq("workspace_id", workspaceId) : symbolsQuery.eq("user_id", userId);
+
+  let reportQuery = admin
+    .from("reports")
+    .select("content")
+    .eq("status", "completed");
+  reportQuery = workspaceId ? reportQuery.eq("workspace_id", workspaceId) : reportQuery.eq("user_id", userId);
+
   const [palRes, symRes, repRes] = await Promise.all([
-    admin
-      .from("user_brand_palette")
-      .select("color_name, hex, usage, role, priority")
-      .eq("user_id", userId)
-      .order("priority", { ascending: true }),
-    admin
-      .from("user_archetype_symbols")
-      .select("symbol_name, emoji, meaning, application, archetype_role, priority")
-      .eq("user_id", userId)
-      .order("archetype_role", { ascending: true })
-      .order("priority", { ascending: true }),
-    admin
-      .from("reports")
-      .select("content")
-      .eq("user_id", userId)
-      .eq("status", "completed")
-      .order("version", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
+    paletteQuery.order("priority", { ascending: true }),
+    symbolsQuery.order("archetype_role", { ascending: true }).order("priority", { ascending: true }),
+    reportQuery.order("version", { ascending: false }).limit(1).maybeSingle(),
   ]);
 
   const content = (repRes.data as any)?.content || null;

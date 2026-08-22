@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { toast } from "@/hooks/use-toast";
 import { Instagram, Loader2, AlertTriangle, CheckCircle2, ArrowRight, Upload, X, Image, Download, Copy, Check } from "lucide-react";
 import jsPDF from "jspdf";
@@ -20,6 +21,7 @@ const BIO_HARD_LIMIT = 150;
 
 const InstagramAnalysis = () => {
   const { user } = useAuth();
+  const { activeWorkspace } = useWorkspace();
   const [username, setUsername] = useState("");
   const [loading, setLoading] = useState(false);
   const [analysis, setAnalysis] = useState<AnalysisItem[] | null>(null);
@@ -32,14 +34,22 @@ const InstagramAnalysis = () => {
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
   const [copiedSuggestionIdx, setCopiedSuggestionIdx] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const hydratedWorkspaceRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !activeWorkspace) return;
+    if (hydratedWorkspaceRef.current === activeWorkspace.id) return;
+    const workspaceId = activeWorkspace.id;
+    setLoadingExisting(true);
+    setAnalysis(null);
+    setBioOptions([]);
+    setAnalysisDate(null);
+    setUsername("");
     const init = async () => {
       const [arcRes, repRes, latestAnalysis] = await Promise.all([
-        supabase.from("user_top_archetypes").select("id").eq("user_id", user.id).limit(1),
-        supabase.from("reports").select("id").eq("user_id", user.id).eq("status", "completed").limit(1),
-        supabase.from("instagram_analyses").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(1).single(),
+        supabase.from("user_top_archetypes").select("id").eq("workspace_id", workspaceId).limit(1),
+        supabase.from("reports").select("id").eq("workspace_id", workspaceId).eq("status", "completed").limit(1),
+        supabase.from("instagram_analyses").select("*").eq("workspace_id", workspaceId).order("created_at", { ascending: false }).limit(1).maybeSingle(),
       ]);
       setHasPrereqs((arcRes.data?.length ?? 0) > 0 && (repRes.data?.length ?? 0) > 0);
 
@@ -57,10 +67,11 @@ const InstagramAnalysis = () => {
           if (latestAnalysis.data.username) setUsername(latestAnalysis.data.username);
         }
       }
+      hydratedWorkspaceRef.current = workspaceId;
       setLoadingExisting(false);
     };
     init();
-  }, [user]);
+  }, [user, activeWorkspace]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -94,7 +105,11 @@ const InstagramAnalysis = () => {
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("analyze-instagram", {
-        body: { username: username.replace("@", "").trim() || undefined, screenshot: imageBase64 },
+        body: {
+          username: username.replace("@", "").trim() || undefined,
+          screenshot: imageBase64,
+          workspaceId: activeWorkspace?.id,
+        },
       });
       if (error) throw error;
       if (data.error) throw new Error(data.error);
@@ -106,9 +121,10 @@ const InstagramAnalysis = () => {
       setBioOptions(bios);
       setAnalysisDate(new Date().toISOString());
 
-      if (user) {
+      if (user && activeWorkspace) {
         await supabase.from("instagram_analyses").insert({
           user_id: user.id,
+          workspace_id: activeWorkspace.id,
           username: username.replace("@", "").trim() || null,
           analysis: { items, bio_options: bios } as any,
         });

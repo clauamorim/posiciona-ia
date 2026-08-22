@@ -730,6 +730,7 @@ Gere o relatório estratégico completo em JSON conforme a estrutura exigida.`;
         .maybeSingle();
       await persistBrandSSoT(admin, {
         userId,
+        workspaceId,
         reportId: job.report_id,
         reportVersion: reportRow?.version ?? 1,
         reportContent,

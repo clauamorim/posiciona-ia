@@ -2,6 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { detectProfession, getEthicalRulesBlock, POSITIONING_GUARDRAIL_BLOCK } from "../_shared/professionRules.ts";
 import { validatePostCompliance } from "../_shared/complianceValidator.ts";
 import { loadBrandSSoT, renderBrandSSoTBlock } from "../_shared/brandSSoT.ts";
+import { verifyWorkspaceOwnership } from "../_shared/workspaceAuth.ts";
 
 const BIO_MIN = 130;
 const BIO_MAX = 145;
@@ -205,18 +206,35 @@ Deno.serve(async (req) => {
     }
     const userId = user.id;
 
-    const { username, screenshot } = await req.json();
+    const { username, screenshot, workspaceId } = await req.json();
     if (!screenshot) {
       return new Response(JSON.stringify({ error: "screenshot is required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
+    // workspaceId vem do corpo (input do cliente) — checa posse antes de usar
+    // para escopar as leituras abaixo.
+    if (workspaceId && !(await verifyWorkspaceOwnership(userId, workspaceId))) {
+      return new Response(JSON.stringify({ error: "Sem acesso a este perfil." }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    let reportQuery = supabase.from("reports").select("content").eq("status", "completed");
+    reportQuery = workspaceId ? reportQuery.eq("workspace_id", workspaceId) : reportQuery.eq("user_id", userId);
+    let archQuery = supabase.from("user_top_archetypes").select("*");
+    archQuery = workspaceId ? archQuery.eq("workspace_id", workspaceId) : archQuery.eq("user_id", userId);
+    let profileQuery = supabase.from("workspaces").select("profession, niche");
+    profileQuery = workspaceId ? profileQuery.eq("id", workspaceId) : profileQuery.eq("owner_id", userId).eq("is_default", true);
+    let bizQuery = supabase.from("business_questionnaires").select("services, target_audience");
+    bizQuery = workspaceId ? bizQuery.eq("workspace_id", workspaceId) : bizQuery.eq("user_id", userId);
+
     const [reportRes, archRes, profileRes, bizRes] = await Promise.all([
-      supabase.from("reports").select("content").eq("user_id", userId).eq("status", "completed").order("created_at", { ascending: false }).limit(1).single(),
-      supabase.from("user_top_archetypes").select("*").eq("user_id", userId).order("rank").limit(3),
-      supabase.from("profiles").select("profession, niche, main_goal").eq("user_id", userId).maybeSingle(),
-      supabase.from("business_questionnaires").select("services, target_audience").eq("user_id", userId).order("version", { ascending: false }).limit(1).maybeSingle(),
+      reportQuery.order("created_at", { ascending: false }).limit(1).maybeSingle(),
+      archQuery.order("rank").limit(3),
+      profileQuery.maybeSingle(),
+      bizQuery.order("version", { ascending: false }).limit(1).maybeSingle(),
     ]);
 
     const storyBrand = (reportRes.data?.content as any)?.storybrand || null;
@@ -249,7 +267,7 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
-    const ssot = await loadBrandSSoT(supabaseAdmin, userId);
+    const ssot = await loadBrandSSoT(supabaseAdmin, userId, workspaceId);
     const ssotBlock = renderBrandSSoTBlock(ssot);
 
     const systemPrompt = `Você é um especialista em branding e marketing digital para Instagram. Analise o perfil com base na screenshot e nos dados estratégicos do usuário.
