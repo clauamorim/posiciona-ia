@@ -45,6 +45,9 @@ const InstagramAnalysis = () => {
     setBioOptions([]);
     setAnalysisDate(null);
     setUsername("");
+    setImagePreview(null);
+    setImageBase64(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
     const init = async () => {
       const [arcRes, repRes, latestAnalysis] = await Promise.all([
         supabase.from("user_top_archetypes").select("id").eq("workspace_id", workspaceId).limit(1),
