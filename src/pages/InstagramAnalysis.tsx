@@ -157,6 +157,21 @@ const InstagramAnalysis = () => {
     }
   };
 
+  // jsPDF (fonte helvetica padrao) so sabe desenhar o code page WinAnsi.
+  // Emoji e simbolos fora dele (setas, <=, dingbats) viram lixo tipo "Ø=Ý".
+  // Converte os simbolos comuns pra ASCII e descarta o resto antes de imprimir.
+  const sanitizeForPdf = (text: string): string => {
+    if (!text) return text;
+    return text
+      .replace(/\u2264/g, "<=")
+      .replace(/\u2265/g, ">=")
+      .replace(/[\u2190-\u21FF\u2700-\u27BF\u2B00-\u2BFF]/g, "->")
+      .replace(/[^\x20-\x7E\u00A0-\u00FF\u2018\u2019\u201C\u201D\u2013\u2014\u2026]/gu, "")
+      .replace(/[ \t]{2,}/g, " ")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+  };
+
   const downloadPDF = () => {
     if (!analysis && bioOptions.length === 0) return;
     const doc = new jsPDF();
@@ -184,7 +199,7 @@ const InstagramAnalysis = () => {
     if (bioOptions.length > 0) {
       doc.setFontSize(14);
       doc.setFont("helvetica", "bold");
-      doc.text("Sugestões de Bio (≤150 caracteres)", margin, y);
+      doc.text("Sugestões de Bio (até 150 caracteres)", margin, y);
       y += 8;
       bioOptions.forEach((bio, i) => {
         if (!bio.text) return;
@@ -195,7 +210,7 @@ const InstagramAnalysis = () => {
         y += 5;
         doc.setFontSize(10);
         doc.setFont("helvetica", "normal");
-        const lines = doc.splitTextToSize(bio.text, maxWidth);
+        const lines = doc.splitTextToSize(sanitizeForPdf(bio.text), maxWidth);
         doc.text(lines, margin, y);
         y += lines.length * 5 + 6;
       });
@@ -210,14 +225,14 @@ const InstagramAnalysis = () => {
       if (y > 260) { doc.addPage(); y = 20; }
       doc.setFontSize(13);
       doc.setFont("helvetica", "bold");
-      doc.text(item.aspect, margin, y);
+      doc.text(sanitizeForPdf(item.aspect), margin, y);
       y += 7;
       doc.setFontSize(10);
       doc.setFont("helvetica", "bold");
       doc.text("Situação Atual:", margin, y);
       y += 5;
       doc.setFont("helvetica", "normal");
-      const currentLines = doc.splitTextToSize(item.current, maxWidth);
+      const currentLines = doc.splitTextToSize(sanitizeForPdf(item.current), maxWidth);
       doc.text(currentLines, margin, y);
       y += currentLines.length * 5 + 4;
       if (y > 260) { doc.addPage(); y = 20; }
@@ -225,7 +240,7 @@ const InstagramAnalysis = () => {
       doc.text("Sugestão:", margin, y);
       y += 5;
       doc.setFont("helvetica", "normal");
-      const suggestionLines = doc.splitTextToSize(item.suggestion, maxWidth);
+      const suggestionLines = doc.splitTextToSize(sanitizeForPdf(item.suggestion), maxWidth);
       doc.text(suggestionLines, margin, y);
       y += suggestionLines.length * 5 + 10;
     }
