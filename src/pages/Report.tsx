@@ -47,7 +47,7 @@ function getContrastColor(hex: string): string {
   return luminance > 0.5 ? "#1a1a2e" : "#ffffff";
 }
 
-const SALES_NARRATIVE_BANNER_KEY = "posiciona:sales-narrative-banner-dismissed";
+const salesNarrativeBannerKey = (workspaceId: string) => `posiciona:sales-narrative-banner-dismissed-${workspaceId}`;
 
 const Report = () => {
   const { user } = useAuth();
@@ -64,21 +64,23 @@ const Report = () => {
   const reportRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!user) return;
-    if (typeof window !== "undefined" && localStorage.getItem(SALES_NARRATIVE_BANNER_KEY) === "1") return;
+    if (!user || !activeWorkspace) return;
+    if (typeof window !== "undefined" && localStorage.getItem(salesNarrativeBannerKey(activeWorkspace.id)) === "1") return;
     supabase
       .from("sales_narrative_questionnaires")
       .select("is_complete")
-      .eq("user_id", user.id)
+      .eq("workspace_id", activeWorkspace.id)
       .maybeSingle()
       .then(({ data }) => {
         if (!data || !data.is_complete) setShowNarrativeBanner(true);
       });
-  }, [user]);
+  }, [user, activeWorkspace]);
 
   const dismissNarrativeBanner = () => {
     setShowNarrativeBanner(false);
-    try { localStorage.setItem(SALES_NARRATIVE_BANNER_KEY, "1"); } catch {}
+    if (activeWorkspace) {
+      try { localStorage.setItem(salesNarrativeBannerKey(activeWorkspace.id), "1"); } catch {}
+    }
   };
 
   useEffect(() => {
