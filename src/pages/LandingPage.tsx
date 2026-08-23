@@ -81,7 +81,62 @@ const plans = [
     notIncluded: [],
     footer: null,
   },
+  {
+    name: "Posiciona Dupla",
+    slug: "dupla",
+    price: "797",
+    period: "/mês",
+    description: "Pra quem tem mais de um perfil — o seu, pessoal e institucional, ou dois clientes. Mesma potência do Autoridade Total, com créditos compartilhados entre os dois.",
+    highlight: false,
+    badge: "Pessoal + institucional",
+    features: [
+      "Tudo do Autoridade Total",
+      "2 perfis simultâneos",
+      "Créditos e reanálises compartilhados entre os perfis",
+      "Troque de perfil sem sair da conta",
+    ],
+    notIncluded: [],
+    footer: null,
+  },
+  {
+    name: "Posiciona Multi",
+    slug: "multi",
+    price: "1.197",
+    period: "/mês",
+    description: "Até 4 perfis na mesma conta. Pra quem já atende alguns clientes e não quer abrir uma conta separada pra cada um.",
+    highlight: false,
+    badge: "Poucos clientes",
+    features: [
+      "Tudo do Autoridade Total",
+      "Até 4 perfis simultâneos",
+      "Ideal para quem atende poucos clientes",
+      "Créditos compartilhados entre todos os perfis",
+    ],
+    notIncluded: [],
+    footer: null,
+  },
+  {
+    name: "Posiciona Agência",
+    slug: "agencia",
+    price: "2.197",
+    period: "/mês",
+    description: "Até 10 perfis, com o melhor custo por perfil de toda a régua. Pra quem faz disso um negócio.",
+    highlight: false,
+    badge: "Agências",
+    features: [
+      "Tudo do Autoridade Total",
+      "Até 10 perfis simultâneos",
+      "Melhor custo por perfil de toda a régua",
+      "Créditos compartilhados entre todos os perfis",
+    ],
+    notIncluded: [],
+    footer: null,
+  },
 ];
+
+const MULTI_PROFILE_SLUGS = ["dupla", "multi", "agencia"];
+const individualPlans = plans.filter((p) => !MULTI_PROFILE_SLUGS.includes(p.slug));
+const multiProfilePlans = plans.filter((p) => MULTI_PROFILE_SLUGS.includes(p.slug));
 
 const faqItems = [
   { q: "Quanto tempo leva pra eu ter meu primeiro post pronto?", a: "Menos de 1 hora. Você responde 3 questionários rápidos (cerca de 15 minutos no total) e a IA entrega seu diagnóstico, narrativa e os primeiros conteúdos prontos para publicar." },
@@ -272,6 +327,78 @@ const LandingPage = () => {
       toast({ title: "Erro ao iniciar pagamento", description: err.message, variant: "destructive" });
       setLoadingSlug(null);
     }
+  };
+
+  const renderPlanCard = (p: typeof plans[0]) => {
+    const isPremium = p.slug === "autoridade_total" || MULTI_PROFILE_SLUGS.includes(p.slug);
+    const isStarter = !p.highlight && !isPremium;
+    return (
+      <div
+        key={p.slug}
+        className={`relative flex flex-col rounded-xl border p-6 transition-all ${
+          p.highlight
+            ? "border-landing-purple/60 bg-landing-bg-secondary/60 ring-1 ring-landing-purple/30"
+            : isPremium
+              ? "border-landing-gold/30 bg-landing-bg-secondary/30"
+              : "border-2 border-[#7DD3C0]/60 bg-landing-bg/50"
+        }`}
+      >
+        {p.badge && (
+          <span className={`absolute -top-3 left-1/2 -translate-x-1/2 rounded-full text-xs font-medium tracking-wide uppercase ${
+            p.highlight
+              ? "bg-landing-purple text-foreground px-4 py-1"
+              : isStarter
+                ? "bg-[#7DD3C0] text-[#0B0820] px-4 py-1"
+                : "bg-landing-gold text-foreground px-4 py-1"
+          }`}>
+            {p.badge}
+          </span>
+        )}
+        <div className="space-y-3 mb-5">
+          <h3 className="text-base md:text-lg font-semibold">{p.name}</h3>
+          <div className="flex items-baseline gap-1">
+            <span className="text-xs text-landing-text-secondary">R$</span>
+            <span className="text-3xl font-bold">{p.price}</span>
+            <span className="text-xs text-landing-text-secondary">{p.period}</span>
+          </div>
+          <p className="text-xs md:text-sm text-landing-text-secondary leading-relaxed">{p.description}</p>
+        </div>
+
+        <ul className="space-y-2 flex-1 mb-6">
+          {p.features.map((f, i) => (
+            <li key={i} className="flex items-start gap-2 text-xs md:text-sm">
+              <Check className="h-3.5 w-3.5 md:h-4 md:w-4 text-landing-purple flex-shrink-0 mt-0.5" />
+              <span className="text-landing-text/80">{f}</span>
+            </li>
+          ))}
+          {p.notIncluded.map((f, i) => (
+            <li key={i} className="flex items-start gap-2 text-xs md:text-sm text-landing-text-secondary/50">
+              <span className="w-3.5 text-center flex-shrink-0">—</span>
+              <span>{f}</span>
+            </li>
+          ))}
+        </ul>
+
+        {p.footer && (
+          <p className="text-[10px] text-landing-text-secondary/60 mt-2 text-center italic">{p.footer}</p>
+        )}
+
+        <Button
+          className={`w-full ${
+            p.highlight
+              ? "bg-landing-purple hover:bg-landing-purple/90 text-foreground"
+              : isPremium
+                ? "bg-landing-gold/90 hover:bg-landing-gold text-foreground"
+                : "bg-[#7DD3C0] text-[#0B0820] hover:bg-[#7DD3C0]/90"
+          }`}
+          onClick={() => handleCheckout(p.slug)}
+          disabled={loadingSlug === p.slug}
+        >
+          {loadingSlug === p.slug && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+          {loadingSlug === p.slug ? "Processando..." : "Começar agora"}
+        </Button>
+      </div>
+    );
   };
 
   const scrollTo = (id: string) => {
@@ -740,83 +867,24 @@ const LandingPage = () => {
 
       {/* ── PLANOS ── */}
       <section id="planos" className="py-12 md:py-16 px-4 bg-landing-bg-secondary/40">
-        <div className="max-w-5xl lg:max-w-[1280px] mx-auto space-y-10">
+        <div className="max-w-5xl lg:max-w-[1280px] mx-auto space-y-12">
           <div className="text-center space-y-2">
             <h2 className="text-2xl md:text-3xl font-display font-semibold">Escolha seu plano</h2>
             <p className="text-sm text-landing-text-secondary">Um social media custa R$ 2.000 a R$ 5.000 por mês. Uma consultoria de marca, R$ 3.000 por sessão. O Posiciona entrega os dois juntos — a partir de R$ 197.</p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-5">
-            {plans.map((p) => {
-              const isStarter = !p.highlight && p.slug !== "autoridade_total";
-              return (
-              <div
-                key={p.slug}
-                className={`relative flex flex-col rounded-xl border p-6 transition-all ${
-                  p.highlight
-                    ? "border-landing-purple/60 bg-landing-bg-secondary/60 ring-1 ring-landing-purple/30"
-                    : p.slug === "autoridade_total"
-                      ? "border-landing-gold/30 bg-landing-bg-secondary/30"
-                      : "border-2 border-[#7DD3C0]/60 bg-landing-bg/50"
-                }`}
-              >
-                {p.badge && (
-                  <span className={`absolute -top-3 left-1/2 -translate-x-1/2 rounded-full text-xs font-medium tracking-wide uppercase ${
-                    p.highlight
-                      ? "bg-landing-purple text-foreground px-4 py-1"
-                      : isStarter
-                        ? "bg-[#7DD3C0] text-[#0B0820] px-4 py-1"
-                        : "bg-landing-gold text-foreground px-4 py-1"
-                  }`}>
-                    {p.badge}
-                  </span>
-                )}
-                <div className="space-y-3 mb-5">
-                  <h3 className="text-base md:text-lg font-semibold">{p.name}</h3>
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-xs text-landing-text-secondary">R$</span>
-                    <span className="text-3xl font-bold">{p.price}</span>
-                    <span className="text-xs text-landing-text-secondary">{p.period}</span>
-                  </div>
-                  <p className="text-xs md:text-sm text-landing-text-secondary leading-relaxed">{p.description}</p>
-                </div>
+            {individualPlans.map((p) => renderPlanCard(p))}
+          </div>
 
-                <ul className="space-y-2 flex-1 mb-6">
-                  {p.features.map((f, i) => (
-                    <li key={i} className="flex items-start gap-2 text-xs md:text-sm">
-                      <Check className="h-3.5 w-3.5 md:h-4 md:w-4 text-landing-purple flex-shrink-0 mt-0.5" />
-                      <span className="text-landing-text/80">{f}</span>
-                    </li>
-                  ))}
-                  {p.notIncluded.map((f, i) => (
-                    <li key={i} className="flex items-start gap-2 text-xs md:text-sm text-landing-text-secondary/50">
-                      <span className="w-3.5 text-center flex-shrink-0">—</span>
-                      <span>{f}</span>
-                    </li>
-                  ))}
-                </ul>
-
-                {p.footer && (
-                  <p className="text-[10px] text-landing-text-secondary/60 mt-2 text-center italic">{p.footer}</p>
-                )}
-
-                <Button
-                  className={`w-full ${
-                    p.highlight
-                      ? "bg-landing-purple hover:bg-landing-purple/90 text-foreground"
-                      : p.slug === "autoridade_total"
-                        ? "bg-landing-gold/90 hover:bg-landing-gold text-foreground"
-                        : "bg-[#7DD3C0] text-[#0B0820] hover:bg-[#7DD3C0]/90"
-                  }`}
-                  onClick={() => handleCheckout(p.slug)}
-                  disabled={loadingSlug === p.slug}
-                >
-                  {loadingSlug === p.slug && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                  {loadingSlug === p.slug ? "Processando..." : "Começar agora"}
-                </Button>
-              </div>
-            );
-            })}
+          <div className="space-y-4">
+            <div className="text-center space-y-1">
+              <h3 className="text-lg md:text-xl font-display font-semibold">Mais de um perfil na mesma conta</h3>
+              <p className="text-xs md:text-sm text-landing-text-secondary">Pra quem tem perfil pessoal e institucional, ou atende clientes.</p>
+            </div>
+            <div className="grid md:grid-cols-3 gap-5">
+              {multiProfilePlans.map((p) => renderPlanCard(p))}
+            </div>
           </div>
         </div>
       </section>

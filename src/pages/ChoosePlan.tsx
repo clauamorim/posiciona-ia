@@ -68,7 +68,59 @@ const plans = [
     notIncluded: [],
     upgradeNote: null,
   },
+  {
+    name: "Posiciona Dupla",
+    slug: "dupla",
+    price: "797",
+    period: "/mês",
+    highlight: true,
+    billing: "recurring" as const,
+    features: [
+      "Tudo do Autoridade Total",
+      "2 perfis simultâneos (ex: pessoal + institucional)",
+      "Créditos e reanálises compartilhados entre os perfis",
+      "Troque de perfil sem sair da conta",
+    ],
+    notIncluded: [],
+    upgradeNote: null,
+  },
+  {
+    name: "Posiciona Multi",
+    slug: "multi",
+    price: "1.197",
+    period: "/mês",
+    highlight: false,
+    billing: "recurring" as const,
+    features: [
+      "Tudo do Autoridade Total",
+      "Até 4 perfis simultâneos",
+      "Ideal para quem atende poucos clientes",
+      "Créditos compartilhados entre todos os perfis",
+    ],
+    notIncluded: [],
+    upgradeNote: null,
+  },
+  {
+    name: "Posiciona Agência",
+    slug: "agencia",
+    price: "2.197",
+    period: "/mês",
+    highlight: false,
+    billing: "recurring" as const,
+    features: [
+      "Tudo do Autoridade Total",
+      "Até 10 perfis simultâneos",
+      "Melhor custo por perfil de toda a régua",
+      "Créditos compartilhados entre todos os perfis",
+    ],
+    notIncluded: [],
+    upgradeNote: null,
+  },
 ];
+
+const MULTI_PROFILE_SLUGS = ["dupla", "multi", "agencia"];
+const individualPlans = plans.filter((p) => !MULTI_PROFILE_SLUGS.includes(p.slug));
+const multiProfilePlans = plans.filter((p) => MULTI_PROFILE_SLUGS.includes(p.slug));
 
 const ChoosePlan = () => {
   const navigate = useNavigate();
@@ -77,6 +129,25 @@ const ChoosePlan = () => {
   const [couponCode, setCouponCode] = useState("");
   const [loadingUpgrade, setLoadingUpgrade] = useState<string | null>(null);
   const [preCheckoutPlan, setPreCheckoutPlan] = useState<typeof plans[0] | null>(null);
+  const [portalLoading, setPortalLoading] = useState(false);
+
+  const openCustomerPortal = async () => {
+    setPortalLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("stripe-customer-portal");
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      if (data?.url) {
+        window.location.href = data.url;
+        return;
+      }
+      throw new Error("URL do portal não retornada");
+    } catch (err: any) {
+      toast({ title: "Erro ao abrir portal de gerenciamento", description: err.message, variant: "destructive" });
+    } finally {
+      setPortalLoading(false);
+    }
+  };
 
   const currentSlug = subscription?.plan_slug;
 
@@ -202,6 +273,12 @@ const ChoosePlan = () => {
     if (currentSlug === p.slug) {
       return { label: "Plano atual", action: () => {}, loading: false, disabled: true };
     }
+    if (MULTI_PROFILE_SLUGS.includes(p.slug)) {
+      // Sem automação de upgrade proporcional entre planos ainda — troca
+      // pro Dupla/Multi/Agência vai pelo portal da Stripe (que já lida com
+      // proração e cancelamento da assinatura anterior).
+      return { label: "Gerenciar no portal", action: openCustomerPortal, loading: portalLoading, isPortal: true };
+    }
     if (currentSlug === "autoridade_total") {
       return { label: "—", action: () => {}, loading: false, disabled: true };
     }
@@ -212,6 +289,73 @@ const ChoosePlan = () => {
       return { label: "Upgrade", action: () => setUpgradeTarget(p), loading: loadingUpgrade === p.slug, isUpgrade: true };
     }
     return { label: "—", action: () => {}, loading: false, disabled: true };
+  };
+
+  const renderPlanCard = (p: typeof plans[0]) => {
+    const btn = getButtonAction(p);
+    const isCurrent = currentSlug === p.slug;
+    return (
+      <Card
+        key={p.slug}
+        className={`relative flex flex-col ${
+          isCurrent
+            ? "border-success shadow-lg ring-1 ring-success/20"
+            : p.highlight && !currentSlug
+            ? "border-primary shadow-lg ring-1 ring-primary/20"
+            : "border-border/50"
+        }`}
+      >
+        {isCurrent && (
+          <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-success text-success-foreground">
+            Seu plano
+          </Badge>
+        )}
+        {p.highlight && !currentSlug && (
+          <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground">
+            Mais popular
+          </Badge>
+        )}
+        <CardHeader className="text-center pb-2">
+          <CardTitle className="text-lg font-display">{p.name}</CardTitle>
+          <div className="mt-2">
+            <span className="text-xs text-muted-foreground">R$ </span>
+            <span className="text-3xl font-bold">{p.price}</span>
+            <span className="text-muted-foreground text-sm">{p.period}</span>
+          </div>
+        </CardHeader>
+        <CardContent className="flex-1 flex flex-col">
+          <ul className="space-y-2 flex-1">
+            {p.features.map((f, i) => (
+              <li key={i} className="flex items-start gap-2 text-sm">
+                <Check className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />
+                <span>{f}</span>
+              </li>
+            ))}
+            {p.notIncluded.map((f, i) => (
+              <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground/50">
+                <span className="w-4 text-center flex-shrink-0">—</span>
+                <span>{f}</span>
+              </li>
+            ))}
+          </ul>
+
+          {p.upgradeNote && !currentSlug && (
+            <p className="text-[10px] text-muted-foreground mt-3 text-center italic">{p.upgradeNote}</p>
+          )}
+
+          <Button
+            className="w-full mt-6"
+            variant={btn.isUpgrade ? "default" : isCurrent ? "outline" : p.highlight && !currentSlug ? "default" : "outline"}
+            onClick={btn.action}
+            disabled={btn.disabled || btn.loading}
+          >
+            {btn.loading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+            {btn.isUpgrade && !btn.loading && <ArrowUp className="h-4 w-4 mr-1.5" />}
+            {btn.loading ? "Processando..." : btn.label}
+          </Button>
+        </CardContent>
+      </Card>
+    );
   };
 
   const content = (
@@ -284,73 +428,26 @@ const ChoosePlan = () => {
       )}
 
       {/* Plan cards */}
-      <div className="grid md:grid-cols-3 gap-6">
-        {plans.map((p) => {
-          const btn = getButtonAction(p);
-          const isCurrent = currentSlug === p.slug;
-          return (
-            <Card
-              key={p.slug}
-              className={`relative flex flex-col ${
-                isCurrent
-                  ? "border-success shadow-lg ring-1 ring-success/20"
-                  : p.highlight && !currentSlug
-                  ? "border-primary shadow-lg ring-1 ring-primary/20"
-                  : "border-border/50"
-              }`}
-            >
-              {isCurrent && (
-                <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-success text-success-foreground">
-                  Seu plano
-                </Badge>
-              )}
-              {p.highlight && !currentSlug && (
-                <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground">
-                  Mais popular
-                </Badge>
-              )}
-              <CardHeader className="text-center pb-2">
-                <CardTitle className="text-lg font-display">{p.name}</CardTitle>
-                <div className="mt-2">
-                  <span className="text-xs text-muted-foreground">R$ </span>
-                  <span className="text-3xl font-bold">{p.price}</span>
-                  <span className="text-muted-foreground text-sm">{p.period}</span>
-                </div>
-              </CardHeader>
-              <CardContent className="flex-1 flex flex-col">
-                <ul className="space-y-2 flex-1">
-                  {p.features.map((f, i) => (
-                    <li key={i} className="flex items-start gap-2 text-sm">
-                      <Check className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />
-                      <span>{f}</span>
-                    </li>
-                  ))}
-                  {p.notIncluded.map((f, i) => (
-                    <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground/50">
-                      <span className="w-4 text-center flex-shrink-0">—</span>
-                      <span>{f}</span>
-                    </li>
-                  ))}
-                </ul>
-
-                {p.upgradeNote && !currentSlug && (
-                  <p className="text-[10px] text-muted-foreground mt-3 text-center italic">{p.upgradeNote}</p>
-                )}
-
-                <Button
-                  className="w-full mt-6"
-                  variant={btn.isUpgrade ? "default" : isCurrent ? "outline" : p.highlight && !currentSlug ? "default" : "outline"}
-                  onClick={btn.action}
-                  disabled={btn.disabled || btn.loading}
-                >
-                  {btn.loading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                  {btn.isUpgrade && !btn.loading && <ArrowUp className="h-4 w-4 mr-1.5" />}
-                  {btn.loading ? "Processando..." : btn.label}
-                </Button>
-              </CardContent>
-            </Card>
-          );
-        })}
+      <div className="space-y-10">
+        <div>
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-4 text-center md:text-left">
+            Planos individuais
+          </h2>
+          <div className="grid md:grid-cols-3 gap-6">
+            {individualPlans.map((p) => renderPlanCard(p))}
+          </div>
+        </div>
+        <div>
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-1 text-center md:text-left">
+            Múltiplos perfis
+          </h2>
+          <p className="text-xs text-muted-foreground mb-4 text-center md:text-left">
+            Pra quem gerencia mais de um perfil na mesma conta — o seu (pessoal + institucional) ou de clientes.
+          </p>
+          <div className="grid md:grid-cols-3 gap-6">
+            {multiProfilePlans.map((p) => renderPlanCard(p))}
+          </div>
+        </div>
       </div>
 
       {/* Extras — Semana extra + Packs de retrato */}

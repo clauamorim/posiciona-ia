@@ -20,6 +20,7 @@ interface UserSubscription {
   status: string;
   current_period_end: string | null;
   created_at: string;
+  max_workspaces: number;
 }
 
 export type PlanAccessLevel = "full" | "read_only" | "none";
@@ -134,7 +135,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (sub) {
         const { data: plan } = await supabase
           .from("plans")
-          .select("slug, name, billing_type")
+          .select("slug, name, billing_type, max_workspaces")
           .eq("id", sub.plan_id)
           .single();
 
@@ -146,6 +147,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           status: sub.status,
           current_period_end: sub.current_period_end,
           created_at: sub.created_at,
+          max_workspaces: plan?.max_workspaces ?? 1,
         };
       }
       return null;

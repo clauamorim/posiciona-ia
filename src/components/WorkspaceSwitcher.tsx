@@ -1,5 +1,7 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useWorkspace, type BrandType } from "@/contexts/WorkspaceContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,6 +25,8 @@ const BrandTypeBadge = ({ type }: { type: BrandType }) => (
 
 export const WorkspaceSwitcher = () => {
   const { workspaces, activeWorkspace, isLoading, switchWorkspace, createWorkspace } = useWorkspace();
+  const { subscription } = useAuth();
+  const navigate = useNavigate();
   const [createOpen, setCreateOpen] = useState(false);
   const [name, setName] = useState("");
   const [brandType, setBrandType] = useState<BrandType>("pessoal");
@@ -39,7 +43,18 @@ export const WorkspaceSwitcher = () => {
     );
   }
 
+  const maxWorkspaces = subscription?.max_workspaces ?? 1;
+  const atLimit = workspaces.length >= maxWorkspaces;
+
   const openCreate = () => {
+    if (atLimit) {
+      toast({
+        title: "Limite de perfis do seu plano atingido",
+        description: `Seu plano permite ${maxWorkspaces} perfil${maxWorkspaces > 1 ? "s" : ""}. Faça upgrade para criar mais.`,
+      });
+      navigate("/choose-plan");
+      return;
+    }
     setName("");
     setBrandType("pessoal");
     setImportData(true);
@@ -95,7 +110,8 @@ export const WorkspaceSwitcher = () => {
           ))}
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={openCreate} className="gap-2">
-            <Plus className="h-3.5 w-3.5" /> Criar novo perfil
+            <Plus className="h-3.5 w-3.5" />
+            {atLimit ? "Fazer upgrade para criar mais perfis" : "Criar novo perfil"}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
