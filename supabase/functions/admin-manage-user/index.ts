@@ -1,6 +1,44 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
+import Stripe from "https://esm.sh/stripe@18.5.0";
 import { corsHeaders } from "../_shared/cors.ts";
+
+// Cancela toda assinatura não-cancelada e apaga o customer na Stripe antes
+// de excluir a conta — senão a cobrança recorrente continua rodando pra
+// sempre sem ninguém pra parar. Best-effort: falha na Stripe é logada mas
+// não impede a exclusão da conta em si (a pessoa pediu pra sumir do banco;
+// resolver cobrança pendente vira acompanhamento manual se a Stripe falhar).
+async function cleanupStripeForUser(adminClient: any, userId: string, email: string | null | undefined) {
+  const stripeSecretKey = Deno.env.get("STRIPE_SECRET_KEY");
+  if (!stripeSecretKey) return;
+  const stripe = new Stripe(stripeSecretKey, { apiVersion: "2025-08-27.basil" });
+
+  const { data: subs } = await adminClient
+    .from("subscriptions")
+    .select("stripe_customer_id")
+    .eq("user_id", userId);
+
+  const customerIds = new Set<string>((subs ?? []).map((s: any) => s.stripe_customer_id).filter(Boolean));
+
+  if (customerIds.size === 0 && email) {
+    const found = await stripe.customers.list({ email, limit: 5 });
+    for (const c of found.data) customerIds.add(c.id);
+  }
+
+  for (const customerId of customerIds) {
+    try {
+      const allSubs = await stripe.subscriptions.list({ customer: customerId, limit: 100 });
+      for (const sub of allSubs.data) {
+        if (sub.status !== "canceled" && sub.status !== "incomplete_expired") {
+          await stripe.subscriptions.cancel(sub.id);
+        }
+      }
+      await stripe.customers.del(customerId);
+    } catch (stripeErr) {
+      console.error(`admin-manage-user: falha ao limpar Stripe do customer ${customerId} (user ${userId}):`, stripeErr);
+    }
+  }
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -69,6 +107,9 @@ serve(async (req) => {
     }
 
     if (action === "delete_user") {
+      const { data: targetUser } = await adminClient.auth.admin.getUserById(userId);
+      await cleanupStripeForUser(adminClient, userId, targetUser?.user?.email);
+
       const { error } = await adminClient.auth.admin.deleteUser(userId);
       if (error) throw error;
       return new Response(JSON.stringify({ success: true }), {
