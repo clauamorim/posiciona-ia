@@ -33,9 +33,17 @@ type PlanLimits = {
 };
 
 const Dashboard = () => {
-  const { user, subscription, balances, hasActivePlan } = useAuth();
+  const { user, subscription, balances, hasActivePlan, isAdmin } = useAuth();
   const { activeWorkspace } = useWorkspace();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    // Login.tsx já manda admin direto pra /admin — mas qualquer navegação
+    // que caia em /dashboard por outro caminho (aba restaurada, link antigo,
+    // etc.) mostrava a jornada de onboarding do usuário comum pra uma conta
+    // sem plano/perfil real. Redireciona de novo aqui, mesma regra de sempre.
+    if (isAdmin) navigate("/admin", { replace: true });
+  }, [isAdmin, navigate]);
   const [profile, setProfile] = useState<any>(null);
   const [businessComplete, setBusinessComplete] = useState(false);
   const [archetypeCount, setArchetypeCount] = useState(0);
