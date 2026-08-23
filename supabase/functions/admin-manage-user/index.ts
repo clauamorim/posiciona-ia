@@ -110,8 +110,13 @@ serve(async (req) => {
       const { data: targetUser } = await adminClient.auth.admin.getUserById(userId);
       await cleanupStripeForUser(adminClient, userId, targetUser?.user?.email);
 
-      const { error } = await adminClient.auth.admin.deleteUser(userId);
-      if (error) throw error;
+      // Idempotente: se a conta já não existe (excluída antes por outro
+      // caminho, ex. direto em Usuários), não trata como erro — o objetivo
+      // já foi cumprido, só falta fechar o pedido LGPD pendente abaixo.
+      if (targetUser?.user) {
+        const { error } = await adminClient.auth.admin.deleteUser(userId);
+        if (error) throw error;
+      }
 
       // Fecha o(s) pedido(s) de exclusão LGPD deste usuário — sem isso ficam
       // marcados como pendentes pra sempre em /admin/exclusoes-lgpd mesmo
