@@ -423,7 +423,7 @@ const ChoosePlan = () => {
               className="text-sm"
             />
           </div>
-          <p className="text-[10px] text-muted-foreground mt-1 ml-6">Válido apenas para Presença Mensal e Autoridade Total</p>
+          <p className="text-[10px] text-muted-foreground mt-1 ml-6">Válido apenas para planos mensais (não vale para o Semana de Conteúdo)</p>
         </div>
       )}
 
