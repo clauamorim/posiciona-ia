@@ -51,6 +51,7 @@ export const DashboardLayout = ({ children, wide = false }: { children: React.Re
     supabase
       .from("account_deletion_requests")
       .select("id", { count: "exact", head: true })
+      .is("processed_at", null)
       .then(({ count }) => setPendingDeletions(count ?? 0));
   }, [isAdmin]);
 
