@@ -19,6 +19,7 @@ export type Database = {
           email: string
           id: string
           niche: string | null
+          processed_at: string | null
           profession: string | null
           requested_at: string
           user_id: string
@@ -27,6 +28,7 @@ export type Database = {
           email: string
           id?: string
           niche?: string | null
+          processed_at?: string | null
           profession?: string | null
           requested_at?: string
           user_id: string
@@ -35,6 +37,7 @@ export type Database = {
           email?: string
           id?: string
           niche?: string | null
+          processed_at?: string | null
           profession?: string | null
           requested_at?: string
           user_id?: string
