@@ -149,6 +149,9 @@ const CompleteProfile = () => {
                 </div>
               </Label>
             </RadioGroup>
+            <p className="text-xs text-muted-foreground">
+              Isso é só o seu primeiro perfil — dá pra criar mais depois (inclusive do outro tipo) dentro do app.
+            </p>
           </div>
           <div className={isInstitutional ? "grid grid-cols-1 gap-3" : "grid grid-cols-2 gap-3"}>
             <div className="space-y-2">
