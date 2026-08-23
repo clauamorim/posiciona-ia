@@ -112,6 +112,16 @@ serve(async (req) => {
 
       const { error } = await adminClient.auth.admin.deleteUser(userId);
       if (error) throw error;
+
+      // Fecha o(s) pedido(s) de exclusão LGPD deste usuário — sem isso ficam
+      // marcados como pendentes pra sempre em /admin/exclusoes-lgpd mesmo
+      // depois da conta já ter sido apagada de verdade.
+      await adminClient
+        .from("account_deletion_requests")
+        .update({ processed_at: new Date().toISOString() })
+        .eq("user_id", userId)
+        .is("processed_at", null);
+
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
