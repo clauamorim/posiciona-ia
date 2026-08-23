@@ -78,7 +78,18 @@ const Signup = () => {
           <p className="text-sm text-muted-foreground">Comece a construir seu posicionamento de marca.</p>
         </header>
 
-        <GoogleAuthButton />
+        <GoogleAuthButton
+          guard={() => {
+            if (!legalConsent) {
+              const msg = "Você precisa concordar com os Termos de Serviço e a Política de Privacidade para criar sua conta.";
+              setLegalConsentError(msg);
+              toast({ title: "Falta aceitar os termos", description: msg, variant: "destructive" });
+              return false;
+            }
+            setLegalConsentError("");
+            return true;
+          }}
+        />
 
         <div className="relative">
           <div className="absolute inset-0 flex items-center" aria-hidden="true">

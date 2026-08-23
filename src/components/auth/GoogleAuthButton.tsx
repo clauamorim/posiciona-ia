@@ -7,14 +7,18 @@ interface GoogleAuthButtonProps {
   label?: string;
   disabled?: boolean;
   nextPath?: string;
+  // Checagem síncrona antes de disparar o OAuth (ex: aceite de termos no
+  // cadastro). Retornar false cancela o clique sem redirecionar pro Google.
+  guard?: () => boolean;
 }
 
 const isSafeRelativePath = (v?: string): v is string => !!v && v.startsWith("/") && !v.startsWith("//");
 
-export const GoogleAuthButton = ({ label = "Continuar com Google", disabled, nextPath }: GoogleAuthButtonProps) => {
+export const GoogleAuthButton = ({ label = "Continuar com Google", disabled, nextPath, guard }: GoogleAuthButtonProps) => {
   const [loading, setLoading] = useState(false);
 
   const handleClick = async () => {
+    if (guard && !guard()) return;
     setLoading(true);
     try {
       const target = isSafeRelativePath(nextPath) ? nextPath : "/dashboard";
