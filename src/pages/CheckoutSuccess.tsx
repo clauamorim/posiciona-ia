@@ -14,10 +14,25 @@ declare global {
 }
 
 const CheckoutSuccess = () => {
-  const { user } = useAuth();
+  const { user, refreshSubscription } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [countdown, setCountdown] = useState(5);
+
+  const goToDashboard = async () => {
+    // O checkout redireciona pra cá antes do webhook da Stripe necessariamente
+    // ter terminado de provisionar o plano/créditos — sem isso o dashboard
+    // mostra estado antigo até a pessoa dar refresh manual.
+    await refreshSubscription();
+    navigate("/dashboard");
+  };
+
+  useEffect(() => {
+    // Melhor esforço logo na entrada — o refresh de verdade acontece de novo
+    // antes de navegar, dando mais tempo pro webhook processar.
+    refreshSubscription();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const sessionId = searchParams.get("session_id");
@@ -51,14 +66,15 @@ const CheckoutSuccess = () => {
       setCountdown((prev) => {
         if (prev <= 1) {
           clearInterval(timer);
-          navigate("/dashboard");
+          goToDashboard();
           return 0;
         }
         return prev - 1;
       });
     }, 1000);
     return () => clearInterval(timer);
-  }, [navigate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <>
@@ -75,7 +91,7 @@ const CheckoutSuccess = () => {
               Seu plano foi ativado com sucesso. Você já pode acessar o dashboard e começar seu diagnóstico inicial.
             </p>
           </div>
-          <Button className="gap-2" onClick={() => navigate("/dashboard")}>
+          <Button className="gap-2" onClick={goToDashboard}>
             Ir para o Dashboard <ArrowRight className="h-4 w-4" />
           </Button>
           <p className="text-xs text-muted-foreground">
