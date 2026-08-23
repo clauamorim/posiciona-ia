@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Check, Loader2, ArrowUp, Tag, Calendar, RefreshCw, Camera, Repeat } from "lucide-react";
@@ -428,27 +429,28 @@ const ChoosePlan = () => {
       )}
 
       {/* Plan cards */}
-      <div className="space-y-10">
-        <div>
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-4 text-center md:text-left">
-            Planos individuais
-          </h2>
+      <Tabs defaultValue={currentSlug && MULTI_PROFILE_SLUGS.includes(currentSlug) ? "multi" : "individual"} className="w-full">
+        <TabsList className="mx-auto grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="individual">Planos individuais</TabsTrigger>
+          <TabsTrigger value="multi" className="gap-1.5">
+            Múltiplos perfis
+            <Badge variant="secondary" className="h-4 px-1.5 text-[10px] font-semibold">Novo</Badge>
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="individual" className="mt-6">
           <div className="grid md:grid-cols-3 gap-6">
             {individualPlans.map((p) => renderPlanCard(p))}
           </div>
-        </div>
-        <div>
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-1 text-center md:text-left">
-            Múltiplos perfis
-          </h2>
-          <p className="text-xs text-muted-foreground mb-4 text-center md:text-left">
+        </TabsContent>
+        <TabsContent value="multi" className="mt-6">
+          <p className="text-xs text-muted-foreground mb-4 text-center">
             Pra quem gerencia mais de um perfil na mesma conta — o seu (pessoal + institucional) ou de clientes.
           </p>
           <div className="grid md:grid-cols-3 gap-6">
             {multiProfilePlans.map((p) => renderPlanCard(p))}
           </div>
-        </div>
-      </div>
+        </TabsContent>
+      </Tabs>
 
       {/* Extras — Semana extra + Packs de retrato */}
       {currentSlug && (
