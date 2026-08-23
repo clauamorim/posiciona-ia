@@ -578,6 +578,7 @@ export type Database = {
           billing_type: string
           created_at: string
           id: string
+          max_workspaces: number
           name: string
           portrait_credits: number
           price_cents: number
@@ -592,6 +593,7 @@ export type Database = {
           billing_type?: string
           created_at?: string
           id?: string
+          max_workspaces?: number
           name: string
           portrait_credits?: number
           price_cents: number
@@ -606,6 +608,7 @@ export type Database = {
           billing_type?: string
           created_at?: string
           id?: string
+          max_workspaces?: number
           name?: string
           portrait_credits?: number
           price_cents?: number
