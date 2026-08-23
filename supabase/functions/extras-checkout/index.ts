@@ -19,10 +19,16 @@ const corsHeaders = {
 };
 
 // Price IDs for "Semana Extra de Conteúdo" by active plan
+// Dupla/Multi/Agência herdam "tudo do Autoridade Total" (inclusive o melhor
+// preço em extras) — reaproveita o mesmo Price em vez de criar produto novo
+// na Stripe só pra cobrar o mesmo valor.
 const SEMANA_EXTRA_PRICES: Record<string, string> = {
   semana_conteudo: "price_1TLrz6CzHWisuWdYPzTDCKMM",   // R$ 87
   presenca_mensal: "price_1TLrzXCzHWisuWdYYow41jtY",   // R$ 77
   autoridade_total: "price_1TLs02CzHWisuWdYTuzC06QK",  // R$ 67
+  dupla: "price_1TLs02CzHWisuWdYTuzC06QK",             // R$ 67 (mesmo do Autoridade Total)
+  multi: "price_1TLs02CzHWisuWdYTuzC06QK",             // R$ 67 (mesmo do Autoridade Total)
+  agencia: "price_1TLs02CzHWisuWdYTuzC06QK",           // R$ 67 (mesmo do Autoridade Total)
 };
 
 serve(async (req) => {

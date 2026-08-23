@@ -10,16 +10,24 @@ import { useQuery } from "@tanstack/react-query";
 import PreCheckoutModal from "@/components/PreCheckoutModal";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
+// Dupla/Multi/Agência herdam "tudo do Autoridade Total", inclusive o melhor
+// preço em extras — mesmo valor, não é discriminado por número de perfis.
 const SEMANA_EXTRA_LABELS: Record<string, string> = {
   semana_conteudo: "R$ 87",
   presenca_mensal: "R$ 77",
   autoridade_total: "R$ 67",
+  dupla: "R$ 67",
+  multi: "R$ 67",
+  agencia: "R$ 67",
 };
 
 const SEMANA_EXTRA_PRICES: Record<string, string> = {
   semana_conteudo: "87",
   presenca_mensal: "77",
   autoridade_total: "67",
+  dupla: "67",
+  multi: "67",
+  agencia: "67",
 };
 
 interface PreCheckoutState {
@@ -96,13 +104,13 @@ const ExtrasSection = () => {
       };
       if (pack.credits === 5) {
         tierPrices.presenca_mensal = 6400;
-        tierPrices.autoridade_total = 5900;
+        tierPrices.autoridade_total = tierPrices.dupla = tierPrices.multi = tierPrices.agencia = 5900;
       } else if (pack.credits === 10) {
         tierPrices.presenca_mensal = 10900;
-        tierPrices.autoridade_total = 9900;
+        tierPrices.autoridade_total = tierPrices.dupla = tierPrices.multi = tierPrices.agencia = 9900;
       } else if (pack.credits === 15) {
         tierPrices.presenca_mensal = 15400;
-        tierPrices.autoridade_total = 13900;
+        tierPrices.autoridade_total = tierPrices.dupla = tierPrices.multi = tierPrices.agencia = 13900;
       }
       return tierPrices[planSlug] || pack.price_cents;
     }
