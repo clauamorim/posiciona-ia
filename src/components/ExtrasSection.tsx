@@ -3,9 +3,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { Calendar, Camera, Loader2, ShoppingCart } from "lucide-react";
+import { Calendar, Camera, Loader2, ShoppingCart, Tag } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import PreCheckoutModal from "@/components/PreCheckoutModal";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -42,6 +43,7 @@ const ExtrasSection = () => {
   const [loadingSemana, setLoadingSemana] = useState(false);
   const [loadingPack, setLoadingPack] = useState<string | null>(null);
   const [preCheckout, setPreCheckout] = useState<PreCheckoutState | null>(null);
+  const [couponCode, setCouponCode] = useState("");
 
   const planSlug = subscription?.plan_slug || "semana_conteudo";
   const hasDiscount = planSlug !== "semana_conteudo";
@@ -62,7 +64,7 @@ const ExtrasSection = () => {
     setLoadingSemana(true);
     try {
       const { data, error } = await supabase.functions.invoke("extras-checkout", {
-        body: { type: "semana_extra" },
+        body: { type: "semana_extra", coupon_code: couponCode.trim() || undefined },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
@@ -77,7 +79,7 @@ const ExtrasSection = () => {
     setLoadingPack(packId);
     try {
       const { data, error } = await supabase.functions.invoke("portrait-pack-checkout", {
-        body: { pack_id: packId },
+        body: { pack_id: packId, coupon_code: couponCode.trim() || undefined },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
@@ -120,6 +122,16 @@ const ExtrasSection = () => {
   return (
     <div className="space-y-4">
       <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Extras disponíveis</p>
+
+      <div className="flex items-center gap-2 max-w-sm">
+        <Tag className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+        <Input
+          placeholder="Cupom de desconto (opcional)"
+          value={couponCode}
+          onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+          className="text-sm"
+        />
+      </div>
 
       {/* Semana Extra */}
       <Card>

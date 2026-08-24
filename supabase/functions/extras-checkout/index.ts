@@ -9,6 +9,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
+import { resolveCouponId } from "../_shared/stripeCoupon.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -48,7 +49,7 @@ serve(async (req) => {
     const user = data.user;
     if (!user?.email) throw new Error("User not authenticated");
 
-    const { type } = await req.json();
+    const { type, coupon_code } = await req.json();
     if (type !== "semana_extra") throw new Error("Invalid type");
 
     const supabaseAdmin = createClient(
@@ -89,6 +90,8 @@ serve(async (req) => {
       customerId = customers.data[0].id;
     }
 
+    const couponId = await resolveCouponId(stripe, coupon_code);
+
     const origin = req.headers.get("origin") || "https://posiciona.ia.br";
 
     const session = await stripe.checkout.sessions.create({
@@ -96,6 +99,7 @@ serve(async (req) => {
       customer_email: customerId ? undefined : user.email,
       line_items: [{ price: priceId, quantity: 1 }],
       mode: "payment",
+      ...(couponId ? { discounts: [{ coupon: couponId }] } : {}),
       success_url: `${origin}/checkout-success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/dashboard`,
       metadata: {
