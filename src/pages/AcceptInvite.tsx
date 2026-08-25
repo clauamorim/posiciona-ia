@@ -18,6 +18,12 @@ type Preview = {
   is_accepted: boolean;
 };
 
+// Sobrevive à volta e meia de Signup -> confirmação de e-mail -> Login, pra
+// ProtectedRoute saber pular CompleteProfile/ChoosePlan (que não fazem
+// sentido pra quem só está aceitando convite de outra conta) e mandar a
+// pessoa direto de volta pra cá.
+export const PENDING_INVITE_KEY = "posiciona-pending-invite-token";
+
 const AcceptInvite = () => {
   const [searchParams] = useSearchParams();
   const token = searchParams.get("token") || "";
@@ -39,8 +45,12 @@ const AcceptInvite = () => {
       const row = Array.isArray(data) ? data[0] : data;
       if (error || !row) {
         setNotFound(true);
+        localStorage.removeItem(PENDING_INVITE_KEY);
       } else {
         setPreview(row as Preview);
+        // Já foi aceito ou expirou — não faz sentido continuar redirecionando
+        // a pessoa pra cá em todo login.
+        if (row.is_accepted || row.is_expired) localStorage.removeItem(PENDING_INVITE_KEY);
       }
       setLoading(false);
     });
@@ -54,6 +64,7 @@ const AcceptInvite = () => {
       toast({ title: "Não foi possível aceitar o convite", description: error.message, variant: "destructive" });
       return;
     }
+    localStorage.removeItem(PENDING_INVITE_KEY);
     await refreshWorkspaces();
     if (data) switchWorkspace(data as string);
     toast({ title: "Convite aceito!", description: `Você agora colabora em "${preview?.workspace_name}".` });
@@ -149,7 +160,13 @@ const AcceptInvite = () => {
             </Button>
           ) : (
             <div className="space-y-2">
-              <Button className="w-full" onClick={() => navigate("/signup")}>
+              <Button
+                className="w-full"
+                onClick={() => {
+                  localStorage.setItem(PENDING_INVITE_KEY, token);
+                  navigate("/signup");
+                }}
+              >
                 Criar conta
               </Button>
               <Button
@@ -160,7 +177,7 @@ const AcceptInvite = () => {
                 Já tenho conta
               </Button>
               <p className="text-[11px] text-muted-foreground pt-1">
-                Depois de criar sua conta, volte a este mesmo link pra confirmar o aceite.
+                Depois de criar sua conta e confirmar seu e-mail, você volta pra cá automaticamente.
               </p>
             </div>
           )}

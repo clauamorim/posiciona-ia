@@ -10,6 +10,7 @@ import { SeoHead } from "@/components/SeoHead";
 import { AuthLayout } from "@/components/auth/AuthLayout";
 import { GoogleAuthButton } from "@/components/auth/GoogleAuthButton";
 import { PasswordInput } from "@/components/auth/PasswordInput";
+import { PENDING_INVITE_KEY } from "@/pages/AcceptInvite";
 
 const LOGIN_TIMEOUT_MS = 12000;
 
@@ -72,7 +73,9 @@ const Login = () => {
   useEffect(() => {
     if (authLoading) return;
     if (user) {
-      if (!profileCompleted && !isAdmin) navigate("/complete-profile", { replace: true });
+      const pendingInviteToken = !isAdmin ? localStorage.getItem(PENDING_INVITE_KEY) : null;
+      if (pendingInviteToken) navigate(`/accept-invite?token=${pendingInviteToken}`, { replace: true });
+      else if (!profileCompleted && !isAdmin) navigate("/complete-profile", { replace: true });
       else if (safeNext) window.location.href = safeNext;
       else navigate(isAdmin ? "/admin" : "/dashboard", { replace: true });
     }
