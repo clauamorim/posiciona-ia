@@ -27,6 +27,7 @@ interface WorkspaceContextType {
   isLoading: boolean;
   switchWorkspace: (id: string) => void;
   createWorkspace: (input: CreateWorkspaceInput) => Promise<{ ok: boolean; id?: string; error?: string }>;
+  deleteWorkspace: (id: string) => Promise<{ ok: boolean; error?: string }>;
   refreshWorkspaces: () => Promise<void>;
 }
 
@@ -36,6 +37,7 @@ const WorkspaceContext = createContext<WorkspaceContextType>({
   isLoading: true,
   switchWorkspace: () => {},
   createWorkspace: async () => ({ ok: false, error: "no-provider" }),
+  deleteWorkspace: async () => ({ ok: false, error: "no-provider" }),
   refreshWorkspaces: async () => {},
 });
 
@@ -121,6 +123,16 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return { ok: true, id: data.id };
   }, [user, load, switchWorkspace]);
 
+  const deleteWorkspace = useCallback(async (id: string) => {
+    if (!user) return { ok: false, error: "no-user" };
+    const { error } = await supabase.from("workspaces").delete().eq("id", id);
+    if (error) return { ok: false, error: error.message };
+    // load() já resolve sozinho um novo activeId válido caso o excluído
+    // fosse o ativo (o salvo no localStorage deixa de existir na lista).
+    await load();
+    return { ok: true };
+  }, [user, load]);
+
   const activeWorkspace = workspaces.find(w => w.id === activeId) ?? null;
 
   return (
@@ -131,6 +143,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         isLoading,
         switchWorkspace,
         createWorkspace,
+        deleteWorkspace,
         refreshWorkspaces: load,
       }}
     >

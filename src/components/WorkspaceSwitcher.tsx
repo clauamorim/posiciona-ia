@@ -13,9 +13,10 @@ import {
   DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { WorkspaceMembersDialog } from "@/components/WorkspaceMembersDialog";
 import { toast } from "@/hooks/use-toast";
-import { ChevronsUpDown, Check, Plus, User, Building2, Loader2, Users } from "lucide-react";
+import { ChevronsUpDown, Check, Plus, User, Building2, Loader2, Users, Trash2 } from "lucide-react";
 
 const BrandTypeBadge = ({ type }: { type: BrandType }) => (
   <Badge variant="outline" className="h-4 px-1 text-[9px] font-medium gap-0.5">
@@ -25,7 +26,7 @@ const BrandTypeBadge = ({ type }: { type: BrandType }) => (
 );
 
 export const WorkspaceSwitcher = () => {
-  const { workspaces, activeWorkspace, isLoading, switchWorkspace, createWorkspace } = useWorkspace();
+  const { workspaces, activeWorkspace, isLoading, switchWorkspace, createWorkspace, deleteWorkspace } = useWorkspace();
   const { subscription } = useAuth();
   const navigate = useNavigate();
   const [createOpen, setCreateOpen] = useState(false);
@@ -34,6 +35,9 @@ export const WorkspaceSwitcher = () => {
   const [brandType, setBrandType] = useState<BrandType>("pessoal");
   const [importData, setImportData] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deleting, setDeleting] = useState(false);
 
   // Um só perfil: nada para trocar ainda, mas o botão "Criar novo perfil"
   // já fica disponível para quem quiser um segundo (ex.: pessoal + escritório).
@@ -87,6 +91,22 @@ export const WorkspaceSwitcher = () => {
     }
     toast({ title: "Perfil criado", description: `"${name}" já está ativo.` });
     setCreateOpen(false);
+  };
+
+  const canDeleteActive = activeWorkspace.role === "owner" && ownedWorkspaces.length > 1;
+
+  const handleDelete = async () => {
+    if (deleteConfirmText !== activeWorkspace.name) return;
+    setDeleting(true);
+    const res = await deleteWorkspace(activeWorkspace.id);
+    setDeleting(false);
+    if (!res.ok) {
+      toast({ title: "Não foi possível excluir o perfil", description: res.error, variant: "destructive" });
+      return;
+    }
+    toast({ title: "Perfil excluído", description: `"${activeWorkspace.name}" e todo o conteúdo dele foram apagados.` });
+    setDeleteOpen(false);
+    setDeleteConfirmText("");
   };
 
   return (
@@ -144,10 +164,45 @@ export const WorkspaceSwitcher = () => {
             <Plus className="h-3.5 w-3.5" />
             {atLimit ? "Fazer upgrade para criar mais perfis" : "Criar novo perfil"}
           </DropdownMenuItem>
+          {canDeleteActive && (
+            <DropdownMenuItem onClick={() => setDeleteOpen(true)} className="gap-2 text-destructive focus:text-destructive">
+              <Trash2 className="h-3.5 w-3.5" /> Excluir perfil ativo
+            </DropdownMenuItem>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
 
       <WorkspaceMembersDialog open={membersOpen} onOpenChange={setMembersOpen} />
+
+      <AlertDialog open={deleteOpen} onOpenChange={(o) => { setDeleteOpen(o); if (!o) setDeleteConfirmText(""); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir perfil "{activeWorkspace.name}"</AlertDialogTitle>
+            <AlertDialogDescription>
+              Isso apaga permanentemente todos os questionários, relatório, linha editorial, arquétipos e
+              membros deste perfil. Não pode ser desfeito. Para confirmar, digite <strong>{activeWorkspace.name}</strong>{" "}
+              abaixo.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <Input
+            value={deleteConfirmText}
+            onChange={(e) => setDeleteConfirmText(e.target.value)}
+            placeholder={activeWorkspace.name}
+            autoFocus
+          />
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handleDelete(); }}
+              disabled={deleteConfirmText !== activeWorkspace.name || deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Excluir perfil
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent>
