@@ -88,6 +88,7 @@ export const WorkspaceMembersDialog = ({ open, onOpenChange }: Props) => {
     const url = `${window.location.origin}/accept-invite?token=${token}`;
     navigator.clipboard.writeText(url);
     setCopiedToken(token);
+    toast({ title: "Link copiado!", description: "Cole (Cmd/Ctrl+V) no WhatsApp, e-mail, onde preferir." });
     setTimeout(() => setCopiedToken(null), 1500);
   };
 
@@ -155,8 +156,9 @@ export const WorkspaceMembersDialog = ({ open, onOpenChange }: Props) => {
                     <div key={inv.id} className="flex items-center justify-between text-sm py-1.5 border-b border-border/40 last:border-0">
                       <span className="text-muted-foreground">{inv.email}</span>
                       <div className="flex items-center gap-1">
-                        <Button variant="ghost" size="sm" onClick={() => copyInviteLink(inv.token)}>
+                        <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => copyInviteLink(inv.token)}>
                           {copiedToken === inv.token ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                          {copiedToken === inv.token ? "Copiado" : "Copiar link"}
                         </Button>
                         <Button variant="ghost" size="sm" onClick={() => revokeInvite(inv.id)}>
                           <Trash2 className="h-3.5 w-3.5 text-destructive" />
