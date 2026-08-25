@@ -188,6 +188,10 @@ const Dashboard = () => {
 
   const nextStep = getNextStep();
 
+  // Membro convidado ("editor") só preenche questionários e arquétipos —
+  // relatório, Instagram, editorial e retratos são só do dono do perfil.
+  const isOwnerRole = !activeWorkspace || activeWorkspace.role === "owner";
+
   const journeySteps: JourneyStep[] = [
     {
       label: "Arquétipos", href: "/archetype-questionnaire", icon: Brain,
@@ -204,24 +208,24 @@ const Dashboard = () => {
       status: personalSubmitted ? "done" : businessComplete ? "in_progress" : "blocked",
       statusLabel: personalSubmitted ? "Concluído" : businessComplete ? "Pronto para preencher" : "Bloqueado"
     },
-    {
+    ...(isOwnerRole ? [{
       label: "Estratégia", href: "/results", icon: Target,
-      status: hasReport ? "done" : (archetypesDone && businessComplete) ? "in_progress" : "blocked",
+      status: (hasReport ? "done" : (archetypesDone && businessComplete) ? "in_progress" : "blocked") as JourneyStep["status"],
       statusLabel: hasReport ? "Concluído" : (archetypesDone && businessComplete) ? "Em análise" : "Bloqueado"
-    },
-    {
+    }] : []),
+    ...(isOwnerRole ? [{
       label: "Instagram", href: "/instagram-analysis", icon: Instagram,
-      status: hasInstagram ? "done" : hasReport ? "in_progress" : "blocked",
+      status: (hasInstagram ? "done" : hasReport ? "in_progress" : "blocked") as JourneyStep["status"],
       statusLabel: hasInstagram ? "Concluído" : hasReport ? "Disponível" : "Bloqueado"
-    },
-    {
+    }] : []),
+    ...(isOwnerRole ? [{
       label: "Editorial", href: "/editorial", icon: Calendar,
-      status: hasEditorial ? "done" : (hasReport && personalSubmitted) ? "in_progress" : "blocked",
+      status: (hasEditorial ? "done" : (hasReport && personalSubmitted) ? "in_progress" : "blocked") as JourneyStep["status"],
       statusLabel: hasEditorial ? "Concluído" : (hasReport && personalSubmitted) ? "Disponível" : "Bloqueado"
-    },
+    }] : []),
     // Retratos são gerados a partir de selfies de uma PESSOA — não são etapa
     // da jornada de uma marca institucional (clínica, escritório, empresa).
-    ...(isInstitutional ? [] : [{
+    ...(isInstitutional || !isOwnerRole ? [] : [{
       label: "Retratos", href: "/portraits", icon: Camera,
       status: (hasPortraits ? "done" : hasReport ? "in_progress" : "blocked") as JourneyStep["status"],
       statusLabel: hasPortraits ? "Concluído" : hasReport ? "Disponível" : "Bloqueado"

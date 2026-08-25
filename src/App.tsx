@@ -47,6 +47,7 @@ import SubscriptionExpired from "./pages/SubscriptionExpired";
 import CompleteProfile from "./pages/CompleteProfile";
 import AdminDeletionRequests from "./pages/admin/AdminDeletionRequests";
 import OAuthConsent from "./pages/OAuthConsent";
+import AcceptInvite from "./pages/AcceptInvite";
 import { AssistantButton } from "./components/assistant/AssistantButton";
 
 const queryClient = new QueryClient();
@@ -67,6 +68,7 @@ const App = () => (
             <Route path="/checkout-success" element={<CheckoutSuccess />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
+            <Route path="/accept-invite" element={<AcceptInvite />} />
             <Route path="/verify-email" element={<VerifyEmail />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />

@@ -13,8 +13,9 @@ import {
   DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { WorkspaceMembersDialog } from "@/components/WorkspaceMembersDialog";
 import { toast } from "@/hooks/use-toast";
-import { ChevronsUpDown, Check, Plus, User, Building2, Loader2 } from "lucide-react";
+import { ChevronsUpDown, Check, Plus, User, Building2, Loader2, Users } from "lucide-react";
 
 const BrandTypeBadge = ({ type }: { type: BrandType }) => (
   <Badge variant="outline" className="h-4 px-1 text-[9px] font-medium gap-0.5">
@@ -28,6 +29,7 @@ export const WorkspaceSwitcher = () => {
   const { subscription } = useAuth();
   const navigate = useNavigate();
   const [createOpen, setCreateOpen] = useState(false);
+  const [membersOpen, setMembersOpen] = useState(false);
   const [name, setName] = useState("");
   const [brandType, setBrandType] = useState<BrandType>("pessoal");
   const [importData, setImportData] = useState(true);
@@ -43,8 +45,12 @@ export const WorkspaceSwitcher = () => {
     );
   }
 
+  const ownedWorkspaces = workspaces.filter((w) => w.role === "owner");
+  const sharedWorkspaces = workspaces.filter((w) => w.role !== "owner");
   const maxWorkspaces = subscription?.max_workspaces ?? 1;
-  const atLimit = workspaces.length >= maxWorkspaces;
+  // Limite é só sobre perfis que esta conta É DONA — perfis compartilhados
+  // com ela (convite de outra conta) não contam pro teto do próprio plano.
+  const atLimit = ownedWorkspaces.length >= maxWorkspaces;
 
   const openCreate = () => {
     if (atLimit) {
@@ -99,7 +105,7 @@ export const WorkspaceSwitcher = () => {
           <DropdownMenuLabel className="text-[10px] uppercase tracking-widest text-muted-foreground/60">
             Seus perfis
           </DropdownMenuLabel>
-          {workspaces.map((w) => (
+          {ownedWorkspaces.map((w) => (
             <DropdownMenuItem key={w.id} onClick={() => switchWorkspace(w.id)} className="gap-2">
               <Check className={`h-3.5 w-3.5 flex-shrink-0 ${w.id === activeWorkspace.id ? "opacity-100" : "opacity-0"}`} />
               <div className="flex-1 min-w-0">
@@ -108,13 +114,40 @@ export const WorkspaceSwitcher = () => {
               </div>
             </DropdownMenuItem>
           ))}
+          {sharedWorkspaces.length > 0 && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className="text-[10px] uppercase tracking-widest text-muted-foreground/60">
+                Compartilhados com você
+              </DropdownMenuLabel>
+              {sharedWorkspaces.map((w) => (
+                <DropdownMenuItem key={w.id} onClick={() => switchWorkspace(w.id)} className="gap-2">
+                  <Check className={`h-3.5 w-3.5 flex-shrink-0 ${w.id === activeWorkspace.id ? "opacity-100" : "opacity-0"}`} />
+                  <div className="flex-1 min-w-0">
+                    <p className="truncate text-sm">{w.name}</p>
+                    <div className="flex items-center gap-1">
+                      <BrandTypeBadge type={w.brand_type} />
+                      <Badge variant="outline" className="h-4 px-1 text-[9px] font-medium">Convidado</Badge>
+                    </div>
+                  </div>
+                </DropdownMenuItem>
+              ))}
+            </>
+          )}
           <DropdownMenuSeparator />
+          {activeWorkspace.role === "owner" && (
+            <DropdownMenuItem onClick={() => setMembersOpen(true)} className="gap-2">
+              <Users className="h-3.5 w-3.5" /> Gerenciar membros
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem onClick={openCreate} className="gap-2">
             <Plus className="h-3.5 w-3.5" />
             {atLimit ? "Fazer upgrade para criar mais perfis" : "Criar novo perfil"}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      <WorkspaceMembersDialog open={membersOpen} onOpenChange={setMembersOpen} />
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent>

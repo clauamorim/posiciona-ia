@@ -3,6 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 
 export type BrandType = "pessoal" | "institucional";
+export type WorkspaceRole = "owner" | "editor" | "viewer";
 
 export interface Workspace {
   id: string;
@@ -11,6 +12,7 @@ export interface Workspace {
   profession: string | null;
   niche: string | null;
   is_default: boolean;
+  role: WorkspaceRole;
 }
 
 interface CreateWorkspaceInput {
@@ -55,14 +57,28 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       return;
     }
     setIsLoading(true);
-    const { data } = await supabase
-      .from("workspaces")
-      .select("id, name, brand_type, profession, niche, is_default")
-      .eq("owner_id", user.id)
-      .order("is_default", { ascending: false })
-      .order("created_at", { ascending: true });
+    // Sem filtro de owner_id: a RLS de workspaces já retorna tanto os
+    // perfis próprios quanto os perfis de outra conta onde este usuário
+    // foi convidado como membro ("Members can view workspace").
+    const [{ data }, { data: memberRows }] = await Promise.all([
+      supabase
+        .from("workspaces")
+        .select("id, name, brand_type, profession, niche, is_default, owner_id")
+        .order("is_default", { ascending: false })
+        .order("created_at", { ascending: true }),
+      supabase.from("workspace_members").select("workspace_id, role").eq("user_id", user.id),
+    ]);
 
-    const list = (data ?? []) as Workspace[];
+    const roleByWorkspace = new Map((memberRows ?? []).map((m: any) => [m.workspace_id, m.role as WorkspaceRole]));
+    const list: Workspace[] = (data ?? []).map((w: any) => ({
+      id: w.id,
+      name: w.name,
+      brand_type: w.brand_type,
+      profession: w.profession,
+      niche: w.niche,
+      is_default: w.is_default,
+      role: w.owner_id === user.id ? "owner" : (roleByWorkspace.get(w.id) ?? "viewer"),
+    }));
     setWorkspaces(list);
 
     const saved = localStorage.getItem(storageKey(user.id));
