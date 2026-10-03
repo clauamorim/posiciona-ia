@@ -1,8 +1,108 @@
 # Plano: Multi-workspace + Linha editorial pessoal e institucional
 
-**Status:** revisado e aprovado como base em 17/07/2026 (correções incorporadas);
-nenhuma migração aplicada ainda.
-**Data:** 2026-07-15 (rev. 2026-07-17)
+**Status:** Fases 1, 2, 3 e 4 implementadas (17/07 a 25/08/2026). Pendente só a fase
+"contract" (seção 0.3). As seções 1 a 9 são o desenho original e ficam como registro;
+onde a implementação divergiu, a seção 0.2 explica.
+**Data:** 2026-07-15 (rev. 2026-07-17; estado atualizado em 2026-10-03)
+
+## 0. Estado da implementação (atualizado em 03/10/2026)
+
+Levantado a partir do histórico do repositório. Como as migrações são aplicadas à mão
+no SQL editor do Lovable Cloud, este levantamento mostra o que foi **escrito e
+commitado**; a confirmação de que cada migração está de fato aplicada em produção é
+feita no painel (ver "Risco operacional nº 1", seção 4).
+
+### 0.1 O que foi entregue
+
+**Fase 1 — Fundação (17/07)**
+- `20260717120000_workspaces_expand_1.sql`: enums, `workspaces`,
+  `workspace_members`, `has_workspace_access`, 1 workspace default "pessoal" por
+  usuário existente.
+- `20260717130000_workspaces_expand_2.sql`: `workspace_id` (ainda nullable) nas 22
+  tabelas do Grupo A + índices + backfill pelo workspace default do dono.
+- `20260717140000_cleanup_orphans_fix_fks.sql`: limpeza de linhas órfãs de contas
+  apagadas e FKs com cascade que faltavam.
+- `_shared/workspaceAuth.ts` em uso em `questionnaire-interview`,
+  `storybrand-preview`, `assistant-chat`, `analyze-instagram`,
+  `generate-content-week`, `generate-sales-stories`, `regenerate-single-post` e
+  `generate-report`. As três funções que aceitavam chamada sem autenticação agora
+  validam o JWT (pendência de segurança da seção 2 resolvida).
+
+**Fase 3 — Editorial por tipo de marca (antecipada, 18/07 a 12/08)**
+- Bateria de arquétipos institucional: 36 perguntas (3 por arquétipo), aprovadas em
+  `docs/questionario-arquetipos-institucional.md`, numeradas 1001–1036
+  (`20260718090000_institutional_archetypes.sql`).
+- Geração de relatório respeitando `brand_type`, inclusive no fallback determinístico
+  e no retry de coerência; Results com pontuação máxima correta para a bateria
+  institucional.
+- CompleteProfile adaptado ao institucional (esconde Gênero, relabela Profissão).
+- História de Venda e os 7 templates de Stories de Venda com variante institucional.
+
+**Fase 2 — Multi-perfil (21/07 a 23/08)**
+- `WorkspaceContext` + switcher + criação de perfil com `brand_type`.
+- Isolamento por perfil, com troca de `UNIQUE(user_id, …)` por
+  `UNIQUE(workspace_id, …)` onde havia colisão: `archetype_answers`,
+  `business_questionnaires`, `reports`, `archetype_scores`, `user_top_archetypes`,
+  `sales_narrative_questionnaires`.
+- Motor de geração por perfil: dedup semântico (`match_post_embeddings` /
+  `match_story_embeddings` filtrando por `workspace_id`), traços, tendências.
+- Análise do Instagram e Brand SSoT isolados por perfil; Profissão/Nicho editáveis
+  e escopados ao perfil ativo.
+- Planos multi-perfil (`20260822120000_multi_workspace_plans.sql`), com
+  `max_workspaces` e trigger de limite:
+
+  | Plano | Perfis | Preço (centavos) |
+  |-------|--------|------------------|
+  | Posiciona Dupla | 2 | 79700 |
+  | Posiciona Multi | 4 | 119700 |
+  | Posiciona Agência | 10 | 219700 |
+
+  Créditos escalam pela unidade do Autoridade Total (4 ciclos / 2 reanálises /
+  5 retratos / 20 ajustes por perfil). Extras (semana extra, packs de retrato) e
+  cupons habilitados para os três. Detalhes comerciais em
+  `docs/precos-planos-e-parceria.md`.
+
+**Fase 4 — Convites (24 e 25/08)**
+- `workspace_invites` (convite por link com token, validade de 14 dias) e as RPCs
+  `get_invite_preview`, `accept_workspace_invite`, `list_workspace_members`.
+- Exclusão de perfil individual, com salvaguarda que impede a conta de ficar sem
+  nenhum perfil.
+- Quem só está aceitando convite pula CompleteProfile e ChoosePlan.
+- Correções de exclusão de usuário/conta causadas pelas FKs novas
+  (`20260823140000`, `20260824160000`, `20260825120000`).
+
+### 0.2 Onde a implementação divergiu do desenho
+
+- **RLS das tabelas de conteúdo não foi migrada em massa para
+  `has_workspace_access`** (passo 7 da seção 4). Decisão: o conteúdo continua com
+  `auth.uid() = user_id`, porque todo perfil pertence a um único dono e o isolamento
+  entre perfis do mesmo dono é feito pelas queries por `workspace_id`. Só as quatro
+  tabelas que o convidado precisa acessar ganharam políticas por membership:
+  `personal_questionnaires`, `business_questionnaires`,
+  `sales_narrative_questionnaires` e `archetype_answers`.
+  Consequência: a reescrita das ~92 políticas, apontada como risco principal na
+  seção 4, deixou de ser necessária, e também não há fallback `OR auth.uid() =
+  user_id` para remover na fase contract.
+- **Escopo do convidado (editor) mais restrito que o previsto**: preenche e vê
+  Diagnóstico, Voz da Marca/Sua História, História de Venda e as próprias respostas
+  de Arquétipos. Relatório, Editorial, Stories de Venda, Análise do Instagram,
+  plano/créditos e gestão de membros ficam só com o dono.
+- **Multi tem 4 perfis**, não 5 como na proposta da seção 8.
+- `reference_documents` saiu do Grupo A (catálogo global, sem `user_id`), e
+  `report_generation_jobs` entrou.
+
+### 0.3 O que falta
+
+1. **Fase contract.** `workspace_id` ainda é nullable nas tabelas do Grupo A; não há
+   migração tornando-o `NOT NULL`. É o único passo irreversível do plano. Antes dele:
+   - backup manual do banco;
+   - SELECT de contagem no painel confirmando zero linhas com `workspace_id IS NULL`
+     em cada tabela do Grupo A;
+   - conferir se todo caminho de escrita (front e edge functions, incluindo jobs em
+     segundo plano como `process-report-generation-job`, que não usa
+     `workspaceAuth`) já grava `workspace_id`; senão o `NOT NULL` quebra a gravação.
+2. **Teste de ponta a ponta em produção** do fluxo de convite e de exclusão (dono +
+   convidado reais), já que os últimos commits foram correções seguidas nesses fluxos.
 
 ## 1. Objetivo
 
@@ -261,26 +361,28 @@ add-on de "perfil adicional" no Stripe. Fica fora da v1 por complexidade de webh
 
 ## 9. Fases de entrega
 
-| Fase | Entrega | Conteúdo |
-|------|---------|----------|
-| 1 | Fundação | Migrações expand + backfill, `handle_new_user`, helper de workspace nas edge functions (sempre resolvendo o default) — **nenhuma mudança visível** |
-| 2 | Multi-perfil próprio | WorkspaceContext + switcher + criação de perfil com `brand_type`, `max_workspaces` nos planos, queries por workspace, RLS nova |
-| 3 | Editorial por tipo | Variantes de questionário e prompts por `brand_type`, relatório condicional |
-| 4 | Colaboração | Convites (`workspace_members` UI), papéis editor/viewer, e-mails — caso social media/gestor de tráfego completo |
-| — | Contract | `NOT NULL`, constraints finais, remoção de fallbacks |
+| Fase | Entrega | Conteúdo | Situação (03/10/2026) |
+|------|---------|----------|-----------------------|
+| 1 | Fundação | Migrações expand + backfill, `handle_new_user`, helper de workspace nas edge functions (sempre resolvendo o default) — **nenhuma mudança visível** | Feita (17/07) |
+| 2 | Multi-perfil próprio | WorkspaceContext + switcher + criação de perfil com `brand_type`, `max_workspaces` nos planos, queries por workspace, RLS nova | Feita (até 23/08); RLS nova substituída pela decisão da seção 0.2 |
+| 3 | Editorial por tipo | Variantes de questionário e prompts por `brand_type`, relatório condicional | Feita (18/07 a 12/08) |
+| 4 | Colaboração | Convites (`workspace_members` UI), papéis editor/viewer, e-mails — caso social media/gestor de tráfego completo | Feita (24 e 25/08), convite por link |
+| — | Contract | `NOT NULL`, constraints finais, remoção de fallbacks | **Pendente** (seção 0.3) |
 
 **Ordem decidida (17/07/2026)**: Fase 1 → **Fase 3 antecipada** (editorial por tipo de
 marca — o perfil da marca Posiciona e o pitch clínica/empresa destravam primeiro) →
 Fase 2 → Fase 4. A fundação (Fase 1) serve a todas. Preços, tiers e extras dos planos
 multi: ver `docs/precos-planos-e-parceria.md`.
 
-## 10. Decisões em aberto para validar antes da Fase 1
+## 10. Decisões (originalmente em aberto)
 
-1. Preço e limites dos planos multi-perfil (quantos workspaces por tier; créditos
-   compartilhados são suficientes?).
-2. Convites na v1 ou v2 (proposta: v2 — Fase 4).
-3. Retratos de marca: confirmado que permanecem por usuário? (Numa marca institucional,
-   retratos de vários membros da equipe seriam um caso novo — fora deste escopo.)
-4. Um workspace institucional pode reutilizar os arquétipos pessoais do dono como
-   "tom dos sócios", ou sempre responde arquétipos da marca do zero? (Proposta: do zero,
-   com opção de importar como inspiração no prompt.)
+1. **Preço e limites dos planos multi-perfil**: decidido. Dupla (2), Multi (4) e
+   Agência (10), com créditos compartilhados escalando por perfil (seção 0.1).
+2. **Convites na v1 ou v2**: entregues como Fase 4, depois do multi-perfil, com
+   escopo de editor restrito (seção 0.2).
+3. **Retratos de marca**: continuam por usuário (Grupo B); planos multi compram packs
+   extras pelo mesmo preço do Autoridade Total. Retratos de vários membros de uma
+   equipe institucional continuam fora do escopo.
+4. **Arquétipos do institucional**: a marca responde do zero, com bateria própria de
+   36 perguntas. A opção de importar os arquétipos pessoais do dono como inspiração
+   no prompt não foi implementada.
